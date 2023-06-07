@@ -95,8 +95,6 @@
 
 using std::min;
 using std::max;
-using std::string;
-using std::to_string;
 
 struct processed_entry;
 struct tile_data {
@@ -182,7 +180,7 @@ struct vidcap_import_state {
         struct timeval prev_time;
         long video_frame_count = 0L;
 
-        bool has_video = true;
+        bool has_video;
         bool finished;
         bool loop;
         bool o_direct;
@@ -262,10 +260,12 @@ static long strtol_checked(const char *line, const char *prefix, long min_val, l
         using namespace std::string_literals;
         long int val = strtol(line + strlen(prefix), static_cast<char **>(nullptr), 10);
         if (val == LONG_MIN || val == LONG_MAX) {
-                throw ug_runtime_error("cannot read "s + prefix + "line.");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read %sline.\n", prefix);
+                return LONG_MIN;
         }
         if (val < min_val || val > max_val) {
-                throw ug_runtime_error(string(prefix) + "out of range [" + to_string(min_val) + ".." + to_string(max_val) + "]");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%sout of range [%ld..%ld]\n", prefix, min_val, max_val);
+                return LONG_MIN;
         }
         return val;
 }
@@ -280,45 +280,64 @@ static video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
                         // empty line
                         continue;
                 }
+                long val = 0;
                 if(strncmp(line, "version ", strlen("version ")) == 0) {
-                        strtol_checked(line, "version ", VIDEO_EXPORT_SUMMARY_VERSION, VIDEO_EXPORT_SUMMARY_VERSION);
+                        if (strtol_checked(line, "version ", VIDEO_EXPORT_SUMMARY_VERSION, VIDEO_EXPORT_SUMMARY_VERSION) == LONG_MIN) {
+                                return (struct video_desc) {};
+                        }
                         items_found |= 1U<<0U;
                 } else if(strncmp(line, "width ", strlen("width ")) == 0) {
-                        desc.width = strtol_checked(line, "width ", 0, INT_MAX);
+                        if ((val = strtol_checked(line, "width ", 0, INT_MAX)) == LONG_MIN) {
+                                return (struct video_desc) {};
+                        }
+                        desc.width = val;
                         items_found |= 1U<<1U;
                 } else if(strncmp(line, "height ", strlen("height ")) == 0) {
-                        desc.height = strtol_checked(line, "height ", 0, INT_MAX);
+                        if ((val = strtol_checked(line, "height ", 0, INT_MAX)) == LONG_MIN) {
+                                return (struct video_desc) {};
+                        }
+                        desc.height = val;
                         items_found |= 1U<<2U;
                 } else if(strncmp(line, "fourcc ", strlen("fourcc ")) == 0) {
                         char *ptr = line + strlen("fourcc ");
                         if(strlen(ptr) != 5) { // including '\n'
-                                throw ug_runtime_error("cannot read video FourCC tag.");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read video FourCC tag.\n");
+                                return (struct video_desc) {};
                         }
                         uint32_t fourcc = 0U;
                         memcpy((void *) &fourcc, ptr, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
                         if(desc.color_spec == VIDEO_CODEC_NONE) {
-                                throw ug_runtime_error("Requested codec not known.");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested codec not known.\n");
+                                return (struct video_desc) {};
                         }
                         items_found |= 1U<<3U;
                 } else if(strncmp(line, "fps ", strlen("fps ")) == 0) {
                         char *ptr = line + strlen("fps ");
                         desc.fps = strtod(ptr, nullptr);
                         if(desc.fps == HUGE_VAL || desc.fps <= 0) {
-                                throw ug_runtime_error("Invalid FPS.");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid FPS.\n");
+                                return (struct video_desc) {};
                         }
                         items_found |= 1U<<4U;
                 } else if(strncmp(line, "interlacing ", strlen("interlacing ")) == 0) {
-                        desc.interlacing = (interlacing_t) strtol_checked(line, "interlacing ", 0, INTERLACING_MAX);
+                        if ((val = strtol_checked(line, "interlacing ", 0, INTERLACING_MAX)) == LONG_MIN) {
+                                return (struct video_desc) {};
+                        }
+                        desc.interlacing = (interlacing_t) val;
                         items_found |= 1U<<5U;
                 } else if(strncmp(line, "count ", strlen("count ")) == 0) {
-                        *video_frame_count = strtol_checked(line, "count ", 0, LONG_MAX);
+                        if ((val = strtol_checked(line, "count ", 0, LONG_MAX)) == LONG_MIN) {
+                                return (struct video_desc) {};
+                        };
+                        *video_frame_count = val;
                         items_found |= 1U<<6U;
                 }
         }
 
         if(items_found != (1U << 7U) - 1U) {
-                throw ug_runtime_error("Failed while reading config file - some items missing.");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed while reading config file - some items missing.\n");
+                return (struct video_desc) {};
         }
 
         assert((desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
@@ -355,43 +374,16 @@ static int get_tile_count(const char *directory, codec_t color_spec, char *tile_
                 }
         }
         if (tile_count == 0) {
-                throw ug_runtime_error("Unable to open first file of "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open first file of "
                                 "the video sequence.");
+                return 0;
         }
         return tile_count;
 }
 
-static int
-vidcap_import_init(struct vidcap_params *params, void **state)
-{
-	struct vidcap_import_state *s = NULL;
-        FILE *info = NULL; // metadata file
-        char *tmp = strdup(vidcap_params_get_fmt(params));
+static bool initialize_import(struct vidcap_import_state *s, char *tmp, FILE **info, unsigned int flags) {
         bool disable_audio = false;
 
-        using namespace std::string_literals;
-try {
-	printf("vidcap_import_init\n");
-
-        if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
-                color_printf("Import usage:\n"
-                                TERM_BOLD TERM_FG_RED "\t<directory>" TERM_FG_RESET "{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n" TERM_RESET
-                                "where\n"
-                                TERM_BOLD "\t<fps>" TERM_RESET " - overrides FPS from sequence metadata\n"
-                                TERM_BOLD "\t<n>  " TERM_RESET " - use only N first frames fron sequence (if less than available frames)\n");
-                delete s;
-                free(tmp);
-                return VIDCAP_INIT_NOERR;
-        }
-
-        s = new vidcap_import_state();
-        pthread_cond_init(&s->worker_cv, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-        pthread_mutex_init(&s->lock, NULL);
-        s->head = s->tail = NULL;
-        s->queue_len = 0;
-
-        s->parent = vidcap_params_get_parent(params);
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         s->mod.priv_data = s;
@@ -403,8 +395,9 @@ try {
         char *save_ptr = NULL;
         char *suffix;
         s->directory = strtok_r(tmp, ":", &save_ptr);
-        if (s->directory == nullptr) {
-                throw ug_runtime_error("Wrong directory name!");
+        if (s->directory == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong directory name!\n");
+                return false;
         }
         s->directory = strdup(s->directory); // make a copy
 
@@ -436,12 +429,11 @@ try {
                 } else if (strstr(suffix, "frames=") == suffix) {
                         s->video_frame_count = strtol(strchr(suffix, '=') + 1, nullptr, 10);
                 } else {
-                        throw ug_runtime_error("Unrecognized option"s
-                                        + suffix + ".\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s.\n",
+                                suffix);
+                        return false;
                 }
         }
-        free(tmp);
-        tmp = NULL;
 
         // strip video.info if user included in path
         if (strstr(s->directory, "video.info") == s->directory) {
@@ -455,19 +447,19 @@ try {
         message_queue_clear(&s->audio_state.message_queue);
 
         std::string audio_filename = std::string(s->directory) + "/sound.wav";
-        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename.c_str())) {
+        if((flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename.c_str())) {
                 s->audio_state.has_audio = true;
         }
         
         std::string info_filename = std::string(s->directory) + "/video.info";
-        info = fopen(info_filename.c_str(), "r");
-        if (info == nullptr) {
+        *info = fopen(info_filename.c_str(), "r");
+        if (*info == NULL) {
                 perror(MOD_NAME "Failed to open video index file");
                 if (!s->audio_state.has_audio) {
                         if (errno == ENOENT) {
-                                throw ug_runtime_error("Invalid directory?");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid directory?\n");
                         }
-                        throw ug_runtime_error("");
+                        return false;
                 }
                 s->has_video = false;
                 s->video_desc.fps = 30; // used to sample audio
@@ -475,13 +467,16 @@ try {
 
         if (s->has_video) {
                 long frame_count = 0;
-                s->video_desc = parse_video_desc_info(info, &frame_count);
+                s->video_desc = parse_video_desc_info(*info, &frame_count);
+                if (s->video_desc.width == 0) {
+                        return false;
+                }
                 s->video_frame_count = s->video_frame_count == 0 ? frame_count : MIN(s->video_frame_count, frame_count);
 
-                fclose(info);
-                info = NULL;
-
                 s->video_desc.tile_count = get_tile_count(s->directory, s->video_desc.color_spec, &s->tile_delim);
+                if (s->video_desc.tile_count == 0) {
+                        return false;
+                }
         }
 
         // override metadata fps setting
@@ -491,12 +486,14 @@ try {
 
         if (s->audio_state.has_audio) {
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
-                        throw ug_runtime_error("Unable to create thread.");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create thread.\n");
+                        return false;
                 }
         }
         if (s->has_video) {
                 if (pthread_create(&s->video_thread_id, NULL, video_reading_thread, (void *) s) != 0) {
-                        throw ug_runtime_error("Unable to create thread.");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create thread.\n");
+                        return false;
                 }
         }
 
@@ -504,17 +501,44 @@ try {
 
         playback_register_keyboard_ctl(&s->mod);
 
-        *state = s;
-	return VIDCAP_INIT_OK;
-} catch (ug_runtime_error const & e) {
-        LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
-        free(tmp);
-        if (info != NULL)
-                fclose(info);
-        cleanup_common(s);
-        delete s;
-        return VIDCAP_INIT_FAIL;
+        return true;
 }
+
+static int
+vidcap_import_init(struct vidcap_params *params, void **state)
+{
+        char *tmp = strdup(vidcap_params_get_fmt(params));
+        if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
+                color_printf("Import usage:\n"
+                                TERM_BOLD TERM_FG_RED "\t<directory>" TERM_FG_RESET "{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n" TERM_RESET
+                                "where\n"
+                                TERM_BOLD "\t<fps>" TERM_RESET " - overrides FPS from sequence metadata\n"
+                                TERM_BOLD "\t<n>  " TERM_RESET " - use only N first frames fron sequence (if less than available frames)\n");
+                free(tmp);
+                return VIDCAP_INIT_NOERR;
+        }
+
+        FILE *info = NULL; // metadata file
+        struct vidcap_import_state *s = (struct vidcap_import_state *) calloc(1, sizeof *s);
+        pthread_cond_init(&s->worker_cv, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        pthread_mutex_init(&s->lock, NULL);
+        s->parent = vidcap_params_get_parent(params);
+        s->has_video = true;
+
+	printf("vidcap_import_init\n");
+        bool init_success = initialize_import(s, tmp, &info, vidcap_params_get_flags(params));
+        free(tmp);
+        if (info != NULL) {
+                fclose(info);
+        }
+        if (init_success) {
+                *state = s;
+                return VIDCAP_INIT_OK;
+        }
+        cleanup_common(s);
+        free(s);
+        return VIDCAP_INIT_FAIL;
 }
 
 static void exit_reading_threads(struct vidcap_import_state *s)
@@ -620,7 +644,7 @@ static void vidcap_import_done(void *state)
         vidcap_import_finish(state);
 
         cleanup_common(s);
-        delete s;
+        free(s);
 }
 
 static void send_message(struct import_message *msg, struct message_queue *queue)
