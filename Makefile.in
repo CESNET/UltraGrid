@@ -41,7 +41,6 @@ EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 BUNDLE        = uv.app
 GUI_BUNDLE    = gui/QT/uv-qt.app
-DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 REAL_CUDA_COMPILER = "@CUDA_COMPILER@"
 CUDA_COMPILER_0 = @echo "Compiling $<..."; $(REAL_CUDA_COMPILER)
 CUDA_COMPILER_1 = $(REAL_CUDA_COMPILER)
@@ -378,11 +377,11 @@ src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $(INC) $< -c -o $@
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $(INC) $< -c -o $@
 
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/compress_dxt1_fp.glsl dxt_compress/compress_dxt5ycocg_fp.glsl \
@@ -582,8 +581,7 @@ data/ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 # -------------------------------------------------------------------------------------------------
 clean:
 	@echo "Making clean..."
-	$(COND_SILENCE)-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
-	$(COND_SILENCE)-rm -f dxt_compress/dxt_glsl.h
+	$(COND_SILENCE)-rm -f $(OBJS) $(GENERATED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
 	$(COND_SILENCE)-rm -f $(TEST_OBJS) bin/run_tests
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	$(COND_SILENCE)-rm -rf $(BUNDLE)

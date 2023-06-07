@@ -1958,7 +1958,6 @@ then
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
         RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
-        DXT_GLSL_CFLAGS="-std=gnu99"
         COMMON_FLAGS="$COMMON_FLAGS -Idxt_compress"
         ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMPRESS_OBJ ",
                   "$RTDXT_LIB")
@@ -1970,8 +1969,6 @@ fi
 if test $rtdxt_req = yes && test $rtdxt = no; then
         AC_MSG_ERROR([RTDXT not found]);
 fi
-
-AC_SUBST(DXT_GLSL_CFLAGS)
 
 # -------------------------------------------------------------------------------------------------
 # UYVY
@@ -3233,7 +3230,7 @@ if test "$build_libraries" != yes
 then
         LIBS="$LIB_MODULES $LIBS"
         OBJS="$OBJS $LIB_OBJS $X_OBJ"
-        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
+        GENERATED_HEADERS="$GENERATED_HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_GENERATED_HEADERS=
         MODULES=
