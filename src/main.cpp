@@ -625,6 +625,51 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
         return true;
 }
 
+static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
+        switch (ch) {
+                case OPT_AUDIO_PROTOCOL:
+                        opt->audio.proto = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->audio.proto_cfg = delim + 1;
+                        }
+                        if (strcmp(opt->audio.proto, "help") == 0) {
+                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
+                                return false;
+                        }
+                        break;
+                case OPT_VIDEO_PROTOCOL:
+                        opt->video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->video_protocol_opts = delim + 1;
+                        }
+                        if (strcmp(opt->video_protocol, "help") == 0) {
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                                return false;
+                        }
+                        break;
+                case OPT_PROTOCOL:
+                        if (strcmp(optarg, "help") == 0 ||
+                                        strcmp(optarg, "fullhelp") == 0) {
+                                col() << "Specify a " << TBOLD("common") << " protocol for both audio and video.\n";
+                                col() << "Audio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) "\n";
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                                return false;
+                        }
+                        opt->audio.proto = opt->video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->audio.proto_cfg = opt->video_protocol_opts = delim + 1;
+                        }
+                        break;
+        }
+        return true;
+}
+
 static bool parse_control_port(char *optarg, struct ug_options *opt) {
         if (strchr(optarg, ':')) {
                 char *save_ptr = NULL;
@@ -763,42 +808,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->video_protocol_opts = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_PROTOCOL:
-                        opt->audio.proto = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->audio.proto_cfg = delim + 1;
-                        }
-                        if (strcmp(opt->audio.proto, "help") == 0) {
-                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
-                                return 1;
-                        }
-                        break;
                 case OPT_VIDEO_PROTOCOL:
-                        opt->video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->video_protocol_opts = delim + 1;
-                        }
-                        if (strcmp(opt->video_protocol, "help") == 0) {
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return 1;
-                        }
-                        break;
                 case OPT_PROTOCOL:
-                        if (strcmp(optarg, "help") == 0 ||
-                                        strcmp(optarg, "fullhelp") == 0) {
-                                col() << "Specify a " << TBOLD("common") << " protocol for both audio and video.\n";
-                                col() << "Audio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) "\n";
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                        if (!parse_protocol(ch, optarg, opt)) {
                                 return 1;
-                        }
-                        opt->audio.proto = opt->video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->audio.proto_cfg = opt->video_protocol_opts = delim + 1;
                         }
                         break;
                 case 'r':
