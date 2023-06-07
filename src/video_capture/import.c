@@ -1,5 +1,5 @@
 /**
- * @file   video_capture/import.cpp
+ * @file   video_capture/import.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -50,33 +50,30 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "audio/types.h"
+#include "audio/wav_reader.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "video.h"
-#include "video_capture.h"
-
-#include "tv.h"
-
-#include "audio/types.h"
-#include "audio/wav_reader.h"
 #include "keyboard_control.h"
 #include "messaging.h"
 #include "module.h"
 #include "playback.h"
-#include "ug_runtime_error.hpp"
+#include "tv.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
+#include "video.h"
+#include "video_capture.h"
 #include "video_export.h"
 
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sstream>
-#include <string>
+#include <stdbool.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -92,9 +89,6 @@
 
 #define MAX_NUMBER_WORKERS 100
 #define MOD_NAME "[import] "
-
-using std::min;
-using std::max;
 
 struct processed_entry;
 struct tile_data {
@@ -140,7 +134,7 @@ struct message_queue {
 };
 
 struct audio_state {
-        bool has_audio = false;
+        bool has_audio;
         FILE *file;
         struct wav_metadata metadata;
         ring_buffer_t *data;
@@ -152,8 +146,8 @@ struct audio_state {
         pthread_cond_t boss_cv;
 
         pthread_mutex_t lock;
-        long long int played_samples = 0;
-        int video_frames_played = 0;
+        long long int played_samples;
+        int video_frames_played;
 
         struct message_queue message_queue;
 }; 
@@ -178,7 +172,7 @@ struct vidcap_import_state {
         pthread_t video_thread_id;
 
         struct timeval prev_time;
-        long video_frame_count = 0L;
+        long video_frame_count;
 
         bool has_video;
         bool finished;
@@ -191,7 +185,7 @@ struct vidcap_import_state {
 
 static void * audio_reading_thread(void *args);
 static void * video_reading_thread(void *args);
-static void send_message(struct import_message *msg, struct message_queue *queue);
+static void import_send_message(struct import_message *msg, struct message_queue *queue);
 static struct import_message* pop_message(struct message_queue *queue);
 static int flush_processed(struct processed_entry *list);
 static void message_queue_clear(struct message_queue *queue);
@@ -205,10 +199,10 @@ static void message_queue_clear(struct message_queue *queue) {
         queue->len = 0;
 }
 
-static void vidcap_import_probe(device_info **available_cards, int *count, void (**deleter)(void *))
+static void vidcap_import_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         *deleter = free;
-        *available_cards = nullptr;
+        *available_cards = NULL;
         *count = 0;
 }
 
@@ -257,8 +251,7 @@ error_format:
 
 /// @param prefix option name including " " (eg. "width ")
 static long strtol_checked(const char *line, const char *prefix, long min_val, long max_val) {
-        using namespace std::string_literals;
-        long int val = strtol(line + strlen(prefix), static_cast<char **>(nullptr), 10);
+        long int val = strtol(line + strlen(prefix), NULL, 10);
         if (val == LONG_MIN || val == LONG_MAX) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read %sline.\n", prefix);
                 return LONG_MIN;
@@ -270,31 +263,31 @@ static long strtol_checked(const char *line, const char *prefix, long min_val, l
         return val;
 }
 
-static video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
-        struct video_desc desc{};
+static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
+        struct video_desc desc = { 0 };
 
         char line[512];
         uint32_t items_found = 0;
         while (!feof(info)) {
-                if (fgets(line, sizeof(line), info) == nullptr) {
+                if (fgets(line, sizeof(line), info) == NULL) {
                         // empty line
                         continue;
                 }
                 long val = 0;
                 if(strncmp(line, "version ", strlen("version ")) == 0) {
                         if (strtol_checked(line, "version ", VIDEO_EXPORT_SUMMARY_VERSION, VIDEO_EXPORT_SUMMARY_VERSION) == LONG_MIN) {
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         items_found |= 1U<<0U;
                 } else if(strncmp(line, "width ", strlen("width ")) == 0) {
                         if ((val = strtol_checked(line, "width ", 0, INT_MAX)) == LONG_MIN) {
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         desc.width = val;
                         items_found |= 1U<<1U;
                 } else if(strncmp(line, "height ", strlen("height ")) == 0) {
                         if ((val = strtol_checked(line, "height ", 0, INT_MAX)) == LONG_MIN) {
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         desc.height = val;
                         items_found |= 1U<<2U;
@@ -302,33 +295,33 @@ static video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
                         char *ptr = line + strlen("fourcc ");
                         if(strlen(ptr) != 5) { // including '\n'
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read video FourCC tag.\n");
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         uint32_t fourcc = 0U;
                         memcpy((void *) &fourcc, ptr, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
                         if(desc.color_spec == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested codec not known.\n");
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         items_found |= 1U<<3U;
                 } else if(strncmp(line, "fps ", strlen("fps ")) == 0) {
                         char *ptr = line + strlen("fps ");
-                        desc.fps = strtod(ptr, nullptr);
+                        desc.fps = strtod(ptr, NULL);
                         if(desc.fps == HUGE_VAL || desc.fps <= 0) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid FPS.\n");
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
                         items_found |= 1U<<4U;
                 } else if(strncmp(line, "interlacing ", strlen("interlacing ")) == 0) {
                         if ((val = strtol_checked(line, "interlacing ", 0, INTERLACING_MAX)) == LONG_MIN) {
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         }
-                        desc.interlacing = (interlacing_t) val;
+                        desc.interlacing = (enum interlacing_t) val;
                         items_found |= 1U<<5U;
                 } else if(strncmp(line, "count ", strlen("count ")) == 0) {
                         if ((val = strtol_checked(line, "count ", 0, LONG_MAX)) == LONG_MIN) {
-                                return (struct video_desc) {};
+                                return (struct video_desc) { 0 };
                         };
                         *video_frame_count = val;
                         items_found |= 1U<<6U;
@@ -337,7 +330,7 @@ static video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
 
         if(items_found != (1U << 7U) - 1U) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed while reading config file - some items missing.\n");
-                return (struct video_desc) {};
+                return (struct video_desc) { 0 };
         }
 
         assert((desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
@@ -427,7 +420,7 @@ static bool initialize_import(struct vidcap_import_state *s, char *tmp, FILE **i
                 } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
                         s->force_fps = atof(suffix + strlen("fps="));
                 } else if (strstr(suffix, "frames=") == suffix) {
-                        s->video_frame_count = strtol(strchr(suffix, '=') + 1, nullptr, 10);
+                        s->video_frame_count = strtol(strchr(suffix, '=') + 1, NULL, 10);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s.\n",
                                 suffix);
@@ -439,20 +432,23 @@ static bool initialize_import(struct vidcap_import_state *s, char *tmp, FILE **i
         if (strstr(s->directory, "video.info") == s->directory) {
                 strcpy(s->directory, ".");
         }
-        if (strstr(s->directory, "/video.info") != nullptr) {
+        if (strstr(s->directory, "/video.info") != NULL) {
                 *strrchr(s->directory, '/') = '\0';
         }
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
 
-        std::string audio_filename = std::string(s->directory) + "/sound.wav";
-        if((flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename.c_str())) {
+        char filename[MAX_PATH_SIZE] = "";
+        strncpy(filename, s->directory, sizeof filename - 1);
+        strncat(filename, "/sound.wav", sizeof filename - strlen(filename) - 1);
+        if((flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, filename)) {
                 s->audio_state.has_audio = true;
         }
         
-        std::string info_filename = std::string(s->directory) + "/video.info";
-        *info = fopen(info_filename.c_str(), "r");
+        strncpy(filename, s->directory, sizeof filename - 1);
+        strncat(filename, "/video.info", sizeof filename - strlen(filename) - 1);
+        *info = fopen(filename, "r");
         if (*info == NULL) {
                 perror(MOD_NAME "Failed to open video index file");
                 if (!s->audio_state.has_audio) {
@@ -552,7 +548,7 @@ static void exit_reading_threads(struct vidcap_import_state *s)
                 msg->next = NULL;
 
                 pthread_mutex_lock(&s->lock);
-                send_message(msg, &s->message_queue);
+                import_send_message(msg, &s->message_queue);
                 pthread_mutex_unlock(&s->lock);
                 pthread_cond_signal(&s->worker_cv);
 
@@ -570,7 +566,7 @@ static void exit_reading_threads(struct vidcap_import_state *s)
 
                 {
                         pthread_mutex_lock(&s->audio_state.lock);
-                        send_message(msg, &s->audio_state.message_queue);
+                        import_send_message(msg, &s->audio_state.message_queue);
                         pthread_mutex_unlock(&s->audio_state.lock);
                         pthread_cond_signal(&s->audio_state.worker_cv);
                 }
@@ -647,7 +643,7 @@ static void vidcap_import_done(void *state)
         free(s);
 }
 
-static void send_message(struct import_message *msg, struct message_queue *queue)
+static void import_send_message(struct import_message *msg, struct message_queue *queue)
 {
         if(queue->head) {
                 queue->tail->next = msg;
@@ -678,7 +674,7 @@ static struct import_message *pop_message(struct message_queue *queue)
 static void vidcap_import_new_message(struct module *mod) {
         struct msg_universal *m;
         while ((m = (struct msg_universal *) check_message(mod))) {
-                process_msg((vidcap_import_state *) mod->priv_data, m->text);
+                process_msg((struct vidcap_import_state *) mod->priv_data, m->text);
                 free_message((struct message *) m, new_response(RESPONSE_ACCEPTED, "import is processing the request"));
         }
 }
@@ -693,7 +689,7 @@ static void process_msg(struct vidcap_import_state *s, const char *message)
                 msg->next = NULL;
 
                 pthread_mutex_lock(&s->lock);
-                send_message(msg, &s->message_queue);
+                import_send_message(msg, &s->message_queue);
                 pthread_mutex_unlock(&s->lock);
                 pthread_cond_signal(&s->worker_cv);
         } else if(strncasecmp(message, "seek ", strlen("seek ")) == 0) {
@@ -738,14 +734,14 @@ static void process_msg(struct vidcap_import_state *s, const char *message)
 
                 {
                         pthread_mutex_lock(&s->lock);
-                        send_message(msg, &s->message_queue);
+                        import_send_message(msg, &s->message_queue);
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->worker_cv);
                 }
 
                 if (s->audio_state.has_audio) {
                         pthread_mutex_lock(&s->audio_state.lock);
-                        send_message(audio_msg, &s->audio_state.message_queue);
+                        import_send_message(audio_msg, &s->audio_state.message_queue);
                         pthread_mutex_unlock(&s->audio_state.lock);
                         pthread_cond_signal(&s->audio_state.worker_cv);
                 }
@@ -794,7 +790,7 @@ static void * audio_reading_thread(void *args)
                                         long long bytes = (s->audio_frame.sample_rate * data->offset / s->video_desc.fps) * s->audio_frame.bps * s->audio_frame.ch_count;
                                         if (data->whence == IMPORT_SEEK_CUR) {
                                                 bytes += s->audio_state.played_samples * s->audio_frame.bps * s->audio_frame.ch_count;
-                                                bytes = max<long long>(0, bytes);
+                                                bytes = MAX(0, bytes);
                                         }
                                         int ret = wav_seek(s->audio_state.file, bytes, SEEK_SET, &s->audio_state.metadata);
                                         log_msg(LOG_LEVEL_NOTICE, "Audio seek %lld bytes\n", bytes);
@@ -802,9 +798,9 @@ static void * audio_reading_thread(void *args)
                                                 perror("wav_seek");
                                         }
                                         ring_buffer_flush(s->audio_state.data);
-                                        s->audio_state.video_frames_played = max<long long>(0, s->audio_state.video_frames_played + data->offset);
+                                        s->audio_state.video_frames_played = MAX(0, s->audio_state.video_frames_played + data->offset);
                                         s->audio_state.samples_read = bytes / (s->audio_frame.bps * s->audio_frame.ch_count);
-                                        s->audio_state.samples_read = min(s->audio_state.samples_read, s->audio_state.total_samples);
+                                        s->audio_state.samples_read = MIN(s->audio_state.samples_read, s->audio_state.total_samples);
                                         s->audio_state.played_samples = s->audio_state.samples_read;
                                         free(data);
                                 }
@@ -965,7 +961,7 @@ static void * video_reading_thread(void *args)
                                         } else if (data->whence == IMPORT_SEEK_SET) {
                                                 index = data->offset;
                                         }
-                                        index = min(max(0L, index), s->video_frame_count - 1);
+                                        index = MIN(MAX(0L, index), s->video_frame_count - 1);
                                         printf("Current index: frame %ld\n", index);
                                         free(data);
                                 } else {
@@ -977,7 +973,7 @@ static void * video_reading_thread(void *args)
                 }
 
                 /// @todo are these checks necessary?
-                index = min(max(0L, index), s->video_frame_count - 1);
+                index = MIN(MAX(0L, index), s->video_frame_count - 1);
 
                 struct video_reader_data data_reader[MAX_NUMBER_WORKERS];
                 task_result_handle_t task_handle[MAX_NUMBER_WORKERS];
@@ -1068,12 +1064,24 @@ static void vidcap_import_dispose_video_frame(struct video_frame *frame) {
         vf_free(frame);
 }
 
+static unsigned long long get_req_bytes(struct vidcap_import_state *s) {
+        long long int requested_samples = (long long int) (s->audio_state.video_frames_played + 0) *
+                s->audio_frame.sample_rate / s->video_desc.fps - s->audio_state.played_samples;
+        if (requested_samples <= 0) {
+                return 0LL;
+        }
+        if ((s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
+                requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
+        }
+        return requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
+}
+
 static struct video_frame *
 vidcap_import_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) state;
         struct timeval cur_time;
-        struct video_frame *ret = nullptr;
+        struct video_frame *ret = NULL;
         
         struct processed_entry *current = NULL;
 
@@ -1120,22 +1128,11 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
         // audio
         if(s->audio_state.has_audio) {
-                auto get_req_bytes = [&]() {
-                        long long int requested_samples = (long long int) (s->audio_state.video_frames_played + 0) *
-                                s->audio_frame.sample_rate / s->video_desc.fps - s->audio_state.played_samples;
-                        if (requested_samples <= 0) {
-                                return 0LL;
-                        }
-                        if ((s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
-                                requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
-                        }
-                        return requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
-                };
                 pthread_mutex_lock(&s->audio_state.lock);
-                unsigned long long int requested_bytes = min<unsigned long long>(get_req_bytes(), s->audio_frame.max_size);
+                unsigned long long int requested_bytes = MIN(get_req_bytes(s), (unsigned long long) s->audio_frame.max_size);
                 while(ring_get_current_size(s->audio_state.data) < (int) requested_bytes) {
                         pthread_cond_wait(&s->audio_state.boss_cv, &s->audio_state.lock);
-                        requested_bytes = min<unsigned long long>(get_req_bytes(), s->audio_frame.max_size);
+                        requested_bytes = MIN(get_req_bytes(s), (unsigned long long) s->audio_frame.max_size);
                 }
 
                 int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
