@@ -533,7 +533,6 @@ vidcap_import_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_OK;
         }
         cleanup_common(s);
-        free(s);
         return VIDCAP_INIT_FAIL;
 }
 
@@ -630,6 +629,7 @@ static void cleanup_common(struct vidcap_import_state *s) {
         pthread_cond_destroy(&s->worker_cv);
         pthread_cond_destroy(&s->boss_cv);
         pthread_mutex_destroy(&s->lock);
+        free(s);
 }
 
 static void vidcap_import_done(void *state)
@@ -640,7 +640,6 @@ static void vidcap_import_done(void *state)
         vidcap_import_finish(state);
 
         cleanup_common(s);
-        free(s);
 }
 
 static void import_send_message(struct import_message *msg, struct message_queue *queue)
