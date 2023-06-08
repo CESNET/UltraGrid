@@ -1382,7 +1382,7 @@ if test "$found_opencv" = no; then
 fi
 if test "$found_opencv" = no; then
         PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
-                           found_opencv=2
+                           found_opencv=yes
                            OPENCV_LIBS=$OPENCV_2_LIBS
                            OPENCV_CFLAGS=$OPENCV_2_CFLAGS
                            ], [found_opencv=no])
