@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,8 +64,12 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 #pragma GCC diagnostic ignored "-Wcast-qual"
+#ifdef HAVE_OPENCV2_OPENCV_HPP
+#include <opencv2/opencv.hpp>
+#else
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
+#endif
 #pragma GCC diagnostic pop
 
 #ifdef __SSSE3__

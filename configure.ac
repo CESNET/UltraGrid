@@ -1319,6 +1319,9 @@ if test "$opencv_req" != no; then
 fi
 
 if test "$opencv" = yes; then
+        AC_LANG_PUSH(C++)
+        AC_CHECK_HEADERS([opencv2/opencv.hpp])
+        AC_LANG_POP(C++)
         # opencv_imgproc is commonly needed so make the check here
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $OPENCV_LIBS"
