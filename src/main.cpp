@@ -806,7 +806,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
-                                        "Please use \"--video-protocol rtsp[:args]\"instead.\n");
+                                        "Please use \"-x rtsp[:args]\"instead.\n");
                         opt->video_protocol = "rtsp";
                         opt->video_protocol_opts = optarg ? optarg : "";
                         break;
@@ -883,7 +883,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case OPT_AUDIO_CAPTURE_CHANNELS:
                         log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
-                                        "Use \"--audio-capture-format channels=<count>\" instead.\n");
+                                        "Use \"-a channels=<count>\" instead.\n");
                         audio_capture_channels = atoi(optarg);
                         if (audio_capture_channels < 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
