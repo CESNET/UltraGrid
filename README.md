@@ -79,7 +79,6 @@ About UltraGrid
        autogen.sh            Build script
        configure.ac          "       "
        Makefile.in           "       "
-       bootstrap_gpujpeg.sh  script to download and build GPUJPEG for use with UG
        CONTRIBUTING.md       Various information for contributors
        COPYRIGHT             Full license terms and conditions
        Doxyfile              Doxygen configuration
@@ -179,7 +178,7 @@ Documentation
      how to add new UltraGrid modules
    - [Performance tuning](doc/PERFORMANCE-TUNING.md) - various tweaks to improve
      UltraGrid performance
-   - [Reporting bugs](doc/REPORTING_BUGS.md) - recommended steps for reporting
+   - [Reporting bugs](doc/REPORTING-BUGS.md) - recommended steps for reporting
      bugs
 
 
