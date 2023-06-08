@@ -97,7 +97,7 @@ AC_MSG_CHECKING([GIT presence])
 if which git
 then
         AC_MSG_CHECKING([checking GIT branch ])
-        git_branch=`SRC=$(dirname "$0"); git -C "$SRC" name-rev --name-only HEAD`
+        git_branch=$(srcdir=$(dirname "$0"); cd "$srcdir"; git name-rev --name-only HEAD)
         if test "$git_branch"; then
                 AC_DEFINE_UNQUOTED([GIT_BRANCH], "$git_branch", [Current GIT branch])
                 AC_MSG_RESULT($git_branch);
@@ -105,7 +105,7 @@ then
                 AC_MSG_RESULT(no);
         fi
         AC_MSG_CHECKING([checking GIT revision ])
-        git_rev=`SRC=$(dirname "$0"); git -C "$SRC" rev-parse --short HEAD`
+        git_rev=$(srcdir=$(dirname "$0"); cd "$srcdir"; git rev-parse --short HEAD)
         if test "$git_rev"; then
                 AC_DEFINE_UNQUOTED([GIT_REV], "$git_rev", [Current GIT revision])
                 AC_MSG_RESULT($git_rev);
@@ -139,6 +139,7 @@ else
 fi
 
 if test $system = Linux; then
+        AC_CHECK_HEADERS([linux/version.h])
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 fi
 

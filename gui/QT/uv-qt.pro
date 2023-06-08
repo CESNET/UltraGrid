@@ -35,8 +35,8 @@ macx {
 system("which git"): HAS_GIT = TRUE
 
 equals(HAS_GIT, "TRUE") {
-	DEFINES += GIT_CURRENT_SHA1="\\\"$(shell git -C \""$$_PRO_FILE_PWD_"\" rev-parse --short HEAD)\\\""
-	DEFINES += GIT_CURRENT_BRANCH="\\\"$(shell git -C \""$$_PRO_FILE_PWD_"\" name-rev --name-only HEAD)\\\""
+	DEFINES += GIT_CURRENT_SHA1="\\\"$(shell cd \""$$_PRO_FILE_PWD_"\"; git rev-parse --short HEAD)\\\""
+	DEFINES += GIT_CURRENT_BRANCH="\\\"$(shell cd \""$$_PRO_FILE_PWD_"\"; git name-rev --name-only HEAD)\\\""
 }
 
 

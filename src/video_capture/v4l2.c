@@ -48,6 +48,11 @@
 #ifdef HAVE_LIBV4LCONVERT
 #include <libv4lconvert.h>
 #endif
+#ifdef HAVE_LINUX_VERSION_H
+#include <linux/version.h>
+#else
+#define KERNEL_VERSION(x,y,z) -1
+#endif
 
 #include <inttypes.h>
 #include <pthread.h>
@@ -654,7 +659,11 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         memcpy(&s->src_fmt, &fmt, sizeof(fmt));
         memcpy(&s->dst_fmt, &fmt, sizeof(fmt));
         s->dst_fmt.fmt.pix.bytesperline = 0;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,10,0)
         s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
+#else // CentOS 7
+       s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
+#endif
 
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
