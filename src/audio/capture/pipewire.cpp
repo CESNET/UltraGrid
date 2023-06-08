@@ -52,58 +52,58 @@
 #include "utils/string_view_utils.hpp"
 
 struct state_pipewire_cap{
-    pipewire_state_common pw;
+        pipewire_state_common pw;
 
-    pw_stream_uniq stream;
-    spa_hook_uniq stream_listener;
+        pw_stream_uniq stream;
+        spa_hook_uniq stream_listener;
 
-    std::string target;
+        std::string target;
 
-    audio_desc desc;
-    ring_buffer_uniq ring_buf;
+        audio_desc desc;
+        ring_buffer_uniq ring_buf;
 };
 
 static void *audio_cap_pipewire_init(struct module *parent, const char *cfg){
-    std::string_view cfg_sv(cfg);
+        std::string_view cfg_sv(cfg);
 
-    std::string_view key = tokenize(cfg_sv, '=', '\"');
-    std::string_view val = tokenize(cfg_sv, '=', '\"');
+        std::string_view key = tokenize(cfg_sv, '=', '\"');
+        std::string_view val = tokenize(cfg_sv, '=', '\"');
 
-    std::string_view target_device;
+        std::string_view target_device;
 
-    if(key == "help"){
-        //audio_play_pw_help();
-        return INIT_NOERR;
-    } else if(key == "target"){
-        target_device = val;
-    }
+        if(key == "help"){
+                //audio_play_pw_help();
+                return INIT_NOERR;
+        } else if(key == "target"){
+                target_device = val;
+        }
 
-    auto s = std::make_unique<state_pipewire_cap>();
-     
-    fprintf(stdout, "Compiled with libpipewire %s\n"
-            "Linked with libpipewire %s\n",
-            pw_get_headers_version(),
-            pw_get_library_version());
+        auto s = std::make_unique<state_pipewire_cap>();
 
-    s->target = std::string(target_device);
-    
-    initialize_pw_common(s->pw);
+        fprintf(stdout, "Compiled with libpipewire %s\n"
+                        "Linked with libpipewire %s\n",
+                        pw_get_headers_version(),
+                        pw_get_library_version());
 
-    return s.release();
+        s->target = std::string(target_device);
+
+        initialize_pw_common(s->pw);
+
+        return s.release();
 }
 
 static struct audio_frame *audio_cap_pipewire_read(void *state){
-    auto s = static_cast<state_pipewire_cap *>(state);
+        auto s = static_cast<state_pipewire_cap *>(state);
 
 
-    return nullptr;
+        return nullptr;
 }
 
 static void audio_cap_pipewire_done(void *state){
-    auto s = static_cast<state_pipewire_cap *>(state);
+        auto s = static_cast<state_pipewire_cap *>(state);
 
-    pw_thread_loop_stop(s->pw.pipewire_loop.get());
-    delete s;
+        pw_thread_loop_stop(s->pw.pipewire_loop.get());
+        delete s;
 }
 
 static void audio_cap_pipewire_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))

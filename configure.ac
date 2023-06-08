@@ -2596,6 +2596,34 @@ fi
 
 ENSURE_FEATURE_PRESENT([$coreaudio_req], [$coreaudio], [Core Audio not found])
 
+# -----------------------------------------------------------------------------
+# Pipewire audio
+# -----------------------------------------------------------------------------
+pipewire_audio=no
+
+AC_ARG_ENABLE(pipewire-audio,
+[  --disable-pipewire-audio        disable pipewire audio (default is auto)]
+[                          Requires: pipewire],
+    [pipewire_audio_req=$enableval],
+    [pipewire_audio_req=$build_default]
+    )
+
+#TODO check needed version
+PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3], [found_pw_audio_deps=yes], [found_pw_audio_deps=no])
+
+if test $pipewire_audio_req != no -a $found_pw_audio_deps = yes
+then
+        pipewire_audio=yes
+        PIPEWIRE_ACAP_OBJS="src/audio/pipewire_common.o src/audio/capture/pipewire.o"
+        PIPEWIRE_APLAY_OBJS="src/audio/pipewire_common.o src/audio/playback/pipewire.o"
+        ADD_MODULE("acap_pipewire", "$PIPEWIRE_ACAP_OBJS", "$PIPEWIRE_LIB")
+        ADD_MODULE("aplay_pipewire", "$PIPEWIRE_APLAY_OBJS", "$PIPEWIRE_LIB")
+fi
+
+if test $pipewire_audio_req = yes && test $pipewire_audio = no; then
+        AC_MSG_ERROR([pipewire audio was not found (libraries missing)]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
 # -------------------------------------------------------------------------------------------------
@@ -3313,6 +3341,7 @@ RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
 RESULT=`add_column "$RESULT" "SDL_mixer" $sdl_mixer $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
+RESULT=`add_column "$RESULT" "Pipewire" $pipewire_audio $?`
 RESULT=`end_section "$RESULT"`
 
 # video
