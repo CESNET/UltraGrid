@@ -62,6 +62,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "video_capture.h"
+#include "video_capture_params.h"
 
 #include <string>
 #include <iomanip>
@@ -119,6 +120,20 @@ int initialize_video_capture(struct module *parent,
                         return -1;
                 }
                 vidcap_params_set_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
+        }
+        // similarly for audio connection
+        if (vidcap_params_get_driver(tlast) == nullptr
+                        && vidcap_params_get_flags(tlast) != 0) {
+                if (tprev != param) { // more than one -t
+                        log_msg(LOG_LEVEL_ERROR, "Audio connection (-s) needs to be "
+                                "specified before capture (-t)\n");
+                        return -1;
+                }
+                if (vidcap_params_get_flags(tprev) != 0) { // one -t but -s specified both before and after it
+                        log_msg(LOG_LEVEL_ERROR, "Multiple audio connection specification.\n");
+                        return -1;
+                }
+                vidcap_params_set_flags(tprev, vidcap_params_get_flags(tlast));
         }
 
         const struct video_capture_info *vci = (const struct video_capture_info *)
