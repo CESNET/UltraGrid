@@ -185,6 +185,10 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
+                if (vidcap_params_get_flags(tmp) == 0 && vidcap_params_get_flags(params) != 0) {
+                        vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
+                }
+
                 if (!s->excl_init || i == s->selected_device) {
                         int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
                         if(ret != 0) {
