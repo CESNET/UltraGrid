@@ -489,6 +489,8 @@ static void gl_print_monitors(bool fullhelp) {
         ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 }
 
+#define FEATURE_PRESENT(x) (strcmp(STRINGIFY(x), "1") == 0 ? "on" : "off")
+
 /**
  * Show help
  */
@@ -510,8 +512,12 @@ static void gl_show_help(bool full) {
         col() << TBOLD("\tsingle")      << "\t\tuse single buffer (instead of double-buffering)\n";
         col() << TBOLD("\tsize")        << "\t\tspecifies desired size of window compared "
                 "to native resolution (in percents)\n";
+#ifdef SPOUT
         col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
+#endif
+#ifdef SYPHON
         col() << TBOLD("\tsyphon")      << "\t\tuse Syphon (optionally with name)\n";
+#endif
         col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
         if (full) {
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
@@ -526,6 +532,10 @@ static void gl_show_help(bool full) {
         }
 
         gl_print_monitors(full);
+        col() << "\nCompiled " << SBOLD("features: ") << "SPOUT - "
+              << FEATURE_PRESENT(SPOUT) << ", Syphon - "
+              << FEATURE_PRESENT(SYPHON) << ", VDPAU - "
+              << FEATURE_PRESENT(HWACC_VDPAU) << "\n";
 }
 
 static void gl_load_splashscreen(struct state_gl *s)
