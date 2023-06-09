@@ -66,6 +66,7 @@
 #include "video.h"
 #include "video_capture.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/string.h"
 #include "utils/vf_split.h"
@@ -468,14 +469,14 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
 
-        bool pixfmt_default = true;
         struct video_desc desc = DEFAULT_FORMAT;
+        desc.color_spec = VIDEO_CODEC_NONE;
+        desc.fps = 0;
         if (strlen(ptr) > 0 && isdigit(ptr[0])) {
-                pixfmt_default = false;
                 desc = parse_format(&ptr, &save_ptr);
-        }
-        if (!desc.width) {
-                goto error;
+                if (!desc.width) {
+                        goto error;
+                }
         }
 
         tmp = strtok_r(ptr, ":", &save_ptr);
@@ -499,7 +500,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         strncpy(s->pattern, pattern, sizeof s->pattern - 1);
                 } else if (strstr(tmp, "codec=") == tmp) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
-                        pixfmt_default = false;
+                        if (desc.color_spec == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong color spec: %s\n", strchr(tmp, '=') + 1);
+                                goto error;
+                        }
                 } else if (strstr(tmp, "mode=") == tmp) {
                         codec_t saved_codec = desc.color_spec;
                         desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
@@ -520,16 +524,18 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 tmp = strtok_r(NULL, ":", &save_ptr);
         }
 
-        if (desc.color_spec == VIDEO_CODEC_NONE || desc.width <= 0 || desc.height <= 0 || desc.fps <= 0.0) {
+        if (desc.width <= 0 || desc.height <= 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video format: %s\n", video_desc_to_string(desc));;
                 goto error;
         }
 
         if (filename) {
-                if ((in_file_contents_size = testcard_load_from_file(filename, &desc, &in_file_contents, pixfmt_default)) == 0) {
+                if ((in_file_contents_size = testcard_load_from_file(filename, &desc, &in_file_contents, desc.color_spec == VIDEO_CODEC_NONE)) == 0) {
                         goto error;
                 }
         }
+        desc.color_spec = IF_NOT_NULL_ELSE(desc.color_spec, DEFAULT_FORMAT.color_spec);
+        desc.fps = IF_NOT_NULL_ELSE(desc.fps, DEFAULT_FORMAT.fps);
 
         if (!s->still_image && codec_is_planar(desc.color_spec)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(desc.color_spec));
