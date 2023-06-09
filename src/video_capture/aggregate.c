@@ -128,7 +128,7 @@ vidcap_aggregate_init(struct vidcap_params *params, void **state)
                         vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
                 }
 
-                int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
+                int ret = initialize_video_capture(vidcap_params_get_parent(params), (struct vidcap_params *) tmp, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
                                         i, vidcap_params_get_driver(tmp),
