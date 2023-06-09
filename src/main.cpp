@@ -589,6 +589,27 @@ struct ug_options {
         unsigned int video_rxtx_mode = 0;
 };
 
+static int parse_audio_capture(struct ug_options *opt, char *optarg) {
+        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                audio_capture_print_help(strcmp(optarg, "full") == 0);
+                return 1;
+        }
+        if (string(opt->audio.send_cfg) != ug_options().audio.send_cfg &&
+            !!audio_capture_get_vidcap_flags(opt->audio.send_cfg) !=
+                !!audio_capture_get_vidcap_flags(optarg)) {
+                log_msg(LOG_LEVEL_ERROR, "Multiple audio devices given! Only "
+                                         "allowed for video-attached audio "
+                                         "connection (AESEBU/analog/embedded).\n");
+                return -EXIT_FAIL_USAGE;
+        }
+        if (audio_capture_get_vidcap_flags(optarg)) {
+                vidcap_params_add_flags(opt->vidcap_params_tail,
+                                        audio_capture_get_vidcap_flags(optarg));
+        }
+        opt->audio.send_cfg = optarg;
+        return 0;
+}
+
 static bool parse_port(char *optarg, struct ug_options *opt) {
         char *save_ptr = nullptr;
         char *first_val = strtok_r(optarg, ":", &save_ptr);
@@ -829,15 +850,9 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->audio.recv_cfg = optarg;
                         break;
                 case 's':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                audio_capture_print_help(strcmp(optarg, "full") == 0);
-                                return 1;
+                        if (int ret = parse_audio_capture(opt, optarg)) {
+                                return ret;
                         }
-                        if (string(opt->audio.send_cfg) != ug_options().audio.send_cfg) {
-                                log_msg(LOG_LEVEL_ERROR, "Multiple audio capturers given!\n");
-                                return -EXIT_FAIL_USAGE;
-                        }
-                        opt->audio.send_cfg = optarg;
                         break;
                 case 'f':
                         if(strlen(optarg) > 2 && optarg[1] == ':' &&
@@ -1368,27 +1383,6 @@ int main(int argc, char *argv[])
                 goto cleanup;
         }
         log_msg(LOG_LEVEL_DEBUG, "Display initialized-%s\n", opt.requested_display);
-
-        /* Pass embedded/analog/AESEBU flags to selected vidcap
-         * device. */
-        if (audio_capture_get_vidcap_flags(opt.audio.send_cfg)) {
-                int index = audio_capture_get_vidcap_index(opt.audio.send_cfg);
-                int i = 0;
-                for (auto *vidcap_params_it = opt.vidcap_params_head; vidcap_params_it != opt.vidcap_params_tail; vidcap_params_it = vidcap_params_get_next(vidcap_params_it)) {
-                        if (index == i || index == -1) {
-                                unsigned int orig_flags =
-                                        vidcap_params_get_flags(vidcap_params_it);
-                                vidcap_params_set_flags(vidcap_params_it, orig_flags
-                                                | audio_capture_get_vidcap_flags(opt.audio.send_cfg));
-                        }
-                        i++;
-                }
-                if (index >= i) {
-                        LOG(LOG_LEVEL_ERROR) << "Entered index for non-existing vidcap (audio).\n";
-                        exit_uv(EXIT_FAIL_CAPTURE);
-                        goto cleanup;
-                }
-        }
 
         ret = initialize_video_capture(&uv.root_module, opt.vidcap_params_head, &uv.capture_device);
         if (ret < 0) {

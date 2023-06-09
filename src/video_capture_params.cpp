@@ -205,6 +205,11 @@ void vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags)
         params->flags = flags;
 }
 
+void vidcap_params_add_flags(struct vidcap_params *params, unsigned int flags)
+{
+        params->flags |= flags;
+}
+
 /**
  * @returns capture driver name (eg. decklink), not NULL if vidcap_params_set_device() called
  */

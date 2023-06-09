@@ -80,6 +80,7 @@ void                  vidcap_params_set_capture_filter(struct vidcap_params *par
                 const char *req_capture_filter);
 const char           *vidcap_params_get_capture_filter(const struct vidcap_params *params);
 void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
+void                  vidcap_params_add_flags(struct vidcap_params *params, unsigned int flags);
 /// @}
 
 #ifdef __cplusplus
