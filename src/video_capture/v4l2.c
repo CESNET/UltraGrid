@@ -662,7 +662,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 #if LINUX_VERSION_CODE > KERNEL_VERSION(3,10,0)
         s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
 #else // CentOS 7
-       s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
+        s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
 #endif
 
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
