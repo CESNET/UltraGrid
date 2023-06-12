@@ -145,9 +145,14 @@ static void * audio_play_pw_init(const char *cfg){
 static void audio_play_pw_put_frame(void *state, const struct audio_frame *frame){
         auto s = static_cast<state_pipewire_play *>(state);
 
-        log_msg(LOG_LEVEL_NOTICE, "Put frame of len %d, into ring with %d free\n", frame->data_len, ring_get_available_write_size(s->ring_buf.get()));
+        auto avail = ring_get_available_write_size(s->ring_buf.get());
+        auto to_write = frame->data_len;
+        if(to_write > avail){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Got frame of len %d, but ring has only %d free\n", frame->data_len, ring_get_available_write_size(s->ring_buf.get()));
+                to_write = avail;
+        }
 
-        ring_buffer_write(s->ring_buf.get(), frame->data, frame->data_len);
+        ring_buffer_write(s->ring_buf.get(), frame->data, to_write);
 }
 
 static bool is_format_supported(void *data, size_t *len){
