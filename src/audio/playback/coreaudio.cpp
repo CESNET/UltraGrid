@@ -75,12 +75,7 @@ constexpr int DEFAULT_BUFLEN_MS = 50;
 #define MOD_NAME "[CoreAudio play.] "
 
 struct state_ca_playback {
-#ifndef __MAC_10_6
-        ComponentInstance
-#else
-        AudioComponentInstance
-#endif
-                        auHALComponentInstance;
+        AudioComponentInstance auHALComponentInstance;
         struct audio_desc desc;
         void *buffer; // audio buffer
         struct audio_buffer_api *buffer_fns;
@@ -378,13 +373,8 @@ static void audio_play_ca_help()
 static void * audio_play_ca_init(const char *cfg)
 {
         OSStatus ret = noErr;
-#ifndef __MAC_10_6
-        Component comp;
-        ComponentDescription comp_desc;
-#else
         AudioComponent comp;
         AudioComponentDescription comp_desc;
-#endif
         AudioDeviceID device;
 
         struct state_ca_playback *s = new struct state_ca_playback();
@@ -413,15 +403,9 @@ static void * audio_play_ca_init(const char *cfg)
         comp_desc.componentFlags = 0;
         comp_desc.componentFlagsMask = 0;
 
-#ifndef __MAC_10_6
-        comp = FindNextComponent(NULL, &comp_desc);
-        if(!comp) goto error;
-        ret = OpenAComponent(comp, &s->auHALComponentInstance);
-#else
         comp = AudioComponentFindNext(NULL, &comp_desc);
         if(!comp) goto error;
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
-#endif
         if (ret != noErr) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open audio component: %s\n", get_osstatus_str(ret));
                 goto error;

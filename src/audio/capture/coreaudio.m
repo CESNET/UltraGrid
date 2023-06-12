@@ -63,12 +63,7 @@
 #define MOD_NAME "[CoreAudio cap.] "
 
 struct state_ca_capture {
-#ifndef __MAC_10_6
-        ComponentInstance 
-#else
-        AudioComponentInstance
-#endif
-                        auHALComponentInstance;
+        AudioComponentInstance auHALComponentInstance;
         struct audio_frame frame;
         char *tmp;
         struct ring_buffer *buffer;
@@ -213,13 +208,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 return INIT_NOERR;
         }
         OSStatus ret = noErr;
-#ifndef __MAC_10_6
-        Component comp;
-        ComponentDescription desc;
-#else
-        AudioComponent comp;
         AudioComponentDescription desc;
-#endif
         UInt32 size;
         AudioDeviceID device;
 
@@ -307,8 +296,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 
         bool failed = true;
         do {
-#ifdef __MAC_10_6
-                comp = AudioComponentFindNext(NULL, &desc);
+                AudioComponent comp = AudioComponentFindNext(NULL, &desc);
                 if(!comp) {
                         fprintf(stderr, "Error finding AUHAL component.\n");
                         break;
@@ -316,16 +304,6 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 CHECK_OK(AudioComponentInstanceNew(comp, &s->auHALComponentInstance),
                                 "Error opening AUHAL component",
                                 break);
-#else
-                comp = FindNextComponent(NULL, &desc);
-                if(!comp) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error finding AUHAL component.\n");
-                        break;
-                }
-                CHECK_OK(OpenAComponent(comp, &s->auHALComponentInstance),
-                                "Error opening AUHAL component",
-                                break);
-#endif
 
                 //When using AudioUnitSetProperty the 4th parameter in the method
                 //refer to an AudioUnitElement. When using an AudioOutputUnit
