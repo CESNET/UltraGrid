@@ -116,6 +116,10 @@ static void usage()
 
 static int vidcap_spout_init(struct vidcap_params *params, void **state)
 {
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
+
         state_vidcap_spout *s = new state_vidcap_spout();
 
         double fps = DEFAULT_FPS;

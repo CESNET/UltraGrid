@@ -604,6 +604,9 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
                 [vidcap_avfoundation_state usage: true];
                 return VIDCAP_INIT_NOERR;
         }
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
         NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr, *cfg = tmp;

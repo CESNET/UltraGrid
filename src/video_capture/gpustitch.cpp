@@ -96,9 +96,6 @@ struct vidcap_gpustitch_state {
         int frames;
         struct       timeval t, t0;
 
-        int          audio_source_index;
-
-
         gpustitch::Stitcher stitcher;
         gpustitch::Stitcher_params stitch_params;
         std::vector<gpustitch::Cam_params> cam_properties;
@@ -521,12 +518,13 @@ static void stop_grab_workers(vidcap_gpustitch_state *s){
 static int
 vidcap_gpustitch_init(struct vidcap_params *params, void **state)
 {
-        struct vidcap_gpustitch_state *s;
-
         printf("vidcap_gpustitch_init\n");
 
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
 
-        s = new vidcap_gpustitch_state();
+        struct vidcap_gpustitch_state *s = new vidcap_gpustitch_state();
         if(s == NULL) {
                 printf("Unable to allocate gpustitch capture state\n");
                 return VIDCAP_INIT_FAIL;

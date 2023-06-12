@@ -442,6 +442,10 @@ static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **ou
 
 static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 {
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
+
         char *opts = strdup(vidcap_params_get_fmt(params));
         struct state_vidcap_syphon *s = NULL;
         int ret = vidcap_syphon_init_common(opts, &s);
