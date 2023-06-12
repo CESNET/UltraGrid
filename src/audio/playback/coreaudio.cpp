@@ -362,7 +362,7 @@ static void audio_play_ca_help()
         cout << "Core Audio playback usage:\n";
         col() << SBOLD(SRED("\t-r coreaudio") <<
                 "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]") << "\n\n";
-        printf("Available CoreAudio devices:\n");
+        printf("Available CoreAudio playback devices:\n");
         struct device_info *available_devices;
         int count;
         void (*deleter)(void *);

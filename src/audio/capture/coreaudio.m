@@ -207,7 +207,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         if (strcmp(cfg, "help") == 0) {
                 printf("Core Audio capture usage:\n");
-                color_printf(TBOLD(TRED("\t-r coreaudio") "[:<index>]") "\n\n");
+                color_printf(TBOLD(TRED("\t-s coreaudio") "[:<index>]") "\n\n");
                 printf("Available Core Audio capture devices:\n");
                 audio_cap_ca_help();
                 return INIT_NOERR;
