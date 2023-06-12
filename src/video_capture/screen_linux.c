@@ -117,7 +117,7 @@ static const struct video_capture_info vidcap_screen_linux_info = {
         vidcap_screen_linux_init,
         vidcap_screen_linux_done,
         vidcap_screen_linux_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        "[screen] ",
 };
 
 REGISTER_MODULE(screen, &vidcap_screen_linux_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

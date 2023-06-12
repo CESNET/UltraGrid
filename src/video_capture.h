@@ -132,7 +132,8 @@ struct video_capture_info {
         int                    (*init) (struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
-        const char             *generic_fps_indicator_prefix; ///@todo use everywhere, then remove
+        const char             *generic_fps_indicator_prefix; ///< display name, eg. "[gl] ",
+                                                              ///< pass NULL to use own
 };
 
 struct module;
