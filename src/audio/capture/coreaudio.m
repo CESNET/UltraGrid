@@ -197,27 +197,33 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 };
 #endif // defined __MAC_10_14
 
+
+
 static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
         if (strcmp(cfg, "help") == 0) {
                 printf("Core Audio capture usage:\n");
-                color_printf(TBOLD(TRED("\t-s coreaudio") "[:<index>]") "\n\n");
+                color_printf(TBOLD(TRED("\t-s coreaudio") "[:<index>|:<name>]") "\n");
+                color_printf("where\n\t" TBOLD("<name>") " - device name substring (case sensitive)\n\n");
                 printf("Available Core Audio capture devices:\n");
                 audio_cap_ca_help();
                 return INIT_NOERR;
         }
         OSStatus ret = noErr;
         AudioComponentDescription desc;
-        UInt32 size;
         AudioDeviceID device;
+        UInt32 size = sizeof device;
 
-        size=sizeof(device);
         if (strlen(cfg) > 0) {
-                device = atoi(cfg);
-                if (device == 0 && strcmp(cfg, "0") != 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong index %s!\n", cfg);
-                        return NULL;
+                char *endptr = NULL;
+                device = strtol(cfg, &endptr, 0);
+                if (*endptr != '\0') {
+                        device = audio_ca_get_device_by_name(cfg);
+                        if (device == UINT_MAX) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index or unrecognized name \"%s\"!\n", cfg);
+                                return NULL;
+                        }
                 }
         } else {
                 AudioObjectPropertyAddress propertyAddress;

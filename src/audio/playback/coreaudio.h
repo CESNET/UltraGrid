@@ -49,6 +49,7 @@ struct device_info;
  */
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir);
 void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *namebuf);
+AudioDeviceID audio_ca_get_device_by_name(const char *name);
 
 #ifdef __cplusplus
 }

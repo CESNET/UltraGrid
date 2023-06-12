@@ -50,6 +50,7 @@
 #include <Availability.h>
 #include <chrono>
 #include <cinttypes>
+#include <climits>
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
 #include <stdlib.h>
@@ -297,11 +298,16 @@ void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *na
 
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
-        *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-        snprintf((*available_devices)[0].dev, sizeof (*available_devices)[0].dev, "");
-        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
-                        "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
-        *count = 1;
+        if (dir != 0) {
+                *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
+                snprintf((*available_devices)[0].dev, sizeof (*available_devices)[0].dev, "");
+                snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
+                                "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
+                *count = 1;
+        } else {
+                *count = 0;
+                *available_devices = nullptr;
+        }
 
         int dev_count;
         AudioDeviceID *dev_ids;
@@ -327,7 +333,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 
         propertyAddress.mScope = dir == -1 ? kAudioObjectPropertyScopeInput : kAudioObjectPropertyScopeOutput;
         for (int i = 0; i < dev_count; ++i) {
-                if (!is_requested_direction(propertyAddress, &dev_ids[i])) {
+                if (dir != 0 && !is_requested_direction(propertyAddress, &dev_ids[i])) {
                         continue;
                 }
 
@@ -348,6 +354,18 @@ error:
         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Error obtaining device list.\n";
 }
 
+AudioDeviceID audio_ca_get_device_by_name(const char *name) {
+        struct device_info *devices = NULL;
+        int count = 0;
+        audio_ca_probe(&devices, &count, 0);
+        for (int i = 0; i < count; ++i) {
+                if (strstr(devices[i].name, name) != NULL) {
+                        return atoi(devices[i].dev + 1);
+                }
+        }
+        return UINT_MAX;
+}
+
 static void audio_play_ca_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
@@ -357,8 +375,9 @@ static void audio_play_ca_probe(struct device_info **available_devices, int *cou
 static void audio_play_ca_help()
 {
         cout << "Core Audio playback usage:\n";
-        col() << SBOLD(SRED("\t-r coreaudio") <<
-                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]") << "\n\n";
+        col() << SBOLD(SRED("\t-r coreaudio") << "[:<index>|:<name>] "
+                "[--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]") << "\n";
+        col() << "where\n\t" << SBOLD("<name>") << " - device name substring (case sensitive)\n\n";
         printf("Available CoreAudio playback devices:\n");
         struct device_info *available_devices;
         int count;
@@ -427,8 +446,21 @@ static void * audio_play_ca_init(const char *cfg)
                 audio_play_ca_help();
                 delete s;
                 return INIT_NOERR;
-        } else if (strlen(cfg) > 0) {
-                device = stoi(cfg);
+        }
+        if (strlen(cfg) > 0) {
+                try {
+                        device = stoi(cfg);
+                } catch (std::invalid_argument &e) {
+                        device = audio_ca_get_device_by_name(cfg);
+                        if (device == UINT_MAX) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        MOD_NAME
+                                        "Wrong device index "
+                                        "or unrecognized name \"%s\"!\n",
+                                        cfg);
+                                goto error;
+                        }
+                }
         } else {
                 AudioObjectPropertyAddress propertyAddress;
                 UInt32 size = sizeof device;
