@@ -45,8 +45,8 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "ug_runtime_error.hpp"
-#include "utils/windows.h"
 #include "utils/color_out.h"
+#include "utils/windows.h"
 
 #define MOD_NAME "[WASAPI cap.] "
 #define REFTIMES_PER_SEC  10000000
@@ -88,7 +88,7 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 static void audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
         *deleter = free;
-        *available_devices = (struct device_info *) malloc(0);
+        *available_devices = nullptr;
         *dev_count = 0;
         bool com_initialized = false;
 
@@ -127,6 +127,15 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
+        // add looopback
+        *available_devices = (struct device_info *)realloc(
+            *available_devices, (*dev_count + 1) * sizeof(struct device_info));
+        memset(&(*available_devices)[*dev_count], 0,
+               sizeof(struct device_info));
+        snprintf_ch((*available_devices)[*dev_count].dev, ":loopback");
+        snprintf_ch((*available_devices)[*dev_count].name,
+                 "WASAPI computer audio output");
+        *dev_count += 1;
 }
 
 static string get_name(IMMDevice *pDevice) {
@@ -203,6 +212,7 @@ static void show_help() {
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
+        col() << " " << SBOLD("loopback") << ") " << SBOLD("computer audio output") << " (ID: loopback)\n";
 }
 
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
@@ -210,7 +220,8 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         wchar_t deviceID[1024] = L"";
         WAVEFORMATEX *pwfx = NULL;
-        int index = -1;
+        enum { IDX_LOOP = -2, IDX_DFL = -1 };
+        int index = IDX_DFL;
         if (strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         show_help();
@@ -218,6 +229,8 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 }
                 if (isdigit(cfg[0])) {
                         index = atoi(cfg);
+                } else if (strcmp(cfg, "loopback") == 0) {
+                        index = IDX_LOOP;
                 } else {
                         mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
                 }
@@ -234,7 +247,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                         (void **) &enumerator));
                 if (wcslen(deviceID) > 0) {
                         THROW_IF_FAILED(enumerator->GetDevice(deviceID,  &s->pDevice));
-                } else if (index != -1)  {
+                } else if (index >= 0)  {
                         IMMDeviceCollection *pEndpoints = nullptr;
                         try {
                                 THROW_IF_FAILED(enumerator->EnumAudioEndpoints(eCapture, DEVICE_STATEMASK_ALL, &pEndpoints));
@@ -250,8 +263,10 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << e.what() << "\n";
                         }
                         SAFE_RELEASE(pEndpoints);
-                } else { // default device
-                        THROW_IF_FAILED(enumerator->GetDefaultAudioEndpoint(eCapture, eConsole, &s->pDevice));
+                } else {// default device
+                        THROW_IF_FAILED(enumerator->GetDefaultAudioEndpoint(
+                            index == IDX_DFL ? eCapture : eRender, eConsole,
+                            &s->pDevice));
                 }
                 if (!s->pDevice) {
                         throw ug_runtime_error("Device not found!");
@@ -312,7 +327,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
 
                 THROW_IF_FAILED(s->pAudioClient->Initialize(
                          AUDCLNT_SHAREMODE_SHARED,
-                         0,
+                         index == IDX_LOOP ? AUDCLNT_STREAMFLAGS_LOOPBACK : 0,
                          hnsRequestedDuration,
                          0,
                          pwfx,

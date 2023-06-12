@@ -47,10 +47,13 @@
 #define MERGE(a,b)  a##b
 #define STRINGIFY(A) #A
 #define TOSTRING(A) STRINGIFY(A) // https://stackoverflow.com/questions/240353/convert-a-preprocessor-token-to-a-string
+
 #define IF_NOT_NULL_ELSE(val, default_val) ((val) ? (val) : (default_val))
 #define UNDEF -1
 #define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
+
 #define DIV_ROUNDED_UP(value, div) ((((value) % (div)) != 0) ? ((value) / (div) + 1) : ((value) / (div)))
+
 #define SWAP(a, b) do { b ^= a; a ^= b; b ^= a; } while (0)
 
 #undef MIN
@@ -70,6 +73,9 @@
 
 /// unconditional alternative to assert that is not affected by NDEBUG macro
 #define UG_ASSERT(cond) do { if (!(cond)) { fprintf(stderr, "%s:%d: %s: Assertion `" #cond "' failed.\n", __FILE__, __LINE__, __func__); abort(); } } while(0)
+
+/// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array
+#define snprintf_ch(str, ...) snprintf(str, sizeof str, __VA_ARGS__)
 
 /**
  * @brief Creates FourCC word
