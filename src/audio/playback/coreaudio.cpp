@@ -314,12 +314,14 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
         propertyAddress.mElement = kAudioObjectPropertyElementMain;
         ret = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size);
         if (ret) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get device list size: %s\n", get_osstatus_str(ret));
                 goto error;
         }
         dev_ids = (AudioDeviceID *) malloc(size);
         dev_count = size / sizeof(AudioDeviceID);
         ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, dev_ids);
         if (ret) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get device list: %s\n", get_osstatus_str(ret));
                 goto error;
         }
 
@@ -404,7 +406,10 @@ static void * audio_play_ca_init(const char *cfg)
         comp_desc.componentFlagsMask = 0;
 
         comp = AudioComponentFindNext(NULL, &comp_desc);
-        if(!comp) goto error;
+        if (!comp) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find audio component!\n");
+                goto error;
+        }
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
         if (ret != noErr) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open audio component: %s\n", get_osstatus_str(ret));
