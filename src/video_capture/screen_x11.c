@@ -95,8 +95,6 @@ struct grabbed_data {
 struct vidcap_screen_x11_state {
         struct video_frame       *frame; 
         struct tile       *tile; 
-        int frames;
-        struct       timeval t, t0;
         Display *dpy;
         Window root;
         int x, y, width, height;
@@ -342,7 +340,6 @@ static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         s->cpu_count = get_cpu_core_count();
-        gettimeofday(&s->t0, NULL);
 
 #ifndef HAVE_XFIXES
         fprintf(stderr, "[Screen capture] Compiled without XFixes library, cursor won't be shown!\n");
@@ -466,17 +463,6 @@ static struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_fra
                 s->prev_time = cur_time;
         }
 
-        gettimeofday(&s->t, NULL);
-        double seconds = tv_diff(s->t, s->t0);        
-        if (seconds >= 5) {
-                float fps  = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[screen capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                s->t0 = s->t;
-                s->frames = 0;
-        }
-
-        s->frames++;
-
         return s->frame;
 }
 
@@ -485,7 +471,7 @@ static const struct video_capture_info vidcap_screen_x11_info = {
         vidcap_screen_x11_init,
         vidcap_screen_x11_done,
         vidcap_screen_x11_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(screen_x11, &vidcap_screen_x11_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
