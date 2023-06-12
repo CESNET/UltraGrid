@@ -167,7 +167,7 @@ int initialize_video_capture(struct module *parent,
                                 "Unable to start video capture device %s\n",
                                 vidcap_params_get_driver(param));
                 break;
-        case VIDCAP_INIT_AUDIO_NOT_SUPPOTED:
+        case VIDCAP_INIT_AUDIO_NOT_SUPPORTED:
                 log_msg(LOG_LEVEL_ERROR,
                                 "Video capture driver does not support selected embedded/analog/AESEBU audio.\n");
                 break;

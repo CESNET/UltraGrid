@@ -504,7 +504,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         printf("vidcap_v4l2_init\n");
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
         const char *cfg = vidcap_params_get_fmt(params);

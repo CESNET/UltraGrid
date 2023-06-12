@@ -114,7 +114,7 @@ struct audio_frame;
 #define VIDCAP_INIT_OK                   0  ///< initialization successful
 #define VIDCAP_INIT_NOERR                1  ///< state not initialized, other action performed (typically help)
 #define VIDCAP_INIT_FAIL               (-1) ///< error ocured
-#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED (-2) ///< card does not support audio
+#define VIDCAP_INIT_AUDIO_NOT_SUPPORTED (-2) ///< card does not support audio
 /// @}
 
 #define VIDCAP_NO_GENERIC_FPS_INDICATOR NULL

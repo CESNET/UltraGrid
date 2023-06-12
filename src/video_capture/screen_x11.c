@@ -327,7 +327,7 @@ static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
         printf("vidcap_screen_init\n");
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
         const char *fmt = vidcap_params_get_fmt(params);

@@ -139,7 +139,7 @@ static float get_fps(struct vidcap_state_bitflow *s) {
 static int vidcap_bitflow_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
         struct vidcap_state_bitflow *s = (struct vidcap_state_bitflow *) calloc(1, sizeof(struct vidcap_state_bitflow));
 

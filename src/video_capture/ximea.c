@@ -225,7 +225,7 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, char *cfg) {
 static int vidcap_ximea_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
         struct state_vidcap_ximea *s = calloc(1, sizeof(struct state_vidcap_ximea));
         s->magic = MAGIC;

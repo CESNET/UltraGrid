@@ -460,7 +460,7 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
 	printf("vidcap_deltacast_dvi_init\n");
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
         char *init_fmt = NULL,

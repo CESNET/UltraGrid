@@ -788,7 +788,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	HRESULT res;
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
 	s = (struct vidcap_dshow_state *) calloc(1, sizeof(struct vidcap_dshow_state));

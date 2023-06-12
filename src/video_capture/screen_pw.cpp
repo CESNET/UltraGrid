@@ -923,7 +923,7 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
 static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
         screen_cast_session &session = *new screen_cast_session();

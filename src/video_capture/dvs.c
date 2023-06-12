@@ -358,7 +358,7 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
         } else {
                 if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                         free(s);
-                        return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                        return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
                 }
                 s->grab_audio = FALSE;
         }
