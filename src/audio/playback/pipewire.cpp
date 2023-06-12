@@ -51,6 +51,8 @@
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
 
+#define MOD_NAME "[PW play.] "
+
 struct state_pipewire_play{
         pipewire_state_common pw;
 
@@ -134,11 +136,8 @@ static void * audio_play_pw_init(const char *cfg){
 
         initialize_pw_common(s->pw);
 
-        fprintf(stdout, "Compiled with libpipewire %s\n"
-                        "Linked with libpipewire %s\n",
-                        pw_get_headers_version(),
-                        pw_get_library_version());
-
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Compiled with libpipewire %s\n", pw_get_headers_version());
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Linked with libpipewire %s\n", pw_get_library_version());
 
         return s.release();
 }
@@ -208,7 +207,7 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
 
         unsigned buffer_size = (s->buf_len_ms * s->desc.sample_rate / 1000) * s->desc.ch_count * s->desc.bps;
 
-        log_msg(LOG_LEVEL_NOTICE, "Requesting buffer size %u\n", buffer_size);
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requesting buffer size %u\n", buffer_size);
 
         spa_pod *new_params = (spa_pod *) spa_pod_builder_add_object(&pod_builder,
                         SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -217,12 +216,12 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
                         SPA_PARAM_BUFFERS_stride, SPA_POD_Int(s->desc.ch_count * s->desc.bps));
 
         if(!new_params){
-                log_msg(LOG_LEVEL_ERROR, "Failed to build pw buffer params pod\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to build pw buffer params pod\n");
                 return;
         }
 
         if (pw_stream_update_params(s->stream.get(), const_cast<const spa_pod **>(&new_params), 1) < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Failed to set stream params\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set stream params\n");
         }
 }
 
