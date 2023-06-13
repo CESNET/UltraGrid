@@ -64,6 +64,7 @@
 //remove leaking macros
 #undef min
 #undef max
+#undef starts_with
 
 #ifdef __MINGW32__
 #define VK_USE_PLATFORM_WIN32_KHR

@@ -46,6 +46,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "utils/macros.h"
 #include "video.h"
 
 #include <iomanip>
@@ -280,33 +281,33 @@ struct video_desc get_video_desc_from_string(const char *string)
                 for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
                         color_printf(TBOLD("%s") ", ", map[i].name);
                 }
-                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d}{23,24,25,29,30,59,60}") "\n");
+                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{23,24,25,29,30,59,60}") "\n");
                 return {};
 
         }
-        // BMD-like syntax
         for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
                 if (strcasecmp(map[i].name, string) == 0 || (strlen(string) == 4 && string[3] == ' ' && strncasecmp(map[i].name, string, 3) == 0)) {
                         return map[i].desc;
                 }
         }
+        // BMD-like syntax
         struct video_desc ret{};
         ret.color_spec = UYVY;
         ret.tile_count  = 1;
-        if (strncmp(string, "Hp", 2) == 0) {
+        if (strncmp(string, "Hp", 2) == 0 || starts_with(string, "1080p")) {
                 ret.width = 1920;
                 ret.height = 1080;
-        } else if (strncmp(string, "Hi", 2) == 0) {
+        } else if (strncmp(string, "Hi", 2) == 0 || starts_with(string, "1080i")) {
                 ret.width = 1920;
                 ret.height = 1080;
                 ret.interlacing = INTERLACED_MERGED;
-        } else if (strncmp(string, "hp", 2) == 0) {
+        } else if (strncmp(string, "hp", 2) == 0 || starts_with(string, "720p")) {
                 ret.width = 1280;
                 ret.height = 720;
         } else if (strncasecmp(string, "2d", 2) == 0) {
                 ret.width = 2048;
                 ret.height = 1080;
-        } else if (strncasecmp(string, "4k", 2) == 0) {
+        } else if (strncasecmp(string, "4k", 2) == 0 || starts_with(string, "2160p")) {
                 ret.width = 3860;
                 ret.height = 2160;
         } else if (strncasecmp(string, "4d", 2) == 0) {
