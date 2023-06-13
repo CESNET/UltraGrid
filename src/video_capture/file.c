@@ -599,7 +599,6 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.height = st->codecpar->height;
                 s->video_desc.fps = (double) st->r_frame_rate.num / st->r_frame_rate.den;
                 s->video_desc.tile_count = 1;
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Video size: %dx%d\n", s->video_desc.width, s->video_desc.height);
                 if (s->no_decode) {
                         s->video_desc.color_spec =
                                 get_av_to_ug_codec(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id);
@@ -644,6 +643,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
 
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
+                video_desc_to_string(s->video_desc));
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
 
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
