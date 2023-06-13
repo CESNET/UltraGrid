@@ -109,7 +109,7 @@ class col
 {
 public:
         template<class T>
-        col &operator<< (T val) {
+        col &operator<< (const T& val) {
                 oss << val;
                 return *this;
         }

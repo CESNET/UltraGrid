@@ -277,6 +277,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                                 s->chunk_size = atoi(item + strlen("frames="));
                         } else if (strncasecmp(item, "frequency=", strlen("frequency=")) == 0) {
                                 frequency = atoi(item + strlen("frequency="));
+                                assert(frequency != 0);
                         } else if(strstr(item, "crescendo") == item) {
                                 pattern = CRESCENDO;
                                 char *val = strchr(item, '=');

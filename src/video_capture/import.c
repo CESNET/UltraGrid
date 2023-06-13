@@ -1099,6 +1099,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                 }
  
                 if(s->queue_len == 0) {
+                        pthread_mutex_unlock(&s->lock);
                         return NULL;
                 }
 
