@@ -49,7 +49,10 @@
 #endif
 
 #ifdef __cplusplus
+#include <cstdio>
 extern "C" {
+#else
+#include <stdio.h>
 #endif
 
 /**
@@ -60,6 +63,7 @@ int get_exec_path(char* path);
 const char *get_temp_dir(void);
 FILE *get_temp_file(const char **filename);
 const char *get_install_root(void);
+ char *strdup_path_with_expansion(const char *orig_path);
 
 #ifdef __cplusplus
 } // extern "C"

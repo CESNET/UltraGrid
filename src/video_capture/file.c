@@ -75,6 +75,7 @@
 #include "module.h"
 #include "playback.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/misc.h" // clampi
@@ -406,7 +407,7 @@ static void *vidcap_file_worker(void *state) {
 
 static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const char *fmt,
                 bool *opportunistic_audio) {
-        s->src_filename = strdup(fmt);
+        s->src_filename = strdup_path_with_expansion(fmt);
         assert(s->src_filename != NULL);
         char *tmp = s->src_filename, *item, *saveptr;
         while ((item = strtok_r(tmp, ":", &saveptr)) != NULL) {

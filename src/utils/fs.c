@@ -156,3 +156,20 @@ FILE *get_temp_file(const char **filename) {
         return fd == -1 ? NULL : fdopen(fd, "wb");
 #endif
 }
+
+/**
+ * expands leading tilda (~) in path as an user home, but currently only the
+ * current user ("~/") not an other user like in the pattern "~other_user/"
+ */
+char *strdup_path_with_expansion(const char *orig_path) {
+        const char * const home = getenv("HOME");
+        if (strncmp(orig_path, "~/", 2) != 0 || home == NULL) {
+                return strdup(orig_path);
+        }
+        char *new_path = malloc(MAX_PATH_SIZE);
+        new_path[MAX_PATH_SIZE - 1] = '\0';
+        assert(new_path != NULL);
+        strncpy(new_path, home, MAX_PATH_SIZE - 1);
+        strncat(new_path, orig_path + 1, MAX_PATH_SIZE - strlen(new_path) - 1);
+        return new_path;
+}
