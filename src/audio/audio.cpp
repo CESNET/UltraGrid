@@ -80,7 +80,6 @@
 #include "../export.h" // not audio/export.h
 #include "host.h"
 #include "module.h"
-#include "rang.hpp"
 #include "rtp/audio_decoders.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
@@ -99,8 +98,6 @@
 #include "video_rxtx/h264_sdp.hpp" // send_change_address_message
 
 using namespace std;
-using rang::fg;
-using rang::style;
 
 enum audio_transport_device {
         NET_NATIVE,
