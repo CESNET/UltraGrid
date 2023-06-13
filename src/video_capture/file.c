@@ -46,6 +46,7 @@
  * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
  */
 
+#include "libavcodec/codec_par.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -502,6 +503,19 @@ static void seek_start(struct vidcap_state_lavf_decoder *s) {
                  {});
 }
 
+static enum interlacing_t get_field_order(enum AVFieldOrder av_fo) {
+        switch (av_fo) {
+        case AV_FIELD_PROGRESSIVE:
+                return PROGRESSIVE;
+        case AV_FIELD_TT:
+        case AV_FIELD_BT:
+                return INTERLACED_MERGED;
+        default:
+                log_msg(LOG_LEVEL_WARNING, "Potentially unsupported field order %d!\n", (int) av_fo);
+                return PROGRESSIVE;
+        }
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
@@ -640,7 +654,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 }
                         }
                 }
-                s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
+                s->video_desc.interlacing = get_field_order(s->vid_ctx->field_order);
         }
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
