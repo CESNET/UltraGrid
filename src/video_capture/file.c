@@ -107,6 +107,7 @@ struct vidcap_state_lavf_decoder {
         codec_t convert_to;
         bool paused;
         bool use_audio;
+        int seek_sec;
 
         int video_stream_idx, audio_stream_idx;
         int64_t last_vid_pts; ///< last played PTS, if PTS == PTS_NO_VALUE, DTS is stored instead
@@ -130,7 +131,7 @@ struct vidcap_state_lavf_decoder {
 
 static void vidcap_file_show_help(bool full) {
         color_printf("Usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-t file:<name>" TERM_FG_RESET "[:loop][:nodecode][:codec=<c>]%s\n" TERM_RESET,
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t file:<name>" TERM_FG_RESET "[:loop][:nodecode][:codec=<c>][:seek=<sec>]%s\n" TERM_RESET,
                         full ? "[:opportunistic_audio][:queue=<len>][:threads=<n>[FS]]" : "");
         color_printf("where\n");
         color_printf(TERM_BOLD "\tloop\n" TERM_RESET);
@@ -435,6 +436,8 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                         s->thread_count = clampi(count, 0, INT_MAX);
                         s->thread_type = strchr(endptr, 'F') != NULL ? FF_THREAD_FRAME : 0;
                         s->thread_type |= strchr(endptr, 'S') != NULL ? FF_THREAD_SLICE : 0;
+                } else if (strstr(item, "seek=") == item) {
+                        s->seek_sec = atoi(strchr(item, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
                         return false;
@@ -484,6 +487,19 @@ static void vidcap_file_should_exit(void *state) {
         pthread_cond_signal(&s->new_frame_ready);
         pthread_cond_signal(&s->frame_consumed);
         pthread_cond_signal(&s->paused_cv);
+}
+
+static void seek_start(struct vidcap_state_lavf_decoder *s) {
+        if (s->seek_sec <= 0) {
+                return;
+        }
+        AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
+        AVRational tb = st->time_base;
+        CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN,
+                                    st->start_time + s->last_vid_pts +
+                                        s->seek_sec * tb.den / tb.num,
+                                    INT64_MAX, AVSEEK_FLAG_FRAME),
+                 {});
 }
 
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
@@ -631,6 +647,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
 
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
+        seek_start(s);
 
         playback_register_keyboard_ctl(&s->mod);
         register_should_exit_callback(&s->mod, vidcap_file_should_exit, s);
