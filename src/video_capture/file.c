@@ -46,7 +46,6 @@
  * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
  */
 
-#include "libavcodec/codec_par.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -107,7 +106,6 @@ struct vidcap_state_lavf_decoder {
         bool no_decode;
         codec_t convert_to;
         bool paused;
-        bool use_audio;
         int seek_sec;
 
         int video_stream_idx, audio_stream_idx;
@@ -598,7 +596,6 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         s->audio_frame.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
                         s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
                         s->audio_frame.data = malloc(s->audio_frame.max_size);
-                        s->use_audio = true;
                 }
         }
 
@@ -691,6 +688,10 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
 
 static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double video_fps) {
         pthread_mutex_lock(&s->audio_frame_lock);
+        if (s->audio_frame.data_len == 0) {
+                pthread_mutex_unlock(&s->audio_frame_lock);
+                return NULL;
+        }
 
         struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
         memcpy(ret, &s->audio_frame, sizeof *ret);
@@ -717,7 +718,6 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         struct video_frame *out;
 
         assert(s->mod.priv_magic == MAGIC);
-        *audio = NULL;
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->video_frame_queue) == 0 && !s->failed && !s->should_exit) {
                 pthread_cond_wait(&s->new_frame_ready, &s->lock);
@@ -730,7 +730,7 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
-        *audio = get_audio(s, out->fps);
+        *audio = s->audio_stream_idx != -1 ? get_audio(s, out->fps) : NULL;
 
         struct timeval t;
         do {
