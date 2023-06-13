@@ -485,6 +485,19 @@ static void vidcap_file_should_exit(void *state) {
         pthread_cond_signal(&s->paused_cv);
 }
 
+static enum interlacing_t get_field_order(enum AVFieldOrder av_fo) {
+        switch (av_fo) {
+        case AV_FIELD_PROGRESSIVE:
+                return PROGRESSIVE;
+        case AV_FIELD_TT:
+        case AV_FIELD_BT:
+                return INTERLACED_MERGED;
+        default:
+                log_msg(LOG_LEVEL_WARNING, "Potentially unsupported field order %d!\n", (int) av_fo);
+                return PROGRESSIVE;
+        }
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
@@ -616,7 +629,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 }
                         }
                 }
-                s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
+                s->video_desc.interlacing = get_field_order(s->vid_ctx->field_order);
         }
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
