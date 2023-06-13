@@ -125,7 +125,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
-#define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
@@ -734,6 +733,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"postprocess",            required_argument, nullptr, 'p'},
                 {"receive",                required_argument, nullptr, 'r'},
                 {"send",                   required_argument, nullptr, 's'},
+                {"audio-codec",            required_argument, nullptr, 'u'},
                 {"version",                no_argument,       nullptr, 'v'},
                 {"protocol",               required_argument, nullptr, 'x'},
                 {"audio-host",             required_argument, nullptr, 'A'},
@@ -749,7 +749,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"verbose",                optional_argument, nullptr, 'V'},
                 {"audio-channel-map",      required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
                 {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
-                {"audio-codec",            required_argument, 0, OPT_AUDIO_CODEC},
                 {"audio-delay",            required_argument, 0, OPT_AUDIO_DELAY},
                 {"audio-protocol",         required_argument, 0, OPT_AUDIO_PROTOCOL},
                 {"capabilities",           optional_argument, 0, OPT_CAPABILITIES},
@@ -771,7 +770,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:vx:";
+        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:u:vx:";
 
         int ch = 0;
         while ((ch =
@@ -946,7 +945,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         }
                         break;
-                case OPT_AUDIO_CODEC:
+                case 'u':
                         if(strcmp(optarg, "help") == 0) {
                                 list_audio_codecs();
                                 return 1;
