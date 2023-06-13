@@ -281,6 +281,9 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
         bool out_frame_initialized = false;
         for (int i = 0; i < frame->get_channel_count(); ++i) {
                 audio_channel_demux(frame, i, &channel);
+                if (channel.data_len == 0) {
+                        continue;
+                }
                 audio_channel *out = s->funcs->decompress(s->state[i], &channel);
                 if (out) {
                         if (!out_frame_initialized) {
