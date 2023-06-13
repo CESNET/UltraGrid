@@ -1078,6 +1078,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         s->saved_desc = desc;
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Successfully reconfigured to " << desc << "\n";
 
         return true;
 }
