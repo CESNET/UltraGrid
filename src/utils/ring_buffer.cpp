@@ -209,6 +209,8 @@ void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
         int size1;
         void *ptr2;
         int size2;
+        if(len == 0)
+                return;
         if(!ring_get_write_regions(ring, len, &ptr1, &size1, &ptr2, &size2)){
                 fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", len);
                 return;
@@ -233,6 +235,8 @@ void ring_fill(struct ring_buffer *ring, int c, int size){
         int size1;
         void *ptr2;
         int size2;
+        if(size == 0)
+                return;
         if(!ring_get_write_regions(ring, size, &ptr1, &size1, &ptr2, &size2)){
                 fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", size);
                 return;
