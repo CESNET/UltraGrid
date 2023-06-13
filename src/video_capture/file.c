@@ -503,13 +503,20 @@ static void seek_start(struct vidcap_state_lavf_decoder *s) {
 
 static enum interlacing_t get_field_order(enum AVFieldOrder av_fo) {
         switch (av_fo) {
+        case AV_FIELD_UNKNOWN:
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Unknown field order, using progressive.\n");
+                return PROGRESSIVE;
         case AV_FIELD_PROGRESSIVE:
                 return PROGRESSIVE;
         case AV_FIELD_TT:
         case AV_FIELD_BT:
                 return INTERLACED_MERGED;
         default:
-                log_msg(LOG_LEVEL_WARNING, "Potentially unsupported field order %d!\n", (int) av_fo);
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Potentially unsupported field order (lower-"
+                                 "field first): %d! Using progressive.\n",
+                        (int)av_fo);
                 return PROGRESSIVE;
         }
 }
