@@ -677,6 +677,9 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 return VIDCAP_INIT_FAIL;
         }
 
+        if (log_level >= LOG_LEVEL_VERBOSE) {
+                av_dump_format(s->fmt_ctx, 0, s->src_filename, 0);
+        }
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
                 video_desc_to_string(s->video_desc));
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
