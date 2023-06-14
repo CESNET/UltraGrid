@@ -2,7 +2,9 @@
 #define PIPEWIRE_COMMON_HPP_b6f55dc83d84
 
 #include <memory>
+#include <mutex>
 #include <spa/param/audio/format-utils.h>
+#include <spa/debug/types.h> //For pw format to string
 #include <pipewire/pipewire.h>
 
 template<typename T, auto delete_func>
@@ -67,17 +69,36 @@ public:
         }
 
         ~pipewire_init_guard(){
+#if !PW_CHECK_VERSION(0, 3, 49)
+                std::lock_guard<std::mutex> l(mut);
+                if(initialized){
+                        init_count--;
+                        if(init_count > 0)
+                                return;
+                }
+#endif
                 if(initialized)
                         pw_deinit();
         }
 
         void init(){
+#if !PW_CHECK_VERSION(0, 3, 49)
+                std::lock_guard<std::mutex> l(mut);
+                init_count++;
+#endif
                 pw_init(nullptr, nullptr);
                 initialized = true;
         }
 
 private:
         bool initialized = false;
+#if !PW_CHECK_VERSION(0, 3, 49)
+        /* After 0.3.49 deinit needs to be called as many times as init was called,
+         * but on previous versions it can be called only once.
+         */
+        inline static int init_count = 0;
+        std::mutex mut;
+#endif
 };
 
 struct pipewire_state_common{
