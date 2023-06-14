@@ -265,6 +265,7 @@ static void *vidcap_file_worker(void *state) {
         set_thread_name(__func__);
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         AVPacket *pkt = av_packet_alloc();
+        AVFrame *frame = av_frame_alloc();
 
         pkt->size = 0;
         pkt->data = 0;
@@ -323,21 +324,17 @@ static void *vidcap_file_worker(void *state) {
                         if (ret < 0) {
                                 print_decoder_error(MOD_NAME, ret);
                         }
-                        AVFrame * frame = av_frame_alloc();
                         while (ret >= 0) {
                                 ret = avcodec_receive_frame(s->aud_ctx, frame);
 				if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-					av_frame_free(&frame);
 					break; // inner loop
                                 } else if (ret < 0) {
 					print_decoder_error(MOD_NAME, ret);
-					av_frame_free(&frame);
 					break; // inner loop
 				}
 				/* if a frame has been decoded, output it */
                                 vidcap_file_write_audio(s, frame);
                         }
-                        av_frame_free(&frame);
                 } else if (pkt->stream_index == s->video_stream_idx) {
                         s->last_vid_pts = pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
                         struct video_frame *out;
@@ -349,8 +346,6 @@ static void *vidcap_file_worker(void *state) {
                                 out->tiles[0].data = malloc(pkt->size);
                                 memcpy(out->tiles[0].data, pkt->data, pkt->size);
                         } else {
-                                AVFrame * frame = av_frame_alloc();
-
                                 time_ns_t t0 = get_time_in_ns();
                                 ret = avcodec_send_packet(s->vid_ctx, pkt);
                                 const char *dec_err_where = MOD_NAME "send - ";
@@ -368,7 +363,6 @@ static void *vidcap_file_worker(void *state) {
 
                                 if (ret < 0) {
                                         print_decoder_error(dec_err_where, ret);
-                                        av_frame_free(&frame);
                                         continue;
                                 }
                                 out = vf_alloc_desc_data(s->video_desc);
@@ -406,6 +400,7 @@ static void *vidcap_file_worker(void *state) {
         }
 
         av_packet_free(&pkt);
+        av_frame_free(&frame);
 
         return NULL;
 }
