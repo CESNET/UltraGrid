@@ -260,6 +260,56 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
         }
 }
 
+static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s,
+                              AVPacket *pkt, AVFrame *frame) {
+        s->last_vid_pts = pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
+        if (s->no_decode) {
+                struct video_frame *out = vf_alloc_desc(s->video_desc);
+                out->callbacks.data_deleter = vf_data_deleter;
+                out->callbacks.dispose = vf_free;
+                out->tiles[0].data_len = pkt->size;
+                out->tiles[0].data = malloc(pkt->size);
+                memcpy(out->tiles[0].data, pkt->data, pkt->size);
+                return out;
+        }
+        time_ns_t t0 = get_time_in_ns();
+        int ret = avcodec_send_packet(s->vid_ctx, pkt);
+        if (ret != 0 && ret != AVERROR(EAGAIN)) {
+                print_decoder_error(MOD_NAME "send - ", ret);
+                return NULL;
+        }
+        ret = avcodec_receive_frame(s->vid_ctx, frame);
+        log_msg(LOG_LEVEL_DEBUG,
+                MOD_NAME "Video decompressing %c frame "
+                         "duration: %f ns\n",
+                av_get_picture_type_char(frame->pict_type),
+                (get_time_in_ns() - t0) / NS_IN_SEC_DBL);
+
+        if (ret < 0) {
+                print_decoder_error(MOD_NAME "recv - ", ret);
+                return NULL;
+        }
+        struct video_frame *out = vf_alloc_desc_data(s->video_desc);
+
+        /* copy decoded frame to destination buffer:
+         * this is required since rawvideo expects non aligned data */
+        int video_dst_linesize[4] = {
+            vc_get_linesize(out->tiles[0].width, out->color_spec)};
+        uint8_t *dst[4] = {(uint8_t *)out->tiles[0].data};
+        if (s->conv_uv.valid) {
+                int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
+                av_to_uv_convert(&s->conv_uv, out->tiles[0].data, frame,
+                                 out->tiles[0].width, out->tiles[0].height,
+                                 video_dst_linesize[0], rgb_shift);
+        } else {
+                sws_scale(s->sws_ctx, (const uint8_t *const *)frame->data,
+                          frame->linesize, 0, frame->height, dst,
+                          video_dst_linesize);
+        }
+        out->callbacks.dispose = vf_free;
+        return out;
+}
+
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
 static void *vidcap_file_worker(void *state) {
         set_thread_name(__func__);
@@ -270,6 +320,7 @@ static void *vidcap_file_worker(void *state) {
         pkt->size = 0;
         pkt->data = 0;
         while (!s->should_exit) {
+                av_packet_unref(pkt);
                 pthread_mutex_lock(&s->lock);
                 if (s->new_msg) {
                         vidcap_file_process_messages(s);
@@ -336,67 +387,26 @@ static void *vidcap_file_worker(void *state) {
                                 vidcap_file_write_audio(s, frame);
                         }
                 } else if (pkt->stream_index == s->video_stream_idx) {
-                        s->last_vid_pts = pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
-                        struct video_frame *out;
-                        if (s->no_decode) {
-                                out = vf_alloc_desc(s->video_desc);
-                                out->callbacks.data_deleter = vf_data_deleter;
-                                out->callbacks.dispose = vf_free;
-                                out->tiles[0].data_len = pkt->size;
-                                out->tiles[0].data = malloc(pkt->size);
-                                memcpy(out->tiles[0].data, pkt->data, pkt->size);
-                        } else {
-                                time_ns_t t0 = get_time_in_ns();
-                                ret = avcodec_send_packet(s->vid_ctx, pkt);
-                                const char *dec_err_where = MOD_NAME "send - ";
-                                if (ret == 0 || ret == AVERROR(EAGAIN)) {
-                                        ret = avcodec_receive_frame(s->vid_ctx, frame);
-                                        dec_err_where = MOD_NAME "recv - ";
-                                }
-                                log_msg(LOG_LEVEL_DEBUG,
-                                        MOD_NAME "Video decompressing %c frame "
-                                                 "duration: %f ns\n",
-                                        av_get_picture_type_char(
-                                            frame->pict_type),
-                                        (get_time_in_ns() - t0) /
-                                            NS_IN_SEC_DBL);
-
-                                if (ret < 0) {
-                                        print_decoder_error(dec_err_where, ret);
-                                        continue;
-                                }
-                                out = vf_alloc_desc_data(s->video_desc);
-
-                                /* copy decoded frame to destination buffer:
-                                 * this is required since rawvideo expects non aligned data */
-                                int video_dst_linesize[4] = { vc_get_linesize(out->tiles[0].width, out->color_spec) };
-                                uint8_t *dst[4] = { (uint8_t *) out->tiles[0].data };
-                                if (s->conv_uv.valid) {
-                                        int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
-                                        av_to_uv_convert(&s->conv_uv, out->tiles[0].data, frame, out->tiles[0].width, out->tiles[0].height, video_dst_linesize[0], rgb_shift);
-                                } else {
-                                        sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
-                                                        frame->height, dst, video_dst_linesize);
-                                }
-                                av_frame_free(&frame);
-                                out->callbacks.dispose = vf_free;
+                        struct video_frame *out =
+                            process_video_pkt(s, pkt, frame);
+                        if (!out) {
+                                continue;
                         }
                         pthread_mutex_lock(&s->lock);
-                        while (!s->should_exit && simple_linked_list_size(s->video_frame_queue) > s->max_queue_len) {
+                        while (!s->should_exit &&
+                               simple_linked_list_size(s->video_frame_queue) >
+                                   s->max_queue_len) {
                                 pthread_cond_wait(&s->frame_consumed, &s->lock);
                         }
                         if (s->should_exit) {
-                                VIDEO_FRAME_DISPOSE(out);
-                                pthread_mutex_unlock(&s->lock);
                                 av_packet_unref(pkt);
-                                av_packet_free(&pkt);
-                                return NULL;
+                                pthread_mutex_unlock(&s->lock);
+                                break;
                         }
                         simple_linked_list_append(s->video_frame_queue, out);
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->new_frame_ready);
                 }
-                av_packet_unref(pkt);
         }
 
         av_packet_free(&pkt);
