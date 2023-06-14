@@ -236,7 +236,7 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                         AVRational tb = st->time_base;
                         CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, st->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
                         char position[13], duration[13];
-                        format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den  + sec * 1000, position);
+                        format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den + (long)(sec * 1000.), position);
                         format_time_ms(st->duration * tb.num * 1000 / tb.den, duration);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s / %s\n", position, duration);
                 } else if (strcmp(msg->text, "pause") == 0) {
@@ -626,6 +626,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 vidcap_file_common_cleanup(s);
                                 return VIDCAP_INIT_FAIL;
                         }
+                        s->video_desc.interlacing = PROGRESSIVE;
                 } else {
                         s->vid_ctx = vidcap_file_open_dec_ctx(dec, st, s->thread_count, s->thread_type);
                         if (!s->vid_ctx) {
@@ -657,8 +658,9 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                         return VIDCAP_INIT_FAIL;
                                 }
                         }
+                        s->video_desc.interlacing =
+                            get_field_order(s->vid_ctx->field_order);
                 }
-                s->video_desc.interlacing = get_field_order(s->vid_ctx->field_order);
         }
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
