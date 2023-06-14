@@ -4,8 +4,7 @@
  *
  * Libavformat demuxer and decompress
  *
- * Inspired with demuxing_decoding.c (but replacing deprecated
- * avcodec_decode_audio/avcodec_decode_video).
+ * Inspired with demuxing_decoding.c
  */
 /*
  * Copyright (c) 2019-2023 CESNET, z. s. p. o.
@@ -521,6 +520,66 @@ static enum interlacing_t get_field_order(enum AVFieldOrder av_fo) {
         }
 }
 
+static bool setup_video(struct vidcap_state_lavf_decoder *s) {
+        AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
+        s->video_desc.width = st->codecpar->width;
+        s->video_desc.height = st->codecpar->height;
+        s->video_desc.fps = (double)st->r_frame_rate.num / st->r_frame_rate.den;
+        s->video_desc.tile_count = 1;
+        if (s->no_decode) {
+                s->video_desc.color_spec =
+                    get_av_to_ug_codec(st->codecpar->codec_id);
+                if (s->video_desc.color_spec == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unsupported codec %s.\n",
+                                avcodec_get_name(st->codecpar->codec_id));
+                        return false;
+                }
+                s->video_desc.interlacing = PROGRESSIVE;
+                return true;
+        }
+        const AVCodec *dec = avcodec_find_decoder(st->codecpar->codec_id);
+        s->vid_ctx =
+            vidcap_file_open_dec_ctx(dec, st, s->thread_count, s->thread_type);
+        if (!s->vid_ctx) {
+                return false;
+        }
+        s->video_desc.interlacing = get_field_order(s->vid_ctx->field_order);
+
+        enum AVPixelFormat suggested[] = {s->vid_ctx->pix_fmt, AV_PIX_FMT_NONE};
+        s->video_desc.color_spec = IF_NOT_NULL_ELSE(
+            s->convert_to, get_best_ug_codec_to_av(suggested, false));
+        if (s->video_desc.color_spec == VIDEO_CODEC_NONE) {
+                s->video_desc.color_spec =
+                    UYVY; // fallback, swscale will perhaps be used
+        }
+        s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt,
+                                             s->video_desc.color_spec);
+        if (s->conv_uv.valid) {
+                return true;
+        }
+        // else swscale needed
+        enum AVPixelFormat target_pixfmt =
+            get_ug_to_av_pixfmt(s->video_desc.color_spec);
+        if (target_pixfmt == AV_PIX_FMT_NONE) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME "Cannot find suitable AVPixelFormat "
+                                 "for swscale conversion!\n");
+                return false;
+        }
+        s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height,
+                                    s->vid_ctx->pix_fmt, s->video_desc.width,
+                                    s->video_desc.height, target_pixfmt, 0,
+                                    NULL, NULL, NULL);
+        if (s->sws_ctx == NULL) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME "Cannot find neither UltraGrid nor "
+                                 "swscale conversion!\n");
+                return false;
+        }
+        return true;
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
@@ -580,9 +639,10 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 return VIDCAP_INIT_FAIL;
         }
 
-        const AVCodec *dec = NULL;
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, (void *) &dec, 0);
+                const AVCodec *dec = NULL;
+                s->audio_stream_idx = av_find_best_stream(
+                    s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, (void *)&dec, 0);
                 if (s->audio_stream_idx < 0 && !opportunistic_audio) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
@@ -606,61 +666,15 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 }
         }
 
-        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, (void *) &dec, 0);
+        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
         if (s->video_stream_idx < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "No video stream found!\n");
                 vidcap_file_common_cleanup(s);
                 return VIDCAP_INIT_FAIL;
-        } else {
-                AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
-                s->video_desc.width = st->codecpar->width;
-                s->video_desc.height = st->codecpar->height;
-                s->video_desc.fps = (double) st->r_frame_rate.num / st->r_frame_rate.den;
-                s->video_desc.tile_count = 1;
-                if (s->no_decode) {
-                        s->video_desc.color_spec =
-                                get_av_to_ug_codec(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id);
-                        if (s->video_desc.color_spec == VIDEO_CODEC_NONE) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec %s.\n",
-                                                avcodec_get_name(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id));
-                                vidcap_file_common_cleanup(s);
-                                return VIDCAP_INIT_FAIL;
-                        }
-                        s->video_desc.interlacing = PROGRESSIVE;
-                } else {
-                        s->vid_ctx = vidcap_file_open_dec_ctx(dec, st, s->thread_count, s->thread_type);
-                        if (!s->vid_ctx) {
-                                vidcap_file_common_cleanup(s);
-                                return VIDCAP_INIT_FAIL;
-                        }
-
-                        enum AVPixelFormat suggested[] = { s->vid_ctx->pix_fmt, AV_PIX_FMT_NONE };
-                        s->video_desc.color_spec = IF_NOT_NULL_ELSE(s->convert_to, get_best_ug_codec_to_av(suggested, false));
-                        if (s->video_desc.color_spec == VIDEO_CODEC_NONE) {
-                                s->video_desc.color_spec = UYVY; // fallback, swscale will perhaps be used
-                        }
-
-                        if (!(s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)).valid) {
-                                enum AVPixelFormat target_pixfmt = get_ug_to_av_pixfmt(s->video_desc.color_spec);
-
-                                if(target_pixfmt == AV_PIX_FMT_NONE){
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find suitable AVPixelFormat for swscale conversion!\n");
-                                        vidcap_file_common_cleanup(s);
-                                        return VIDCAP_INIT_FAIL;
-                                }
-
-                                s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
-                                                s->video_desc.width, s->video_desc.height, target_pixfmt,
-                                                0, NULL, NULL, NULL);
-                                if (s->sws_ctx == NULL) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find neither UltraGrid nor swscale conversion!\n");
-                                        vidcap_file_common_cleanup(s);
-                                        return VIDCAP_INIT_FAIL;
-                                }
-                        }
-                        s->video_desc.interlacing =
-                            get_field_order(s->vid_ctx->field_order);
-                }
+        }
+        if (!setup_video(s)) {
+                vidcap_file_common_cleanup(s);
+                return VIDCAP_INIT_FAIL;
         }
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
