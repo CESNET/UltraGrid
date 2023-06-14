@@ -77,7 +77,6 @@
 #include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
-#include "utils/misc.h" // clampi
 #include "utils/time.h"
 #include "utils/thread.h"
 #include "video.h"
@@ -431,7 +430,7 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                 } else if (strncmp(item, "threads=", strlen("threads=")) == 0) {
                         char *endptr = NULL;
                         long count = strtol(item + strlen("threads="), &endptr, 0);
-                        s->thread_count = clampi(count, 0, INT_MAX);
+                        s->thread_count = CLAMP(count, 0, INT_MAX);
                         s->thread_type = strchr(endptr, 'F') != NULL ? FF_THREAD_FRAME : 0;
                         s->thread_type |= strchr(endptr, 'S') != NULL ? FF_THREAD_SLICE : 0;
                 } else if (strstr(item, "seek=") == item) {

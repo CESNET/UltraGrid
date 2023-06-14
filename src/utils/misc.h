@@ -52,8 +52,6 @@
 extern "C" {
 #endif
 
-int clampi(long long val, int lo, int hi);
-
 bool is_wine(void);
 long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str, bool case_sensitive);
