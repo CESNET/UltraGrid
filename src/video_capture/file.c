@@ -126,6 +126,8 @@ struct vidcap_state_lavf_decoder {
         bool should_exit;
 };
 
+static void flush_captured_data(struct vidcap_state_lavf_decoder *s);
+
 static void vidcap_file_show_help(bool full) {
         color_printf("Usage:\n");
         color_printf(TERM_BOLD TERM_FG_RED "\t-t file:<name>" TERM_FG_RESET "[:loop][:nodecode][:codec=<c>][:seek=<sec>]%s\n" TERM_RESET,
@@ -149,6 +151,14 @@ static void vidcap_file_show_help(bool full) {
         }
 }
 
+static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
+        struct video_frame *f = NULL;
+        while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
+                VIDEO_FRAME_DISPOSE(f);
+        }
+        s->audio_frame.data_len = 0;
+}
+
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         if (s->sws_ctx) {
                 sws_freeContext(s->sws_ctx);
@@ -164,10 +174,7 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         }
 
         free(s->audio_frame.data);
-        struct video_frame *f = NULL;
-        while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
-                VIDEO_FRAME_DISPOSE(f);
-        }
+        flush_captured_data(s);
 
         pthread_mutex_destroy(&s->audio_frame_lock);
         pthread_mutex_destroy(&s->lock);
@@ -237,6 +244,7 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                         format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den + (long)(sec * 1000.), position);
                         format_time_ms(st->duration * tb.num * 1000 / tb.den, duration);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s / %s\n", position, duration);
+                        flush_captured_data(s);
                 } else if (strcmp(msg->text, "pause") == 0) {
                         s->paused = !s->paused;
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%s\n", s->paused ? "paused" : "unpaused");
