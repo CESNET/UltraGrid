@@ -352,7 +352,13 @@ static void *vidcap_file_worker(void *state) {
                                                 got_frame = 1;
                                         }
                                 }
-                                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Video decompress duration: %f\n", (get_time_in_ns() - t0) / NS_IN_SEC_DBL);
+                                log_msg(LOG_LEVEL_DEBUG,
+                                        MOD_NAME "Video decompressing %c frame "
+                                                 "duration: %f ns\n",
+                                        av_get_picture_type_char(
+                                            frame->pict_type),
+                                        (get_time_in_ns() - t0) /
+                                            NS_IN_SEC_DBL);
                                 if (ret != 0) {
                                         print_decoder_error(MOD_NAME, ret);
                                 }
