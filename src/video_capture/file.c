@@ -350,15 +350,13 @@ static void *vidcap_file_worker(void *state) {
                                 memcpy(out->tiles[0].data, pkt->data, pkt->size);
                         } else {
                                 AVFrame * frame = av_frame_alloc();
-                                int got_frame = 0;
 
                                 time_ns_t t0 = get_time_in_ns();
                                 ret = avcodec_send_packet(s->vid_ctx, pkt);
+                                const char *dec_err_where = MOD_NAME "send - ";
                                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                                         ret = avcodec_receive_frame(s->vid_ctx, frame);
-                                        if (ret == 0) {
-                                                got_frame = 1;
-                                        }
+                                        dec_err_where = MOD_NAME "recv - ";
                                 }
                                 log_msg(LOG_LEVEL_DEBUG,
                                         MOD_NAME "Video decompressing %c frame "
@@ -367,14 +365,9 @@ static void *vidcap_file_worker(void *state) {
                                             frame->pict_type),
                                         (get_time_in_ns() - t0) /
                                             NS_IN_SEC_DBL);
-                                if (ret != 0) {
-                                        print_decoder_error(MOD_NAME, ret);
-                                }
 
-                                if (ret < 0 || !got_frame) {
-                                        if (ret < 0) {
-                                                fprintf(stderr, "Error decoding video frame (%s)\n", av_err2str(ret));
-                                        }
+                                if (ret < 0) {
+                                        print_decoder_error(dec_err_where, ret);
                                         av_frame_free(&frame);
                                         continue;
                                 }
