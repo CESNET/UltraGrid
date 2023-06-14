@@ -260,18 +260,23 @@ void lavd_flush(AVCodecContext *codec_ctx) {
 void print_decoder_error(const char *mod_name, int rc) {
         char buf[1024];
         switch (rc) {
-                case 0:
-                        break;
-                case EAGAIN:
-                        log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
-                        break;
-                case EINVAL:
-                        log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
-                        break;
-                default:
-                        av_strerror(rc, buf, 1024);
-                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
-                        break;
+        case 0:
+                break;
+        case EAGAIN:
+                log_msg(LOG_LEVEL_VERBOSE,
+                        "%sNo frame returned - needs more input data.\n",
+                        mod_name);
+                break;
+        case EINVAL:
+                log_msg(LOG_LEVEL_ERROR, "%sDecoder in invalid state!\n",
+                        mod_name);
+                break;
+        default:
+                av_strerror(rc, buf, sizeof buf);
+                log_msg(LOG_LEVEL_WARNING,
+                        "%sError while decoding frame (rc == %d): %s.\n",
+                        mod_name, rc, buf);
+                break;
         }
 }
 
