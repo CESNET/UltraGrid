@@ -30,8 +30,11 @@ decklink_temperature: decklink_temperature.cpp ext-deps/DeckLink/Linux/DeckLinkA
 uyvy2yuv422p: uyvy2yuv422p.c
 	$(CC) -g -std=c99 -Wall $< -o $@
 
+thumbnailgen: thumbnailgen.o ipc_frame.o ipc_frame_unix.o
+	$(CXX) $^ -o $@ -ljpeg
 
-TARGETS=astat_lib astat_test convert decklink_temperature uyvy2yuv422p
+
+TARGETS=astat_lib astat_test convert decklink_temperature uyvy2yuv422p thumbnailgen
 
 all: $(TARGETS)
 
