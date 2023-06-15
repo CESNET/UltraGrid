@@ -77,6 +77,7 @@
 #include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
+#include "utils/ring_buffer.h"
 #include "utils/time.h"
 #include "utils/thread.h"
 #include "video.h"
@@ -110,10 +111,11 @@ struct vidcap_state_lavf_decoder {
         int64_t last_vid_pts; ///< last played PTS, if PTS == PTS_NO_VALUE, DTS is stored instead
 
         struct video_desc video_desc;
+        struct audio_desc audio_desc;
 
         struct simple_linked_list *video_frame_queue;
         int max_queue_len;
-        struct audio_frame audio_frame;
+        struct ring_buffer *audio_data;
         pthread_mutex_t audio_frame_lock;
 
         pthread_t thread_id;
@@ -156,7 +158,7 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
         while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
                 VIDEO_FRAME_DISPOSE(f);
         }
-        s->audio_frame.data_len = 0;
+        ring_buffer_flush(s->audio_data);
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -173,7 +175,7 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
                 avformat_close_input(&s->fmt_ctx);
         }
 
-        free(s->audio_frame.data);
+        ring_buffer_destroy(s->audio_data);
         flush_captured_data(s);
 
         pthread_mutex_destroy(&s->audio_frame_lock);
@@ -202,24 +204,22 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         pthread_mutex_lock(&s->audio_frame_lock);
         if (av_sample_fmt_is_planar(s->aud_ctx->sample_fmt)) {
                 int bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
-                if (s->audio_frame.data_len + plane_count * bps * s->aud_ctx->frame_size > s->audio_frame.max_size) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Audio buffer overflow!\n");
-                        pthread_mutex_unlock(&s->audio_frame_lock);
-                        return;
-                }
+                char tmp[plane_count * bps * s->aud_ctx->frame_size];
                 for (int i = 0; i < plane_count; ++i) {
-                        mux_channel(s->audio_frame.data + s->audio_frame.data_len, (char *) frame->data[i], bps, s->aud_ctx->frame_size * bps, plane_count, i, 1.0);
+                        mux_channel(tmp, (char *)frame->data[i], bps,
+                                    s->aud_ctx->frame_size * bps, plane_count,
+                                    i, 1.0);
                 }
-                s->audio_frame.data_len += plane_count * bps * s->aud_ctx->frame_size;
+                ring_buffer_write(s->audio_data, tmp, sizeof tmp);
         } else {
-                int data_size = av_samples_get_buffer_size(NULL, s->audio_frame.ch_count,
+                int data_size = av_samples_get_buffer_size(NULL, s->audio_desc.ch_count,
                                 frame->nb_samples,
                                 s->aud_ctx->sample_fmt, 1);
                 if (data_size < 0) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME " av_samples_get_buffer_size", data_size);
                 } else {
-                        append_audio_frame(&s->audio_frame, (char *) frame->data[0],
-                                        data_size);
+                        ring_buffer_write(s->audio_data, (char *)frame->data[0],
+                                          data_size);
                 }
         }
         pthread_mutex_unlock(&s->audio_frame_lock);
@@ -679,11 +679,12 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         }
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Input audio sample bps: %s\n",
                                         av_get_sample_fmt_name(s->aud_ctx->sample_fmt));
-                        s->audio_frame.bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
-                        s->audio_frame.sample_rate = s->aud_ctx->sample_rate;
-                        s->audio_frame.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
-                        s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
-                        s->audio_frame.data = malloc(s->audio_frame.max_size);
+                        s->audio_desc.bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
+                        s->audio_desc.sample_rate = s->aud_ctx->sample_rate;
+                        s->audio_desc.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
+                        s->audio_data = ring_buffer_init(
+                            s->audio_desc.bps * s->audio_desc.ch_count *
+                            s->audio_desc.sample_rate);
                 }
         }
 
@@ -735,24 +736,23 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
 
 static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double video_fps) {
         pthread_mutex_lock(&s->audio_frame_lock);
-        if (s->audio_frame.data_len == 0) {
+        if (ring_get_current_size(s->audio_data) == 0) {
                 pthread_mutex_unlock(&s->audio_frame_lock);
                 return NULL;
         }
 
         struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
-        memcpy(ret, &s->audio_frame, sizeof *ret);
+        audio_frame_write_desc(ret, s->audio_desc);
 
         // capture more data to ensure the buffer won't grow - it is capped with actually read
         // data, still. Moreover there number of audio samples per video frame period may not
         // be integer. It shouldn't be much, however, not to confuse adaptible audio buffer.
         ret->max_size =
-                ret->data_len = MIN((int) (AUDIO_RATIO * ret->sample_rate / video_fps) * ret->bps * ret->ch_count , s->audio_frame.data_len);
-        ret->data = (char *) malloc(ret->max_size);
-        memcpy(ret->data, s->audio_frame.data, ret->data_len);
-
-        s->audio_frame.data_len -= ret->data_len;
-        memmove(s->audio_frame.data, s->audio_frame.data + ret->data_len, s->audio_frame.data_len);
+            (int)(AUDIO_RATIO * s->audio_desc.sample_rate / video_fps) *
+            s->audio_desc.bps * s->audio_desc.ch_count;
+        ret->data = (char *)malloc(ret->max_size);
+        ret->data_len =
+            ring_buffer_read(s->audio_data, ret->data, ret->max_size);
 
         ret->dispose = vidcap_file_dispose_audio;
 
