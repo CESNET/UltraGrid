@@ -310,6 +310,27 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
         return out;
 }
 
+static void print_packet_info(const AVPacket *pkt, const AVStream *st) {
+        AVRational tb = st->time_base;
+
+        char pts_val[128] = "NO VALUE";
+        if (pkt->pts != AV_NOPTS_VALUE) {
+                snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt->pts);
+        }
+        char dts_val[128] = "NO VALUE";
+        if (pkt->dts != AV_NOPTS_VALUE) {
+                snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt->dts);
+        }
+        log_msg(LOG_LEVEL_DEBUG,
+                MOD_NAME "rcv %s pkt, ID %d, pos %.2f s (pts %s, dts "
+                         "%s, dur %" PRId64 ", tb %d/%d), sz %d B\n",
+                av_get_media_type_string(st->codecpar->codec_type),
+                pkt->stream_index,
+                (double)(pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts) *
+                    tb.num / tb.den,
+                pts_val, dts_val, pkt->duration, tb.num, tb.den, pkt->size);
+}
+
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
 static void *vidcap_file_worker(void *state) {
         set_thread_name(__func__);
@@ -354,21 +375,10 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                AVRational tb = s->fmt_ctx->streams[pkt->stream_index]->time_base;
-
-                char pts_val[128] = "NO VALUE";
-                if (pkt->pts != AV_NOPTS_VALUE) {
-                        snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt->pts);
+                if (log_level >= LOG_LEVEL_DEBUG) {
+                        print_packet_info(
+                            pkt, s->fmt_ctx->streams[pkt->stream_index]);
                 }
-                char dts_val[128] = "NO VALUE";
-                if (pkt->dts != AV_NOPTS_VALUE) {
-                        snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt->dts);
-                }
-                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %f (pts %s, dts %s), size %d\n",
-                                av_get_media_type_string(
-                                        s->fmt_ctx->streams[pkt->stream_index]->codecpar->codec_type),
-                                pkt->stream_index, (double) (pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts)
-                                * tb.num / tb.den, pts_val, dts_val, pkt->size);
 
                 if (pkt->stream_index == s->audio_stream_idx) {
                         ret = avcodec_send_packet(s->aud_ctx, pkt);
