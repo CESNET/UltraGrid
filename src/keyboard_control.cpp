@@ -201,15 +201,20 @@ keyboard_control::impl::~impl() {
         stop(); // in case that it was not called explicitly
 }
 
-ADD_TO_PARAM("disable-keyboard-control", "* disable-keyboard-control\n"
+ADD_TO_PARAM("disable-keyboard-control", "* disable-keyboard-control[=no]\n"
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::impl::start()
 {
+        bool force_key_control = false;
         if (get_commandline_param("disable-keyboard-control")) {
-                return;
+                if (strcmp(get_commandline_param("disable-keyboard-control"),
+                           "no") != 0) {
+                        return;
+                }
+                force_key_control = true;
         }
 
-        if(running_in_debugger()){
+        if (running_in_debugger() && !force_key_control) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Running inside gdb - disabling interactive keyboard control\n";
                 return;
         }
