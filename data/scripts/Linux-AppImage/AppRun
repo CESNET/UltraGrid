@@ -67,6 +67,7 @@ usage_aux() {
         printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
         printf "\t                         the variable contains a profile path (ends with\n"
         printf "\t                         '.profile'), it will be used.\n"
+        printf "\tFIREJAIL_DEBUG:          print used Firejail options\n"
         printf "\tFIREJAIL_OPTS:           custom options to be passed to Firejail\n"
         printf "\n"
 }
@@ -189,16 +190,16 @@ get_custom_firejail_rules() {
         if [ -n "$playback_path" ]; then
                 add_whitelist "$(realpath "$playback_path")"
         fi
-        # print every argument of "filename=", "file=", "dump:" or "--record=" pattern
+        # print every argument of "filename=", "file[:=]", "dump:" or "--record=" pattern
         for n in "$@"; do
-                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p' -e 's/dump:\([^:]*\).*/\1/p' -e 's/^--record=\([^:]*\).*/\1/p')
+                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file[:=]\([^:]*\).*/\1/p' -e 's/dump:\([^:]*\).*/\1/p' -e 's/^--record=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
                         abs_path=$(realpath "$file_path")
                         add_whitelist "$abs_path"
                         if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null; then
                                 printf -- "$separator--mkdir=\"%s\"" "$abs_path" # dir may not exist
                         fi
-                        if expr "$n" : '.*file=' >/dev/null || expr "$n" : '.*filename' >/dev/null; then
+                        if expr "$n" : '.*file[:=]' >/dev/null || expr "$n" : '.*filename' >/dev/null; then
                                 parent_dir=$(dirname "$abs_path")
                                 printf -- "$separator--whitelist=\"%s\"" "$parent_dir" # to create the file
                         fi
