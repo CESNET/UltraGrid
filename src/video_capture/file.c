@@ -280,9 +280,9 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
         }
         ret = avcodec_receive_frame(s->vid_ctx, frame);
         log_msg(LOG_LEVEL_DEBUG,
-                MOD_NAME "Video decompressing %c frame "
-                         "duration: %f ns\n",
-                av_get_picture_type_char(frame->pict_type),
+                MOD_NAME "Video decompressing %c frame (pts %" PRId64 ") "
+                         "duration: %f s\n",
+                av_get_picture_type_char(frame->pict_type), frame->pts,
                 (get_time_in_ns() - t0) / NS_IN_SEC_DBL);
 
         if (ret < 0) {
