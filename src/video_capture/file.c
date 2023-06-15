@@ -77,6 +77,7 @@
 #include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
+#include "utils/math.h"
 #include "utils/ring_buffer.h"
 #include "utils/time.h"
 #include "utils/thread.h"
@@ -116,6 +117,7 @@ struct vidcap_state_lavf_decoder {
         struct simple_linked_list *video_frame_queue;
         int max_queue_len;
         struct ring_buffer *audio_data;
+        int64_t audio_start_ts;
         pthread_mutex_t audio_frame_lock;
 
         pthread_t thread_id;
@@ -210,6 +212,9 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         }
 
         pthread_mutex_lock(&s->audio_frame_lock);
+        if (ring_get_current_size(s->audio_data) == 0) {
+                s->audio_start_ts = frame->pts;
+        }
         if (av_sample_fmt_is_planar(s->aud_ctx->sample_fmt)) {
                 int bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
                 char tmp[plane_count * bps * frame->nb_samples];
@@ -314,6 +319,12 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
                           frame->linesize, 0, frame->height, dst,
                           video_dst_linesize);
         }
+        out->seq = frame->pts < 0 ? UINT32_MAX : MIN(frame->pts, UINT32_MAX);
+#ifdef FF_API_PKT_DURATION
+        out->duration = frame->duration;
+#else
+        out->duration = frame->pkt_duration;
+#endif
         out->callbacks.dispose = vf_free;
         return out;
 }
@@ -741,7 +752,11 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
         free(f);
 }
 
-static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double video_fps) {
+static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
+                                     const struct video_frame *vid_frm) {
+        if (vid_frm == NULL) {
+                return NULL;
+        }
         pthread_mutex_lock(&s->audio_frame_lock);
         if (ring_get_current_size(s->audio_data) == 0) {
                 pthread_mutex_unlock(&s->audio_frame_lock);
@@ -751,17 +766,55 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double
         struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
         audio_frame_write_desc(ret, s->audio_desc);
 
-        // capture more data to ensure the buffer won't grow - it is capped with actually read
-        // data, still. Moreover there number of audio samples per video frame period may not
-        // be integer. It shouldn't be much, however, not to confuse adaptible audio buffer.
-        ret->max_size =
-            (int)(AUDIO_RATIO * s->audio_desc.sample_rate / video_fps) *
-            s->audio_desc.bps * s->audio_desc.ch_count;
+        AVRational atb = s->fmt_ctx->streams[s->audio_stream_idx]->time_base;
+        if (vid_frm->seq == UINT32_MAX) {
+                log_msg_once(LOG_LEVEL_WARNING, 0x292B168B,
+                             MOD_NAME "Cannot get video PTS or too high!\n");
+                // capture more data to ensure the buffer won't grow - it is
+                // capped with actually read data, still. Moreover there
+                // number of audio samples per video frame period may not be
+                // integer. It shouldn't be much, however, not to confuse
+                // adaptible audio buffer.
+                ret->max_size = (int)(AUDIO_RATIO * s->audio_desc.sample_rate /
+                                      vid_frm->fps) *
+                                s->audio_desc.bps * s->audio_desc.ch_count;
+        } else {
+                AVRational vtb =
+                    s->fmt_ctx->streams[s->video_stream_idx]->time_base;
+                int64_t apts_end =
+                    (((int64_t)vid_frm->seq + vid_frm->duration) *
+                         (int64_t)vtb.num * atb.den +
+                     ((int64_t)vtb.den * atb.num - 1)) /
+                    ((int64_t)vtb.den * atb.num);
+                const int64_t l = lcm(s->audio_desc.sample_rate, atb.den);
+                const int64_t sample_alignment_tb = atb.num * (l / atb.den);
+                const int64_t samples_aligned_tb =
+                    (apts_end - s->audio_start_ts + sample_alignment_tb + 1) /
+                    sample_alignment_tb * sample_alignment_tb;
+                const int64_t samples =
+                    samples_aligned_tb *
+                    ((int64_t)s->audio_desc.sample_rate * atb.num) / atb.den;
+                ret->max_size =
+                    samples * s->audio_desc.bps * s->audio_desc.ch_count;
+                if (ret->max_size <= 0) { // seek - have new audio but old video
+                        free(ret);
+                        pthread_mutex_unlock(&s->audio_frame_lock);
+                        return NULL;
+                }
+        }
         ret->data = (char *)malloc(ret->max_size);
         ret->data_len =
             ring_buffer_read(s->audio_data, ret->data, ret->max_size);
-
-        ret->dispose = vidcap_file_dispose_audio;
+        int64_t samples_written =
+            ret->data_len / (s->audio_desc.bps * s->audio_desc.ch_count);
+        s->audio_start_ts += samples_written * atb.den /
+                             ((int64_t)s->audio_desc.sample_rate * atb.num);
+        if (ret->data_len == 0) {
+                vidcap_file_dispose_audio(ret);
+                ret = NULL;
+        } else {
+                ret->dispose = vidcap_file_dispose_audio;
+        }
 
         pthread_mutex_unlock(&s->audio_frame_lock);
         return ret;
@@ -784,7 +837,7 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
-        *audio = s->audio_stream_idx != -1 ? get_audio(s, out->fps) : NULL;
+        *audio = s->audio_stream_idx != -1 ? get_audio(s, out) : NULL;
 
         struct timeval t;
         do {

@@ -166,6 +166,7 @@ COMMON_OBJS     = \
 		src/utils/fs.o \
 		src/utils/jpeg_reader.o \
 		src/utils/list.o \
+		src/utils/math.o \
 		src/utils/misc.o \
 		src/utils/nat.o \
 		src/utils/net.o \
