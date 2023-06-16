@@ -522,10 +522,9 @@ static void seek_start(struct vidcap_state_lavf_decoder *s) {
         }
         AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
         AVRational tb = st->time_base;
+        int64_t ts = st->start_time + (int64_t) s->seek_sec * tb.den / tb.num;
         CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN,
-                                    st->start_time + s->last_vid_pts +
-                                        s->seek_sec * tb.den / tb.num,
-                                    INT64_MAX, AVSEEK_FLAG_FRAME),
+                                    ts, INT64_MAX, AVSEEK_FLAG_FRAME),
                  {});
 }
 
