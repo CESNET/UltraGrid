@@ -158,7 +158,15 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
         while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
                 VIDEO_FRAME_DISPOSE(f);
         }
-        ring_buffer_flush(s->audio_data);
+        if (s->audio_data) {
+                ring_buffer_flush(s->audio_data);
+        }
+        if (s->vid_ctx) {
+                avcodec_flush_buffers(s->vid_ctx);
+        }
+        if (s->aud_ctx) {
+                avcodec_flush_buffers(s->aud_ctx);
+        }
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
