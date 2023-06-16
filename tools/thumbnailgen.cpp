@@ -57,8 +57,8 @@ private:
 };
 
 int main(int argc, char **argv){
-        if(argc != 3){
-                fprintf(stderr, "Usage: %s <socket path> <output path>\n", argv[0]);
+        if(argc != 4){
+                fprintf(stderr, "Usage: %s <socket path> <output path> <fps>\n", argv[0]);
                 return 1;
         }
 
@@ -68,7 +68,7 @@ int main(int argc, char **argv){
         Img_writer img_writer;
 
         using clock = std::chrono::steady_clock;
-        auto frame_time = std::chrono::seconds(1);
+        auto frame_time = std::chrono::duration_cast<clock::duration>(std::chrono::duration<double>(1 / std::stod(argv[3])));
         auto next_frame = clock::now();
 
         while(true){
