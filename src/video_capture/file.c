@@ -194,7 +194,7 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         // transform from floats
         if (av_get_alt_sample_fmt(s->aud_ctx->sample_fmt, 0) == AV_SAMPLE_FMT_FLT) {
                 for (int i = 0; i < plane_count; ++i) {
-                        float2int((char *) frame->data[i], (char *) frame->data[i], s->aud_ctx->frame_size * 4);
+                        float2int((char *) frame->data[i], (char *) frame->data[i], frame->nb_samples * 4);
                 }
         } else if (av_get_alt_sample_fmt(s->aud_ctx->sample_fmt, 0) == AV_SAMPLE_FMT_DBL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Doubles not supported!\n");
@@ -204,10 +204,10 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         pthread_mutex_lock(&s->audio_frame_lock);
         if (av_sample_fmt_is_planar(s->aud_ctx->sample_fmt)) {
                 int bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
-                char tmp[plane_count * bps * s->aud_ctx->frame_size];
+                char tmp[plane_count * bps * frame->nb_samples];
                 for (int i = 0; i < plane_count; ++i) {
                         mux_channel(tmp, (char *)frame->data[i], bps,
-                                    s->aud_ctx->frame_size * bps, plane_count,
+                                    frame->nb_samples * bps, plane_count,
                                     i, 1.0);
                 }
                 ring_buffer_write(s->audio_data, tmp, sizeof tmp);
