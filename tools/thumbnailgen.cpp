@@ -46,8 +46,8 @@ public:
                         JSAMPROW row = (unsigned char *) f->data + compress_ctx.next_scanline * f->header.width * 3;
                         jpeg_write_scanlines(&compress_ctx, &row, 1);
                 }
-
                 jpeg_finish_compress(&compress_ctx);
+
                 return true;
         }
 
@@ -68,15 +68,13 @@ int main(int argc, char **argv){
         Img_writer img_writer;
 
         using clock = std::chrono::steady_clock;
-
+        auto frame_time = std::chrono::seconds(1);
         auto next_frame = clock::now();
 
         while(true){
                 printf("Waiting for connection...\n");
-                while(!ipc_frame_reader_is_connected(reader.get()))
-                {
-                        //TODO don't busywait
-                }
+                ipc_frame_reader_wait_connect(reader.get());
+                printf("Connected...\n");
                 while(ipc_frame_reader_read(reader.get(), ipc_frame.get())){
                         auto now = clock::now();
                         if(now < next_frame)
@@ -88,9 +86,7 @@ int main(int argc, char **argv){
                         img_writer.write_img(ipc_frame.get(), tmp_path);
                         std::filesystem::rename(tmp_path, path);
 
-                        next_frame += std::chrono::seconds(1);
-                        if(next_frame < now)
-                                next_frame = now;
+                        next_frame = std::max(next_frame + frame_time, now);
                 }
                 fprintf(stderr, "Failed to read frame\n");
         }
