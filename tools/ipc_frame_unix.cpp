@@ -142,7 +142,7 @@ static bool try_accept(struct Ipc_frame_reader *reader){
 }
 
 bool ipc_frame_reader_has_frame(struct Ipc_frame_reader *reader){
-        if(reader->data_fd == INVALID_SOCKET && !try_accept(reader))
+        if(!ipc_frame_reader_is_connected(reader))
                 return false;
 
         return socket_read_avail(reader->data_fd);
@@ -150,6 +150,13 @@ bool ipc_frame_reader_has_frame(struct Ipc_frame_reader *reader){
 
 bool ipc_frame_reader_is_connected(struct Ipc_frame_reader *reader){
         return reader->data_fd != INVALID_SOCKET || try_accept(reader);
+}
+
+void ipc_frame_reader_wait_connect(struct Ipc_frame_reader *reader){
+        if(reader->data_fd != INVALID_SOCKET)
+                return;
+
+        reader->data_fd = accept(reader->listen_fd, nullptr, 0);
 }
 
 static bool do_frame_read(Ipc_frame_reader *reader, Ipc_frame *dst){

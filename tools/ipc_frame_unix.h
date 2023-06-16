@@ -12,6 +12,8 @@ bool ipc_frame_reader_has_frame(struct Ipc_frame_reader *reader);
 bool ipc_frame_reader_is_connected(struct Ipc_frame_reader *reader);
 bool ipc_frame_reader_read(struct Ipc_frame_reader *reader, struct Ipc_frame *dst);
 
+void ipc_frame_reader_wait_connect(struct Ipc_frame_reader *reader);
+
 struct Ipc_frame_writer;
 
 Ipc_frame_writer *ipc_frame_writer_new(const char *path);
