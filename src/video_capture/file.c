@@ -384,6 +384,7 @@ static void *vidcap_file_worker(void *state) {
                         if (s->loop) {
                                 CHECK_FF(avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET), {}); // handle single JPEG loop, inspired by libavformat's seek_frame_generic because img_read_seek (AVInputFormat::read_seek) doesn't do the job - seeking is inmplemeted just in img2dec if VideoDemuxData::loop == 1
                                 CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
+                                flush_captured_data(s);
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
                         } else {
@@ -767,6 +768,7 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
         audio_frame_write_desc(ret, s->audio_desc);
 
         AVRational atb = s->fmt_ctx->streams[s->audio_stream_idx]->time_base;
+        long drop_samples = 0;
         if (vid_frm->seq == UINT32_MAX) {
                 log_msg_once(LOG_LEVEL_WARNING, 0x292B168B,
                              MOD_NAME "Cannot get video PTS or too high!\n");
@@ -781,6 +783,8 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
         } else {
                 AVRational vtb =
                     s->fmt_ctx->streams[s->video_stream_idx]->time_base;
+                int64_t apts_start = (int64_t)vid_frm->seq * vtb.num * atb.den /
+                                     ((int64_t)vtb.den * atb.num);
                 int64_t apts_end =
                     (((int64_t)vid_frm->seq + vid_frm->duration) *
                          (int64_t)vtb.num * atb.den +
@@ -794,8 +798,15 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
                 const int64_t samples =
                     samples_aligned_tb *
                     ((int64_t)s->audio_desc.sample_rate * atb.num) / atb.den;
+                drop_samples = (apts_start - s->audio_start_ts) *
+                               ((int64_t)s->audio_desc.sample_rate * atb.num) /
+                               atb.den; // drop only if >.5 frm time:
+                drop_samples = drop_samples < samples / 2 ? 0 : drop_samples;
                 ret->max_size =
                     samples * s->audio_desc.bps * s->audio_desc.ch_count;
+                debug_msg(MOD_NAME "audio samples: %" PRId64
+                                   ", drop: %ld, ring:%d\n",
+                          samples, drop_samples, ring_get_current_size(s->audio_data));
                 if (ret->max_size <= 0) { // seek - have new audio but old video
                         free(ret);
                         pthread_mutex_unlock(&s->audio_frame_lock);
@@ -809,11 +820,17 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
             ret->data_len / (s->audio_desc.bps * s->audio_desc.ch_count);
         s->audio_start_ts += samples_written * atb.den /
                              ((int64_t)s->audio_desc.sample_rate * atb.num);
-        if (ret->data_len == 0) {
+        long drop_bytes = drop_samples * ret->bps * ret->ch_count;
+        if (ret->data_len == 0 || drop_bytes >= ret->data_len) {
                 vidcap_file_dispose_audio(ret);
                 ret = NULL;
         } else {
                 ret->dispose = vidcap_file_dispose_audio;
+        }
+        if (ret && drop_samples > 0) {
+                verbose_msg(MOD_NAME "Dropped %ld audio bytes.\n", drop_bytes);
+                memmove(ret->data, ret->data + drop_bytes, ret->data_len - drop_bytes);
+                ret->data_len -= drop_bytes;
         }
 
         pthread_mutex_unlock(&s->audio_frame_lock);
