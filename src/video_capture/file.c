@@ -87,9 +87,8 @@
 static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
 enum {
         AUD_BUF_LEN_SEC = 60,
-        FILE_DEFAULT_QUEUE_LEN = 1,
+        FILE_DEFAULT_QUEUE_LEN = 20,
 };
-#define FILE_DEFAULT_QUEUE_LEN 1
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
@@ -527,6 +526,7 @@ static void vidcap_file_new_message(struct module *mod) {
         s->new_msg = true;
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->paused_cv);
+        pthread_cond_signal(&s->frame_consumed);
 }
 
 static void vidcap_file_should_exit(void *state) {
