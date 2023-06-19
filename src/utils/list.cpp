@@ -66,6 +66,11 @@ void simple_linked_list_destroy(struct simple_linked_list *l)
         delete l;
 }
 
+void simple_linked_list_prepend(struct simple_linked_list *l, void *data)
+{
+        l->l.push_front(data);
+}
+
 void simple_linked_list_append(struct simple_linked_list *l, void *data)
 {
         l->l.push_back(data);

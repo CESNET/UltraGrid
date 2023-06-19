@@ -3,8 +3,6 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  *
  * Libavformat demuxer and decompress
- *
- * Inspired with demuxing_decoding.c
  */
 /*
  * Copyright (c) 2019-2023 CESNET, z. s. p. o.
@@ -40,6 +38,15 @@
  */
 /**
  * @file
+ * Inspired by and rewritten from FFmpeg example demuxing_decoding.c.
+ *
+ * For testing, it is advisable to use:
+ * 1. https://archive.org/download/ElephantsDream/ed_hd.avi
+ * 2. a 59.94i file - eg. converted from the above with:
+ *   `ffmpeg -i ed_hd.avi -vf fps=30000/1001 -c:v libx264 -flags +ildct ed.mp4`
+ *
+ * and test things like seek and loop
+ *
  * @todo
  * - audio-only input
  * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
@@ -118,9 +125,11 @@ struct vidcap_state_lavf_decoder {
         struct audio_desc audio_desc;
 
         struct simple_linked_list *video_frame_queue;
+        struct simple_linked_list *vid_frm_noaud; // auxilliary queue for worker
         int max_queue_len;
         struct ring_buffer *audio_data;
         int64_t audio_start_ts;
+        int64_t audio_end_ts;
         pthread_mutex_t audio_frame_lock;
 
         pthread_t thread_id;
@@ -163,6 +172,9 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
         while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
                 VIDEO_FRAME_DISPOSE(f);
         }
+        while ((f = simple_linked_list_pop(s->vid_frm_noaud)) != NULL) {
+                VIDEO_FRAME_DISPOSE(f);
+        }
         if (s->audio_data) {
                 ring_buffer_flush(s->audio_data);
         }
@@ -172,6 +184,7 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
         if (s->aud_ctx) {
                 avcodec_flush_buffers(s->aud_ctx);
         }
+        s->audio_end_ts = AV_NOPTS_VALUE;
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -199,6 +212,7 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         free(s->src_filename);
         module_done(&s->mod);
         simple_linked_list_destroy(s->video_frame_queue);
+        simple_linked_list_destroy(s->vid_frm_noaud);
         free(s);
 }
 
@@ -241,6 +255,23 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
 
+static bool have_audio_for_video(struct vidcap_state_lavf_decoder *s, int64_t vid_frm_ts, int64_t vid_frm_dur) {
+        if (simple_linked_list_size(s->vid_frm_noaud) > 300) {
+                log_msg(LOG_LEVEL_WARNING, "More than 300 video frames cached, "
+                                           "giving up!\n");
+                s->audio_end_ts = INT64_MAX / INT_MAX; // allow int mult
+        }
+        AVRational atb = s->fmt_ctx->streams[s->audio_stream_idx]->time_base;
+        AVRational vtb = s->fmt_ctx->streams[s->video_stream_idx]->time_base;
+        // Note the 3/4 of the frame was chosen because it is safely more
+        // than 1/2 without need to tackle with integer division and/or A/V
+        // frame alignment. The remainder (if there will be any) would be
+        // dropped with next frame if it was greater than 1/2 (@sa get_audio).
+        return s->audio_end_ts * atb.num / atb.den >=
+               vid_frm_ts * vtb.num / vtb.den + // at least 3/4 of audio
+                   (vid_frm_dur * vtb.num * 3 / vtb.den / 4);
+}
+
 static void vidcap_file_process_audio_pkt(struct vidcap_state_lavf_decoder *s,
                                           AVPacket *pkt, AVFrame *frame) {
         int ret = avcodec_send_packet(s->aud_ctx, pkt);
@@ -258,7 +289,22 @@ static void vidcap_file_process_audio_pkt(struct vidcap_state_lavf_decoder *s,
                         break;
                 }
                 /* if a frame has been decoded, output it */
+                s->audio_end_ts = pkt->pts + pkt->duration;
                 vidcap_file_write_audio(s, frame);
+        }
+        // try to process decoded video frames that didn't have corresponding
+        // audio when decompressed
+        struct video_frame *vid_frm = simple_linked_list_pop(s->vid_frm_noaud);
+        while (vid_frm != NULL) {
+                if (!have_audio_for_video(s, vid_frm->seq, vid_frm->duration)) {
+                        simple_linked_list_prepend(s->vid_frm_noaud, vid_frm);
+                        break;
+                }
+                pthread_mutex_lock(&s->lock);
+                simple_linked_list_append(s->video_frame_queue, vid_frm);
+                pthread_mutex_unlock(&s->lock);
+                pthread_cond_signal(&s->new_frame_ready);
+                vid_frm = simple_linked_list_pop(s->vid_frm_noaud);
         }
 }
 
@@ -431,6 +477,13 @@ static void *vidcap_file_worker(void *state) {
                             process_video_pkt(s, pkt, frame);
                         if (!out) {
                                 continue;
+                        }
+                        if (s->audio_stream_idx != -1 && out->seq != UINT32_MAX) {
+                                if (!have_audio_for_video(s, out->seq, out->duration)) {
+                                        simple_linked_list_append(s->vid_frm_noaud,
+                                                                  out);
+                                        continue;
+                                }
                         }
                         pthread_mutex_lock(&s->lock);
                         while (!s->should_exit &&
@@ -652,8 +705,10 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
         s->video_frame_queue = simple_linked_list_init();
+        s->vid_frm_noaud = simple_linked_list_init();
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
+        s->audio_end_ts = AV_NOPTS_VALUE;
         s->max_queue_len = FILE_DEFAULT_QUEUE_LEN;
         s->thread_count = 0; // means auto for most codecs
         s->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
@@ -811,13 +866,18 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
                     ((int64_t)s->audio_desc.sample_rate * atb.num) / atb.den;
                 drop_samples = (apts_start - s->audio_start_ts) *
                                ((int64_t)s->audio_desc.sample_rate * atb.num) /
-                               atb.den; // drop only if >.5 frm time:
+                               atb.den;
+                // drop only if >.5 frm time, @sa have_audio_for_video:
                 drop_samples = drop_samples < samples / 2 ? 0 : drop_samples;
                 ret->max_size =
                     samples * s->audio_desc.bps * s->audio_desc.ch_count;
-                debug_msg(MOD_NAME "audio samples: %" PRId64
-                                   ", drop: %ld, ring:%d\n",
-                          samples, drop_samples, ring_get_current_size(s->audio_data));
+                debug_msg(MOD_NAME
+                          "audio samples: %" PRId64
+                          ", drop: %ld, reqB:%d, ring:%d, ast_ts: %" PRIu64
+                          ", apts_st: %" PRIu64 ", apts_end: %" PRIu64 "\n",
+                          samples, drop_samples, ret->max_size,
+                          ring_get_current_size(s->audio_data),
+                          s->audio_start_ts, apts_start, apts_end);
                 if (ret->max_size <= 0) { // seek - have new audio but old video
                         free(ret);
                         pthread_mutex_unlock(&s->audio_frame_lock);
@@ -831,6 +891,7 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
             ret->data_len / (s->audio_desc.bps * s->audio_desc.ch_count);
         s->audio_start_ts += samples_written * atb.den /
                              ((int64_t)s->audio_desc.sample_rate * atb.num);
+
         long drop_bytes = drop_samples * ret->bps * ret->ch_count;
         if (ret->data_len == 0 || drop_bytes >= ret->data_len) {
                 vidcap_file_dispose_audio(ret);
