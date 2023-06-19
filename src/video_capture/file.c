@@ -242,6 +242,27 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
 
+static void vidcap_file_process_audio_pkt(struct vidcap_state_lavf_decoder *s,
+                                          AVPacket *pkt, AVFrame *frame) {
+        int ret = avcodec_send_packet(s->aud_ctx, pkt);
+        if (ret < 0) {
+                print_decoder_error(MOD_NAME, ret);
+                return;
+        }
+        while (ret >= 0) {
+                ret = avcodec_receive_frame(s->aud_ctx, frame);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;
+                }
+                if (ret < 0) {
+                        print_decoder_error(MOD_NAME, ret);
+                        break;
+                }
+                /* if a frame has been decoded, output it */
+                vidcap_file_write_audio(s, frame);
+        }
+}
+
 #define CHECK_FF(cmd, action_failed) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); action_failed} } while(0)
 static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
         struct msg_universal *msg;
@@ -405,21 +426,7 @@ static void *vidcap_file_worker(void *state) {
                 }
 
                 if (pkt->stream_index == s->audio_stream_idx) {
-                        ret = avcodec_send_packet(s->aud_ctx, pkt);
-                        if (ret < 0) {
-                                print_decoder_error(MOD_NAME, ret);
-                        }
-                        while (ret >= 0) {
-                                ret = avcodec_receive_frame(s->aud_ctx, frame);
-				if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-					break; // inner loop
-                                } else if (ret < 0) {
-					print_decoder_error(MOD_NAME, ret);
-					break; // inner loop
-				}
-				/* if a frame has been decoded, output it */
-                                vidcap_file_write_audio(s, frame);
-                        }
+                        vidcap_file_process_audio_pkt(s, pkt, frame);
                 } else if (pkt->stream_index == s->video_stream_idx) {
                         struct video_frame *out =
                             process_video_pkt(s, pkt, frame);
