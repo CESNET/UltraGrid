@@ -320,7 +320,9 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                         }
                         AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
                         AVRational tb = st->time_base;
-                        CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, st->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
+                        s->last_vid_pts =
+                            MAX(s->last_vid_pts + (sec * tb.den) / tb.num,
+                                st->start_time);
                         CHECK_FF(
                             avformat_seek_file(s->fmt_ctx, s->video_stream_idx,
                                                INT64_MIN, s->last_vid_pts,
