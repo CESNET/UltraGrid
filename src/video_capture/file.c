@@ -188,8 +188,8 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
                 avformat_close_input(&s->fmt_ctx);
         }
 
-        ring_buffer_destroy(s->audio_data);
         flush_captured_data(s);
+        ring_buffer_destroy(s->audio_data);
 
         pthread_mutex_destroy(&s->audio_frame_lock);
         pthread_mutex_destroy(&s->lock);
