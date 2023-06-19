@@ -136,7 +136,6 @@ struct vidcap_state_lavf_decoder {
         pthread_mutex_t lock;
         pthread_cond_t new_frame_ready;
         pthread_cond_t frame_consumed;
-        pthread_cond_t paused_cv;
         struct timeval last_frame;
 
         bool should_exit;
@@ -208,7 +207,6 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->frame_consumed);
         pthread_cond_destroy(&s->new_frame_ready);
-        pthread_cond_destroy(&s->paused_cv);
         free(s->src_filename);
         module_done(&s->mod);
         simple_linked_list_destroy(s->video_frame_queue);
@@ -430,25 +428,25 @@ static void *vidcap_file_worker(void *state) {
         pkt->size = 0;
         pkt->data = 0;
         while (!s->should_exit) {
-                av_packet_unref(pkt);
                 pthread_mutex_lock(&s->lock);
+                while (!s->should_exit && !s->new_msg &&
+                       (simple_linked_list_size(s->video_frame_queue) >
+                           s->max_queue_len || s->paused)) {
+                        pthread_cond_wait(&s->frame_consumed, &s->lock);
+                }
+                if (s->should_exit) {
+                        pthread_mutex_unlock(&s->lock);
+                        break;
+                }
                 if (s->new_msg) {
                         vidcap_file_process_messages(s);
                         s->new_msg = false;
-                }
-                if (s->paused) {
-                        while (!s->should_exit && !s->new_msg) {
-                                pthread_cond_wait(&s->paused_cv, &s->lock);
-                        }
                         pthread_mutex_unlock(&s->lock);
-                        if (s->should_exit) {
-                                break;
-                        } else { // new_msg -> process in next iteration
-                                continue;
-                        }
+                        continue;
                 }
                 pthread_mutex_unlock(&s->lock);
 
+                av_packet_unref(pkt);
                 int ret = av_read_frame(s->fmt_ctx, pkt);
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
@@ -458,7 +456,7 @@ static void *vidcap_file_worker(void *state) {
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Playback ended.\n");
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Playback ended (paused).\n");
                                 s->paused = true;
                                 continue;
                         }
@@ -486,16 +484,6 @@ static void *vidcap_file_worker(void *state) {
                                 }
                         }
                         pthread_mutex_lock(&s->lock);
-                        while (!s->should_exit &&
-                               simple_linked_list_size(s->video_frame_queue) >
-                                   s->max_queue_len) {
-                                pthread_cond_wait(&s->frame_consumed, &s->lock);
-                        }
-                        if (s->should_exit) {
-                                av_packet_unref(pkt);
-                                pthread_mutex_unlock(&s->lock);
-                                break;
-                        }
                         simple_linked_list_append(s->video_frame_queue, out);
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->new_frame_ready);
@@ -578,7 +566,6 @@ static void vidcap_file_new_message(struct module *mod) {
         pthread_mutex_lock(&s->lock);
         s->new_msg = true;
         pthread_mutex_unlock(&s->lock);
-        pthread_cond_signal(&s->paused_cv);
         pthread_cond_signal(&s->frame_consumed);
 }
 
@@ -589,7 +576,6 @@ static void vidcap_file_should_exit(void *state) {
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->new_frame_ready);
         pthread_cond_signal(&s->frame_consumed);
-        pthread_cond_signal(&s->paused_cv);
 }
 
 static void seek_start(struct vidcap_state_lavf_decoder *s) {
@@ -716,7 +702,6 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         CHECK(pthread_mutex_init(&s->lock, NULL));
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
         CHECK(pthread_cond_init(&s->new_frame_ready, NULL));
-        CHECK(pthread_cond_init(&s->paused_cv, NULL));
         module_init_default(&s->mod);
         s->mod.priv_magic = MAGIC;
         s->mod.cls = MODULE_CLASS_DATA;
