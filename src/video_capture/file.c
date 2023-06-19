@@ -85,6 +85,10 @@
 #include "video_capture.h"
 
 static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
+enum {
+        AUD_BUF_LEN_SEC = 60,
+        FILE_DEFAULT_QUEUE_LEN = 1,
+};
 #define FILE_DEFAULT_QUEUE_LEN 1
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
@@ -702,8 +706,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         s->audio_desc.sample_rate = s->aud_ctx->sample_rate;
                         s->audio_desc.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
                         s->audio_data = ring_buffer_init(
-                            s->audio_desc.bps * s->audio_desc.ch_count *
-                            s->audio_desc.sample_rate);
+                            AUD_BUF_LEN_SEC * s->audio_desc.bps *
+                            s->audio_desc.ch_count * s->audio_desc.sample_rate);
                 }
         }
 
