@@ -74,6 +74,7 @@
 #include <iomanip>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -1475,7 +1476,15 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                                 0, &sampleFramesWritten);
         }
         if (sampleFramesWritten != sampleFrameCount) {
-                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! (" << sampleFramesWritten << " written, " << sampleFrameCount - sampleFramesWritten << " dropped, " << buffered << " buffer size)\n";
+                ostringstream details_oss;
+                if (log_level >= LOG_LEVEL_VERBOSE) {
+                        details_oss
+                            << " (" << sampleFramesWritten << " written, "
+                            << sampleFrameCount - sampleFramesWritten
+                            << " dropped, " << buffered << " buffer size)";
+                }
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow!"
+                                       << details_oss.str() << "\n";
         }
         s->audio_drift_fixer.update(buffered, sampleFrameCount, sampleFramesWritten);
 }
