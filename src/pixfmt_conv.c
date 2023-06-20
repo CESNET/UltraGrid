@@ -2548,7 +2548,7 @@ static void vc_copylineV210toY416(unsigned char * __restrict dst, const unsigned
 static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
-
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
 #define WRITE_YUV_AS_RGB(y, u, v) \
         val = 1.164 * (y - 16) + 1.793 * (v - 128);\
         *(dst++) = CLAMP(val, 0, 255);\
