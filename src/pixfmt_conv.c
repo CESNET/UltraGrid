@@ -2534,6 +2534,50 @@ static void vc_copylineV210toY416(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+
+#define WRITE_YUV_AS_RGB(y, u, v) \
+        val = 1.164 * (y - 16) + 1.793 * (v - 128);\
+        *(dst++) = CLAMP(val, 0, 255);\
+        val = 1.164 * (y - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
+        *(dst++) = CLAMP(val, 0, 255);\
+        val = 1.164 * (y - 16) + 2.115 * (u - 128);\
+        *(dst++) = CLAMP(val, 0, 255);
+
+#define DECLARE_LOAD_V210_COMPONENTS(a, b, c) \
+        unsigned char a = src[1] << 6 | src[0] >> 2;\
+        unsigned char b = src[2] << 4 | src[1] >> 4;\
+        unsigned char c = src[3] << 2 | src[2] >> 6;\
+
+
+        OPTIMIZED_FOR (int x = 0; x + 6 * 3 <= dst_len; x += 6 * 3){
+                DECLARE_LOAD_V210_COMPONENTS(u01, y0, v01);
+                src += 4;
+
+                DECLARE_LOAD_V210_COMPONENTS(y1, u23, y2);
+                src += 4;
+
+                DECLARE_LOAD_V210_COMPONENTS(v23, y3, u45);
+                src += 4;
+
+                DECLARE_LOAD_V210_COMPONENTS(y4, v45, y5);
+                src += 4;
+
+                int val;
+
+                WRITE_YUV_AS_RGB(y0, u01, v01);
+                WRITE_YUV_AS_RGB(y1, u01, v01);
+                WRITE_YUV_AS_RGB(y2, u23, v23);
+                WRITE_YUV_AS_RGB(y3, u23, v23);
+                WRITE_YUV_AS_RGB(y4, u45, v45);
+                WRITE_YUV_AS_RGB(y5, u45, v45);
+        }
+#undef WRITE_YUV_AS_RGB
+#undef DECLARE_LOAD_V210_COMPONENTS
+}
+
 static void vc_copylineY416toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2627,6 +2671,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineY416toRGBA,  Y416,  RGBA },
         { vc_copylineV210toY216,  v210,  Y216 },
         { vc_copylineV210toY416,  v210,  Y416 },
+        { vc_copylineV210toRGB,   v210,  RGB  },
 };
 
 /**
