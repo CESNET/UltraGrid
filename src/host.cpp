@@ -817,6 +817,7 @@ int get_audio_delay(void)
 
 void set_audio_delay(int audio_delay)
 {
+        log_msg(LOG_LEVEL_NOTICE, "Setting A/V delay: %d\n", audio_delay);
 	audio_offset = max(audio_delay, 0);
 	video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
 }
