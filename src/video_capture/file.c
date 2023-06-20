@@ -116,6 +116,7 @@ struct vidcap_state_lavf_decoder {
         bool no_decode;
         codec_t convert_to;
         bool paused;
+        bool ended;
         int seek_sec;
 
         int video_stream_idx, audio_stream_idx;
@@ -333,8 +334,10 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                         format_time_ms(st->duration * tb.num * 1000 / tb.den, duration);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s / %s\n", position, duration);
                         flush_captured_data(s);
+                        s->ended = false;
                 } else if (strcmp(msg->text, "pause") == 0) {
                         s->paused = !s->paused;
+                        pthread_cond_signal(&s->new_frame_ready);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%s\n", s->paused ? "paused" : "unpaused");
                 } else if (strcmp(msg->text, "quit") == 0) {
                         exit_uv(0);
@@ -438,7 +441,7 @@ static void *vidcap_file_worker(void *state) {
                 pthread_mutex_lock(&s->lock);
                 while (!s->should_exit && !s->new_msg &&
                        (simple_linked_list_size(s->video_frame_queue) >
-                           s->max_queue_len || s->paused)) {
+                           s->max_queue_len || s->ended)) {
                         pthread_cond_wait(&s->frame_consumed, &s->lock);
                 }
                 if (s->should_exit) {
@@ -463,8 +466,8 @@ static void *vidcap_file_worker(void *state) {
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Playback ended (paused).\n");
-                                s->paused = true;
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Playback ended.\n");
+                                s->ended = true;
                                 continue;
                         }
                 }
@@ -907,7 +910,8 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
 
         assert(s->mod.priv_magic == MAGIC);
         pthread_mutex_lock(&s->lock);
-        while (simple_linked_list_size(s->video_frame_queue) == 0 && !s->failed && !s->should_exit) {
+        while ((simple_linked_list_size(s->video_frame_queue) == 0 || s->paused) &&
+               !s->failed && !s->should_exit) {
                 pthread_cond_wait(&s->new_frame_ready, &s->lock);
         }
         if (s->failed || s->should_exit) {
