@@ -132,8 +132,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
-#define OPT_EXPORT (('E' << 8) | 'X')
-#define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
@@ -270,8 +268,8 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--echo-cancellation", {"apply acoustic echo cancellation to audio (experimental)"});
                 print_help_item("-D, --cuda-device <index> | help", {"use specified GPU"});
                 print_help_item("-e, --encryption <passphrase>", {"key material for encryption"});
-                print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
-                print_help_item("--record[=<directory>]", {"record captured audio and video"});
+                print_help_item("-I, --playback <directory> | help", {"replays recorded audio and video"});
+                print_help_item("-E, --record[=<directory>]", {"record captured audio and video"});
                 print_help_item("-F, --capture-filter <filter> | help",
                                 {"capture filter, must precede -t if more device used"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
@@ -739,8 +737,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"audio-host",             required_argument, nullptr, 'A'},
                 {"client",                 no_argument,       nullptr, 'C'},
                 {"cuda-device",            required_argument, nullptr, 'D'},
+                {"record",                 optional_argument, nullptr, 'E'},
                 {"capture-filter",         required_argument, nullptr, 'F'},
                 {"fullhelp",               no_argument,       nullptr, 'H'},
+                {"playback",               required_argument, nullptr, 'I'},
                 {"mode",                   required_argument, nullptr, 'M'},
                 {"nat-traverse",           optional_argument, nullptr, 'N'},
                 {"port",                   required_argument, nullptr, 'P'},
@@ -756,8 +756,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"audio-filter",           required_argument, 0, OPT_AUDIO_FILTER},
                 {"audio-scale",            required_argument, 0, OPT_AUDIO_SCALE},
                 {"echo-cancellation",      no_argument,       0, OPT_ECHO_CANCELLATION},
-                {"record",                 optional_argument, 0, OPT_EXPORT},
-                {"playback",               required_argument, 0, OPT_IMPORT},
                 {"list-modules",           no_argument,       0, OPT_LIST_MODULES},
                 {"mcast-if",               required_argument, 0, OPT_MCAST_IF},
                 {"param",                  required_argument, 0, OPT_PARAM},
@@ -770,7 +768,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:u:vx:";
+        const char *optstring = "46A:CD:E::F:HI:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:u:vx:";
 
         int ch = 0;
         while ((ch =
@@ -929,11 +927,11 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 'A':
                         opt->audio.host = optarg;
                         break;
-                case OPT_EXPORT:
+                case 'E':
                         opt->should_export = true;
                         opt->export_opts = optarg;
                         break;
-                case OPT_IMPORT:
+                case 'I':
                         opt->audio.send_cfg = "embedded";
                         {
                                 char dev_string[1024];

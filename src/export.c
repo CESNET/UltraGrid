@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2021 CESNET z.s.p.o.
+ * Copyright (c) 2017-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,10 @@ static void new_msg(struct module *mod) {
 
 static void usage() {
         color_printf("Usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t--record" TERM_FG_RESET "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n" TERM_RESET);
+        color_printf("\t" TBOLD(
+            TRED("--record") "[=<dir>[:limit=<n>][:noaudio][:novideo][:"
+            "override][:paused]] ") "\n" "\t" TBOLD(TRED("-E") "[<dir>[:<opts>]]")
+            "\n\t" TBOLD("--record=help | -Ehelp") "\n");
         color_printf("where\n");
         color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at most <n> video frames\n");
         color_printf(TERM_BOLD "\toverride" TERM_RESET "          - export even if it would override existing files in the given directory\n");
