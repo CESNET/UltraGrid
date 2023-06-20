@@ -21,12 +21,16 @@ void scale_frame(char *dst, char *src,
         int src_line_len = vc_get_linesize(src_w, codec);
         int block_size = get_pf_block_bytes(codec);
         assert(block_size > 0);
-        int written = 0;
+        int blocks_per_line = src_line_len / block_size / f;
+        int dst_line_len = vc_get_linesize(blocks_per_line * get_pf_block_pixels(codec), codec);
+        int out_lines = 0;
         for(int y = 0; y + f <= src_h; y += f){
+                int written = 0;
                 for(int x = 0; x + f * block_size <= src_line_len; x += f * block_size){
-                        memcpy(dst + written, src + y*src_line_len + x, block_size);
+                        memcpy(dst + out_lines * dst_line_len + written, src + y*src_line_len + x, block_size);
                         written += block_size;
                 }
+                out_lines++;
         }
 }
 
@@ -65,7 +69,7 @@ bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
 
                 if(dec != vc_memcpy){
                         //When both scaling and converting we need a tmp space - allocate extra
-                        dst_frame_to_allocate += get_bpp(src->color_spec) * dst->header.width * dst->header.height;
+                        dst_frame_to_allocate += vc_get_linesize(dst->header.width, src->color_spec) * dst->header.height;
                 }
         }
 
