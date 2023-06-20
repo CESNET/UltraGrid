@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,12 +49,20 @@
 #include "keyboard_control.h"
 #include "playback.h"
 #include "utils/color_out.h"
+#include "utils/text.h"
 
 #define MOD_NAME "[playback] "
 
 static void  playback_usage(void) {
+        char desc[] = TBOLD("playback") " can capture data from locally "
+                "stored data, which can be either a regular video file, "
+                "or a directory with data recorded by UltraGrid itself "
+                "(--record option).";
+        color_printf("%s\n\n", indent_paragraph(desc));
         color_printf("Usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t--playback [<file>|<dir>|help]" TERM_FG_RESET "[:loop]\n\n" TERM_RESET);
+        color_printf(TBOLD(TRED("\t--playback <file>|<dir>") "[:loop]\n"));
+        color_printf(TBOLD(TRED("\t-I{<file>|<dir>}") "[:loop]\n"));
+        color_printf(TBOLD("\t-Ihelp | --playback help") "\n\n");
         color_printf("Use ");
         color_printf(TERM_BOLD "-t file:help" TERM_RESET " or " TERM_BOLD "-t import:help" TERM_RESET " to see further specific configuration options.\n\n");
 }
