@@ -319,6 +319,17 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copyliner10ktoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        OPTIMIZED_FOR (int x = 0; x < dstlen; x += 3) {
+                *(dst++) = src[0];
+                *(dst++) = src[1] << 2 | src[2] >> 6;
+                *(dst++) = src[2] << 4 | src[3] >> 4;
+                src += 4;
+        }
+}
+
 /**
  * @brief Converts from R12L to RGB
  *
@@ -2623,6 +2634,7 @@ static const struct decoder_item decoders[] = {
         { vc_copyliner10k,        R10k,  RGBA },
         { vc_copyliner10ktoRG48,  R10k,  RG48 },
         { vc_copyliner10ktoY416,  R10k,  Y416 },
+        { vc_copyliner10ktoRGB,   R10k,  RGB },
         { vc_copylineR12L,        R12L,  RGBA },
         { vc_copylineR12LtoRGB,   R12L,  RGB },
         { vc_copylineR12LtoRG48,  R12L,  RG48 },
