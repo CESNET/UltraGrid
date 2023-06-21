@@ -6,16 +6,12 @@ way or extend this document.
 
 ## Table of Contents
 
-* [Table of contents](#table-of-contents)
 * [Resources](#resources)
 * [Reporting bugs](#reporting-bugs)
 * [Feature requests](#feature-requests)
 * [Pull requests](#pull-requests)
 * [Coding standards](#coding-standards)
-   * [Indenting and whitespaces](#indenting-and-whitespaces)
-   * [Control structures](#control-structures)
-   * [Spaces](#spaces)
-   * [Line length and wrapping](#line-length-and-wrapping)
+   * [Style](#style)
    * [Naming conventions](#naming-conventions)
 * [Conclusion](#conclusion)
 
@@ -49,26 +45,21 @@ issued.
 ## Coding standards
 **TODO:** incomplete
 
-### Indenting and whitespaces
-- Default indent is 8 spaces width and consists solely of spaces, no tabs.
-- Lines should be LF-terminated and there should not contain any whitespaces at the end.
+### Style
 
-### Control structures
-Control structures like if, while, switch etc. should have opening block bracket at the
-same line as the statement itself:
+Recommended style is modified LLVM clang-format style:
 ```
-if (foo) {
-        do_something();
-} else {
-        do_something_else();
-}
-```
+BasedOnStyle: LLVM
+IndentWidth: 8
+BreakBeforeBraces: Linux
+````
 
-Functions and methods, on the other hand, should have opening curly braces at
-the following line.
+The style is deduced from original _rtp/rtp.{c,h}_ formatting and it
+is similar to [Linux Kernel
+style](https://www.kernel.org/doc/Documentation/process/coding-style.rst)
+(see [here](https://clang.llvm.org/docs/ClangFormatStyleOptions.html#examples))
+without using tabs.
 
-### Spaces
-### Line length and wrapping
 ### Naming conventions
 
 ## Conclusion
