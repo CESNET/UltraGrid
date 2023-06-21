@@ -216,7 +216,9 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
 }
 
 static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame * frame) {
-        int plane_count = av_sample_fmt_is_planar(s->aud_ctx->sample_fmt) ? AVCODECCTX_CHANNELS(s->aud_ctx) : 1;
+        const int plane_count = av_sample_fmt_is_planar(s->aud_ctx->sample_fmt)
+                                    ? s->audio_desc.ch_count
+                                    : 1;
         // transform from floats
         if (av_get_alt_sample_fmt(s->aud_ctx->sample_fmt, 0) == AV_SAMPLE_FMT_FLT) {
                 for (int i = 0; i < plane_count; ++i) {
@@ -241,14 +243,26 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
                 }
                 ring_buffer_write(s->audio_data, tmp, sizeof tmp);
         } else {
-                int data_size = av_samples_get_buffer_size(NULL, s->audio_desc.ch_count,
-                                frame->nb_samples,
-                                s->aud_ctx->sample_fmt, 1);
-                if (data_size < 0) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME " av_samples_get_buffer_size", data_size);
+                if (plane_count == s->audio_desc.ch_count) {
+                        int data_size = av_samples_get_buffer_size(NULL, s->audio_desc.ch_count,
+                                        frame->nb_samples,
+                                        s->aud_ctx->sample_fmt, 1);
+                        if (data_size < 0) {
+                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME " av_samples_get_buffer_size", data_size);
+                        } else {
+                                ring_buffer_write(s->audio_data, (char *)frame->data[0],
+                                                  data_size);
+                        }
                 } else {
-                        ring_buffer_write(s->audio_data, (char *)frame->data[0],
-                                          data_size);
+                        int src_len = s->audio_desc.bps * plane_count;
+                        int dst_len =
+                            s->audio_desc.bps * s->audio_desc.ch_count;
+                        for (int i = 0; i < frame->nb_samples; ++i) {
+                                ring_buffer_write(s->audio_data,
+                                                  (char *)frame->data[0] +
+                                                      i * src_len,
+                                                  dst_len);
+                        }
                 }
         }
         pthread_mutex_unlock(&s->audio_frame_lock);
@@ -680,6 +694,20 @@ static bool setup_video(struct vidcap_state_lavf_decoder *s) {
         return true;
 }
 
+static int get_ach_count(int file_channels) {
+        if (audio_capture_channels == 0) {
+                return file_channels;
+        }
+        if ((int)audio_capture_channels > file_channels) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Requested %d channels, file "
+                                 "contains only %d!\n",
+                        audio_capture_channels, file_channels);
+                return file_channels;
+        }
+        return audio_capture_channels;
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
@@ -761,7 +789,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                         av_get_sample_fmt_name(s->aud_ctx->sample_fmt));
                         s->audio_desc.bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
                         s->audio_desc.sample_rate = s->aud_ctx->sample_rate;
-                        s->audio_desc.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
+                        s->audio_desc.ch_count =
+                            get_ach_count(AVCODECCTX_CHANNELS(s->aud_ctx));
                         s->audio_data = ring_buffer_init(
                             AUD_BUF_LEN_SEC * s->audio_desc.bps *
                             s->audio_desc.ch_count * s->audio_desc.sample_rate);
