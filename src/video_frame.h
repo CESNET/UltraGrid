@@ -187,6 +187,7 @@ void il_merged_to_upper(char *dst, char *src, int linesize, int height, void **s
  * @ref av_pkt_description
  */
 double compute_fps(int fps, int fpsd, int fd, int fi);
+bool parse_fps(const char *fps, struct video_desc *desc);
 
 bool save_video_frame_as_pnm(struct video_frame *frame, const char *name);
 const char *save_video_frame(struct video_frame *frame, const char *name, bool raw);

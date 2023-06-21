@@ -135,6 +135,7 @@ COMMON_OBJS     = \
 		src/capture_filter/matrix.o \
 		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
+		src/capture_filter/override_prop.o \
 		src/capture_filter/preview.o \
 		src/capture_filter/ratelimit.o \
 		src/capture_filter/split.o \

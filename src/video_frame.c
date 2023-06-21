@@ -622,3 +622,30 @@ void vf_clear(struct video_frame *f)
                         f->tiles[0].height,
                         f->color_spec);
 }
+
+bool parse_fps(const char *fps, struct video_desc *desc)
+{
+        char *endptr = NULL;
+        desc->fps = strtod(fps, &endptr);
+        if (desc->fps <= 0.0) {
+                log_msg(LOG_LEVEL_ERROR, "FPS must be positive, got: %s!\n",
+                        fps);
+                return false;
+        }
+        desc->interlacing = PROGRESSIVE;
+        if (strlen(endptr) != 0) { // optional interlacing suffix
+                desc->interlacing = get_interlacing_from_suffix(endptr);
+                if (desc->interlacing != PROGRESSIVE &&
+                    desc->interlacing != SEGMENTED_FRAME &&
+                    desc->interlacing != INTERLACED_MERGED) { // tff or bff
+                        log_msg(LOG_LEVEL_ERROR,
+                                "Unsupported interlacing format: %s!\n",
+                                endptr);
+                        return false;
+                }
+                if (desc->interlacing == INTERLACED_MERGED) {
+                        desc->fps /= 2;
+                }
+        }
+        return true;
+}
