@@ -152,10 +152,11 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
                                 state = aci->init(audio_codec, direction, silent, bitrate);
                                 if(state) {
                                         break;
-                                } else {
-                                        if (!silent) {
-                                                fprintf(stderr, "Error: initialization of audio codec failed!\n");
-                                        }
+                                }
+                                if (!silent) {
+                                        log_msg(LOG_LEVEL_ERROR,
+                                                "Error: initialization of "
+                                                "audio codec failed!\n");
                                 }
                         }
                 }
@@ -165,8 +166,9 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
 
         if(!state) {
                 if (!silent) {
-                        fprintf(stderr, "Unable to find encoder for audio codec '%s'\n",
-                                        get_name_to_audio_codec(audio_codec));
+                        log_msg(LOG_LEVEL_ERROR,
+                                "Unable to find encoder for audio codec '%s'\n",
+                                get_name_to_audio_codec(audio_codec));
                 }
                 return NULL;
         }
@@ -262,8 +264,10 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 for(int i = s->state_count; i < frame->get_channel_count(); ++i) {
                         s->state[i] = s->funcs->init(s->desc.codec, s->direction, false, 0);
                         if(s->state[i] == NULL) {
-                                        fprintf(stderr, "Error: initialization of audio codec failed!\n");
-                                        return {};
+                                log_msg(LOG_LEVEL_ERROR,
+                                        "Error: initialization of audio codec "
+                                        "failed!\n");
+                                return {};
                         }
                 }
                 s->state_count = frame->get_channel_count();
@@ -298,8 +302,10 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 }
         }
 
-        if(nonzero_channels != frame->get_channel_count()) {
-                fprintf(stderr, "[Audio decompress] Empty channel returned !\n");
+        if (nonzero_channels != frame->get_channel_count()) {
+                log_msg(LOG_LEVEL_WARNING,
+                        "[Audio decompress] %d empty channel(s) returned!\n",
+                        frame->get_channel_count() - nonzero_channels);
                 return {};
         }
         int max_len = 0;
