@@ -924,8 +924,10 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
                 ret->dispose = vidcap_file_dispose_audio;
         }
         if (ret && drop_samples > 0) {
-                verbose_msg(MOD_NAME "Dropped %ld audio bytes.\n", drop_bytes);
-                memmove(ret->data, ret->data + drop_bytes, ret->data_len - drop_bytes);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Dropped %ld audio bytes.\n",
+                        drop_bytes);
+                memmove(ret->data, ret->data + drop_bytes,
+                        ret->data_len - drop_bytes);
                 ret->data_len -= drop_bytes;
         }
 
