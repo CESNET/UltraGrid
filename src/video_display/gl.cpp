@@ -396,6 +396,8 @@ struct state_gl {
         bool fixed_size = false;
         int fixed_w = 0;
         int fixed_h = 0;
+        int pos_x = INT_MIN;
+        int pos_y = INT_MIN;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
         bool nodecorate = false;
@@ -507,8 +509,6 @@ static void gl_show_help(bool full) {
         col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
         col() << TBOLD("\td[force]")    << "\tdeinterlace (optionally forcing deinterlace of progressive video)\n";
         col() << TBOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
-        col() << TBOLD("\tfixed_size=<W>x<H>")
-              << " set window size regardless video\n";
         col() << TBOLD("\tgamma[=<val>]")
               << "\tgamma value to be added _in addition_ to the hardware "
                  "gamma correction\n";
@@ -525,6 +525,10 @@ static void gl_show_help(bool full) {
         col() << TBOLD("\tsize=<ratio>%")
               << "\tspecifies desired size of window relative\n"
                  "\t\t\tto native resolution (in percents)\n";
+        col() << TBOLD("\tsize=<W>x<H>")
+              << "\twindow size in pixels, with optional position; full\n"
+              << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
+              << (full ? " [1]" : "") << "\n";
 #ifdef SPOUT
         col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
 #endif
@@ -538,6 +542,8 @@ static void gl_show_help(bool full) {
                       << "=<k>=<v>[:<k2>=<v2>] set GLFW window hint key\n"
                          "\t\t<k> to value <v>, eg. 0x20006=1 to autoiconify"
                          "(experts only)\n";
+                col() << "\n" TBOLD(
+                    "[1]") " position doesn't work in Wayland\n";
         }
 
         printf("\nkeyboard shortcuts:\n");
@@ -559,6 +565,37 @@ static void gl_load_splashscreen(struct state_gl *s)
         struct video_frame *frame = get_splashscreen();
         display_gl_reconfigure(s, video_desc_from_frame(frame));
         s->frame_queue.push(frame);
+}
+
+static bool set_size(struct state_gl *s, const char *tok)
+{
+        if (strstr(tok, "fixed_size=") == tok) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "fixed_size with dimensions is "
+                                 " deprecated, use size"
+                                 " instead\n");
+        }
+        tok = strchr(tok, '=') + 1;
+        if (strchr(tok, '%') != NULL) {
+                s->window_size_factor = atof(tok) / 100.0;
+        } else if (strpbrk(tok, "x+-") == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
+                return false;
+        }
+        if (strchr(tok, 'x') != NULL) {
+                s->fixed_size = true;
+                s->fixed_w = atoi(tok);
+                s->fixed_h = atoi(strchr(tok, 'x') + 1);
+        }
+        tok = strpbrk(tok, "+-");
+        if (tok != NULL) {
+                s->pos_x = atoi(tok);
+                tok = strpbrk(tok + 1, "+-");
+        }
+        if (tok != NULL) {
+                s->pos_y = atoi(tok);
+        }
+        return true;
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
@@ -633,19 +670,16 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         s->hide_window = true;
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
                         s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
-                } else if(!strncmp(tok, "size=",
-                                        strlen("size="))) {
-                        s->window_size_factor =
-                                atof(tok + strlen("size=")) / 100.0;
-                } else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
-                        s->fixed_size = true;
-                        if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
-                                char *size = tok + strlen("fixed_size=");
-                                if (strchr(size, 'x')) {
-                                        s->fixed_w = atoi(size);
-                                        s->fixed_h = atoi(strchr(size, 'x') + 1);
-                                }
+                } else if (strstr(tok, "size=") == tok ||
+                           strstr(tok, "fixed_size=") == tok) {
+                        if (!set_size(s, tok)) {
+                                return nullptr;
                         }
+                } else if (strcmp(tok, "fixed_size") == 0) {
+                        log_msg(LOG_LEVEL_WARNING,
+                                MOD_NAME "fixed_size deprecated, use size with "
+                                         "dimensions\n");
+                        s->fixed_size = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
@@ -1464,6 +1498,10 @@ static bool display_gl_init_opengl(struct state_gl *s)
         display_gl_set_user_window_hints();
         if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), nullptr, nullptr)) == nullptr) {
                 return false;
+        }
+        if (s->pos_x != INT_MIN) {
+                const int y = s->pos_y == INT_MIN ? 0 : s->pos_y;
+                glfwSetWindowPos(s->window, s->pos_x, y);
         }
         if (mon != nullptr) { /// @todo remove/revert when no needed (see particular commit message
                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, get_refresh_rate(s->modeset, mon, GLFW_DONT_CARE));
