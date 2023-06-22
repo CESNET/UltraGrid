@@ -337,22 +337,22 @@ static void show_help(void)
         SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
         printf("SDL options:\n");
         color_printf(TBOLD(TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]") "\n");
-        printf("\twhere:\n");
-        color_printf(TBOLD("\t\td[force]") " - deinterlace (force even for progresive video)\n");
-        color_printf(TBOLD("\t\t      fs") " - fullscreen\n");
-        color_printf(TBOLD("\t\t  <didx>") " - display index, available indices: ");
+        printf("where:\n");
+        color_printf(TBOLD("\td[force]") " - deinterlace (force even for progresive video)\n");
+        color_printf(TBOLD("\t      fs") " - fullscreen\n");
+        color_printf(TBOLD("\t  <didx>") " - display index, available indices: ");
         sdl2_print_displays();
-        color_printf(TBOLD("\t\t   <drv>") " - one of following: ");
+        color_printf(TBOLD("\t   <drv>") " - one of following: ");
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
                 color_printf("%s" TBOLD("%s"), (i == 0 ? "" : ", "), SDL_GetVideoDriver(i));
         }
         color_printf("\n");
-        color_printf(TBOLD("\t     keep-aspect") " - keep window aspect ratio respecive to the video\n");
-        color_printf(TBOLD("\t         novsync") " - disable sync on VBlank\n");
-        color_printf(TBOLD("\t      nodecorate") " - disable window border\n");
-        color_printf(TBOLD("\tfixed_size[=WxH]") " - use fixed sized window\n");
-        color_printf(TBOLD("\t    window_flags") " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n");
-        color_printf(TBOLD("\t\t  <ridx>") " - renderer index: ");
+        color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio respecive to the video\n");
+        color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
+        color_printf(TBOLD("      nodecorate") " - disable window border\n");
+        color_printf(TBOLD("fixed_size[=WxH]") " - use fixed sized window\n");
+        color_printf(TBOLD("    window_flags") " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n");
+        color_printf(TBOLD("\t  <ridx>") " - renderer index: ");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
                 if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
@@ -360,9 +360,9 @@ static void show_help(void)
                 }
         }
         printf("\n");
-        printf("\n\tKeyboard shortcuts:\n");
+        printf("\nKeyboard shortcuts:\n");
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
-                color_printf("\t\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
+                color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
         }
         SDL_Quit();
 }
