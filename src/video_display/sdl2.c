@@ -99,8 +99,8 @@ struct state_sdl2 {
         Uint32                  sdl_user_reconfigure_event;
 
         int                     display_idx;
-        unsigned                x;
-        unsigned                y;
+        int                     x;
+        int                     y;
         int                     renderer_idx;
         SDL_Window             *window;
         SDL_Renderer           *renderer;
@@ -336,7 +336,10 @@ static void show_help(void)
 {
         SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
         printf("SDL options:\n");
-        color_printf(TBOLD(TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]") "\n");
+        color_printf(TBOLD(
+            TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
+                             "renderer=<ridx>|:nodecorate|:size[=WxH]|:window_"
+                             "flags=<f>|:keep-aspect]*|:help]") "\n");
         printf("where:\n");
         color_printf(TBOLD("\td[force]") " - deinterlace (force even for progresive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
@@ -350,8 +353,12 @@ static void show_help(void)
         color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio respecive to the video\n");
         color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
         color_printf(TBOLD("      nodecorate") " - disable window border\n");
-        color_printf(TBOLD("fixed_size[=WxH]") " - use fixed sized window\n");
-        color_printf(TBOLD("    window_flags") " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n");
+        color_printf(
+            TBOLD("            size") " - window size in pixels with optional "
+                                      "position\n"
+                                      "                   "
+                                      "(syntax: " TBOLD(
+                                          "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
         color_printf(TBOLD("\t  <ridx>") " - renderer index: ");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
@@ -494,8 +501,8 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         }
         int width = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->x;
-        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->y;
+        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->x;
+        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->y;
         s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
@@ -534,6 +541,35 @@ static void loadSplashscreen(struct state_sdl2 *s) {
         memcpy(splash->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
         vf_free(frame);
         display_frame(s, splash); // don't be tempted to use _putf() - it will use event queue and there may arise a race-condition with recv thread
+}
+
+static bool set_size(struct state_sdl2 *s, const char *tok)
+{
+        if (strstr(tok, "fixed_size=") == tok) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "fixed_size with dimensions is "
+                                 " deprecated, use size"
+                                 " instead\n");
+        }
+        tok = strchr(tok, '=') + 1;
+        if (strpbrk(tok, "x+-") == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
+                return false;
+        }
+        if (strchr(tok, 'x') != NULL) {
+                s->fixed_size = true;
+                s->fixed_w = atoi(tok);
+                s->fixed_h = atoi(strchr(tok, 'x') + 1);
+        }
+        tok = strpbrk(tok, "+-");
+        if (tok != NULL) {
+                s->x = atoi(tok);
+                tok = strpbrk(tok + 1, "+-");
+        }
+        if (tok != NULL) {
+                s->y = atoi(tok);
+        }
+        return true;
 }
 
 static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -575,15 +611,17 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                         s->window_flags |= SDL_WINDOW_BORDERLESS;
                 } else if (strcmp(tok, "keep-aspect") == 0) {
                         s->keep_aspect = true;
-		} else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
-			s->fixed_size = true;
-			if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
-				char *size = tok + strlen("fixed_size=");
-				if (strchr(size, 'x')) {
-					s->fixed_w = atoi(size);
-					s->fixed_h = atoi(strchr(size, 'x') + 1);
-				}
-			}
+                } else if (strstr(tok, "fixed_size=") == tok ||
+                           strstr(tok, "size=") == tok) {
+                        if (!set_size(s, tok)) {
+                                free(s);
+                                return NULL;
+                        }
+                } else if (strcmp(tok, "fixed_size") == 0) {
+                        log_msg(LOG_LEVEL_WARNING,
+                                MOD_NAME "fixed_size deprecated, use size with "
+                                         "dimensions\n");
+                        s->fixed_size = true;
                 } else if (strstr(tok, "window_flags=") == tok) {
                         int f;
                         if (sscanf(tok + strlen("window_flags="), "%i", &f) != 1) {
@@ -601,6 +639,10 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                         }
                         s->x = atoi(tok);
                         s->y = atoi(strchr(tok, ',') + 1);
+                        log_msg(LOG_LEVEL_WARNING,
+                                MOD_NAME "pos is deprecated, use "
+                                         "\"size=%+d%+d\" instead.\n",
+                                s->x, s->y);
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
                         s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
