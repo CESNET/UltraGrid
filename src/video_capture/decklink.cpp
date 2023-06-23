@@ -203,7 +203,7 @@ private:
         BMDDetectedVideoInputFormatFlags configuredCsBitDepth{};
 
 public:
-        int	                      newFrameReady{};
+        int	                      newFrameReady{}; // -1 == timeout
         IDeckLinkVideoFrame          *rightEyeFrame{};
         void                         *pixelFrame{};
         void                         *pixelFrameRight{};
@@ -354,10 +354,8 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
                         nosig = true;
 			log_msg(LOG_LEVEL_INFO, "Frame received (#%d) - No input signal detected\n", s->frames);
-                        if (s->nosig_send) {
-                                newFrameReady = 1;
-                        }
-		} else {
+                        newFrameReady = s->nosig_send ? 1 : -1;
+                } else {
                         newFrameReady = 1; // The new frame is ready to grab
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
 		}
@@ -372,7 +370,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 }
         }
 
-        if (videoFrame && newFrameReady && (!nosig || !lastFrame)) {
+        if (videoFrame && newFrameReady == 1 && (!nosig || !lastFrame)) {
                 /// @todo videoFrame should be actually retained until the data are processed
                 videoFrame->GetBytes(&pixelFrame);
 
@@ -974,12 +972,12 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
                         if (result == S_OK) {
                                 device->deckLinkInput->StartStreams();
                                 unique_lock<mutex> lk(s->lock);
-                                s->boss_cv.wait_for(lk, chrono::milliseconds(1200), [device]{return device->delegate->newFrameReady;});
+                                s->boss_cv.wait_for(lk, chrono::milliseconds(1200), [device]{return device->delegate->newFrameReady == 1;});
                                 lk.unlock();
                                 device->deckLinkInput->StopStreams();
                                 device->deckLinkInput->DisableVideoInput();
 
-                                if (device->delegate->newFrameReady) {
+                                if (device->delegate->newFrameReady == 1) {
                                         *outDisplayMode = displayMode->GetDisplayMode();
                                         // set also detected codec (!)
                                         s->set_codec(pf == bmdFormat8BitYUV ? UYVY : RGBA);
@@ -1454,7 +1452,7 @@ static int nr_frames(struct vidcap_decklink_state *s) {
         /* If we use timecode, take maximal timecode value... */
         if (s->sync_timecode) {
                 for (i = 0; i < s->devices_cnt; ++i) {
-                        if(s->state[i].delegate->newFrameReady) {
+                        if(s->state[i].delegate->newFrameReady == 1) {
                                 if (s->state[i].delegate->timecode > max_timecode) {
                                         max_timecode = s->state[i].delegate->timecode;
                                 }
@@ -1464,12 +1462,12 @@ static int nr_frames(struct vidcap_decklink_state *s) {
 
         /* count all tiles */
         for (i = 0; i < s->devices_cnt; ++i) {
-                if(s->state[i].delegate->newFrameReady) {
+                if(s->state[i].delegate->newFrameReady == 1) {
                         /* if inputs are synchronized, use only up-to-date frames (with same TC)
                          * as the most recent */
                         if(s->sync_timecode) {
                                 if(s->state[i].delegate->timecode && s->state[i].delegate->timecode != max_timecode) {
-                                        s->state[i].delegate->newFrameReady = FALSE;
+                                        s->state[i].delegate->newFrameReady = 0;
                                 } else {
                                         tiles_total++;
                                 }
@@ -1478,6 +1476,9 @@ static int nr_frames(struct vidcap_decklink_state *s) {
                         else {
                                 tiles_total++;
                         }
+                }
+                if (s->state[i].delegate->newFrameReady == -1) {
+                        return -1;
                 }
         }
         return tiles_total;
@@ -1558,6 +1559,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
                 while(rc == cv_status::no_timeout
                                 && tiles_total != s->devices_cnt /* not all tiles */
+                                && tiles_total != -1
                                 && !timeout) {
                         rc = s->boss_cv.wait_for(lk, microseconds(2 * s->next_frame_time));
                         // recompute tiles count
@@ -1573,7 +1575,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 }
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
-                if (rc != cv_status::no_timeout || timeout) { //(rc == ETIMEDOUT) {
+                if (rc != cv_status::no_timeout || timeout || tiles_total == -1) { //(rc == ETIMEDOUT) {
                         log_msg(LOG_LEVEL_VERBOSE, "Waiting for new frame timed out!\n");
 
                         // try to restart stream
