@@ -321,6 +321,47 @@ void dump_tree(struct module *node, int indent) {
 }
 
 /**
+ * @returns module_class_name() if we are first child of our class
+ * @returns cls_name[idx] otherwise (idx > 0)
+ */
+static const char *get_module_identifier(struct module *mod)
+{
+        const char *cls_name = module_class_name(mod->cls);
+        struct module *parent = get_parent_module(mod);
+        if (parent == NULL) {
+                return cls_name;
+        }
+
+        pthread_mutex_lock(&parent->lock);
+
+        int our_index = 0;
+        for (void *it = simple_linked_list_it_init(parent->childs);
+             it != NULL;) {
+                struct module *child = simple_linked_list_it_next(&it);
+                if (child->cls != mod->cls) {
+                        continue;
+                }
+                if (child == mod) { // found our node
+                        break;
+                }
+                our_index += 1;
+        }
+        if (our_index == 0) {
+                pthread_mutex_unlock(&parent->lock);
+                return cls_name;
+        }
+        // append our index if >0
+        _Thread_local static char name[128];
+        name[sizeof name - 1] = '\0';
+        int ret = snprintf(name, sizeof name, "%s[%d]", cls_name, our_index);
+        assert((unsigned)ret < sizeof name);
+
+        pthread_mutex_unlock(&parent->lock);
+
+        return name;
+}
+
+/**
  * Gets textual representation of path from root to module.
  *
  * Currently only simple paths are created (class names only)
@@ -330,7 +371,7 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
         buf[0] = '\0';
 
         while (mod) {
-                const char *cur_name = module_class_name(mod->cls);
+                const char *cur_name = get_module_identifier(mod);
                 if (sizeof(buf) + 1 + sizeof(cur_name) >= buflen) {
                         return false;
                 }
