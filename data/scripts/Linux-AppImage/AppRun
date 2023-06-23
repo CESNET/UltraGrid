@@ -221,6 +221,14 @@ get_custom_firejail_rules() {
         elif firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
                 printf " --dbus-user=none --dbus-system=none"
         fi
+
+        if ! expr "$*" : '.*/mnt' >/dev/null &&
+                        ! expr "$*" : '.*/media' >/dev/null &&
+                        ! expr "$*" : '.*/run/mount' >/dev/null &&
+                        ! expr "$*" : '.*/run/media' >/dev/null
+        then
+                printf " --disable-mnt"
+        fi
 }
 
 # shellcheck source=/dev/null
@@ -239,7 +247,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
                 FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--profile=$ULTRAGRID_USE_FIREJAIL"
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
-                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
+                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
                 if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
