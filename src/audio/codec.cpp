@@ -47,7 +47,6 @@
 #include "utils/misc.h"
 
 #include "lib_common.h"
-#include "rang.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -55,8 +54,6 @@
 
 static constexpr const char *MOD_NAME = "[acodec] ";
 
-using rang::fg;
-using rang::style;
 using namespace std;
 
 static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
@@ -106,19 +103,21 @@ std::vector<std::pair<std::string, bool>> get_audio_codec_list(void){
 
 void list_audio_codecs(void) {
         printf("Syntax:\n");
-        cout << style::bold << fg::red << "\t--audio-codec <codec_name>" << fg::reset << "[:sample_rate=<sampling_rate>][:bitrate=<bitrate>]\n" << style::reset;
-        cout << "\nwhere\n";
-        cout << "\t" << style::bold << "codec_name " << style::reset << " - one of the list below\n";
-        cout << "\t" << style::bold << "sample_rate" << style::reset << " - sample rate that will the codec used (may differ from captured)\n";
-        cout << "\t" << style::bold << "bitrate    " << style::reset << " - codec bitrate " << style::bold << "per channel" << style::reset << " (with optional k/M suffix)\n";
-        cout << "\n";
+        col() << SBOLD(
+            SRED("\t-A <codec_name>")
+            << "[:sample_rate=<sampling_rate>][:bitrate=<bitrate>]\n");
+        col() << "\nwhere\n";
+        col() << "\t" << SBOLD("codec_name ") << " - one of the list below\n";
+        col() << "\t" << SBOLD("sample_rate")
+              << " - sample rate that will the codec used (may differ from\n"
+              << "\t\t      captured)\n";
+        col() << "\t" << SBOLD("bitrate    ") << " - codec bitrate "
+              << SBOLD("per channel") << " (with optional k/M suffix)\n";
+        col() << "\n";
         printf("Supported audio codecs:\n");
         for (auto const &it : get_audio_codec_list()) {
-                cout << style::bold << "\t" << it.first << style::reset;
-                if (!it.second) {
-                        cout << " - " << fg::red <<"unavailable" << fg::reset;
-                } 
-                printf("\n");
+                col() << SBOLD("\t" << it.first)
+                      << (!it.second ? " - " TRED("unavailable") : "") << "\n";
         }
 }
 
