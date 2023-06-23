@@ -402,7 +402,8 @@ static void show_help(bool full) {
         color_printf("or\n");
         color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
         color_printf("where\n");
-        color_printf(TBOLD("\t  file ") "      - use file for input data instead of predefined pattern\n");
+        color_printf(TBOLD("\t  file ") "      - use file for input data instead of predefined pattern\n"
+                               "\t               (raw or PAM/PNM/Y4M)\n");
         color_printf(TBOLD("\t  fps  ") "      - frames per second (with optional 'i' suffix for interlaced)\n");
         color_printf(TBOLD("\t  i|sf ") "      - send as interlaced or segmented frame\n");
         color_printf(TBOLD("\t  mode ") "      - use specified mode (use 'mode=help' for list)\n");
