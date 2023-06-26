@@ -490,9 +490,17 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         codec_t saved_codec = desc.color_spec;
                         desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
                         desc.color_spec = saved_codec;
-                } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != NULL) {
-                        desc.width = atoi(strchr(tmp, '=') + 1);
-                        desc.height = atoi(strchr(tmp, 'x') + 1);
+                } else if (strstr(tmp, "size=") == tmp) {
+                        tmp = strchr(tmp, '=') + 1;
+                        if (isdigit(tmp[0]) && strchr(tmp, 'x') != NULL) {
+                                desc.width = atoi(tmp);
+                                desc.height = atoi(strchr(tmp, 'x') + 1);
+                        } else {
+                                struct video_desc size_dsc =
+                                    get_video_desc_from_string(tmp);
+                                desc.width = size_dsc.width;
+                                desc.height = size_dsc.height;
+                        }
                 } else if (strstr(tmp, "fps=") == tmp) {
                         if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
                                 goto error;
