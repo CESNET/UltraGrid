@@ -530,7 +530,6 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        s->audio_source_index = -1;
         s->frames = 0;
         gettimeofday(&s->t0, NULL);
 
