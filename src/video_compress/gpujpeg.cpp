@@ -41,12 +41,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "video_compress.h"
 #include "module.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/color_out.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
@@ -171,7 +171,7 @@ void encoder_state::compress(shared_ptr<video_frame> frame)
                 auto out = compress_step(std::move(frame));
                 if (out) {
                         vf_restore_metadata(out.get(), vf_metadata);
-                        out->compress_end = time_since_epoch_in_ms();
+                        out->compress_end = get_time_in_ns();
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to encode frame!\n");
                         out = shared_ptr<video_frame>(vf_alloc(1), vf_free);

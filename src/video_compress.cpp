@@ -43,6 +43,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <cassert>
 #include <cinttypes>
 #include <memory>
 #include <stdio.h>
@@ -51,9 +52,9 @@
 #include <thread>
 #include <vector>
 
-#include "compat/platform_time.h"
 #include "messaging.h"
 #include "module.h"
+#include "tv.h"
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
 #include "utils/vf_split.h"
@@ -335,8 +336,6 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
         if (!proxy)
                 abort();
 
-        uint64_t t0 = time_since_epoch_in_ms();
-
         struct msg_change_compress_data *msg = NULL;
         while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
                 compress_process_message(proxy, msg);
@@ -347,12 +346,12 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
         if (!frame) {
                 proxy->poisoned = true;
         }
+        if (frame) {
+                frame->compress_start = get_time_in_ns();
+        }
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
-                if (frame) {
-                        frame->compress_start = t0;
-                }
                 s->funcs->compress_frame_async_push_func(s->state[0], frame);
         } else if (s->funcs->compress_tile_async_push_func) {
                 assert(s->funcs->compress_tile_async_pop_func);
@@ -360,8 +359,6 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                         async_poison(s);
                         return;
                 }
-
-                frame->compress_start = t0;
 
                 if(!check_state_count(frame->tile_count, proxy)){
                         return;
@@ -396,8 +393,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                         return;
                 }
 
-                sync_api_frame->compress_start = t0;
-                sync_api_frame->compress_end = time_since_epoch_in_ms();
+                sync_api_frame->compress_end = get_time_in_ns();
 
                 proxy->queue.push(sync_api_frame);
         }
@@ -601,7 +597,10 @@ shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
 
         auto f = proxy->queue.pop();
         if (f) {
-                log_msg(LOG_LEVEL_DEBUG, "Compressed frame size: %8u; duration: %3" PRIu64 " ms\n", vf_get_data_len(f.get()), f->compress_end - f->compress_start);
+                log_msg(LOG_LEVEL_DEBUG,
+                        "Compressed frame size: %8u; duration: %7.3f ms\n",
+                        vf_get_data_len(f.get()),
+                        (f->compress_end - f->compress_start) / MS_IN_NS_DBL);
         }
         return f;
 }

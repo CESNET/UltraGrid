@@ -294,8 +294,8 @@ struct video_frame {
                 uint32_t timecode; ///< BCD timecode (hrs, min, sec, frm num)
                 uint32_t duration;
         };
-        uint64_t compress_start; ///< in ms from epoch
-        uint64_t compress_end; ///< in ms from epoch
+        int64_t compress_start; ///< in ns from epoch
+        int64_t compress_end;   ///< in ns from epoch
         unsigned int paused_play:1;
 #define VF_METADATA_END tile_count
 

@@ -165,7 +165,8 @@ shared_ptr<video_frame> vf_merge_tiles(std::vector<shared_ptr<video_frame>> cons
                                 vf_free(frame);
                         });
 
-        uint64_t t0 = UINT64_MAX, t1 = 0;
+        int64_t t0 = INT64_MAX;
+        int64_t t1 = 0;
         for (unsigned int i = 0; i < tiles.size(); ++i) {
                 ret->tiles[i].data = tiles[i]->tiles[0].data;
                 ret->tiles[i].data_len = tiles[i]->tiles[0].data_len;

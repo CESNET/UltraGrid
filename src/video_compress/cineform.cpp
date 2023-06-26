@@ -46,12 +46,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
-#include "video_compress.h"
-#include "module.h"
 #include "lib_common.h"
+#include "module.h"
+#include "tv.h"
+#include "video_compress.h"
 
 #include <CFHDTypes.h>
 #include <CFHDEncoder.h>
@@ -507,7 +507,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
         }
         s->frame_queue.pop();
 
-        out->compress_end = time_since_epoch_in_ms();
+        out->compress_end = get_time_in_ns();
 
         return out;
 }
