@@ -598,7 +598,8 @@ std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
                                 output << fcc_to_string(b.get_int());
                         } else if (b.get_int() >= 0) {
                                 auto flags = output.flags();
-                                output << "0x" << hex << b.get_int();
+                                output << b.get_int() << " (0x" << hex
+                                       << b.get_int() << ")";
                                 output.flags(flags);
                         } else {
                                 output << b.get_int();
