@@ -43,11 +43,15 @@
 
 #include "capture_filter.h"
 
+#include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_codec.h"
+
+#define MOD_NAME "[override_prop] "
 
 struct module;
 
@@ -60,27 +64,64 @@ struct state_override_prop {
 };
 
 static void usage() {
-        color_printf(
-            TBOLD("override_prop") " allows overriding video properties.\n\n");
-        printf("usage:\n\t" TBOLD("-F override_prop:fps=<n>") "\n");
-        printf("where:\n\t<fps> - new (metadata) FPS value ("
-               "suffixed 'i' for interlaced)\n");
+        char desc[] = TBOLD(
+            "override_prop") " allows overriding video properties without "
+                             "altering actual video content.\n\nParametes' "
+                             "validity is not checked in any way and incorrect "
+                             "values may cause a misbehaving or a crash.";
+        color_printf("%s\n\n", indent_paragraph(desc));
+        color_printf("usage:\n\t" TBOLD(
+            "-F override_prop[:fps=<n>|:size=<X>x<Y>|:codec=<c>") "\n");
+        printf("where:\n");
+        color_printf("\t" TBOLD("fps") " - new FPS value ("
+                                         "suffixed 'i' for interlaced)\n");
+        color_printf("\t" TBOLD("size") " - size override\n");
+        color_printf("\t" TBOLD(
+            "codec") " - codec override (data_len will not be changed)\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
 
-        if (strcmp(cfg, "help") == 0 || strstr(cfg, "fps=") != cfg) {
+        if (strcmp(cfg, "help") == 0) {
                 usage();
-                return strcmp(cfg, "help") == 0;
+                return 1;
+        }
+
+        char *fmt = strdupa(cfg);
+        char *endptr = NULL;
+        char *item = NULL;
+        struct video_desc new_desc = { 0 };
+        while ((item = strtok_r(fmt, ":", &endptr)) != NULL) {
+                if (strstr(item, "fps=") == item) {
+                        if (!parse_fps(strchr(item, '=') + 1, &new_desc)) {
+                                return -1;
+                        }
+                } else if (strstr(item, "size=") == item &&
+                           strchr(item, 'x') != NULL) {
+                        item = strchr(item, '=') + 1;
+                        new_desc.width = atoi(item);
+                        new_desc.height = atoi(strchr(item, 'x') + 1);
+                } else if (strstr(item, "codec=") == item) {
+                        new_desc.color_spec =
+                            get_codec_from_name(strchr(item, '=') + 1);
+                        if (new_desc.color_spec == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        MOD_NAME "Wrong color spec: %s\n",
+                                        strchr(item, '=') + 1);
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unknown option: %s\n", item);
+                        return -1;
+                }
+
+                fmt = NULL;
         }
 
         struct state_override_prop *s = calloc(1, sizeof *s);
-        if (!parse_fps(strchr(cfg, '=') + 1, &s->new_desc)) {
-                free(s);
-                return -1;
-        }
+        s->new_desc = new_desc;
 
         *state = s;
         return 0;
