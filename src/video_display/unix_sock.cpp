@@ -73,6 +73,11 @@
 #define DEFAULT_SCALE_W 960
 #define DEFAULT_SCALE_H 540
 
+using ipc_frame_conv_func_t = bool (*)(struct Ipc_frame *dst,
+                const struct video_frame *src,
+                codec_t codec,
+                unsigned scale_factor);
+
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
@@ -100,6 +105,8 @@ struct state_unix_sock {
 
         bool ignore_putf_blocking = false;
 
+        ipc_frame_conv_func_t ipc_conv = ipc_frame_from_ug_frame;
+
         struct module *parent;
         std::thread thread_id;
 };
@@ -115,6 +122,7 @@ static void show_help(){
                 << get_temp_dir() << DEFAULT_DISP_FILENAME "\" for unix_sock\n";
         col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << "Defaults are -1x-1 for unix_sock and " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) " for preview.\n";
+        col() << TBOLD("\thq")           << "\tUse higher quality downscale\n";
 }
 
 static void *display_unix_sock_init(struct module *parent,
@@ -151,6 +159,8 @@ static void *display_unix_sock_init(struct module *parent,
                         socket_path = tokenize(tok, '=');
                 } else if(key == "key"){
                         socket_path += tokenize(tok, '=');
+                } else if(key == "hq"){
+                        s->ipc_conv = ipc_frame_from_ug_frame_hq;
                 } else if(key == "target_size"){
                         auto val = tokenize(tok, '=');
                         if(!parse_num(tokenize(val, 'x'), s->target_width)
@@ -204,7 +214,7 @@ static void display_unix_sock_run(void *state)
                 int scale = ipc_frame_get_scale_factor(tile->width, tile->height,
                                 s->target_width, s->target_height);
 
-                if(!ipc_frame_from_ug_frame(s->ipc_frame.get(), frame.get(),
+                if(!s->ipc_conv(s->ipc_frame.get(), frame.get(),
                                         RGB, scale))
                 {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to convert\n");
