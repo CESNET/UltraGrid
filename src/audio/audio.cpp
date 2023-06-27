@@ -174,8 +174,6 @@ struct state_audio {
 
         char *requested_encryption = nullptr;
 
-        volatile bool paused = false; // for CoUniverse...
-
         int audio_tx_mode = 0;
 
         double volume = 1.0; // receiver volume scale
@@ -913,15 +911,9 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 return new_response(RESPONSE_OK, status);
                                 break;
                         }
-                case SENDER_MSG_PAUSE:
-                        s->paused = true;
-                        break;
                 case SENDER_MSG_MUTE:
                         s->muted_sender = !s->muted_sender;
                         log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n", s->muted_sender ? "" : "un");
-                        break;
-                case SENDER_MSG_PLAY:
-                        s->paused = false;
                         break;
                 case SENDER_MSG_QUERY_VIDEO_MODE:
                         return new_response(RESPONSE_BAD_REQUEST, NULL);
@@ -1073,9 +1065,6 @@ static void *audio_sender_thread(void *arg)
                                 memset(buffer->data, 0, buffer->data_len);
                         }
                         export_audio(s->exporter, buffer);
-                        if (s->paused) {
-                                continue;
-                        }
 
                         s->filter_chain.filter(&buffer);
 

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,7 @@ protected:
         time_ns_t        m_start_time;
         video_desc       m_video_desc;
 private:
-        struct response *process_sender_message(struct msg_sender *i, int *status);
+        struct response *process_sender_message(struct msg_sender *i) override;
 };
 
 #endif // VIDEO_RXTX_RTP_H_

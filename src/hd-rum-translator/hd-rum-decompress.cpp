@@ -5,7 +5,7 @@
  * @brief  decompressing part of transcoding reflector
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -201,7 +201,6 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
-        params["paused"].b = true;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...

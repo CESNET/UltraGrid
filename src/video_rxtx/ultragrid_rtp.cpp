@@ -150,10 +150,6 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 {
         lock_guard<mutex> lock(m_network_devices_lock);
 
-        if (m_paused) {
-                goto after_send;
-        }
-
         if (m_connections_count == 1) { /* normal case - only one connection */
                 tx_send(m_tx, tx_frame.get(),
                                 m_network_devices[0]);
@@ -185,7 +181,6 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 } while (!m_should_exit && rc == TRUE);
         }
 
-after_send:
         m_async_sending_lock.lock();
         m_async_sending = false;
         m_async_sending_lock.unlock();

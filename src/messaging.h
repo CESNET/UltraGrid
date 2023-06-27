@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,8 +100,6 @@ enum msg_sender_type {
         SENDER_MSG_CHANGE_PORT,
         SENDER_MSG_GET_STATUS,
         SENDER_MSG_MUTE,
-        SENDER_MSG_PLAY,
-        SENDER_MSG_PAUSE,
         SENDER_MSG_CHANGE_FEC,
         SENDER_MSG_QUERY_VIDEO_MODE,
         SENDER_MSG_RESET_SSRC,

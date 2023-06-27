@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2017 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,8 +71,6 @@ struct video_rxtx_info {
         class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
-#define STREAM_PAUSED_PLAY 1
-
 class video_rxtx {
 public:
         virtual ~video_rxtx();
@@ -95,9 +93,7 @@ public:
         bool m_should_exit = false;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
-        int check_sender_messages();
-        bool m_paused;
-        bool m_report_paused_play;
+        void check_sender_messages();
         struct module m_sender_mod;
         struct module m_receiver_mod;
         int m_rxtx_mode;
@@ -109,8 +105,7 @@ private:
         virtual void *(*get_receiver_thread())(void *arg) = 0;
         static void *sender_thread(void *args);
         void *sender_loop();
-        virtual struct response *process_sender_message(struct msg_sender *, int *status) {
-                *status = 0;
+        virtual struct response *process_sender_message(struct msg_sender *) {
                 return NULL;
         }
 

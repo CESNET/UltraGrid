@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2019 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,8 +70,8 @@
 
 using namespace std;
 
-video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"), m_paused(params.at("paused").b),
-                m_report_paused_play(false), m_rxtx_mode(params.at("rxtx_mode").i),
+video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
+                m_rxtx_mode(params.at("rxtx_mode").i),
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
                 m_frames_sent(0ull), m_compression(nullptr),
                 m_exporter(static_cast<struct exporter *>(params.at("exporter").ptr)),
@@ -169,20 +169,13 @@ void *video_rxtx::sender_thread(void *args) {
         return static_cast<video_rxtx *>(args)->sender_loop();
 }
 
-int video_rxtx::check_sender_messages() {
-        int ret = 0;
+void video_rxtx::check_sender_messages() {
         // process external messages
         struct message *msg_external;
         while((msg_external = check_message(&m_sender_mod))) {
-                int status;
-                struct response *r = process_sender_message((struct msg_sender *) msg_external, &status);
-                if (status == STREAM_PAUSED_PLAY) {
-                        ret = STREAM_PAUSED_PLAY;
-                }
+                struct response *r = process_sender_message((struct msg_sender *) msg_external);
                 free_message(msg_external, r);
         }
-
-        return ret;
 }
 
 void *video_rxtx::sender_loop() {
@@ -192,7 +185,7 @@ void *video_rxtx::sender_loop() {
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
 
         while(1) {
-                int ret = check_sender_messages();
+                check_sender_messages();
 
                 shared_ptr<video_frame> tx_frame;
 
@@ -201,8 +194,6 @@ void *video_rxtx::sender_loop() {
                         goto exit;
 
                 export_video(m_exporter, tx_frame.get());
-
-                tx_frame->paused_play = ret == STREAM_PAUSED_PLAY;
 
                 send_frame(tx_frame);
                 m_frames_sent += 1;

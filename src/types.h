@@ -296,7 +296,6 @@ struct video_frame {
         };
         int64_t compress_start; ///< in ns from epoch
         int64_t compress_end;   ///< in ns from epoch
-        unsigned int paused_play:1;
 #define VF_METADATA_END tile_count
 
         /// tiles contain actual video frame data. A frame usually contains exactly one

@@ -458,10 +458,6 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 if(prefix_matches(message, "receiver ")) {
                         strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
                         msg->type = SENDER_MSG_CHANGE_RECEIVER;
-                } else if(prefix_matches(message, "play")) {
-                        msg->type = SENDER_MSG_PLAY;
-                } else if(prefix_matches(message, "pause")) {
-                        msg->type = SENDER_MSG_PAUSE;
                 } else if(prefix_matches(message, "reset-ssrc")) {
                         msg->type = SENDER_MSG_RESET_SSRC;
                 } else {

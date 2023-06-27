@@ -138,7 +138,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
 #define OPT_RTSP_SERVER (('R' << 8) | 'S')
-#define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
@@ -577,7 +576,6 @@ struct ug_options {
         bool is_server = false;
 
         const char *requested_capabilities = nullptr;
-        bool start_paused = false;
 
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
@@ -763,7 +761,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"conv-policy",            required_argument, 0, OPT_PIXFMT_CONV_POLICY},
                 {"pix-fmts",               no_argument,       0, OPT_PIX_FMTS},
                 {"rtsp-server",            optional_argument, 0, OPT_RTSP_SERVER},
-                {"start-paused",           no_argument,       0, OPT_START_PAUSED},
                 {"video-codecs",           no_argument,       0, OPT_VIDEO_CODECS},
                 {"video-protocol",         required_argument, 0, OPT_VIDEO_PROTOCOL},
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
@@ -980,9 +977,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case OPT_LIST_MODULES:
                         return list_all_modules() ? 1 : -EXIT_FAILURE;
-                case OPT_START_PAUSED:
-                        opt->start_paused = true;
-                        break;
                 case OPT_PARAM:
                         if (!parse_params(optarg, false)) {
                                 return 1;
@@ -1419,7 +1413,6 @@ int main(int argc, char *argv[])
                 params["exporter"].ptr = exporter;
                 params["compression"].str = opt.requested_compression;
                 params["rxtx_mode"].i = opt.video_rxtx_mode;
-                params["paused"].b = opt.start_paused;
 
                 // iHDTV
                 params["argc"].i = argc;

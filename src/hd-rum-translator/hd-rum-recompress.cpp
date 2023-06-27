@@ -8,7 +8,7 @@
  * (therefore it wraps the whole sending part of UltraGrid).
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -121,7 +121,6 @@ recompress_output_port::recompress_output_port(struct module *parent,
         params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_SENDER;
-        params["paused"].b = false;
 
         //RTP
         params["mtu"].i = mtu;

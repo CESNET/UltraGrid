@@ -120,7 +120,6 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
-        params["paused"].i = false;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
