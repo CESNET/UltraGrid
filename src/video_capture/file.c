@@ -49,7 +49,6 @@
  *
  * @todo
  * - audio-only input
- * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -138,6 +137,7 @@ struct vidcap_state_lavf_decoder {
         pthread_cond_t new_frame_ready;
         pthread_cond_t frame_consumed;
         struct timeval last_frame;
+        struct timeval last_stream_stat;
 
         bool should_exit;
 };
@@ -321,6 +321,29 @@ static void vidcap_file_process_audio_pkt(struct vidcap_state_lavf_decoder *s,
         }
 }
 
+static const char *get_current_position_str(struct vidcap_state_lavf_decoder *s)
+{
+        AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
+        AVRational tb = st->time_base;
+        static _Thread_local char position[12 * 2 + 3 + 1];
+        format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den, position);
+        strncat(position, " / ", sizeof position - strlen(position) - 1);
+        format_time_ms(st->duration * tb.num * 1000 / tb.den,
+                       position + strlen(position));
+        return position;
+}
+
+static void print_current_pos(struct vidcap_state_lavf_decoder *s,
+                              struct timeval t)
+{
+        if (tv_diff(t, s->last_stream_stat) < 30) {
+                return;
+        }
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Current position: %s\n",
+                get_current_position_str(s));
+        s->last_stream_stat = t;
+}
+
 #define CHECK_FF(cmd, action_failed) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); action_failed} } while(0)
 static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
         struct msg_universal *msg;
@@ -343,10 +366,8 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                                                INT64_MIN, s->last_vid_pts,
                                                INT64_MAX, AVSEEK_FLAG_FRAME),
                             {});
-                        char position[13], duration[13];
-                        format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den, position);
-                        format_time_ms(st->duration * tb.num * 1000 / tb.den, duration);
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s / %s\n", position, duration);
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s\n",
+                                get_current_position_str(s));
                         flush_captured_data(s);
                         s->ended = false;
                 } else if (strcmp(msg->text, "pause") == 0) {
@@ -960,6 +981,7 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
                 gettimeofday(&t, NULL);
         } while (tv_diff(t, s->last_frame) < 1 / s->video_desc.fps);
         s->last_frame = t;
+        print_current_pos(s, t);
 
         return out;
 }
