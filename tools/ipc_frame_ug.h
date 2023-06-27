@@ -21,6 +21,14 @@ bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
                 codec_t codec,
                 unsigned scale_factor);
 
+/**
+ * @brief Same as ipc_frame_from_ug_frame, but convert pixfmt first and scale later.
+ */
+bool ipc_frame_from_ug_frame_hq(struct Ipc_frame *dst,
+                const struct video_frame *src,
+                codec_t codec,
+                unsigned scale_factor);
+
 bool ipc_frame_write_to_fd(const struct Ipc_frame *f, int fd);
 
 int ipc_frame_get_scale_factor(int src_w, int src_h, int target_w, int target_h);

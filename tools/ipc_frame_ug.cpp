@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cmath>
+#include <vector>
 
 #include "ipc_frame_ug.h"
 #include "ipc_frame.h"
@@ -35,6 +36,72 @@ void scale_frame(char *dst, char *src,
 }
 
 }//anon namespace
+
+bool ipc_frame_from_ug_frame_hq(struct Ipc_frame *dst,
+                const struct video_frame *src,
+                codec_t codec,
+                unsigned scale_factor)
+{
+        assert(codec == RGB);
+
+        if(!src)
+                return false;
+
+        decoder_t dec = get_decoder_from_to(src->color_spec, codec);
+        if(!dec){
+                return false;
+        }
+
+        dst->header.width = src->tiles[0].width;
+        dst->header.height = src->tiles[0].height;
+        dst->header.color_spec = static_cast<Ipc_frame_color_spec>(codec);
+
+        if(scale_factor != 0){
+                int block_size_px = get_pf_block_pixels(codec);
+                int block_count = (dst->header.width + block_size_px - 1) / block_size_px;
+                dst->header.width = (block_count / scale_factor) * block_size_px;
+                dst->header.height /= scale_factor;
+        }
+
+        int dst_frame_size = get_bpp(codec) * dst->header.width * dst->header.height;
+        if(!ipc_frame_reserve(dst, dst_frame_size))
+                return false;
+
+        dst->header.data_len = dst_frame_size;
+
+        char *scale_src = nullptr;
+        std::vector<unsigned char> rgb_frame;
+
+        if(dec == vc_memcpy)
+                scale_src = src->tiles[0].data;
+        else{
+                auto rgb_line_len = vc_get_linesize(src->tiles[0].width, codec);
+                unsigned char *dec_dst = nullptr;
+                if(scale_factor != 0){
+                        rgb_frame.resize(rgb_line_len * src->tiles[0].height);
+                        scale_src = (char *) rgb_frame.data();
+                        dec_dst = (unsigned char *) scale_src;
+                } else {
+                        dec_dst = (unsigned char *) dst->data;
+                }
+
+                for(unsigned i = 0; i < src->tiles[0].height; i++){
+                        dec(dec_dst + rgb_line_len * i,
+                                        (unsigned char *) src->tiles[0].data + vc_get_linesize(src->tiles[0].width, src->color_spec) * i,
+                                        rgb_line_len,
+                                        0, 8, 16);
+                }
+        }
+
+        if(scale_factor == 0)
+                return true;
+
+        scale_frame(dst->data, scale_src,
+                        src->tiles[0].width, src->tiles[0].height,
+                        scale_factor, codec);
+
+        return true;
+}
 
 bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
                 const struct video_frame *src,
