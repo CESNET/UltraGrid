@@ -43,7 +43,7 @@ extern "C" {
 
 struct module;
 
-#define AUDIO_CAPTURE_ABI_VERSION 6
+#define AUDIO_CAPTURE_ABI_VERSION 7
 
 struct audio_capture_info {
         device_probe_func probe;

@@ -184,6 +184,11 @@ struct fec_desc {
 #endif
 };
 
+/// flags common for both audio and video frame
+enum frame_flags_common {
+        TIMESTAMP_VALID = 1 << 0, ///< timestamp set by source (in 90 kHz clock)
+};
+
 struct video_frame;
 /**
  * @brief Struct containing callbacks of a @ref video_frame
@@ -287,12 +292,13 @@ struct video_frame {
         // metadata follow
 #define VF_METADATA_START fec_params
         struct fec_desc fec_params;
+        int flags;
         uint32_t ssrc;
-
+        uint32_t timestamp; ///< frame timestamp
         uint32_t seq; ///< seq num, used internally by JPEG enc, file cap
         union {
                 uint32_t timecode; ///< BCD timecode (hrs, min, sec, frm num)
-                uint32_t duration;
+                uint32_t duration; ///< used by file cap
         };
         int64_t compress_start; ///< in ns from epoch
         int64_t compress_end;   ///< in ns from epoch

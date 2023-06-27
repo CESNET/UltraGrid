@@ -45,7 +45,7 @@
 
 #include "module.h"
 
-#define VIDEO_RXTX_ABI_VERSION 2
+#define VIDEO_RXTX_ABI_VERSION 3
 
 struct display;
 struct module;

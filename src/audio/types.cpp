@@ -91,12 +91,17 @@ audio_frame2::audio_frame2(const struct audio_frame *old) :
                 channels(old ? old->ch_count : 0),
                 codec(old ? AC_PCM : AC_NONE), duration(0.0)
 {
-        if (old) {
-                for (int i = 0; i < old->ch_count; i++) {
-                        resize(i, old->data_len / old->ch_count);
-                        char *data = channels[i].data.get();
-                        demux_channel(data, old->data, old->bps, old->data_len, old->ch_count, i);
-                }
+        if (old == nullptr) {
+                return;
+        }
+        for (int i = 0; i < old->ch_count; i++) {
+                resize(i, old->data_len / old->ch_count);
+                char *data = channels[i].data.get();
+                demux_channel(data, old->data, old->bps, old->data_len,
+                              old->ch_count, i);
+        }
+        if ((old->flags & TIMESTAMP_VALID) != 0) {
+                timestamp = old->timestamp;
         }
 }
 
@@ -324,6 +329,13 @@ void  audio_frame2::change_bps(int new_bps)
         bps = new_bps;
         channels = std::move(new_channels);
 }
+
+void audio_frame2::set_timestamp(int64_t ts)
+{
+        assert(ts == -1 || (ts >= 0 && ts <= UINT32_MAX));
+        timestamp = ts;
+}
+int64_t audio_frame2::get_timestamp() const { return timestamp; }
 
 tuple<bool, audio_frame2> audio_frame2::resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {

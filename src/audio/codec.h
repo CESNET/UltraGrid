@@ -40,7 +40,7 @@
 
 #include "audio/types.h"
 
-#define AUDIO_COMPRESS_ABI_VERSION 2
+#define AUDIO_COMPRESS_ABI_VERSION 3
 
 typedef enum {
         AUDIO_CODER,

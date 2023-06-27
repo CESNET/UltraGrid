@@ -63,6 +63,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "types.h"
 #include "video.h"
 #include "video_capture.h"
 #include "utils/color_out.h"
@@ -100,12 +101,14 @@ static const int alen_pattern_11988[] = { 400, 401, 400, 401, 400 };
 _Static_assert(sizeof alen_pattern_2997 <= sizeof ((struct audio_len_pattern *) 0)->samples && sizeof alen_pattern_5994 <= sizeof ((struct audio_len_pattern *) 0)->samples, "insufficient length");
 
 struct testcard_state {
+        long long frames;
         time_ns_t last_frame_time;
         int pan;
         video_pattern_generator_t generator;
         struct video_frame *frame;
         struct video_frame *tiled;
-
+        int fps_num;
+        int fps_den;
         struct audio_frame audio;
         struct audio_len_pattern apattern;
         int audio_frequency;
@@ -136,18 +139,17 @@ static bool configure_audio(struct testcard_state *s)
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
         s->audio.data = s->audio_data = (char *) realloc(s->audio.data, 2 * s->audio.max_size);
-        const int vnum = get_framerate_n(s->frame->fps);
-        const int vden = get_framerate_d(s->frame->fps);
-        if ((AUDIO_SAMPLE_RATE * vden) % vnum == 0) {
+        s->audio.flags |= TIMESTAMP_VALID;
+        if ((AUDIO_SAMPLE_RATE * s->fps_den) % s->fps_num == 0) {
                 s->apattern.count = 1;
-                s->apattern.samples[0] = (AUDIO_SAMPLE_RATE * vden) / vnum;
-        } else if (vden == 1001 && vnum == 30000) {
+                s->apattern.samples[0] = (AUDIO_SAMPLE_RATE * s->fps_den) / s->fps_num;
+        } else if (s->fps_den == 1001 && s->fps_num == 30000) {
                 s->apattern.count = sizeof alen_pattern_2997 / sizeof alen_pattern_2997[0];
                 memcpy(s->apattern.samples, alen_pattern_2997, sizeof alen_pattern_2997);
-        } else if (vden == 1001 && vnum == 60000) {
+        } else if (s->fps_den == 1001 && s->fps_num == 60000) {
                 s->apattern.count = sizeof alen_pattern_5994 / sizeof alen_pattern_5994[0];
                 memcpy(s->apattern.samples, alen_pattern_5994, sizeof alen_pattern_5994);
-        } else if (vden == 1001 && vnum == 120000) {
+        } else if (s->fps_den == 1001 && s->fps_num == 120000) {
                 s->apattern.count = sizeof alen_pattern_11988 / sizeof alen_pattern_11988[0];
                 memcpy(s->apattern.samples, alen_pattern_11988, sizeof alen_pattern_11988);
         } else {
@@ -533,6 +535,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         s->frame = vf_alloc_desc(desc);
+        s->frame->flags |= TIMESTAMP_VALID;
 
         s->generator = video_pattern_generator_create(s->pattern, s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
                         s->still_image ? 0 : vc_get_linesize(desc.width, desc.color_spec) + s->pan);
@@ -558,6 +561,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 }
 #endif
         }
+
+        s->fps_num = get_framerate_n(s->frame->fps);
+        s->fps_den = get_framerate_d(s->frame->fps);
 
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0) {
                 if (!configure_audio(s)) {
@@ -606,6 +612,9 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                 return NULL;
         }
         state->last_frame_time = curr_time;
+        state->frame->timestamp =
+            (state->frames * state->fps_den * 90000 + state->fps_num - 1) /
+            state->fps_num;
 
         if (state->grab_audio) {
                 state->audio.data += (ptrdiff_t) state->audio.ch_count * state->audio.bps * state->apattern.samples[state->apattern.current_idx];
@@ -615,6 +624,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                         state->audio.data -= AUDIO_BUFFER_SIZE(state->audio.ch_count);
                 }
                 *audio = &state->audio;
+                state->audio.timestamp = state->frame->timestamp;
         } else {
                 *audio = NULL;
         }
@@ -641,6 +651,8 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
 
                 return state->tiled;
         }
+
+        state->frames += 1;
         return state->frame;
 }
 

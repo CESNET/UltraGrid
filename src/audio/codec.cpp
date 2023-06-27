@@ -207,6 +207,8 @@ struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
  */
 audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame2 *frame)
 {
+        audio_frame2 res;
+
         if (frame != nullptr) {
                 if (s->state_count < frame->get_channel_count()) {
                         s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
@@ -223,9 +225,8 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
                 s->desc.ch_count = frame->get_channel_count();
                 s->desc.bps = frame->get_bps();
                 s->desc.sample_rate = frame->get_sample_rate();
+                res.set_timestamp(frame->get_timestamp());
         }
-
-        audio_frame2 res;
 
         audio_channel channel;
         int nonzero_channels = 0;

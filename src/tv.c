@@ -51,22 +51,29 @@
 #include "crypto/random.h"
 #include "tv.h"
 
+#include <pthread.h>
+
+pthread_once_t once_control = PTHREAD_ONCE_INIT;
+static struct timeval start_time;
+static uint32_t random_offset;
+static void init_first(void)
+{
+        gettimeofday(&start_time, NULL);
+        random_offset = lrand48();
+}
+
 uint32_t get_local_mediatime(void)
 {
-        static struct timeval start_time;
-        static uint32_t random_offset;
-        static int first = 0;
-
+        pthread_once(&once_control, init_first);
         struct timeval curr_time;
-
-        if (first == 0) {
-                gettimeofday(&start_time, NULL);
-                random_offset = lrand48();
-                first = 1;
-        }
-
         gettimeofday(&curr_time, NULL);
         return (tv_diff(curr_time, start_time) * 90000) + random_offset;
+}
+
+uint32_t get_local_mediatime_offset(void)
+{
+        pthread_once(&once_control, init_first);
+        return random_offset;
 }
 
 void ts_add_nsec(struct timespec *ts, long long offset)

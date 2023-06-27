@@ -44,10 +44,10 @@
 #include "audio/audio_capture.h"
 #include "audio/capture/sdi.h"
 #include "audio/types.h"
-
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "types.h"
 
 #include <condition_variable>
 #include <chrono>
@@ -64,7 +64,6 @@
 #define MOD_NAME "[acap.] "
 
 using std::condition_variable;
-using std::cv_status;
 using std::chrono::milliseconds;
 using std::mutex;
 using std::stol;
@@ -199,6 +198,10 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         }
         memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
                         frame->data, len);
+        if (s->audio_frame[FRAME_CAPTURE].data_len == 0 && (frame->flags & TIMESTAMP_VALID) != 0) {
+                s->audio_frame[FRAME_CAPTURE].timestamp = frame->timestamp;
+                s->audio_frame[FRAME_CAPTURE].flags |= TIMESTAMP_VALID;
+        }
         s->audio_frame[FRAME_CAPTURE].data_len += len;
 
         lk.unlock();

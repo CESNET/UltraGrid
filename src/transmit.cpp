@@ -383,13 +383,15 @@ void
 tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
         unsigned int i;
-        uint32_t ts = 0;
 
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
         fec_check_messages(tx);
 
-        ts = get_local_mediatime();
+        uint32_t ts =
+            (frame->flags & TIMESTAMP_VALID) == 0
+                ? get_local_mediatime()
+                : get_local_mediatime_offset() + frame->timestamp;
         if(frame->fragment &&
                         tx->last_frame_fragment_id == frame->frame_fragment_id) {
                 ts = tx->last_ts;
@@ -787,7 +789,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         const char *chan_data;
         // see definition in rtp_callback.h
         uint32_t rtp_hdr[100];
-        uint32_t timestamp;
 #ifdef HAVE_LINUX
         struct timespec start, stop;
 #elif defined HAVE_MACOSX
@@ -800,7 +801,10 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
 
         fec_check_messages(tx);
 
-        timestamp = get_local_mediatime();
+        const uint32_t timestamp =
+            buffer->get_timestamp() == -1
+                ? get_local_mediatime()
+                : get_local_mediatime_offset() + buffer->get_timestamp();
 
         for (int channel = 0; channel < buffer->get_channel_count(); ++channel)
         {

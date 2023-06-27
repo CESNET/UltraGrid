@@ -61,6 +61,7 @@
 extern "C" {
 #endif
 
+uint32_t get_local_mediatime_offset(void);
 uint32_t get_local_mediatime(void);
 
 void     ts_add_nsec(struct timespec *ts, long long offset);
