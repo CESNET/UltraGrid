@@ -203,12 +203,12 @@ unsigned char *base64_decode(const char *in, unsigned int *length) {
 char *indent_paragraph(char *text) {
         char *pos = text;
         char *last_space = NULL;
-        int line_len = 0;
 
         char *next = NULL;
+        char *line_start = pos;
         while ((next = strpbrk(pos, " \n")) != NULL) {
                 if (next[0] == '\n') {
-                        line_len = 0;
+                        line_start = next + 1;
                         pos = next + 1;
                         continue;
                 }
@@ -218,19 +218,19 @@ char *indent_paragraph(char *text) {
                 memcpy(str_in, pos, len_raw);
                 str_in[len_raw] = '\0';
                 int len_net = strlen(prune_ansi_sequences_inplace_cstr(str_in));
+                const int line_len = pos - line_start;
                 if (line_len + len_net > 80) {
                         if (line_len == 0) { // |word|>80 starting a line
                                 *next = '\n';
-                                line_len = 0;
+                                line_start = next + 1;
                         } else {
                                 *last_space = '\n';
-                                line_len = len_net;
+                                line_start = last_space + 1;
                         }
                         pos = next + 1;
                         continue;
                 }
                 last_space = next;
-                line_len += len_net + 1;
                 pos += len_raw + 1;
         }
         return text;
