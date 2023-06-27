@@ -47,6 +47,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <thread>
+#include <chrono>
 
 #include "capture_filter.h"
 
@@ -81,6 +82,8 @@ using ipc_frame_conv_func_t = bool (*)(struct Ipc_frame *dst,
                 codec_t codec,
                 unsigned scale_factor);
 
+using clk = std::chrono::steady_clock;
+
 struct state_preview_filter{
         std::mutex mut;
         std::condition_variable frame_submitted_cv;
@@ -93,6 +96,9 @@ struct state_preview_filter{
         int target_height = DEFAULT_SCALE_H;
 
         ipc_frame_conv_func_t ipc_conv = ipc_frame_from_ug_frame;
+
+        clk::duration frame_time;
+        clk::time_point next_frame = clk::now();
 
         std::thread worker_thread;
 };
@@ -176,6 +182,10 @@ static int init(struct module *parent, const char *cfg, void **state){
                         parse_num(tokenize(val, 'x'), s->target_height);
                 } else if(key == "hq"){
                         s->ipc_conv = ipc_frame_from_ug_frame_hq;
+                } else if(key == "rate_limit"){
+                        double limit = 1;
+                        parse_num(val, limit);
+                        s->frame_time = std::chrono::duration_cast<clk::duration>(std::chrono::duration<double>(1 / limit));
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Invalid option\n");
                         return -1;
@@ -206,6 +216,10 @@ static void done(void *state){
 static struct video_frame *filter(void *state, struct video_frame *in){
         struct state_preview_filter *s = (state_preview_filter *) state;
 
+        auto now = clk::now();
+        if(now < s->next_frame)
+                return in;
+
         Ipc_frame_uniq ipc_frame;
         {
                 std::lock_guard<std::mutex> lock(s->mut);
@@ -231,6 +245,8 @@ static struct video_frame *filter(void *state, struct video_frame *in){
         } else {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to convert\n");
         }
+
+        s->next_frame = std::max(s->next_frame + s->frame_time, now);
 
         return in;
 }
