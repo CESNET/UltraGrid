@@ -97,6 +97,7 @@ using namespace std::string_literals;
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr int DEFAULT_CQP = 21;
+static constexpr int DEFAULT_CQP_MPJEG = 7;
 static constexpr int DEFAULT_CQP_MJPEG_QSV = 80;
 static constexpr int DEFAULT_CQP_QSV = 5000;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
@@ -708,6 +709,8 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
         if (requested_cqp == -1) {
                 if (strstr(codec_ctx->codec->name, "_qsv") != nullptr) {
                         cqp = strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0 ? DEFAULT_CQP_MJPEG_QSV : DEFAULT_CQP_QSV;
+                } else if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
+                        cqp = DEFAULT_CQP_MPJEG;
                 } else {
                         cqp = DEFAULT_CQP;
                 }
