@@ -76,6 +76,11 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
+using ipc_frame_conv_func_t = bool (*)(struct Ipc_frame *dst,
+                const struct video_frame *src,
+                codec_t codec,
+                unsigned scale_factor);
+
 struct state_preview_filter{
         std::mutex mut;
         std::condition_variable frame_submitted_cv;
@@ -86,6 +91,8 @@ struct state_preview_filter{
 
         int target_width = DEFAULT_SCALE_W;
         int target_height = DEFAULT_SCALE_H;
+
+        ipc_frame_conv_func_t ipc_conv = ipc_frame_from_ug_frame;
 
         std::thread worker_thread;
 };
@@ -136,6 +143,7 @@ static void show_help(){
                 << get_temp_dir() << DEFAULT_PREVIEW_FILENAME "\"\n";
         col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << " Defaults are " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) ".\n";
+        col() << TBOLD("\thq")           << "\tUse higher quality downscale\n";
 }
 
 static int init(struct module *parent, const char *cfg, void **state){
@@ -166,6 +174,8 @@ static int init(struct module *parent, const char *cfg, void **state){
                 } else if(key == "target_size"){
                         parse_num(tokenize(val, 'x'), s->target_width);
                         parse_num(tokenize(val, 'x'), s->target_height);
+                } else if(key == "hq"){
+                        s->ipc_conv = ipc_frame_from_ug_frame_hq;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Invalid option\n");
                         return -1;
@@ -214,7 +224,7 @@ static struct video_frame *filter(void *state, struct video_frame *in){
         int scale = ipc_frame_get_scale_factor(tile->width, tile->height,
                         s->target_width, s->target_height);
 
-        if(ipc_frame_from_ug_frame(ipc_frame.get(), in, RGB, scale)){
+        if(s->ipc_conv(ipc_frame.get(), in, RGB, scale)){
                 std::lock_guard<std::mutex> lock(s->mut);
                 s->frame_queue.push(std::move(ipc_frame));
                 s->frame_submitted_cv.notify_one();
