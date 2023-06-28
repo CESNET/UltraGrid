@@ -42,6 +42,8 @@
 
 #include <memory>
 #include <vector>
+#include <thread>
+#include <chrono>
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
@@ -268,8 +270,11 @@ static struct audio_frame *audio_cap_pipewire_read(void *state){
 
         s->frame.data_len = ring_buffer_read(s->ring_buf.get(), s->frame.data, s->frame.max_size);
 
-        if(!s->frame.data_len)
+        if(!s->frame.data_len){
+                timespec ts{0, 1000000};
+                nanosleep(&ts, nullptr);
                 return nullptr;
+        }
 
         return &s->frame;
 }
