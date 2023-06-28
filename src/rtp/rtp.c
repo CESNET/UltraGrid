@@ -3333,7 +3333,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = lbl_random();
+                *((uint32_t *)(void *) ptr) = lrand48();
                 ptr += 4;
         }
 
@@ -3571,7 +3571,7 @@ static void rtp_send_bye_now(struct rtp *session)
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = lbl_random();
+                *((uint32_t *)(void *) ptr) = lrand48();
                 ptr += 4;
         }
 

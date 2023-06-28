@@ -61,7 +61,7 @@ uint32_t get_local_mediatime(void)
 
         if (first == 0) {
                 gettimeofday(&start_time, NULL);
-                random_offset = lbl_random();
+                random_offset = lrand48();
                 first = 1;
         }
 
@@ -181,7 +181,7 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate)
 			gettimeofday(&standard_time.start_time, NULL);
 			standard_time.atime = standard_time.start_time;
 			standard_time.vtime = standard_time.start_time;
-			standard_time.random_startime_offset = lbl_random();
+			standard_time.random_startime_offset = lrand48();
             tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
             tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 
@@ -207,7 +207,7 @@ uint32_t get_std_video_local_mediatime(void)
 			gettimeofday(&t0, NULL);
 			standard_time.atime = standard_time.start_time;
 			standard_time.vtime = standard_time.start_time;
-			standard_time.random_startime_offset = lbl_random();
+			standard_time.random_startime_offset = lrand48();
             tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
             tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 
