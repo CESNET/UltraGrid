@@ -150,10 +150,25 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
 
 }
 
+static void on_state_changed(void *state, enum pw_stream_state old, enum pw_stream_state new_state, const char *error)
+{
+        auto s = static_cast<state_pipewire_cap *>(state);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stream state change: %s -> %s\n",
+                        pw_stream_state_as_string(old),
+                        pw_stream_state_as_string(new_state));
+
+        if(error){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Stream error: %s\n", error);
+        }
+
+        pw_thread_loop_signal(s->pw.pipewire_loop.get(), false);
+}
+
+
 const static pw_stream_events stream_events = { 
         .version = PW_VERSION_STREAM_EVENTS,
         .destroy = nullptr,
-        .state_changed = nullptr,
+        .state_changed = on_state_changed,
         .control_info = nullptr,
         .io_changed = nullptr,
         .param_changed = on_param_changed,
@@ -261,6 +276,19 @@ static void *audio_cap_pipewire_init(struct module *parent, const char *cfg){
                                 PW_STREAM_FLAG_MAP_BUFFERS |
                                 PW_STREAM_FLAG_RT_PROCESS),
                         &params, 1);
+
+        while(true){
+                pw_thread_loop_wait(s->pw.pipewire_loop.get());
+                const char *error = nullptr;
+                auto stream_state = pw_stream_get_state(s->stream.get(), &error);
+                if(stream_state == PW_STREAM_STATE_STREAMING){
+                        break;
+                }
+                if(stream_state == PW_STREAM_STATE_ERROR){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize stream: %s\n", error ? error : "(no err msg)");
+                        return nullptr;
+                }
+        }
 
         return s.release();
 }
