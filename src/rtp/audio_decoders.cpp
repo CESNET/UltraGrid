@@ -84,12 +84,10 @@
 using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
-using rang::fg;
 using rang::style;
 using std::fixed;
 using std::hex;
 using std::map;
-using std::move;
 using std::ostringstream;
 using std::pair;
 using std::setprecision;
@@ -650,6 +648,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         get_audio_codec_to_tag(decoder->saved_audio_tag),
                         decoder->saved_desc.bps,
                         decoder->saved_desc.sample_rate);
+        received_frame.set_timestamp(cdata->data->ts);
         vector<pair<vector<char>, map<int, int>>> fec_data;
         uint32_t fec_params = 0;
 
@@ -841,6 +840,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 }
         }
         s->buffer.data_len = new_data_len;
+        s->buffer.timestamp = decompressed.get_timestamp();
 
         decoder->decoded.append(decompressed);
 

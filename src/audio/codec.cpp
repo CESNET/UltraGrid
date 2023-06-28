@@ -292,6 +292,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 if (out) {
                         if (!out_frame_initialized) {
                                 ret.init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);
+                                ret.set_timestamp(frame->get_timestamp());
                                 out_frame_initialized = true;
                         } else {
                                 assert(out->bps == ret.get_bps()
