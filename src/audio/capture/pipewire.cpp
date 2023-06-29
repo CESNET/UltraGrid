@@ -122,14 +122,24 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
                         audio_params.info.raw.rate,
                         audio_params.info.raw.channels);
 
-        assert(audio_params.info.raw.rate == (unsigned) s->sample_rate);
-        assert(audio_params.info.raw.channels == (unsigned) s->ch_count);
-        assert(audio_params.info.raw.format == get_pw_format_from_bps(s->bps));
+
+        /* It is not expected that params change while the stream is active,
+         * therefore this should run only during during init (we wait for stream to
+         * change into the streaming state there).  As a result, we probably don't
+         * need any extra synchronization between this and
+         * audio_cap_pipewire_read().
+         */
+        s->frame.ch_count = audio_params.info.raw.channels;
+        s->frame.bps = get_bps_from_pw_format(audio_params.info.raw.format);
+        s->frame.sample_rate = audio_params.info.raw.rate;
+        s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
+        s->frame_data.resize(s->frame.max_size);
+        s->frame.data = s->frame_data.data();
 
         std::byte buffer[1024];
         auto pod_builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-        unsigned buffer_size = (s->buf_len_ms * s->sample_rate / 1000) * s->ch_count * s->bps;
+        unsigned buffer_size = (s->buf_len_ms * s->frame.sample_rate / 1000) * s->frame.ch_count * s->frame.bps;
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requesting buffer size %u\n", buffer_size);
 
@@ -137,7 +147,7 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
                         SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                         SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
                         SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(buffer_size, 0, INT32_MAX),
-                        SPA_PARAM_BUFFERS_stride, SPA_POD_Int(s->ch_count * s->bps));
+                        SPA_PARAM_BUFFERS_stride, SPA_POD_Int(s->frame.ch_count * s->frame.bps));
 
         if(!new_params){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to build pw buffer params pod\n");
@@ -226,13 +236,6 @@ static void *audio_cap_pipewire_init(struct module *parent, const char *cfg){
                         nullptr);
 
         spa_audio_format format = get_pw_format_from_bps(s->bps);
-
-        s->frame.ch_count = s->ch_count;
-        s->frame.bps = s->bps;
-        s->frame.sample_rate = s->sample_rate;
-        s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
-        s->frame_data.resize(s->frame.max_size);
-        s->frame.data = s->frame_data.data();
 
         pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", s->sample_rate);
         pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", s->quant, s->sample_rate);
