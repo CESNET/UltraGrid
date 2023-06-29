@@ -163,7 +163,7 @@ typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 struct video_desc desc, struct pixfmt_desc comp_int_desc);
-static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr);
+static int check_for_mode_change(struct state_video_decoder *decoder, const uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *fec_thread(void *args);
 static void *decompress_thread(void *args);
@@ -1370,7 +1370,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         return true;
 }
 
-bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
+bool parse_video_hdr(const uint32_t *hdr, struct video_desc *desc)
 {
         uint32_t tmp;
         int fps_pt, fpsd, fd, fi;
@@ -1382,7 +1382,8 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
         if(desc->color_spec == VIDEO_CODEC_NONE) {
-                log_msg(LOG_LEVEL_ERROR, "Unknown FourCC \"%.4s\"!\n", (char *) &hdr[4]);
+                log_msg(LOG_LEVEL_ERROR, "Unknown FourCC \"%.4s\"!\n",
+                        (const char *)&hdr[4]);
                 return false;
         }
 
@@ -1447,7 +1448,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
  * @return TRUE if format changed (and reconfiguration was successful), FALSE if not
  */
 static int check_for_mode_change(struct state_video_decoder *decoder,
-                uint32_t *hdr)
+                const uint32_t *hdr)
 {
         struct video_desc network_desc;
 
@@ -1473,11 +1474,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         struct state_video_decoder *decoder = pbuf_data->decoder;
 
         int ret = TRUE;
-        rtp_packet *pckt = NULL;
         int prints=0;
         int max_substreams = decoder->max_substreams;
-        uint32_t ssrc = 0U;
-        unsigned int frame_size = 0;
 
         vector<uint32_t> buffer_num(max_substreams);
         // the following is just FEC related optimalization - normally we fill up
@@ -1487,9 +1485,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         frame->callbacks.data_deleter = vf_data_deleter;
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
-        int k = 0, m = 0, c = 0, seed = 0; // LDGM
         int buffer_number = 0;
-        int buffer_length = 0;
         int pt = 0;
         bool buffer_swapped = false;
 
@@ -1535,34 +1531,31 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 delete msg_reconf;
         }
 
+        frame->ssrc = cdata->data->ssrc;
+        if (PT_VIDEO_HAS_FEC(cdata->data->pt)) {
+                const uint32_t *hdr = (uint32_t *)(void *)cdata->data->data;
+                const uint32_t tmp = ntohl(hdr[3]);
+                const int k = tmp >> 19;
+                const int m = 0x1fff & (tmp >> 6);
+                const int c = 0x3f & tmp;
+                const int seed = ntohl(hdr[4]);
+                frame->fec_params =
+                    fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
+        }
+
         while (cdata != NULL) {
-                uint32_t tmp;
-                uint32_t *hdr;
                 int len;
-                uint32_t offset;
-                unsigned char *source;
-                char *data;
-                uint32_t data_pos;
-                uint32_t substream;
-                pckt = cdata->data;
+                const char *data;
+                rtp_packet *pckt = cdata->data;
                 enum openssl_mode crypto_mode = MODE_AES128_NONE;
 
                 pt = pckt->pt;
-                hdr = (uint32_t *)(void *) pckt->data;
-                data_pos = ntohl(hdr[1]);
-                tmp = ntohl(hdr[0]);
-                substream = tmp >> 22;
+                const uint32_t *hdr = (uint32_t *)(void *) pckt->data;
+                const uint32_t data_pos = ntohl(hdr[1]);
+                uint32_t tmp = ntohl(hdr[0]);
+                const uint32_t substream = tmp >> 22;
                 buffer_number = tmp & 0x3fffff;
-                buffer_length = ntohl(hdr[2]);
-                ssrc = pckt->ssrc;
-
-                if (PT_VIDEO_HAS_FEC(pt)) {
-                        tmp = ntohl(hdr[3]);
-                        k = tmp >> 19;
-                        m = 0x1fff & (tmp >> 6);
-                        c = 0x3f & tmp;
-                        seed = ntohl(hdr[4]);
-                }
+                const int buffer_length = ntohl(hdr[2]);
 
                 if (PT_VIDEO_IS_ENCRYPTED(pt)) {
                         if(!decoder->decrypt) {
@@ -1579,12 +1572,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 switch (pt) {
                 case PT_VIDEO:
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
-                        data = (char *) hdr + sizeof(video_payload_hdr_t);
+                        data = (const char *) hdr + sizeof(video_payload_hdr_t);
                         break;
                 case PT_VIDEO_RS:
                 case PT_VIDEO_LDGM:
                         len = pckt->data_len - sizeof(fec_payload_hdr_t);
-                        data = (char *) hdr + sizeof(fec_payload_hdr_t);
+                        data = (const char *) hdr + sizeof(fec_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO:
                 case PT_ENCRYPT_VIDEO_LDGM:
@@ -1592,8 +1585,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         {
 				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t);
                                 len = pckt->data_len - sizeof(crypto_payload_hdr_t) - media_hdr_len;
-				data = (char *) hdr + sizeof(crypto_payload_hdr_t) + media_hdr_len;
-                                uint32_t crypto_hdr = ntohl(*(uint32_t *)(void *)((char *) hdr + media_hdr_len));
+                                data = (const char *)hdr + sizeof(crypto_payload_hdr_t) + media_hdr_len;
+                                uint32_t crypto_hdr = ntohl(*(const uint32_t *)(const void *)((const char *)hdr + media_hdr_len));
                                 crypto_mode = (enum openssl_mode) (crypto_hdr >> 24);
 				if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
 					log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
@@ -1640,7 +1633,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
                         if((data_len = decoder->dec_funcs->decrypt(decoder->decrypt,
                                         data, len,
-                                        (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
+                                        (const char *) hdr, pt == PT_ENCRYPT_VIDEO ?
                                         sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t),
                                         plaintext, crypto_mode)) == 0) {
                                 goto next_packet;
@@ -1711,7 +1704,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         int d_x = s_x * line_decoder->conv_num / line_decoder->conv_den;
 
                         /* pointer to data payload in packet */
-                        source = (unsigned char*)(data);
+                        auto *source = (const unsigned char *)(data);
 
                         /* copy whole packet that can span several lines.
                          * we need to clip data (v210 case) or center data (RGBA, R10k cases)
@@ -1730,7 +1723,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 }
 
                                 /* compute byte offset in destination frame */
-                                offset = y + d_x;
+                                const uint32_t offset = y + d_x;
 
                                 /* watch the SEGV */
                                 if (l + line_decoder->base_offset + offset <= tile->data_len) {
@@ -1776,17 +1769,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 prints++;
                                 len = max<int>(0, buffer_length - data_pos);
                         }
-                        memcpy(frame->tiles[substream].data + data_pos, (unsigned char*) data,
-                                len);
+                        memcpy(frame->tiles[substream].data + data_pos,
+                               (const unsigned char *)data, len);
                 }
 
 next_packet:
                 cdata = cdata->nxt;
-        }
-
-        if(!pckt) {
-                vf_free(frame);
-                return FALSE;
         }
 
         if (FRAMEBUFFER_NOT_READY(decoder) && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
@@ -1795,10 +1783,6 @@ next_packet:
         }
 
         assert(ret == TRUE);
-
-        for(int i = 0; i < max_substreams; ++i) {
-                frame_size += frame->tiles[i].data_len;
-        }
 
         /// Zero missing parts of framebuffer - this may be useful for compressed video
         /// (which may be also with FEC - but we use systematic codes therefore it may
@@ -1820,14 +1804,18 @@ next_packet:
                 }
         }
 
-        // format message
         {
+                unsigned int frame_size = 0;
+                for (int i = 0; i < max_substreams; ++i) {
+                        frame_size += frame->tiles[i].data_len;
+                }
+                pbuf_data->max_frame_size =
+                    max(pbuf_data->max_frame_size, frame_size);
+                // format message
                 unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->stats));
                 fec_msg->buffer_num = std::move(buffer_num);
                 fec_msg->recv_frame = frame;
                 frame = NULL;
-                fec_msg->recv_frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
-                fec_msg->recv_frame->ssrc = ssrc;
                 fec_msg->pckt_list = std::move(pckt_list);
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
@@ -1846,8 +1834,6 @@ cleanup:
         if(ret != TRUE) {
                 vf_free(frame);
         }
-
-        pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
         pbuf_data->decoded++;
 
         decoder->stats.update(buffer_number);

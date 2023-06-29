@@ -73,7 +73,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent, enum video
 void video_decoder_destroy(struct state_video_decoder *decoder);
 bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display);
 void video_decoder_remove_display(struct state_video_decoder *decoder);
-bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
+bool parse_video_hdr(const uint32_t *hdr, struct video_desc *desc);
 
 /** @} */ // end of video_rtp_decoder
 
