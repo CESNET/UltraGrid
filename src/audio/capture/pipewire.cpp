@@ -117,11 +117,10 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
 
         spa_format_audio_raw_parse(param, &audio_params.info.raw);
 
-        log_msg(LOG_LEVEL_NOTICE, "Format change: %u %u %u\n",
-                        audio_params.info.raw.format,
-                        audio_params.info.raw.rate,
-                        audio_params.info.raw.channels);
-
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Pipewire format change: %s, %u ch, %uHz\n",
+                        spa_debug_type_find_short_name(spa_type_audio_format, audio_params.info.raw.format),
+                        audio_params.info.raw.channels,
+                        audio_params.info.raw.rate);
 
         /* It is not expected that params change while the stream is active,
          * therefore this should run only during during init (we wait for stream to
