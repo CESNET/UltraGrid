@@ -51,12 +51,17 @@
 #include "utils/color_out.h"
 #include "utils/macros.h" // MAX, MERGE, TOSTRING
 
-#define NDILIB_DEFAULT_PATH "/usr/local/lib"
 #ifndef USE_NDI_VERSION
 #define USE_NDI_VERSION 5
 #endif
 
-#define FALLBACK_WIN_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
+#ifdef __linux__
+#define FALLBACK_NDI_PATH "/usr/local/lib"
+#elif defined __APPLE__
+#define FALLBACK_NDI_PATH "/Library/NDI SDK for Apple/Lib/macOS"
+#else
+#define FALLBACK_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
+#endif
 #define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(USE_NDI_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
 typedef MAKE_NDI_LIB_NAME(USE_NDI_VERSION) NDIlib_t;
@@ -67,16 +72,19 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         // We check whether the NDI run-time is installed
         const char* p_ndi_runtime = getenv(NDILIB_REDIST_FOLDER);
         if (!p_ndi_runtime) {
-                p_ndi_runtime = FALLBACK_WIN_NDI_PATH;
-                log_msg(LOG_LEVEL_WARNING, "[NDI] " NDILIB_REDIST_FOLDER " environment variable not defined. "
-                                "Trying fallback folder: %s\n" , FALLBACK_WIN_NDI_PATH);
+                p_ndi_runtime = FALLBACK_NDI_PATH;
+                log_msg(LOG_LEVEL_WARNING,
+                        "[NDI] " NDILIB_REDIST_FOLDER " environment variable not defined. "
+                        "Trying fallback folder: %s\n",
+                        FALLBACK_NDI_PATH);
         }
 
         // We now load the DLL as it is installed
-        char *ndi_path = (char *) alloca(strlen(p_ndi_runtime) + 2 + strlen(NDILIB_LIBRARY_NAME) + 1);
-        strcpy(ndi_path, p_ndi_runtime); // NOLINT (security.insecureAPI.strcpy)
-        strcat(ndi_path, "\\"); // NOLINT (security.insecureAPI.strcpy)
-        strcat(ndi_path, NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
+        const size_t path_len = strlen(p_ndi_runtime) + 2 + strlen(NDILIB_LIBRARY_NAME) + 1;
+        char *ndi_path = (char *)alloca(path_len);
+        strncpy(ndi_path, p_ndi_runtime, path_len - 1);
+        strncat(ndi_path, "\\", path_len - strlen(ndi_path) - 1);
+        strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
 
         // Try to load the library
         HMODULE hNDILib = LoadLibraryA(ndi_path);
@@ -100,23 +108,24 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         }
 #else
         const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-        size_t path_len = MAX((p_NDI_runtime_folder != NULL ? strlen(p_NDI_runtime_folder) : 0), strlen(NDILIB_DEFAULT_PATH))
-                + 1 + strlen(NDILIB_LIBRARY_NAME) + 1;
+        size_t path_len = MAX((p_NDI_runtime_folder != NULL ? strlen(p_NDI_runtime_folder) : 0),
+                              strlen(FALLBACK_NDI_PATH)) +
+                          1 + strlen(NDILIB_LIBRARY_NAME) + 1;
         char *ndi_path = (char *) alloca(path_len);
         if (p_NDI_runtime_folder) {
-                strcpy(ndi_path, p_NDI_runtime_folder); // NOLINT (security.insecureAPI.strcpy)
-                strcat(ndi_path, "/"); // NOLINT (security.insecureAPI.strcpy)
+                strncpy(ndi_path, p_NDI_runtime_folder, path_len - 1);
+                strncat(ndi_path, "/", path_len - strlen(ndi_path) - 1);
         } else {
                 ndi_path[0] = '\0';
         }
-        strcat(ndi_path, NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
+        strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
 
         // Try to load the library
         void *hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
         if (!hNDILib) {
                 log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
-                log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n", NDILIB_DEFAULT_PATH);
-                strcpy(ndi_path, NDILIB_DEFAULT_PATH "/" NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
+                log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n", FALLBACK_NDI_PATH);
+                strcpy(ndi_path, FALLBACK_NDI_PATH "/" NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
                 hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
         }
 
