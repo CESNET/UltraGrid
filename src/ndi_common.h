@@ -56,8 +56,9 @@
 #endif
 
 #ifdef __linux__
-#define FALLBACK_NDI_PATH "/usr/local/lib"
+#define FALLBACK_NDI_PATH "/usr/lib"
 #elif defined __APPLE__
+// redist NDI for Apple uses /usr/local/lib, which is tried prior to this path
 #define FALLBACK_NDI_PATH "/Library/NDI SDK for Apple/Lib/macOS"
 #else
 #define FALLBACK_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
@@ -107,26 +108,27 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                 return 0;
         }
 #else
-        const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-        size_t path_len = MAX((p_NDI_runtime_folder != NULL ? strlen(p_NDI_runtime_folder) : 0),
-                              strlen(FALLBACK_NDI_PATH)) +
-                          1 + strlen(NDILIB_LIBRARY_NAME) + 1;
-        char *ndi_path = (char *) alloca(path_len);
-        if (p_NDI_runtime_folder) {
-                strncpy(ndi_path, p_NDI_runtime_folder, path_len - 1);
-                strncat(ndi_path, "/", path_len - strlen(ndi_path) - 1);
-        } else {
-                ndi_path[0] = '\0';
-        }
-        strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
-
-        // Try to load the library
-        void *hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
-        if (!hNDILib) {
-                log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
-                log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n", FALLBACK_NDI_PATH);
-                strcpy(ndi_path, FALLBACK_NDI_PATH "/" NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
+        const char *lib_cand[3] = {getenv(NDILIB_REDIST_FOLDER) ? getenv(NDILIB_REDIST_FOLDER) : "",
+                                   "/usr/local/lib", FALLBACK_NDI_PATH};
+        void *hNDILib = NULL;
+        for (unsigned int i = 0; i < sizeof lib_cand / sizeof lib_cand[0]; i++) {
+                if (i > 0) {
+                        log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n",
+                                lib_cand[i]);
+                }
+                size_t path_len = strlen(lib_cand[i]) + 1 + strlen(NDILIB_LIBRARY_NAME) + 1;
+                char *ndi_path = (char *)alloca(path_len);
+                strncpy(ndi_path, lib_cand[i], path_len - 1);
+                if (strlen(ndi_path) > 0) {
+                        strncat(ndi_path, "/", path_len - strlen(ndi_path) - 1);
+                }
+                strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
+                // Try to load the library
                 hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
+                if (hNDILib) {
+                        break;
+                }
+                log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
         }
 
         // The main NDI entry point for dynamic loading if we got the library
