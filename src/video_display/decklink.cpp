@@ -1088,10 +1088,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         // Initialize the DeckLink API
         deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
-        if (!deckLinkIterator)
-        {
-                delete s;
-                return NULL;
+        if (!deckLinkIterator) {
+                display_decklink_done(s);
+                return nullptr;
         }
 
         // Connect to the first DeckLink instance
@@ -1117,7 +1116,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         deckLinkIterator->Release();
         if (s->deckLink == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId << " found\n";
-                return FALSE;
+                display_decklink_done(s);
+                return nullptr;
         }
         // Print the model name of the DeckLink card
         string deviceName = bmd_get_device_name(s->deckLink);
@@ -1170,7 +1170,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 log_msg(LOG_LEVEL_ERROR,
                         MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n",
                         (int)result);
-                return FALSE;
+                display_decklink_done(s);
+                return nullptr;
         }
 
         // Query the DeckLink for its configuration interface
@@ -1181,15 +1182,17 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 log_msg(LOG_LEVEL_ERROR,
                         "Could not obtain the IDeckLinkConfiguration interface: %08x\n",
                         (int)result);
-                return FALSE;
-        }
+                display_decklink_done(s);
+                return nullptr;
+         }
 
         for (const auto &o : s->device_options) {
                 if (s->keep_device_defaults && !o.second.is_user_set()) {
-                                continue;
+                        continue;
                 }
                 if (!o.second.device_write(deckLinkConfiguration, o.first, MOD_NAME)) {
-                                return FALSE;
+                        display_decklink_done(s);
+                        return nullptr;
                 }
         }
 
@@ -1208,7 +1211,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 LOG(LOG_LEVEL_ERROR)
                                     << MOD_NAME
                                     << "HDR requested, but card doesn't support that.\n";
-                                return FALSE;
+                                display_decklink_done(s);
+                                return nullptr;
                         }
                 }
 
