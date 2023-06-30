@@ -369,7 +369,9 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         col() << "Decklink display options:\n";
-        col() << SBOLD(SRED("\t-d decklink") << "[:device=<device>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n");
+        col() << SBOLD(SRED("\t-d decklink")
+                       << "[:d[evice]=<device>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-"
+                          "duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
         col() << "\nOptions:\n";
         if (!full) {
@@ -963,7 +965,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         }
 
         while (ptr != nullptr)  {
-                if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
+                if (strncasecmp(ptr, "device=", strlen("device=")) == 0 ||
+                    strstr(ptr, "d=") == ptr) {
                         cardId = strchr(ptr, '=') + 1;
                 } else if (strcasecmp(ptr, "3D") == 0) {
                         s->stereo = true;
@@ -1471,7 +1474,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         BMDAudioSampleType sample_type;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
-        s->initialized_audio = false;
 
         assert(s->play_audio);
 

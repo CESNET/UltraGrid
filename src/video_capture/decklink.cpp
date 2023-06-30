@@ -460,7 +460,10 @@ static int
 decklink_help(bool full)
 {
 	col() << "\nDecklink options:\n";
-        col() << SBOLD(SRED("\t-t decklink") << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | decklink:[full]help") << "\n";
+        col() << SBOLD(SRED("\t-t decklink")
+                       << "{:m[ode]=<mode>|:d[evice]=<device_index>|:c[odec]=<colorspace>...<key>=<"
+                          "val>}* | decklink:[full]help")
+              << "\n";
         col() << "\t\tor\n";
         col() << SBOLD(SRED("\t-t decklink") << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]") << "\n";
         col() << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
@@ -651,16 +654,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if(strncasecmp(opt, "conversion=",
                                 strlen("conversion=")) == 0) {
                 s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
-        } else if(strncasecmp(opt, "device=",
-                                strlen("device=")) == 0) {
-                const char *devices = opt + strlen("device=");
-                parse_devices(s, devices);
-        } else if(strncasecmp(opt, "mode=",
-                                strlen("mode=")) == 0) {
-                s->mode = opt + strlen("mode=");
-        } else if(strncasecmp(opt, "codec=",
-                                strlen("codec=")) == 0) {
-                const char *codec = opt + strlen("codec=");
+        } else if (strncasecmp(opt, "device=", strlen("device=")) == 0 ||
+                   strstr(opt, "d=") == opt) {
+                parse_devices(s, strchr(opt, '=') + 1);
+        } else if (strncasecmp(opt, "mode=", strlen("mode=")) == 0 || strstr(opt, "m=") == opt) {
+                s->mode = strchr(opt, '=') + 1;
+        } else if (strncasecmp(opt, "codec=", strlen("codec=")) == 0 || strstr(opt, "m=") == opt) {
+                const char *codec = strchr(opt, '=') + 1;
                 s->set_codec(get_codec_from_name(codec));
                 if(s->codec == VIDEO_CODEC_NONE) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", codec);
