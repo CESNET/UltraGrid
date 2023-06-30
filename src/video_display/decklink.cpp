@@ -93,7 +93,7 @@ static void display_decklink_done(void *state);
                 HRESULT result = cmd;\
                 if (FAILED(result)) {;\
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
-                        goto error;\
+                        return FALSE;\
                 }\
         } while (0)
 
@@ -311,20 +311,16 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 
 #define DECKLINK_MAGIC 0x12de326b
 
-struct device_state {
-        PlaybackDelegate           *delegate;
-        IDeckLink                  *deckLink;
-        IDeckLinkOutput            *deckLinkOutput;
-        IDeckLinkConfiguration     *deckLinkConfiguration;
-        IDeckLinkProfileAttributes *deckLinkAttributes;
-};
 
 struct state_decklink {
         uint32_t            magic = DECKLINK_MAGIC;
         chrono::high_resolution_clock::time_point t0 = chrono::high_resolution_clock::now();
         bool                com_initialized = false;
-
-        vector<struct device_state> state;
+        PlaybackDelegate           *delegate;
+        IDeckLink                  *deckLink;
+        IDeckLinkOutput            *deckLinkOutput;
+        IDeckLinkConfiguration     *deckLinkConfiguration;
+        IDeckLinkProfileAttributes *deckLinkAttributes;
 
         BMDTimeValue        frameRateDuration{};
         BMDTimeScale        frameRateScale{};
@@ -340,7 +336,6 @@ struct state_decklink {
         bool                initialized_audio = false;
         bool                initialized_video = false;
         bool                emit_timecode     = false;
-        int                 devices_cnt       = 1;
         bool                play_audio        = false; ///< the BMD device will be used also for output audio
 
         BMDPixelFormat      pixelFormat{};
@@ -374,13 +369,13 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         col() << "Decklink display options:\n";
-        col() << SBOLD(SRED("\t-d decklink") << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n");
+        col() << SBOLD(SRED("\t-d decklink") << "[:device=<device>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
         col() << "\nOptions:\n";
         if (!full) {
                 col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
         }
-        col() << SBOLD("\tdevice") << "\t\tindex or name of output device (or comma-separated list of multple devices)\n";
+        col() << SBOLD("\tdevice") << "\t\tindex or name of output device\n";
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
         col() << SBOLD("\taudio_level") << "\tset maximum attenuation for mic\n";
@@ -490,64 +485,52 @@ display_decklink_getf(void *state)
         }
 
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
-        auto deckLinkFrames =  new vector<IDeckLinkMutableVideoFrame *>(s->devices_cnt);
-        out->callbacks.dispose_udata = (void *) deckLinkFrames;
         static auto dispose = [](struct video_frame *frame) {
-                delete (vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata;
                 vf_free(frame);
         };
         out->callbacks.dispose = dispose;
 
-        for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
-                const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
-                IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
-                lock_guard<mutex> lg(s->buffer_pool.lock);
+        const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
+        IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
+        lock_guard<mutex> lg(s->buffer_pool.lock);
 
-                while (!s->buffer_pool.frame_queue.empty()) {
-                        auto tmp = s->buffer_pool.frame_queue.front();
-                        IDeckLinkMutableVideoFrame *frame;
-                        if (s->stereo)
-                                frame = dynamic_cast<DeckLink3DFrame *>(tmp);
-                        else
-                                frame = dynamic_cast<DeckLinkFrame *>(tmp);
-                        s->buffer_pool.frame_queue.pop();
-                        if (!frame || // wrong type
-                                        frame->GetWidth() != (long) s->vid_desc.width ||
-                                        frame->GetHeight() != (long) s->vid_desc.height ||
-                                        frame->GetRowBytes() != linesize ||
-                                        frame->GetPixelFormat() != s->pixelFormat) {
-                                delete tmp;
-                        } else {
-                                deckLinkFrame = frame;
-                                deckLinkFrame->AddRef();
-                                break;
-                        }
+        while (!s->buffer_pool.frame_queue.empty()) {
+                auto tmp = s->buffer_pool.frame_queue.front();
+                IDeckLinkMutableVideoFrame *frame = s->stereo ? dynamic_cast<DeckLink3DFrame *>(tmp)
+                                                              : dynamic_cast<DeckLinkFrame *>(tmp);
+                s->buffer_pool.frame_queue.pop();
+                if (!frame || // wrong type
+                    frame->GetWidth() != (long)s->vid_desc.width ||
+                    frame->GetHeight() != (long)s->vid_desc.height ||
+                    frame->GetRowBytes() != linesize || frame->GetPixelFormat() != s->pixelFormat) {
+                        delete tmp;
+                } else {
+                        deckLinkFrame = frame;
+                        deckLinkFrame->AddRef();
+                        break;
                 }
-                if (!deckLinkFrame) {
-                        if (s->stereo)
-                                deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
-                                                s->vid_desc.height, linesize,
-                                                s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
-                        else
-                                deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width,
-                                                s->vid_desc.height, linesize,
-                                                s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
-                }
-                (*deckLinkFrames)[i] = deckLinkFrame;
+        }
+        if (!deckLinkFrame) {
+                deckLinkFrame = s->stereo
+                                    ? DeckLink3DFrame::Create(s->vid_desc.width, s->vid_desc.height,
+                                                              linesize, s->pixelFormat,
+                                                              s->buffer_pool, s->requested_hdr_mode)
+                                    : DeckLinkFrame::Create(s->vid_desc.width, s->vid_desc.height,
+                                                            linesize, s->pixelFormat,
+                                                            s->buffer_pool, s->requested_hdr_mode);
+        }
+        out->callbacks.dispose_udata = (void *) deckLinkFrame;
 
-                deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
+        deckLinkFrame->GetBytes((void **)&out->tiles[0].data);
 
-                if (s->stereo) {
-                        IDeckLinkVideoFrame     *deckLinkFrameRight = nullptr;
-                        DeckLink3DFrame *frame3D = dynamic_cast<DeckLink3DFrame *>(deckLinkFrame);
-                        assert(frame3D != nullptr);
-                        frame3D->GetFrameForRightEye(&deckLinkFrameRight);
-                        deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
-                        // release immedieatelly (parent still holds the reference)
-                        deckLinkFrameRight->Release();
-
-                        ++i;
-                }
+        if (s->stereo) {
+                IDeckLinkVideoFrame *deckLinkFrameRight = nullptr;
+                DeckLink3DFrame *frame3D = dynamic_cast<DeckLink3DFrame *>(deckLinkFrame);
+                assert(frame3D != nullptr);
+                frame3D->GetFrameForRightEye(&deckLinkFrameRight);
+                deckLinkFrameRight->GetBytes((void **)&out->tiles[1].data);
+                // release immedieatelly (parent still holds the reference)
+                deckLinkFrameRight->Release();
         }
 
         return out;
@@ -603,18 +586,16 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
         assert(s->magic == DECKLINK_MAGIC);
 
         uint32_t i;
-        s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i); // writes always 0 in low-latency mode
+        s->deckLinkOutput->GetBufferedVideoFrameCount(&i); // writes always 0 in low-latency mode
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
         long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps)) + 2;
         if (timeout_ns == PUTF_DISCARD || i > max_frames) {
                 if (timeout_ns != PUTF_DISCARD) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
                 }
-                for (int j = 0; j < s->devices_cnt; ++j) {
-                        IDeckLinkMutableVideoFrame *deckLinkFrame =
-                                (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
-                        deckLinkFrame->Release();
-                }
+                IDeckLinkMutableVideoFrame *deckLinkFrame =
+                    (IDeckLinkMutableVideoFrame *)frame->callbacks.dispose_udata;
+                deckLinkFrame->Release();
                 frame->callbacks.dispose(frame);
                 return 1;
         }
@@ -625,20 +606,19 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 }
         }
 
-        for (int j = 0; j < s->devices_cnt; ++j) {
-                IDeckLinkMutableVideoFrame *deckLinkFrame =
-                        (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
-                if(s->emit_timecode) {
-                        deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
-                }
+        IDeckLinkMutableVideoFrame *deckLinkFrame =
+            (IDeckLinkMutableVideoFrame *)frame->callbacks.dispose_udata;
+        if (s->emit_timecode) {
+                deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
+        }
 
-                if (s->low_latency) {
-                        s->state[j].deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
-                        deckLinkFrame->Release();
-                } else {
-                        s->state[j].deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
-                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-                }
+        if (s->low_latency) {
+                s->deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
+                deckLinkFrame->Release();
+        } else {
+                s->deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
+                                                      s->frames * s->frameRateDuration,
+                                                      s->frameRateDuration, s->frameRateScale);
         }
         s->frames++;
         if(s->emit_timecode) {
@@ -649,9 +629,9 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
 
         auto now = chrono::high_resolution_clock::now();
         if (chrono::duration_cast<chrono::seconds>(now - s->t0).count() > 5) {
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->state.at(0).delegate->frames_late << " frames late, "
-                                << s->state.at(0).delegate->frames_dropped << " dropped, "
-                                << s->state.at(0).delegate->frames_flushed << " flushed cumulative\n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->delegate->frames_late << " frames late, "
+                                << s->delegate->frames_dropped << " dropped, "
+                                << s->delegate->frames_flushed << " flushed cumulative\n";
                 s->t0 = now;
         }
 
@@ -738,6 +718,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
         assert(s->magic == DECKLINK_MAGIC);
         
+        s->initialized_video = false;
         s->vid_desc = desc;
 
         if (desc.color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
@@ -750,15 +731,13 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         [&desc](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == desc.color_spec; });
         if (it == uv_to_bmd_codec_map.end()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
-                goto error;
+                return FALSE;
         }
         s->pixelFormat = it->second;
 
         if (s->initialized_video) {
-                for (int i = 0; i < s->devices_cnt; ++i) {
-                        CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableVideoOutput(),
-                                        "DisableVideoOutput");
-                }
+                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(),
+                               "DisableVideoOutput");
                 s->initialized_video = false;
         }
 
@@ -771,90 +750,112 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         }
 
         if (s->stereo) {
-                bmd_check_stereo_profile(s->state.at(0).deckLink);
+                bmd_check_stereo_profile(s->deckLink);
                 if ((int) desc.tile_count != 2) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
                                         "2 streams expected, %d received.\n", desc.tile_count);
-                        goto error;
+                        return FALSE;
                 }
         } else {
                 if ((int) desc.tile_count == 2) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received 2 streams but stereo mode is not enabled! Did you forget a \"3D\" parameter?\n");
                 }
-                if ((int) desc.tile_count > s->devices_cnt) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
-                                        desc.tile_count);
-                        goto error;
-                } else if ((int) desc.tile_count < s->devices_cnt) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
-                }
         }
 
+        BMDVideoOutputFlags outputFlags = bmdVideoOutputFlagDefault;
+        BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
-        for (int i = 0; i < s->devices_cnt; ++i) {
-                BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
-                BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
+        displayMode =
+            get_mode(s->deckLinkOutput, desc, &s->frameRateDuration, &s->frameRateScale, s->stereo);
+        if (displayMode == bmdModeUnknown) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
+                return FALSE;
+        }
 
-                displayMode = get_mode(s->state.at(i).deckLinkOutput, desc, &s->frameRateDuration,
-                                &s->frameRateScale, s->stereo);
-                if (displayMode == bmdModeUnknown) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
-                        goto error;
+        if (s->emit_timecode) {
+                outputFlags = (BMDVideoOutputFlags)(outputFlags | bmdVideoOutputRP188);
+        }
+
+        if (s->stereo) {
+                outputFlags = (BMDVideoOutputFlags)(outputFlags | bmdVideoOutputDualStream3D);
+                supportedFlags = (BMDSupportedVideoModeFlags)(supportedFlags |
+                                                              bmdSupportedVideoModeDualStream3D);
+        }
+
+        const bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec),
+                                         false); // we don't have pixfmt for 444 YCbCr
+        subsampling_444.device_write(s->deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput,
+                                     MOD_NAME);
+
+        if (!s->keep_device_defaults &&
+            s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) ==
+                s->device_options.end()) {
+                const int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink
+                                                        : bmdLinkConfigurationSingleLink;
+                bmd_option(link).device_write(s->deckLinkConfiguration,
+                                              bmdDeckLinkConfigSDIOutputLinkConfiguration,
+                                              MOD_NAME);
+        }
+
+        int64_t link = 0;
+        s->deckLinkConfiguration->GetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, &link);
+        if (!s->keep_device_defaults && s->profile_req.is_default() &&
+            link == bmdLinkConfigurationQuadLink) {
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex "
+                                "profile automatically, use 'profile=keep' to override.\n";
+                decklink_set_profile(
+                    s->deckLink, bmd_option((int64_t)bmdProfileOneSubDeviceHalfDuplex), s->stereo);
+        } else if (link == bmdLinkConfigurationQuadLink &&
+                   (!s->profile_req.keep() &&
+                    s->profile_req.get_int() != bmdProfileOneSubDeviceHalfDuplex)) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible device "
+                                                   "profile may not be supported!\n";
+        }
+
+        BMD_BOOL quad_link_supp = BMD_FALSE;
+        if (s->deckLinkAttributes != nullptr &&
+            s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) ==
+                S_OK &&
+            quad_link_supp == BMD_TRUE) {
+                s->quad_square_division_split.device_write(
+                    s->deckLinkConfiguration,
+                    bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, MOD_NAME);
+        }
+
+        const BMDVideoOutputConversionMode conversion_mode =
+            s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) !=
+                    s->device_options.end()
+                ? (BMDVideoOutputConversionMode)s->device_options
+                      .at(bmdDeckLinkConfigVideoOutputConversionMode)
+                      .get_int()
+                : (BMDVideoOutputConversionMode)bmdNoVideoOutputConversion;
+        EXIT_IF_FAILED(s->deckLinkOutput->DoesSupportVideoMode(
+                           bmdVideoConnectionUnspecified, displayMode, s->pixelFormat,
+                           conversion_mode, supportedFlags, nullptr, &supported),
+                       "DoesSupportVideoMode");
+        if (!supported) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME "Requested parameters "
+                                 "combination not supported - %d * %dx%d@%f, timecode %s.\n",
+                        desc.tile_count, desc.width, desc.height, desc.fps,
+                        (outputFlags & bmdVideoOutputRP188 ? "ON" : "OFF"));
+                return FALSE;
+        }
+
+        result = s->deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
+        if (FAILED(result)) {
+                if (result == E_ACCESSDENIED) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unable to access the hardware or output "
+                                         "stream currently active (another application "
+                                         "using it?).\n");
+                } else {
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "EnableVideoOutput: " << bmd_hresult_to_string(result)
+                            << "\n";
                 }
-
-                if (s->emit_timecode) {
-                        outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputRP188);
-                }
-
-                if (s->stereo) {
-                        outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputDualStream3D);
-                        supportedFlags = (BMDSupportedVideoModeFlags) (supportedFlags | bmdSupportedVideoModeDualStream3D);
-                }
-
-                const bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec), false); // we don't have pixfmt for 444 YCbCr
-                subsampling_444.device_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput, MOD_NAME);
-
-                if (!s->keep_device_defaults && s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) == s->device_options.end()) {
-                        const int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
-                        bmd_option(link).device_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigSDIOutputLinkConfiguration, MOD_NAME);
-                }
-
-                int64_t link = 0;
-                s->state.at(i).deckLinkConfiguration->GetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, &link);
-                if (!s->keep_device_defaults && s->profile_req.is_default() && link == bmdLinkConfigurationQuadLink) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
-                        decklink_set_profile(s->state.at(i).deckLink, bmd_option((int64_t) bmdProfileOneSubDeviceHalfDuplex), s->stereo);
-                } else if (link == bmdLinkConfigurationQuadLink && (!s->profile_req.keep() && s->profile_req.get_int() != bmdProfileOneSubDeviceHalfDuplex)) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible device profile may not be supported!\n";
-                }
-
-                BMD_BOOL quad_link_supp;
-                if (s->state.at(i).deckLinkAttributes != nullptr && s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
-                        s->quad_square_division_split.device_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, MOD_NAME);
-                }
-
-                const BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
-                        (BMDVideoOutputConversionMode) s->device_options.at(bmdDeckLinkConfigVideoOutputConversionMode).get_int() : (BMDVideoOutputConversionMode) bmdNoVideoOutputConversion;
-                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, conversion_mode,
-                                        supportedFlags, nullptr, &supported), "DoesSupportVideoMode");
-                if (!supported) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
-                                        "combination not supported - %d * %dx%d@%f, timecode %s.\n",
-                                        desc.tile_count, desc.width, desc.height, desc.fps,
-                                        (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
-                        goto error;
-                }
-
-                result = s->state.at(i).deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
-                if (FAILED(result)) {
-                        if (result == E_ACCESSDENIED) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or output "
-                                                "stream currently active (another application using it?).\n");
-                        } else {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "EnableVideoOutput: " << bmd_hresult_to_string(result) << "\n";\
-                        }
-                        goto error;
-                }
+                return FALSE;
         }
 
         // This workaround is needed (at least) for Decklink Extreme 4K when capturing
@@ -862,33 +863,28 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         // When video is enabled after audio, audio playback becomes silent without
         // an error.
         if (s->initialized_audio) {
-                EXIT_IF_FAILED(s->state[0].deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
-                EXIT_IF_FAILED(s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
-                                        s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                        s->aud_desc.ch_count,
-                                        bmdAudioOutputStreamContinuous),
-                                "EnableAudioOutput");
+                EXIT_IF_FAILED(s->deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
+                EXIT_IF_FAILED(s->deckLinkOutput->EnableAudioOutput(
+                                   bmdAudioSampleRate48kHz,
+                                   s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger
+                                                        : bmdAudioSampleType32bitInteger,
+                                   s->aud_desc.ch_count, bmdAudioOutputStreamContinuous),
+                               "EnableAudioOutput");
         }
 
         if (!s->low_latency) {
-                for(int i = 0; i < s->devices_cnt; ++i) {
-                        EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration), "StartScheduledPlayback (video)");
+                result = s->deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale,
+                                                                   (double)s->frameRateDuration);
+                if (FAILED(result)) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "StartScheduledPlayback (video): "
+                                             << bmd_hresult_to_string(result) << "\n";
+                        s->deckLinkOutput->DisableVideoOutput();
+                        return FALSE;
                 }
         }
 
         s->initialized_video = true;
         return TRUE;
-
-error:
-        // in case we are partially initialized, deinitialize
-        for (int i = 0; i < s->devices_cnt; ++i) {
-                if (!s->low_latency) {
-                        s->state.at(i).deckLinkOutput->StopScheduledPlayback (0, nullptr, 0);
-                }
-                s->state.at(i).deckLinkOutput->DisableVideoOutput();
-        }
-        s->initialized_video = false;
-        return FALSE;
 }
 
 static void display_decklink_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -936,26 +932,8 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize(&com_initialized);
 }
 
-static auto parse_devices(const char *devices_str, vector<string> *cardId) {
-        if (strlen(devices_str) == 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
-                return false;
-        }
-        char *save_ptr;
-        char *tmp = strdup(devices_str);
-        char *ptr = tmp;
-        char *item;
-        while ((item = strtok_r(ptr, ",", &save_ptr))) {
-                cardId->push_back(item);
-                ptr = NULL;
-        }
-        free(tmp);
-
-        return true;
-}
-
 static bool settings_init(struct state_decklink *s, const char *fmt,
-                vector<string> *cardId,
+                string &cardId,
                 int *audio_consumer_levels) {
         if (strlen(fmt) == 0) {
                 return true;
@@ -980,18 +958,13 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         if (first_option_is_device) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
                                 "deprecated. Use \"device=%s\" instead.\n", ptr);
-                if (!parse_devices(ptr, cardId)) {
-                        return false;
-                }
+                cardId = ptr;
                 ptr = strtok_r(nullptr, ":", &save_ptr);
         }
 
         while (ptr != nullptr)  {
                 if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
-                        if (!parse_devices(ptr + strlen("device="), cardId)) {
-                                return false;
-                        }
-
+                        cardId = strchr(ptr, '=') + 1;
                 } else if (strcasecmp(ptr, "3D") == 0) {
                         s->stereo = true;
                 } else if (strcasecmp(ptr, "timecode") == 0) {
@@ -1086,7 +1059,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 {
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
-        vector<string>                                  cardId;
+        string                                          cardId("0");
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
@@ -1105,19 +1078,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
 
-        if (!settings_init(s, fmt, &cardId, &audio_consumer_levels)) {
-                delete s;
-                return NULL;
-        }
-
-        if (cardId.empty()) {
-                cardId.emplace_back("0");
-        }
-        s->devices_cnt = cardId.size();
-
-	if (s->stereo && s->devices_cnt > 1) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported configuration - in stereo "
-                        "mode, exactly one device index must be given.\n";
+        if (!settings_init(s, fmt, cardId, &audio_consumer_levels)) {
                 delete s;
                 return NULL;
         }
@@ -1130,43 +1091,35 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        s->state.resize(s->devices_cnt);
-
         // Connect to the first DeckLink instance
         IDeckLink    *deckLink;
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                bool found = false;
-                for(int i = 0; i < s->devices_cnt; ++i) {
-                        string deviceName = bmd_get_device_name(deckLink);
+                string deviceName = bmd_get_device_name(deckLink);
 
-			if (!deviceName.empty() && deviceName == cardId[i]) {
-				found = true;
-			}
-
-                        if (isdigit(cardId[i].c_str()[0]) && dnum == atoi(cardId[i].c_str())){
-                                found = true;
-                        }
-
-                        if (found) {
-                                s->state.at(i).deckLink = deckLink;
-                        }
+                if (!deviceName.empty() && deviceName == cardId) {
+                        s->deckLink = deckLink;
+                        break;
                 }
-                if(!found && deckLink != NULL)
+                if (isdigit(cardId.c_str()[0]) && dnum == atoi(cardId.c_str())) {
+                        s->deckLink = deckLink;
+                        break;
+                }
+
+                if (deckLink != NULL) {
                         deckLink->Release();
+                }
                 dnum++;
         }
         deckLinkIterator->Release();
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                if (s->state.at(i).deckLink == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId[i] <<" found\n";
-                        goto error;
-                }
-                // Print the model name of the DeckLink card
-                string deviceName = bmd_get_device_name(s->state.at(i).deckLink);
-                if (!deviceName.empty()) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
-                }
+        if (s->deckLink == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId << " found\n";
+                return FALSE;
+        }
+        // Print the model name of the DeckLink card
+        string deviceName = bmd_get_device_name(s->deckLink);
+        if (!deviceName.empty()) {
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
         }
 
         if(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
@@ -1194,110 +1147,136 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         } else {
                 s->timecode = NULL;
         }
-        
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                if (!s->keep_device_defaults && !s->profile_req.keep()) {
-                        decklink_set_profile(s->state.at(i).deckLink, s->profile_req, s->stereo);
-                }
 
-		// Get IDeckLinkAttributes object
-		IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
-		result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, reinterpret_cast<void**>(&deckLinkAttributes));
-		if (result != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
-		}
-                s->state.at(i).deckLinkAttributes = deckLinkAttributes;
-
-                // Obtain the audio/video output interface (IDeckLinkOutput)
-                if ((result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkOutput, reinterpret_cast<void**>(&s->state.at(i).deckLinkOutput))) != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
-                        goto error;
-                }
-
-                // Query the DeckLink for its configuration interface
-                result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkConfiguration, reinterpret_cast<void**>(&deckLinkConfiguration));
-                s->state.at(i).deckLinkConfiguration = deckLinkConfiguration;
-                if (result != S_OK)
-                {
-                        log_msg(LOG_LEVEL_ERROR, "Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
-                        goto error;
-                }
-
-                for (const auto &o : s->device_options) {
-                        if (s->keep_device_defaults && !o.second.is_user_set()) {
-                                continue;
-                        }
-                        if (!o.second.device_write(deckLinkConfiguration, o.first, MOD_NAME)) {
-                                goto error;
-                        }
-                }
-
-                if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
-                        BMD_BOOL hdr_supp = BMD_FALSE;
-                        if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) != S_OK) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "HDR requested, but unable to validate HDR support. Will try to pass it anyway which may result in blank image if not supported - remove the option if so.\n";
-                        } else {
-                                if (hdr_supp != BMD_TRUE) {
-                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR requested, but card doesn't support that.\n";
-                                        goto error;
-                                }
-                        }
-
-                        BMD_BOOL rec2020_supp = BMD_FALSE;
-                        if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata, &rec2020_supp) != S_OK) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Cannot check Rec. 2020 color space metadata support.\n";
-                        } else {
-                                if (rec2020_supp != BMD_TRUE) {
-                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Rec. 2020 color space metadata not supported.\n";
-                                }
-                        }
-                }
-
-                if (s->play_audio && i == 0) {
-                        /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
-                         */
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Audio output set to: " << bmd_get_audio_connection_name(audioConnection) << "\n";
-                         /*
-                          * .... one exception is a card that has switchable cables between AES/EBU and analog. (But this applies only for channels 3 and above.)
-                         */
-                        if (audioConnection != 0) { // we will set switchable AESEBU or analog
-                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
-                                                audioConnection);
-                                if(result == S_OK) { // has switchable channels
-                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Card with switchable audio channels detected. Switched to correct format.\n");
-                                } else if(result == E_NOTIMPL) {
-                                        // normal case - without switchable channels
-                                } else {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to switch audio output for channels 3 or above although \n"
-                                                        "card shall support it. Check if it is ok. Continuing anyway.\n");
-                                }
-                        }
-
-                        if (audio_consumer_levels != -1) {
-                                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                                audio_consumer_levels == 1 ? true : false);
-                                if(result != S_OK) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable set output audio consumer levels.\n");
-                                }
-                        }
-                }
-
-                s->state.at(i).delegate = new PlaybackDelegate();
-                // Provide this class as a delegate to the audio and video output interfaces
-                if (!s->low_latency) {
-                        s->state.at(i).deckLinkOutput->SetScheduledFrameCompletionCallback(s->state.at(i).delegate);
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Scheduled playback is obsolescent and may be removed in future. Please let us know if you are using this mode.\n");
-                }
-                //s->state.at(i).deckLinkOutput->DisableAudioOutput();
+        if (!s->keep_device_defaults && !s->profile_req.keep()) {
+                decklink_set_profile(s->deckLink, s->profile_req, s->stereo);
         }
+
+        // Get IDeckLinkAttributes object
+        IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
+        result = s->deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                             reinterpret_cast<void **>(&deckLinkAttributes));
+        if (result != S_OK) {
+                log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
+        }
+        s->deckLinkAttributes = deckLinkAttributes;
+
+        // Obtain the audio/video output interface (IDeckLinkOutput)
+        if ((result = s->deckLink->QueryInterface(
+                 IID_IDeckLinkOutput, reinterpret_cast<void **>(&s->deckLinkOutput))) != S_OK) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n",
+                        (int)result);
+                return FALSE;
+        }
+
+        // Query the DeckLink for its configuration interface
+        result = s->deckLink->QueryInterface(IID_IDeckLinkConfiguration,
+                                             reinterpret_cast<void **>(&deckLinkConfiguration));
+        s->deckLinkConfiguration = deckLinkConfiguration;
+        if (result != S_OK) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Could not obtain the IDeckLinkConfiguration interface: %08x\n",
+                        (int)result);
+                return FALSE;
+        }
+
+        for (const auto &o : s->device_options) {
+                if (s->keep_device_defaults && !o.second.is_user_set()) {
+                                continue;
+                }
+                if (!o.second.device_write(deckLinkConfiguration, o.first, MOD_NAME)) {
+                                return FALSE;
+                }
+        }
+
+        if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
+                BMD_BOOL hdr_supp = BMD_FALSE;
+                if (s->deckLinkAttributes == nullptr ||
+                    s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) !=
+                        S_OK) {
+                                LOG(LOG_LEVEL_WARNING)
+                                    << MOD_NAME
+                                    << "HDR requested, but unable to validate HDR support. Will "
+                                       "try to pass it anyway which may result in blank image if "
+                                       "not supported - remove the option if so.\n";
+                } else {
+                        if (hdr_supp != BMD_TRUE) {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << MOD_NAME
+                                    << "HDR requested, but card doesn't support that.\n";
+                                return FALSE;
+                        }
+                }
+
+                BMD_BOOL rec2020_supp = BMD_FALSE;
+                if (s->deckLinkAttributes == nullptr ||
+                    s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata,
+                                                   &rec2020_supp) != S_OK) {
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME << "Cannot check Rec. 2020 color space metadata support.\n";
+                } else {
+                        if (rec2020_supp != BMD_TRUE) {
+                                LOG(LOG_LEVEL_WARNING)
+                                    << MOD_NAME
+                                    << "Rec. 2020 color space metadata not supported.\n";
+                                }
+                }
+        }
+
+        if (s->play_audio) {
+                /* Actually no action is required to set audio connection because Blackmagic card
+                 * plays audio through all its outputs (AES/SDI/analog) ....
+                 */
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Audio output set to: "
+                                    << bmd_get_audio_connection_name(audioConnection) << "\n";
+                /*
+                 * .... one exception is a card that has switchable cables between AES/EBU and
+                 * analog. (But this applies only for channels 3 and above.)
+                 */
+                if (audioConnection != 0) { // we will set switchable AESEBU or analog
+                        result = deckLinkConfiguration->SetInt(
+                            bmdDeckLinkConfigAudioOutputAESAnalogSwitch, audioConnection);
+                        if (result == S_OK) { // has switchable channels
+                                log_msg(LOG_LEVEL_INFO,
+                                        MOD_NAME "Card with switchable audio channels detected. "
+                                                 "Switched to correct format.\n");
+                        } else if (result == E_NOTIMPL) {
+                                // normal case - without switchable channels
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING,
+                                        MOD_NAME "Unable to switch audio output for channels 3 or "
+                                                 "above although \n"
+                                                 "card shall support it. Check if it is ok. "
+                                                 "Continuing anyway.\n");
+                        }
+                }
+
+                if (audio_consumer_levels != -1) {
+                                result = deckLinkConfiguration->SetFlag(
+                                    bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                    audio_consumer_levels == 1 ? true : false);
+                                if (result != S_OK) {
+                                log_msg(LOG_LEVEL_WARNING,
+                                        MOD_NAME "Unable set output audio consumer levels.\n");
+                                }
+                }
+        }
+
+        s->delegate = new PlaybackDelegate();
+        // Provide this class as a delegate to the audio and video output interfaces
+        if (!s->low_latency) {
+                s->deckLinkOutput->SetScheduledFrameCompletionCallback(s->delegate);
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Scheduled playback is obsolescent and may be removed in future. "
+                                 "Please let us know if you are using this mode.\n");
+        }
+        // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
         s->frames = 0;
         s->initialized_audio = s->initialized_video = false;
 
         return (void *)s;
-error:
-        display_decklink_done(s);
-        return NULL;
 }
 
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) x->Release();
@@ -1308,29 +1287,27 @@ static void display_decklink_done(void *state)
 
         assert (s != NULL);
 
-        for (int i = 0; i < s->devices_cnt; ++i)
-        {
-                if (s->initialized_video) {
-                        if (!s->low_latency) {
-                                CALL_AND_CHECK(s->state.at(i).deckLinkOutput->StopScheduledPlayback (0, nullptr, 0), "StopScheduledPlayback");
-                        }
-
-                        CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
+        if (s->initialized_video) {
+                if (!s->low_latency) {
+                                CALL_AND_CHECK(
+                                    s->deckLinkOutput->StopScheduledPlayback(0, nullptr, 0),
+                                    "StopScheduledPlayback");
                 }
 
-                if (s->initialized_audio) {
-                        if (i == 0) {
-                                CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableAudioOutput(), "DisableAudiioOutput");
-                        }
-                }
-
-                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkAttributes);
-                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkConfiguration);
-                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkOutput);
-                RELEASE_IF_NOT_NULL(s->state.at(i).deckLink);
-
-                delete s->state.at(i).delegate;
+                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
         }
+
+        if (s->initialized_audio) {
+                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
+                               "DisableAudiioOutput");
+        }
+
+        RELEASE_IF_NOT_NULL(s->deckLinkAttributes);
+        RELEASE_IF_NOT_NULL(s->deckLinkConfiguration);
+        RELEASE_IF_NOT_NULL(s->deckLinkOutput);
+        RELEASE_IF_NOT_NULL(s->deckLink);
+
+        delete s->delegate;
 
         while (!s->buffer_pool.frame_queue.empty()) {
                 auto tmp = s->buffer_pool.frame_queue.front();
@@ -1386,7 +1363,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int count = 0;
         for (auto & c : uv_to_bmd_codec_map) {
-                if (decklink_display_supports_codec(s->state[0].deckLinkOutput, c.second)) {
+                if (decklink_display_supports_codec(s->deckLinkOutput, c.second)) {
                         codecs[count++] = c.first;
                 }
         }
@@ -1412,8 +1389,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
-                        *(int *) val = s->devices_cnt == 1 ? DISPLAY_PROPERTY_VIDEO_SEPARATE_3D :
-                                DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                        *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_3D;
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
@@ -1459,20 +1435,20 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         uint32_t sampleFramesWritten;
 
         uint32_t buffered = 0;
-        s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
+        s->deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
         }
 
         if (s->low_latency) {
-                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
+                HRESULT res = s->deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
                         return;
                 }
         } else {
-                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
+                s->deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
                                 0, &sampleFramesWritten);
         }
         if (sampleFramesWritten != sampleFrameCount) {
@@ -1495,11 +1471,12 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         BMDAudioSampleType sample_type;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
+        s->initialized_audio = false;
 
         assert(s->play_audio);
 
         if (s->initialized_audio) {
-                CALL_AND_CHECK(s->state[0].deckLinkOutput->DisableAudioOutput(),
+                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
                                 "DisableAudioOutput");
                 s->initialized_audio = false;
         }
@@ -1529,7 +1506,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         return FALSE;
         }
                         
-        EXIT_IF_FAILED(s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+        EXIT_IF_FAILED(s->deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
                         sample_type,
                         channels,
                         bmdAudioOutputStreamContinuous),
@@ -1538,18 +1515,15 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         if (!s->low_latency) {
                 // This will most certainly fail because it is started with in video
                 // reconfigure. However, this doesn't seem to bother, anyway.
-                CALL_AND_CHECK(s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration), "StartScheduledPlayback (audio)");
+                CALL_AND_CHECK(s->deckLinkOutput->StartScheduledPlayback(
+                                   0, s->frameRateScale, s->frameRateDuration),
+                               "StartScheduledPlayback (audio)");
         }
 
         s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
         s->initialized_audio = true;
-        
         return TRUE;
-
-error:
-        s->initialized_audio = false;
-        return FALSE;
 }
 
 #ifndef WIN32
