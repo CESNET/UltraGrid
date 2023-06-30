@@ -7,6 +7,9 @@
  * @author Jiri Matela      <matela@ics.muni.cz>
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * TestPattern example from BMD SDK was also used to consult correct
+ * BMD workflow usage.
  */
 /*
  * Copyright (c) 2010-2023 CESNET, z. s. p. o.
@@ -84,6 +87,12 @@
 #define STDMETHODCALLTYPE
 #endif
 
+enum {
+        SCHED_PREROLL_FRMS = 3,
+};
+
+#define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) (x)->Release();
+
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
 
@@ -108,7 +117,8 @@ static void display_decklink_done(void *state);
 
 using namespace std;
 
-static int display_decklink_putf(void *state, struct video_frame *frame, long long nonblock);
+static int display_decklink_putf(void *state, struct video_frame *frame,
+                                 long long timeout_ns);
 
 namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
@@ -118,13 +128,60 @@ private:
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
-        friend int ::display_decklink_putf(void *state, struct video_frame *frame, long long nonblock);
+        friend int ::display_decklink_putf(void *state,
+                                           struct video_frame *frame,
+                                           long long timeout_ns);
+
 public:
-        virtual ~PlaybackDelegate() = default;
+        IDeckLinkOutput *deckLinkOutput; // notnull only for scheduled callback
+        mutex schedLock;
+        IDeckLinkMutableVideoFrame *schedFrame{};
+        IDeckLinkMutableVideoFrame *lastSchedFrame{};
+        long schedSeq{};
+        BMDTimeValue frameRateDuration{};
+        BMDTimeScale frameRateScale{};
+
+        explicit PlaybackDelegate(IDeckLinkOutput *ido) : deckLinkOutput(ido) {}
+        ~PlaybackDelegate() override
+        {
+                RELEASE_IF_NOT_NULL(lastSchedFrame);
+                RELEASE_IF_NOT_NULL(schedFrame);
+        }
         // IUnknown needs only a dummy implementation
         virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
         virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
+
+        int EnqueueFrame(IDeckLinkMutableVideoFrame *deckLinkFrame)
+        {
+                const unique_lock<mutex> lk(schedLock);
+                if (schedFrame == nullptr) {
+                        schedFrame = deckLinkFrame;
+                        return 0;
+                }
+
+                deckLinkFrame->Release();
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
+                return 1;
+        }
+
+        void ScheduleNextFrame()
+        {
+                const unique_lock<mutex> lk(schedLock);
+                IDeckLinkMutableVideoFrame *f = lastSchedFrame;
+                if (schedFrame != nullptr) {
+                        RELEASE_IF_NOT_NULL(lastSchedFrame);
+                        f = lastSchedFrame = schedFrame;
+                        lastSchedFrame->AddRef();
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
+                }
+                deckLinkOutput->ScheduleVideoFrame(
+                    f, schedSeq * frameRateDuration, frameRateDuration,
+                    frameRateScale);
+                schedFrame = nullptr;
+                schedSeq += 1;
+        }
 
         virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 	{
@@ -152,6 +209,9 @@ public:
 			}
 		}
 
+                if (deckLinkOutput != nullptr) { // scheduled mode
+                        ScheduleNextFrame();
+                }
 
 		completedFrame->Release();
 		return S_OK;
@@ -322,16 +382,12 @@ struct state_decklink {
         IDeckLinkConfiguration     *deckLinkConfiguration;
         IDeckLinkProfileAttributes *deckLinkAttributes;
 
-        BMDTimeValue        frameRateDuration{};
-        BMDTimeScale        frameRateScale{};
-
         DeckLinkTimecode    *timecode{}; ///< @todo Should be actually allocated dynamically and
                                        ///< its lifespan controlled by AddRef()/Release() methods
 
         struct video_desc   vid_desc{};
         struct audio_desc   aud_desc{};
 
-        unsigned long int   frames            = 0;
         bool                stereo            = false;
         bool                initialized_audio = false;
         bool                initialized_video = false;
@@ -475,6 +531,19 @@ static void show_help(bool full)
         }
 }
 
+static IDeckLinkMutableVideoFrame *
+allocate_new_decklink_frame(struct state_decklink *s)
+{
+        const int linesize =
+            vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
+        return s->stereo
+                   ? DeckLink3DFrame::Create(
+                         s->vid_desc.width, s->vid_desc.height, linesize,
+                         s->pixelFormat, s->buffer_pool, s->requested_hdr_mode)
+                   : DeckLinkFrame::Create(
+                         s->vid_desc.width, s->vid_desc.height, linesize,
+                         s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
+}
 
 static struct video_frame *
 display_decklink_getf(void *state)
@@ -513,13 +582,7 @@ display_decklink_getf(void *state)
                 }
         }
         if (!deckLinkFrame) {
-                deckLinkFrame = s->stereo
-                                    ? DeckLink3DFrame::Create(s->vid_desc.width, s->vid_desc.height,
-                                                              linesize, s->pixelFormat,
-                                                              s->buffer_pool, s->requested_hdr_mode)
-                                    : DeckLinkFrame::Create(s->vid_desc.width, s->vid_desc.height,
-                                                            linesize, s->pixelFormat,
-                                                            s->buffer_pool, s->requested_hdr_mode);
+                deckLinkFrame = allocate_new_decklink_frame(s);
         }
         out->callbacks.dispose_udata = (void *) deckLinkFrame;
 
@@ -578,9 +641,11 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-static int display_decklink_putf(void *state, struct video_frame *frame, long long timeout_ns)
+static int display_decklink_putf(void *state, struct video_frame *frame,
+                                 [[maybe_unused]] long long timeout_ns)
 {
         struct state_decklink *s = (struct state_decklink *)state;
+        int ret = 0;
 
         if (frame == NULL)
                 return FALSE;
@@ -590,17 +655,6 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
         uint32_t i;
         s->deckLinkOutput->GetBufferedVideoFrameCount(&i); // writes always 0 in low-latency mode
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
-        long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps)) + 2;
-        if (timeout_ns == PUTF_DISCARD || i > max_frames) {
-                if (timeout_ns != PUTF_DISCARD) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
-                }
-                IDeckLinkMutableVideoFrame *deckLinkFrame =
-                    (IDeckLinkMutableVideoFrame *)frame->callbacks.dispose_udata;
-                deckLinkFrame->Release();
-                frame->callbacks.dispose(frame);
-                return 1;
-        }
 
         if (frame->color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 for (unsigned i = 0; i < frame->tile_count; ++i) {
@@ -618,11 +672,8 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 s->deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
                 deckLinkFrame->Release();
         } else {
-                s->deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
-                                                      s->frames * s->frameRateDuration,
-                                                      s->frameRateDuration, s->frameRateScale);
+                ret = s->delegate->EnqueueFrame(deckLinkFrame);
         }
-        s->frames++;
         if(s->emit_timecode) {
                 update_timecode(s->timecode, s->vid_desc.fps);
         }
@@ -637,7 +688,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 s->t0 = now;
         }
 
-        return 0;
+        return ret;
 }
 
 static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_desc desc, BMDTimeValue *frameRateDuration,
@@ -768,7 +819,8 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
         displayMode =
-            get_mode(s->deckLinkOutput, desc, &s->frameRateDuration, &s->frameRateScale, s->stereo);
+            get_mode(s->deckLinkOutput, desc, &s->delegate->frameRateDuration,
+                     &s->delegate->frameRateScale, s->stereo);
         if (displayMode == bmdModeUnknown) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
                 return FALSE;
@@ -875,11 +927,21 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         }
 
         if (!s->low_latency) {
-                result = s->deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale,
-                                                                   (double)s->frameRateDuration);
+                s->delegate->schedSeq = 0;
+                auto *f = allocate_new_decklink_frame(s);
+                for (int i = 0; i < SCHED_PREROLL_FRMS; ++i) {
+                        f->AddRef();
+                        const int ret = s->delegate->EnqueueFrame(f);
+                        assert(ret == 0);
+                        s->delegate->ScheduleNextFrame();
+                }
+                f->Release(); // release initial reference from alloc
+                result = s->deckLinkOutput->StartScheduledPlayback(
+                    0, s->delegate->frameRateScale, 1.0);
                 if (FAILED(result)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "StartScheduledPlayback (video): "
-                                             << bmd_hresult_to_string(result) << "\n";
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "StartScheduledPlayback (video): "
+                            << bmd_hresult_to_string(result) << "\n";
                         s->deckLinkOutput->DisableVideoOutput();
                         return FALSE;
                 }
@@ -1270,7 +1332,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
 
-        s->delegate = new PlaybackDelegate();
+        s->delegate = new PlaybackDelegate(s->low_latency ? nullptr : s->deckLinkOutput);
         // Provide this class as a delegate to the audio and video output interfaces
         if (!s->low_latency) {
                 s->deckLinkOutput->SetScheduledFrameCompletionCallback(s->delegate);
@@ -1280,13 +1342,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
-        s->frames = 0;
         s->initialized_audio = s->initialized_video = false;
 
         return (void *)s;
 }
 
-#define RELEASE_IF_NOT_NULL(x) if (x != nullptr) x->Release();
 static void display_decklink_done(void *state)
 {
         debug_msg("display_decklink_done\n"); /* TOREMOVE */
@@ -1517,14 +1577,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         channels,
                         bmdAudioOutputStreamContinuous),
                 "EnableAudioOutput");
-
-        if (!s->low_latency) {
-                // This will most certainly fail because it is started with in video
-                // reconfigure. However, this doesn't seem to bother, anyway.
-                CALL_AND_CHECK(s->deckLinkOutput->StartScheduledPlayback(
-                                   0, s->frameRateScale, s->frameRateDuration),
-                               "StartScheduledPlayback (audio)");
-        }
 
         s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
