@@ -677,7 +677,7 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::c
         return AV_PIX_FMT_NONE;
 }
 
-template<typename T>
+template<typename T, bool log_err = false>
 static inline bool check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
         int ret = 0;
         string val_str;
@@ -696,7 +696,7 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
         desc = desc ? desc : key;
         if (ret != 0) {
                 string err = string(MOD_NAME) + "Unable to set " + desc + " to " + val_str;
-                print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
+                print_libav_error(log_err ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING, err.c_str(), ret);
         } else {
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Successfully set codec %s to %s\n", desc, val_str.c_str());
         }
@@ -801,7 +801,8 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 if (s->blacklist_opts.count(item.first) == 1) {
                         continue;
                 }
-                if (!check_av_opt_set<const char *>(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str())) {
+                if (!check_av_opt_set<const char *, true>(
+                        s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str())) {
                         return false;
                 }
         }
