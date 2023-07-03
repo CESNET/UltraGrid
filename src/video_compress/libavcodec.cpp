@@ -1473,7 +1473,10 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 param->blacklist_opts.insert("rc");
         }
         if (strcmp(rc, "help") == 0) {
-                col() << "\n\n" << SBOLD("See codec-specific usage for available RCs.") << "\n\n\n";
+                col() << "\n\n"
+                      << SBOLD("See codec-specific usage for available RCs (``-c "
+                               "libavcodec:encoder=<enc>:help`).")
+                      << "\n\n\n";
                 exit_uv(0);
         } else if (strcasecmp(rc, "cbr") == 0) {
                 codec_ctx->rc_max_rate = codec_ctx->bit_rate;
