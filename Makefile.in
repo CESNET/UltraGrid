@@ -658,7 +658,7 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
 	if [ $(MACOS_LEGACY) = no ]; then \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
-			if expr $$n : '.*-real' >/dev/null; then continue; fi; \
+			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null; then continue; fi; \
 			mv -f $$n $$n-real; cp -f $(srcdir)/data/scripts/macos-wrapper $$n; \
 		done; \
 	fi
