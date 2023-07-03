@@ -40,7 +40,8 @@ DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 BUNDLE        = uv.app
-GUI_BUNDLE    = gui/QT/uv-qt.app
+GUI_BUNDLE_DEP = gui/QT/uv-qt.app
+GUI_BUNDLE    = uv-qt.app
 REAL_CUDA_COMPILER = "@CUDA_COMPILER@"
 CUDA_COMPILER_0 = @echo "Compiling $<..."; $(REAL_CUDA_COMPILER)
 CUDA_COMPILER_1 = $(REAL_CUDA_COMPILER)
@@ -586,8 +587,7 @@ clean:
 	$(COND_SILENCE)-rm -f $(OBJS) $(GENERATED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
 	$(COND_SILENCE)-rm -f $(TEST_OBJS) bin/run_tests
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
-	$(COND_SILENCE)-rm -rf $(BUNDLE)
-	$(COND_SILENCE)-rm -rf $(GUI_BUNDLE)
+	$(COND_SILENCE)-rm -rf $(BUNDLE) $(GUI_BUNDLE) $(GUI_BUNDLE_DEP)
 	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	$(COND_SILENCE)-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
@@ -623,23 +623,15 @@ hd-rum-multi/hd-rum:
 
 # Makes dummy bundle (almost empty). May not be portable due to missing libs.
 $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
-	$(MKDIR_P) $(BUNDLE)/Contents/MacOS
-	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
-	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
-	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
+	rm -rf $(BUNDLE)
+	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs $(BUNDLE)/Contents/Frameworks
+	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
+	cp -r data/MacOS-bundle-template/* $(BUNDLE)
 	cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
 	cp -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
-	touch $@ # mark target as up to date
-
-# adds libraries to the bundle
-$(BUNDLE)/Contents/libs: $(BUNDLE)
-	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
-	$(MKDIR_P) $(BUNDLE)/Contents/libs
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
 	done
-	rm -rf $(BUNDLE)/Contents/Frameworks
-	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	if otool -L $(TARGET) | grep -q VideoMaster; then \
 		cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD*.framework $(BUNDLE)/Contents/Frameworks; \
 		rm -rf $(BUNDLE)/Contents/Frameworks/VideoMasterHD*.framework/Versions/Current/Headers; \
@@ -647,12 +639,13 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
-# ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
-# as gui/QT/uv-qt.app (referred as $(GUI_BUNDLE))
-$(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
-	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
+# ships UltraGrid itself to GUI bundle which is copied from
+# gui/QT/uv-qt.app to uv-qt.app (referred as $(GUI_BUNDLE))
+$(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
+	rm -rf $(GUI_BUNDLE)
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
-	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
+	cp -R $(GUI_BUNDLE_DEP)/* $(GUI_BUNDLE)
+	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/
 	cp -nR $(BUNDLE)/* $(GUI_BUNDLE) || true
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
@@ -668,9 +661,8 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
 # aliases
-bundle-nolib: $(BUNDLE)
-bundle: $(BUNDLE)/Contents/libs
-gui-bundle: $(GUI_BUNDLE)/Contents/libs
+bundle: $(BUNDLE)
+gui-bundle: $(GUI_BUNDLE)
 
 ## @todo Add correct dependencies (using $(GUI_BUNDLE)/Contents/libs causes
 ## uv-qt rebuild which breaks fixed links by macdeployqt)
