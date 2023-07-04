@@ -211,7 +211,7 @@ jobs:
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
         sudo mv /tmp/FRMWK $(xcrun --show-sdk-path)/System/Library/Frameworks
     - name: sign+notarize
-      run: .github/scripts/macOS/sign.sh gui/QT/uv-qt.app
+      run: .github/scripts/macOS/sign.sh uv-qt.app
     - name: make dmg
       run: |
         make osx-gui-dmg
