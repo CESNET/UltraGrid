@@ -242,33 +242,32 @@ char *indent_paragraph(char *text) {
         char *last_space = NULL;
 
         char *next = NULL;
-        char *line_start = pos;
+        int line_len = 0;
         while ((next = strpbrk(pos, " \n")) != NULL) {
-                if (next[0] == '\n') {
-                        line_start = next + 1;
-                        pos = next + 1;
-                        continue;
-                }
-
                 int len_raw = next - pos;
                 char str_in[len_raw + 1];
                 memcpy(str_in, pos, len_raw);
                 str_in[len_raw] = '\0';
                 int len_net = strlen(prune_ansi_sequences_inplace_cstr(str_in));
-                const int line_len = pos - line_start;
                 if (line_len + len_net > 80) {
                         if (line_len == 0) { // |word|>80 starting a line
                                 *next = '\n';
-                                line_start = next + 1;
+                                pos = next + 1;
                         } else {
                                 *last_space = '\n';
-                                line_start = last_space + 1;
+                                pos = last_space + 1;
                         }
+                        line_len = 0;
+                        continue;
+                }
+                if (next[0] == '\n') {
                         pos = next + 1;
+                        line_len = 0;
                         continue;
                 }
                 last_space = next;
                 pos += len_raw + 1;
+                line_len += len_net + 1;
         }
         return text;
 }
