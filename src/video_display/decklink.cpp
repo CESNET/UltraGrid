@@ -89,6 +89,7 @@
 
 enum {
         SCHED_PREROLL_FRMS = 3,
+        MAX_SCHED_FRAMES = 2,
 };
 
 #define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) (x)->Release();
@@ -135,7 +136,7 @@ private:
 public:
         IDeckLinkOutput *deckLinkOutput; // notnull only for scheduled callback
         mutex schedLock;
-        IDeckLinkMutableVideoFrame *schedFrame{};
+        queue<IDeckLinkMutableVideoFrame* > schedFrames{};
         IDeckLinkMutableVideoFrame *lastSchedFrame{};
         long schedSeq{};
         BMDTimeValue frameRateDuration{};
@@ -145,7 +146,10 @@ public:
         ~PlaybackDelegate() override
         {
                 RELEASE_IF_NOT_NULL(lastSchedFrame);
-                RELEASE_IF_NOT_NULL(schedFrame);
+                while (!schedFrames.empty()) {
+                        schedFrames.front()->Release();
+                        schedFrames.pop();
+                }
         }
         // IUnknown needs only a dummy implementation
         HRESULT STDMETHODCALLTYPE QueryInterface(REFIID /*iid*/,
@@ -159,8 +163,8 @@ public:
         int EnqueueFrame(IDeckLinkMutableVideoFrame *deckLinkFrame)
         {
                 const unique_lock<mutex> lk(schedLock);
-                if (schedFrame == nullptr) {
-                        schedFrame = deckLinkFrame;
+                if (schedFrames.size() < MAX_SCHED_FRAMES) {
+                        schedFrames.push(deckLinkFrame);
                         return 0;
                 }
 
@@ -173,17 +177,17 @@ public:
         {
                 const unique_lock<mutex> lk(schedLock);
                 IDeckLinkMutableVideoFrame *f = lastSchedFrame;
-                if (schedFrame != nullptr) {
-                        RELEASE_IF_NOT_NULL(lastSchedFrame);
-                        f = lastSchedFrame = schedFrame;
-                        lastSchedFrame->AddRef();
-                } else {
+                if (schedFrames.empty()) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
+                } else {
+                        RELEASE_IF_NOT_NULL(lastSchedFrame);
+                        f = lastSchedFrame = schedFrames.front();
+                        schedFrames.pop();
+                        lastSchedFrame->AddRef();
                 }
                 deckLinkOutput->ScheduleVideoFrame(
                     f, schedSeq * frameRateDuration, frameRateDuration,
                     frameRateScale);
-                schedFrame = nullptr;
                 schedSeq += 1;
         }
 
