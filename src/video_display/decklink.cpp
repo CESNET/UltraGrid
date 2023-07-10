@@ -148,9 +148,13 @@ public:
                 RELEASE_IF_NOT_NULL(schedFrame);
         }
         // IUnknown needs only a dummy implementation
-        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
-        virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
-        virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID /*iid*/,
+                                                 LPVOID * /*ppv*/) override
+        {
+                return E_NOINTERFACE;
+        }
+        ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+        ULONG STDMETHODCALLTYPE Release() override { return 1; }
 
         int EnqueueFrame(IDeckLinkMutableVideoFrame *deckLinkFrame)
         {
@@ -183,8 +187,10 @@ public:
                 schedSeq += 1;
         }
 
-        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
-	{
+        HRESULT STDMETHODCALLTYPE
+        ScheduledFrameCompleted(IDeckLinkVideoFrame *completedFrame,
+                                BMDOutputFrameCompletionResult result) override
+        {
                 if (result == bmdOutputFrameDisplayedLate){
                         frames_late += 1;
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
@@ -217,10 +223,11 @@ public:
 		return S_OK;
 	}
 
-        virtual HRESULT STDMETHODCALLTYPE        ScheduledPlaybackHasStopped (){
-        	return S_OK;
-	}
-        //virtual HRESULT         RenderAudioSamples (bool preroll);
+        HRESULT STDMETHODCALLTYPE ScheduledPlaybackHasStopped() override
+        {
+                return S_OK;
+        }
+        // virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
 class DeckLinkFrame;
