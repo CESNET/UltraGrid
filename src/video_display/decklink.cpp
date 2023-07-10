@@ -245,7 +245,7 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
 
                 IDeckLinkTimecode *timecode;
 
-                long ref;
+                atomic<ULONG> ref = 1;
 
                 buffer_pool_t &buffer_pool;
                 struct HDRMetadata m_metadata;
@@ -1599,15 +1599,16 @@ ULONG DeckLinkFrame::AddRef()
 
 ULONG DeckLinkFrame::Release()
 {
-        if (--ref == 0) {
+        ULONG ret = --ref;
+        if (ret == 0) {
                 lock_guard<mutex> lg(buffer_pool.lock);
                 buffer_pool.frame_queue.push(this);
         }
-	return ref;
+	return ret;
 }
 
 DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, HDRMetadata const & hdr_metadata)
-	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL), ref(1l),
+	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL),
         buffer_pool(bp)
 {
         clear_video_buffer(reinterpret_cast<unsigned char *>(data.get()), rawBytes, rawBytes, height,
