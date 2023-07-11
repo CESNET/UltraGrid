@@ -229,7 +229,7 @@ struct reported_statistics_cumul {
                         << SBOLD(displayed) << " disp / "
                         << SBOLD(dropped) << " drop / "
                         << SBOLD(corrupted) << " corr / "
-                        << SBOLD(missing) << " missing."
+                        << SBOLD(missing) << " miss"
                         << fec.str() << "\n";
                 if (total > 3000 && dropped * 50 >= total) { // more than 2% frames were dropped
                         log_msg_once(LOG_LEVEL_WARNING, to_fourcc('D', 'R', 'P', 'S'), MOD_NAME "Dropped %lu of %lu frames. This may be due "
