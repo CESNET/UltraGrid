@@ -1525,7 +1525,9 @@ static void schedule_audio(struct state_decklink *s,
         if (s->first_vid_frame_ts == -1) {
                         return;
         }
-        /// @todo WIP wraparound
+        if (frame->timestamp < s->first_vid_frame_ts) { // wrap-around
+                s->first_vid_frame_ts -= 1LLU<<32;
+        }
         BMDTimeValue streamTime =
             ((int64_t)frame->timestamp - s->first_vid_frame_ts) *
             bmdAudioSampleRate48kHz / 90000;
