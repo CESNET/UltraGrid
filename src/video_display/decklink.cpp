@@ -392,7 +392,6 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 
 #define DECKLINK_MAGIC 0x12de326b
 
-
 struct state_decklink {
         uint32_t            magic = DECKLINK_MAGIC;
         bool                com_initialized = false;
@@ -407,6 +406,10 @@ struct state_decklink {
 
         struct video_desc   vid_desc{};
         struct audio_desc   aud_desc{};
+        // scheduled playback only
+        atomic<int64_t>     first_vid_frame_ts = -1;
+        int64_t             last_sched_audio_time = INT64_MIN / 2;
+        int64_t             avg_diff = 0;
 
         bool                stereo            = false;
         bool                initialized_audio = false;
@@ -693,6 +696,9 @@ static int display_decklink_putf(void *state, struct video_frame *frame,
                 deckLinkFrame->Release();
         } else {
                 ret = s->delegate->EnqueueFrame(deckLinkFrame);
+                if (s->first_vid_frame_ts == -1) {
+                        s->first_vid_frame_ts = frame->timestamp;
+                }
         }
         if(s->emit_timecode) {
                 update_timecode(s->timecode, s->vid_desc.fps);
@@ -943,16 +949,20 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         // When video is enabled after audio, audio playback becomes silent without
         // an error.
         if (s->initialized_audio) {
+                const BMDAudioOutputStreamType type =
+                    s->low_latency ? bmdAudioOutputStreamContinuous
+                                   : bmdAudioOutputStreamTimestamped;
                 EXIT_IF_FAILED(s->deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
                 EXIT_IF_FAILED(s->deckLinkOutput->EnableAudioOutput(
                                    bmdAudioSampleRate48kHz,
                                    s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger
                                                         : bmdAudioSampleType32bitInteger,
-                                   s->aud_desc.ch_count, bmdAudioOutputStreamContinuous),
+                                   s->aud_desc.ch_count, type),
                                "EnableAudioOutput");
         }
 
         if (!s->low_latency) {
+                s->first_vid_frame_ts = -1;
                 auto *f = allocate_new_decklink_frame(s);
                 for (int i = 0; i < SCHED_PREROLL_FRMS; ++i) {
                         f->AddRef();
@@ -1509,14 +1519,46 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 /*
  * AUDIO
  */
+static void schedule_audio(struct state_decklink *s,
+                           const struct audio_frame *frame, uint32_t *samples)
+{
+        if (s->first_vid_frame_ts == -1) {
+                        return;
+        }
+        /// @todo WIP wraparound
+        BMDTimeValue streamTime =
+            ((int64_t)frame->timestamp - s->first_vid_frame_ts) *
+            bmdAudioSampleRate48kHz / 90000;
+
+        // normalize audio start if the input is not properly timestamped
+        // (everything except vidcap testcard and decklink).
+        const int64_t diff = llabs(streamTime - s->last_sched_audio_time);
+        if (diff < 2000) { // do not process martians
+                s->avg_diff = (s->avg_diff * 39 + diff) / 40;
+                if (s->avg_diff >= 50) {
+                        log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
+                                            "Stream discontinuity, auto-"
+                                            "adjusting audio time. If this is "
+                                            "an unsynchronized stream, do not "
+                                            "use synchronized output.\n");
+                        streamTime = s->last_sched_audio_time;
+                }
+        }
+
+        s->last_sched_audio_time = streamTime + *samples;
+        s->deckLinkOutput->ScheduleAudioSamples(
+            frame->data, *samples, streamTime, bmdAudioSampleRate48kHz,
+            samples);
+}
+
 static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
+        const unsigned int sampleFrameCount =
+            frame->data_len / (frame->bps * frame->ch_count);
+        uint32_t sampleFramesWritten = sampleFrameCount;
 
         assert(s->play_audio);
-
-        uint32_t sampleFramesWritten;
 
         uint32_t buffered = 0;
         s->deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
@@ -1532,8 +1574,7 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                         return;
                 }
         } else {
-                s->deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
-                                0, &sampleFramesWritten);
+                schedule_audio(s, frame, &sampleFramesWritten);
         }
         if (sampleFramesWritten != sampleFrameCount) {
                 ostringstream details_oss;
