@@ -132,9 +132,9 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         mutex schedLock;
         queue<IDeckLinkMutableVideoFrame* > schedFrames{};
         IDeckLinkMutableVideoFrame *lastSchedFrame{};
+        long schedSeq{};
 
       public:
-        long schedSeq{};
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
 
@@ -788,6 +788,18 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         s->initialized_video = false;
         s->vid_desc = desc;
 
+        delete s->delegate;
+        s->delegate = new PlaybackDelegate(s->low_latency ? nullptr : s->deckLinkOutput);
+        // Provide this class as a delegate to the audio and video output interfaces
+        if (!s->low_latency) {
+                s->deckLinkOutput->SetScheduledFrameCompletionCallback(
+                    s->delegate);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME
+                        "Scheduled playback is obsolescent and may be removed "
+                        "in future. "
+                        "Please let us know if you are using this mode.\n");
+        }
+
         if (desc.color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Using limited range R10k as specified by BMD, use '--param "
                                 R10K_FULL_OPT "' to override.\n");
@@ -941,7 +953,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         }
 
         if (!s->low_latency) {
-                s->delegate->schedSeq = 0;
                 auto *f = allocate_new_decklink_frame(s);
                 for (int i = 0; i < SCHED_PREROLL_FRMS; ++i) {
                         f->AddRef();
@@ -1346,14 +1357,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
 
-        s->delegate = new PlaybackDelegate(s->low_latency ? nullptr : s->deckLinkOutput);
-        // Provide this class as a delegate to the audio and video output interfaces
-        if (!s->low_latency) {
-                s->deckLinkOutput->SetScheduledFrameCompletionCallback(s->delegate);
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "Scheduled playback is obsolescent and may be removed in future. "
-                                 "Please let us know if you are using this mode.\n");
-        }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
         s->initialized_audio = s->initialized_video = false;
