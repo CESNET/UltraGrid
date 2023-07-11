@@ -118,26 +118,22 @@ static void display_decklink_done(void *state);
 
 using namespace std;
 
-static int display_decklink_putf(void *state, struct video_frame *frame,
-                                 long long timeout_ns);
-
 namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
-private:
+      private:
+        chrono::high_resolution_clock::time_point t0 =
+            chrono::high_resolution_clock::now();
         uint64_t frames_dropped = 0;
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
-        friend int ::display_decklink_putf(void *state,
-                                           struct video_frame *frame,
-                                           long long timeout_ns);
-
-public:
         IDeckLinkOutput *deckLinkOutput; // notnull only for scheduled callback
         mutex schedLock;
         queue<IDeckLinkMutableVideoFrame* > schedFrames{};
         IDeckLinkMutableVideoFrame *lastSchedFrame{};
+
+      public:
         long schedSeq{};
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
@@ -151,6 +147,8 @@ public:
                         schedFrames.pop();
                 }
         }
+        void PrintStats();
+
         // IUnknown needs only a dummy implementation
         HRESULT STDMETHODCALLTYPE QueryInterface(REFIID /*iid*/,
                                                  LPVOID * /*ppv*/) override
@@ -233,6 +231,18 @@ public:
         }
         // virtual HRESULT         RenderAudioSamples (bool preroll);
 };
+
+void PlaybackDelegate::PrintStats()
+{
+        auto now = chrono::high_resolution_clock::now();
+        if (chrono::duration_cast<chrono::seconds>(now - t0).count() > 5) {
+                LOG(LOG_LEVEL_VERBOSE)
+                    << MOD_NAME << frames_late << " frames late, "
+                    << frames_dropped << " dropped, " << frames_flushed
+                    << " flushed cumulative\n";
+                t0 = now;
+        }
+}
 
 class DeckLinkFrame;
 
@@ -385,7 +395,6 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 
 struct state_decklink {
         uint32_t            magic = DECKLINK_MAGIC;
-        chrono::high_resolution_clock::time_point t0 = chrono::high_resolution_clock::now();
         bool                com_initialized = false;
         PlaybackDelegate           *delegate;
         IDeckLink                  *deckLink;
@@ -691,13 +700,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame,
 
         frame->callbacks.dispose(frame);
 
-        auto now = chrono::high_resolution_clock::now();
-        if (chrono::duration_cast<chrono::seconds>(now - s->t0).count() > 5) {
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->delegate->frames_late << " frames late, "
-                                << s->delegate->frames_dropped << " dropped, "
-                                << s->delegate->frames_flushed << " flushed cumulative\n";
-                s->t0 = now;
-        }
+        s->delegate->PrintStats();
 
         return ret;
 }
