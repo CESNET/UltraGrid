@@ -59,6 +59,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <stdint.h>
+
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -102,7 +104,8 @@ static const int alen_pattern_11988[] = { 400, 401, 400, 401, 400 };
 _Static_assert(sizeof alen_pattern_2997 <= sizeof ((struct audio_len_pattern *) 0)->samples && sizeof alen_pattern_5994 <= sizeof ((struct audio_len_pattern *) 0)->samples, "insufficient length");
 
 struct testcard_state {
-        long long frames;
+        long long audio_frames;
+        long long video_frames;
         time_ns_t last_frame_time;
         int pan;
         video_pattern_generator_t generator;
@@ -619,7 +622,11 @@ static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
             s->audio_data + AUDIO_BUFFER_SIZE(s->audio.ch_count)) {
                 s->audio.data -= AUDIO_BUFFER_SIZE(s->audio.ch_count);
         }
-        s->audio.timestamp = s->frame->timestamp;
+        s->audio.timestamp =
+            ((int64_t)s->audio_frames * 90000 + AUDIO_SAMPLE_RATE - 1) /
+            AUDIO_SAMPLE_RATE;
+        s->audio_frames +=
+            s->audio.data_len / (s->audio.ch_count * s->audio.bps);
         return &s->audio;
 }
 
@@ -634,7 +641,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         }
         state->last_frame_time = curr_time;
         state->frame->timestamp =
-            (state->frames * state->fps_den * 90000 + state->fps_num - 1) /
+            (state->video_frames * state->fps_den * 90000 + state->fps_num - 1) /
             state->fps_num;
 
         *audio = vidcap_testcard_get_audio(state);
@@ -662,7 +669,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                 return state->tiled;
         }
 
-        state->frames += 1;
+        state->video_frames += 1;
         return state->frame;
 }
 
