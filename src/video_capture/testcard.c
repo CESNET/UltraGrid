@@ -86,7 +86,8 @@ enum {
         DEFAULT_AUIDIO_FREQUENCY = 1000,
 };
 #define MOD_NAME "[testcard] "
-#define AUDIO_BUFFER_SIZE(ch_count) ( AUDIO_SAMPLE_RATE * AUDIO_BPS * (ch_count) * BUFFER_SEC )
+#define AUDIO_BUFFER_SIZE(ch_count)                                            \
+        ((ptrdiff_t)AUDIO_SAMPLE_RATE * AUDIO_BPS * (ch_count)*BUFFER_SEC)
 #define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 })
 #define DEFAULT_PATTERN "bars"
 
@@ -602,6 +603,26 @@ static void vidcap_testcard_done(void *state)
         free(s);
 }
 
+static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
+{
+        if (!s->grab_audio) {
+                return NULL;
+        }
+
+        s->audio.data += (ptrdiff_t)s->audio.ch_count * s->audio.bps *
+                         s->apattern.samples[s->apattern.current_idx];
+        s->apattern.current_idx =
+            (s->apattern.current_idx + 1) % s->apattern.count;
+        s->audio.data_len = s->audio.ch_count * s->audio.bps *
+                            s->apattern.samples[s->apattern.current_idx];
+        if (s->audio.data >=
+            s->audio_data + AUDIO_BUFFER_SIZE(s->audio.ch_count)) {
+                s->audio.data -= AUDIO_BUFFER_SIZE(s->audio.ch_count);
+        }
+        s->audio.timestamp = s->frame->timestamp;
+        return &s->audio;
+}
+
 static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
 {
         struct testcard_state *state;
@@ -616,18 +637,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
             (state->frames * state->fps_den * 90000 + state->fps_num - 1) /
             state->fps_num;
 
-        if (state->grab_audio) {
-                state->audio.data += (ptrdiff_t) state->audio.ch_count * state->audio.bps * state->apattern.samples[state->apattern.current_idx];
-                state->apattern.current_idx = (state->apattern.current_idx + 1) % state->apattern.count;
-                state->audio.data_len = state->audio.ch_count * state->audio.bps * state->apattern.samples[state->apattern.current_idx];
-                if (state->audio.data >= state->audio_data + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
-                        state->audio.data -= AUDIO_BUFFER_SIZE(state->audio.ch_count);
-                }
-                *audio = &state->audio;
-                state->audio.timestamp = state->frame->timestamp;
-        } else {
-                *audio = NULL;
-        }
+        *audio = vidcap_testcard_get_audio(state);
 
         vf_get_tile(state->frame, 0)->data = video_pattern_generator_next_frame(state->generator);
 
