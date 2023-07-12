@@ -133,14 +133,18 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         IDeckLinkOutput *deckLinkOutput; // notnull only for scheduled callback
         mutex schedLock;
         queue<DeckLinkFrame *> schedFrames{};
-        IDeckLinkMutableVideoFrame *lastSchedFrame{};
+        DeckLinkFrame *lastSchedFrame{};
         long schedSeq{};
+        atomic<int64_t> &audio_sync_ts;
 
       public:
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
 
-        explicit PlaybackDelegate(IDeckLinkOutput *ido) : deckLinkOutput(ido) {}
+        explicit PlaybackDelegate(IDeckLinkOutput *ido, atomic<int64_t> &ats)
+            : deckLinkOutput(ido), audio_sync_ts(ats)
+        {
+        }
         ~PlaybackDelegate() override;
         void PrintStats();
 
@@ -331,6 +335,7 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR * value) override;
                 HRESULT STDMETHODCALLTYPE GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* buffer, uint32_t* bufferSize) override;
 
+                int64_t timestamp = INT64_MIN;
 };
 
 class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtensions
@@ -373,22 +378,28 @@ int PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
 
         deckLinkFrame->Release();
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
-        first_ts = -1;
+        audio_sync_ts = INT64_MIN;
         return 1;
 }
 
 void PlaybackDelegate::ScheduleNextFrame()
 {
         const unique_lock<mutex> lk(schedLock);
-        IDeckLinkMutableVideoFrame *f = lastSchedFrame;
+        DeckLinkFrame *f = lastSchedFrame;
         if (schedFrames.empty()) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
-                first_ts = -1;
+                audio_sync_ts = INT64_MIN;
         } else {
                 RELEASE_IF_NOT_NULL(lastSchedFrame);
                 f = lastSchedFrame = schedFrames.front();
                 schedFrames.pop();
                 lastSchedFrame->AddRef();
+                if (audio_sync_ts == INT64_MIN && f->timestamp != INT64_MIN) {
+                        audio_sync_ts =
+                            (uint32_t) (f->timestamp - frameRateDuration *
+                                                           schedSeq * 90000 /
+                                                           frameRateScale);
+                }
         }
         deckLinkOutput->ScheduleVideoFrame(f, schedSeq * frameRateDuration,
                                            frameRateDuration, frameRateScale);
@@ -413,7 +424,7 @@ struct state_decklink {
         struct video_desc   vid_desc{};
         struct audio_desc   aud_desc{};
         // scheduled playback only
-        atomic<int64_t>     first_vid_frame_ts = -1;
+        atomic<int64_t>     audio_sync_ts = INT64_MIN;
         int64_t             last_sched_audio_time = INT64_MIN / 2;
         int64_t             avg_diff = 0;
 
@@ -701,10 +712,8 @@ static int display_decklink_putf(void *state, struct video_frame *frame,
                 s->deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
                 deckLinkFrame->Release();
         } else {
+                deckLinkFrame->timestamp = frame->timestamp;
                 ret = s->delegate->EnqueueFrame(deckLinkFrame);
-                if (s->first_vid_frame_ts == -1) {
-                        s->first_vid_frame_ts = frame->timestamp;
-                }
         }
         if(s->emit_timecode) {
                 update_timecode(s->timecode, s->vid_desc.fps);
@@ -801,7 +810,9 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         s->vid_desc = desc;
 
         delete s->delegate;
-        s->delegate = new PlaybackDelegate(s->low_latency ? nullptr : s->deckLinkOutput);
+        s->delegate =
+            new PlaybackDelegate(s->low_latency ? nullptr : s->deckLinkOutput,
+                                 s->audio_sync_ts);
         // Provide this class as a delegate to the audio and video output interfaces
         if (!s->low_latency) {
                 s->deckLinkOutput->SetScheduledFrameCompletionCallback(
@@ -968,7 +979,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         }
 
         if (!s->low_latency) {
-                s->first_vid_frame_ts = -1;
+                s->audio_sync_ts = INT64_MIN;
                 auto *f = allocate_new_decklink_frame(s);
                 for (int i = 0; i < SCHED_PREROLL_FRMS; ++i) {
                         f->AddRef();
@@ -1528,15 +1539,16 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 static void schedule_audio(struct state_decklink *s,
                            const struct audio_frame *frame, uint32_t *samples)
 {
-        if (s->first_vid_frame_ts == -1) {
-                        return;
+        if (s->audio_sync_ts == INT64_MIN) {
+                return;
         }
-        if (frame->timestamp < s->first_vid_frame_ts) { // wrap-around
-                s->first_vid_frame_ts -= 1LLU<<32;
+        int64_t audio_sync_ts = s->audio_sync_ts;
+        if (frame->timestamp < audio_sync_ts) { // wrap-around
+                audio_sync_ts -= (1LLU << 32);
+                s->audio_sync_ts = audio_sync_ts;
         }
-        BMDTimeValue streamTime =
-            ((int64_t)frame->timestamp - s->first_vid_frame_ts) *
-            bmdAudioSampleRate48kHz / 90000;
+        BMDTimeValue streamTime = ((int64_t) frame->timestamp - audio_sync_ts) *
+                                  bmdAudioSampleRate48kHz / 90000;
 
         // normalize audio start if the input is not properly timestamped
         // (everything except vidcap testcard and decklink).
