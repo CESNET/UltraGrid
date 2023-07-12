@@ -119,6 +119,8 @@ static void display_decklink_done(void *state);
 using namespace std;
 
 namespace {
+class DeckLinkFrame;
+
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
       private:
@@ -130,7 +132,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 
         IDeckLinkOutput *deckLinkOutput; // notnull only for scheduled callback
         mutex schedLock;
-        queue<IDeckLinkMutableVideoFrame* > schedFrames{};
+        queue<DeckLinkFrame *> schedFrames{};
         IDeckLinkMutableVideoFrame *lastSchedFrame{};
         long schedSeq{};
 
@@ -139,14 +141,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         BMDTimeScale frameRateScale{};
 
         explicit PlaybackDelegate(IDeckLinkOutput *ido) : deckLinkOutput(ido) {}
-        ~PlaybackDelegate() override
-        {
-                RELEASE_IF_NOT_NULL(lastSchedFrame);
-                while (!schedFrames.empty()) {
-                        schedFrames.front()->Release();
-                        schedFrames.pop();
-                }
-        }
+        ~PlaybackDelegate() override;
         void PrintStats();
 
         // IUnknown needs only a dummy implementation
@@ -158,36 +153,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
         ULONG STDMETHODCALLTYPE Release() override { return 1; }
 
-        int EnqueueFrame(IDeckLinkMutableVideoFrame *deckLinkFrame)
-        {
-                const unique_lock<mutex> lk(schedLock);
-                if (schedFrames.size() < MAX_SCHED_FRAMES) {
-                        schedFrames.push(deckLinkFrame);
-                        return 0;
-                }
-
-                deckLinkFrame->Release();
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
-                return 1;
-        }
-
-        void ScheduleNextFrame()
-        {
-                const unique_lock<mutex> lk(schedLock);
-                IDeckLinkMutableVideoFrame *f = lastSchedFrame;
-                if (schedFrames.empty()) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
-                } else {
-                        RELEASE_IF_NOT_NULL(lastSchedFrame);
-                        f = lastSchedFrame = schedFrames.front();
-                        schedFrames.pop();
-                        lastSchedFrame->AddRef();
-                }
-                deckLinkOutput->ScheduleVideoFrame(
-                    f, schedSeq * frameRateDuration, frameRateDuration,
-                    frameRateScale);
-                schedSeq += 1;
-        }
+        int EnqueueFrame(DeckLinkFrame *deckLinkFrame);
+        void ScheduleNextFrame();
 
         HRESULT STDMETHODCALLTYPE
         ScheduledFrameCompleted(IDeckLinkVideoFrame *completedFrame,
@@ -243,8 +210,6 @@ void PlaybackDelegate::PrintStats()
                 t0 = now;
         }
 }
-
-class DeckLinkFrame;
 
 struct buffer_pool_t {
         queue<DeckLinkFrame *> frame_queue;
@@ -388,6 +353,47 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
                 BMDVideo3DPackingFormat STDMETHODCALLTYPE Get3DPackingFormat() override;
                 HRESULT STDMETHODCALLTYPE GetFrameForRightEye(IDeckLinkVideoFrame**) override;
 };
+
+PlaybackDelegate::~PlaybackDelegate()
+{
+        RELEASE_IF_NOT_NULL(lastSchedFrame);
+        while (!schedFrames.empty()) {
+                schedFrames.front()->Release();
+                schedFrames.pop();
+        }
+}
+
+int PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
+{
+        const unique_lock<mutex> lk(schedLock);
+        if (schedFrames.size() < MAX_SCHED_FRAMES) {
+                schedFrames.push(deckLinkFrame);
+                return 0;
+        }
+
+        deckLinkFrame->Release();
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
+        first_ts = -1;
+        return 1;
+}
+
+void PlaybackDelegate::ScheduleNextFrame()
+{
+        const unique_lock<mutex> lk(schedLock);
+        IDeckLinkMutableVideoFrame *f = lastSchedFrame;
+        if (schedFrames.empty()) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
+                first_ts = -1;
+        } else {
+                RELEASE_IF_NOT_NULL(lastSchedFrame);
+                f = lastSchedFrame = schedFrames.front();
+                schedFrames.pop();
+                lastSchedFrame->AddRef();
+        }
+        deckLinkOutput->ScheduleVideoFrame(f, schedSeq * frameRateDuration,
+                                           frameRateDuration, frameRateScale);
+        schedSeq += 1;
+}
 } // end of unnamed namespace
 
 #define DECKLINK_MAGIC 0x12de326b
@@ -554,7 +560,7 @@ static void show_help(bool full)
         }
 }
 
-static IDeckLinkMutableVideoFrame *
+static DeckLinkFrame*
 allocate_new_decklink_frame(struct state_decklink *s)
 {
         const int linesize =
@@ -585,13 +591,14 @@ display_decklink_getf(void *state)
         out->callbacks.dispose = dispose;
 
         const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
-        IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
+        DeckLinkFrame *deckLinkFrame = nullptr;
         lock_guard<mutex> lg(s->buffer_pool.lock);
 
         while (!s->buffer_pool.frame_queue.empty()) {
                 auto tmp = s->buffer_pool.frame_queue.front();
-                IDeckLinkMutableVideoFrame *frame = s->stereo ? dynamic_cast<DeckLink3DFrame *>(tmp)
-                                                              : dynamic_cast<DeckLinkFrame *>(tmp);
+                DeckLinkFrame *frame =
+                    s->stereo ? dynamic_cast<DeckLink3DFrame *>(tmp)
+                              : dynamic_cast<DeckLinkFrame *>(tmp);
                 s->buffer_pool.frame_queue.pop();
                 if (!frame || // wrong type
                     frame->GetWidth() != (long)s->vid_desc.width ||
@@ -685,8 +692,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame,
                 }
         }
 
-        IDeckLinkMutableVideoFrame *deckLinkFrame =
-            (IDeckLinkMutableVideoFrame *)frame->callbacks.dispose_udata;
+        auto *deckLinkFrame = (DeckLinkFrame *) frame->callbacks.dispose_udata;
         if (s->emit_timecode) {
                 deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
         }
