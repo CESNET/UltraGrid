@@ -948,6 +948,12 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         }
                         opt->audio.codec_cfg = optarg;
                         if (!check_audio_codec(optarg)) {
+                                LOG(LOG_LEVEL_WARNING)
+                                    << MOD_NAME
+                                    << "The original semantics of '-A' "
+                                       "parameter has changed,\nplease use "
+                                       "'--audio-host' to specify audio "
+                                       "receiver address.\n";
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
