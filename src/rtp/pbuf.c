@@ -70,8 +70,11 @@
 
 #define PBUF_MAGIC	0xcafebabe
 
-#define DEFAULT_STATS_INTERVAL 128
-#define STAT_INT_MIN_DIVISOR (sizeof(unsigned long long) * CHAR_BIT)
+enum {
+        DEFAULT_STATS_INTERVAL = 128,
+        STAT_INT_MIN_DIVISOR   = sizeof(unsigned long long) * CHAR_BIT,
+        WRAPAROUND_THRESHOLD   = 900000, // 10 sec with 90 kHz clock
+};
 static_assert(DEFAULT_STATS_INTERVAL % STAT_INT_MIN_DIVISOR == 0,
                 "STATS_INTERVAL must be divisible by (sizeof(ull) * CHAR_BIT)");
 #define MOD_NAME "[Pbuf] "
@@ -436,7 +439,9 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 /* most likely scenario - although...                      */
                 add_coded_unit(playout_buf->last, pkt);
         } else {
-                if (playout_buf->last->rtp_timestamp < pkt->ts) {
+                if (playout_buf->last->rtp_timestamp < pkt->ts ||
+                    playout_buf->last->rtp_timestamp - pkt->ts >
+                        UINT32_MAX - WRAPAROUND_THRESHOLD) {
                         /* Packet belongs to a new frame... */
                         tmp = create_new_pnode(pkt, playout_buf->playout_delay_us + 1000 * (playout_buf->offset_ms ? *playout_buf->offset_ms : 0));
                         playout_buf->last->nxt = tmp;
@@ -446,7 +451,9 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 } else {
                         bool discard_pkt = false;
                         /* Packet belongs to a previous frame... */
-                        if (playout_buf->frst->rtp_timestamp > pkt->ts) {
+                        if (playout_buf->frst->rtp_timestamp > pkt->ts ||
+                            pkt->ts - playout_buf->frst->rtp_timestamp >
+                                UINT32_MAX - WRAPAROUND_THRESHOLD) {
                                 debug_msg("A very old packet - discarded\n");
                                 discard_pkt = true;
                         } else {
