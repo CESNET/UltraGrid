@@ -249,7 +249,7 @@ ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>..
 
 #ifdef HWACC_COMMON_IMPL
 ADD_TO_PARAM("use-hw-accel", "* use-hw-accel\n"
-                "  Try to use hardware accelerated decoding with lavd (VAAPI/VDPAU). \n");
+                "  Try to use hardware accelerated decoding with lavd (NVDEC/VAAPI/VDPAU/VideoToolbox). \n");
 #endif
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc, void *extradata, int extradata_size)
