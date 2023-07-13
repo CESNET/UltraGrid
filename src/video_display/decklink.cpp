@@ -1566,9 +1566,16 @@ static void schedule_audio(struct state_decklink *s,
         }
 
         s->last_sched_audio_time = streamTime + *samples;
-        s->deckLinkOutput->ScheduleAudioSamples(
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "streamTime: " << streamTime
+                             << "; timestamp: " << frame->timestamp
+                             << "; sync TS: " << s->audio_sync_ts << "\n";
+        const HRESULT res = s->deckLinkOutput->ScheduleAudioSamples(
             frame->data, *samples, streamTime, bmdAudioSampleRate48kHz,
             samples);
+        if (FAILED(res)) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "ScheduleAudioSamples: "
+                                     << bmd_hresult_to_string(res) << "\n";
+        }
 }
 
 static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
