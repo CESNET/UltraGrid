@@ -786,6 +786,27 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         return displayMode;
 }
 
+static int enable_audio(struct state_decklink *s, int bps, int channels)
+{
+        const BMDAudioSampleType sample_type =
+            bps == 2 ? bmdAudioSampleType16bitInteger
+                     : bmdAudioSampleType32bitInteger;
+        const BMDAudioOutputStreamType stream_type =
+            s->low_latency ? bmdAudioOutputStreamContinuous
+                           : bmdAudioOutputStreamTimestamped;
+        if (s->initialized_audio) {
+                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
+                                "DisableAudioOutput");
+                s->initialized_audio = false;
+        }
+        EXIT_IF_FAILED(
+            s->deckLinkOutput->EnableAudioOutput(
+                bmdAudioSampleRate48kHz, sample_type, channels, stream_type),
+            "EnableAudioOutput");
+        s->initialized_audio = true;
+        return TRUE;
+}
+
 /**
  * @todo
  * In non-low-latency mode, StopScheduledPlayback should be called. However, since this
@@ -966,16 +987,9 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         // When video is enabled after audio, audio playback becomes silent without
         // an error.
         if (s->initialized_audio) {
-                const BMDAudioOutputStreamType type =
-                    s->low_latency ? bmdAudioOutputStreamContinuous
-                                   : bmdAudioOutputStreamTimestamped;
-                EXIT_IF_FAILED(s->deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
-                EXIT_IF_FAILED(s->deckLinkOutput->EnableAudioOutput(
-                                   bmdAudioSampleRate48kHz,
-                                   s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger
-                                                        : bmdAudioSampleType32bitInteger,
-                                   s->aud_desc.ch_count, type),
-                               "EnableAudioOutput");
+                if (!enable_audio(s, s->aud_desc.bps, s->aud_desc.ch_count)) {
+                        return FALSE;
+                }
         }
 
         if (!s->low_latency) {
@@ -1620,17 +1634,10 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
-        BMDAudioSampleType sample_type;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
 
         assert(s->play_audio);
-
-        if (s->initialized_audio) {
-                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
-                                "DisableAudioOutput");
-                s->initialized_audio = false;
-        }
 
         if (channels != 2 && channels != 8 &&
                         channels != 16) {
@@ -1646,26 +1653,14 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         quant_samples, sample_rate);
                 return FALSE;
         }
-        switch(quant_samples) {
-                case 16:
-                        sample_type = bmdAudioSampleType16bitInteger;
-                        break;
-                case 32:
-                        sample_type = bmdAudioSampleType32bitInteger;
-                        break;
-                default:
-                        return FALSE;
+        const int bps = quant_samples / 8;
+
+        if (!enable_audio(s, bps, channels)) {
+                return FALSE;
         }
-                        
-        EXIT_IF_FAILED(s->deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
-                        sample_type,
-                        channels,
-                        bmdAudioOutputStreamContinuous),
-                "EnableAudioOutput");
 
         s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
-        s->initialized_audio = true;
         return TRUE;
 }
 
