@@ -8,8 +8,8 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * TestPattern example from BMD SDK was also used to consult correct
- * BMD workflow usage.
+ * TestPattern example from BMD SDK was used to consult correct BMD workflow
+ * usage and also SignalGenerator was used for scheduled playback.
  */
 /*
  * Copyright (c) 2010-2023 CESNET, z. s. p. o.
@@ -96,11 +96,12 @@ enum {
 
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
+static int display_decklink_reconfigure(void *state, struct video_desc desc);
 
 // performs command, if failed, displays error and jumps to error label
 #define EXIT_IF_FAILED(cmd, name) \
         do {\
-                HRESULT result = cmd;\
+                const HRESULT result = cmd;\
                 if (FAILED(result)) {;\
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
                         return FALSE;\
@@ -110,7 +111,7 @@ static void display_decklink_done(void *state);
 // similar as above, but only displays warning
 #define CALL_AND_CHECK(cmd, name) \
         do {\
-                HRESULT result = cmd;\
+                const HRESULT result = cmd;\
                 if (FAILED(result)) {;\
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
                 }\
@@ -422,15 +423,16 @@ struct state_decklink {
                                        ///< its lifespan controlled by AddRef()/Release() methods
 
         struct video_desc   vid_desc{};
-        struct audio_desc   aud_desc{};
+        struct audio_desc   aud_desc {
+                2, 48000, 2, AC_PCM
+        };
         // scheduled playback only
         atomic<int64_t>     audio_sync_ts = INT64_MIN;
         int64_t             last_sched_audio_time = INT64_MIN / 2;
         int64_t             avg_diff = 0;
 
         bool                stereo            = false;
-        bool                initialized_audio = false;
-        bool                initialized_video = false;
+        bool                initialized       = false;
         bool                emit_timecode     = false;
         bool                play_audio        = false; ///< the BMD device will be used also for output audio
 
@@ -450,7 +452,8 @@ struct state_decklink {
 
         bool                low_latency       = true;
 
-        mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
+        mutex               audio_reconf_lock; ///< for audio and video reconf to be mutually exclusive
+        atomic_bool         audio_reconfigure = false;
         bool                keep_device_defaults = false;
 
         AudioDriftFixer audio_drift_fixer{};
@@ -591,8 +594,15 @@ display_decklink_getf(void *state)
         struct state_decklink *s = (struct state_decklink *)state;
         assert(s->magic == DECKLINK_MAGIC);
 
-        if (!s->initialized_video) {
+        if (!s->initialized) {
                 return nullptr;
+        }
+
+        if (s->audio_reconfigure) {
+                if (display_decklink_reconfigure(s, s->vid_desc) != TRUE) {
+                        return nullptr;
+                }
+                s->audio_reconfigure = false;
         }
 
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
@@ -794,28 +804,15 @@ static int enable_audio(struct state_decklink *s, int bps, int channels)
         const BMDAudioOutputStreamType stream_type =
             s->low_latency ? bmdAudioOutputStreamContinuous
                            : bmdAudioOutputStreamTimestamped;
-        if (s->initialized_audio) {
-                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
-                                "DisableAudioOutput");
-                s->initialized_audio = false;
-        }
         EXIT_IF_FAILED(
             s->deckLinkOutput->EnableAudioOutput(
                 bmdAudioSampleRate48kHz, sample_type, channels, stream_type),
             "EnableAudioOutput");
-        s->initialized_audio = true;
         return TRUE;
 }
 
-/**
- * @todo
- * In non-low-latency mode, StopScheduledPlayback should be called. However, since this
- * function is called from different thread than audio-related stuff and these things
- * are not synchronized in any way, it looks like to be more appropriate not to call it,
- * as it doesn't break things up. In low latency mode, this is not an issue.
- */
 static int
-display_decklink_reconfigure_video(void *state, struct video_desc desc)
+display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
 
@@ -823,12 +820,27 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         BMD_BOOL                          supported;
         HRESULT                           result;
 
-        unique_lock<mutex> lk(s->reconfiguration_lock);
+        const unique_lock<mutex> lk(s->audio_reconf_lock);
 
         assert(s->magic == DECKLINK_MAGIC);
         
-        s->initialized_video = false;
         s->vid_desc = desc;
+
+        if (s->initialized) {
+                if (!s->low_latency) {
+                        CALL_AND_CHECK(s->deckLinkOutput->StopScheduledPlayback(
+                                           0, nullptr, 0),
+                                       "StopScheduledPlayback");
+                }
+                s->deckLinkOutput->SetScheduledFrameCompletionCallback(nullptr);
+                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(),
+                               "DisableVideoOutput");
+                if (s->play_audio) {
+                        CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
+                                       "DisableAudioOutput");
+                }
+                s->initialized = false;
+        }
 
         delete s->delegate;
         s->delegate =
@@ -857,12 +869,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 return FALSE;
         }
         s->pixelFormat = it->second;
-
-        if (s->initialized_video) {
-                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(),
-                               "DisableVideoOutput");
-                s->initialized_video = false;
-        }
 
         if (desc.tile_count <= 2 && desc.tile_count != (s->stereo ? 2 : 1)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Stereo %s enabled but receiving %u streams. %sabling "
@@ -982,11 +988,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 return FALSE;
         }
 
-        // This workaround is needed (at least) for Decklink Extreme 4K when capturing
-        // (possibly from another process) and when playback is in low-latency mode.
-        // When video is enabled after audio, audio playback becomes silent without
-        // an error.
-        if (s->initialized_audio) {
+        if (s->play_audio) {
                 if (!enable_audio(s, s->aud_desc.bps, s->aud_desc.ch_count)) {
                         return FALSE;
                 }
@@ -1013,7 +1015,8 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
         }
 
-        s->initialized_video = true;
+        s->initialized = true;
+        s->audio_reconfigure = false;
         return TRUE;
 }
 
@@ -1400,8 +1403,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
-        s->initialized_audio = s->initialized_video = false;
-
         return (void *)s;
 }
 
@@ -1412,19 +1413,20 @@ static void display_decklink_done(void *state)
 
         assert (s != NULL);
 
-        if (s->initialized_video) {
+        if (s->initialized) {
                 if (!s->low_latency) {
-                                CALL_AND_CHECK(
+                        CALL_AND_CHECK(
                                     s->deckLinkOutput->StopScheduledPlayback(0, nullptr, 0),
                                     "StopScheduledPlayback");
                 }
-
-                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
-        }
-
-        if (s->initialized_audio) {
-                CALL_AND_CHECK(s->deckLinkOutput->DisableAudioOutput(),
-                               "DisableAudiioOutput");
+                s->deckLinkOutput->SetScheduledFrameCompletionCallback(nullptr);
+                if (s->play_audio) {
+                        CALL_AND_CHECK(
+                                    s->deckLinkOutput->DisableAudioOutput(),
+                                    "DisableAudiioOutput");
+                }
+                CALL_AND_CHECK(s->deckLinkOutput->DisableVideoOutput(),
+                               "DisableVideoOutput");
         }
 
         RELEASE_IF_NOT_NULL(s->deckLinkAttributes);
@@ -1595,11 +1597,13 @@ static void schedule_audio(struct state_decklink *s,
 static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
+        assert(s->play_audio);
+        if (s->audio_reconfigure) {
+                return;
+        }
         const unsigned int sampleFrameCount =
             frame->data_len / (frame->bps * frame->ch_count);
         uint32_t sampleFramesWritten = sampleFrameCount;
-
-        assert(s->play_audio);
 
         uint32_t buffered = 0;
         s->deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
@@ -1635,8 +1639,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
 
-        unique_lock<mutex> lk(s->reconfiguration_lock);
-
         assert(s->play_audio);
 
         if (channels != 2 && channels != 8 &&
@@ -1655,11 +1657,16 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         }
         const int bps = quant_samples / 8;
 
-        if (!enable_audio(s, bps, channels)) {
-                return FALSE;
+        if (bps != s->aud_desc.bps || sample_rate != s->aud_desc.sample_rate ||
+            channels != s->aud_desc.ch_count) {
+                const unique_lock<mutex> lk(s->audio_reconf_lock);
+                s->aud_desc = {quant_samples / 8, sample_rate, channels,
+                               AC_PCM};
+                s->audio_reconfigure = true;
+                LOG(LOG_LEVEL_VERBOSE)
+                    << MOD_NAME << "Audio reconfigured to: " << s->aud_desc
+                    << "\n";
         }
-
-        s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
         return TRUE;
 }
@@ -2105,7 +2112,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_done,
         display_decklink_getf,
         display_decklink_putf,
-        display_decklink_reconfigure_video,
+        display_decklink_reconfigure,
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
