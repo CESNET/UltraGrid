@@ -428,7 +428,7 @@ struct state_decklink {
         };
         // scheduled playback only
         atomic<int64_t>     audio_sync_ts = INT64_MIN;
-        int64_t             last_sched_audio_time = INT64_MIN / 2;
+        int64_t             last_sched_audio_time = -1;
         int64_t             avg_diff = 0;
 
         bool                stereo            = false;
@@ -1569,15 +1569,16 @@ static void schedule_audio(struct state_decklink *s,
         // normalize audio start if the input is not properly timestamped
         // (everything except vidcap testcard and decklink).
         const int64_t diff = llabs(streamTime - s->last_sched_audio_time);
-        if (diff < 2000) { // do not process martians
-                s->avg_diff = (s->avg_diff * 39 + diff) / 40;
-                if (s->avg_diff >= 50) {
-                        log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
-                                            "Stream discontinuity, auto-"
-                                            "adjusting audio time. If this is "
-                                            "an unsynchronized stream, do not "
-                                            "use synchronized output.\n");
-                        streamTime = s->last_sched_audio_time;
+        const int64_t avg_diff = (s->avg_diff * 39 + diff) / 40;
+        if (avg_diff >= 50 && s->last_sched_audio_time >= 0) {
+                log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
+                             "Stream discontinuity, auto-"
+                             "adjusting audio time. If this is "
+                             "an unsynchronized stream, do not "
+                             "use synchronized output.\n");
+                streamTime = s->last_sched_audio_time;
+                if (diff < 2000) { // do not store Martians
+                        s->avg_diff = avg_diff;
                 }
         }
 
