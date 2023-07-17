@@ -76,7 +76,7 @@ if ls $APPPREFIX/lib/libwayland-* >/dev/null 2>&1; then
         mv $APPPREFIX/lib/libwayland-* $APPPREFIX/lib/wayland
 fi
 
-if command wget >/dev/null && wget -V | grep -q https; then
+if command -v wget >/dev/null && wget -V | grep -q https; then
         dl='wget -O -'
 elif command -v curl >/dev/null; then
         dl='curl -L'
@@ -158,8 +158,9 @@ UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
-# shellcheck disable=SC2086 # word spliting of $UPDATE_INFORMATION is requested behavior
-$mkappimage $UPDATE_INFORMATION $APPDIR
+# shellcheck disable=SC1007,SC2086 # word spliting of
+# $UPDATE_INFORMATION is a requested behavior
+GITHUB_TOKEN= $mkappimage $UPDATE_INFORMATION $APPDIR
 
 rm -rf $APPDIR tmpinstall
 )
