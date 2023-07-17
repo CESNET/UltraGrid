@@ -229,7 +229,7 @@ static struct video_frame *display_multiplier_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_multiplier_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_multiplier_putf(void *state, struct video_frame *frame, long long flags)
 {
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
 
@@ -242,7 +242,7 @@ static int display_multiplier_putf(void *state, struct video_frame *frame, long 
                 }
                 if (flags != PUTF_BLOCKING && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         vf_free(frame);
-                        return 1;
+                        return false;
                 }
                 s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
                 s->incoming_queue.push(frame);
@@ -250,7 +250,7 @@ static int display_multiplier_putf(void *state, struct video_frame *frame, long 
                 s->cv.notify_one();
         }
 
-        return 0;
+        return true;
 }
 
 static int display_multiplier_get_property(void *state, int property, void *val, size_t *len)

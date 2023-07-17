@@ -323,7 +323,7 @@ static constexpr array keybindings{
 
 /* Prototyping */
 static bool display_gl_init_opengl(struct state_gl *s);
-static int display_gl_putf(void *state, struct video_frame *frame, long long timeout);
+static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
 static int display_gl_reconfigure(void *state, struct video_desc desc);
 static void gl_draw(double ratio, double bottom_offset, bool double_buf);
@@ -1949,7 +1949,7 @@ static struct video_frame * display_gl_getf(void *state)
         return buffer;
 }
 
-static int display_gl_putf(void *state, struct video_frame *frame, long long timeout_ns)
+static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_gl *s = (struct state_gl *) state;
 
@@ -1962,7 +1962,7 @@ static int display_gl_putf(void *state, struct video_frame *frame, long long tim
                 s->frame_queue.push(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
-                return 0;
+                return true;
         }
 
         switch (timeout_ns) {
@@ -1983,14 +1983,14 @@ static int display_gl_putf(void *state, struct video_frame *frame, long long tim
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "1 frame(s) dropped!\n";
                 vf_recycle(frame);
                 s->free_frame_queue.push(frame);
-                return 1;
+                return false;
         }
         s->frame_queue.push(frame);
 
         lk.unlock();
         s->new_frame_ready_cv.notify_one();
 
-        return 0;
+        return true;
 }
 
 static const struct video_display_info display_gl_info = {

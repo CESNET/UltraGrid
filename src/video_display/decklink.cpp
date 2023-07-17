@@ -166,7 +166,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
         ULONG STDMETHODCALLTYPE Release() override { return 1; }
 
-        int EnqueueFrame(DeckLinkFrame *deckLinkFrame);
+        bool EnqueueFrame(DeckLinkFrame *deckLinkFrame);
         void ScheduleNextFrame();
         void ScheduleAudio(const struct audio_frame *frame, uint32_t *samples);
 
@@ -380,18 +380,18 @@ void PlaybackDelegate::Reset()
         m_avg_diff = 0;
 }
 
-int PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
+bool PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
 {
         const unique_lock<mutex> lk(schedLock);
         if (schedFrames.size() < m_max_sched_frames) {
                 schedFrames.push(deckLinkFrame);
-                return 0;
+                return true;
         }
 
         deckLinkFrame->Release();
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
         m_audio_sync_ts = INT64_MIN;
-        return 1;
+        return false;
 }
 
 void PlaybackDelegate::ScheduleNextFrame()
@@ -704,14 +704,14 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-static int display_decklink_putf(void *state, struct video_frame *frame,
+static bool display_decklink_putf(void *state, struct video_frame *frame,
                                  [[maybe_unused]] long long timeout_ns)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        int ret = 0;
+        bool ret = true;
 
         if (frame == NULL)
-                return FALSE;
+                return true;
 
         assert(s->magic == DECKLINK_MAGIC);
 
@@ -998,8 +998,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 auto *f = allocate_new_decklink_frame(s);
                 for (int i = 0; i < s->delegate.m_preroll; ++i) {
                         f->AddRef();
-                        const int ret = s->delegate.EnqueueFrame(f);
-                        assert(ret == 0);
+                        const bool ret = s->delegate.EnqueueFrame(f);
+                        assert(ret);
                         s->delegate.ScheduleNextFrame();
                 }
                 f->Release(); // release initial reference from alloc

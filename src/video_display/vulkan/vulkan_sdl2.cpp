@@ -114,7 +114,6 @@ constexpr int initial_frame_count = 0;
 
 
 void display_vulkan_new_message(module*);
-int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns);
 video_frame* display_vulkan_getf(void* state);
 
 class WindowCallback final : public vkd::WindowChangedCallback {
@@ -882,13 +881,13 @@ video_frame* display_vulkan_getf(void* state) {
         return &frame;
 }
 
-int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
+bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
         if (!frame) {
                 s->should_exit = true;
-                return 0;
+                return true;
         }
 
         vkd::TransferImage image = s->frame_mappings->get_image(frame);
@@ -897,8 +896,8 @@ int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
                 try {
                         s->vulkan->discard_image(image);
                 } 
-                catch (std::exception& e) { log_and_exit_uv(e); return 1; }
-                return 0;
+                catch (std::exception& e) { log_and_exit_uv(e); return false; }
+                return true;
         }
         
         if (s->deinterlace) {
@@ -910,10 +909,10 @@ int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
         }
         
         try {
-                return s->vulkan->queue_image(image, timeout_ns != PUTF_BLOCKING);
+                return !s->vulkan->queue_image(image, timeout_ns != PUTF_BLOCKING);
         } 
         catch (std::exception& e) { log_and_exit_uv(e); return 1; }
-        return 0;
+        return true;
 }
 
 int display_vulkan_get_property(void* state, int property, void* val, size_t* len) {

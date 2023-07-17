@@ -258,11 +258,11 @@ static void *worker(void *arg)
         return NULL;
 }
 
-static int display_caca_putf(void *state, struct video_frame *frame, long long timeout_ns)
+static bool display_caca_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         if (timeout_ns == PUTF_DISCARD) {
                 vf_free(frame);
-                return 0;
+                return true;
         }
 
         struct state_caca *s = state;
@@ -279,7 +279,7 @@ static int display_caca_putf(void *state, struct video_frame *frame, long long t
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_ready_cv);
 
-        return 0;
+        return true;
 }
 
 static int display_caca_get_property(void *state, int property, void *val, size_t *len)

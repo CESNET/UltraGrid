@@ -244,22 +244,22 @@ static struct video_frame *display_unix_sock_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_unix_sock_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_unix_sock_putf(void *state, struct video_frame *frame, long long flags)
 {
         auto s = static_cast<state_unix_sock *>(state);
         auto f = unique_frame(frame);
 
         if (flags == PUTF_DISCARD)
-                return 0;
+                return true;
 
         std::unique_lock<std::mutex> lg(s->lock);
         if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN){
                 if(flags != PUTF_BLOCKING){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "queue full!\n");
-                        return 1;
+                        return false;
                 }
                 if(s->ignore_putf_blocking){
-                        return 1;
+                        return false;
                 }
         }
 
@@ -268,7 +268,7 @@ static int display_unix_sock_putf(void *state, struct video_frame *frame, long l
         lg.unlock();
         s->frame_available_cv.notify_one();
 
-        return 0;
+        return true;
 }
 
 static int display_unix_sock_get_property(void *state, int property, void *val, size_t *len)

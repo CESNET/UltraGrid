@@ -92,13 +92,13 @@ static struct video_frame *display_null_getf(void *state)
         return NULL;
 }
 
-static int display_null_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_null_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
         UNUSED(frame);
         UNUSED(nonblock);
-        return 0;
+        return true;
 }
 
 static int display_null_get_property(void *state, int property, void *val, size_t *len)

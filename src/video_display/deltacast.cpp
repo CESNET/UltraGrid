@@ -123,7 +123,7 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
-static int display_deltacast_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_deltacast_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         struct timeval tv;
@@ -178,7 +178,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, long l
         }
         s->frames++;
 
-        return 0;
+        return true;
 }
 
 static int

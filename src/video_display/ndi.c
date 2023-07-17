@@ -319,17 +319,17 @@ static void ndi_disp_convert_Y416_to_PA16(const struct video_frame *f, char *out
 /**
  * flag = PUTF_NONBLOCK is not implemented
  */
-static int display_ndi_putf(void *state, struct video_frame *frame, long long flag)
+static bool display_ndi_putf(void *state, struct video_frame *frame, long long flag)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
         if (frame == NULL) {
-                return 0;
+                return true;
         }
 
         if (flag == PUTF_DISCARD) {
                 vf_free(frame);
-                return 0;
+                return true;
         }
 
         s->NDIlib->send_send_video_v2(s->pNDI_send, NULL); // wait for the async frame to be processed
@@ -347,7 +347,7 @@ static int display_ndi_putf(void *state, struct video_frame *frame, long long fl
 
         s->NDIlib->send_send_video_async_v2(s->pNDI_send, &s->NDI_video_frame);
 
-        return 0;
+        return true;
 }
 
 static int display_ndi_get_property(void *state, int property, void *val, size_t *len)

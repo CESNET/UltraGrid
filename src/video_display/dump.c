@@ -114,16 +114,16 @@ static struct video_frame *display_dump_getf(void *state)
         return s->f;
 }
 
-static int display_dump_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_dump_putf(void *state, struct video_frame *frame, long long flags)
 {
         struct dump_display_state *s = state;
         if (frame == NULL || flags == PUTF_DISCARD) {
-                return 0;
+                return true;
         }
         assert(frame == s->f);
         export_video(s->e, frame);
 
-        return 0;
+        return true;
 }
 
 static int display_dump_get_property(void *state, int property, void *val, size_t *len)

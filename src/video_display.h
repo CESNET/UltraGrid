@@ -143,7 +143,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 19
+#define VIDEO_DISPLAY_ABI_VERSION 20
 
 #define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 
@@ -154,7 +154,7 @@ struct video_display_info {
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
         /// @param timeout_ns display is supposed immplement the PUTF_* macros, numerical timeout is seldom used (but double-framerate postprocess can use that)
-        int                     (*putf) (void *state, struct video_frame *frame, long long timeout_ns);
+        bool                    (*putf) (void *state, struct video_frame *frame, long long timeout_ns);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
@@ -189,7 +189,7 @@ struct video_frame      *display_get_frame(struct display *d);
 /// }
 
 // documented at definition
-int                      display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns);
+bool                     display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns);
 int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
 /** @brief Get/set property (similar to ioctl)
  *  @retval TRUE  if succeeds

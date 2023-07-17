@@ -706,9 +706,9 @@ static void *decompress_thread(void *args) {
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
                         decoder->frame->timestamp = msg->nofec_frame->timestamp;
-                        int ret = display_put_frame(decoder->display,
-                                        decoder->frame, putf_timeout);
-                        msg->is_displayed = ret == 0;
+                        const bool ret = display_put_frame(
+                            decoder->display, decoder->frame, putf_timeout);
+                        msg->is_displayed = ret;
                         decoder->frame = display_get_frame(decoder->display);
                 }
 

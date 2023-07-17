@@ -505,7 +505,7 @@ static struct video_frame *display_rpi4_getf(void *state) {
         return new_frame;
 }
 
-static int display_rpi4_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_rpi4_putf(void *state, struct video_frame *frame, long long flags)
 {
         auto *s = static_cast<rpi4_display_state *>(state);
 
@@ -514,14 +514,14 @@ static int display_rpi4_putf(void *state, struct video_frame *frame, long long f
                 s->frame_queue.emplace(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
-                return 0;
+                return true;
         }
 
         if (flags == PUTF_DISCARD) {
                 vf_recycle(frame);
                 std::lock_guard(s->free_frames_mut);
                 s->free_frames.emplace(frame);
-                return 0;
+                return true;
         }
 
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE && flags != PUTF_BLOCKING) {
@@ -529,7 +529,7 @@ static int display_rpi4_putf(void *state, struct video_frame *frame, long long f
                 vf_recycle(frame);
                 std::lock_guard(s->free_frames_mut);
                 s->free_frames.emplace(frame);
-                return 1;
+                return false;
         }
 
         std::unique_lock lk(s->frame_queue_mut);
@@ -538,7 +538,7 @@ static int display_rpi4_putf(void *state, struct video_frame *frame, long long f
         lk.unlock();
         s->new_frame_ready_cv.notify_one();
 
-        return 0;
+        return true;
 }
 
 static void display_rpi4_run(void *state)

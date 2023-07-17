@@ -493,7 +493,7 @@ display_dvs_getf(void *state)
         return s->frame;
 }
 
-static int display_dvs_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_dvs_putf(void *state, struct video_frame *frame, long long flags)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
@@ -502,7 +502,7 @@ static int display_dvs_putf(void *state, struct video_frame *frame, long long fl
         pthread_mutex_lock(&s->lock);
         if(s->work_to_do && flags != PUTF_BLOCKING) {
                 pthread_mutex_unlock(&s->lock);
-                return EWOULDBLOCK;
+                return FALSE;
         }
 
         /* Wait for the worker to finish... */
@@ -528,7 +528,7 @@ static int display_dvs_putf(void *state, struct video_frame *frame, long long fl
         }
         pthread_mutex_unlock(&s->lock);
 
-        return 0;
+        return true;
 }
 
 static int display_dvs_reconfigure(void *state,

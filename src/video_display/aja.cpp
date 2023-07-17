@@ -195,7 +195,7 @@ public:
         AJAStatus SetUpVideo();
         AJAStatus SetUpAudio();
         void RouteOutputSignal();
-        int Putf(struct video_frame *frame, long long nonblock);
+        bool Putf(struct video_frame *frame, long long flags);
 
         static NTV2FrameRate getFrameRate(double fps);
         void print_stats();
@@ -680,14 +680,14 @@ void display::process_frames()
         }
 }
 
-int display::Putf(struct video_frame *frame, long long flags) {
+bool display::Putf(struct video_frame *frame, long long flags) {
         if (frame == nullptr) {
-                return 1;
+                return true;
         }
 
         if (flags == PUTF_DISCARD) {
                 vf_free(frame);
-                return 0;
+                return true;
         }
 
         unique_lock<mutex> lk(frames_lock);
@@ -698,13 +698,13 @@ int display::Putf(struct video_frame *frame, long long flags) {
                         LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << mFramesDiscarded << " frames discarded - try to increase buffer count or set \"novsync\" (see \"-d aja:help\" for details).\n";
                 }
                 vf_free(frame);
-                return 1;
+                return false;
         }
         frames.push(frame);
         lk.unlock();
         frame_ready.notify_one();
 
-        return 0;
+        return true;
 }
 
 void aja::display::print_stats() {
@@ -1002,7 +1002,7 @@ LINK_SPEC struct video_frame *display_aja_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-LINK_SPEC int display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
+LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         auto s = static_cast<struct aja::display *>(state);
 

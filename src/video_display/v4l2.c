@@ -221,19 +221,19 @@ static struct video_frame *display_v4l2_getf(void *state)
         return s->f;
 }
 
-static int display_v4l2_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_v4l2_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         UNUSED(nonblock);
         struct display_v4l2_state *s = state;
 
         if (frame == NULL) {
-                return 0;
+                return true;
         }
         int ret = ioctl(s->fd, VIDIOC_QBUF, &s->buf);
         if (ret != 0) {
                 log_perror(LOG_LEVEL_WARNING, MOD_NAME "QBUF");
         }
-        return 0;
+        return true;
 }
 
 static int display_v4l2_get_property(void *state, int property, void *val, size_t *len)

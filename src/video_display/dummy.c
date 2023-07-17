@@ -210,10 +210,10 @@ static void dump_buf(unsigned char *buf, size_t len, int block_size) {
         printf("\n");
 }
 
-static int display_dummy_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_dummy_putf(void *state, struct video_frame *frame, long long flags)
 {
         if (flags == PUTF_DISCARD || frame == NULL) {
-                return 0;
+                return true;
         }
         struct dummy_display_state *s = state;
         if (s->dump_bytes > 0) {
@@ -234,7 +234,7 @@ static int display_dummy_putf(void *state, struct video_frame *frame, long long 
                 }
         }
 
-        return 0;
+        return true;
 }
 
 static int display_dummy_get_property(void *state, int property, void *val, size_t *len)

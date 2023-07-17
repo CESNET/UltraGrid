@@ -334,7 +334,7 @@ static struct video_frame *display_sage_getf(void *state)
         return s->frame;
 }
 
-static int display_sage_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_sage_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         int tmp;
         struct state_sage *s = (struct state_sage *)state;
@@ -358,7 +358,7 @@ static int display_sage_putf(void *state, struct video_frame *frame, long long n
         if (tmp > 1)
                 printf("frame drop!\n");
 #endif
-        return 0;
+        return true;
 }
 
 /*

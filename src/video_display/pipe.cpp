@@ -184,19 +184,19 @@ static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
         return out;
 }
 
-static int display_pipe_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_pipe_putf(void *state, struct video_frame *frame, long long flags)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
         if (flags == PUTF_DISCARD) {
                 VIDEO_FRAME_DISPOSE(frame);
-                return TRUE;
+                return true;
         }
 
         struct audio_frame *af = display_pipe_get_audio(s);
         s->delegate->frame_arrived(frame, af);
 
-        return TRUE;
+        return true;
 }
 
 static int display_pipe_get_property(void *state, int property, void *val, size_t *len)

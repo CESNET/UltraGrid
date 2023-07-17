@@ -1023,7 +1023,7 @@ static struct video_frame * display_xrgl_getf(void *state) {
         }
 }
 
-static int display_xrgl_putf(void *state, struct video_frame *frame, long long nonblock) {
+static bool display_xrgl_putf(void *state, struct video_frame *frame, long long nonblock) {
         struct state_xrgl *s = static_cast<state_xrgl *>(state);
 
         std::unique_lock<std::mutex> lk(s->lock);
@@ -1032,18 +1032,18 @@ static int display_xrgl_putf(void *state, struct video_frame *frame, long long n
                 s->frame_queue.push(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
-                return 0;
+                return true;
         }
 
         if (nonblock == PUTF_DISCARD) {
                 s->dispose_frame_pool.push_back(frame);
                 s->new_frame_ready_cv.notify_one();
-                return 0;
+                return true;
         }
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock != PUTF_BLOCKING) {
                 s->dispose_frame_pool.push_back(frame);
                 s->new_frame_ready_cv.notify_one();
-                return 1;
+                return false;
         }
         s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
         s->frame_queue.push(frame);
@@ -1051,7 +1051,7 @@ static int display_xrgl_putf(void *state, struct video_frame *frame, long long n
         lk.unlock();
         s->new_frame_ready_cv.notify_one();
 
-        return 0;
+        return true;
 }
 
 static int display_xrgl_reconfigure(void *state, struct video_desc desc) {

@@ -332,10 +332,10 @@ struct video_frame *display_get_frame(struct display *d)
         }
 }
 
-static int display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
+static bool display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
-        int ret = d->funcs->putf(d->state, frame, timeout_ns);
-        if (ret != 0 || !d->funcs->generic_fps_indicator_prefix) {
+        bool ret = d->funcs->putf(d->state, frame, timeout_ns);
+        if (!ret || !d->funcs->generic_fps_indicator_prefix) {
                 return ret;
         }
         // display FPS
@@ -362,10 +362,10 @@ static int display_frame_helper(struct display *d, struct video_frame *frame, lo
  *                 Should not be NULL unless we want to quit display mainloop.
  * @param timeout_ns specifies timeout that should be waited (@sa putf_flags).
  *                   displays may ignore the value and act like PUTF_NONBLOCK if blocking is not requested.
- * @retval      0  if displayed succesfully (or discarded if flag=PUTF_DISCARD)
- * @retval      1  if not displayed when flag=PUTF_NONBLOCK and it would block
+ * @retval  true   if displayed succesfully (or discarded if flag=PUTF_DISCARD)
+ * @retval  false  if not displayed when flag=PUTF_NONBLOCK and it would block
  */
-int display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns)
+bool display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
         assert(d->magic == DISPLAY_MAGIC);
 
@@ -374,7 +374,7 @@ int display_put_frame(struct display *d, struct video_frame *frame, long long ti
         }
 
         if (d->postprocess) {
-                int display_ret = 0;
+                bool display_ret = true;
 		for (int i = 0; i < d->pp_output_frames_count; ++i) {
 			struct video_frame *display_frame = d->funcs->getf(d->state);
 			int ret = vo_postprocess(d->postprocess,

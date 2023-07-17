@@ -139,7 +139,7 @@ struct state_sdl {
 
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
-static int display_sdl_putf(void *state, struct video_frame *frame, long long nonblock);
+static bool display_sdl_putf(void *state, struct video_frame *frame, long long nonblock);
 static int display_sdl_reconfigure(void *state, struct video_desc desc);
 static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
@@ -602,7 +602,7 @@ static struct video_frame *display_sdl_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_sdl_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_sdl_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_sdl *s = (struct state_sdl *)state;
 
@@ -610,7 +610,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, long long no
 
         if (nonblock == PUTF_DISCARD) {
                 vf_free(frame);
-                return 0;
+                return true;
         }
 
         std::unique_lock<std::mutex> lk(s->lock);
@@ -618,7 +618,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, long long no
                         && frame != NULL) {
                 vf_free(frame);
                 printf("1 frame(s) dropped!\n");
-                return 1;
+                return false;
         }
         s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
         s->buffered_frames_count += 1;
@@ -628,7 +628,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, long long no
         event.user.data1 = frame;
         SDL_PushEvent(&event);
 
-        return 0;
+        return true;
 }
 
 static int display_sdl_get_property(void *state, int property, void *val, size_t *len)

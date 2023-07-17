@@ -277,13 +277,13 @@ static struct video_frame * display_panogl_getf(void *state) {
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_panogl_putf(void *state, struct video_frame *frame, long long nonblock) {
+static bool display_panogl_putf(void *state, struct video_frame *frame, long long nonblock) {
         PROFILE_FUNC;
         struct state_vr *s = static_cast<state_vr *>(state);
 
         if (nonblock == PUTF_DISCARD) {
                 vf_free(frame);
-                return 0;
+                return true;
         }
 
         std::unique_lock<std::mutex> lk(s->lock);
@@ -291,7 +291,7 @@ static int display_panogl_putf(void *state, struct video_frame *frame, long long
                         && frame != NULL) {
                 vf_free(frame);
                 printf("1 frame(s) dropped!\n");
-                return 1;
+                return false;
         }
         s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
         s->buffered_frames_count += 1;
@@ -302,7 +302,7 @@ static int display_panogl_putf(void *state, struct video_frame *frame, long long
         PROFILE_DETAIL("push frame event");
         SDL_PushEvent(&event);
 
-        return 0;
+        return true;
 }
 
 static int display_panogl_reconfigure(void *state, struct video_desc desc) {

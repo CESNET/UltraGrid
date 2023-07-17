@@ -216,7 +216,7 @@ static struct video_frame *display_aggregate_getf(void *state)
         return s->frame;
 }
 
-static int display_aggregate_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool display_aggregate_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         unsigned int i;
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
@@ -226,12 +226,13 @@ static int display_aggregate_putf(void *state, struct video_frame *frame, long l
                 struct video_frame *dev_frame = NULL;
                 if(frame)
                         dev_frame = s->dev_frames[i];
-                int ret = display_put_frame(s->devices[i], dev_frame, nonblock);
-                if(ret != 0)
+                bool ret = display_put_frame(s->devices[i], dev_frame, nonblock);
+                if (!ret) {
                         return ret;
+                }
         }
 
-        return 0;
+        return true;
 }
 
 static int display_aggregate_reconfigure(void *state, struct video_desc desc)

@@ -708,7 +708,7 @@ static struct video_frame *display_conference_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_conference_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_conference_putf(void *state, struct video_frame *frame, long long flags)
 {
         auto s = static_cast<state_conference *>(state)->common;
 
@@ -732,7 +732,7 @@ static int display_conference_putf(void *state, struct video_frame *frame, long 
                 s->new_incoming_frame_cv.notify_one();
         }
 
-        return 0;
+        return true;
 }
 
 static void display_conference_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

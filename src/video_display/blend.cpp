@@ -342,7 +342,7 @@ static struct video_frame *display_blend_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_blend_putf(void *state, struct video_frame *frame, long long flags)
+static bool display_blend_putf(void *state, struct video_frame *frame, long long flags)
 {
         shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
 
@@ -363,7 +363,7 @@ static int display_blend_putf(void *state, struct video_frame *frame, long long 
                 s->cv.notify_one();
         }
 
-        return 0;
+        return true;
 }
 
 static int display_blend_get_property(void *state, int property, void *val, size_t *len)

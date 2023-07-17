@@ -749,7 +749,7 @@ static struct video_frame *display_sdl2_getf(void *state)
         return buffer;
 }
 
-static int display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
+static bool display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -760,7 +760,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
                 assert(frame != NULL);
                 simple_linked_list_append(s->free_frame_queue, frame);
                 pthread_mutex_unlock(&s->lock);
-                return 0;
+                return true;
         }
 
         if (frame != NULL && timeout_ns > 0) {
@@ -780,7 +780,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
                 simple_linked_list_append(s->free_frame_queue, frame);
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "1 frame(s) dropped!\n");
                 pthread_mutex_unlock(&s->lock);
-                return 1;
+                return false;
         }
         pthread_mutex_unlock(&s->lock);
         SDL_Event event;
@@ -788,7 +788,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
         event.user.data1 = frame;
         SDL_CHECK(SDL_PushEvent(&event));
 
-        return 0;
+        return true;
 }
 
 static int display_sdl2_get_property(void *state, int property, void *val, size_t *len)
