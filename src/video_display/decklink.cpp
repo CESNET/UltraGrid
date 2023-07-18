@@ -88,8 +88,8 @@
 #endif
 
 enum {
-        SCHED_PREROLL_FRMS = 3,
-        MAX_SCHED_FRAMES = 2,
+        DEFAULT_SCHED_PREROLL_FRMS = 3,
+        DEFAULT_MAX_SCHED_FRAMES = 2,
 };
 
 #define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) { (x)->Release(); (x) = nullptr; }
@@ -132,7 +132,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
-        IDeckLinkOutput *m_deckLinkOutput; // notnull only for scheduled callback
+        IDeckLinkOutput *m_deckLinkOutput;
         mutex schedLock;
         queue<DeckLinkFrame *> schedFrames{};
         DeckLinkFrame *lastSchedFrame{};
@@ -142,6 +142,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         int64_t m_avg_diff = 0;
 
       public:
+        int m_preroll = DEFAULT_SCHED_PREROLL_FRMS;
+        unsigned m_max_sched_frames = DEFAULT_MAX_SCHED_FRAMES;
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
 
@@ -381,7 +383,7 @@ void PlaybackDelegate::Reset()
 int PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
 {
         const unique_lock<mutex> lk(schedLock);
-        if (schedFrames.size() < MAX_SCHED_FRAMES) {
+        if (schedFrames.size() < m_max_sched_frames) {
                 schedFrames.push(deckLinkFrame);
                 return 0;
         }
@@ -496,7 +498,12 @@ static void show_help(bool full)
                 col() << SBOLD("\tsingle-link/dual-link/quad-link") << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
                 col() << SBOLD("\ttimecode") << "\temit timecode\n";
                 col() << SBOLD("\t[no-]quad-square") << " set Quad-link SDI is output in Square Division Quad Split mode\n";
-                col() << SBOLD("\t[no-]low-latency") << " do not use low-latency mode (use regular scheduled mode; low-latency is default)\n";
+                col() << SBOLD("\tsynchronized[=p[,b]]")
+                      << " use regular scheduled mode (p - num of preroll "
+                         "video frames /default "
+                      << DEFAULT_SCHED_PREROLL_FRMS
+                      << "/, b - buffer size /default "
+                      << DEFAULT_MAX_SCHED_FRAMES << "/)\n";
                 col() << SBOLD("\tconversion") << "\toutput size conversion, can be:\n" <<
                                 SBOLD("\t\tnone") << " - no conversion\n" <<
                                 SBOLD("\t\tltbx") << " - down-converted letterbox SD\n" <<
@@ -989,7 +996,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 
         if (!s->low_latency) {
                 auto *f = allocate_new_decklink_frame(s);
-                for (int i = 0; i < SCHED_PREROLL_FRMS; ++i) {
+                for (int i = 0; i < s->delegate.m_preroll; ++i) {
                         f->AddRef();
                         const int ret = s->delegate.EnqueueFrame(f);
                         assert(ret == 0);
@@ -1144,7 +1151,22 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].set_flag(s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].get_flag());
                         }
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME
+                            << "Deprecated, do not use - "
+                               "see option \"synchroninzed\" instead.\n";
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
+                } else if (strstr(ptr, "synchronized") == ptr) {
+                        s->low_latency = false;
+                        ptr = strchr(ptr, '=');
+                        if (ptr != nullptr) {
+                                ptr += 1;
+                                s->delegate.m_preroll = stoi(ptr);
+                                if (strchr(ptr, ',') != nullptr) {
+                                        s->delegate.m_max_sched_frames =
+                                            stoi(strchr(ptr, ',') + 1);
+                                }
+                        }
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split.set_flag(strcasecmp(ptr, "quad-square") == 0);
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
@@ -1398,10 +1420,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 // Provide this class as a delegate to a video output interface
                 s->deckLinkOutput->SetScheduledFrameCompletionCallback(
                     &s->delegate);
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME
-                        "Scheduled playback is obsolescent and may be removed "
-                        "in future. "
-                        "Please let us know if you are using this mode.\n");
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
