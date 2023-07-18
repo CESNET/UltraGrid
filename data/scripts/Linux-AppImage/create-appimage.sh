@@ -10,10 +10,6 @@ APPDIR=UltraGrid.AppDir
 APPPREFIX=$APPDIR/usr
 eval "$(grep 'srcdir *=' < Makefile | tr -d \  )"
 
-# redirect the whole output to stderr, output of this script is a created AppName only
-(
-exec 1>&2
-
 umask 022
 
 mkdir tmpinstall $APPDIR
@@ -172,5 +168,4 @@ fi
 GITHUB_TOKEN= $mkappimage $UPDATE_INFORMATION $APPDIR
 
 rm -rf $APPDIR tmpinstall
-)
 
