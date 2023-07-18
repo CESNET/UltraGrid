@@ -1587,16 +1587,16 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
         // (everything except vidcap testcard and decklink).
         const int64_t diff = llabs(streamTime - m_last_sched_audio_time);
         const int64_t avg_diff = (m_avg_diff * 39 + diff) / 40;
-        if (m_avg_diff >= 50 && m_last_sched_audio_time >= 0) {
+        if (avg_diff >= 50 && m_last_sched_audio_time >= 0) {
                 log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
                              "Stream discontinuity, auto-"
                              "adjusting audio time. If this is "
                              "an unsynchronized stream, do not "
                              "use synchronized output.\n");
                 streamTime = m_last_sched_audio_time;
-                if (diff < 2000) { // do not store Martians
-                        m_avg_diff = avg_diff;
-                }
+        }
+        if (diff < 2000) { // do not store Martians
+                m_avg_diff = avg_diff;
         }
 
         m_last_sched_audio_time = streamTime + *samples;
