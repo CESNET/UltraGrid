@@ -152,7 +152,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
             m_deckLinkOutput = ido;
         }
         void Reset();
-        ~PlaybackDelegate() override {
+        virtual ~PlaybackDelegate() {
                 Reset();
         };
         void PrintStats();
