@@ -40,6 +40,12 @@
 #ifndef AUDIO_TYPES_H
 #define AUDIO_TYPES_H
 
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
 #include "../types.h" // fec_desc
 
 typedef enum {
@@ -93,6 +99,8 @@ typedef struct audio_frame
         void *network_source;   /* pointer to sockaddr_storage containing
                                    network source that the audio stream came
                                    from. Relevant only for receiver. */
+        uint32_t timestamp;     ///< frame timestamp
+        int flags;
         void (*dispose)(struct audio_frame *); ///< called by sender when frame was processed
         void *dispose_udata;    ///< additional data that may the caller use in dispose
 }
@@ -142,6 +150,7 @@ public:
         void reserve(size_t len);
         void resize(int channel, size_t len);
         void reset();
+        void set_timestamp(int64_t ts);
         int get_bps() const;
         audio_codec_t get_codec() const;
         char *get_data(int channel);
@@ -153,6 +162,7 @@ public:
         fec_desc const &get_fec_params(int channel) const;
         int get_sample_count() const;
         int get_sample_rate() const;
+        [[nodiscard]] int64_t get_timestamp() const; // u32 TS, -1 if unavail
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
         void set_fec_params(int channel, fec_desc const &);
@@ -188,6 +198,7 @@ private:
         std::vector<channel> channels; /* data should be at least 4B aligned */
         audio_codec_t codec;
         double duration; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
+        int64_t timestamp = -1;
 
         friend class audio_frame2_resampler;
         friend class soxr_resampler;

@@ -178,6 +178,8 @@ struct vidcap_decklink_state {
         bool                    nosig_send = false; ///< send video even when no signal detected
         bool                    keep_device_defaults = false;
 
+        BMDTimeScale frameRateScale = 0;
+
         void set_codec(codec_t c);
 
         vidcap_decklink_state() {
@@ -204,6 +206,7 @@ private:
 
 public:
         int	                      newFrameReady{}; // -1 == timeout
+        BMDTimeValue                  frameTime;
         IDeckLinkVideoFrame          *rightEyeFrame{};
         void                         *pixelFrame{};
         void                         *pixelFrameRight{};
@@ -359,7 +362,11 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                         newFrameReady = 1; // The new frame is ready to grab
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
 		}
-	}
+
+                BMDTimeValue unused_duration = 0;
+                videoFrame->GetStreamTime(&frameTime, &unused_duration,
+                                          s->frameRateScale);
+        }
 
         if (audioPacket) {
                 if (s->audioPackets.size() < MAX_AUDIO_PACKETS) {
@@ -898,15 +905,14 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         *pf = it->second;
 
         // get avarage time between frames
-        BMDTimeValue	frameRateDuration = 0;
-        BMDTimeScale	frameRateScale = 0;
+        BMDTimeValue frameRateDuration = 0;
 
         tile->width = displayMode->GetWidth();
         tile->height = displayMode->GetHeight();
         s->frame->color_spec = s->codec;
 
-        displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-        s->frame->fps = static_cast<double>(frameRateScale) / frameRateDuration;
+        displayMode->GetFrameRate(&frameRateDuration, &s->frameRateScale);
+        s->frame->fps = static_cast<double>(s->frameRateScale) / frameRateDuration;
         s->next_frame_time = static_cast<int>(std::chrono::microseconds::period::den / s->frame->fps); // in microseconds
         switch(displayMode->GetFieldDominance()) {
                 case bmdLowerFieldFirst:
@@ -1028,6 +1034,7 @@ static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsign
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.max_size = (s->audio.sample_rate / 10) * s->audio.ch_count * s->audio.bps;
         s->audio.data = (char *) malloc(s->audio.max_size);
+        s->audio.flags |= TIMESTAMP_VALID;
 
         return true;
 }
@@ -1369,6 +1376,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         }
         s->frame = vf_alloc(MAX(s->devices_cnt, 2));
         s->frame->tile_count = s->stereo ? 2 : s->devices_cnt;
+        s->frame->flags |= TIMESTAMP_VALID;
 
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i) {
@@ -1489,6 +1497,12 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                 return nullptr;
         }
         s->audio.data_len = 0;
+
+        BMDTimeValue audio_time = 0;
+        s->audioPackets.front()->GetPacketTime(&audio_time, bmdAudioSampleRate48kHz);
+        s->audio.timestamp =
+            ((int64_t)audio_time * 90000 + bmdAudioSampleRate48kHz - 1) / bmdAudioSampleRate48kHz;
+
         while (!s->audioPackets.empty()) {
                 auto *audioPacket = s->audioPackets.front();
                 s->audioPackets.pop();
@@ -1641,6 +1655,10 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
         s->frames++;
         s->frame->timecode = s->state[0].delegate->timecode;
+        s->frame->timestamp =
+            ((int64_t)s->state[0].delegate->frameTime * 90000 +
+             s->frameRateScale - 1) /
+            s->frameRateScale;
         return s->frame;
 }
 

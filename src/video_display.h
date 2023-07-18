@@ -143,7 +143,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 18
+#define VIDEO_DISPLAY_ABI_VERSION 19
 
 #define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 

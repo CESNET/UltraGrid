@@ -48,7 +48,7 @@ extern "C" {
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
 
-#define VO_PP_ABI_VERSION 5
+#define VO_PP_ABI_VERSION 6
 
 struct vo_postprocess_state;
 

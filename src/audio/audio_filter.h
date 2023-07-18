@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
 #ifndef AUDIO_FILTER_H_
 #define AUDIO_FILTER_H_
 
-#define AUDIO_FILTER_ABI_VERSION 2
+#define AUDIO_FILTER_ABI_VERSION 3
 
 #ifdef __cplusplus
 extern "C" {

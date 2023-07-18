@@ -441,6 +441,7 @@ static void *fec_thread(void *args) {
 
                 data->nofec_frame = vf_alloc(data->recv_frame->tile_count);
                 data->nofec_frame->ssrc = data->recv_frame->ssrc;
+                data->nofec_frame->timestamp = data->recv_frame->timestamp;
 
                 if (data->recv_frame->fec_params.type != FEC_NONE) {
                         bool buffer_swapped = false;
@@ -704,6 +705,7 @@ static void *decompress_thread(void *args) {
                         long long putf_timeout = force_putf_timeout != -1 ? force_putf_timeout : PUTF_NONBLOCK; // originally was BLOCKING when !is_codec_interframe(decoder->received_vid_desc.color_spec)
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
+                        decoder->frame->timestamp = msg->nofec_frame->timestamp;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_timeout);
                         msg->is_displayed = ret == 0;
@@ -1532,6 +1534,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         }
 
         frame->ssrc = cdata->data->ssrc;
+        frame->timestamp = cdata->data->ts;
         if (PT_VIDEO_HAS_FEC(cdata->data->pt)) {
                 const uint32_t *hdr = (uint32_t *)(void *)cdata->data->data;
                 const uint32_t tmp = ntohl(hdr[3]);
