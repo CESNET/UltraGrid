@@ -164,7 +164,8 @@ static int cf_text_init(struct module *parent, const char *cfg, void **state)
         }
 }
 
-static int text_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+text_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -203,7 +204,7 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
         } else {
                 log_msg(LOG_LEVEL_ERROR, "[text vo_pp.] Codec not supported! Please report to "
                                 PACKAGE_BUGREPORT ".\n");
-                return FALSE;
+                return false;
         }
 
         s->dw = NewDrawingWand();
@@ -211,7 +212,7 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
         MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
-                return FALSE;
+                return false;
         }
         {
                PixelWand *pw = NewPixelWand();
@@ -226,22 +227,22 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
         status = MagickSetFormat(s->wand, colorspace);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
-                return FALSE;
+                return false;
         }
 
         status = MagickSetSize(s->wand, s->width, s->height);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
-                return FALSE;
+                return false;
         }
 
         status = MagickSetDepth(s->wand, 8);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetDepth failed!\n");
-                return FALSE;
+                return false;
         }
 
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * text_getf(void *state)

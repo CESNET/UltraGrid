@@ -140,8 +140,8 @@ struct state_sdl {
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
 static bool display_sdl_putf(void *state, struct video_frame *frame, long long nonblock);
-static int display_sdl_reconfigure(void *state, struct video_desc desc);
-static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
+static bool display_sdl_reconfigure(void *state, struct video_desc desc);
+static bool display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
 static void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
@@ -392,15 +392,15 @@ static void cleanup_screen(struct state_sdl *s)
         }
 }
 
-static int display_sdl_reconfigure(void *state, struct video_desc desc)
+static bool display_sdl_reconfigure(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
         s->current_desc = desc;
-        return 1;
+        return true;
 }
 
-static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
+static bool display_sdl_reconfigure_real(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
@@ -416,7 +416,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                         !s->sdl_screen /* first run */) {
                 if (!update_size(s, desc.width, desc.height)) {
                         memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
-                        return FALSE;
+                        return false;
                 }
         } else {
                 SDL_FillRect(s->sdl_screen, NULL, 0x000000);
@@ -440,11 +440,11 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
                         memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
-                        return FALSE;
+                        return false;
                 }
         }
 
-        return TRUE;
+        return true;
 }
 
 static void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -631,7 +631,7 @@ static bool display_sdl_putf(void *state, struct video_frame *frame, long long n
         return true;
 }
 
-static int display_sdl_get_property(void *state, int property, void *val, size_t *len)
+static bool display_sdl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, YUYV, RGBA, RGB};
@@ -641,15 +641,15 @@ static int display_sdl_get_property(void *state, int property, void *val, size_t
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         
                         *len = sizeof(codecs);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
@@ -676,11 +676,11 @@ static void configure_audio(struct state_sdl *s)
         s->audio_buffer = ring_buffer_init(1<<20);
 }
 
-static int display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_sdl *s = (struct state_sdl *)state;
         if (!s->play_audio) {
-                return FALSE;
+                return false;
         }
         SDL_AudioSpec desired, obtained;
         int sample_type;
@@ -712,7 +712,7 @@ static int display_sdl_reconfigure_audio(void *state, int quant_samples, int cha
                         sample_type = AUDIO_S32;
                         break; */
                 default:
-                        return FALSE;
+                        return false;
         }
         
         desired.freq=sample_rate;
@@ -740,12 +740,12 @@ static int display_sdl_reconfigure_audio(void *state, int quant_samples, int cha
         /* Start playing */
         SDL_PauseAudio(0);
 
-        return TRUE;
+        return true;
 error:
         s->play_audio = FALSE;
         s->audio_frame.max_size = 0;
         s->audio_frame.data = NULL;
-        return FALSE;
+        return false;
 }
 
 static void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame) {

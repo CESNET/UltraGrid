@@ -83,7 +83,8 @@ static void * interlaced_3d_init(const char *config) {
 #endif
 }
 
-static int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
         
@@ -103,7 +104,7 @@ static int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc 
         vf_get_tile(s->in, 0)->data = malloc(vf_get_tile(s->in, 0)->data_len);
         vf_get_tile(s->in, 1)->data = malloc(vf_get_tile(s->in, 1)->data_len);
         
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * interlaced_3d_getf(void *state)

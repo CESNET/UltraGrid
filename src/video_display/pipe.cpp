@@ -199,7 +199,7 @@ static bool display_pipe_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_pipe_get_property(void *state, int property, void *val, size_t *len)
+static bool display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = static_cast<struct state_pipe *>(state);
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
@@ -208,14 +208,14 @@ static int display_pipe_get_property(void *state, int property, void *val, size_
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if(sizeof(codec_t) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, &s->decode_to, sizeof(s->decode_to));
                         *len = sizeof s->decode_to;
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -228,7 +228,7 @@ static int display_pipe_get_property(void *state, int property, void *val, size_
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
@@ -250,18 +250,18 @@ static int display_pipe_get_property(void *state, int property, void *val, size_
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_pipe_reconfigure(void *state, struct video_desc desc)
+static bool display_pipe_reconfigure(void *state, struct video_desc desc)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
         s->desc = desc;
 
-        return 1;
+        return true;
 }
 
 static void display_pipe_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -271,7 +271,7 @@ static void display_pipe_put_audio_frame(void *state, const struct audio_frame *
         s->audio_frames.push_back(audio_frame_copy(frame, false));
 }
 
-static int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -279,7 +279,7 @@ static int display_pipe_reconfigure_audio(void *state, int quant_samples, int ch
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return TRUE;
+        return true;
 }
 
 static void display_pipe_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

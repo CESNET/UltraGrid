@@ -366,7 +366,7 @@ static bool display_blend_putf(void *state, struct video_frame *frame, long long
         return true;
 }
 
-static int display_blend_get_property(void *state, int property, void *val, size_t *len)
+static bool display_blend_get_property(void *state, int property, void *val, size_t *len)
 {
         shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
@@ -374,20 +374,18 @@ static int display_blend_get_property(void *state, int property, void *val, size
                 ((struct multi_sources_supp_info *) val)->fork_display = display_blend_fork;
                 ((struct multi_sources_supp_info *) val)->state = state;
                 *len = sizeof(struct multi_sources_supp_info);
-                return TRUE;
-
-        } else {
-                return display_ctl_property(s->real_display, property, val, len);
+                return true;
         }
+        return display_ctl_property(s->real_display, property, val, len);
 }
 
-static int display_blend_reconfigure(void *state, struct video_desc desc)
+static bool display_blend_reconfigure(void *state, struct video_desc desc)
 {
         struct state_blend *s = (struct state_blend *) state;
 
         s->desc = desc;
 
-        return 1;
+        return true;
 }
 
 static void display_blend_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -396,7 +394,7 @@ static void display_blend_put_audio_frame(void *state, const struct audio_frame 
         UNUSED(frame);
 }
 
-static int display_blend_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_blend_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -404,7 +402,7 @@ static int display_blend_reconfigure_audio(void *state, int quant_samples, int c
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return false;
 }
 
 static void display_blend_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

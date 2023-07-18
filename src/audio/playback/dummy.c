@@ -91,10 +91,10 @@ static bool audio_play_dummy_ctl(void *state, int request, void *data, size_t *l
         }
 }
 
-static int audio_play_dummy_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_dummy_reconfigure(void *state, struct audio_desc desc)
 {
         UNUSED(state), UNUSED(desc);
-        return TRUE;
+        return true;
 }
 
 static const struct audio_playback_info aplay_dummy_info = {

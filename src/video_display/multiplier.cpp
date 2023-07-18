@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,7 +253,7 @@ static bool display_multiplier_putf(void *state, struct video_frame *frame, long
         return true;
 }
 
-static int display_multiplier_get_property(void *state, int property, void *val, size_t *len)
+static bool display_multiplier_get_property(void *state, int property, void *val, size_t *len)
 {
         //TODO Figure out forking, for now just disable multi. sources
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
@@ -263,16 +263,16 @@ static int display_multiplier_get_property(void *state, int property, void *val,
                 ((struct multi_sources_supp_info *) val)->fork_display = display_multiplier_fork;
                 ((struct multi_sources_supp_info *) val)->state = state;
                 *len = sizeof(struct multi_sources_supp_info);
-                return TRUE;
+                return true;
 #endif
-                return FALSE;
+                return false;
 
         }
         //TODO Find common properties, for now just return properties of the first display
         return display_ctl_property(s->displays[0].get(), property, val, len);
 }
 
-static int display_multiplier_reconfigure(void *state, struct video_desc desc)
+static bool display_multiplier_reconfigure(void *state, struct video_desc desc)
 {
         struct state_multiplier *s = (struct state_multiplier *) state;
 
@@ -282,7 +282,7 @@ static int display_multiplier_reconfigure(void *state, struct video_desc desc)
                display_reconfigure(disp.get(), desc, VIDEO_NORMAL); 
         }
 
-        return 1;
+        return true;
 }
 
 static void display_multiplier_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -292,7 +292,7 @@ static void display_multiplier_put_audio_frame(void *state, const struct audio_f
         display_put_audio_frame(s->common->displays.at(0).get(), frame);
 }
 
-static int display_multiplier_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_multiplier_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         auto *s = static_cast<struct state_multiplier *>(state);

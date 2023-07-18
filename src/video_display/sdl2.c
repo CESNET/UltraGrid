@@ -83,7 +83,6 @@ static void show_help(void);
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame);
 static struct video_frame *display_sdl2_getf(void *state);
 static void display_sdl2_new_message(struct module *mod);
-static int display_sdl2_reconfigure(void *state, struct video_desc desc);
 static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 static void loadSplashscreen(struct state_sdl2 *s);
 
@@ -374,7 +373,7 @@ static void show_help(void)
         SDL_Quit();
 }
 
-static int display_sdl2_reconfigure(void *state, struct video_desc desc)
+static bool display_sdl2_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) state;
 
@@ -791,7 +790,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_sdl2_get_property(void *state, int property, void *val, size_t *len)
+static bool display_sdl2_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) state;
         codec_t codecs[VIDEO_CODEC_COUNT];
@@ -803,7 +802,7 @@ static int display_sdl2_get_property(void *state, int property, void *val, size_
                                 memcpy(val, codecs, codecs_len);
                                 *len = codecs_len;
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
@@ -811,9 +810,9 @@ static int display_sdl2_get_property(void *state, int property, void *val, size_
                         *len = sizeof(int);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void display_sdl2_new_message(struct module *mod)

@@ -549,7 +549,7 @@ vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_
 }
 
 
-int display_vulkan_reconfigure(void* state, video_desc desc) {
+bool display_vulkan_reconfigure(void* state, video_desc desc) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -558,9 +558,9 @@ int display_vulkan_reconfigure(void* state, video_desc desc) {
         if (!s->vulkan->is_image_description_supported(to_vkd_image_desc(desc, *s))){
                 log_msg(LOG_LEVEL_WARNING,
                         MOD_NAME "Video description is not supported - frames are too big or format isn't supported.");
-                return FALSE;
+                return false;
         }
-        return TRUE;
+        return true;
 }
 
 /**
@@ -915,7 +915,7 @@ bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) 
         return true;
 }
 
-int display_vulkan_get_property(void* state, int property, void* val, size_t* len) {
+bool display_vulkan_get_property(void* state, int property, void* val, size_t* len) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -932,7 +932,7 @@ int display_vulkan_get_property(void* state, int property, void* val, size_t* le
                         LOG(LOG_LEVEL_INFO) << std::endl;
                         size_t codecs_len = codecs.size() * sizeof(codec_t);
                         if (codecs_len > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, codecs.data(), codecs_len);
                         *len = codecs_len;
@@ -940,7 +940,7 @@ int display_vulkan_get_property(void* state, int property, void* val, size_t* le
                 }
                 case DISPLAY_PROPERTY_BUF_PITCH: {
                         if (sizeof(int) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(int);
 
@@ -953,13 +953,13 @@ int display_vulkan_get_property(void* state, int property, void* val, size_t* le
                                 memcpy(val, &value, sizeof(value));
                                 s->vulkan->discard_image(image);
                         } 
-                        catch (std::exception& e) { log_and_exit_uv(e); return FALSE; }
+                        catch (std::exception& e) { log_and_exit_uv(e); return false; }
                         break;
                 }
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 void display_vulkan_new_message(module* mod) {
@@ -977,10 +977,10 @@ static void display_vulkan_put_audio_frame([[maybe_unused]] void* state, [[maybe
 }
 
 
-int display_vulkan_reconfigure_audio([[maybe_unused]] void* state, [[maybe_unused]] int quant_samples,
+bool display_vulkan_reconfigure_audio([[maybe_unused]] void* state, [[maybe_unused]] int quant_samples,
         [[maybe_unused]] int channels, [[maybe_unused]] int sample_rate)
 {
-        return FALSE;
+        return false;
 }
 
 const video_display_info display_vulkan_info = {

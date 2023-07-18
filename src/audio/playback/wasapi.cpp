@@ -335,8 +335,8 @@ static bool audio_play_wasapi_ctl(void *state, int request, void *data, size_t *
         }
 }
 
-#define FAIL_IF_NOT(cmd) do {HRESULT hr = cmd; if (hr != S_OK) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; return FALSE;}} while(0)
-static int audio_play_wasapi_reconfigure(void *state, struct audio_desc desc)
+#define FAIL_IF_NOT(cmd) do {HRESULT hr = cmd; if (hr != S_OK) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; return false;}} while(0)
+static bool audio_play_wasapi_reconfigure(void *state, struct audio_desc desc)
 {
         auto s = static_cast<struct state_aplay_wasapi *>(state);
         int buflen_ms = DEFAULT_WASAPI_BUFLEN_MS;
@@ -355,7 +355,7 @@ static int audio_play_wasapi_reconfigure(void *state, struct audio_desc desc)
 
         FAIL_IF_NOT(s->pAudioClient->Start());
 
-        return TRUE;
+        return true;
 }
 
 #define CHECK(cmd) do {HRESULT hr = cmd; if (hr != S_OK) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd ": " << hresult_to_str(hr) << "\n"; return;}} while(0)

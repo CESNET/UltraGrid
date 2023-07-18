@@ -96,7 +96,7 @@ enum {
 
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
-static int display_decklink_reconfigure(void *state, struct video_desc desc);
+static bool display_decklink_reconfigure(void *state, struct video_desc desc);
 
 // performs command, if failed, displays error and jumps to error label
 #define EXIT_IF_FAILED(cmd, name) \
@@ -823,7 +823,7 @@ static int enable_audio(struct state_decklink *s, int bps, int channels)
         return TRUE;
 }
 
-static int
+static bool
 display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
@@ -866,7 +866,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         [&desc](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == desc.color_spec; });
         if (it == uv_to_bmd_codec_map.end()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
-                return FALSE;
+                return false;
         }
         s->pixelFormat = it->second;
 
@@ -883,7 +883,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 if ((int) desc.tile_count != 2) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
                                         "2 streams expected, %d received.\n", desc.tile_count);
-                        return FALSE;
+                        return false;
                 }
         } else {
                 if ((int) desc.tile_count == 2) {
@@ -899,7 +899,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                      &s->delegate.frameRateScale, s->stereo);
         if (displayMode == bmdModeUnknown) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
-                return FALSE;
+                return false;
         }
 
         if (s->emit_timecode) {
@@ -970,7 +970,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                  "combination not supported - %d * %dx%d@%f, timecode %s.\n",
                         desc.tile_count, desc.width, desc.height, desc.fps,
                         (outputFlags & bmdVideoOutputRP188 ? "ON" : "OFF"));
-                return FALSE;
+                return false;
         }
 
         result = s->deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
@@ -985,12 +985,12 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                             << MOD_NAME << "EnableVideoOutput: " << bmd_hresult_to_string(result)
                             << "\n";
                 }
-                return FALSE;
+                return false;
         }
 
         if (s->play_audio) {
                 if (!enable_audio(s, s->aud_desc.bps, s->aud_desc.ch_count)) {
-                        return FALSE;
+                        return false;
                 }
         }
 
@@ -1010,13 +1010,13 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                             << MOD_NAME << "StartScheduledPlayback (video): "
                             << bmd_hresult_to_string(result) << "\n";
                         s->deckLinkOutput->DisableVideoOutput();
-                        return FALSE;
+                        return false;
                 }
         }
 
         s->initialized = true;
         s->audio_reconfigure = false;
-        return TRUE;
+        return true;
 }
 
 static void display_decklink_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -1500,7 +1500,7 @@ static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMD
         return false;
 }
 
-static int display_decklink_get_property(void *state, int property, void *val, size_t *len)
+static bool display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         vector<codec_t> codecs(uv_to_bmd_codec_map.size());
@@ -1519,12 +1519,12 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                                 memcpy(val, codecs.data(), sizeof(codec_t) * count);
                                 *len = sizeof(codec_t) * count;
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -1541,7 +1541,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
@@ -1562,9 +1562,9 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 /*
@@ -1653,7 +1653,7 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         s->audio_drift_fixer.update(buffered, sampleFrameCount, sampleFramesWritten);
 }
 
-static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
 
@@ -1663,7 +1663,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         channels != 16) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "requested channel count isn't supported: "
                         "%d\n", channels);
-                return FALSE;
+                return false;
         }
         
         if((quant_samples != 16 && quant_samples != 32) ||
@@ -1671,7 +1671,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "audio format isn't supported: "
                         "samples: %d, sample rate: %d\n",
                         quant_samples, sample_rate);
-                return FALSE;
+                return false;
         }
         const int bps = quant_samples / 8;
 
@@ -1686,7 +1686,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                     << "\n";
         }
 
-        return TRUE;
+        return true;
 }
 
 #ifndef WIN32

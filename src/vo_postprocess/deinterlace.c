@@ -131,7 +131,8 @@ static bool deinterlace_get_property(void *state, int property, void *val, size_
         return false;
 }
 
-static int deinterlace_reconfigure(void *state, struct video_desc desc)
+static bool
+deinterlace_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
 
@@ -139,7 +140,7 @@ static int deinterlace_reconfigure(void *state, struct video_desc desc)
         assert(desc.tile_count == 1);
         s->out = vf_alloc_desc_data(desc);
 
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * deinterlace_getf(void *state)

@@ -54,9 +54,9 @@
 struct state_sdi_playback {
         void *udata;
         void (*put_callback)(void *, const struct audio_frame *);
-        int (*reconfigure_callback)(void *state, int quant_samples, int channels,
-                int sample_rate);
-        int (*get_property_callback)(void *, int, void *, size_t *);
+        bool (*reconfigure_callback)(void *state, int quant_samples,
+                                     int channels, int sample_rate);
+        bool (*get_property_callback)(void *, int, void *, size_t *);
 };
 
 static void audio_play_sdi_probe_common(struct device_info **available_devices, int *count, 
@@ -113,7 +113,12 @@ static void * audio_play_sdi_init(const char *cfg)
         return s;
 }
 
-void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, const struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
+void
+sdi_register_display_callbacks(void *state, void *udata,
+                               void (*putf)(void *, const struct audio_frame *),
+                               bool (*reconfigure)(void *, int, int, int),
+                               bool (*get_property)(void *, int, void *,
+                                                   size_t *))
 {
         struct state_sdi_playback *s = (struct state_sdi_playback *) state;
         
@@ -160,17 +165,15 @@ static bool audio_play_sdi_ctl(void *state, int request, void *data, size_t *len
         }
 }
 
-static int audio_play_sdi_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_sdi_reconfigure(void *state, struct audio_desc desc)
 {
-        struct state_sdi_playback *s;
-        s = (struct state_sdi_playback *) state;
+        struct state_sdi_playback *s = state;
 
         if(s->reconfigure_callback) {
                 return s->reconfigure_callback(s->udata, desc.bps * 8,
                                 desc.ch_count, desc.sample_rate);
-        } else {
-                return FALSE;
         }
+        return false;
 }
 
 static void audio_play_sdi_done(void *s)

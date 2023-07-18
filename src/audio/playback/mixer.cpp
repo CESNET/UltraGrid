@@ -473,11 +473,11 @@ static bool audio_play_mixer_ctl(void *state, int request, void *data, size_t *l
         }
 }
 
-static int audio_play_mixer_reconfigure(void *state [[gnu::unused]], struct audio_desc desc)
+static bool audio_play_mixer_reconfigure(void *state [[gnu::unused]], struct audio_desc desc)
 {
         audio_desc requested{BPS, SAMPLE_RATE, CHANNELS, AC_PCM};
         assert(desc == requested);
-        return TRUE;
+        return true;
 }
 
 static const struct audio_playback_info aplay_mixer_info = {

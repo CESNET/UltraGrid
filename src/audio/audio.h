@@ -97,7 +97,12 @@ void audio_join(struct state_audio *s);
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
 struct audio_frame * sdi_get_frame(void *state);
 void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, const struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *));
+void audio_register_display_callbacks(struct state_audio *s, void *udata,
+                                      void (*putf)(void *,
+                                                   const struct audio_frame *),
+                                      bool (*reconfigure)(void *, int, int, int),
+                                      bool (*get_property)(void *, int, void *,
+                                                          size_t *));
 
 struct audio_frame * audio_get_frame(struct state_audio *s);
 

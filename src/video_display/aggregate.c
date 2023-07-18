@@ -235,11 +235,11 @@ static bool display_aggregate_putf(void *state, struct video_frame *frame, long 
         return true;
 }
 
-static int display_aggregate_reconfigure(void *state, struct video_desc desc)
+static bool display_aggregate_reconfigure(void *state, struct video_desc desc)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         unsigned int i;
-        int ret = FALSE;
+        bool ret = false;
 
         assert(s->magic == MAGIC_AGGREGATE);
         
@@ -257,7 +257,7 @@ static int display_aggregate_reconfigure(void *state, struct video_desc desc)
         return ret;
 }
 
-static int display_aggregate_get_property(void *state, int property, void *val, size_t *len)
+static bool display_aggregate_get_property(void *state, int property, void *val, size_t *len)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         unsigned int i;
@@ -308,14 +308,14 @@ static int display_aggregate_get_property(void *state, int property, void *val, 
                                 }
                                 free(codecs);
                                 free(lens);
-                                return TRUE;
+                                return true;
 err_codecs:
                                 for(i = 0; i < s->devices_cnt; ++i) {
                                         free(codecs[i]);
                                 }
                                 free(codecs);
                                 free(lens);
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
@@ -340,9 +340,9 @@ err_codecs:
                                         goto err;
                                 *len = first_size;
                                 memcpy(val, first_val, first_size);
-                                return TRUE;
+                                return true;
 err:
-                                return FALSE;
+                                return false;
 
                         }
                 case DISPLAY_PROPERTY_VIDEO_MODE:
@@ -353,9 +353,9 @@ err:
                         break;
 
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void display_aggregate_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -373,7 +373,7 @@ static void display_aggregate_put_audio_frame(void *state, const struct audio_fr
         display_put_audio_frame(s->devices[0], frame);
 }
 
-static int display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;

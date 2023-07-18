@@ -132,7 +132,7 @@ static void audio_play_dump_put_frame(void *state, const struct audio_frame *f)
         audio_export(s->exporter.get(), f);
 }
 
-static int audio_play_dump_reconfigure(void *state, struct audio_desc new_desc)
+static bool audio_play_dump_reconfigure(void *state, struct audio_desc new_desc)
 {
         auto *s = static_cast<audio_dump_state *>(state);
         s->desc = new_desc;

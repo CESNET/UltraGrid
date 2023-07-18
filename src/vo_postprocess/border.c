@@ -123,13 +123,14 @@ static void * border_init(const char *config) {
         return s;
 }
 
-static int border_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+border_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_border *s = (struct state_border *) state;
         s->saved_desc = desc;
         vf_free(s->in);
         s->in = vf_alloc_desc_data(s->saved_desc);
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * border_getf(void *state)

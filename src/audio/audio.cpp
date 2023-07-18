@@ -1128,7 +1128,13 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         sdi_capture_new_incoming_frame(sdi_capture, frame);
 }
 
-void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, const struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
+void
+audio_register_display_callbacks(struct state_audio *s, void *udata,
+                                 void (*putf)(void *,
+                                              const struct audio_frame *),
+                                 bool (*reconfigure)(void *, int, int, int),
+                                 bool (*get_property)(void *, int, void *,
+                                                     size_t *))
 {
         struct state_sdi_playback *sdi_playback;
         if(!audio_playback_get_display_flags(s->audio_playback_device))

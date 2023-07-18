@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,7 @@ static const struct {
         { Y416, NDIlib_FourCC_type_PA16, ndi_disp_convert_Y416_to_PA16 },
 };
 
-static int display_ndi_reconfigure(void *state, struct video_desc desc)
+static bool display_ndi_reconfigure(void *state, struct video_desc desc)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
@@ -129,7 +129,7 @@ static int display_ndi_reconfigure(void *state, struct video_desc desc)
         s->NDI_video_frame.frame_format_type = desc.interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
         s->NDI_video_frame.timecode = NDIlib_send_timecode_synthesize;
 
-        return TRUE;
+        return true;
 }
 
 static void usage()
@@ -350,7 +350,7 @@ static bool display_ndi_putf(void *state, struct video_frame *frame, long long f
         return true;
 }
 
-static int display_ndi_get_property(void *state, int property, void *val, size_t *len)
+static bool display_ndi_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[sizeof codec_mapping / sizeof codec_mapping[0]];
@@ -367,12 +367,12 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                                 memcpy(val, codecs, sizeof codecs);
                                 *len = sizeof codecs;
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if (sizeof rgb_shift > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof rgb_shift);
                         *len = sizeof rgb_shift;
@@ -389,7 +389,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                         if (sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
@@ -402,9 +402,9 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 #define NDI_SEND_AUDIO(frame, bit_depth) do { \
@@ -432,7 +432,7 @@ static void display_ndi_put_audio_frame(void *state, const struct audio_frame *f
         }
 }
 
-static int display_ndi_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_ndi_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct display_ndi *s = (struct display_ndi *) state;
@@ -440,7 +440,7 @@ static int display_ndi_reconfigure_audio(void *state, int quant_samples, int cha
         s->audio_desc.ch_count = channels;
         s->audio_desc.sample_rate = sample_rate;
 
-        return TRUE;
+        return true;
 }
 
 static const struct video_display_info display_ndi_info = {

@@ -68,10 +68,10 @@ static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         return s;\
 }\
 \
-static int CF_WRAPPER_MERGE(vo_pp_reconfigure_, name)(void *state, struct video_desc desc) {\
+static bool CF_WRAPPER_MERGE(vo_pp_reconfigure_, name)(void *state, struct video_desc desc) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
         s->f = vf_alloc_desc_data(desc);\
-        return TRUE;\
+        return true;\
 }\
 \
 static bool CF_WRAPPER_MERGE(vo_pp_get_property_, name)(void *state, int property, void *val, size_t *len) {\

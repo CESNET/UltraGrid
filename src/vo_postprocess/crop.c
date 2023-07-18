@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,8 @@ static void * crop_init(const char *config) {
         return s;
 }
 
-static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+crop_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_crop *s = state;
         vf_free(s->in);
@@ -138,7 +139,7 @@ static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
                 * get_pf_block_bytes(desc.color_spec);
         s->out_desc.width = linesize / get_bpp(desc.color_spec);
 
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * crop_getf(void *state)

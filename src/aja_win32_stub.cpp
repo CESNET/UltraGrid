@@ -66,15 +66,15 @@ static const struct video_capture_info vidcap_aja_info = {
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
 extern "C" {
-__declspec(dllimport) int display_aja_get_property(void *state, int property, void *val, size_t *len);
+__declspec(dllimport) bool display_aja_get_property(void *state, int property, void *val, size_t *len);
 __declspec(dllimport) void display_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *));
-__declspec(dllimport) int display_aja_reconfigure(void *state, struct video_desc desc);
+__declspec(dllimport) bool display_aja_reconfigure(void *state, struct video_desc desc);
 __declspec(dllimport) void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags);
 __declspec(dllimport) void display_aja_done(void *state);
 __declspec(dllimport) struct video_frame *display_aja_getf(void *state);
 __declspec(dllimport) bool display_aja_putf(void *state, struct video_frame *frame, long long nonblock);
 __declspec(dllimport) void display_aja_put_audio_frame(void *state, const struct audio_frame *frame);
-__declspec(dllimport) int display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
+__declspec(dllimport) bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 }
 

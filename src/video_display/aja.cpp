@@ -860,7 +860,7 @@ static NTV2VideoFormat display_aja_get_first_matching_video_format(const NTV2Fra
 }
 
 
-LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
+LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
 {
         auto s = static_cast<struct aja::display *>(state);
         if (s->desc.color_spec != VIDEO_CODEC_NONE) {
@@ -870,7 +870,7 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
 
         if (desc.tile_count != 1 && desc.tile_count != 4) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported tile count: " << desc.tile_count << "\n";
-                return FALSE;
+                return false;
         }
 
         bool interlaced = desc.interlacing == INTERLACED_MERGED;
@@ -888,7 +888,7 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
                         ": " << desc
 #endif
                         << "\n";
-                return FALSE;
+                return false;
         }
         s->mPixelFormat = NTV2_FBF_INVALID;
         for (auto & c : aja::codec_map) {
@@ -905,12 +905,12 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Reconfiguration failed: " << e.what() << "\n";
                 s->desc = {};
-                return FALSE;
+                return false;
         }
 
         s->worker = thread(&aja::display::process_frames, s);
 
-        return TRUE;
+        return true;
 }
 
 LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags)
@@ -1016,7 +1016,7 @@ LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long lon
         return s->Putf(frame, nonblock);
 }
 
-LINK_SPEC int display_aja_get_property(void *state, int property, void *val, size_t *len)
+LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, size_t *len)
 {
         auto s = static_cast<struct aja::display *>(state);
 
@@ -1035,7 +1035,7 @@ LINK_SPEC int display_aja_get_property(void *state, int property, void *val, siz
                                 *len = count * sizeof(codec_t);
                                 memcpy(val, codecs.data(), *len);
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_AUDIO_FORMAT:
@@ -1054,13 +1054,13 @@ LINK_SPEC int display_aja_get_property(void *state, int property, void *val, siz
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                                 *len = sizeof(int);
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -1078,7 +1078,7 @@ LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame
         s->mAudioLen += len;
 }
 
-LINK_SPEC int display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
+LINK_SPEC bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         auto s = static_cast<struct aja::display *>(state);
@@ -1088,10 +1088,10 @@ LINK_SPEC int display_aja_reconfigure_audio(void *state, int quant_samples, int 
         if (AJA_FAILURE(status)) {
                 ostringstream oss;
                 oss << "Unable to initialize audio: " << AJAStatusToString(status);
-                return FALSE;
+                return false;
         }
 
-        return TRUE;
+        return true;
 }
 
 #ifndef _MSC_VER

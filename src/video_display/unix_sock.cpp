@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -271,7 +271,7 @@ static bool display_unix_sock_putf(void *state, struct video_frame *frame, long 
         return true;
 }
 
-static int display_unix_sock_get_property(void *state, int property, void *val, size_t *len)
+static bool display_unix_sock_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB};
@@ -283,14 +283,14 @@ static int display_unix_sock_get_property(void *state, int property, void *val, 
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
 
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -303,23 +303,23 @@ static int display_unix_sock_get_property(void *state, int property, void *val, 
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_unix_sock_reconfigure(void *state, struct video_desc desc)
+static bool display_unix_sock_reconfigure(void *state, struct video_desc desc)
 {
         auto s = static_cast<state_unix_sock *>(state);
 
         s->desc = desc;
 
-        return 1;
+        return true;
 }
 
 static void display_unix_sock_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -328,7 +328,7 @@ static void display_unix_sock_put_audio_frame(void *state, const struct audio_fr
         UNUSED(frame);
 }
 
-static int display_unix_sock_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_unix_sock_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -336,7 +336,7 @@ static int display_unix_sock_reconfigure_audio(void *state, int quant_samples, i
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return false;
 }
 
 static void display_unix_sock_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

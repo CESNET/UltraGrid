@@ -903,22 +903,20 @@ static bool display_bluefish444_putf(void *state, struct video_frame *frame, lon
         return false;
 }
 
-static int
+static bool
 display_bluefish444_reconfigure(void *state, struct video_desc desc)
 {
         display_bluefish444_state *s =
                 (display_bluefish444_state *) state;
-        int ret;
 
         try {
                 s->reconfigure(desc);
-                ret = TRUE;
         } catch(runtime_error &e) {
                 cerr << "[Blue444 disp] " << e.what() << endl;
-                ret = FALSE;
+                return false;
         }
 
-        return ret;
+        return true;
 }
 
 static void display_bluefish444_done(void *state)
@@ -929,7 +927,7 @@ static void display_bluefish444_done(void *state)
         delete s;
 }
 
-static int display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
+static bool display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = { UYVY };
@@ -941,14 +939,14 @@ static int display_bluefish444_get_property(void *state, int property, void *val
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -961,7 +959,7 @@ static int display_bluefish444_get_property(void *state, int property, void *val
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
@@ -979,12 +977,12 @@ static int display_bluefish444_get_property(void *state, int property, void *val
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_bluefish444_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_bluefish444_reconfigure_audio(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
 #ifdef HAVE_BLUE_AUDIO
@@ -994,15 +992,14 @@ static int display_bluefish444_reconfigure_audio(void *state, int quant_samples,
 
         try {
                 s->reconfigure_audio(quant_samples, channels, sample_rate);
-                ret = TRUE;
         } catch(runtime_error &e) {
                 cerr << "[Blue444 disp] " << e.what() << endl;
-                ret = FALSE;
+                return false;
         }
 
-        return ret;
+        return true;
 #else
-        return FALSE;
+        return false;
 #endif
 }
 

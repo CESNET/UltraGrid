@@ -403,16 +403,14 @@ bool display_put_frame(struct display *d, struct video_frame *frame, long long t
  *
  * @param d    display to be reconfigured
  * @param desc new video description to be reconfigured to
- * @retval TRUE  if reconfiguration succeeded
- * @retval FALSE if reconfiguration failed
  */
-int display_reconfigure(struct display *d, struct video_desc desc, enum video_mode video_mode)
+bool display_reconfigure(struct display *d, struct video_desc desc, enum video_mode video_mode)
 {
         assert(d->magic == DISPLAY_MAGIC);
 
         d->saved_desc = desc;
         d->saved_mode = video_mode;
-        int rc = 0;
+        bool rc = false;
         struct video_desc display_desc = desc;
 
         if (d->postprocess) {
@@ -494,10 +492,8 @@ static void restrict_returned_codecs(codec_t *display_codecs,
  * @param[in]     val       pointer to output buffer where should be the property stored
  * @param[in]     len       provided buffer length
  * @param[out]    len       actual size written
- * @retval      TRUE      if succeeded and result is contained in val and len
- * @retval      FALSE     if the query didn't succeeded (either not supported or error)
  */
-int display_ctl_property(struct display *d, int property, void *val, size_t *len)
+bool display_ctl_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
         if (d->postprocess) {
@@ -505,7 +501,7 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
-                        return TRUE;
+                        return true;
 		case DISPLAY_PROPERTY_CODECS:
 			{
                                 codec_t display_codecs[VIDEO_CODEC_COUNT];
@@ -517,7 +513,7 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
                                 ret = d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
                                 if (!ret) {
                                         log_msg(LOG_LEVEL_ERROR, "[Display] Unable to get display supported codecs.\n");
-                                        return FALSE;
+                                        return false;
                                 }
                                 display_codecs_count = nlen / sizeof(codec_t);
                                 nlen = sizeof pp_codecs;
@@ -525,7 +521,7 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
                                 if (ret) {
 					if (nlen == 0) { // problem detected
 						log_msg(LOG_LEVEL_ERROR, "[Decoder] Unable to get supported codecs.\n");
-						return FALSE;
+						return false;
 
 					}
                                         pp_codecs_count = nlen / sizeof(codec_t);
@@ -536,10 +532,9 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
                                 if (nlen <= *len) {
                                         *len = nlen;
                                         memcpy(val, display_codecs, nlen);
-                                        return TRUE;
-                                } else {
-                                        return FALSE;
+                                        return true;
                                 }
+                                return false;
                         }
 			break;
                 default:
@@ -571,7 +566,7 @@ void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
  * @retval              TRUE            if reconfiguration succeeded
  * @retval              FALSE           if reconfiguration failed
  */
-int display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
+bool display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
         assert(d->magic == DISPLAY_MAGIC);
         if (!d->funcs->reconfigure_audio) {

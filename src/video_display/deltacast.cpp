@@ -181,7 +181,7 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
         return true;
 }
 
-static int
+static bool
 display_deltacast_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deltacast            *s = (struct state_deltacast *)state;
@@ -246,10 +246,10 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         }
         
         s->initialized = TRUE;
-        return TRUE;
+        return true;
 
 error:
-        return FALSE;
+        return false;
 }
 
 static void display_deltacast_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -427,7 +427,9 @@ static void display_deltacast_done(void *state)
         free(s);
 }
 
-static int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
+static bool
+display_deltacast_get_property(void *state, int property, void *val,
+                               size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {v210, UYVY, RAW};
@@ -439,14 +441,14 @@ static int display_deltacast_get_property(void *state, int property, void *val, 
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -459,7 +461,7 @@ static int display_deltacast_get_property(void *state, int property, void *val, 
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
@@ -474,13 +476,14 @@ static int display_deltacast_get_property(void *state, int property, void *val, 
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
-                                int sample_rate)
+static bool
+display_deltacast_reconfigure_audio(void *state, int quant_samples,
+                                    int channels, int sample_rate)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         int i;
@@ -523,7 +526,7 @@ static int display_deltacast_reconfigure_audio(void *state, int quant_samples, i
                         default:
                                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
                                 pthread_mutex_unlock(&s->lock);
-                                return FALSE;
+                                return false;
                 }
                 pAudioChn->pData = new BYTE[s->audio_desc.bps * s->audio_desc.sample_rate];
         }
@@ -531,7 +534,7 @@ static int display_deltacast_reconfigure_audio(void *state, int quant_samples, i
         s->audio_configured = TRUE;
         pthread_mutex_unlock(&s->lock);
 
-        return TRUE;
+        return true;
 }
 
 static void display_deltacast_put_audio_frame(void *state, const struct audio_frame *frame)

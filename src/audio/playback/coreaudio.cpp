@@ -150,7 +150,7 @@ static bool audio_play_ca_ctl(void *state [[gnu::unused]], int request, void *da
 
 ADD_TO_PARAM("ca-disable-adaptive-buf", "* ca-disable-adaptive-buf\n"
                 "  Core Audio - use fixed audio playback buffer instead of an adaptive one\n");
-static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
         AudioStreamBasicDescription stream_desc;
@@ -242,10 +242,10 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 
         s->initialized = true;
 
-        return TRUE;
+        return true;
 
 error:
-        return FALSE;
+        return false;
 }
 
 

@@ -42,13 +42,15 @@
 
 #ifdef __cplusplus
 extern "C" {
+#else
+#include <stdbool.h>
 #endif
 
 /*          property                               type                   default          */
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
 
-#define VO_PP_ABI_VERSION 6
+#define VO_PP_ABI_VERSION 7
 
 struct vo_postprocess_state;
 
@@ -63,10 +65,8 @@ typedef  void *(*vo_postprocess_init_t)(const char *cfg);
  *
  * @param state postprocessor state
  * @param desc  video description to be configured to
- * 
- * @return true or false
  */
-typedef  int (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
+typedef  bool (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
 /*
  * Returns various information about postprocessor format not only output (legacy name).
@@ -127,7 +127,7 @@ struct vo_postprocess_info {
 
 struct vo_postprocess_state *vo_postprocess_init(const char *config_string);
 
-int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
+bool vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
 void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
 bool vo_postprocess_get_property(struct vo_postprocess_state *, int property, void *val, size_t *len);

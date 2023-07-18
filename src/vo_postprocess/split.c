@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,8 +58,6 @@ struct state_split {
 
 static bool split_get_property(void *state, int property, void *val, size_t *len)
 {
-        bool ret;
-
         UNUSED(state);
 
         switch(property) {
@@ -70,13 +68,9 @@ static bool split_get_property(void *state, int property, void *val, size_t *len
                         } else {
                                 *len = 0;
                         }
-                        ret = true;
-                        break;
-                default:
-                        ret = false;
+                        return true;
         }
-
-        return ret;
+        return false;
 }
 
 static void usage()
@@ -117,7 +111,8 @@ static void * split_init(const char *config) {
         return s;
 }
 
-static int split_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+split_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_split *s = (struct state_split *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -133,7 +128,7 @@ static int split_postprocess_reconfigure(void *state, struct video_desc desc)
                 desc.height;
         in_tile->data = malloc(in_tile->data_len);
         
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * split_getf(void *state)

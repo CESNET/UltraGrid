@@ -282,7 +282,7 @@ static bool display_caca_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_caca_get_property(void *state, int property, void *val, size_t *len)
+static bool display_caca_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
 
@@ -290,16 +290,16 @@ static int display_caca_get_property(void *state, int property, void *val, size_
         if (property == DISPLAY_PROPERTY_CODECS && sizeof c <= *len) {
                 memcpy(val, c, sizeof c);
                 *len = sizeof c;
-                return TRUE;
+                return true;
         }
-        return FALSE;
+        return false;
 }
 
-static int display_caca_reconfigure(void *state, struct video_desc desc)
+static bool display_caca_reconfigure(void *state, struct video_desc desc)
 {
         struct state_caca *s = state;
         s->desc = desc;
-        return TRUE;
+        return true;
 }
 
 static const void *display_caca_info_get() {

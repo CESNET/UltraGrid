@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET z.s.p.o.
+ * Copyright (c) 2022-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -236,7 +236,7 @@ static bool display_v4l2_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_v4l2_get_property(void *state, int property, void *val, size_t *len)
+static bool display_v4l2_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         enum interlacing_t supported_il_modes[sizeof v4l2_field_map / sizeof v4l2_field_map[0]];
@@ -251,28 +251,28 @@ static int display_v4l2_get_property(void *state, int property, void *val, size_
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof codecs > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, codecs, sizeof codecs);
                         *len = sizeof codecs;
                         break;
                 case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
                         if (sizeof(supported_il_modes) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         *len = sizeof(supported_il_modes);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 
-static int display_v4l2_reconfigure(void *state, struct video_desc desc)
+static bool display_v4l2_reconfigure(void *state, struct video_desc desc)
 {
-#define CHECK(cmd) if (cmd != 0) { log_perror(LOG_LEVEL_ERROR, #cmd); return FALSE; }
+#define CHECK(cmd) if (cmd != 0) { log_perror(LOG_LEVEL_ERROR, #cmd); return false; }
         struct display_v4l2_state *s = state;
 
         deinit_device(s);
@@ -307,19 +307,19 @@ static int display_v4l2_reconfigure(void *state, struct video_desc desc)
         reqbuf.memory = V4L2_MEMORY_MMAP;
         reqbuf.count = BUFFERS;
         if (!set_v4l2_buffers(s->fd, &reqbuf, s->buffers)) {
-                return FALSE;
+                return false;
         }
 
         if (ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
-                return FALSE;
+                return false;
         };
 
         s->f = vf_alloc_desc(desc);
 
         s->stream_started = 1;
 
-        return TRUE;
+        return true;
 #undef CHECK
 }
 

@@ -100,14 +100,14 @@ static bool audio_play_none_ctl(void *state, int request, void *data, size_t *le
         return false;
 }
 
-static int audio_play_none_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_none_reconfigure(void *state, struct audio_desc desc)
 {
         UNUSED(desc);
         struct state_audio_playback_none *s = 
                 (struct state_audio_playback_none *) state;
         assert(s->magic == AUDIO_PLAYBACK_NONE_MAGIC);
 
-        return TRUE;
+        return true;
 }
 
 static const struct audio_playback_info aplay_none_info = {

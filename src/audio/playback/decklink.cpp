@@ -394,7 +394,7 @@ static bool audio_play_decklink_ctl(void *state [[gnu::unused]], int request, vo
         }
 }
 
-static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) {
+static bool audio_play_decklink_reconfigure(void *state, struct audio_desc desc) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
@@ -407,7 +407,7 @@ static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) 
                         s->audio_desc.ch_count != 16) {
                 fprintf(stderr, "[decklink] requested channel count isn't supported: "
                         "%d\n", s->audio_desc.ch_count);
-                return FALSE;
+                return false;
         }
         
         /* toggle one channel to supported two */
@@ -419,7 +419,7 @@ static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) 
                         desc.sample_rate != 48000) {
                 LOG(LOG_LEVEL_ERROR) << "[decklink] audio format isn't supported: " <<
                         desc;
-                return FALSE;
+                return false;
         }
         switch(desc.bps) {
                 case 2:
@@ -429,7 +429,7 @@ static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) 
                         sample_type = bmdAudioSampleType32bitInteger;
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
                         
         s->deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
@@ -438,7 +438,7 @@ static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) 
                         bmdAudioOutputStreamContinuous);
         s->deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
         
-        return TRUE;
+        return true;
 }
 
 static void audio_play_decklink_done(void *state)

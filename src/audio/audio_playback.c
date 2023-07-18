@@ -160,7 +160,7 @@ bool audio_playback_ctl(struct state_audio_playback *s, int request, void *data,
         return s->funcs->ctl(s->state, request, data, len);
 }
 
-int audio_playback_reconfigure(struct state_audio_playback *s, int quant_samples, int channels,
+bool audio_playback_reconfigure(struct state_audio_playback *s, int quant_samples, int channels,
                 int sample_rate)
 {
         return s->funcs->reconfigure(s->state, (struct audio_desc){quant_samples / 8, sample_rate, channels, AC_PCM});

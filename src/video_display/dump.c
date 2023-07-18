@@ -126,7 +126,7 @@ static bool display_dump_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_dump_get_property(void *state, int property, void *val, size_t *len)
+static bool display_dump_get_property(void *state, int property, void *val, size_t *len)
 {
         (void) state;
         codec_t codecs[VIDEO_CODEC_COUNT - 1];
@@ -149,12 +149,12 @@ static int display_dump_get_property(void *state, int property, void *val, size_
                         *len = sizeof(int);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_dump_reconfigure(void *state, struct video_desc desc)
+static bool display_dump_reconfigure(void *state, struct video_desc desc)
 {
         struct dump_display_state *s = state;
         vf_free(s->f);
@@ -169,7 +169,7 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         }
         s->f->callbacks.data_deleter = vf_data_deleter;
 
-        return TRUE;
+        return true;
 }
 
 static void display_dump_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

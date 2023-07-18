@@ -42,9 +42,11 @@ struct audio_frame;
 
 #ifdef __cplusplus
 extern "C" {
+#else
+#include <stdbool.h>
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 10
+#define AUDIO_PLAYBACK_ABI_VERSION 11
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests
@@ -81,7 +83,7 @@ struct audio_playback_info {
         void (*write)(void *state, const struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */
         bool (*ctl)(void *state, int request, void *data, size_t *len);
-        int (*reconfigure)(void *state, struct audio_desc);
+        bool (*reconfigure)(void *state, struct audio_desc);
         void (*done)(void *state);
 };
 
@@ -114,12 +116,10 @@ bool audio_playback_ctl(struct state_audio_playback *s, int request, void *data,
  * @param[in] quant_samples number of quantization bits
  * @param[in] channels      number of channels to be played back
  * @param[in] sample_rate   sample rate
- * @retval TRUE             if reconfiguration succeeded
- * @retval FALSE            if reconfiguration failed
  */
-int                             audio_playback_reconfigure(struct state_audio_playback *state,
-                int quant_samples, int channels,
-                int sample_rate);
+bool audio_playback_reconfigure(struct state_audio_playback *state,
+                                int quant_samples, int channels,
+                                int sample_rate);
 void                            audio_playback_put_frame(struct state_audio_playback *state, const struct audio_frame *frame);
 void                            audio_playback_finish(struct state_audio_playback *state);
 void                            audio_playback_done(struct state_audio_playback *state);

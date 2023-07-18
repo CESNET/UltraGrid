@@ -644,7 +644,7 @@ static void display_conference_run(void *state)
         worker.join();
 }
 
-static int display_conference_get_property(void *state, int property, void *val, size_t *len)
+static bool display_conference_get_property(void *state, int property, void *val, size_t *len)
 {
         auto s = ((struct state_conference *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
@@ -652,7 +652,7 @@ static int display_conference_get_property(void *state, int property, void *val,
                 ((struct multi_sources_supp_info *) val)->fork_display = display_conference_fork;
                 ((struct multi_sources_supp_info *) val)->state = state;
                 *len = sizeof(struct multi_sources_supp_info);
-                return TRUE;
+                return true;
 
         } else if(property == DISPLAY_PROPERTY_CODECS) {
                 codec_t codecs[] = {UYVY};
@@ -661,19 +661,19 @@ static int display_conference_get_property(void *state, int property, void *val,
 
                 *len = sizeof(codecs);
 
-                return TRUE;
+                return true;
         }
         
         return display_ctl_property(s->real_display.get(), property, val, len);
 }
 
-static int display_conference_reconfigure(void *state, struct video_desc desc)
+static bool display_conference_reconfigure(void *state, struct video_desc desc)
 {
         struct state_conference *s = (struct state_conference *) state;
 
         s->desc = desc;
 
-        return 1;
+        return true;
 }
 
 static void display_conference_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -682,7 +682,7 @@ static void display_conference_put_audio_frame(void *state, const struct audio_f
         UNUSED(frame);
 }
 
-static int display_conference_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_conference_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -690,7 +690,7 @@ static int display_conference_reconfigure_audio(void *state, int quant_samples, 
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return false;
 }
 
 static void display_conference_done(void *state)

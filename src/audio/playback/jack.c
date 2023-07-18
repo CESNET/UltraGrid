@@ -294,7 +294,7 @@ static bool audio_play_jack_ctl(void *state, int request, void *data, size_t *le
         }
 }
 
-static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         const char **ports;
@@ -307,7 +307,7 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         ports = s->libjack->get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
-                return FALSE;
+                return false;
         }
 
         if(desc.ch_count > s->jack_ports_count) {
@@ -356,18 +356,18 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 
         if (s->libjack->activate(s->client)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot activate client.\n");
-                return FALSE;
+                return false;
         }
 
         for(i = 0; i < desc.ch_count; ++i) {
                 if (s->libjack->connect (s->client, s->libjack->port_name (s->output_port[i]), ports[i])) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect output port: %d.\n", i);
-                        return FALSE;
+                        return false;
                 }
         }
         free(ports);
 
-        return TRUE;
+        return true;
 }
 
 static void audio_play_jack_put_frame(void *state, const struct audio_frame *frame)

@@ -143,11 +143,12 @@ struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
         return s;
 }
 
-int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
-                struct video_desc desc)
+bool
+vo_postprocess_reconfigure(struct vo_postprocess_state *s,
+                           struct video_desc            desc)
 {
         if (s == NULL) {
-                return FALSE;
+                return false;
         }
 
         bool filter_complex = false;
@@ -157,7 +158,7 @@ int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 int ret = state->funcs->reconfigure(state->state, desc);
                 if (ret == FALSE) {
                         simple_linked_list_it_destroy(it);
-                        return FALSE;
+                        return false;
                 }
                 // get desc for next iteration
                 int display_mode = 0;
@@ -173,10 +174,10 @@ int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
         if (filter_complex && simple_linked_list_size(s->postprocessors) > 1) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "One of postprocessors is complex (changing properties) and "
                                 "cannot be used in filter chain (more postprocessors)!\n");
-                return FALSE;
+                return false;
         }
 
-        return TRUE;
+        return true;
 }
 
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,13 +36,19 @@
  */
 
 #ifdef __cplusplus
+#include <cstddef>
 extern "C" {
-#endif
+#else
+#include <stdbool.h>
+#include <stddef.h>
+ #endif
 
-void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, const struct audio_frame *),
-                int (*reconfigure)(void *, int, int, int),
-                int (*get_property)(void *, int, void *, size_t *)
- );
+struct audio_frame;
+
+ void sdi_register_display_callbacks(
+     void *state, void *udata, void (*putf)(void *, const struct audio_frame *),
+     bool (*reconfigure)(void *, int, int, int),
+     bool (*get_property)(void *, int, void *, size_t *));
 
 #ifdef __cplusplus
 }

@@ -101,23 +101,23 @@ static bool display_null_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
-static int display_null_get_property(void *state, int property, void *val, size_t *len)
+static bool display_null_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
         UNUSED(val);
         UNUSED(len);
         
-        return FALSE;
+        return false;
 }
 
-static int display_null_reconfigure(void *state, struct video_desc desc)
+static bool display_null_reconfigure(void *state, struct video_desc desc)
 {
         UNUSED(desc);
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
 
-        return TRUE;
+        return true;
 }
 
 static void display_null_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -126,7 +126,7 @@ static void display_null_put_audio_frame(void *state, const struct audio_frame *
         UNUSED(frame);
 }
 
-static int display_null_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_null_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -134,7 +134,7 @@ static int display_null_reconfigure_audio(void *state, int quant_samples, int ch
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return false;
 }
 
 static const struct video_display_info display_null_info = {

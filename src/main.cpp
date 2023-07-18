@@ -1514,8 +1514,8 @@ int main(int argc, char *argv[])
                         audio_register_display_callbacks(uv.audio,
                                        uv.display_device,
                                        (void (*)(void *, const struct audio_frame *)) display_put_audio_frame,
-                                       (int (*)(void *, int, int, int)) display_reconfigure_audio,
-                                       (int (*)(void *, int, void *, size_t *)) display_ctl_property);
+                                       (bool (*)(void *, int, int, int)) display_reconfigure_audio,
+                                       (bool (*)(void *, int, void *, size_t *)) display_ctl_property);
                 }
 
                 if (opt.requested_capabilities != nullptr) {

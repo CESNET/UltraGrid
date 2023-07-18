@@ -237,7 +237,7 @@ static bool display_dummy_putf(void *state, struct video_frame *frame, long long
         return true;
 }
 
-static int display_dummy_get_property(void *state, int property, void *val, size_t *len)
+static bool display_dummy_get_property(void *state, int property, void *val, size_t *len)
 {
         struct dummy_display_state *s = state;
 
@@ -246,7 +246,7 @@ static int display_dummy_get_property(void *state, int property, void *val, size
                         {
                                 size_t req_len = s->codec_count * sizeof(codec_t);
                                 if (req_len > *len) {
-                                        return FALSE;
+                                        return false;
                                 }
                                 *len = req_len;
                                 memcpy(val, s->codecs, *len);
@@ -254,24 +254,24 @@ static int display_dummy_get_property(void *state, int property, void *val, size
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if (sizeof s->rgb_shift > *len) {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof s->rgb_shift;
                         memcpy(val, s->rgb_shift, *len);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
-static int display_dummy_reconfigure(void *state, struct video_desc desc)
+static bool display_dummy_reconfigure(void *state, struct video_desc desc)
 {
         struct dummy_display_state *s = state;
         vf_free(s->f);
         s->f = vf_alloc_desc_data(desc);
 
-        return TRUE;
+        return true;
 }
 
 static void display_dummy_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

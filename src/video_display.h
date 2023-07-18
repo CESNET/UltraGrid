@@ -143,7 +143,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 20
+#define VIDEO_DISPLAY_ABI_VERSION 21
 
 #define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 
@@ -155,10 +155,10 @@ struct video_display_info {
         struct video_frame     *(*getf) (void *state);
         /// @param timeout_ns display is supposed immplement the PUTF_* macros, numerical timeout is seldom used (but double-framerate postprocess can use that)
         bool                    (*putf) (void *state, struct video_frame *frame, long long timeout_ns);
-        int                     (*reconfigure_video)(void *state, struct video_desc desc);
-        int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
+        bool                    (*reconfigure_video)(void *state, struct video_desc desc);
+        bool                    (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
-        int                     (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
+        bool                    (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
                         int sample_rate);
         const char             *generic_fps_indicator_prefix; ///< NO_GENERIC_FPS_INDICATOR or pointer to preferred module name
 };
@@ -190,12 +190,10 @@ struct video_frame      *display_get_frame(struct display *d);
 
 // documented at definition
 bool                     display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns);
-int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
+bool                     display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
 /** @brief Get/set property (similar to ioctl)
- *  @retval TRUE  if succeeds
- *  @retval FALSE if fails
  */
-int                      display_ctl_property(struct display *d, int property, void *val, size_t *len);
+bool                     display_ctl_property(struct display *d, int property, void *val, size_t *len);
 /**
  * @defgroup display_audio Audio
  * Audio related functions (embedded audio).
@@ -204,7 +202,7 @@ int                      display_ctl_property(struct display *d, int property, v
  * @{
  */
 void                     display_put_audio_frame(struct display *d, const struct audio_frame *frame);
-int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
+bool                     display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 /** @} */ // end of display_audio
 
 struct video_frame      *get_splashscreen(void);

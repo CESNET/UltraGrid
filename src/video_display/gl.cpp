@@ -325,7 +325,7 @@ static constexpr array keybindings{
 static bool display_gl_init_opengl(struct state_gl *s);
 static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
-static int display_gl_reconfigure(void *state, struct video_desc desc);
+static bool display_gl_reconfigure(void *state, struct video_desc desc);
 static void gl_draw(double ratio, double bottom_offset, bool double_buf);
 static void gl_change_aspect(struct state_gl *s, int width, int height);
 static void gl_resize(GLFWwindow *win, int width, int height);
@@ -768,7 +768,8 @@ static void * display_spout_syphon_init(struct module *parent, const char *fmt, 
 /**
  * This function just sets new video description.
  */
-static int display_gl_reconfigure(void *state, struct video_desc desc)
+static bool
+display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
@@ -782,7 +783,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 
         s->current_desc = desc;
 
-        return TRUE;
+        return true;
 }
 
 static void glfw_print_video_mode(struct state_gl *s) {
@@ -1853,7 +1854,8 @@ static void glfw_close_callback(GLFWwindow *win)
         exit_uv(0);
 }
 
-static int display_gl_get_property(void *state, int property, void *val, size_t *len)
+static bool
+display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = (struct state_gl *) state;
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
@@ -1873,14 +1875,14 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
                                 };
                                 copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
                         } else {
-                                return FALSE;
+                                return false;
                         }
 
                         *len = sizeof gl_supp_codecs;
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -1893,14 +1895,14 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void display_gl_done(void *state)

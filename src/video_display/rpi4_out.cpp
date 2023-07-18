@@ -575,7 +575,7 @@ static void display_rpi4_run(void *state)
         }
 }
 
-static int display_rpi4_reconfigure(void *state, struct video_desc desc)
+static bool display_rpi4_reconfigure(void *state, struct video_desc desc)
 {
         auto *s = static_cast<rpi4_display_state *>(state);
 
@@ -585,7 +585,7 @@ static int display_rpi4_reconfigure(void *state, struct video_desc desc)
         if(s->force_w == 0 && s->force_h == 0)
                 s->video_out.resize(desc.width, desc.height);
 
-        return TRUE;
+        return true;
 }
 
 static auto display_rpi4_get_property(void *state, int property, void *val, size_t *len)
@@ -602,14 +602,14 @@ static auto display_rpi4_get_property(void *state, int property, void *val, size
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
 
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -622,21 +622,21 @@ static auto display_rpi4_get_property(void *state, int property, void *val, size
                         if(sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         *len = sizeof(supported_il_modes);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void display_rpi4_put_audio_frame(void *, const struct audio_frame *)
 {
 }
 
-static int display_rpi4_reconfigure_audio(void *, int, int, int)
+static bool display_rpi4_reconfigure_audio(void *, int, int, int)
 {
         return false;
 }

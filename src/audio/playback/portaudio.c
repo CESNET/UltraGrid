@@ -103,7 +103,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
                 PaStreamCallbackFlags statusFlags,
                 void *userData );
 static void     cleanup(struct state_portaudio_playback * s);
-static int audio_play_portaudio_reconfigure(void *state, struct audio_desc);
+static bool audio_play_portaudio_reconfigure(void *state, struct audio_desc);
 
  /*
   * Shared functions
@@ -317,7 +317,7 @@ static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_
         }
 }
 
-static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
@@ -344,7 +344,7 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
         if (error != paNoError) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
                 log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                return FALSE;
+                return false;
         }
 
         log_msg(LOG_LEVEL_INFO, "Using PortAudio version: %s\n", Pa_GetVersionText());
@@ -393,14 +393,14 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
         if (error != paNoError) {
                 log_msg(LOG_LEVEL_ERROR, "[Portaudio] Unable to open stream: %s\n",
                                 Pa_GetErrorText(error));
-                return FALSE;
+                return false;
         }
 
         if (!portaudio_start_stream(s->stream)) {
-                return FALSE;
+                return false;
         }
         
-        return TRUE;
+        return true;
 }                        
 
 /* This routine will be called by the PortAudio engine when audio is needed.

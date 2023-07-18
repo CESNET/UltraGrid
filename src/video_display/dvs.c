@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Colin Perkins    <csp@isi.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  * Copyright (c) 2001-2003 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -531,7 +531,7 @@ static bool display_dvs_putf(void *state, struct video_frame *frame, long long f
         return true;
 }
 
-static int display_dvs_reconfigure(void *state,
+static bool display_dvs_reconfigure(void *state,
                                 struct video_desc desc)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -547,7 +547,7 @@ static int display_dvs_reconfigure(void *state,
         s->tile->width = desc.width;
         s->tile->height = desc.height;
         
-        if(s->mode_set_manually) return TRUE;
+        if(s->mode_set_manually) return true;
 
         s->mode = NULL;
         for(i=0; hdsp_mode_table[i].width != 0; i++) {
@@ -568,7 +568,7 @@ static int display_dvs_reconfigure(void *state,
                                 "\tRequested: %dx%d, color space %d, fps %f,%s\n",
                                 desc.width, desc.height, desc.color_spec, desc.fps, 
                                 get_interlacing_description(desc.interlacing));
-                return FALSE;
+                return false;
         }
 
         hd_video_mode = SV_MODE_STORAGE_FRAME;
@@ -588,7 +588,7 @@ static int display_dvs_reconfigure(void *state,
                         break;
                 default:
                         fprintf(stderr, "[dvs] Unsupported video codec passed!");
-                        return FALSE;
+                        return false;
         }
 
         hd_video_mode |= s->mode->mode;
@@ -601,13 +601,13 @@ static int display_dvs_reconfigure(void *state,
         res = sv_option(s->sv, SV_OPTION_VIDEOMODE, hd_video_mode);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot set videomode %s\n", sv_geterrortext(res));
-                return FALSE;
+                return false;
         }
         res = sv_sync_output(s->sv, SV_SYNCOUT_BILEVEL);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot enable sync-on-green %s\n",
                           sv_geterrortext(res));
-                return FALSE;
+                return false;
         }
 
 
@@ -619,13 +619,13 @@ static int display_dvs_reconfigure(void *state,
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot initialize video display FIFO %s\n",
                           sv_geterrortext(res));
-                return FALSE;
+                return false;
         }
         res = sv_fifo_start(s->sv, s->fifo);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot start video display FIFO  %s\n",
                           sv_geterrortext(res));
-                return FALSE;
+                return false;
         }
 
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) *
@@ -642,7 +642,7 @@ static int display_dvs_reconfigure(void *state,
 	if(!s->first_run)
 		display_dvs_getf(s); /* update s->frame.data */
 
-        return TRUE;
+        return true;
 }
 
 static void display_dvs_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -821,7 +821,7 @@ static void display_dvs_done(void *state)
         free(s);
 }
 
-static int display_dvs_get_property(void *state, int property, void *val, size_t *len)
+static bool display_dvs_get_property(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {DVS10, UYVY, RGBA, RGB};
         int rgb_shift[] = {0, 8, 16};
@@ -833,14 +833,14 @@ static int display_dvs_get_property(void *state, int property, void *val, size_t
                         if(sizeof(codecs) <= *len) {
                                 memcpy(val, codecs, sizeof(codecs));
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -863,9 +863,9 @@ static int display_dvs_get_property(void *state, int property, void *val, size_t
                         }
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 /*
@@ -883,7 +883,7 @@ static void display_dvs_put_audio_frame(void *state, const struct audio_frame *f
 
 static int display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
-        int ret;
+        bool ret;
         struct state_hdsp *s = (struct state_hdsp *)state;
         int res = SV_OK;
         
@@ -956,13 +956,13 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
 
         s->audio_reconf_done = FALSE;
 
-        ret = TRUE;
+        ret = true;
         goto unlock;
 error:
         fprintf(stderr, "Setting audio error  %s\n",
                   sv_geterrortext(res));
         s->play_audio = FALSE;
-        ret = FALSE;
+        ret = false;
 
 unlock:
         s->audio_reconf_done = TRUE;

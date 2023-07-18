@@ -170,7 +170,8 @@ static bool common_get_property(void *state, int property, void *val, size_t *le
         return false;
 }
 
-static int common_postprocess_reconfigure(void *state, struct video_desc desc)
+static bool
+common_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_df *s = (struct state_df *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -197,7 +198,7 @@ static int common_postprocess_reconfigure(void *state, struct video_desc desc)
         s->buffers[1] = (char *) malloc(in_tile->data_len);
         in_tile->data = s->buffers[s->buffer_current];
         
-        return TRUE;
+        return true;
 }
 
 static struct video_frame * common_getf(void *state)

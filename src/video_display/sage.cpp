@@ -444,7 +444,7 @@ static sail *initSage(const char *confName, const char *fsIP, int appID, int nod
         return sageInf;
 }
 
-static int display_sage_reconfigure(void *state, struct video_desc desc)
+static bool display_sage_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sage *s = (struct state_sage *)state;
 
@@ -485,10 +485,10 @@ static int display_sage_reconfigure(void *state, struct video_desc desc)
         s->tile->data = (char *) s->sage_state->getBuffer();
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
 
-        return TRUE;
+        return true;
 }
 
-static int display_sage_get_property(void *state, int property, void *val, size_t *len)
+static bool display_sage_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sage *s = (struct state_sage *)state;
         UNUSED(state);
@@ -506,20 +506,20 @@ static int display_sage_get_property(void *state, int property, void *val, size_
                                         memcpy(val, &s->requestedDisplayCodec, sizeof(codec_t));
                                         *len = sizeof(codec_t);
                                 } else {
-                                        return FALSE;
+                                        return false;
                                 }
                         } else {
                                 if(sizeof(codecs) <= *len) {
                                         memcpy(val, codecs, sizeof(codecs));
                                         *len = sizeof(codecs);
                                 } else {
-                                        return FALSE;
+                                        return false;
                                 }
                         }
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
-                                return FALSE;
+                                return false;
                         }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
@@ -529,9 +529,9 @@ static int display_sage_get_property(void *state, int property, void *val, size_
                         *len = sizeof(int);
                         break;
                 default:
-                        return FALSE;
+                        return false;
         }
-        return TRUE;
+        return true;
 }
 
 static void display_sage_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -540,7 +540,7 @@ static void display_sage_put_audio_frame(void *state, const struct audio_frame *
         UNUSED(frame);
 }
 
-static int display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
+static bool display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -548,7 +548,7 @@ static int display_sage_reconfigure_audio(void *state, int quant_samples, int ch
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return false;
 }
 
 static void display_sage_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {

@@ -435,7 +435,7 @@ ADD_TO_PARAM("alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
  * with PulseAudio. However, may underrun with different drivers/devices (Juli@?) where
  * the buffer size is significantly lower.
  */
-static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
+static bool audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         snd_pcm_hw_params_t *params;
@@ -479,7 +479,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot obtain default hw parameters: %s\n",
                         snd_strerror(rc));
-                return FALSE;
+                return false;
         }
 
         /* Set the desired hardware parameters. */
@@ -495,7 +495,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 if (rc < 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set non-interleaved hw access: %s\n",
                                         snd_strerror(rc));
-                        return FALSE;
+                        return false;
                 }
                 s->non_interleaved = true;
         } else {
@@ -505,7 +505,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (desc.bps > 4 || desc.bps < 1) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported BPS for audio (%d).\n",
                                 desc.bps * 8);
-                return FALSE;
+                return false;
 
         }
         format = bps_to_snd_fmts[desc.bps];
@@ -516,7 +516,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set format: %s\n",
                         snd_strerror(rc));
-                return FALSE;
+                return false;
         }
 
         /* Two channels (stereo) */
@@ -524,7 +524,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set requested channel count: %s\n",
                                 snd_strerror(rc));
-                return FALSE;
+                return false;
         }
 
         /* we want to resample if device doesn't support default sample rate */
@@ -545,7 +545,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set requested sample rate: %s\n",
                         snd_strerror(rc));
-                return FALSE;
+                return false;
         }
 
         /* Set period to its minimal size.
@@ -599,7 +599,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set hw parameters: %s\n",
                         snd_strerror(rc));
-                return FALSE;
+                return false;
         }
 
         snd_pcm_hw_params_current(s->handle, params);
@@ -653,9 +653,9 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 }
         }
 
-        return TRUE;
+        return true;
 error:
-        return FALSE;
+        return false;
 }
 
 static void audio_play_alsa_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
