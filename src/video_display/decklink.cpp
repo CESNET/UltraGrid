@@ -122,6 +122,13 @@ using namespace std;
 namespace {
 class DeckLinkFrame;
 
+struct audio_vals {
+        int64_t saved_sync_ts   = INT64_MIN;
+        int64_t last_sync_ts    = INT64_MIN;
+        int64_t last_sched_time = -1;
+        int64_t avg_diff        = 0;
+};
+
 /// Used for scheduled playback only
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
@@ -138,8 +145,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         DeckLinkFrame *lastSchedFrame{};
         long schedSeq{};
         atomic<int64_t> m_audio_sync_ts = INT64_MIN;
-        int64_t m_last_sched_audio_time = -1;
-        int64_t m_avg_diff = 0;
+        struct audio_vals m_adata;
 
       public:
         int m_preroll = DEFAULT_SCHED_PREROLL_FRMS;
@@ -376,8 +382,6 @@ void PlaybackDelegate::Reset()
         }
         schedSeq = 0;
         m_audio_sync_ts = INT64_MIN;
-        m_last_sched_audio_time = -1;
-        m_avg_diff = 0;
 }
 
 bool PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
@@ -1572,34 +1576,43 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
  */
 void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
                                      uint32_t *const samples) {
-        if (m_audio_sync_ts == INT64_MIN) {
-                return;
+        if (m_adata.saved_sync_ts == INT64_MIN &&
+            m_audio_sync_ts == INT64_MIN) {
+                        return;
         }
-        int64_t audio_sync_ts = m_audio_sync_ts;
-        if (frame->timestamp < audio_sync_ts) { // wrap-around
-                audio_sync_ts -= (1LLU << 32);
-                m_audio_sync_ts = audio_sync_ts;
+        if (m_adata.saved_sync_ts != m_audio_sync_ts &&
+            m_audio_sync_ts != INT64_MIN) {
+                m_adata = audio_vals{};
+                m_adata.last_sync_ts =
+                    m_adata.saved_sync_ts = m_audio_sync_ts;
         }
-        BMDTimeValue streamTime = ((int64_t) frame->timestamp - audio_sync_ts) *
-                                  bmdAudioSampleRate48kHz / 90000;
+
+        if (frame->timestamp < m_adata.last_sync_ts) { // wrap-around
+                m_adata.last_sync_ts -= (1LLU << 32);
+        }
+        BMDTimeValue streamTime =
+            ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
+            bmdAudioSampleRate48kHz / 90000;
 
         // normalize audio start if the input is not properly timestamped
         // (everything except vidcap testcard and decklink).
-        const int64_t diff = llabs(streamTime - m_last_sched_audio_time);
-        const int64_t avg_diff = (m_avg_diff * 39 + diff) / 40;
-        if (avg_diff >= 50 && m_last_sched_audio_time >= 0) {
+        const int64_t diff     = m_adata.last_sched_time != -1
+                                     ? llabs(streamTime - m_adata.last_sched_time)
+                                     : 0;
+        const int64_t avg_diff = (m_adata.avg_diff * 39 + diff) / 40;
+        if (avg_diff >= 50 && m_adata.last_sched_time >= 0) {
                 log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
                              "Stream discontinuity, auto-"
                              "adjusting audio time. If this is "
                              "an unsynchronized stream, do not "
                              "use synchronized output.\n");
-                streamTime = m_last_sched_audio_time;
+                streamTime = m_adata.last_sched_time;
         }
         if (diff < 2000) { // do not store Martians
-                m_avg_diff = avg_diff;
+                m_adata.avg_diff = avg_diff;
         }
 
-        m_last_sched_audio_time = streamTime + *samples;
+        m_adata.last_sched_time = streamTime + *samples;
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "streamTime: " << streamTime
                              << "; timestamp: " << frame->timestamp
                              << "; sync TS: " << m_audio_sync_ts << "\n";
