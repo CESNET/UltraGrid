@@ -637,7 +637,7 @@ display_decklink_getf(void *state)
                     frame->GetWidth() != (long)s->vid_desc.width ||
                     frame->GetHeight() != (long)s->vid_desc.height ||
                     frame->GetRowBytes() != linesize || frame->GetPixelFormat() != s->pixelFormat) {
-                        delete tmp;
+                        tmp->Release();
                 } else {
                         deckLinkFrame = frame;
                         deckLinkFrame->AddRef();
@@ -1457,7 +1457,7 @@ static void display_decklink_done(void *state)
         while (!s->buffer_pool.frame_queue.empty()) {
                 auto tmp = s->buffer_pool.frame_queue.front();
                 s->buffer_pool.frame_queue.pop();
-                delete tmp;
+                tmp->Release();
         }
 
         delete s->timecode;
