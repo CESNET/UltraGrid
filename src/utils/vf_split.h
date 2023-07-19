@@ -64,12 +64,6 @@ extern "C" {
 void vf_split(struct video_frame *out, struct video_frame *src,
               unsigned int x_count, unsigned int y_count, int preallocate);
 
-/**
- * @deprecated this function should not be used
- */
-void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
-              unsigned int y_count);
-
 #ifdef __cplusplus
 }
 #endif

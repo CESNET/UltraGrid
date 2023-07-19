@@ -83,26 +83,18 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 
 void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
-        if (m_connections_count == 1) { /* normal/default case - only one connection */
-            tx_send_h264(m_tx, tx_frame.get(), m_network_devices[0]);
-        } else {
-            //TODO to be tested, the idea is to reply per destiny
-                for (int i = 0; i < m_connections_count; ++i) {
-                    tx_send_h264(m_tx, tx_frame.get(),
-                                        m_network_devices[i]);
-                }
-        }
+        tx_send_h264(m_tx, tx_frame.get(), m_network_device);
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
-                rtp_update(m_network_devices[0], curr_time);
-                rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+                rtp_update(m_network_device, curr_time);
+                rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 
                 // receive RTCP
                 struct timeval timeout;
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 0;
-                rtp_recv_r(m_network_devices[0], &timeout, ts);
+                rtp_recv_r(m_network_device, &timeout, ts);
         }
 }
 

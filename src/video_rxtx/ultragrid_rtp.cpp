@@ -150,35 +150,20 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 {
         lock_guard<mutex> lock(m_network_devices_lock);
 
-        if (m_connections_count == 1) { /* normal case - only one connection */
-                tx_send(m_tx, tx_frame.get(),
-                                m_network_devices[0]);
-        } else { /* split */
-                struct video_frame *split_frames = vf_alloc(m_connections_count);
-
-                //assert(frame_count == 1);
-                vf_split_horizontal(split_frames, tx_frame.get(),
-                                m_connections_count);
-                for (int i = 0; i < m_connections_count; ++i) {
-                        tx_send_tile(m_tx, split_frames, i,
-                                        m_network_devices[i]);
-                }
-
-                vf_free(split_frames);
-        }
+        tx_send(m_tx, tx_frame.get(), m_network_device);
 
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
-                rtp_update(m_network_devices[0], curr_time);
-                rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+                rtp_update(m_network_device, curr_time);
+                rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 
                 // receive RTCP
-                int rc = TRUE;
+                bool ret = true;
                 do {
                         struct timeval timeout { 0, 0 };
-                        rc = rtcp_recv_r(m_network_devices[0], &timeout, ts);
-                } while (!m_should_exit && rc == TRUE);
+                        ret = rtcp_recv_r(m_network_device, &timeout, ts);
+                } while (!m_should_exit && ret);
         }
 
         m_async_sending_lock.lock();
@@ -198,21 +183,21 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                 case RECEIVER_MSG_CHANGE_RX_PORT:
                         {
                                 assert(m_rxtx_mode == MODE_RECEIVER); // receiver only
-                                auto old_devices = m_network_devices;
+                                auto *old_device = m_network_device;
                                 auto old_port = m_recv_port_number;
                                 m_recv_port_number = msg->new_rx_port;
-                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                m_network_device = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
                                                 m_requested_mcast_if, m_requested_ttl);
-                                if (!m_network_devices) {
+                                if (m_network_device == nullptr) {
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to change RX port to %d\n", msg->new_rx_port);
                                         r = new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
-                                        m_network_devices = old_devices;
+                                        m_network_device = old_device;
                                         m_recv_port_number = old_port;
                                 } else {
                                         log_msg(LOG_LEVEL_NOTICE, "[control] Changed RX port to %d\n", msg->new_rx_port);
-                                        destroy_rtp_devices(old_devices);
+                                        destroy_rtp_device(old_device);
                                 }
                                 break;
                         }
@@ -292,8 +277,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         set_thread_name(__func__);
         struct pdb_e *cp;
         int fr;
-        int tiles_post = 0;
-        time_ns_t last_tile_received = 0;
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
 
 #ifdef SHARED_DECODER
@@ -315,8 +298,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t ts = (m_start_time - curr_time) / 100'000 * 9; // at 90000 Hz
 
-                rtp_update(m_network_devices[0], curr_time);
-                rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+                rtp_update(m_network_device, curr_time);
+                rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 
                 /* Receive packets from the network... The timeout is adjusted */
                 /* to match the video capture rate, so the transmitter works.  */
@@ -334,7 +317,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 } else {
                         timeout.tv_usec = 1000;
                 }
-                bool ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
+                const bool ret = rtp_recv_r(m_network_device, &timeout, ts);
 
                 // timeout
                 if (!ret) {
@@ -397,49 +380,16 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         /* Decode and render video... */
                         if (pbuf_decode
                             (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
-                                tiles_post++;
-                                /* we have data from all connections we need */
-                                if(tiles_post == m_connections_count)
-                                {
-                                        tiles_post = 0;
-                                        curr_time = get_time_in_ns();
-                                        fr = 1;
-#if 0
-                                        display_put_frame(uv->display_device,
-                                                          cp->video_decoder_state->frame_buffer);
-                                        cp->video_decoder_state->frame_buffer =
-                                            display_get_frame(uv->display_device);
-#endif
-                                }
-                                last_tile_received = curr_time;
-                        }
-
-                        /* dual-link TIMEOUT - we won't wait for next tiles */
-                        if(tiles_post > 1 && (last_tile_received - curr_time) / (double) NS_IN_SEC >
-                                        999999 / 59.94 / m_connections_count) {
-                                tiles_post = 0;
-                                curr_time = get_time_in_ns();
                                 fr = 1;
-#if 0
-                                display_put_frame(uv->display_device,
-                                                cp->video_decoder_state->frame_buffer);
-                                cp->video_decoder_state->frame_buffer =
-                                        display_get_frame(uv->display_device);
-#endif
-                                last_tile_received = curr_time;
                         }
 
                         if(vdecoder_state && vdecoder_state->decoded % 100 == 99) {
                                 int new_size = vdecoder_state->max_frame_size * 110ull / 100;
                                 if(new_size > last_buf_size) {
-                                        struct rtp **device = m_network_devices;
-                                        while(*device) {
-                                                int ret = rtp_set_recv_buf(*device, new_size);
-                                                if(!ret) {
-                                                        display_buf_increase_warning(new_size);
-                                                }
+                                        if (rtp_set_recv_buf(m_network_device, new_size)) {
                                                 debug_msg("Recv buffer adjusted to %d\n", new_size);
-                                                device++;
+                                        } else {
+                                                display_buf_increase_warning(new_size);
                                         }
                                         last_buf_size = new_size;
                                 }
@@ -467,7 +417,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
 uint32_t ultragrid_rtp_video_rxtx::get_ssrc()
 {
-        return rtp_my_ssrc(m_network_devices[0]);
+        return rtp_my_ssrc(m_network_device);
 }
 
 static video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params)

@@ -61,15 +61,14 @@ public:
         rtp_video_rxtx(std::map<std::string, param_u> const &params);
         virtual ~rtp_video_rxtx();
 
-        static struct rtp **initialize_network(const char *addrs, int recv_port_base,
+        static struct rtp *initialize_network(const char *addrs, int recv_port_base,
                         int send_port_base, struct pdb *participants, int force_ip_version,
                         const char *mcast_if, int ttl);
-        void destroy_rtp_devices(struct rtp ** network_devices);
+        static void destroy_rtp_device(struct rtp * network_devices);
         static void display_buf_increase_warning(int size);
 
 protected:
-        int m_connections_count;
-        struct rtp **m_network_devices; // ULTRAGRID_RTP
+        struct rtp *m_network_device; // ULTRAGRID_RTP
         std::mutex m_network_devices_lock;
         struct tx *m_tx;
         struct pdb *m_participants;

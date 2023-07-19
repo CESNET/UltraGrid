@@ -134,7 +134,7 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
-        return rtp_send_raw_rtp_data(s->video_rxtx->m_network_devices[0],
+        return rtp_send_raw_rtp_data(s->video_rxtx->m_network_device,
                         (char *) buf, count);
 }
 

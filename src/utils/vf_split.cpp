@@ -109,27 +109,6 @@ void vf_split(struct video_frame *out, struct video_frame *src,
         }
 }
 
-void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
-              unsigned int y_count)
-{
-        unsigned int i;
-
-        for(i = 0u; i < y_count; ++i) {
-                //out->aux = src->aux | AUX_TILED;
-                out->fps = src->fps;
-                out->color_spec = src->color_spec;
-                out->tiles[i].width = src->tiles[0].width;
-                out->tiles[i].height = src->tiles[0].height / y_count;
-
-                int linesize = vc_get_linesize(out->tiles[i].width,
-                                out->color_spec);
-                out->tiles[i].data_len = linesize *
-                        out->tiles[i].height;
-                out->tiles[i].data = src->tiles[0].data + i * out->tiles[i].height
-                        * linesize;
-        }
-}
-
 using namespace std;
 
 vector<shared_ptr<video_frame>> vf_separate_tiles(shared_ptr<video_frame> frame)

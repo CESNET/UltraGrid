@@ -83,15 +83,15 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                         {
                                 assert(m_rxtx_mode == MODE_SENDER); // sender only
                                 lock_guard<mutex> lock(m_network_devices_lock);
-                                auto old_devices = m_network_devices;
+                                auto *old_device = m_network_device;
                                 auto old_receiver = m_requested_receiver;
                                 m_requested_receiver = msg->receiver;
-                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                m_network_device = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
                                                 m_requested_mcast_if, m_requested_ttl);
-                                if (!m_network_devices) {
-                                        m_network_devices = old_devices;
+                                if (m_network_device == nullptr) {
+                                        m_network_device = old_device;
                                         m_requested_receiver = std::move(old_receiver);
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed receiver to %s.\n",
                                                         msg->receiver);
@@ -99,7 +99,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 } else {
                                         log_msg(LOG_LEVEL_NOTICE, "[control] Changed receiver to %s.\n",
                                                         msg->receiver);
-                                        destroy_rtp_devices(old_devices);
+                                        destroy_rtp_device(old_device);
                                 }
                         }
                         break;
@@ -107,19 +107,21 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                         {
                                 assert(m_rxtx_mode == MODE_SENDER); // sender only
                                 lock_guard<mutex> lock(m_network_devices_lock);
-                                auto old_devices = m_network_devices;
+                                auto *old_device = m_network_device;
                                 auto old_port = m_send_port_number;
 
                                 m_send_port_number = msg->tx_port;
                                 if (msg->rx_port) {
                                         m_recv_port_number = msg->rx_port;
                                 }
-                                m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if, m_requested_ttl);
+                                m_network_device = initialize_network(
+                                    m_requested_receiver.c_str(),
+                                    m_recv_port_number, m_send_port_number,
+                                    m_participants, m_force_ip_version,
+                                    m_requested_mcast_if, m_requested_ttl);
 
-                                if (!m_network_devices) {
-                                        m_network_devices = old_devices;
+                                if (m_network_device == nullptr) {
+                                        m_network_device = old_device;
                                         m_send_port_number = old_port;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to Change TX port to %d.\n",
                                                         msg->tx_port);
@@ -127,7 +129,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 } else {
                                         log_msg(LOG_LEVEL_NOTICE, "[control] Changed TX port to %d.\n",
                                                         msg->tx_port);
-                                        destroy_rtp_devices(old_devices);
+                                        destroy_rtp_device(old_device);
                                 }
                         }
                         break;
@@ -167,20 +169,20 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 case SENDER_MSG_RESET_SSRC:
                         {
                                 lock_guard<mutex> lock(m_network_devices_lock);
-                                uint32_t old_ssrc = rtp_my_ssrc(m_network_devices[0]);
-                                auto old_devices = m_network_devices;
-                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                const uint32_t old_ssrc = rtp_my_ssrc(m_network_device);
+                                auto *old_device = m_network_device;
+                                m_network_device = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
                                                 m_requested_mcast_if, m_requested_ttl);
-                                if (!m_network_devices) {
-                                        m_network_devices = old_devices;
+                                if (m_network_device == nullptr) {
+                                        m_network_device = old_device;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Unable to change SSRC!\n");
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                 } else {
-                                        destroy_rtp_devices(old_devices);
+                                        destroy_rtp_device(old_device);
                                         log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08" PRIx32 " to "
-                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(m_network_devices[0]));
+                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(m_network_device));
                                 }
                         }
                         break;
@@ -204,16 +206,13 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         m_requested_mcast_if = params.at("mcast_if").str;
         m_requested_ttl = params.find("ttl") != params.end() ? params.at("ttl").i : -1;
 
-        if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
-                                        m_participants, m_force_ip_version, m_requested_mcast_if, m_requested_ttl))
-                        == NULL) {
-                throw ug_runtime_error("Unable to open network", EXIT_FAIL_NETWORK);
-        } else {
-                struct rtp **item;
-                m_connections_count = 0;
-                /* only count how many connections has initialize_network opened */
-                for(item = m_network_devices; *item != NULL; ++item)
-                        ++m_connections_count;
+        m_network_device = initialize_network(
+            m_requested_receiver.c_str(), m_recv_port_number,
+            m_send_port_number, m_participants, m_force_ip_version,
+            m_requested_mcast_if, m_requested_ttl);
+        if (m_network_device == nullptr) {
+                throw ug_runtime_error("Unable to open network",
+                                       EXIT_FAIL_NETWORK);
         }
 
         if ((m_tx = tx_init(&m_sender_mod,
@@ -236,7 +235,7 @@ rtp_video_rxtx::~rtp_video_rxtx()
         }
 
         m_network_devices_lock.lock();
-        destroy_rtp_devices(m_network_devices);
+        destroy_rtp_device(m_network_device);
         m_network_devices_lock.unlock();
 
         if (m_participants != NULL) {
@@ -272,100 +271,46 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 
 }
 
-struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, int force_ip_version,
+struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,
+                int send_port, struct pdb *participants, int force_ip_version,
                 const char *mcast_if, int ttl)
 {
-        struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
-        char *saveptr = NULL;
-        char *addr;
-        char *tmp;
-        int required_connections, index;
-        int recv_port = recv_port_base;
-        int send_port = send_port_base;
-
-        tmp = strdup(addrs);
-        if(strtok_r(tmp, ",", &saveptr) == NULL) {
-                free(tmp);
-                return NULL;
-        }
-        else required_connections = 1;
-        while(strtok_r(NULL, ",", &saveptr) != NULL)
-                ++required_connections;
-
-        free(tmp);
-        tmp = strdup(addrs);
-
-        devices = (struct rtp **)
-                malloc((required_connections + 1) * sizeof(struct rtp *));
-        assert(devices != nullptr);
-
-        for(index = 0, addr = strtok_r(tmp, ",", &saveptr);
-                index < required_connections;
-                ++index, addr = strtok_r(NULL, ",", &saveptr), recv_port += 2, send_port += 2)
-        {
-                /* port + 2 is reserved for audio */
-                if (recv_port == recv_port_base + 2)
-                        recv_port += 2;
-                if (send_port == send_port_base + 2)
-                        send_port += 2;
 
 #if !defined WIN32
-                const bool multithreaded = true;
+        const bool multithreaded = true;
 #else
-                const bool multithreaded = false;
+        const bool multithreaded = false;
 #endif
 
-                devices[index] = rtp_init_if(addr, mcast_if, recv_port,
-                                send_port, ttl, rtcp_bw, FALSE,
-                                rtp_recv_callback, (uint8_t *)participants,
-                                force_ip_version, multithreaded);
-                if (devices[index] == nullptr) {
-                        int index_nest;
-                        for(index_nest = 0; index_nest < index; ++index_nest) {
-                                rtp_done(devices[index_nest]);
-                        }
-                        free(devices);
-                        free(tmp);
-                        return NULL;
-                }
-                rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
-                        TRUE);
-                rtp_set_option(devices[index], RTP_OPT_PROMISC,
-                        TRUE);
-                rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
-                        RTCP_SDES_TOOL,
-                        PACKAGE_STRING, strlen(PACKAGE_STRING));
-                if (strcmp(addr, IN6_BLACKHOLE_STR) == 0) {
-                        rtp_set_option(devices[index], RTP_OPT_SEND_BACK,
-                                        TRUE);
-                }
-
-                int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-                int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
-                if (ret != TRUE) {
-                        display_buf_increase_warning(size);
-                }
-
-                rtp_set_send_buf(devices[index], INITIAL_VIDEO_SEND_BUFFER_SIZE);
-
-                pdb_add(participants, rtp_my_ssrc(devices[index]));
+        struct rtp *device =
+            rtp_init_if(addr, mcast_if, recv_port, send_port, ttl, rtcp_bw,
+                        FALSE, rtp_recv_callback, (uint8_t *) participants,
+                        force_ip_version, multithreaded);
+        if (device == nullptr) {
+                return nullptr;
         }
-        if(devices != NULL) devices[index] = NULL;
-        free(tmp);
+        rtp_set_option(device, RTP_OPT_WEAK_VALIDATION, TRUE);
+        rtp_set_option(device, RTP_OPT_PROMISC, TRUE);
+        rtp_set_sdes(device, rtp_my_ssrc(device),
+                     RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
+        if (strcmp(addr, IN6_BLACKHOLE_STR) == 0) {
+                rtp_set_option(device, RTP_OPT_SEND_BACK, TRUE);
+        }
 
-        return devices;
+        if (!rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE)) {
+                display_buf_increase_warning(INITIAL_VIDEO_RECV_BUFFER_SIZE);
+        }
+
+        rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
+
+        pdb_add(participants, rtp_my_ssrc(device));
+
+        return device;
 }
 
-void rtp_video_rxtx::destroy_rtp_devices(struct rtp ** network_devices)
+void rtp_video_rxtx::destroy_rtp_device(struct rtp *network_device)
 {
-        struct rtp ** current = network_devices;
-        if(!network_devices)
-                return;
-        while(*current != NULL) {
-                rtp_done(*current++);
-        }
-        free(network_devices);
+        rtp_done(network_device);
 }
 

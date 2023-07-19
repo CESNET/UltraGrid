@@ -451,34 +451,6 @@ void format_audio_header(const audio_frame2 *frame, int channel, int buffer_idx,
         audio_hdr[4] = htonl(get_audio_tag(frame->get_codec()));
 }
 
-void
-tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
-{
-        int last = FALSE;
-        uint32_t ts = 0;
-        int fragment_offset = 0;
-
-        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
-        assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
-        fec_check_messages(tx);
-
-        ts = get_local_mediatime();
-        if(frame->fragment &&
-                        tx->last_frame_fragment_id == frame->frame_fragment_id) {
-                ts = tx->last_ts;
-        } else {
-                tx->last_frame_fragment_id = frame->frame_fragment_id;
-                tx->last_ts = ts;
-        }
-        if(!frame->fragment || frame->last_fragment)
-                last = TRUE;
-        if(frame->fragment)
-                fragment_offset = vf_get_tile(frame, pos)->offset;
-        tx_send_base(tx, frame, rtp_session, ts, last, pos,
-                        fragment_offset);
-        tx->buffer ++;
-}
-
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps)
 {
         unsigned int fpsd, fd, fps, fi;
