@@ -50,6 +50,7 @@
 #include "utils/text.h"
 #include "video.h"
 #include "video_codec.h"
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 #define MOD_NAME "[override_prop] "
 
@@ -61,6 +62,7 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_override_prop {
         struct video_desc new_desc;
+        void *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper
 };
 
 static void usage() {
@@ -141,6 +143,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_override_prop *s = state;
 
+        if (s->vo_pp_out_buffer) {
+                memcpy(s->vo_pp_out_buffer, in->tiles[0].data,
+                       in->tiles[0].data_len);
+                return NULL;
+        }
+
         struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in));
         memcpy(out->tiles, in->tiles, in->tile_count * sizeof(struct tile));
         out->fps = s->new_desc.fps;
@@ -152,6 +160,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return out;
 }
 
+static void
+vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        struct state_override_prop *s = state;
+        s->vo_pp_out_buffer           = buffer;
+}
+
 static const struct capture_filter_info capture_filter_override_prop = {
         .init = init,
         .done = done,
@@ -159,4 +174,4 @@ static const struct capture_filter_info capture_filter_override_prop = {
 };
 
 REGISTER_MODULE(override_prop, &capture_filter_override_prop, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(override_prop, init, filter, done, vo_pp_set_out_buffer)
