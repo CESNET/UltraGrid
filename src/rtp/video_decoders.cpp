@@ -160,7 +160,7 @@ typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 struct video_desc desc, struct pixfmt_desc comp_int_desc);
-static int check_for_mode_change(struct state_video_decoder *decoder, const uint32_t *hdr);
+static void check_for_mode_change(struct state_video_decoder *decoder, const uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *fec_thread(void *args);
 static void *decompress_thread(void *args);
@@ -335,6 +335,7 @@ struct state_video_decoder
         thread decompress_thread_id,
                   fec_thread_id;
         struct video_desc received_vid_desc = {}; ///< description of the network video
+        struct pixfmt_desc received_int_desc = {}; ///< compression int desc
         struct video_desc display_desc = {};      ///< description of the mode that display is currently configured to
 
         struct video_frame *frame = NULL; ///< @todo rewrite this more reasonably
@@ -664,7 +665,7 @@ static void *decompress_thread(void *args) {
                         for (int pos = 0; pos < tile_count; ++pos) {
                                 if (data[pos].ret == DECODER_GOT_CODEC) {
                                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Detected compression properties: " << get_pixdesc_desc(data[pos].internal_prop) << "\n";
-                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true, data[pos].internal_prop));
+                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, false, data[pos].internal_prop));
                                         goto skip_frame;
                                 }
                                 if (data[pos].ret != DECODER_GOT_FRAME){
@@ -1398,26 +1399,12 @@ bool parse_video_hdr(const uint32_t *hdr, struct video_desc *desc)
         return true;
 }
 
-/**
- * @retval TRUE  if reconfiguration occured
- * @retval FALSE reconfiguration was not needed
- */
-static int reconfigure_if_needed(struct state_video_decoder *decoder,
+static void reconfigure_helper(struct state_video_decoder *decoder,
                 struct video_desc network_desc,
-                bool force = false, struct pixfmt_desc comp_int_desc = {})
+                struct pixfmt_desc comp_int_desc)
 {
-        bool desc_changed = !video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT);
-        if(!desc_changed && !force)
-                return FALSE;
-
-        if (desc_changed) {
-                LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
-                decoder->received_vid_desc = network_desc;
-        }
-
-        if(force){
-                log_msg(LOG_LEVEL_VERBOSE, "forced reconf\n");
-        }
+        decoder->received_vid_desc = network_desc;
+        decoder->received_int_desc = comp_int_desc;
 
         bool ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_desc);
         if (!ret) {
@@ -1425,23 +1412,42 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 decoder->frame = NULL;
                 decoder->out_codec = VIDEO_CODEC_NONE;
         }
-        return TRUE;
 }
+
+static void reconfigure_if_needed(struct state_video_decoder *decoder,
+                struct video_desc network_desc,
+                struct pixfmt_desc comp_int_desc)
+{
+        const bool desc_eq = video_desc_eq_excl_param(
+            decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT);
+        const bool comp_int_eq =
+            pixdesc_equals(decoder->received_int_desc, comp_int_desc);
+        if (desc_eq && comp_int_eq) {
+                return;
+        }
+        reconfigure_helper(decoder, network_desc, comp_int_desc);
+}
+
 /**
  * Checks if network format has changed.
  *
  * @param decoder decoder state
  * @param hdr     raw RTP payload header
- *
- * @return TRUE if format changed (and reconfiguration was successful), FALSE if not
  */
-static int check_for_mode_change(struct state_video_decoder *decoder,
+static void check_for_mode_change(struct state_video_decoder *decoder,
                 const uint32_t *hdr)
 {
         struct video_desc network_desc;
 
         parse_video_hdr(hdr, &network_desc);
-        return reconfigure_if_needed(decoder, network_desc);
+        if (video_desc_eq_excl_param(decoder->received_vid_desc, network_desc,
+                                      PARAM_TILE_COUNT)) {
+                return;
+        }
+        LOG(LOG_LEVEL_NOTICE)
+            << "[video dec.] New incoming video format detected: "
+            << network_desc << endl;
+        reconfigure_helper(decoder, network_desc, {});
 }
 
 #define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
@@ -1485,7 +1491,15 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
-                reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_prop);
+                if (msg_reconf->force) {
+                        reconfigure_helper(decoder, msg_reconf->desc,
+                                           msg_reconf->compress_internal_prop);
+                        log_msg(LOG_LEVEL_VERBOSE, "forced reconf\n");
+                } else {
+                        reconfigure_if_needed(
+                            decoder, msg_reconf->desc,
+                            msg_reconf->compress_internal_prop);
+                }
                 if (msg_reconf->last_frame) {
                         decoder->fec_queue.push(std::move(msg_reconf->last_frame));
                 }
