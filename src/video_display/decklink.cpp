@@ -999,6 +999,9 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         }
 
         if (!s->low_latency) {
+                // Provide this class as a delegate to a video output interface
+                s->deckLinkOutput->SetScheduledFrameCompletionCallback(
+                    &s->delegate);
                 auto *f = allocate_new_decklink_frame(s);
                 for (int i = 0; i < s->delegate.m_preroll; ++i) {
                         f->AddRef();
@@ -1421,9 +1424,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         if (!s->low_latency) {
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
-                // Provide this class as a delegate to a video output interface
-                s->deckLinkOutput->SetScheduledFrameCompletionCallback(
-                    &s->delegate);
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
 
