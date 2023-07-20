@@ -127,9 +127,6 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-#include <future>
-#endif
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -381,10 +378,6 @@ struct state_video_decoder
         const struct openssl_decrypt_info *dec_funcs = NULL; ///< decrypt state
         struct openssl_decrypt      *decrypt = NULL; ///< decrypt state
 
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-        std::future<bool> reconfiguration_future;
-        bool             reconfiguration_in_progress = false;
-#endif
         struct reported_statistics_cumul stats = {}; ///< stats to be reported through control socket
 };
 
@@ -1426,18 +1419,12 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 log_msg(LOG_LEVEL_VERBOSE, "forced reconf\n");
         }
 
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-        decoder->reconfiguration_in_progress = true;
-        decoder->reconfiguration_future = std::async(std::launch::async,
-                        [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
-#else
         bool ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_desc);
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                 decoder->frame = NULL;
                 decoder->out_codec = VIDEO_CODEC_NONE;
         }
-#endif
         return TRUE;
 }
 /**
@@ -1496,36 +1483,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 return FALSE;
         }
 
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-        // check if we are not in the middle of reconfiguration
-        if (decoder->reconfiguration_in_progress) {
-                std::future_status status =
-                        decoder->reconfiguration_future.wait_until(std::chrono::system_clock::now());
-                if (status == std::future_status::ready) {
-                        bool ret = decoder->reconfiguration_future.get();
-                        if (ret) {
-                                decoder->frame = display_get_frame(decoder->display);
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, "Decoder reconfiguration failed!!!\n");
-                                decoder->frame = NULL;
-                        }
-                        decoder->reconfiguration_in_progress = false;
-                } else {
-                        // skip the frame if we are not yet reconfigured
-                        vf_free(frame);
-                        return FALSE;
-                }
-        }
-#endif
-
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
-                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_prop)) {
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-                        vf_free(frame);
-                        return FALSE;
-#endif
-                }
+                reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_prop);
                 if (msg_reconf->last_frame) {
                         decoder->fec_queue.push(std::move(msg_reconf->last_frame));
                 }
@@ -1649,12 +1609,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         /* Critical section
                          * each thread *MUST* wait here if this condition is true
                          */
-                        if (check_for_mode_change(decoder, hdr)) {
-#ifdef RECONFIGURE_IN_FUTURE_THREAD
-                                vf_free(frame);
-                                return FALSE;
-#endif
-                        }
+                        check_for_mode_change(decoder, hdr);
 
                         // hereafter, display framebuffer can be used, so we
                         // check if we got it
