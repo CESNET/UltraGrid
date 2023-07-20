@@ -220,7 +220,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 void PlaybackDelegate::PrintStats()
 {
         auto now = chrono::high_resolution_clock::now();
-        if (chrono::duration_cast<chrono::seconds>(now - t0).count() > 5) {
+        if (chrono::duration_cast<chrono::seconds>(now - t0).count() >= 5) {
                 LOG(LOG_LEVEL_VERBOSE)
                     << MOD_NAME << frames_late << " frames late, "
                     << frames_dropped << " dropped, " << frames_flushed
