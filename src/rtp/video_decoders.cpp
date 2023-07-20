@@ -1226,12 +1226,11 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il,
                         decoder->disp_supported_il_cnt, &display_il);
         decoder->change_il_state.resize(decoder->max_substreams);
+        display_desc.interlacing = display_il;
+        display_desc.color_spec  = out_codec;
         if (out_codec != VIDEO_CODEC_END && !video_desc_eq(decoder->display_desc, display_desc)) {
-                display_desc.interlacing = display_il;
-                display_desc.color_spec = out_codec;
-                int ret;
                 /* reconfigure VO and give it opportunity to pass us pitch */
-                ret = display_reconfigure(decoder->display, display_desc, decoder->video_mode);
+                bool ret = display_reconfigure(decoder->display, display_desc, decoder->video_mode);
                 if(!ret) {
                         return false;
                 }
@@ -1432,7 +1431,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
         decoder->reconfiguration_future = std::async(std::launch::async,
                         [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 #else
-        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_desc);
+        bool ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_desc);
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                 decoder->frame = NULL;
