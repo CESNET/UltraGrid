@@ -125,8 +125,6 @@ class DeckLinkFrame;
 struct audio_vals {
         int64_t saved_sync_ts   = INT64_MIN;
         int64_t last_sync_ts    = INT64_MIN;
-        int64_t last_sched_time = -1;
-        int64_t avg_diff        = 0;
 };
 
 enum audio_sync_val : int64_t {
@@ -1601,25 +1599,6 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
             ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
             bmdAudioSampleRate48kHz / 90000;
 
-        // normalize audio start if the input is not properly timestamped
-        // (everything except vidcap testcard and decklink).
-        const int64_t diff     = m_adata.last_sched_time != -1
-                                     ? llabs(streamTime - m_adata.last_sched_time)
-                                     : 0;
-        const int64_t avg_diff = (m_adata.avg_diff * 39 + diff) / 40;
-        if (avg_diff >= 50 && m_adata.last_sched_time >= 0) {
-                log_msg_once(LOG_LEVEL_WARNING, 0x61c30d43,
-                             "Stream discontinuity, auto-"
-                             "adjusting audio time. If this is "
-                             "an unsynchronized stream, do not "
-                             "use synchronized output.\n");
-                streamTime = m_adata.last_sched_time;
-        }
-        if (diff < 2000) { // do not store Martians
-                m_adata.avg_diff = avg_diff;
-        }
-
-        m_adata.last_sched_time = streamTime + *samples;
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "streamTime: " << streamTime
                              << "; timestamp: " << frame->timestamp
                              << "; sync TS: " << m_audio_sync_ts << "\n";
