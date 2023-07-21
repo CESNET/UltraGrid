@@ -73,6 +73,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/math.h"
 #include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
@@ -1281,12 +1282,18 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 
                 }
-                if (s->audio.ch_count != 1 &&
-                                s->audio.ch_count != 2 &&
-                                s->audio.ch_count != 8 &&
-                                s->audio.ch_count != 16) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decklink cannot grab %d audio channels. "
-                                        "Only 1, 2, 8 or 16 are possible.", s->audio.ch_count);
+                if (s->audio.ch_count == 4 ||
+                    s->audio.ch_count > BMD_MAX_AUD_CH ||
+                    !is_power_of_two(s->audio.ch_count)) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME
+                                "Decklink cannot grab %d audio channels. "
+#if BMD_MAX_AUD_CH == 16
+                                "Only 1, 2, 8 or 16 is possible.\n",
+#else
+                                "Only 1, 2, 8, 16, 32 or 64 is possible.\n",
+#endif
+                                s->audio.ch_count);
                         INIT_ERR();
                 }
                 if (s->audio_consumer_levels != -1) {

@@ -35,6 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <limits.h>
+
 #include "math.h"
 
 long long gcd(long long a, long long b)
@@ -61,4 +63,24 @@ long long gcd(long long a, long long b)
 
 long long lcm(long long a, long long b) {
         return a * b / gcd(a, b);
+}
+
+bool
+is_power_of_two(unsigned long long x)
+{
+        return x != 0 && (x & (x - 1)) == 0;
+}
+
+/**
+ * @returns nearest power of two greater or equal than given number x
+ * @retval  0 on overflow (next power of two is ULLONG_MAX + 1)
+ */
+unsigned long long
+next_power_of_two(unsigned long long x)
+{
+        if (x <= 1) {
+                return 1;
+        }
+        const unsigned long long pos = __builtin_clzll(x - 1);
+        return pos > 0 ? 1 << (sizeof(unsigned long long) * CHAR_BIT - pos) : 0;
 }

@@ -38,12 +38,16 @@
 #ifndef UTILS_MATH_H_7D3DA851_76A8_4022_B14B_8CCEFEF580B4
 #define UTILS_MATH_H_7D3DA851_76A8_4022_B14B_8CCEFEF580B4
 
-#ifdef __cplusplus
+#ifndef __cplusplus
+#include <stdbool.h>
+#else
 extern "C" {
 #endif
 
 long long gcd(long long a, long long b);
 long long lcm(long long a, long long b);
+bool               is_power_of_two(unsigned long long x);
+unsigned long long next_power_of_two(unsigned long long x);
 
 #ifdef __cplusplus
 }

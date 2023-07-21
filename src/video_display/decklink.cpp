@@ -63,6 +63,7 @@
 #include "rtp/audio_decoders.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
+#include "utils/math.h"
 #include "utils/misc.h"
 #include "utils/string.h" // is_prefix_of
 #include "video.h"
@@ -1562,10 +1563,13 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
                                 desc->sample_rate = 48000;
                                 if (desc->ch_count <= 2) {
                                         desc->ch_count = 2;
-                                } else if (desc->ch_count > 2 && desc->ch_count <= 8) {
+                                } else if (desc->ch_count <= 8) {
                                         desc->ch_count = 8;
+                                } else if (desc->ch_count >= BMD_MAX_AUD_CH) {
+                                        desc->ch_count = BMD_MAX_AUD_CH;
                                 } else {
-                                        desc->ch_count = 16;
+                                        desc->ch_count =
+                                            next_power_of_two(desc->ch_count);
                                 }
                                 desc->codec = AC_PCM;
                                 desc->bps = desc->bps < 3 ? 2 : 4;
@@ -1658,23 +1662,11 @@ static bool display_decklink_reconfigure_audio(void *state, int quant_samples, i
         struct state_decklink *s = (struct state_decklink *)state;
 
         assert(s->play_audio);
-
-        if (channels != 2 && channels != 8 &&
-                        channels != 16) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "requested channel count isn't supported: "
-                        "%d\n", channels);
-                return false;
-        }
+        assert(channels >= 2 && channels != 4 && channels <= 64 &&
+               is_power_of_two(channels));
+        assert(quant_samples == 16 || quant_samples == 32);
         
-        if((quant_samples != 16 && quant_samples != 32) ||
-                        sample_rate != 48000) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "audio format isn't supported: "
-                        "samples: %d, sample rate: %d\n",
-                        quant_samples, sample_rate);
-                return false;
-        }
         const int bps = quant_samples / 8;
-
         if (bps != s->aud_desc.bps || sample_rate != s->aud_desc.sample_rate ||
             channels != s->aud_desc.ch_count) {
                 const unique_lock<mutex> lk(s->audio_reconf_lock);

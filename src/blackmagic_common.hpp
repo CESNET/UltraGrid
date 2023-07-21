@@ -78,6 +78,12 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0c000000
+#define BMD_MAX_AUD_CH 64
+#else
+#define BMD_MAX_AUD_CH 16
+#endif
+
 struct bmd_option {
 private:
         enum class type_tag : int { t_default, t_keep, t_flag, t_int, t_float, t_string } m_type = type_tag::t_default;
