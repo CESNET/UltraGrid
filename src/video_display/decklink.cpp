@@ -87,8 +87,10 @@
 #endif
 
 enum {
-        DEFAULT_SCHED_PREROLL_FRMS = 3,
-        DEFAULT_MAX_SCHED_FRAMES = 2,
+        SCHED_RANGE              = 2,
+        DEFAULT_MIN_SCHED_FRAMES = 3,
+        DEFAULT_MAX_SCHED_FRAMES = DEFAULT_MIN_SCHED_FRAMES + SCHED_RANGE,
+        MAX_UNPROC_QUEUE_SIZE    = 10,
 };
 
 #define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) { (x)->Release(); (x) = nullptr; }
@@ -150,7 +152,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         struct audio_vals m_adata;
 
       public:
-        int m_preroll = DEFAULT_SCHED_PREROLL_FRMS;
+        unsigned m_min_sched_frames = DEFAULT_MIN_SCHED_FRAMES;
         unsigned m_max_sched_frames = DEFAULT_MAX_SCHED_FRAMES;
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
@@ -390,40 +392,63 @@ void PlaybackDelegate::Reset()
 bool PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
 {
         const unique_lock<mutex> lk(schedLock);
-        if (schedFrames.size() < m_max_sched_frames) {
+        const unsigned buffered = schedFrames.size();
+        if (buffered < MAX_UNPROC_QUEUE_SIZE) {
                 schedFrames.push(deckLinkFrame);
                 return true;
         }
 
         deckLinkFrame->Release();
-        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
+        LOG(LOG_LEVEL_ERROR)
+            << MOD_NAME "Queue overflow,  buffered: " << buffered
+            << ". This should not happen!\n";
         m_audio_sync_ts = audio_sync_val::resync;
         return false;
 }
 
 void PlaybackDelegate::ScheduleNextFrame()
 {
+        uint32_t i = 0;
+        m_deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << __func__ << " - " << i << " frames buffered\n";
+
         const unique_lock<mutex> lk(schedLock);
-        DeckLinkFrame *f = lastSchedFrame;
         if (schedFrames.empty()) {
+                if (i >= m_min_sched_frames) {
+                        return;
+                }
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
                 m_audio_sync_ts = audio_sync_val::resync;
-        } else {
-                RELEASE_IF_NOT_NULL(lastSchedFrame);
-                f = lastSchedFrame = schedFrames.front();
+                m_deckLinkOutput->ScheduleVideoFrame(
+                    lastSchedFrame, schedSeq * frameRateDuration,
+                    frameRateDuration, frameRateScale);
+                schedSeq += 1;
+                return;
+        }
+        while (!schedFrames.empty()) {
+                DeckLinkFrame *f = lastSchedFrame = schedFrames.front();
                 schedFrames.pop();
+                if (++i > m_max_sched_frames) {
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME "Dismissed frame, buffered: " << i - 1
+                            << "\n";
+                        f->Release();
+                        continue;
+                }
+                RELEASE_IF_NOT_NULL(lastSchedFrame);
+                lastSchedFrame = f;
                 lastSchedFrame->AddRef();
                 if (m_audio_sync_ts <= audio_sync_val::resync &&
                     f->timestamp != INT64_MIN) {
                         m_audio_sync_ts =
-                            (uint32_t) (f->timestamp - frameRateDuration *
-                                                           schedSeq * 90000 /
-                                                           frameRateScale);
+                            (uint32_t) (f->timestamp - frameRateDuration * schedSeq *
+                                                           90000 / frameRateScale);
                 }
+                m_deckLinkOutput->ScheduleVideoFrame(
+                    f, schedSeq * frameRateDuration, frameRateDuration,
+                    frameRateScale);
+                schedSeq += 1;
         }
-        m_deckLinkOutput->ScheduleVideoFrame(f, schedSeq * frameRateDuration,
-                                           frameRateDuration, frameRateScale);
-        schedSeq += 1;
 }
 } // end of unnamed namespace
 
@@ -506,12 +531,12 @@ static void show_help(bool full)
                 col() << SBOLD("\tsingle-link/dual-link/quad-link") << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
                 col() << SBOLD("\ttimecode") << "\temit timecode\n";
                 col() << SBOLD("\t[no-]quad-square") << " set Quad-link SDI is output in Square Division Quad Split mode\n";
-                col() << SBOLD("\tsynchronized[=p[,b]]")
+                col() << SBOLD("\tsynchronized[=m[,M]]")
                       << " use regular scheduled mode for synchrized output"
-                         "\n\t\t(p - num of preroll "
-                         "video frames /default "
-                      << DEFAULT_SCHED_PREROLL_FRMS
-                      << "/, b - buffer size /default\n\t\t"
+                         "\n\t\t(m -  minimum "
+                         "scheduled frames /default "
+                      << DEFAULT_MIN_SCHED_FRAMES
+                      << "/, M - max sched\n\t\tframes /default "
                       << DEFAULT_MAX_SCHED_FRAMES << "/), shortcut sync\n";
                 col() << SBOLD("\tconversion") << "\toutput size conversion, can be:\n" <<
                                 SBOLD("\t\tnone") << " - no conversion\n" <<
@@ -723,10 +748,6 @@ static bool display_decklink_putf(void *state, struct video_frame *frame,
                 return true;
 
         assert(s->magic == DECKLINK_MAGIC);
-
-        uint32_t i;
-        s->deckLinkOutput->GetBufferedVideoFrameCount(&i); // writes always 0 in low-latency mode
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
 
         if (frame->color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 for (unsigned i = 0; i < frame->tile_count; ++i) {
@@ -1008,7 +1029,10 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 s->deckLinkOutput->SetScheduledFrameCompletionCallback(
                     &s->delegate);
                 auto *f = allocate_new_decklink_frame(s);
-                for (int i = 0; i < s->delegate.m_preroll; ++i) {
+                for (unsigned i = 0; i < (s->delegate.m_min_sched_frames +
+                                          s->delegate.m_min_sched_frames) /
+                                             2;
+                     ++i) {
                         f->AddRef();
                         const bool ret = s->delegate.EnqueueFrame(f);
                         assert(ret);
@@ -1173,7 +1197,10 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         ptr = strchr(ptr, '=');
                         if (ptr != nullptr) {
                                 ptr += 1;
-                                s->delegate.m_preroll = stoi(ptr);
+                                s->delegate.m_max_sched_frames =
+                                    SCHED_RANGE +
+                                    (s->delegate.m_min_sched_frames =
+                                         stoi(ptr));
                                 if (strchr(ptr, ',') != nullptr) {
                                         s->delegate.m_max_sched_frames =
                                             stoi(strchr(ptr, ',') + 1);
