@@ -508,11 +508,12 @@ static void show_help(bool full)
                 col() << SBOLD("\ttimecode") << "\temit timecode\n";
                 col() << SBOLD("\t[no-]quad-square") << " set Quad-link SDI is output in Square Division Quad Split mode\n";
                 col() << SBOLD("\tsynchronized[=p[,b]]")
-                      << " use regular scheduled mode (p - num of preroll "
+                      << " use regular scheduled mode for synchrized output"
+                         "\n\t\t(p - num of preroll "
                          "video frames /default "
                       << DEFAULT_SCHED_PREROLL_FRMS
-                      << "/, b - buffer size /default "
-                      << DEFAULT_MAX_SCHED_FRAMES << "/)\n";
+                      << "/, b - buffer size /default\n\t\t"
+                      << DEFAULT_MAX_SCHED_FRAMES << "/), shortcut sync\n";
                 col() << SBOLD("\tconversion") << "\toutput size conversion, can be:\n" <<
                                 SBOLD("\t\tnone") << " - no conversion\n" <<
                                 SBOLD("\t\tltbx") << " - down-converted letterbox SD\n" <<
@@ -1168,7 +1169,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                             << "Deprecated, do not use - "
                                "see option \"synchroninzed\" instead.\n";
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
-                } else if (strstr(ptr, "synchronized") == ptr) {
+                } else if (strstr(ptr, "sync") == ptr) {
                         s->low_latency = false;
                         ptr = strchr(ptr, '=');
                         if (ptr != nullptr) {
