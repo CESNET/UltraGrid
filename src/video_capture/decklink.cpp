@@ -1302,12 +1302,13 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
                         }
                 }
-                CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
-                                        bmdAudioSampleRate48kHz,
-                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                        max(s->audio.ch_count, 2)), // capture at least 2
-                                "EnableAudioInput",
-                                "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio));
+                BMD_CHECK(deckLinkInput->EnableAudioInput(
+                              bmdAudioSampleRate48kHz,
+                              s->audio.bps == 2
+                                  ? bmdAudioSampleType16bitInteger
+                                  : bmdAudioSampleType32bitInteger,
+                              max(s->audio.ch_count, 2)), // capture at least 2
+                          "EnableAudioInput", INIT_ERR());
         }
 
         // Start streaming
