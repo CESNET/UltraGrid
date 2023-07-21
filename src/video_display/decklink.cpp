@@ -129,6 +129,11 @@ struct audio_vals {
         int64_t avg_diff        = 0;
 };
 
+enum audio_sync_val : int64_t {
+        deinit = INT64_MIN,
+        resync = INT64_MIN + 1,
+};
+
 /// Used for scheduled playback only
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
@@ -144,7 +149,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         queue<DeckLinkFrame *> schedFrames{};
         DeckLinkFrame *lastSchedFrame{};
         long schedSeq{};
-        atomic<int64_t> m_audio_sync_ts = INT64_MIN;
+        atomic<int64_t> m_audio_sync_ts = audio_sync_val::deinit;
         struct audio_vals m_adata;
 
       public:
@@ -158,6 +163,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
             m_deckLinkOutput = ido;
         }
         void Reset();
+        void ResetAudio() { m_audio_sync_ts = audio_sync_val::deinit; }
+
         virtual ~PlaybackDelegate() {
                 Reset();
         };
@@ -381,7 +388,6 @@ void PlaybackDelegate::Reset()
                 schedFrames.pop();
         }
         schedSeq = 0;
-        m_audio_sync_ts = INT64_MIN;
 }
 
 bool PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
@@ -394,7 +400,7 @@ bool PlaybackDelegate::EnqueueFrame(DeckLinkFrame *deckLinkFrame)
 
         deckLinkFrame->Release();
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dismissed frame\n";
-        m_audio_sync_ts = INT64_MIN;
+        m_audio_sync_ts = audio_sync_val::resync;
         return false;
 }
 
@@ -404,13 +410,14 @@ void PlaybackDelegate::ScheduleNextFrame()
         DeckLinkFrame *f = lastSchedFrame;
         if (schedFrames.empty()) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
-                m_audio_sync_ts = INT64_MIN;
+                m_audio_sync_ts = audio_sync_val::resync;
         } else {
                 RELEASE_IF_NOT_NULL(lastSchedFrame);
                 f = lastSchedFrame = schedFrames.front();
                 schedFrames.pop();
                 lastSchedFrame->AddRef();
-                if (m_audio_sync_ts == INT64_MIN && f->timestamp != INT64_MIN) {
+                if (m_audio_sync_ts <= audio_sync_val::resync &&
+                    f->timestamp != INT64_MIN) {
                         m_audio_sync_ts =
                             (uint32_t) (f->timestamp - frameRateDuration *
                                                            schedSeq * 90000 /
@@ -830,16 +837,16 @@ static int enable_audio(struct state_decklink *s, int bps, int channels)
 static bool
 display_decklink_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_decklink            *s = (struct state_decklink *)state;
+        auto *s = (struct state_decklink *) state;
+        assert(s->magic == DECKLINK_MAGIC);
 
         BMDDisplayMode                    displayMode;
         BMD_BOOL                          supported;
         HRESULT                           result;
 
         const unique_lock<mutex> lk(s->audio_reconf_lock);
+        s->delegate.ResetAudio(); // disables audio until full reconf
 
-        assert(s->magic == DECKLINK_MAGIC);
-        
         s->vid_desc = desc;
 
         if (s->initialized) {
@@ -1577,11 +1584,11 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
 void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
                                      uint32_t *const samples) {
         if (m_adata.saved_sync_ts == INT64_MIN &&
-            m_audio_sync_ts == INT64_MIN) {
+            m_audio_sync_ts == audio_sync_val::deinit) {
                         return;
         }
         if (m_adata.saved_sync_ts != m_audio_sync_ts &&
-            m_audio_sync_ts != INT64_MIN) {
+            m_audio_sync_ts > audio_sync_val::resync) {
                 m_adata = audio_vals{};
                 m_adata.last_sync_ts =
                     m_adata.saved_sync_ts = m_audio_sync_ts;
