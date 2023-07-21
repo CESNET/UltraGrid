@@ -316,13 +316,14 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         
 #ifdef HAVE_LIBSDL_TTF
+#define EXIT_THREAD exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL;
         TTF_Font * font = NULL;
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
         if(TTF_Init() == -1)
         {
           log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
             TTF_GetError());
-          exit(128);
+          EXIT_THREAD
         }
 
         const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
@@ -335,7 +336,7 @@ void * vidcap_testcard2_thread(void *arg)
         }
         if(!font) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to load any usable font (last font tried: %s)!\n", TTF_GetError());
-                exit(128);
+                EXIT_THREAD
         }
 
 #endif
@@ -498,7 +499,13 @@ static struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame *
 {
         struct testcard_state2 *s = (struct testcard_state2 *)arg;
 
+        if (s->should_exit) {
+                return NULL;
+        }
         platform_sem_wait(&s->semaphore);
+        if (s->should_exit) {
+                return NULL;
+        }
         assert(s->data != NULL);
 
         struct video_frame *frame = vf_alloc_desc(s->desc);
