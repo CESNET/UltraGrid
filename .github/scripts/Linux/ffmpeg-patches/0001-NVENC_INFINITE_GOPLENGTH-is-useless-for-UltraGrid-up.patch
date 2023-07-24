@@ -1,0 +1,53 @@
+From 2bd65325dc20ad1ea3111e8a8b8328224fd9ee0a Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Mon, 24 Jul 2023 16:15:29 +0200
+Subject: [PATCH] NVENC_INFINITE_GOPLENGTH is useless for UltraGrid (updated)
+
+---
+ libavcodec/avcodec.h | 3 +++
+ libavcodec/nvenc.c   | 3 ---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index fe41ecc3c9..15bc1f5cec 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -3270,4 +3270,7 @@ int avcodec_is_open(AVCodecContext *s);
+  * @}
+  */
+ 
++// UltraGrid patch
++#define PATCHED_FF_NVENC_NO_INFINITE_GOP 1
++
+ #endif /* AVCODEC_AVCODEC_H */
+diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
+index 0b6417674e..70adc26f08 100644
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -1173,7 +1173,6 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+         h264->enableIntraRefresh = 1;
+         h264->intraRefreshPeriod = cc->gopLength;
+         h264->intraRefreshCnt = cc->gopLength - 1;
+-        cc->gopLength = NVENC_INFINITE_GOPLENGTH;
+ #ifdef NVENC_HAVE_SINGLE_SLICE_INTRA_REFRESH
+         h264->singleSliceIntraRefresh = ctx->single_slice_intra_refresh;
+ #endif
+@@ -1294,7 +1293,6 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+         hevc->enableIntraRefresh = 1;
+         hevc->intraRefreshPeriod = cc->gopLength;
+         hevc->intraRefreshCnt = cc->gopLength - 1;
+-        cc->gopLength = NVENC_INFINITE_GOPLENGTH;
+ #ifdef NVENC_HAVE_SINGLE_SLICE_INTRA_REFRESH
+         hevc->singleSliceIntraRefresh = ctx->single_slice_intra_refresh;
+ #endif
+@@ -1409,7 +1407,6 @@ static av_cold int nvenc_setup_av1_config(AVCodecContext *avctx)
+         av1->enableIntraRefresh = 1;
+         av1->intraRefreshPeriod = cc->gopLength;
+         av1->intraRefreshCnt = cc->gopLength - 1;
+-        cc->gopLength = NVENC_INFINITE_GOPLENGTH;
+     }
+ 
+     av1->idrPeriod = cc->gopLength;
+-- 
+2.41.0
+
