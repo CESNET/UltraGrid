@@ -88,8 +88,9 @@ static const char * const font_candidates[] = { "cour.ttf", };
 static const char * const font_candidates[] = { "Monaco.ttf", "Geneva.ttf", "Keyboard.ttf", };
 #else
 #define DEFAULT_FONT_DIR "/usr/share/fonts"
-static const char * const font_candidates[] = {
-        "DejaVuSansMono.ttf", "truetype/freefont/FreeMonoBold.ttf", "truetype/DejaVuSansMono.ttf", // Ubuntu
+static const char *const font_candidates[] = {
+        "DejaVuSansMono.ttf", // bundled in AppImage
+        "truetype/freefont/FreeMonoBold.ttf", "truetype/dejavu/DejaVuSansMono.ttf", // Ubuntu
         "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", // Arch
         "liberation-mono/LiberationMono-Regular.ttf", // Fedora
 };
@@ -99,6 +100,7 @@ static const char * const font_candidates[] = {
 void * vidcap_testcard2_thread(void *args);
 
 struct testcard_state2 {
+
         int count;
         unsigned char *bg; ///< bars coverted to dest color_spec
         struct timeval t0;
