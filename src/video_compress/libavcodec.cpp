@@ -1539,7 +1539,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 
         set_forced_idr(codec_ctx, 1);
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(60, 22, 100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 22, 100)
         const bool new_ff = true;
 #else
         const bool new_ff = false;
