@@ -1,5 +1,7 @@
 #!/bin/sh -eux
 
+. /etc/os-release
+
 if [ "$(id -u)" -eq 0 ]; then
         alias sudo=
 fi
@@ -55,8 +57,8 @@ install_ndi() {(
 
 # TODO: needed only for U20.04, remove after upgrading to U22.04
 install_pipewire() {(
-        if [ "$(lsb_release -rs)" = 20.04 ]; then
-                sudo apt install meson
+        if [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; then
+                sudo apt install libdbus-1-dev meson
                 git clone https://github.com/PipeWire/pipewire
                 cd pipewire
                 git checkout 19bcdaebe29b95edae2b285781dab1cc841be638 # last one supporting meson 0.53.2 in U20.04
