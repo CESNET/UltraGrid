@@ -12,6 +12,14 @@ eval "$(grep 'srcdir *=' < Makefile | tr -d \  )"
 
 umask 022
 
+# soft fail - fail in CI, otherwise continue
+handle_error() {
+        echo "$1" >&2
+        if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+                exit 2
+        fi
+}
+
 mkdir tmpinstall $APPDIR
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPPREFIX
@@ -44,6 +52,10 @@ if [ -n "$QT_DIR" ]; then
 fi
 
 add_fonts() { # for GUI+testcard2
+        if ! command -v fc-match >/dev/null; then
+                handle_error "fc-match not found, not copying fonts!"
+                return
+        fi
         # add DejaVu font
         mkdir $APPPREFIX/share/fonts
         for family in "DejaVu Sans" "DejaVu Sans Mono"; do
@@ -85,6 +97,9 @@ elif command -v curl >/dev/null; then
         dl() {
                 curl --fail -sSL ${GITHUB_TOKEN+-H "Authorization: token $GITHUB_TOKEN"} "$1"
         }
+else
+        echo "Neither wget nor curl was found - if one needed later, it will " \
+                "fail!" >&2
 fi
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
