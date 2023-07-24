@@ -171,8 +171,7 @@ static bool parse_fmt(struct testcard_state2 *s, char *fmt) {
                 log_msg(LOG_LEVEL_ERROR, "Missing FPS for testcard\n");
                 return false;
         }
-        s->desc.fps = strtod(tmp, NULL);
-        if (errno == ERANGE) {
+        if (!parse_fps(tmp, &s->desc)) {
                 log_msg(LOG_LEVEL_ERROR, "Wrong FPS for testcard\n");
                 return false;
         }
