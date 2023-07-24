@@ -237,8 +237,9 @@ video_desc::operator string() const
 
 const char *video_desc_to_string(struct video_desc d)
 {
-        thread_local string s = d;
-        return s.c_str();
+        thread_local string desc_str;
+        desc_str = d;
+        return desc_str.c_str();
 }
 
 /**
