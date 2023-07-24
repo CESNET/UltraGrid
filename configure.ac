@@ -1846,6 +1846,7 @@ sc_details=
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
+[  --enable-screen=[x11,pipewire]  [Linux only] choose implementation (can be both)]
 [                          Requires: none (OSX) x11 or pipewire (Linux) dshow (Win)],
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
