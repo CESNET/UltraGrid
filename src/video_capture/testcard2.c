@@ -142,6 +142,50 @@ static int configure_audio(struct testcard_state2 *s)
         return 0;
 }
 
+static bool parse_fmt(struct testcard_state2 *s, char *fmt) {
+        char *save_ptr = 0;
+        char *tmp      = strtok_r(fmt, ":", &save_ptr);
+        if (!tmp) {
+                log_msg(LOG_LEVEL_ERROR, "Missing width for testcard\n");
+                return false;
+        }
+        errno = 0;
+        s->desc.width = strtol(tmp, NULL, 10);
+        if (s->desc.width == 0 || s->desc.width % 2 != 0 || errno != 0) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Width must be a positive multiple of 2.\n");
+                return false;
+        }
+        tmp = strtok_r(NULL, ":", &save_ptr);
+        if (tmp == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "Missing height for testcard\n");
+                return false;
+        }
+        s->desc.height = strtol(tmp, NULL, 10);
+        if (s->desc.height == 0 || errno != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Wrong height: %s.\n", tmp);
+                return false;
+        }
+        tmp = strtok_r(NULL, ":", &save_ptr);
+        if (tmp == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "Missing FPS for testcard\n");
+                return false;
+        }
+        s->desc.fps = strtod(tmp, NULL);
+        if (errno == ERANGE) {
+                log_msg(LOG_LEVEL_ERROR, "Wrong FPS for testcard\n");
+                return false;
+        }
+
+        tmp = strtok_r(NULL, ":", &save_ptr);
+        if (tmp == NULL || get_codec_from_name(tmp) == VIDEO_CODEC_NONE) {
+                log_msg(LOG_LEVEL_ERROR, "Missing/wrong codec for testcard\n");
+                return false;
+        }
+        s->desc.color_spec = get_codec_from_name(tmp);
+        return true;
+}
+
 static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
@@ -162,42 +206,11 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         s->desc.interlacing = PROGRESSIVE;
 
         char *fmt = strdup(strlen(vidcap_params_get_fmt(params)) != 0 ? vidcap_params_get_fmt(params) : DEFAULT_FORMAT);
-        int ret = VIDCAP_INIT_FAIL;
-        do {
-                char *save_ptr = 0;
-                char *tmp = strtok_r(fmt, ":", &save_ptr);
-                if (!tmp) {
-                        log_msg(LOG_LEVEL_ERROR, "Missing width for testcard\n");
-                        break;
-                }
-                s->desc.width = atoi(tmp);
-                if(s->desc.width % 2 != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Width must be multiple of 2.\n");
-                        break;
-                }
-                if (!(tmp = strtok_r(NULL, ":", &save_ptr))) {
-                        log_msg(LOG_LEVEL_ERROR, "Missing height for testcard\n");
-                        break;
-                }
-                s->desc.height = atoi(tmp);
-                if (!(tmp = strtok_r(NULL, ":", &save_ptr))) {
-                        log_msg(LOG_LEVEL_ERROR, "Missing FPS for testcard\n");
-                        break;
-                }
-                s->desc.fps = atof(tmp);
-
-                if (!(tmp = strtok_r(NULL, ":", &save_ptr)) || get_codec_from_name(tmp) == VIDEO_CODEC_NONE) {
-                        log_msg(LOG_LEVEL_ERROR, "Missing/wrong codec for testcard\n");
-                        break;
-                }
-                s->desc.color_spec = get_codec_from_name(tmp);
-
-                ret = VIDCAP_INIT_OK;
-        } while(0);
+        bool ret = parse_fmt(s, fmt);
         free(fmt);
-        if (ret != VIDCAP_INIT_OK) {
+        if (!ret) {
                 free(s);
-                return ret;
+                return VIDCAP_INIT_FAIL;
         }
 
         {
@@ -316,7 +329,7 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         
 #ifdef HAVE_LIBSDL_TTF
-#define EXIT_THREAD exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL;
+#define EXIT_THREAD { exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
         TTF_Font * font = NULL;
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
         if(TTF_Init() == -1)
