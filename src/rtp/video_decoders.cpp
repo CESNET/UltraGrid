@@ -1480,7 +1480,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
         int buffer_number = 0;
-        int pt = 0;
         bool buffer_swapped = false;
 
         // We have no framebuffer assigned, exitting
@@ -1508,7 +1507,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         frame->ssrc = cdata->data->ssrc;
         frame->timestamp = cdata->data->ts;
-        if (PT_VIDEO_HAS_FEC(cdata->data->pt)) {
+        int pt = cdata->data->pt;
+        if (PT_VIDEO_HAS_FEC(pt)) {
                 const uint32_t *hdr = (uint32_t *)(void *)cdata->data->data;
                 const uint32_t tmp = ntohl(hdr[3]);
                 const int k = tmp >> 19;
