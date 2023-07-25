@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <array>
 #include <string>
+#include <memory>
 
 #ifndef _WIN32
 #include <sys/types.h>
@@ -56,13 +57,12 @@ struct Ipc_frame_reader{
 };
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path){
-        auto reader = new Ipc_frame_reader();
+        auto reader = std::make_unique<Ipc_frame_reader>();
         reader->path = path;
         reader->data_fd = INVALID_SOCKET;
 
         reader->listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if(reader->listen_fd == INVALID_SOCKET){
-                delete reader;
                 return nullptr;
         }
 
@@ -77,18 +77,16 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         ret = bind(reader->listen_fd, (const sockaddr *) &addr, sizeof(addr.sun_path));
         if(ret == -1){
                 CLOSESOCKET(reader->listen_fd);
-                delete reader;
                 return nullptr;
         }
 
         ret = listen(reader->listen_fd, 5);
         if(ret == -1){
                 CLOSESOCKET(reader->listen_fd);
-                delete reader;
                 return nullptr;
         }
 
-        return reader;
+        return reader.release();
 }
 
 void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
@@ -191,7 +189,7 @@ struct Ipc_frame_writer{
 };
 
 Ipc_frame_writer *ipc_frame_writer_new(const char *path){
-        auto writer = new Ipc_frame_writer;
+        auto writer = std::make_unique<Ipc_frame_writer>();
         writer->data_fd = INVALID_SOCKET;
 
         sockaddr_un addr;
@@ -202,18 +200,16 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
 
         writer->data_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if(writer->data_fd == INVALID_SOCKET){
-                delete writer;
                 return nullptr;
         }
 
         int ret = connect(writer->data_fd, (const struct sockaddr *) &addr, sizeof(addr));
         if(ret == -1){
                 CLOSESOCKET(writer->data_fd);
-                delete writer;
                 return nullptr;
         }
 
-        return writer;
+        return writer.release();
 }
 
 void ipc_frame_writer_free(struct Ipc_frame_writer *writer){
