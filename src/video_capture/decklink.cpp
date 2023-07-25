@@ -207,7 +207,7 @@ private:
 
 public:
         int	                      newFrameReady{}; // -1 == timeout
-        BMDTimeValue                  frameTime;
+        BMDTimeValue                  frameTime{};
         IDeckLinkVideoFrame          *rightEyeFrame{};
         void                         *pixelFrame{};
         void                         *pixelFrameRight{};

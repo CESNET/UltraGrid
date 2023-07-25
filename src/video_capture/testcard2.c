@@ -330,7 +330,7 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         
 #ifdef HAVE_LIBSDL_TTF
-#define EXIT_THREAD { exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
+#define EXIT_THREAD { free(banner); exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
         TTF_Font * font = NULL;
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
         if(TTF_Init() == -1)

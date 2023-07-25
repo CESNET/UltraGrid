@@ -143,7 +143,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
-        IDeckLinkOutput *m_deckLinkOutput;
+        IDeckLinkOutput *m_deckLinkOutput{};
         mutex schedLock;
         queue<DeckLinkFrame *> schedFrames{};
         DeckLinkFrame *lastSchedFrame{};
@@ -1267,9 +1267,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         break;
                 }
 
-                if (deckLink != NULL) {
-                        deckLink->Release();
-                }
+                deckLink->Release();
                 dnum++;
         }
         deckLinkIterator->Release();

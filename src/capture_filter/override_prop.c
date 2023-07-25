@@ -174,4 +174,5 @@ static const struct capture_filter_info capture_filter_override_prop = {
 };
 
 REGISTER_MODULE(override_prop, &capture_filter_override_prop, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// coverity[leaked_storage:SUPPRESS]
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(override_prop, init, filter, done, vo_pp_set_out_buffer)

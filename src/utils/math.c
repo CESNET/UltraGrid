@@ -81,6 +81,7 @@ next_power_of_two(unsigned long long x)
         if (x <= 1) {
                 return 1;
         }
-        const unsigned long long pos = __builtin_clzll(x - 1);
-        return pos > 0 ? 1 << (sizeof(unsigned long long) * CHAR_BIT - pos) : 0;
+        const int pos = __builtin_clzll(x - 1);
+        return pos > 0 ? 1ULL << (sizeof(unsigned long long) * CHAR_BIT - pos)
+                       : 0;
 }
