@@ -1641,7 +1641,8 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         } else {
                 s->delegate.ScheduleAudio(frame, &sampleFramesWritten);
         }
-        if (sampleFramesWritten != sampleFrameCount) {
+        const bool overflow = sampleFramesWritten != sampleFrameCount;
+        if (overflow || log_level >= LOG_LEVEL_DEBUG) {
                 ostringstream details_oss;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         details_oss
@@ -1649,8 +1650,10 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                             << sampleFrameCount - sampleFramesWritten
                             << " dropped, " << buffered << " buffer size)";
                 }
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow!"
-                                       << details_oss.str() << "\n";
+                int level = overflow ? LOG_LEVEL_WARNING : LOG_LEVEL_DEBUG;
+                LOG(level) << MOD_NAME << "audio buffer"
+                           << (overflow ? " overflow!" : "")
+                           << details_oss.str() << "\n";
         }
         s->audio_drift_fixer.update(buffered, sampleFrameCount, sampleFramesWritten);
 }
