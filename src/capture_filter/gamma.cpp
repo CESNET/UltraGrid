@@ -240,6 +240,7 @@ static const struct capture_filter_info capture_filter_gamma = {
 };
 
 REGISTER_MODULE(gamma, &capture_filter_gamma, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// coverity[leaked_storage:SUPPRESS]
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(gamma, init, filter, done, vo_pp_set_out_buffer)
 
 /* vim: set expandtab sw=8: */

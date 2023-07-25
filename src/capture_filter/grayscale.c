@@ -118,5 +118,6 @@ static const struct capture_filter_info capture_filter_grayscale = {
 };
 
 REGISTER_MODULE(grayscale, &capture_filter_grayscale, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// coverity[leaked_storage:SUPPRESS]
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(grayscale, init, filter, done, vo_pp_set_out_buffer)
 

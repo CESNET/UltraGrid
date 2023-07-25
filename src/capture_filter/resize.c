@@ -255,6 +255,7 @@ static struct capture_filter_info capture_filter_resize = {
 };
 
 REGISTER_MODULE(resize, &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// coverity[leaked_storage:SUPPRESS]
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(resize, init, filter, done, vo_pp_set_out_buffer)
 
 /* vim: set expandtab sw=4: */

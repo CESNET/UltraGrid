@@ -136,5 +136,6 @@ static const struct capture_filter_info capture_filter_mirror = {
 };
 
 REGISTER_MODULE(mirror, &capture_filter_mirror, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// coverity[leaked_storage:SUPPRESS]
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(mirror, init, filter, done, vo_pp_set_out_buffer)
 
