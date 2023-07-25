@@ -4,7 +4,7 @@
  * @author Andrew Walker    <andrew.walker@sohonet.com>
  */
 /*
- * Copyright (c) 2021-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,9 +39,16 @@
 #ifndef SRC_VIDEO_DISPLAY_DECKLINK_DRIFT_FIX_HPP_69DBC8A9_974D_46C5_833D_5A77CF35E034
 #define SRC_VIDEO_DISPLAY_DECKLINK_DRIFT_FIX_HPP_69DBC8A9_974D_46C5_833D_5A77CF35E034
 
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <string>
 
+#include "debug.h"
 #include "host.h"
+#include "messaging.h"
+#include "rtp/audio_decoders.h"
 #include "utils/color_out.h"
 
 #define MAX_RESAMPLE_DELTA_DEFAULT 30
@@ -433,14 +440,18 @@ public:
 
                 LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " UPDATE playing speed " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.avg() << " average_velocity " << resample_hz << " resample_hz\n";
 
-   
-                if (dst_frame_rate != 0) {
+                if (dst_frame_rate != 0 &&
+                    dst_frame_rate != dst_frame_rate_set) {
                         auto *m = new msg_universal((std::string(MSG_UNIVERSAL_TAG_AUDIO_DECODER) + std::to_string(dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE)).c_str());
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Sending resample request " << dst_frame_rate << "/" << BASE << "\n";
+                        LOG(LOG_LEVEL_DEBUG)
+                            << MOD_NAME "Sending resample request "
+                            << dst_frame_rate << "/" << BASE << "\n";
                         assert(m_root != nullptr);
                         auto *response = send_message_sync(m_root, "audio.receiver.decoder", reinterpret_cast<message *>(m), 100, SEND_MESSAGE_FLAG_NO_STORE);
                         if (!RESPONSE_SUCCESSFUL(response_get_status(response))) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unable to send resample message: " << response_get_text(response) << " (" << response_get_status(response) << ")\n";
+                        } else {
+                                dst_frame_rate_set = dst_frame_rate;
                         }
                         free_response(response);
                 }
@@ -486,6 +497,8 @@ private:
 
         static const uint32_t POS_JITTER_DEFAULT = 600;
         static const uint32_t NEG_JITTER_DEFAULT = 600;
+
+        long long dst_frame_rate_set = 0;
 };
 
 #endif // defined SRC_VIDEO_DISPLAY_DECKLINK_DRIFT_FIX_HPP_69DBC8A9_974D_46C5_833D_5A77CF35E034
