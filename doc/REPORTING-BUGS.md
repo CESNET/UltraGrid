@@ -23,19 +23,43 @@ Please try to follow these _rules_ when reporting a bug if possible:
    encouraged.
 4. if the problem is specific to some device, try to use either _testcard_ to
    generate the signal that isn't displayed correctly or _GL_/_SDL_ display to
-   display the broken signal, possible reported use-cases:
+   display the broken signal, **recommended** reported use-cases:
 
        uv -t testcard:codec=RGB -d ndi # problems with NDI display
-       uv -t decklink[:args] -d gl     # problems with DeckLink capture (omit `-d gl` if the problem is not visual but eg. a crash)
-       uv -t testcard -c libavcodec:encoder=libx264 -d gl # problems with compression
-       uv -t decklink[:args] -d decklink[:args]  # not optimal: not sure what the signal actually is and if probiem is in capture or display
+       # problems with DeckLink cap. (`-d gl` can be omitted eg. for a crash)
+       uv -t decklink[:args] -d gl
+       uv -t testcard -c libavcodec:encoder=libx264 -d gl # compression problem
 
-If you suspect that the issue may not be always replicable, you can use a
+   **not recommended:**
+
+       # not sure what the signal actually is and if probiem is in cap. or disp
+       uv -t decklink[:args] -d decklink[:args]
+       # not run on localhost; use only to report network problems
+       uv -t testcard -c libavcodec[:params] receiver
+       # bloated
+       uv -t testcard -c libavcodec -m 1400 -l 30M -T 32
+       # using developer-only parameters
+       uv [params] --param xyz=val
+
+   If _testcard_ isn't capable to produce a signal, that is complex enough to
+   demonstrate the problem, you can try following videos to vidcap file (`-t
+   file:<filename>`):
+
+    1. [filesamples.com](https://filesamples.com/formats/mp4)
+    2. [Ultra Video Group Dataset](https://ultravideo.fi/#testsequences)
+    3. [archive.org](https://archive.org), eg. Elephants Dream, Sintel,
+       BloodSpell or Big Buck Bunny
+
+Following hints are rather to be considered if you consider it relevant. It
+also doesn't necessarily need to be present in the first bug report but
+requested by developers:
+
+1. If you suspect that the issue may not be always replicable, you can use a
 script
 [ultragrid-bugreport-collect.sh](../data/ultragrid-bugreport-collect.sh)
 to collect data about a computer and attach its result (Linux/macOS).
 
-If the problem is a **crash** (segmentation fault, abort), if possible, attach
+2. If the problem is a **crash** (segmentation fault, abort), if possible, attach
 a _core dump_ (if generated) and the _binary_ (if you compiled by yourself,
 otherwise the _executable version_). If core dump is not generated, a
 _backtrace_ (see below) might have been generated to standard error output so
