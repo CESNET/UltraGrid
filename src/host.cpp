@@ -107,7 +107,7 @@ using namespace std;
 unsigned int audio_capture_channels = 0;
 unsigned int audio_capture_bps = 0;
 unsigned int audio_capture_sample_rate = 0;
-
+bool incompatible_features = false;
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
 
@@ -425,6 +425,10 @@ struct init_data *common_preinit(int argc, char *argv[])
 #endif
 
         load_libgcc();
+
+        if (get_commandline_param("incompatible") != nullptr) {
+                incompatible_features = true;
+        }
 
         return new init_data{init};
 }
@@ -1065,6 +1069,8 @@ ADD_TO_PARAM("debug-dump", "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n"
                 "  Dumps specified buffer for debugging, n-th buffer may be selected, name is <module>.dump.\n"
                 "  Avaiable modules: lavd-uncompressed\n");
 #endif
+ADD_TO_PARAM("incompatible", "* incompatible\n"
+                "  Features that may possibly not be compatible with at least older or even any other UG version.\n");
 ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n"
                 "  Add ultra for even more aggressive setting.\n");
