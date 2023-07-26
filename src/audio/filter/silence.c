@@ -79,14 +79,17 @@ init(struct module *parent, const char *cfg, void **state)
         }
         struct state_silence *s = calloc(1, sizeof *s);
 
-        char *fmt     = strdupa(cfg);
+        const size_t len = strlen(cfg) + 1;
+        char         fmt[len];
+        strncpy(fmt, cfg, len);
+        char *tmp     = fmt;
         char *item    = NULL;
         char *end_ptr = NULL;
-        while ((item = strtok_r(fmt, ",", &end_ptr)) != NULL) {
+        while ((item = strtok_r(tmp, ",", &end_ptr)) != NULL) {
                 assert(s->silence_channels_count < MAX_CHANNELS - 1);
                 s->silence_channels[s->silence_channels_count++] =
                     strtol(item, NULL, 10);
-                fmt = NULL;
+                tmp = NULL;
         }
         *state = s;
         return AF_OK;
