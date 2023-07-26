@@ -60,25 +60,25 @@
 #include "config_win32.h"
 
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
 #include "types.h"
-#include "video.h"
-#include "video_capture.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/pam.h"
 #include "utils/string.h"
 #include "utils/vf_split.h"
-#include "utils/pam.h"
-#include "utils/y4m.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include "audio/types.h"
 #include "utils/video_pattern_generator.h"
+#include "utils/y4m.h"
+#include "video.h"
+#include "video_capture.h"
 #include "video_capture/testcard_common.h"
 
 enum {
@@ -133,6 +133,7 @@ static void configure_fallback_audio(struct testcard_state *s) {
 
         for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
                 *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / s->audio_frequency)) * M_PI * 2. ) * ((1U << (AUDIO_BPS * 8U - 1)) - 1) * scale);
+
         }
 }
 
@@ -426,7 +427,7 @@ static void show_help(bool full) {
         color_printf("Examples:\n");
         color_printf(TBOLD("\t%s -t testcard:file=picture.pam\n"), uv_argv[0]);
         color_printf(TBOLD("\t%s -t testcard:mode=VGA\n"), uv_argv[0]);
-        color_printf(TBOLD("\t%s -t testcard:size=1920x1080:fps=59.94i\n"), uv_argv[0]);
+        color_printf(TBOLD("\t%s -t testcard:s=1920x1080:f=59.94i\n"), uv_argv[0]);
         color_printf("\n");
         color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
         color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
@@ -471,8 +472,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
-                } else if (strstr(tmp, "file=") == tmp || strstr(tmp, "filename=") == tmp) {
-                        filename = strchr(tmp, '=') + 1;
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
@@ -483,20 +482,20 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'sf' option. Use format testcard:1920:1080:25sf:UYVY instead!\n");
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = true;
-                } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
+                } else if (IS_KEY_PREFIX(tmp, "pattern")) {
                         const char *pattern = tmp + strlen("pattern=");
                         strncpy(s->pattern, pattern, sizeof s->pattern - 1);
-                } else if (strstr(tmp, "codec=") == tmp) {
+                } else if (IS_KEY_PREFIX(tmp, "codec")) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
                         if (desc.color_spec == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong color spec: %s\n", strchr(tmp, '=') + 1);
                                 goto error;
                         }
-                } else if (strstr(tmp, "mode=") == tmp) {
+                } else if (IS_KEY_PREFIX(tmp, "mode")) {
                         codec_t saved_codec = desc.color_spec;
                         desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
                         desc.color_spec = saved_codec;
-                } else if (strstr(tmp, "size=") == tmp) {
+                } else if (IS_KEY_PREFIX(tmp, "size")) {
                         tmp = strchr(tmp, '=') + 1;
                         if (isdigit(tmp[0]) && strchr(tmp, 'x') != NULL) {
                                 desc.width = atoi(tmp);
@@ -507,10 +506,12 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 desc.width = size_dsc.width;
                                 desc.height = size_dsc.height;
                         }
-                } else if (strstr(tmp, "fps=") == tmp) {
+                } else if (IS_KEY_PREFIX(tmp, "fps")) {
                         if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
                                 goto error;
                         }
+                } else if (IS_KEY_PREFIX(tmp, "file")) {
+                        filename = strchr(tmp, '=') + 1;
                 } else if (strstr(tmp, "afrequency=") == tmp) {
                         s->audio_frequency = atoi(strchr(tmp, '=') + 1);
                 } else {

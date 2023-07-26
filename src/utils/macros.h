@@ -104,5 +104,10 @@
 #define OPTIMIZED_FOR for
 #endif
 
+/// expands to true value if <k> from tok in format <k>=<v> is prefix of key
+#define IS_KEY_PREFIX(tok, key) \
+        (strchr((tok), '=') != 0 && \
+         strncmp(key, tok, strchr((tok), '=') - (tok)) == 0)
+
 #endif // !defined UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 
