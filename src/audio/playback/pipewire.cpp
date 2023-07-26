@@ -256,7 +256,7 @@ const static pw_stream_events stream_events = {
         .trigger_done = nullptr,
 };
 
-static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
+static bool audio_play_pw_reconfigure(void *state, struct audio_desc desc){
         auto s = static_cast<state_pipewire_play *>(state);
 
         unsigned rate = desc.sample_rate;
