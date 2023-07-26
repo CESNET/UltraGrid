@@ -64,7 +64,7 @@ struct audio_filter_info{
         /// @retval     0      if initialized successfully
         /// @retval     <0     if error
         /// @retval     >0     no error but state was not returned, eg. showing help
-        af_result_code (*init)(struct module *mod, const char *cfg, void **state);
+        enum af_result_code (*init)(struct module *mod, const char *cfg, void **state);
 
         /// @brief Frees filter
         void (*done)(void *state);
@@ -76,7 +76,7 @@ struct audio_filter_info{
         /// @param sample_rate   sample rate
         /// @retval  0                      if initialized successfully
         /// @retval  <0                     if error
-        af_result_code (*configure)(void *state,
+        enum af_result_code (*configure)(void *state,
                         int bps, int ch_count, int sample_rate);
 
         /// @brief Get configured input audio format
@@ -91,7 +91,7 @@ struct audio_filter_info{
         /// @param state         filter state
         /// @param f             frame to filter, can take ownership of passed
 		//                       frame and return a different one
-        af_result_code (*filter)(void *state, struct audio_frame **f);
+        enum af_result_code (*filter)(void *state, struct audio_frame **f);
 };
 
 struct audio_filter{
@@ -99,12 +99,12 @@ struct audio_filter{
         void *state;
 };
 
-af_result_code audio_filter_init(struct module *parent, const char *name, const char *cfg,
+enum af_result_code audio_filter_init(struct module *parent, const char *name, const char *cfg,
                 struct audio_filter *filter);
 
 void audio_filter_destroy(struct audio_filter *state);
 
-af_result_code audio_filter_configure(struct audio_filter *state,
+enum af_result_code audio_filter_configure(struct audio_filter *state,
                 int bps, int ch_count, int sample_rate);
 
 void audio_filter_get_configured_out(struct audio_filter *state,
@@ -113,7 +113,7 @@ void audio_filter_get_configured_out(struct audio_filter *state,
 void audio_filter_get_configured_in(struct audio_filter *state,
                 int *bps, int *ch_count, int *sample_rate);
 
-af_result_code audio_filter(struct audio_filter *state, struct audio_frame **frame);
+enum af_result_code audio_filter(struct audio_filter *state, struct audio_frame **frame);
 
 //void register_audio_filter(struct audio_filter_info *filter);
 
