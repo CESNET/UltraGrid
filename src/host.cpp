@@ -719,7 +719,7 @@ void print_capabilities(const char *cfg)
         }
         auto codecs = get_audio_codec_list();
         for(const auto& codec : codecs){
-                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(codec.first, nullptr);
+                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(codec.first.name, nullptr);
         }
 
         if(conf == "noprobe"){

@@ -56,12 +56,17 @@ struct audio_compress_info {
         void (*done)(void *);
 };
 
+enum audio_codec_flag {
+        AC_FLAG_DEPRECATED = 1 << 0,
+};
+
 typedef struct {
         const char *name;
         /** @var tag
          *  @brief TwoCC if defined, otherwise we define our tag
          */
         uint32_t    tag;
+        int         flags; ///< enum audio_codec_flag
 } audio_codec_info_t;
 
 #ifdef __cplusplus
@@ -76,7 +81,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
 const int *audio_codec_get_supported_samplerates(struct audio_codec_state *);
 void audio_codec_done(struct audio_codec_state *);
 
-std::vector<std::pair<std::string, bool>> get_audio_codec_list(void);
+std::vector<std::pair<audio_codec_info_t, bool>> get_audio_codec_list();
 #endif
 
 #ifdef __cplusplus

@@ -54,19 +54,26 @@
 
 static constexpr const char *MOD_NAME = "[acodec] ";
 
-using namespace std;
+using std::hash;
+using std::max;
+using std::pair;
+using std::unordered_map;
+using std::string;
+using std::vector;
 
-static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
-        {AC_NONE, { "(none)", 0 }},
-        {AC_PCM, { "PCM", 0x0001 }},
-        {AC_ALAW, { "A-law", 0x0006 }},
-        {AC_MULAW, { "u-law", 0x0007 }},
-        {AC_SPEEX, { "speex", 0xA109 }},
-        {AC_OPUS, { "Opus", 0x7375704F }}, // == Opus, the TwoCC isn't defined
-        {AC_G722, { "G.722", 0x028F }},
-        {AC_MP3, { "MP3", 0x0055 }},
-        {AC_AAC, { "AAC", 0x00FF }},
-        {AC_FLAC, { "FLAC", 0xF1AC }},
+static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>>
+    audio_codec_info = {
+            {AC_NONE,   { "(none)", 0, 0 }                     },
+            { AC_PCM,   { "PCM", 0x0001, 0 }                   },
+            { AC_ALAW,  { "A-law", 0x0006, 0 }                 },
+            { AC_MULAW, { "u-law", 0x0007, 0 }                 },
+            { AC_SPEEX, { "speex", 0xA109, AC_FLAG_DEPRECATED }},
+            { AC_OPUS,  // fcc is "Opus", the TwoCC isn't defined
+              { "Opus", 0x7375704F, 0 }  },
+            { AC_G722,  { "G.722", 0x028F, 0 }                 },
+            { AC_MP3,   { "MP3", 0x0055, 0 }                   },
+            { AC_AAC,   { "AAC", 0x00FF, 0 }                   },
+            { AC_FLAC,  { "FLAC", 0xF1AC, 0 }                  },
 };
 
 static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_cfg,
@@ -81,8 +88,8 @@ struct audio_codec_state {
         int bitrate;
 };
 
-std::vector<std::pair<std::string, bool>> get_audio_codec_list(void){
-        std::vector<std::pair<std::string, bool>> ret;
+vector<pair<audio_codec_info_t, bool>> get_audio_codec_list() {
+        vector<pair<audio_codec_info_t, bool>> ret;
 
         for (auto const &it : audio_codec_info) {
                 if(it.first != AC_NONE) {
@@ -94,7 +101,7 @@ std::vector<std::pair<std::string, bool>> get_audio_codec_list(void){
                                 available = true;
                                 audio_codec_done(st);
                         }
-                        ret.emplace_back(it.second.name, available);
+                        ret.emplace_back(it.second, available);
                 }
         }
 
@@ -114,10 +121,22 @@ void list_audio_codecs(void) {
         col() << "\t" << SBOLD("bitrate    ") << " - codec bitrate "
               << SBOLD("per channel") << " (with optional k/M suffix)\n";
         col() << "\n";
+        bool deprecated_present = false;
         printf("Supported audio codecs:\n");
         for (auto const &it : get_audio_codec_list()) {
-                col() << SBOLD("\t" << it.first)
-                      << (!it.second ? " - " TRED("unavailable") : "") << "\n";
+                string notes;
+                if (!it.second) {
+                        notes += " " TRED("unavailable");
+                }
+                if ((it.first.flags & AC_FLAG_DEPRECATED) != 0) {
+                        notes += " " TYELLOW("deprecated");
+                        deprecated_present = true;
+                }
+                col() << SBOLD("\t" << it.first.name)
+                      << (notes.empty() ? "" : " -") << notes << "\n";
+        }
+        if (deprecated_present) {
+                col() << "\nCodecs marked as \"deprecated\" may be removed in future.\n";
         }
 }
 
