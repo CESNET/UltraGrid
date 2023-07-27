@@ -2609,7 +2609,7 @@ AC_ARG_ENABLE(pipewire-audio,
     )
 
 #TODO check needed version
-PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3], [found_pw_audio_deps=yes], [found_pw_audio_deps=no])
+PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.48], [found_pw_audio_deps=yes], [found_pw_audio_deps=no])
 
 if test $pipewire_audio_req != no -a $found_pw_audio_deps = yes
 then
