@@ -161,6 +161,14 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
         return ret;
 }
 
+static char *get_noise(size_t len) {
+        unsigned char *ret = malloc(len);
+        for (size_t i = 0; i < len; ++i) {
+                ret[i] = (unsigned char) (rand() % 256);
+        }
+        return (char *) ret;
+}
+
 static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame *audio_frame,
                 char **audio_samples, unsigned int *total_samples,
                 unsigned long long int *chunk_size) {
@@ -237,6 +245,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                 WAV,
                 SILENCE,
                 CRESCENDO,
+                NOISE,
         } pattern = SINE;
 
         if (strcmp(cfg, "help") == 0) {
@@ -248,6 +257,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { "ebu", "use EBU sound" },
                         { "silence", "emit silence" },
                         { "crescendo[=<spd>]", "produce amplying sinusoide (optionally accelerated)" },
+                        { "noise", "emit noise" },
                         { NULL, NULL }
                 };
                 print_module_usage("-s testcard", options, NULL, false);
@@ -291,6 +301,8 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                                 }
                         } else if(strcasecmp(item, "ebu") == 0) {
                                 pattern = EBU;
+                        } else if(strcasecmp(item, "noise") == 0) {
+                                pattern = NOISE;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
                         } else {
@@ -336,6 +348,11 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                 case SILENCE:
                         s->total_samples = s->audio.sample_rate;
                         s->audio_samples = (char *) calloc(1, (s->total_samples *
+                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
+                        break;
+                case NOISE:
+                        s->total_samples = s->audio.sample_rate;
+                        s->audio_samples = get_noise(((size_t) s->total_samples *
                                                 s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
                         break;
                 default:
