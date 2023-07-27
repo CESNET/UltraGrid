@@ -135,7 +135,7 @@ class audio_frame2_resampler;
 class audio_frame2
 {
 public:
-        audio_frame2();
+        audio_frame2() = default;
         audio_frame2(audio_frame2 const &) = delete;
         audio_frame2(audio_frame2 &&) = default;
         explicit audio_frame2(const struct audio_frame *);
@@ -193,11 +193,10 @@ private:
                 struct fec_desc fec_params;
         };
         void reserve(int channel, size_t len);
-        int bps;                /* bytes per sample */
-        int sample_rate;
+        struct audio_desc
+            desc = {}; ///< desc.ch_count not set, use channels.size() instead
         std::vector<channel> channels; /* data should be at least 4B aligned */
-        audio_codec_t codec;
-        double duration; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
+        double duration = 0.0; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
         int64_t timestamp = -1;
 
         friend class audio_frame2_resampler;

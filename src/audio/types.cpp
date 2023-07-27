@@ -76,24 +76,17 @@ audio_desc::operator string() const
 }
 
 /**
- * @brief Creates empty audio_frame2
- */
-audio_frame2::audio_frame2() :
-        bps(0), sample_rate(0), codec(AC_NONE), duration(0.0)
-{
-}
-
-/**
  * @brief creates audio_frame2 from POD audio_frame
  */
 audio_frame2::audio_frame2(const struct audio_frame *old) :
-                bps(old ? old->bps : 0), sample_rate(old ? old->sample_rate : 0),
-                channels(old ? old->ch_count : 0),
-                codec(old ? AC_PCM : AC_NONE), duration(0.0)
+                channels(old ? old->ch_count : 0)
 {
         if (old == nullptr) {
                 return;
         }
+        desc.bps = old->bps;
+        desc.sample_rate = old->sample_rate;
+        desc.codec = AC_PCM;
         for (int i = 0; i < old->ch_count; i++) {
                 resize(i, old->data_len / old->ch_count);
                 char *data = channels[i].data.get();
@@ -107,12 +100,12 @@ audio_frame2::audio_frame2(const struct audio_frame *old) :
 
 bool audio_frame2::operator!() const
 {
-        return codec == AC_NONE;
+        return desc.codec == AC_NONE;
 }
 
 audio_frame2::operator bool() const
 {
-        return codec != AC_NONE;
+        return desc.codec != AC_NONE;
 }
 
 /**
@@ -122,17 +115,18 @@ void audio_frame2::init(int nr_channels, audio_codec_t c, int b, int sr)
 {
         channels.clear();
         channels.resize(nr_channels);
-        bps = b;
-        codec = c;
-        sample_rate = sr;
+        desc.bps = b;
+        desc.codec = c;
+        desc.sample_rate = sr;
         duration = 0.0;
 }
 
 void audio_frame2::append(audio_frame2 const &src)
 {
-        if (bps != src.bps || sample_rate != src.sample_rate ||
-                        channels.size() != src.channels.size()) {
-                throw std::logic_error("Trying to append frame with different parameters!");
+        if (desc.bps != src.desc.bps || desc.sample_rate != src.desc.sample_rate ||
+            channels.size() != src.channels.size()) {
+                throw std::logic_error(
+                    "Trying to append frame with different parameters!");
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
@@ -204,12 +198,12 @@ void audio_frame2::reset()
 
 int audio_frame2::get_bps() const
 {
-        return bps;
+        return desc.bps;
 }
 
 audio_codec_t audio_frame2::get_codec() const
 {
-        return codec;
+        return desc.codec;
 }
 
 char *audio_frame2::get_data(int channel)
@@ -242,12 +236,11 @@ size_t audio_frame2::get_data_len() const
 
 double audio_frame2::get_duration() const
 {
-        if (codec == AC_PCM) {
+        if (desc.codec == AC_PCM) {
                 int samples = get_sample_count();
                 return (double) samples / get_sample_rate();
-        } else {
-                return duration;
         }
+        return duration;
 }
 
 fec_desc const &audio_frame2::get_fec_params(int channel) const
@@ -263,7 +256,7 @@ int audio_frame2::get_channel_count() const
 int audio_frame2::get_sample_count() const
 {
         // for PCM, we can deduce samples count from length of the data
-        if (codec == AC_PCM) {
+        if (desc.codec == AC_PCM) {
                 return channels[0].len / get_bps();
         } else {
                 throw logic_error("Unknown sample count for compressed audio!");
@@ -272,14 +265,14 @@ int audio_frame2::get_sample_count() const
 
 int audio_frame2::get_sample_rate() const
 {
-        return sample_rate;
+        return desc.sample_rate;
 }
 
 bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) const
 {
-        return bps == frame.bps &&
-                sample_rate == frame.sample_rate &&
-                codec == frame.codec &&
+        return desc.bps == frame.desc.bps &&
+                desc.sample_rate == frame.desc.sample_rate &&
+                desc.codec == frame.desc.codec &&
                 channels.size() == frame.channels.size();
 }
 
@@ -310,14 +303,14 @@ audio_frame2 audio_frame2::copy_with_bps_change(audio_frame2 const &frame, int n
 
 void  audio_frame2::change_bps(int new_bps)
 {
-        if (new_bps == bps) {
+        if (new_bps == desc.bps) {
                 return;
         }
 
         vector<channel> new_channels(channels.size());
 
         for (size_t i = 0; i < channels.size(); i++) {
-                size_t new_size = channels[i].len / bps * new_bps;
+                size_t new_size = channels[i].len / desc.bps * new_bps;
                 new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
 
@@ -326,7 +319,7 @@ void  audio_frame2::change_bps(int new_bps)
                                 get_data_len(i));
         }
 
-        bps = new_bps;
+        desc.bps = new_bps;
         channels = std::move(new_channels);
 }
 
@@ -342,8 +335,8 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake(audio_frame2_resampler & r
         vector<channel> new_channels(channels.size());
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
-                size_t new_size = (long long) channels[i].len * new_sample_rate_num / sample_rate / new_sample_rate_den
-                        + new_sample_rate_num * this->bps / 100 / new_sample_rate_den;
+                size_t new_size = (long long) channels[i].len * new_sample_rate_num / desc.sample_rate / new_sample_rate_den
+                        + new_sample_rate_num * desc.bps / 100 / new_sample_rate_den;
                 new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
 
@@ -365,7 +358,7 @@ bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
         if (remainder.get_data_len() > 0) {
                 LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
         }
-        sample_rate = new_sample_rate;
+        desc.sample_rate = new_sample_rate;
 
         return true;
 }
