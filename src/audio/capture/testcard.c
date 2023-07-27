@@ -54,6 +54,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 
@@ -85,9 +86,18 @@ struct state_audio_capture_testcard {
 
         unsigned int samples_played;
 
-        unsigned int total_samples;
+        size_t total_samples;
 
         int crescendo_speed;
+};
+
+enum pattern {
+        SINE,
+        EBU,
+        WAV,
+        SILENCE,
+        CRESCENDO,
+        NOISE,
 };
 
 static void audio_cap_testcard_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
@@ -124,7 +134,7 @@ static char *get_sine_signal(int sample_rate, int bps, int channels, int frequen
 /**
  * Generates line-up EBU tone according to https://tech.ebu.ch/docs/tech/tech3304.pdf
  */
-static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequency, double volume, unsigned int *total_samples) {
+static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequency, double volume, size_t *total_samples) {
         *total_samples = (3 + channels + 1 + 3) * sample_rate;
         char *ret = (char *) calloc(1, *total_samples * channels * bps);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
@@ -170,7 +180,7 @@ static char *get_noise(size_t len) {
 }
 
 static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame *audio_frame,
-                char **audio_samples, unsigned int *total_samples,
+                char **audio_samples, size_t *total_samples,
                 unsigned long long int *chunk_size) {
         FILE *wav = fopen(wav_filename, "rb");
         if(!wav) {
@@ -192,7 +202,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
         }
 
         *total_samples = metadata.data_size  * 8ULL /  metadata.ch_count / metadata.bits_per_sample;
-        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%u samples read from file %s\n", *total_samples, wav_filename);
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%zu samples read from file %s\n", *total_samples, wav_filename);
 
         const int headroom = (*chunk_size - 1) * audio_frame->ch_count * audio_frame->bps;
         const int samples_data_size = *total_samples * audio_frame->ch_count * audio_frame->bps;
@@ -230,23 +240,145 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
         return true;
 }
 
+static bool
+parse_fmt(struct state_audio_capture_testcard *s, char *fmt,
+          char wav_file[static MAX_PATH_SIZE], double *volume, int *frequency,
+          enum pattern *pattern)
+{
+        char *item     = NULL;
+        char *save_ptr = NULL;
+        errno = 0;
+        while ((item = strtok_r(fmt, ":", &save_ptr))) {
+                if (strncasecmp(item, "vol=", strlen("vol=")) == 0 ||
+                    strncasecmp(item, "volume=", strlen("volume=")) == 0) {
+                        *volume = strtod(strchr(item, '=') + 1, NULL);
+                        assert(*volume > 0.0);
+                } else if (strncasecmp(item, "file=", strlen("file=")) == 0) {
+                        strncpy(wav_file, strchr(item, '=') + 1, MAX_PATH_SIZE);
+                        *pattern  = WAV;
+                } else if (strncasecmp(item, "frames=", strlen("frames=")) ==
+                           0) {
+                        s->chunk_size = strtoll(item + strlen("frames="), NULL, 10);
+                } else if (strncasecmp(
+                               item, "frequency=", strlen("frequency=")) == 0) {
+                        long val = strtol(item + strlen("frequency="), NULL, 10);
+                        assert(val > 0 && val <= INT_MAX);
+                        *frequency = (int) val;
+                } else if (strstr(item, "crescendo") == item) {
+                        *pattern   = CRESCENDO;
+                        char *val = strchr(item, '=');
+                        if (val) {
+                                val += 1;
+                                if (strcmp(val, "help") == 0) {
+                                        printf("-s "
+                                               "testcard:crescendo=<val>\n\t<"
+                                               "val> - crescendo duration "
+                                               "multiplier (default 1)\n");
+                                        return false;
+                                        break;
+                                }
+                                s->crescendo_speed = (int) strtol(val, NULL, 0);
+                                assert(s->crescendo_speed > 0);
+                        }
+                } else if (strcasecmp(item, "ebu") == 0) {
+                        *pattern = EBU;
+                } else if (strcasecmp(item, "noise") == 0) {
+                        *pattern = NOISE;
+                } else if (strcasecmp(item, "silence") == 0) {
+                        *pattern = SILENCE;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unknown option: %s\n", item);
+                        return false;
+                        break;
+                }
 
-static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
+                fmt = NULL;
+        }
+        if (errno != 0) {
+                perror("");
+                return false;
+        }
+        return true;
+}
+
+static bool
+generate_signal(struct state_audio_capture_testcard *s, enum pattern pattern,
+                int frequency, double volume)
+{
+        s->audio.ch_count    = audio_capture_channels > 0
+                                   ? (int) audio_capture_channels
+                                   : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.sample_rate = audio_capture_sample_rate
+                                   ? (int) audio_capture_sample_rate
+                                   : DEFAULT_AUDIO_SAMPLE_RATE;
+        s->audio.bps =
+            audio_capture_bps ? (int) audio_capture_bps : DEFAULT_AUDIO_BPS;
+        if (s->chunk_size == 0) {
+                s->chunk_size = s->audio.sample_rate / CHUNKS_PER_SEC;
+        }
+        assert(s->chunk_size > 0);
+        const char *pattern_name = "(unknown)";
+        switch (pattern) {
+        case CRESCENDO:
+        case SINE:
+                pattern_name = pattern == SINE ? "sine" : "crescendo";
+                s->audio_samples = get_sine_signal(
+                    s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                    frequency, volume,
+                    pattern == CRESCENDO ? s->crescendo_speed : 0);
+                s->total_samples = s->audio.sample_rate;
+                break;
+        case EBU:
+                pattern_name = "EBU tone";
+                s->audio_samples = get_ebu_signal(
+                    s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                    frequency, volume, &s->total_samples);
+                break;
+        case SILENCE:
+                pattern_name = "silence";
+                s->total_samples = s->audio.sample_rate;
+                s->audio_samples = (char *) calloc(
+                    1, (s->total_samples * s->audio.ch_count * s->audio.bps) +
+                           s->chunk_size - 1);
+                break;
+        case NOISE:
+                pattern_name = "noise";
+                s->total_samples = s->audio.sample_rate;
+                s->audio_samples = get_noise(
+                    (s->total_samples * s->audio.ch_count * s->audio.bps) +
+                    s->chunk_size - 1);
+                break;
+        default:
+                abort();
+        }
+
+        log_msg(LOG_LEVEL_NOTICE,
+                MOD_NAME "Generating %d Hz (%.2f  RMS dBFS) %s (%s, "
+                         "frames per packet: %llu).\n",
+                frequency, volume, pattern_name,
+                audio_desc_to_cstring(audio_desc_from_frame(&s->audio)),
+                s->chunk_size);
+
+        // add padding if s->total_samples % s->chunk_size != 0
+        s->audio_samples = (char *) realloc(
+            s->audio_samples,
+            (s->total_samples * s->audio.ch_count * s->audio.bps) +
+                s->chunk_size - 1);
+        memcpy(s->audio_samples +
+                   s->total_samples * s->audio.bps * s->audio.ch_count,
+               s->audio_samples, s->chunk_size - 1);
+        return true;
+}
+
+static void *audio_cap_testcard_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        const char *wav_file = NULL;
-        char *item, *save_ptr;
+        char wav_file[MAX_PATH_SIZE] = "";
 
         double volume = DEFAULT_VOLUME;
         int frequency = DEFAULT_FREQUENCY;
-        enum {
-                SINE,
-                EBU,
-                WAV,
-                SILENCE,
-                CRESCENDO,
-                NOISE,
-        } pattern = SINE;
+        enum pattern pattern = SINE;
 
         if (strcmp(cfg, "help") == 0) {
                 struct key_val options[] = {
@@ -270,103 +402,22 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
         assert(s != NULL);
         s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
         s->crescendo_speed = 1;
-        bool failed = false;
-        char *tmp = NULL;
 
-        do {
-                tmp = strdup(cfg);
-                char *fmt = tmp;
-                while ((item = strtok_r(fmt, ":", &save_ptr))) {
-                        if(strncasecmp(item, "vol=", strlen("vol=")) == 0 ||
-                                        strncasecmp(item, "volume=", strlen("volume=")) == 0) {
-                                volume = atof(strchr(item, '=') + 1);
-                        } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
-                                wav_file = strdupa(item + strlen("file="));
-                                pattern = WAV;
-                        } else if(strncasecmp(item, "frames=", strlen("frames=")) == 0) {
-                                s->chunk_size = atoi(item + strlen("frames="));
-                        } else if (strncasecmp(item, "frequency=", strlen("frequency=")) == 0) {
-                                frequency = atoi(item + strlen("frequency="));
-                                assert(frequency != 0);
-                        } else if(strstr(item, "crescendo") == item) {
-                                pattern = CRESCENDO;
-                                char *val = strchr(item, '=');
-                                if (val) {
-                                        val += 1;
-                                        if (strcmp(val, "help") == 0) {
-                                                printf("-s testcard:crescendo=<val>\n\t<val> - crescendo duration multiplier (default 1)\n");
-                                                failed = true; break;
-                                        }
-                                        s->crescendo_speed = atoi(val);
-                                }
-                        } else if(strcasecmp(item, "ebu") == 0) {
-                                pattern = EBU;
-                        } else if(strcasecmp(item, "noise") == 0) {
-                                pattern = NOISE;
-                        } else if(strcasecmp(item, "silence") == 0) {
-                                pattern = SILENCE;
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
-                                failed = true; break;
-                        }
-
-                        fmt = NULL;
-                }
-        } while(false);
+        char *tmp = strdup(cfg);
+        bool ret = parse_fmt(s, tmp, wav_file, &volume, &frequency, &pattern);
         free(tmp);
-        if (failed) {
+        if (!ret) {
                 free(s);
                 return NULL;
         }
-
-        if (pattern == WAV) {
-                if (!audio_testcard_read_wav(wav_file, &s->audio,
-                                        &s->audio_samples, &s->total_samples, &s->chunk_size)) {
-                        free(s);
-                        return NULL;
-                }
-        } else {
-                s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
-                s->audio.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
-                        DEFAULT_AUDIO_SAMPLE_RATE;
-                s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;
-                if (s->chunk_size == 0) {
-                        s->chunk_size = s->audio.sample_rate / CHUNKS_PER_SEC;
-                }
-                assert(s->chunk_size > 0);
-                switch (pattern) {
-                case CRESCENDO:
-                case SINE:
-                        s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                        frequency, volume, pattern == CRESCENDO ? s->crescendo_speed : 0);
-                        s->total_samples = s->audio.sample_rate;
-                        break;
-                case EBU:
-                        s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                        frequency, volume, &s->total_samples);
-                        break;
-                case SILENCE:
-                        s->total_samples = s->audio.sample_rate;
-                        s->audio_samples = (char *) calloc(1, (s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-                        break;
-                case NOISE:
-                        s->total_samples = s->audio.sample_rate;
-                        s->audio_samples = get_noise(((size_t) s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-                        break;
-                default:
-                        abort();
-                }
-
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Generating %d Hz (%.2f  RMS dBFS) %s (%s, frames per packet: %llu).\n",
-                        frequency, volume, (pattern == SINE ? "sine" : pattern == EBU ? "EBU tone" : "silence"), audio_desc_to_cstring(audio_desc_from_frame(&s->audio)), s->chunk_size);
-
-                // add padding if s->total_samples % s->chunk_size != 0
-                s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
-                                        s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-                memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
-                                s->audio_samples, s->chunk_size - 1);
+        ret = pattern == WAV
+                  ? audio_testcard_read_wav(wav_file, &s->audio,
+                                            &s->audio_samples,
+                                            &s->total_samples, &s->chunk_size)
+                  : generate_signal(s, pattern, frequency, volume);
+        if (!ret) {
+                free(s);
+                return NULL;
         }
 
         s->audio.data_len = s->chunk_size * s->audio.bps * s->audio.ch_count;
