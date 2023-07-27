@@ -158,4 +158,8 @@ inline unsigned get_bps_from_pw_format(spa_audio_format fmt){
 #    define STREAM_TARGET_PROPERTY_KEY PW_KEY_TARGET_OBJECT
 #endif
 
+#ifndef PW_KEY_NODE_RATE
+#    define PW_KEY_NODE_RATE "node.rate"
+#endif
+
 #endif
