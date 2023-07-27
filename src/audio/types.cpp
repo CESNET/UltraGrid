@@ -98,11 +98,6 @@ audio_frame2::audio_frame2(const struct audio_frame *old) :
         }
 }
 
-bool audio_frame2::operator!() const
-{
-        return desc.codec == AC_NONE;
-}
-
 audio_frame2::operator bool() const
 {
         return desc.codec != AC_NONE;

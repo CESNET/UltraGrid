@@ -136,12 +136,12 @@ class audio_frame2
 {
 public:
         audio_frame2() = default;
+        ~audio_frame2() = default;
         audio_frame2(audio_frame2 const &) = delete;
         audio_frame2(audio_frame2 &&) = default;
         explicit audio_frame2(const struct audio_frame *);
         audio_frame2& operator=(audio_frame2 const &) = delete;
         audio_frame2& operator=(audio_frame2 &&) = default;
-        bool operator!() const;
         explicit operator bool() const;
         void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
         void append(audio_frame2 const &frame);
@@ -151,22 +151,22 @@ public:
         void resize(int channel, size_t len);
         void reset();
         void set_timestamp(int64_t ts);
-        int get_bps() const;
-        audio_codec_t get_codec() const;
-        char *get_data(int channel);
-        const char *get_data(int channel) const;
-        size_t get_data_len(int channel) const;
-        size_t get_data_len() const;
-        double get_duration() const;
-        int get_channel_count() const;
-        fec_desc const &get_fec_params(int channel) const;
-        int get_sample_count() const;
-        int get_sample_rate() const;
+        [[nodiscard]] int get_bps() const;
+        [[nodiscard]] audio_codec_t get_codec() const;
+        [[nodiscard]] char *get_data(int channel);
+        [[nodiscard]] const char *get_data(int channel) const;
+        [[nodiscard]] size_t get_data_len(int channel) const;
+        [[nodiscard]] size_t get_data_len() const;
+        [[nodiscard]] double get_duration() const;
+        [[nodiscard]] int get_channel_count() const;
+        [[nodiscard]] fec_desc const &get_fec_params(int channel) const;
+        [[nodiscard]] int get_sample_count() const;
+        [[nodiscard]] int get_sample_rate() const;
         [[nodiscard]] int64_t get_timestamp() const; // u32 TS, -1 if unavail
-        bool has_same_prop_as(audio_frame2 const &frame) const;
+        [[nodiscard]] bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
         void set_fec_params(int channel, fec_desc const &);
-        static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
+        [[nodiscard]] static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
         /**
          * @note
