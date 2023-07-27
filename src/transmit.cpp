@@ -761,14 +761,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         const char *chan_data;
         // see definition in rtp_callback.h
         uint32_t rtp_hdr[100];
-#ifdef HAVE_LINUX
-        struct timespec start, stop;
-#elif defined HAVE_MACOSX
-        struct timeval start, stop;
-#else // Windows
-	LARGE_INTEGER start, stop, freq;
-#endif
-        long delta;
         int mult_first_sent = 0;
 
         fec_check_messages(tx);
@@ -819,36 +811,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
                 }
 
-                int packet_rate = 0;
-#if 0
-                if (tx->bitrate > 0) {
-                        //packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
-			packet_rate = 0;
-                } else if (tx->bitrate == RATE_UNLIMITED) {
-                        packet_rate = 0;
-                } else if (tx->bitrate == RATE_AUTO || tx->bitrate == RATE_DYNAMIC) {
-                        /**
-                         * @todo
-                         * Following code would actually work but seems to be useless in most of cases (eg.
-                         * PCM 2 channels 2 Bps takes 5 std. Eth frames). On the other hand it could cause
-                         * unexpectable problems (I'd write them here but if I'd expect them they wouldn't
-                         * be unexpectable.)
-                         */
-                        double time_for_frame = buffer->get_duration() / buffer->get_channel_count();
-                        if (time_for_frame > 0.0) {
-                                long long req_bitrate = buffer->get_data_len(channel) * 8 / time_for_frame * tx->mult_count;
-                                // adjust computed value to 3
-                                req_bitrate = req_bitrate * 3;
-                                packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
-                        } else {
-                                packet_rate = 0;
-                        }
-                        packet_rate = 0;
-                } else {
-                        abort();
-                }
-#endif
-
                 do {
                         if(tx->fec_scheme == FEC_MULT) {
                                 pos = mult_pos[mult_index];
@@ -863,8 +825,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         }
                         rtp_hdr[1] = htonl(pos);
                         pos += data_len;
-                        
-                        GET_STARTTIME;
                         
                         if(data_len) { /* check needed for FEC_MULT */
                                 char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
@@ -901,15 +861,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                 mult_first_sent ++;
                                 if(mult_index != 0 || mult_first_sent >= (tx->mult_count - 1))
                                                 mult_index = (mult_index + 1) % tx->mult_count;
-                        }
-
-                        if (pos < buffer->get_data_len(channel)) {
-                                do {
-                                        GET_STOPTIME;
-                                        GET_DELTA;
-                                        if (delta < 0)
-                                                delta += 1000000000L;
-                                } while (packet_rate - delta > 0);
                         }
 
                         /* when trippling, we need all streams goes to end */
