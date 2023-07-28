@@ -56,6 +56,7 @@
 #include <cinttypes>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <sstream>
 #include <stdio.h>
@@ -1016,6 +1017,43 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
         return rate_hi > 0 ? rate_hi : rate_lo;
 }
 
+void
+audio_compress_send_native(struct rtp               *audio_network_device,
+                           struct audio_codec_state *audio_encoder,
+                           struct tx *tx_session, void *fec_state,
+                           audio_frame2 *uncompressed)
+{
+        auto *fec_ = (fec *) fec_state;
+        if (incompatible_features) {
+                audio_tx_data *data = nullptr;
+                list<audio_frame2> buffers; // retain ptrs referenced by data
+                while (audio_frame2 to_send =
+                           audio_codec_compress(audio_encoder, uncompressed)) {
+                        if (fec_state != nullptr) {
+                                to_send = fec_->encode(to_send);
+                        }
+                        data = to_send.append_tx_data(data);
+                        buffers.push_back(std::move(to_send));
+                        uncompressed = nullptr;
+                }
+                if (data != nullptr) {
+                        audio_tx_send(tx_session, audio_network_device, data);
+                        audio_tx_data_cleanup(data);
+                }
+        } else {
+                while (audio_frame2 to_send =
+                           audio_codec_compress(audio_encoder, uncompressed)) {
+                        if (fec_state != nullptr) {
+                                to_send = fec_->encode(to_send);
+                        }
+                        audio_tx_data *data = to_send.append_tx_data(nullptr);
+                        audio_tx_send(tx_session, audio_network_device, data);
+                        audio_tx_data_cleanup(data);
+                        uncompressed = nullptr;
+                }
+        }
+}
+
 static void *audio_sender_thread(void *arg)
 {
         set_thread_name(__func__);
@@ -1091,15 +1129,9 @@ static void *audio_sender_thread(void *arg)
                         process_statistics(s, &bf_n);
                         // SEND
                         if(s->sender == NET_NATIVE) {
-                                audio_frame2 *uncompressed = &bf_n;
-                                while (audio_frame2 to_send = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                        if (s->fec_state != nullptr) {
-                                                to_send = s->fec_state->encode(to_send);
-                                        }
-                                        audio_tx_data tx = to_send.get_tx_data();
-                                        audio_tx_send(s->tx_session, s->audio_network_device, &tx);
-                                        uncompressed = NULL;
-                                }
+                                audio_compress_send_native(
+                                    s->audio_network_device, s->audio_encoder,
+                                    s->tx_session, s->fec_state, &bf_n);
                         }else if(s->sender == NET_STANDARD){
                             audio_frame2 *uncompressed = &bf_n;
                             while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {

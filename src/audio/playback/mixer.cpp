@@ -42,6 +42,7 @@
 #include "config_win32.h"
 #endif
 
+#include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
@@ -357,12 +358,9 @@ void state_audio_mixer::worker()
                 participant_index = 0;
                 for (auto & p : participants) {
                         audio_frame2 *uncompressed = &participant_frames[participant_index];
-                        while (audio_frame2 compressed = audio_codec_compress(p.second.m_audio_coder, uncompressed)) {
-                                audio_tx_data tx = compressed.get_tx_data();
-                                audio_tx_send(p.second.m_tx_session, p.second.m_network_device, &tx);
-                                uncompressed = nullptr;
-                        }
-
+                        audio_compress_send_native(
+                            p.second.m_network_device, p.second.m_audio_coder,
+                            p.second.m_tx_session, nullptr, uncompressed);
 
                         participant_index++;
                 }

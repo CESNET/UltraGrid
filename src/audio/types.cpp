@@ -49,11 +49,18 @@
 #include "host.h"
 #include "utils/macros.h"
 
+#include <cassert>
+#include <chrono>
 #include <sstream>
 #include <stdexcept>
-#include <chrono>
 
-using namespace std;
+using std::copy;
+using std::logic_error;
+using std::ostringstream;
+using std::string;
+using std::tuple;
+using std::unique_ptr;
+using std::vector;
 
 bool audio_desc::operator!() const
 {
@@ -365,21 +372,37 @@ bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
         return true;
 }
 
-audio_tx_data
-audio_frame2::get_tx_data()
+audio_tx_data *
+audio_frame2::append_tx_data(audio_tx_data *src)
 {
-        tx_channels.resize(get_channel_count());
-        audio_tx_data ret{};
-        ret.desc = get_desc();
-        ret.timestamp = get_timestamp();
-        ret.channels  = tx_channels.data();
-
-        for (int i = 0; i < get_channel_count(); ++i) {
-                ret.channels[i].pkt_count        = 1;
-                ret.channels[i].pkts[0].data     = get_data(i);
-                ret.channels[i].pkts[0].len      = (int) get_data_len(i);
-                ret.channels[i].pkts[0].fec_desc = get_fec_params(i);
+        if (src == nullptr) {
+                src = new audio_tx_data;
+                src->timestamp = get_timestamp();
+                src->desc      = get_desc();
+                src->channels  = new audio_tx_channel[get_channel_count()];
+                for (int i = 0; i < get_channel_count(); ++i) {
+                        src->channels[i].pkt_count = 0;
+                }
+        } else {
+                assert(src->desc == get_desc());
         }
 
-        return ret;
+        for (int i = 0; i < get_channel_count(); ++i) {
+                const int idx = src->channels[i].pkt_count;
+                assert(idx < TX_MAX_AUDIO_PACKETS);
+
+                src->channels[i].pkts[idx].data     = get_data(i);
+                src->channels[i].pkts[idx].len      = (int) get_data_len(i);
+                src->channels[i].pkts[idx].fec_desc = get_fec_params(i);
+                src->channels[i].pkt_count += 1;
+        }
+
+        return src;
+}
+
+void
+audio_tx_data_cleanup(audio_tx_data *d)
+{
+        delete d->channels;
+        delete d;
 }
