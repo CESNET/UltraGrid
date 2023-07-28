@@ -191,6 +191,11 @@ const static pw_stream_events stream_events = {
 
 static void audio_cap_pw_help(){
         color_printf("Pipewire audio capture.\n");
+        color_printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-r pipewire" TERM_FG_RESET "[:target=<device>][:buffer-len=<millis>][:channels=<ch_count>][:sample-rate=<rate>]\n" TERM_RESET);
+        color_printf("\n");
+
+        color_printf("Devices:\n");
         print_devices("Audio/Source");
 }
 
