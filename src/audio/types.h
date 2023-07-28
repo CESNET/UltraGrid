@@ -154,6 +154,7 @@ public:
         [[nodiscard]] int get_bps() const;
         [[nodiscard]] audio_codec_t get_codec() const;
         [[nodiscard]] char *get_data(int channel);
+        [[nodiscard]] audio_desc get_desc() const;
         [[nodiscard]] const char *get_data(int channel) const;
         [[nodiscard]] size_t get_data_len(int channel) const;
         [[nodiscard]] size_t get_data_len() const;

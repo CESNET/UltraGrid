@@ -205,7 +205,8 @@ audio_frame2 rs::encode(const audio_frame2 &in)
 
         for (int i = 0; i < in.get_channel_count(); ++i) {
                 audio_payload_hdr_t hdr;
-                format_audio_header(&in, i, 0, (uint32_t *) &hdr);
+                format_audio_header(in.get_desc(), i, in.get_data_len(i), 0,
+                                    (uint32_t *) &hdr);
                 size_t hdr_len = sizeof(hdr);
                 size_t len = in.get_data_len(i);
                 uint32_t len32 = len + hdr_len;
