@@ -78,6 +78,11 @@ static void audio_play_pw_probe(struct device_info **available_devices, int *cou
 
 static void audio_play_pw_help(){
         color_printf("Pipewire audio output.\n");
+        color_printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-r pipewire" TERM_FG_RESET "[:target=<device>][:buffer-len=<millis>][:quant=<samples>]\n" TERM_RESET);
+        color_printf("\n");
+
+        color_printf("Devices:\n");
         print_devices("Audio/Sink");
 }
 
