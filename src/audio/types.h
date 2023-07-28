@@ -120,6 +120,24 @@ typedef struct
         double duration;
 } audio_channel;
 
+enum {
+        TX_MAX_AUDIO_PACKETS = 16,
+};
+struct audio_tx_pkt {
+        char *data;
+        int   len;
+        struct fec_desc fec_desc;
+};
+struct audio_tx_channel {
+        int pkt_count;
+        struct audio_tx_pkt pkts[TX_MAX_AUDIO_PACKETS];
+};
+struct audio_tx_data {
+        struct audio_desc        desc;
+        int64_t                  timestamp; ///< -1 if not valid
+        struct audio_tx_channel *channels;
+};
+
 #ifdef __cplusplus
 #include <memory>
 #include <tuple>
@@ -183,9 +201,9 @@ public:
          * @retval false          if SpeexDSP was not compiled in
          */
         bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
-
         ///@ resamples to new sample rate while keeping nominal sample rate intact
         std::tuple<bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
+        audio_tx_data get_tx_data();
 private:
         struct channel {
                 std::unique_ptr<char []> data;
@@ -199,6 +217,7 @@ private:
         std::vector<channel> channels; /* data should be at least 4B aligned */
         double duration = 0.0; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
         int64_t timestamp = -1;
+        std::vector<audio_tx_channel> tx_channels;
 
         friend class audio_frame2_resampler;
         friend class soxr_resampler;

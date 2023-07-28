@@ -750,8 +750,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 }
 
 static void audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session,
-                               uint32_t timestamp, const audio_frame2 *buffer,
-                               int channel, bool send_m);
+                               uint32_t                    timestamp,
+                               const struct audio_tx_data *buffer, int channel,
+                               int packet, bool send_m);
 
 /* 
  * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
@@ -759,7 +760,7 @@ static void audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session,
  */
 void
 audio_tx_send(struct tx *tx, struct rtp *rtp_session,
-              const audio_frame2 *buffer)
+              const struct audio_tx_data *buffer)
 {
         if (!rtp_has_receiver(rtp_session)) {
                 return;
@@ -768,16 +769,17 @@ audio_tx_send(struct tx *tx, struct rtp *rtp_session,
         fec_check_messages(tx);
 
         const uint32_t timestamp =
-            incompatible_features && buffer->get_timestamp() != -1
-                ? get_local_mediatime_offset() + buffer->get_timestamp()
+            incompatible_features && buffer->timestamp != -1
+                ? get_local_mediatime_offset() + buffer->timestamp
                 : get_local_mediatime();
 
         for (int iter = 0; iter < tx->mult_count; ++iter) {
-                for (int chan = 0; chan < buffer->get_channel_count(); ++chan) {
+                for (int chan = 0; chan < buffer->desc.ch_count; ++chan) {
                         bool send_m = iter == tx->mult_count - 1 &&
-                                      chan == buffer->get_channel_count() - 1;
+                                      chan == buffer->desc.ch_count - 1;
+                        assert(buffer->channels[chan].pkt_count == 1);
                         audio_tx_send_chan(tx, rtp_session, timestamp, buffer,
-                                           chan, send_m);
+                                           chan, 0, send_m);
                 }
         }
 
@@ -786,10 +788,12 @@ audio_tx_send(struct tx *tx, struct rtp *rtp_session,
 
 static void
 audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
-                   const audio_frame2 *buffer, int channel, bool send_m)
+                   const struct audio_tx_data *buffer, int channel, int packet, bool send_m)
 {
+        const struct audio_tx_pkt *pkt = &buffer->channels[channel].pkts[packet];
+
         int pt = fec_pt_from_fec_type(
-            TX_MEDIA_AUDIO, buffer->get_fec_params(0).type,
+            TX_MEDIA_AUDIO, pkt->fec_desc.type,
             tx->encryption); /* PT set for audio in our packet format */
         unsigned m = 0U;
         // see definition in rtp_callback.h
@@ -798,17 +802,16 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         int rtp_hdr_len = 0;
         int hdrs_len    = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 +
                        12; // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
-        unsigned int fec_symbol_size =
-            buffer->get_fec_params(channel).symbol_size;
+        const unsigned int fec_symbol_size = pkt->fec_desc.symbol_size;
 
-        const char *chan_data = buffer->get_data(channel);
-        unsigned    pos       = 0U;
+        const char    *chan_data = pkt->data;
+        const unsigned len       = pkt->len;
+        unsigned       pos       = 0U;
 
-        if (buffer->get_fec_params(0).type == FEC_NONE) {
+        if (pkt->fec_desc.type == FEC_NONE) {
                 hdrs_len += (sizeof(audio_payload_hdr_t));
                 rtp_hdr_len = sizeof(audio_payload_hdr_t);
-                format_audio_header(buffer->get_desc(), channel,
-                                    buffer->get_data_len(channel), tx->buffer,
+                format_audio_header(buffer->desc, channel, len, tx->buffer,
                                     rtp_hdr);
         } else {
                 hdrs_len += (sizeof(fec_payload_hdr_t));
@@ -817,11 +820,11 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
                 rtp_hdr[0] = htonl(tmp);
-                rtp_hdr[2] = htonl(buffer->get_data_len(channel));
-                rtp_hdr[3] = htonl(buffer->get_fec_params(channel).k << 19 |
-                                   buffer->get_fec_params(channel).m << 6 |
-                                   buffer->get_fec_params(channel).c);
-                rtp_hdr[4] = htonl(buffer->get_fec_params(channel).seed);
+                rtp_hdr[2] = htonl(len);
+                rtp_hdr[3] = htonl(pkt->fec_desc.k << 19 |
+                                   pkt->fec_desc.m << 6 |
+                                   pkt->fec_desc.c);
+                rtp_hdr[4] = htonl(pkt->fec_desc.seed);
         }
 
         if (tx->encryption) {
@@ -832,16 +835,15 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
-        if (buffer->get_fec_params(0).type != FEC_NONE) {
+        if (pkt->fec_desc.type != FEC_NONE) {
                 check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
         }
 
         do {
                 const char *data     = chan_data + pos;
-                int         data_len = tx->mtu - hdrs_len;
-                if (pos + data_len >=
-                    (unsigned int) buffer->get_data_len(channel)) {
-                        data_len = buffer->get_data_len(channel) - pos;
+                unsigned    data_len = tx->mtu - hdrs_len;
+                if (pos + data_len >= len) {
+                        data_len = len - pos;
                         if (send_m) {
                                 m = 1;
                         }
@@ -880,7 +882,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                                   (char *) rtp_hdr, rtp_hdr_len,
                                   const_cast<char *>(data), data_len, 0, 0, 0);
 
-        } while (pos < buffer->get_data_len(channel));
+        } while (pos < len);
 }
 
 /**
