@@ -76,6 +76,7 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
+#include <map>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -772,7 +773,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         s->frame_size = received_frame.get_data_len();
-        audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
+        audio_frame2 decompressed =
+            audio_codec_decompress(decoder->audio_decompress, &received_frame,
+                                   decoder->packet_counter);
         if (!decompressed) {
                 return FALSE;
         }

@@ -52,7 +52,6 @@
 static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
                 int bitrate);
 static audio_channel *dummy_pcm_compress(void *, audio_channel *);
-static audio_channel *dummy_pcm_decompress(void *, audio_channel *);
 static void dummy_pcm_done(void *);
 
 struct dummy_pcm_codec_state {
@@ -79,8 +78,11 @@ static audio_channel *dummy_pcm_compress(void *state, audio_channel * channel)
         return channel;
 }
 
-static audio_channel *dummy_pcm_decompress(void *state, audio_channel * channel)
+static audio_channel *
+dummy_pcm_decompress(void *state, audio_channel *channel,
+                     struct packet_iterator *it)
 {
+        UNUSED(it);
         struct dummy_pcm_codec_state *s = (struct dummy_pcm_codec_state *) state;
         assert(s->magic == MAGIC);
 
