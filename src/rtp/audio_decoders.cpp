@@ -886,7 +886,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 task_run_async_detached(adec_compute_and_print_stats, d);
 
                 decoder->t0 = t;
-                packet_counter_clear(decoder->packet_counter);
+                packet_counter_clear_cumulative(decoder->packet_counter);
         }
 
         DEBUG_TIMER_START(audio_decode_compute_autoscale);

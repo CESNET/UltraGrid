@@ -38,17 +38,15 @@
 #ifndef __PACKET_COUNTER_H
 #define __PACKET_COUNTER_H
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 struct packet_counter;
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-struct packet_iterator {
-        struct packet_counter *counter;
-        int channel;
-        int first_packet;
-};
 
 struct packet_counter *packet_counter_init(int num_substreams);
 void packet_counter_destroy(struct packet_counter *state);
@@ -59,8 +57,19 @@ bool packet_counter_has_packet(struct packet_counter *state, unsigned int substr
 int packet_counter_get_total_bytes(struct packet_counter *state);
 int packet_counter_get_all_bytes(struct packet_counter *state);
 int packet_counter_get_channels(struct packet_counter *state);
-void packet_counter_clear(struct packet_counter *state);
+void packet_counter_clear_cumulative(struct packet_counter *state);
+void packet_counter_clear_current_frame(struct packet_counter *state);
 
+struct packet_iterator {
+        struct packet_counter *counter;
+        int channel;
+        // follow user data - pkt offset and length
+        int offset;
+        int len;
+};
+void packet_iterator_init(struct packet_counter *state, int channel,
+                          struct packet_iterator *it);
+bool packet_next(struct packet_iterator *it);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

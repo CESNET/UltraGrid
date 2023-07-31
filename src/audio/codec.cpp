@@ -309,7 +309,8 @@ audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame,
                 if (channel.data_len == 0) {
                         continue;
                 }
-                struct packet_iterator it = { counter, i, 0 };
+                struct packet_iterator it{};
+                packet_iterator_init(counter, i, &it);
                 audio_channel *out = s->funcs->decompress(s->state[i], &channel, &it);
                 if (out) {
                         if (!out_frame_initialized) {
@@ -324,6 +325,7 @@ audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame,
                         nonzero_channels += 1;
                 }
         }
+        packet_counter_clear_current_frame(counter);
 
         if (nonzero_channels != frame->get_channel_count()) {
                 log_msg(LOG_LEVEL_WARNING,
