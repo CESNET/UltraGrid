@@ -266,6 +266,11 @@ void ShowMessage(int level, char *msg);
 
 #define sleep(sec) Sleep(1000 * (sec))
 
+#ifndef __STDC_LIB_EXT1__
+#define gmtime_s(timer, buf) gmtime_s(buf, timer)
+#define localtime_s(timer, buf) localtime_s(buf, timer)
+#endif // ! defined __STDC_LIB_EXT1__
+
 #define CLOSESOCKET closesocket
 
 #endif // defined _CONFIG_WIN32_H

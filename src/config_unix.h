@@ -195,5 +195,10 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 #define _ftelli64 ftell
 #define _fseeki64 fseek
 
+#ifndef __STDC_LIB_EXT1__
+#define gmtime_s gmtime_r
+#define localtime_s localtime_r
+#endif // ! defined __STDC_LIB_EXT1__
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */

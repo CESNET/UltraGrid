@@ -647,10 +647,32 @@ void keyboard_control::impl::run()
         }
 }
 
+static void
+print_start_elapsed_time(time_t start_time)
+{
+        enum {
+                ELAPS_LEN = 9,
+                START_LEN = 25,
+        };
+        struct tm tm_buf = {};
+
+        localtime_s(&start_time, &tm_buf);
+        char start[START_LEN] = "";
+        strftime(start, sizeof start, "%c", &tm_buf);
+
+        const time_t diff = time(nullptr) - start_time;
+        gmtime_s(&diff, &tm_buf);
+        char elapsed[ELAPS_LEN] = "";
+        strftime(elapsed, sizeof elapsed, "%T", &tm_buf);
+
+        col() << TBOLD("Start time: ") << start << " (elapsed " << elapsed
+              << ")\n";
+}
+
 void keyboard_control::impl::info()
 {
         col() << TBOLD("UltraGrid version: ") << get_version_details() << "\n";
-        col() << TBOLD("Start time: ") << asctime(localtime(&m_start_time));
+        print_start_elapsed_time(m_start_time);
         col() << TBOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         col() << TBOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
         col() << TBOLD("Audio playback delay: ") << get_audio_delay() << " ms\n";
