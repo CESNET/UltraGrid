@@ -426,7 +426,7 @@ void PlaybackDelegate::ScheduleNextFrame()
                 return;
         }
         while (!schedFrames.empty()) {
-                DeckLinkFrame *f = lastSchedFrame = schedFrames.front();
+                DeckLinkFrame *f = schedFrames.front();
                 schedFrames.pop();
                 if (++i > m_max_sched_frames) {
                         LOG(LOG_LEVEL_WARNING)
