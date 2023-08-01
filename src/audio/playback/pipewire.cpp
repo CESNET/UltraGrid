@@ -257,8 +257,10 @@ const static pw_stream_events stream_events = {
         .remove_buffer = nullptr,
         .process = on_process,
         .drained = nullptr,
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 39)
         .command = nullptr,
         .trigger_done = nullptr,
+#endif
 };
 
 static bool audio_play_pw_reconfigure(void *state, struct audio_desc desc){
