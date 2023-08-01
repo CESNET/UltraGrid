@@ -185,8 +185,10 @@ const static pw_stream_events stream_events = {
         .remove_buffer = nullptr,
         .process = on_process,
         .drained = nullptr,
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 39)
         .command = nullptr,
         .trigger_done = nullptr,
+#endif
 };
 
 static void audio_cap_pw_help(){
