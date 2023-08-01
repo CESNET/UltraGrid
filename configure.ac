@@ -2615,8 +2615,8 @@ then
         pipewire_audio=yes
         PIPEWIRE_ACAP_OBJS="src/audio/pipewire_common.o src/audio/capture/pipewire.o"
         PIPEWIRE_APLAY_OBJS="src/audio/pipewire_common.o src/audio/playback/pipewire.o"
-        ADD_MODULE("acap_pipewire", "$PIPEWIRE_ACAP_OBJS", "$PIPEWIRE_LIB")
-        ADD_MODULE("aplay_pipewire", "$PIPEWIRE_APLAY_OBJS", "$PIPEWIRE_LIB")
+        ADD_MODULE("acap_pipewire", "$PIPEWIRE_ACAP_OBJS", "$PIPEWIRE_LIBS")
+        ADD_MODULE("aplay_pipewire", "$PIPEWIRE_APLAY_OBJS", "$PIPEWIRE_LIBS")
 fi
 
 if test $pipewire_audio_req = yes && test $pipewire_audio = no; then
