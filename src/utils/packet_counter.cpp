@@ -42,17 +42,12 @@
 #endif // defined HAVE_CONFIG_H
 
 #include "utils/packet_counter.h"
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <iostream>
+#include <cassert>
 #include <map>
 #include <vector>
 
-#include "debug.h"
-
-using namespace std;
+using std::map;
+using std::vector;
 
 struct packet_counter {
         explicit packet_counter(int ns)
@@ -66,14 +61,6 @@ struct packet_counter {
                 cumulative[substream_id][bufnum][offset] = len;
                 current_frame[substream_id][offset] = len;
         }
-
-        bool has_packet(int substream_id, int bufnum, int offset, int len) {
-                UNUSED(len);
-                assert(substream_id < num_substreams); 
-
-                return cumulative[substream_id][bufnum][offset] != 0;
-        }
-
 
         int get_total_bytes() {
                 int ret = 0;
@@ -166,12 +153,6 @@ void packet_counter_register_packet(struct packet_counter *state, unsigned int s
                 unsigned int offset, unsigned int len)
 {
         state->register_packet(substream_id, bufnum, offset, len);
-}
-
-bool packet_counter_has_packet(struct packet_counter *state, unsigned int substream_id,
-                unsigned int bufnum, unsigned int offset, unsigned int len) 
-{
-        return state->has_packet(substream_id, bufnum, offset, len);
 }
 
 int packet_counter_get_total_bytes(struct packet_counter *state)
