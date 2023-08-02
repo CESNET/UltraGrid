@@ -48,8 +48,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
-#include "crypto/random.h"
 #include "tv.h"
+#include "utils/random.h"
 
 #include <pthread.h>
 
@@ -59,7 +59,7 @@ static uint32_t random_offset;
 static void init_first(void)
 {
         gettimeofday(&start_time, NULL);
-        random_offset = lrand48();
+        random_offset = ug_rand();
 }
 
 uint32_t get_local_mediatime(void)
@@ -188,7 +188,7 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate)
 			gettimeofday(&standard_time.start_time, NULL);
 			standard_time.atime = standard_time.start_time;
 			standard_time.vtime = standard_time.start_time;
-			standard_time.random_startime_offset = lrand48();
+			standard_time.random_startime_offset = ug_rand();
             tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
             tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 
@@ -214,7 +214,7 @@ uint32_t get_std_video_local_mediatime(void)
 			gettimeofday(&t0, NULL);
 			standard_time.atime = standard_time.start_time;
 			standard_time.vtime = standard_time.start_time;
-			standard_time.random_startime_offset = lrand48();
+			standard_time.random_startime_offset = ug_rand();
             tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
             tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 

@@ -65,7 +65,6 @@
 #include "audio/codec.h"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "crypto/random.h"
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
@@ -80,6 +79,7 @@
 #include "transmit.h"
 #include "utils/jpeg_reader.h"
 #include "utils/misc.h" // unit_evaluate
+#include "utils/random.h"
 #include "video.h"
 #include "video_codec.h"
 #include "compat/platform_time.h"
@@ -231,7 +231,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         tx->mult_count = 1;
         tx->max_loss = 0.0;
         tx->mtu = mtu;
-        tx->buffer = lrand48() & 0x3fffff;
+        tx->buffer = ug_rand() & 0x3fffff;
         tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
         tx->fec_scheme = FEC_NONE;
         tx->last_frame_fragment_id = -1;

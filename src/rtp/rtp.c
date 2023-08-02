@@ -82,17 +82,15 @@
 #include "memory.h"
 #include "debug.h"
 #include "net_udp.h"
-#include "crypto/random.h"
-#include "compat/drand48.h"
 #include "crypto/crypt_des.h"
 #include "crypto/crypt_aes.h"
-#include "compat/drand48.h"
 #include "tv.h"
 #include "crypto/md5.h"
 #include "ntp.h"
 #include "rtp.h"
 #include "utils/misc.h"
 #include "utils/net.h"
+#include "utils/random.h"
 
 #undef max
 #undef min
@@ -904,7 +902,7 @@ static double rtcp_interval(struct rtp *session)
         /* To avoid traffic bursts from unintended synchronization with   */
         /* other sites, we then pick our actual next report interval as a */
         /* random number uniformly distributed between 0.5*t and 1.5*t.   */
-        return (t * (drand48() + 0.5)) / COMPENSATION;
+        return (t * (ug_drand() + 0.5)) / COMPENSATION;
 }
 
 #define MAXCNAMELEN	255
@@ -977,38 +975,6 @@ static void init_opt(struct rtp *session)
         rtp_set_option(session, RTP_OPT_REUSE_PACKET_BUFS, FALSE);
         rtp_set_option(session, RTP_OPT_RECORD_SOURCE, FALSE);
         rtp_set_option(session, RTP_OPT_SEND_BACK, FALSE);
-}
-
-static void init_rng(const char *s)
-{
-        static uint32_t seed;
-        if (seed == 0) {
-                pid_t p = getpid();
-
-#ifdef WIN32
-                int32_t i, n;
-#endif                          /* WIN32 */
-
-                if(s) {
-                        while (*s) {
-                                seed += (uint32_t) * s++;
-                                seed = seed * 31 + 1;
-                        }
-                } else {
-                        seed = clock();
-                }
-                seed = 1 + seed * 31 + (uint32_t) p;
-                srand48(seed);
-                /* At time of writing we use srand48 -> srand on Win32
-                   which is only 16 bit. lrand48 -> rand which is only
-                   15 bits, step a int way through table seq */
-#ifdef WIN32
-                n = (seed >> 16) & 0xffff;
-                for (i = 0; i < n; i++) {
-                        seed = lrand48();
-                }
-#endif                          /* WIN32 */
-        }
 }
 
 /* See rtp_init_if(); calling rtp_init() is just like calling
@@ -1110,7 +1076,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
 
         if (rx_port == 0) {
-                const unsigned random_off = ((uint32_t) lrand48() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
+                const unsigned random_off = (ug_rand() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
                 for (unsigned i = 0; i <= (IPPORT_MAX - IPPORT_DYNAMIC) - 1; i += 2) {
                         int port = IPPORT_DYNAMIC + ((random_off + i) % (IPPORT_MAX - IPPORT_DYNAMIC + 1));
                         // this stuff is not atomic. but... it cannot be done in this way, either
@@ -1144,10 +1110,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         }
 
         hname = udp_host_addr(session->rtp_socket);
-        init_rng(hname);
         free(hname);
 
-        session->my_ssrc = (uint32_t) lrand48();
+        session->my_ssrc = ug_rand();
         session->callback = callback;
         session->invalid_rtp_count = 0;
         session->invalid_rtcp_count = 0;
@@ -1164,7 +1129,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->sdes_count_pri = 0;
         session->sdes_count_sec = 0;
         session->sdes_count_ter = 0;
-        session->rtp_seq = (uint16_t) lrand48();
+        session->rtp_seq = (uint16_t) ug_rand();
         session->rtp_pcount = 0;
         session->mhdr = NULL;
         session->tfrc_on = tfrc_on;
@@ -1237,10 +1202,9 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
         }
 
         hname = udp_host_addr(session->rtp_socket);
-        init_rng(hname);
         free(hname);
 
-        session->my_ssrc = (uint32_t) lrand48();
+        session->my_ssrc = ug_rand();
         session->callback = callback;
         session->invalid_rtp_count = 0;
         session->invalid_rtcp_count = 0;
@@ -1257,7 +1221,7 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
         session->sdes_count_pri = 0;
         session->sdes_count_sec = 0;
         session->sdes_count_ter = 0;
-        session->rtp_seq = (uint16_t) lrand48();
+        session->rtp_seq = (uint16_t) ug_rand();
         session->rtp_pcount = 0;
         session->mhdr = NULL;
         session->tfrc_on = tfrc_on;
@@ -3333,7 +3297,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = lrand48();
+                *((uint32_t *)(void *) ptr) = ug_rand();
                 ptr += 4;
         }
 
@@ -3571,7 +3535,7 @@ static void rtp_send_bye_now(struct rtp *session)
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = lrand48();
+                *((uint32_t *)(void *) ptr) = ug_rand();
                 ptr += 4;
         }
 

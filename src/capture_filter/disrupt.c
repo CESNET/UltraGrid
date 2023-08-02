@@ -46,11 +46,11 @@
 
 #include "capture_filter.h"
 
-#include "compat/drand48.h"
 #include "compat/usleep.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/random.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -111,7 +111,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_disrupt *s = state;
 
-        usleep(1000.0 * drand48() * s->jitter_ms);
+        usleep(1000.0 * ug_drand() * s->jitter_ms);
 
         return in;
 }

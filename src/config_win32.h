@@ -115,10 +115,6 @@ typedef unsigned int	in_addr_t;
 #include <time.h>		/* For clock_t */
 #include "compat/alarm.h"
 #include "compat/usleep.h"
-#include "crypto/random.h"
-
-#define srand48	lbl_srandom
-#define lrand48 lbl_random
 
 typedef char	*caddr_t;
 
@@ -191,7 +187,6 @@ static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
 int uname(struct utsname *);
 int getopt(int, char * const *, const char *);
 //int strncasecmp(const char *, const char*, int len);
-double drand48();
 unsigned int gethostid(void);
 uid_t getuid(void);
 gid_t getgid(void);

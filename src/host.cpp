@@ -65,6 +65,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/misc.h" // unit_evaluate
+#include "utils/random.h"
 #include "utils/string.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
@@ -418,7 +419,8 @@ struct init_data *common_preinit(int argc, char *argv[])
                 open_all("ultragrid_*.so", init.opened_libs); // load modules
         }
 
-        srand48((getpid() * 42) ^ get_time_in_ns());
+        // init_rng in rtp.c added also hostname to the seed
+        ug_srand((getpid() * 42) ^ get_time_in_ns());
 
 #ifdef __linux__
         mtrace();

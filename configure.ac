@@ -313,12 +313,6 @@ AC_CHECK_FUNCS(usleep)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timespec_get)
 
-AC_CHECK_FUNCS(drand48)
-if test $ac_cv_func_drand48 = no
-then
-	AC_DEFINE([NEED_DRAND48], 1, [We need custom implementation of drand48.])
-fi
-
 # ---------------------------------------------------------------------
 # Common shell utility functions
 # ---------------------------------------------------------------------
