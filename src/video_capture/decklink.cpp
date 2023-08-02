@@ -1332,16 +1332,12 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 if (s->audio.ch_count == 4 ||
                     s->audio.ch_count > BMD_MAX_AUD_CH ||
                     !is_power_of_two(s->audio.ch_count)) {
-                        log_msg(LOG_LEVEL_ERROR,
+                        log_msg(LOG_LEVEL_WARNING,
                                 MOD_NAME
-                                "Decklink cannot grab %d audio channels. "
-#if BMD_MAX_AUD_CH == 16
-                                "Only 1, 2, 8 or 16 is possible.\n",
-#else
-                                "Only 1, 2, 8, 16, 32 or 64 is possible.\n",
-#endif
+                                "Decklink may not be able to grab %d audio "
+                                "channels. "
+                                "1, 2, 8, 16, 32 or 64 may work.\n",
                                 s->audio.ch_count);
-                        INIT_ERR();
                 }
                 if (s->audio_consumer_levels != -1) {
                         if (HRESULT result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,

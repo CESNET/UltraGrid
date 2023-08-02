@@ -78,11 +78,9 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
-#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0c000000
-#define BMD_MAX_AUD_CH 64
-#else
-#define BMD_MAX_AUD_CH 16
-#endif
+enum {
+        BMD_MAX_AUD_CH = 64,
+};
 
 struct bmd_option {
 private:
