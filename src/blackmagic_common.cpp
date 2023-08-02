@@ -766,8 +766,12 @@ bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 value_oss << *this;
         }
         if (res != S_OK) {
-                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << log_prefix << "Unable to set key " << fcc_to_string(opt) << " to " <<
-                        value_oss.str() << ": " << bmd_hresult_to_string(res) << "\n";
+                const int lvl = m_user_specified   ? LOG_LEVEL_ERROR
+                                : res == E_NOTIMPL ? LOG_LEVEL_INFO
+                                                   : LOG_LEVEL_WARNING;
+                LOG(lvl) << log_prefix << "Unable to set key "
+                         << fcc_to_string(opt) << " to " << value_oss.str()
+                         << ": " << bmd_hresult_to_string(res) << "\n";
                 return !m_user_specified;
         }
         LOG(LOG_LEVEL_INFO) << log_prefix << fcc_to_string(opt) << " set to: " << value_oss.str() << "\n";
