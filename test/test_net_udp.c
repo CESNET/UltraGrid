@@ -38,6 +38,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <stdlib.h>
 #ifndef WIN32
 #include <sys/wait.h>
 #endif
@@ -53,7 +54,7 @@ static void randomize(char buf[], int buflen)
         int i;
 
         for (i = 0; i < buflen; i++) {
-                buf[i] = (lrand48() & 0xff00) >> 8;
+                buf[i] = rand() & 0xff;
         }
 }
 
@@ -76,7 +77,7 @@ int test_net_udp(void)
 
 #endif                          /* WIN32 */
 
-        srand48(time(NULL));
+        srand(time(NULL));
 
         /**********************************************************************/
         /* The first test is to loopback a packet to ourselves...             */
