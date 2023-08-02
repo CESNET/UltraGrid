@@ -434,7 +434,44 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	return S_OK;
 }
 
-static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
+static void
+print_property(IDeckLinkProfileAttributes *deckLinkAttributes, const char *query_prop_fcc)
+{
+        if (strcmp(query_prop_fcc, "help") == 0) {
+                col{} << "Query usage:\n"
+                      << SBOLD("\tq[uery]=<fcc>") << " - gets Int value\n"
+                      << SBOLD("\tq[uery]=<fcc>F")
+                      << " - gets Flag (bool) value\n"
+                      << "(other types not yet supported)\n";
+        }
+        union {
+                char                   fcc[5] = "";
+                BMDDeckLinkAttributeID key;
+        };
+        strncpy(fcc, query_prop_fcc, sizeof fcc);
+        key            = (BMDDeckLinkAttributeID) htonl(key);
+        int64_t val    = 0;
+        HRESULT result = 0;
+        if (tolower(fcc[4]) == 'f') {
+                result = deckLinkAttributes->GetFlag(key, (BMD_BOOL *) &val);
+                fcc[4] = '\0';
+        } else {
+                result = deckLinkAttributes->GetInt(key, &val);
+        }
+        if (result == S_OK) {
+                col() << hex << "\tValue of " << SBOLD(query_prop_fcc)
+                      << " for this device is 0x" << val << dec << " (" << val
+                      << ")\n";
+        } else {
+                LOG(LOG_LEVEL_ERROR)
+                    << MOD_NAME << "Cannot get " << query_prop_fcc << ": "
+                    << bmd_hresult_to_string(result) << "\n";
+        }
+}
+
+static void
+vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
+{
 
         // ** List the video input display modes supported by the card
         print_input_modes(deckLink);
@@ -459,13 +496,17 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
         }
         cout << "\n";
 
+        if (query_prop_fcc != nullptr) {
+                print_property(deckLinkAttributes, query_prop_fcc);
+        }
+
         // Release the IDeckLink instance when we've finished with it to prevent leaks
         RELEASE_IF_NOT_NULL(deckLinkAttributes);
 }
 
 /* HELP */
 static int
-decklink_help(bool full)
+decklink_help(bool full, const char *query_prop_fcc = nullptr)
 {
 	col() << "\nDecklink options:\n";
         col() << SBOLD(SRED("\t-t decklink")
@@ -512,6 +553,12 @@ decklink_help(bool full)
                 col() << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
                                 "\t\t-t decklink:mode=pal:conversion=10lb\n";
                 col() << "\n";
+
+                col() << SBOLD("query=<FourCC>") << "\n";
+                col() << "\tQueries device attribute, eg. `decklink:q=mach` to "
+                         "see max embed. channels).\n";
+                col() << "\n";
+
                 col() << SBOLD("p_not_i") << "\n";
                 col() << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
                 col() << "\n";
@@ -582,7 +629,7 @@ decklink_help(bool full)
 		numDevices++;
 	
                 if (full) {
-                        vidcap_decklink_print_card_info(deckLink);
+                        vidcap_decklink_print_card_info(deckLink, query_prop_fcc);
                 }
 		deckLink->Release();
 	}
@@ -1329,6 +1376,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 decklink_help(strcmp(fmt, "fullhelp") == 0);
+                return VIDCAP_INIT_NOERR;
+        }
+        if (IS_KEY_PREFIX(fmt, "query")) {
+                decklink_help(true, strchr(fmt, '=') + 1);
                 return VIDCAP_INIT_NOERR;
         }
 
