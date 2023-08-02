@@ -974,8 +974,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         }
 
         BMD_BOOL quad_link_supp = BMD_FALSE;
-        if (s->deckLinkAttributes != nullptr &&
-            s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) ==
+        if (s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) ==
                 S_OK &&
             quad_link_supp == BMD_TRUE) {
                 s->quad_square_division_split.device_write(
@@ -1338,13 +1337,15 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         // Get IDeckLinkAttributes object
-        IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
-        result = s->deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
-                                             reinterpret_cast<void **>(&deckLinkAttributes));
+        result = s->deckLink->QueryInterface(
+            IID_IDeckLinkProfileAttributes,
+            reinterpret_cast<void **>(&s->deckLinkAttributes));
         if (result != S_OK) {
-                log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME "Could not query device attributes: "
+                    << bmd_hresult_to_string(result) << "\n";
+                return nullptr;
         }
-        s->deckLinkAttributes = deckLinkAttributes;
 
         // Obtain the audio/video output interface (IDeckLinkOutput)
         if ((result = s->deckLink->QueryInterface(
@@ -1380,8 +1381,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
                 BMD_BOOL hdr_supp = BMD_FALSE;
-                if (s->deckLinkAttributes == nullptr ||
-                    s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) !=
+                if (s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) !=
                         S_OK) {
                                 LOG(LOG_LEVEL_WARNING)
                                     << MOD_NAME
@@ -1399,8 +1399,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
 
                 BMD_BOOL rec2020_supp = BMD_FALSE;
-                if (s->deckLinkAttributes == nullptr ||
-                    s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata,
+                if (s->deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata,
                                                    &rec2020_supp) != S_OK) {
                         LOG(LOG_LEVEL_WARNING)
                             << MOD_NAME << "Cannot check Rec. 2020 color space metadata support.\n";
