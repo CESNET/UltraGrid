@@ -475,6 +475,7 @@ struct state_decklink {
         bool                initialized       = false;
         bool                emit_timecode     = false;
         bool                play_audio        = false; ///< the BMD device will be used also for output audio
+        int64_t             max_channels      = BMD_MAX_AUD_CH;
 
         BMDPixelFormat      pixelFormat{};
 
@@ -1306,6 +1307,17 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
         }
 
+        // Get IDeckLinkAttributes object
+        result = s->deckLink->QueryInterface(
+            IID_IDeckLinkProfileAttributes,
+            reinterpret_cast<void **>(&s->deckLinkAttributes));
+        if (result != S_OK) {
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME "Could not query device attributes: "
+                    << bmd_hresult_to_string(result) << "\n";
+                return nullptr;
+        }
+
         if(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
                 s->play_audio = true;
                 switch(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
@@ -1322,10 +1334,17 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupporetd audio connection.\n");
                                 abort();
                 }
+                if (s->deckLinkAttributes->GetInt(
+                        audioConnection == 0
+                            ? BMDDeckLinkMaximumAudioChannels
+                            : BMDDeckLinkMaximumAnalogAudioOutputChannels,
+                        &s->max_channels) != S_OK) {
+                                LOG(LOG_LEVEL_WARNING) << "Cannot get maximum auudio channels!\n";
+                }
         } else {
                 s->play_audio = false;
         }
-        
+
         if(s->emit_timecode) {
                 s->timecode = new DeckLinkTimecode;
         } else {
@@ -1334,17 +1353,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         if (!s->keep_device_defaults && !s->profile_req.keep()) {
                 decklink_set_profile(s->deckLink, s->profile_req, s->stereo);
-        }
-
-        // Get IDeckLinkAttributes object
-        result = s->deckLink->QueryInterface(
-            IID_IDeckLinkProfileAttributes,
-            reinterpret_cast<void **>(&s->deckLinkAttributes));
-        if (result != S_OK) {
-                LOG(LOG_LEVEL_WARNING)
-                    << MOD_NAME "Could not query device attributes: "
-                    << bmd_hresult_to_string(result) << "\n";
-                return nullptr;
         }
 
         // Obtain the audio/video output interface (IDeckLinkOutput)
@@ -1583,12 +1591,12 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
                                 assert(*len == sizeof(struct audio_desc));
                                 struct audio_desc *desc = (struct audio_desc *) val;
                                 desc->sample_rate = 48000;
-                                if (desc->ch_count <= 2) {
+                                if (desc->ch_count >= s->max_channels) {
+                                        desc->ch_count = (int) s->max_channels;
+                                } else if (desc->ch_count <= 2) {
                                         desc->ch_count = 2;
                                 } else if (desc->ch_count <= 8) {
                                         desc->ch_count = 8;
-                                } else if (desc->ch_count >= BMD_MAX_AUD_CH) {
-                                        desc->ch_count = BMD_MAX_AUD_CH;
                                 } else {
                                         desc->ch_count =
                                             next_power_of_two(desc->ch_count);
