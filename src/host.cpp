@@ -419,8 +419,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 open_all("ultragrid_*.so", init.opened_libs); // load modules
         }
 
-        // init_rng in rtp.c added also hostname to the seed
-        ug_srand((getpid() * 42) ^ get_time_in_ns());
+        ug_rand_init();
 
 #ifdef __linux__
         mtrace();

@@ -1,6 +1,6 @@
 /**
  * @file   utils/random.h
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2023 CESNET, z. s. p. o.
@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 // functions documented at definition
-void     ug_srand(uint32_t seed);
+void     ug_rand_init(void);
 uint32_t ug_rand(void);
 double   ug_drand(void);
 

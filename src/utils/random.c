@@ -1,6 +1,6 @@
 /**
- * @file   utils/random.h
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @file   utils/random.c
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2023 CESNET, z. s. p. o.
@@ -34,22 +34,46 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @note
+ * Remarks (possible improvements):
+ * - lbl_random reads from '/dev/urandom' instead if available (so Linux only)
+ * and HAVE_DEV_URANDOM defined (which isn't)
+ * - init_rng() in rtp.c used also hostname for seeding (but there may not be
+ * reasonable value, eg. '::1' if no host given to rcvr)
+ */
 
+#ifndef _WIN32
+#include <stdio.h>
+#include <unistd.h>
+#endif
 #define _CRT_RAND_S // request rand_s (Win)
 #include <stdlib.h>
 
 #include "random.h"
+#include "tv.h"
 
 /**
+ * @note
+ * Windows rand_s() is not supposed to be seeded
  * @remark
  * thread-safe
  */
 void
-ug_srand(uint32_t seed)
+ug_rand_init(void)
 {
-#ifdef _WIN32
-        (void) seed;
-#else
+#ifndef _WIN32
+        unsigned seed =
+            (getpid() * 42) ^ (unsigned) get_time_in_ns() ^ (unsigned) clock();
+        FILE *dev_r = fopen("/dev/random", "rb");
+        if (dev_r != NULL) {
+                unsigned seed_dev_r = 0;
+                if (fread(&seed_dev_r, sizeof seed_dev_r, 1, dev_r) == 1) {
+                        seed ^= seed_dev_r;
+                }
+                fclose(dev_r);
+        }
         srandom(seed);
 #endif
 }
