@@ -26,6 +26,8 @@
 #include "video.h"
 #include "video_capture.h"
 
+#define MOD_NAME "[screen_pw] "
+
 //#define ENABLE_INSTRUMENTATION
 
 #ifdef ENABLE_INSTRUMENTATION
@@ -147,7 +149,7 @@ public:
                 assert(screencast_proxy != nullptr);
                 
                 session = session_path_t::create(unique_name);
-                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session.path << "'" << " token: '" << session.token << "'\n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "session path: '" << session.path << "'" << " token: '" << session.token << "'\n";
         }
         
         void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, 
@@ -155,7 +157,7 @@ public:
         {
                 assert(method_name != nullptr);
                 request_path_t request_path = request_path_t::create(sender_name());
-                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
                 auto response_callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
                                         const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
                                         gpointer user_data) {
@@ -198,7 +200,7 @@ public:
 
                         const char *path = nullptr;
                         g_variant_get(result_finished, "(o)", &path);
-                        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request finished: '" << path << "'\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "call_with_request finished: '" << path << "'\n";
                 };
 
 
@@ -216,7 +218,7 @@ public:
 
         void run_loop() {
                 g_main_loop_run(dbus_loop);
-                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: finished dbus loop \n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "finished dbus loop \n";
         }
 
         void quit_loop() {
@@ -385,11 +387,11 @@ struct screen_cast_session {
 
 static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
         (void) session_ptr;
-        LOG(LOG_LEVEL_INFO) << "[screen_pw] stream state changed \"" << pw_stream_state_as_string(old) 
+        LOG(LOG_LEVEL_INFO) << MOD_NAME "stream state changed \"" << pw_stream_state_as_string(old) 
                                                 << "\" -> \""<<pw_stream_state_as_string(state)<<"\"\n";
         
         if (error != nullptr) {
-                LOG(LOG_LEVEL_ERROR) << "[screen_pw] stream error: '"<< error << "'\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "stream error: '"<< error << "'\n";
         }
 }
 
@@ -397,7 +399,7 @@ static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old,
 static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct spa_pod *param) {
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         (void) id;
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: [cap_pipewire] param changed:\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "param changed:\n";
         spa_debug_format(2, nullptr, param);
 
         if(id == SPA_PARAM_Invalid)
@@ -416,7 +418,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         assert(session.pw.format.media_subtype == SPA_MEDIA_SUBTYPE_raw);
 
         spa_format_video_raw_parse(param, &session.pw.format.info.raw);
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: size: " << session.pw.width() << " x " << session.pw.height() << "\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "size: " << session.pw.width() << " x " << session.pw.height() << "\n";
 
         int linesize = vc_get_linesize(session.pw.width(), RGBA);
         int32_t size = linesize * session.pw.height();
@@ -542,13 +544,13 @@ static void on_process(void *session_ptr) {
                 assert(buffer->buffer->datas[0].data != nullptr);
 
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
-                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - empty pw frame " << "\n";
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping - empty pw frame " << "\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
                 }
 
                 if(!session.blank_frames.timed_pop(next_frame, 1000ms / session.pw.expecting_fps)) {
-                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping frame (blank frame dequeue timed out)\n";
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
                 }
@@ -573,7 +575,7 @@ static void on_process(void *session_ptr) {
                         const double average_fps = session.pw.frame_count /
                                                    static_cast<double>(delta) /
                                                    NS_IN_SEC_DBL;
-                        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "on process: average fps in last 5 seconds: " << average_fps << "\n";
                         session.pw.expecting_fps = static_cast<int>(average_fps);
                         if(session.pw.expecting_fps == 0)
                                 session.pw.expecting_fps = 1;
@@ -588,20 +590,20 @@ static void on_process(void *session_ptr) {
 
 static void on_drained(void*)
 {
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: pipewire: drained\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: drained\n";
 }
 
 static void on_add_buffer(void *session_ptr, struct pw_buffer *)
 {
         (void) session_ptr;
 
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: pipewire: add_buffer\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: add_buffer\n";
 }
 
 static void on_remove_buffer(void *session_ptr, struct pw_buffer *)
 {
         (void) session_ptr;
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: pipewire: remove_buffer\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: remove_buffer\n";
 }
 
 static const struct pw_stream_events stream_events = {
@@ -686,7 +688,7 @@ static int start_pipewire(screen_cast_session &session)
                                         ),
                                         params, n_params);
         if (res < 0) {
-                fprintf(stderr, "can't connect: %s\n", spa_strerror(res));
+                fprintf(stderr, MOD_NAME "can't connect: %s\n", spa_strerror(res));
                 return -1;
         }
 
@@ -705,7 +707,7 @@ static void on_portal_session_closed(GDBusConnection *connection, const gchar *s
         (void) parameters;
         auto &session = *static_cast<screen_cast_session*>(user_data);
         //TODO: check if this is fired by newer Gnome 
-        LOG(LOG_LEVEL_INFO) << "[screen_pw] session closed by compositor\n";
+        LOG(LOG_LEVEL_INFO) << MOD_NAME "session closed by compositor\n";
         pw_thread_loop_stop(session.pw.loop);
 }
 
@@ -746,12 +748,12 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 assert(session->pw.fd != -1);
                 assert(session->pw.node != UINT32_MAX);
                 
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: starting pipewire\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "starting pipewire\n";
                 start_pipewire(*session);
         };
 
         PortalCallCallback started = [&](uint32_t response, GVariant *results) {
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(results, true) << "\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "started: " << g_variant_print(results, true) << "\n";
                 
                 if(response == ScreenCastPortal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
                         session.init_error.set_value("failed to start (dialog cancelled by user)");
@@ -764,7 +766,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 const char *restore_token = nullptr;
                 if (g_variant_lookup(results, "restore_token", "s", &restore_token)){
                         if(session.user_options.restore_file.empty()){
-                                LOG(LOG_LEVEL_WARNING) << "[screen_pw]: got unexpected restore_token from ScreenCast portal, ignoring it\n";
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "got unexpected restore_token from ScreenCast portal, ignoring it\n";
                         }else{
                                 std::ofstream file(session.user_options.restore_file);
                                 file<<restore_token;
@@ -796,7 +798,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
         PortalCallCallback sources_selected = [&](uint32_t response, GVariant *results) {
                 gchar *pretty = g_variant_print(results, true);
-                LOG(LOG_LEVEL_INFO) << "[screen_pw]: selected sources: " << pretty << "\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "selected sources: " << pretty << "\n";
                 g_free((gpointer) pretty);
 
                 if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
@@ -820,7 +822,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 const char *session_handle = nullptr;
                 g_variant_lookup(results, "session_handle", "s", &session_handle);
                 
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session created with handle: " << session_handle << "\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "session created with handle: " << session_handle << "\n";
                 assert(session.portal->session_path() == session_handle);
                 
                 {
@@ -916,7 +918,7 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
                                         }
                                 }
 
-                                LOG(LOG_LEVEL_ERROR) << "[screen_pw] invalid option: \"" << param << "\"\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "invalid option: \"" << param << "\"\n";
                                 return VIDCAP_INIT_FAIL;
                         }
                 }
@@ -933,7 +935,7 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         screen_cast_session &session = *new screen_cast_session();
         *state = &session;
 
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] init\n";
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init\n";
         
         int params_ok = parse_params(params, session);
         if(params_ok != VIDCAP_INIT_OK)
@@ -944,20 +946,20 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         future_error.wait();
         
         if (std::string error_msg = future_error.get(); !error_msg.empty()) {
-                LOG(LOG_LEVEL_FATAL) << "[screen_pw]: " << error_msg << "\n";
+                LOG(LOG_LEVEL_FATAL) << MOD_NAME << error_msg << "\n";
                 session.portal->quit_loop();
                 dbus_thread.join();
                 return VIDCAP_INIT_FAIL;
         }
 
         dbus_thread.detach();
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: init ok\n";
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
         return VIDCAP_INIT_OK;
 }
 
 static void vidcap_screen_pw_done(void *session_ptr)
 {
-        LOG(LOG_LEVEL_DEBUG) <<"[cap_pipewire] done\n";   
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "done\n";   
         delete static_cast<screen_cast_session*>(session_ptr);
 }
 
@@ -983,7 +985,7 @@ static const struct video_capture_info vidcap_screen_pw_info = {
         vidcap_screen_pw_init,
         vidcap_screen_pw_done,
         vidcap_screen_pw_grab,
-        "[screen_pw] ",
+        MOD_NAME,
 };
 
 REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
