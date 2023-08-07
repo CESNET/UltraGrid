@@ -54,13 +54,20 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h" // ADD_TO_PARAM
+#include "utils/macros.h"
 #include "utils/misc.h"
 
 #ifdef WORDS_BIGENDIAN
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 #endif // WORDS_BIGENDIAN
 
-using namespace std;
+using std::clamp;
+using std::max;
+using std::numeric_limits;
+using std::stoi;
+using std::string;
+using std::unique_ptr;
+using std::vector;
 
 /**
  * Loads sample with BPS width and returns it cast to
@@ -619,35 +626,37 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
         char *tmp = arg;
 
         while (char *item = strtok_r(tmp, ",:", &save_ptr)) {
-                char *endptr = nullptr;
-                if (strncmp(item, "channels=", strlen("channels=")) == 0) {
-                        item += strlen("channels=");
-                        ret->ch_count = strtol(item, &endptr, 10);
-                        if (ret->ch_count < 1 || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
+                const char *const val    = strchr(item, '=') + 1;
+                if (IS_KEY_PREFIX(item, "channels")) {
+                        ret->ch_count = stoi(val);
+                        if (ret->ch_count < 1) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        "Invalid number of channels %s!\n",
+                                        val);
                                 return -1;
                         }
-                } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
-                        item += strlen("bps=");
-                        int bps = strtol(item, &endptr, 10);
-                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
+                } else if (IS_KEY_PREFIX(item, "bps")) {
+                        const int bps = stoi(val);
+                        if (bps % 8 != 0 || bps <= 0 || bps > 32) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n",
+                                        val);
                                 if (bps % 8 != 0) {
                                         LOG(LOG_LEVEL_WARNING) << "bps is in bits per sample but a value not divisible by 8 was given.\n";
                                 }
                                 log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
                                 return -1;
-
                         }
                         ret->bps = bps / 8;
-                } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
-                        const char *sample_rate_str = item + strlen("sample_rate=");
-                        long long val = unit_evaluate(sample_rate_str);
-                        if (val <= 0 || val > numeric_limits<decltype(ret->sample_rate)>::max()) {
-                                LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
+                } else if (IS_KEY_PREFIX(item, "sample_rate")) {
+                        const long long rate = unit_evaluate(val);
+                        if (rate <= 0 ||
+                            rate > numeric_limits<
+                                       decltype(ret->sample_rate)>::max()) {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << "Invalid sample_rate " << rate << "!\n";
                                 return -1;
                         }
-                        ret->sample_rate = val;
+                        ret->sample_rate = (int) rate;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for audio format!\n";
                         LOG(LOG_LEVEL_INFO) << "Use \"help\" keyword for syntax.!\n";
