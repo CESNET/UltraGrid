@@ -26,7 +26,9 @@ export FEATURES="--enable-option-checking=fatal --with-live555=/usr/local --enab
 CUDA_FEATURES="--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy"
 case "$RUNNER_OS" in
         Linux)
-                FEATURES="$FEATURES $CUDA_FEATURES --enable-plugins --enable-alsa --enable-lavc-hw-accel-vaapi --enable-lavc-hw-accel-vdpau --enable-v4l2"
+                FEATURES="$FEATURES $CUDA_FEATURES --enable-plugins\
+ --enable-alsa --enable-lavc-hw-accel-vaapi --enable-lavc-hw-accel-vdpau\
+ --enable-pipewire-audio --enable-v4l2"
                 ;;
         macOS)
                 FEATURES="$FEATURES --enable-avfoundation --enable-coreaudio --enable-syphon"
