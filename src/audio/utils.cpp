@@ -629,10 +629,12 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
                 const char *const val    = strchr(item, '=') + 1;
                 if (IS_KEY_PREFIX(item, "channels")) {
                         ret->ch_count = stoi(val);
-                        if (ret->ch_count < 1) {
+                        if (ret->ch_count < 1 ||
+                            ret->ch_count > MAX_AUD_CH_COUNT) {
                                 log_msg(LOG_LEVEL_ERROR,
-                                        "Invalid number of channels %s!\n",
-                                        val);
+                                        "Invalid number of channels %s! Valid "
+                                        "range 1-%d.\n",
+                                        val, MAX_AUD_CH_COUNT);
                                 return -1;
                         }
                 } else if (IS_KEY_PREFIX(item, "bps")) {
@@ -649,11 +651,11 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
                         ret->bps = bps / 8;
                 } else if (IS_KEY_PREFIX(item, "sample_rate")) {
                         const long long rate = unit_evaluate(val);
-                        if (rate <= 0 ||
-                            rate > numeric_limits<
-                                       decltype(ret->sample_rate)>::max()) {
+                        if (rate <= 0 || rate > MAX_AUD_SAMPLE_RATE) {
                                 LOG(LOG_LEVEL_ERROR)
-                                    << "Invalid sample_rate " << rate << "!\n";
+                                    << "Invalid sample_rate " << rate
+                                    << "! Valid range 1-"
+                                    << MAX_AUD_SAMPLE_RATE << ".\n";
                                 return -1;
                         }
                         ret->sample_rate = (int) rate;

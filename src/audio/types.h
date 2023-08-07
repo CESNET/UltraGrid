@@ -62,6 +62,13 @@ typedef enum {
         AC_COUNT,
 } audio_codec_t;
 
+/// packet format maximal allowed values defined in:
+/// http://www.sitola.cz/files/4K-packet-format.pdf
+enum {
+        MAX_AUD_CH_COUNT    = 1 << 10,
+        MAX_AUD_SAMPLE_RATE = 1 << 24,
+};
+
 #ifdef __cplusplus
 #include <string>
 #endif
