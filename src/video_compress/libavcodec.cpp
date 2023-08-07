@@ -104,7 +104,9 @@ static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr int DEFAULT_SLICE_COUNT = 32;
 static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 
-#define DEFAULT_X26X_RC_BUF_SIZE_FACTOR 2.5
+// NOLINTNEXTLINE(*-macro-usage): for correct TOSTRING expansion
+#define DEFAULT_X26X_RC_BUF_SIZE_FACTOR  2.5
+#define DEFAULT_NVENC_RC_BUF_SIZE_FACTOR 1.5 // NOLINT: ditto
 
 namespace {
 
@@ -1396,9 +1398,14 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
         }
 }
 
-ADD_TO_PARAM("lavc-rc-buffer-size-factor", "* lavc-rc-buffer-size-factor=<val>\n"
-                 "  Multiplier how much can individual frame overshot average size (default x264/5: " TOSTRING(DEFAULT_X26X_RC_BUF_SIZE_FACTOR) ", nvenc: 1).\n");
-static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
+ADD_TO_PARAM(
+    "lavc-rc-buffer-size-factor",
+    "* lavc-rc-buffer-size-factor=<val>\n"
+    "  Multiplier how much can individual frame overshot average size (default "
+    "x264/5: " TOSTRING(DEFAULT_X26X_RC_BUF_SIZE_FACTOR) ", nvenc: " TOSTRING(
+        DEFAULT_NVENC_RC_BUF_SIZE_FACTOR) ").\n");
+static void
+configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
         check_av_opt_set<const char *>(codec_ctx->priv_data, "tune", tune);
@@ -1559,13 +1566,21 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         check_av_opt_set<int>(codec_ctx->priv_data, "zerolatency", 1, "zero latency operation (no reordering delay)");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "b_ref_mode", "disabled", 0);
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
+        double lavc_rc_buffer_size_factor = DEFAULT_NVENC_RC_BUF_SIZE_FACTOR;
         if (const char *val = get_commandline_param("lavc-rc-buffer-size-factor")) {
-                codec_ctx->rc_buffer_size *= stof(val);
+                lavc_rc_buffer_size_factor = stof(val);
         } else {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "To reduce NVENC pulsation, you can try \"--param lavc-rc-buffer-size-factor=0\""
-                                       " or a small number. 0 or higher value (than default 1) may cause frame drops on receiver.\n");
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME
+                    "To reduce NVENC pulsation, you can try \"--param "
+                    "lavc-rc-buffer-size-factor=0\""
+                    " or a small number. 0 or higher value (than default "
+                    << DEFAULT_NVENC_RC_BUF_SIZE_FACTOR
+                    << ") may cause frame drops on receiver.\n";
         }
+        codec_ctx->rc_buffer_size =
+            (int) ((double) codec_ctx->rc_max_rate / param->desc.fps *
+                   lavc_rc_buffer_size_factor);
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct == 1) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
