@@ -111,7 +111,8 @@ static void audio_cap_testcard_probe(struct device_info **available_devices, int
 
 /// @param if crescendo_spd >= 1, amplitude of sound is increasing
 static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume, int crescendo_spd) {
-        char *data = (char *) calloc(1, sample_rate * channels * bps);
+        char *data = (char *) calloc(1, (size_t) sample_rate * channels * bps);
+        assert(data != NULL);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
         bool dither = sample_rate % frequency != 0 && get_commandline_param("no-dither") == NULL;
 
@@ -135,8 +136,9 @@ static char *get_sine_signal(int sample_rate, int bps, int channels, int frequen
  * Generates line-up EBU tone according to https://tech.ebu.ch/docs/tech/tech3304.pdf
  */
 static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequency, double volume, size_t *total_samples) {
-        *total_samples = (3 + channels + 1 + 3) * sample_rate;
+        *total_samples = ((size_t) 3 + channels + 1 + 3) * sample_rate;
         char *ret = (char *) calloc(1, *total_samples * channels * bps);
+        assert(ret != NULL);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
 
         char* data = ret;
@@ -173,6 +175,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
 
 static char *get_noise(size_t len) {
         unsigned char *ret = malloc(len);
+        assert(ret != NULL);
         for (size_t i = 0; i < len; ++i) {
                 ret[i] = (unsigned char) (rand() % 256);
         }
@@ -209,6 +212,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
 
         const int audio_samples_size = samples_data_size + headroom;
         *audio_samples = (char *) calloc(1, audio_samples_size);
+        assert(*audio_samples != NULL);
 
         char *read_to;
         char *tmp = NULL;
