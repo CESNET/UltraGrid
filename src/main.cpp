@@ -716,7 +716,9 @@ static bool parse_control_port(char *optarg, struct ug_options *opt) {
  * @retval 0 success
  * @retval 1 success (help written)
  */
-static int parse_options(int argc, char *argv[], struct ug_options *opt) {
+static int
+parse_options_internal(int argc, char *argv[], struct ug_options *opt)
+{
         static struct option getopt_options[] = {                // sort by
                 {"audio-capture-format",   required_argument, nullptr, 'a'},
                 {"compress",               required_argument, nullptr, 'c'},
@@ -1034,6 +1036,32 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
         return 0;
 }
 
+/// @copydoc parse_options_internal
+static int
+parse_options(int argc, char *argv[], struct ug_options *opt)
+{
+        try {
+                return parse_options_internal(argc, argv, opt);
+        } catch (logic_error &e) {
+                if (strcmp(e.what(), "stoi") != 0 &&
+                    strcmp(e.what(), "stod") != 0) {
+                        throw;
+                }
+                if (dynamic_cast<invalid_argument *>(&e) != nullptr) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME
+                            << "Non-numeric value passed to option "
+                               "expecting a number!\n";
+                } else if (dynamic_cast<out_of_range *>(&e) != nullptr) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "Passed value is out of bounds!\n";
+                } else {
+                        throw;
+                }
+                return -1;
+        }
+}
+
 static int adjust_params(struct ug_options *opt) {
         unsigned int audio_rxtx_mode = 0;
         if (opt->is_server) {
@@ -1304,17 +1332,8 @@ int main(int argc, char *argv[])
         print_version();
         printf("\n");
 
-        try {
-                if (int ret = parse_options(argc, argv, &opt)) {
-                        EXIT(ret < 0 ? -ret : EXIT_SUCCESS);
-                }
-        } catch (invalid_argument &e) {
-                if (strcmp(e.what(), "stoi") == 0) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Non-numeric value passed to option expecting a number!\n";
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid argument: " << e.what() << "!\n";
-                }
-                return -1;
+        if (int ret = parse_options(argc, argv, &opt)) {
+                EXIT(ret < 0 ? -ret : EXIT_SUCCESS);
         }
 
         if (int ret = adjust_params(&opt)) {
