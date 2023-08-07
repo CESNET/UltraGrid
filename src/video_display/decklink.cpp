@@ -475,7 +475,7 @@ struct state_decklink {
         bool                initialized       = false;
         bool                emit_timecode     = false;
         bool                play_audio        = false; ///< the BMD device will be used also for output audio
-        int64_t             max_channels      = BMD_MAX_AUD_CH;
+        int64_t             max_aud_chans     = BMD_MAX_AUD_CH;
 
         BMDPixelFormat      pixelFormat{};
 
@@ -1338,7 +1338,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         audioConnection == 0
                             ? BMDDeckLinkMaximumAudioChannels
                             : BMDDeckLinkMaximumAnalogAudioOutputChannels,
-                        &s->max_channels) != S_OK) {
+                        &s->max_aud_chans) != S_OK) {
                                 LOG(LOG_LEVEL_WARNING) << "Cannot get maximum auudio channels!\n";
                 }
         } else {
@@ -1591,8 +1591,8 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
                                 assert(*len == sizeof(struct audio_desc));
                                 struct audio_desc *desc = (struct audio_desc *) val;
                                 desc->sample_rate = 48000;
-                                if (desc->ch_count >= s->max_channels) {
-                                        desc->ch_count = (int) s->max_channels;
+                                if (desc->ch_count >= s->max_aud_chans) {
+                                        desc->ch_count = (int) s->max_aud_chans;
                                 } else if (desc->ch_count <= 2) {
                                         desc->ch_count = 2;
                                 } else if (desc->ch_count <= 8) {
