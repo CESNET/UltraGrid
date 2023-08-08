@@ -94,7 +94,7 @@ struct {
         int (*test)(void);
         bool quiet;
 } tests[] = {
-        DEFINE_QUIET_TEST(test_bitstream),
+        //DEFINE_QUIET_TEST(test_bitstream),
         DEFINE_QUIET_TEST(test_des),
         //DEFINE_QUIET_TEST(test_aes),
         DEFINE_QUIET_TEST(test_md5),

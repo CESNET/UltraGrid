@@ -76,7 +76,6 @@ DOCS 	      = $(srcdir)/CONTRIBUTING.md $(srcdir)/README.md $(wildcard $(srcdir)
 GENERATED_HEADERS              = @GENERATED_HEADERS@
 
 COMMON_OBJS     = \
-	        src/bitstream.o \
 		src/control_socket.o \
 		src/debug.o \
 		src/host.o \
@@ -92,7 +91,6 @@ COMMON_OBJS     = \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/audio_decoders.o \
-		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
 		src/rtp/rs.o \
 		src/rtp/rtp.o \
@@ -256,7 +254,6 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/gpujpeg_test.o \
 	    test/libavcodec_test.o \
 	    test/misc_test.o \
-	    test/test_bitstream.o \
 	    test/test_aes.o \
 	    test/test_des.o \
 	    test/test_md5.o \
