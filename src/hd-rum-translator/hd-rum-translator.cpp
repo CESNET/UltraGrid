@@ -57,7 +57,6 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "crypto/random.h"
 #include "host.h"

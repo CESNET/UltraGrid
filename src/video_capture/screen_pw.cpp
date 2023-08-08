@@ -18,10 +18,11 @@
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
 
-#include "utils/synchronized_queue.h"
+#include "tv.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/synchronized_queue.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -363,7 +364,7 @@ struct screen_cast_session {
                 }
 
                 int frame_count = 0;
-                uint64_t frame_counter_begin_time = time_since_epoch_in_ms();
+                time_ns_t frame_counter_begin_time = get_time_in_ns();
                 int expecting_fps = DEFAULT_EXPECTING_FPS;
 
                 ~pw_() {
@@ -564,17 +565,20 @@ static void on_process(void *session_ptr) {
                 pw_stream_queue_buffer(session.pw.stream, buffer);
                 
                 ++session.pw.frame_count;
-                uint64_t time_now = time_since_epoch_in_ms();
+                const time_ns_t time_now = get_time_in_ns();
 
-                uint64_t delta = time_now - session.pw.frame_counter_begin_time;
-                if(delta >= 5000) {
-                        double average_fps = session.pw.frame_count / (static_cast<int>(delta) / 1000.0);
+                const time_ns_t delta =
+                    time_now - session.pw.frame_counter_begin_time;
+                if (delta >= 5 * NS_IN_SEC) {
+                        const double average_fps = session.pw.frame_count /
+                                                   static_cast<double>(delta) /
+                                                   NS_IN_SEC_DBL;
                         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
                         session.pw.expecting_fps = static_cast<int>(average_fps);
                         if(session.pw.expecting_fps == 0)
                                 session.pw.expecting_fps = 1;
                         session.pw.frame_count = 0;
-                        session.pw.frame_counter_begin_time = time_since_epoch_in_ms();
+                        session.pw.frame_counter_begin_time = get_time_in_ns();
                 }
         }
         

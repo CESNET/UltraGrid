@@ -82,7 +82,6 @@
 #include "utils/random.h"
 #include "video.h"
 #include "video_codec.h"
-#include "compat/platform_time.h"
 
 #include <algorithm>
 #include <array>
@@ -94,7 +93,7 @@
 
 #define FEC_MAX_MULT 10
 
-#define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_MS 1000
+#define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS NS_IN_SEC
 
 #ifdef HAVE_MACOSX
 #define GET_STARTTIME gettimeofday(&start, NULL)
@@ -705,12 +704,14 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         }
 
                         if (control_stats_enabled(tx->control)) {
-                                auto current_time_ms = time_since_epoch_in_ms();
-                                if(current_time_ms - tx->last_stat_report >= CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_MS){
+                                const time_ns_t current_time_ns =
+                                    get_time_in_ns();
+                                if (current_time_ns - tx->last_stat_report >=
+                                    CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS) {
                                         std::ostringstream oss;
                                         oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec << " video " << tx->sent_since_report;
                                         control_report_stats(tx->control, oss.str());
-                                        tx->last_stat_report = current_time_ms;
+                                        tx->last_stat_report = current_time_ns;
                                         tx->sent_since_report = 0;
                                 }
                                 tx->sent_since_report += data_len + rtp_hdr_len;
@@ -879,15 +880,15 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 }
 
                 if (control_stats_enabled(tx->control)) {
-                        auto current_time_ms = time_since_epoch_in_ms();
-                        if (current_time_ms - tx->last_stat_report >=
-                            CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_MS) {
+                        const time_ns_t current_time_ns = get_time_in_ns();
+                        if (current_time_ns - tx->last_stat_report >=
+                            CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS) {
                                 std::ostringstream oss;
                                 oss << "tx_send " << std::hex
                                     << rtp_my_ssrc(rtp_session) << std::dec
                                     << " audio " << tx->sent_since_report;
                                 control_report_stats(tx->control, oss.str());
-                                tx->last_stat_report  = current_time_ms;
+                                tx->last_stat_report  = current_time_ns;
                                 tx->sent_since_report = 0;
                         }
                         tx->sent_since_report += data_len + rtp_hdr_len;

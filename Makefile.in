@@ -143,7 +143,6 @@ COMMON_OBJS     = \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
 		src/compat/platform_semaphore.o \
-		src/compat/platform_time.o \
 		src/compat/usleep.o \
 		src/crypto/crc_32.o \
 		src/crypto/crypt_aes.o \

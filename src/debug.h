@@ -113,7 +113,7 @@ bool parse_log_cfg(const char *conf_str,
 #include <string>
 #include <string_view>
 #include <mutex>
-#include "compat/platform_time.h"
+#include "tv.h"
 #include "utils/color_out.h"
 
 class Log_output{
@@ -222,9 +222,9 @@ inline void Log_output::submit(){
         if (show_timestamps == LOG_TIMESTAMP_ENABLED
                 || (show_timestamps == LOG_TIMESTAMP_AUTO && log_level >= LOG_LEVEL_VERBOSE))
         {
-                auto time_ms = time_since_epoch_in_ms();
-                snprintf(ts_str, ts_bufsize - 1, "[%.3f] ", time_ms / 1000.0);
-                ts_str[ts_bufsize - 1] = '\0';
+                const time_ns_t time_ns = get_time_in_ns();
+                snprintf(ts_str, ts_bufsize, "[%.3f] ",
+                         (double) time_ns / NS_IN_SEC_DBL);
         }
 
         const char *start_newline = "";

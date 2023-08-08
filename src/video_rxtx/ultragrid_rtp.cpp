@@ -48,7 +48,6 @@
 #include <string>
 #include <stdexcept>
 
-#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "export.h"
 #include "host.h"

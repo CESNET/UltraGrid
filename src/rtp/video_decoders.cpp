@@ -99,7 +99,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "crypto/openssl_decrypt.h"
 #include "debug.h"

@@ -54,7 +54,6 @@
 
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
-#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -203,7 +202,12 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 				BMD_STR timecode_str;
 				if (timecode && timecode->GetString(&timecode_str) == S_OK) {
                                         char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
-					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecode_cstr << " output at " <<  time_since_epoch_in_ms() / (double) 1e3 << '\n';
+                                        LOG(LOG_LEVEL_DEBUG)
+                                            << "Frame " << timecode_cstr
+                                            << " output at "
+                                            << (double) get_time_in_ns() /
+                                                   NS_IN_SEC_DBL
+                                            << '\n';
                                         release_bmd_api_str(timecode_str);
                                         free(timecode_cstr);
 				}

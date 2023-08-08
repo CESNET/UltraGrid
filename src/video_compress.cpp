@@ -550,7 +550,7 @@ void compress_state_real::async_tile_consumer(struct compress_state *s)
                                 }
                         }
 
-                        ret->compress_end = time_since_epoch_in_ms();
+                        ret->compress_end = get_time_in_ns();
                         compressed_tiles.resize(state.size(), nullptr);
                         compressed_tiles[i] = std::move(ret);
                 }

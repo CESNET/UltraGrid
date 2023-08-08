@@ -52,7 +52,6 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
