@@ -49,10 +49,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "DeckLinkAPIVersion.h"
 #include "blackmagic_common.hpp"
 #include "debug.h"
 #include "host.h"
-#include "DeckLinkAPIVersion.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/windows.h"
@@ -302,8 +302,14 @@ static BMDProfileID GetDeckLinkProfileID(IDeckLinkProfile* profile)
 
         int64_t profileIDInt = 0;
         // Get Profile ID attribute
-        profileAttributes->GetInt(BMDDeckLinkProfileID, &profileIDInt);
-        profileAttributes->Release();
+        const HRESULT res =
+            profileAttributes->GetInt(BMDDeckLinkProfileID, &profileIDInt);
+        if (SUCCEEDED(res)) {
+                profileAttributes->Release();
+        } else {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "BMDDeckLinkProfileID: "
+                                     << bmd_hresult_to_string(res) << "\n";
+        }
         return (BMDProfileID) profileIDInt;
 }
 

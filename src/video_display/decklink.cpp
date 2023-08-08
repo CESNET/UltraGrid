@@ -1315,6 +1315,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 LOG(LOG_LEVEL_WARNING)
                     << MOD_NAME "Could not query device attributes: "
                     << bmd_hresult_to_string(result) << "\n";
+                display_decklink_done(s);
                 return nullptr;
         }
 
