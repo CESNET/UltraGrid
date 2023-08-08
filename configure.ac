@@ -3245,6 +3245,18 @@ fi
 
 ENSURE_FEATURE_PRESENT([$sdl_mixer_req], [$sdl_mixer], [SDL_mixer deps not found!])
 
+# -----------------------------------------------------------------------------
+# Reflector
+# -----------------------------------------------------------------------------
+AC_ARG_ENABLE(reflector,
+              AS_HELP_STRING([--disable-reflector], [disables reflector (default is enabled)]),
+              [reflector_req=$enableval],
+              [reflector_req=$build_default])
+if test "$reflector_req" != no; then
+        REFLECTOR_REQ=yes
+fi
+AC_SUBST(REFLECTOR_REQ)
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
