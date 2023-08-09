@@ -152,6 +152,9 @@ static void rijndaelVTKAT(FILE * fp, int keyLength)
 #endif                          /* ?TRACE_KAT_MCT */
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
 static void rijndaelTKAT(FILE * fp, int keyLength, FILE * in)
 {
         int i, j;
