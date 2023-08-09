@@ -258,7 +258,8 @@ parse_fmt(struct state_audio_capture_testcard *s, char *fmt,
                         *volume = strtod(strchr(item, '=') + 1, NULL);
                         assert(*volume > 0.0);
                 } else if (strncasecmp(item, "file=", strlen("file=")) == 0) {
-                        strncpy(wav_file, strchr(item, '=') + 1, MAX_PATH_SIZE);
+                        wav_file[0] = '\0';
+                        strncat(wav_file, strchr(item, '=') + 1, MAX_PATH_SIZE - 1);
                         *pattern  = WAV;
                 } else if (strncasecmp(item, "frames=", strlen("frames=")) ==
                            0) {

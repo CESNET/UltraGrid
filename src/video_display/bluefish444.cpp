@@ -988,8 +988,6 @@ static bool display_bluefish444_reconfigure_audio(void *state, int quant_samples
 #ifdef HAVE_BLUE_AUDIO
         display_bluefish444_state *s =
                 (display_bluefish444_state *) state;
-        int ret;
-
         try {
                 s->reconfigure_audio(quant_samples, channels, sample_rate);
         } catch(runtime_error &e) {
