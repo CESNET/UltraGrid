@@ -810,14 +810,10 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 goto error;
         }
         if (iface != NULL) {
-#ifdef HAVE_IF_NAMETOINDEX
                 if ((s->ifindex = if_nametoindex(iface)) == 0) {
-                        debug_msg("Illegal interface specification\n");
+                        error_msg("Illegal interface specification\n");
                         goto error;
                 }
-#else
-                log_msg(LOG_LEVEL_ERROR, "Cannot set interface name, if_nametoindex not supported.\n");
-#endif
         } else {
                 s->ifindex = 0;
         }

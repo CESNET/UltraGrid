@@ -299,23 +299,6 @@ AC_DEFUN([DEFINE_CUDA], [
         ])
 AC_SUBST(DLL_LIBS)
 
-if test $system = Windows
-then
-        AC_MSG_CHECKING([if_nametoindex])
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                           #include <windows.h>
-                           #include <iphlpapi.h>
-                           ]], [[
-                                if_nametoindex("eth");]]
-                           )], HAVE_IF_NAMETOINDEX=yes, HAVE_IF_NAMETOINDEX=no)
-        AC_MSG_RESULT([$HAVE_IF_NAMETOINDEX])
-        if test $HAVE_IF_NAMETOINDEX = yes; then
-                AC_DEFINE([HAVE_IF_TONAMEINDEX], 1, [Function if_nametoindex is present.])
-        fi
-else
-        AC_CHECK_FUNCS(if_nametoindex)
-fi
-
 AC_CHECK_FUNCS(usleep)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timespec_get)
