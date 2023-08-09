@@ -121,6 +121,7 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
 }
 
 void transfer_frame(struct hw_accel_state *s, AVFrame *frame){
+        log_msg(LOG_LEVEL_VERBOSE, "[hw accel] HW frame to CPU transfer\n");
         av_hwframe_transfer_data(s->tmp_frame, frame, 0);
 
         av_frame_copy_props(s->tmp_frame, frame);

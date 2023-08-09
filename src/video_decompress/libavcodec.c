@@ -434,6 +434,37 @@ static int rpi4_hwacc_init(struct AVCodecContext *s,
 }
 #endif
 
+
+#if defined HWACC_COMMON_IMPL && LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
+static int vulkan_init(struct AVCodecContext *s,
+                struct hw_accel_state *state,
+                codec_t out_codec)
+{
+        UNUSED(s), UNUSED(out_codec);
+
+        AVBufferRef *device_ref = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VULKAN, &device_ref);
+        if(ret < 0)
+                return ret;
+
+        state->tmp_frame = av_frame_alloc();
+        if(!state->tmp_frame){
+                ret = -1;
+                goto fail;
+        }
+
+        s->hw_device_ctx = device_ref;
+        state->type = HWACCEL_VULKAN;
+        state->copy = true;
+        return 0;
+
+fail:
+        av_frame_free(&state->tmp_frame);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
+#endif
+
 #ifdef HWACC_COMMON_IMPL
 static int hwacc_cuda_init(struct AVCodecContext *s, struct hw_accel_state *state, codec_t out_codec)
 {
@@ -486,6 +517,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                 enum hw_accel_type accel_type;
                 int (*init_func)(AVCodecContext *, struct hw_accel_state *, codec_t);
         } accels[] = {
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
+                {AV_PIX_FMT_VULKAN, HWACCEL_VULKAN, vulkan_init},
+#endif
 #ifdef HWACC_VDPAU
                 {AV_PIX_FMT_VDPAU, HWACCEL_VDPAU, vdpau_init},
 #endif
