@@ -22,7 +22,47 @@ export CHANNEL TAG VERSION
 
 printf '%b' "CHANNEL=$CHANNEL\nTAG=$TAG\nVERSION=$VERSION\n" >> "$GITHUB_ENV"
 
-export FEATURES="--enable-option-checking=fatal --with-live555=/usr/local --enable-aja --enable-blank --enable-caca --enable-cineform --enable-decklink --enable-file --enable-gl --enable-gl-display --enable-holepunch --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-ndi --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-resize --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-screen --enable-sdl=2 --enable-sdl_mixer --enable-sdp-http --enable-soxr --enable-speexdsp --enable-swmix --enable-libswscale --enable-testcard-extras=all --enable-text --enable-video-mixer --enable-vulkan --enable-ximea --enable-zfec"
+export FEATURES="\
+ --enable-option-checking=fatal\
+ --with-live555=/usr/local\
+ --enable-aja\
+ --enable-blank\
+ --enable-caca\
+ --enable-cineform\
+ --enable-decklink\
+ --enable-gl\
+ --enable-gl-display\
+ --enable-holepunch\
+ --enable-jack\
+ --enable-jack-transport\
+ --enable-libavcodec\
+ --enable-natpmp\
+ --enable-ndi\
+ --enable-openssl\
+ --enable-pcp\
+ --enable-portaudio\
+ --enable-qt\
+ --enable-resize\
+ --enable-rtdxt\
+ --enable-rtsp\
+ --enable-rtsp-server\
+ --enable-scale\
+ --enable-screen\
+ --enable-sdl=2\
+ --enable-sdl_mixer\
+ --enable-sdp-http\
+ --enable-soxr\
+ --enable-speexdsp\
+ --enable-swmix\
+ --enable-libswscale\
+ --enable-testcard-extras=all\
+ --enable-text\
+ --enable-vidcap-file\
+ --enable-video-mixer\
+ --enable-vulkan\
+ --enable-ximea\
+ --enable-zfec\
+"
 CUDA_FEATURES="--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy"
 case "$RUNNER_OS" in
         Linux)
