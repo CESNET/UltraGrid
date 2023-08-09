@@ -198,7 +198,7 @@ COMMON_OBJS     = \
 OBJS	      = @OBJS@ \
 		$(COMMON_OBJS)
 
-ULTRAGRID_OBJS = src/main.o \
+ULTRAGRID_OBJS = @ULTRAGRID_OBJS@ src/main.o \
 
 REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \

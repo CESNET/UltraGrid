@@ -43,6 +43,7 @@ TARGETS=
 AC_SUBST(INC)
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
+AC_SUBST(ULTRAGRID_OBJS)
 AC_SUBST(POST_COMPILE_MSG)
 AC_SUBST(COMMON_FLAGS)
 
@@ -3270,7 +3271,7 @@ if test -n "$req_files"; then
 fi
 
 if test "$build_default" != no; then
-        OBJS="$OBJS
+        ULTRAGRID_OBJS="$ULTRAGRID_OBJS
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o
@@ -3337,6 +3338,7 @@ fi
 # remove duplicite objs
 OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+ULTRAGRID_OBJS=`echo $ULTRAGRID_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
 AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
