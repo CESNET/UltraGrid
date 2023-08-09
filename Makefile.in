@@ -119,7 +119,6 @@ COMMON_OBJS     = \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
 		src/capture_filter.o \
-		src/capture_filter/none.o \
 		src/compat/alarm.o \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
