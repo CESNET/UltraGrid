@@ -3257,6 +3257,65 @@ if test "$reflector_req" != no; then
 fi
 AC_SUBST(REFLECTOR_REQ)
 
+# ------------------------------------------------------------------------------
+# Non-essential objs
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE(object,
+        AS_HELP_STRING([--enable-object], [enable specific object(s) compilation (typically when disabled non-essential features with --disable-all; comma-separated)]),
+        [req_files=$enableval],
+        [req_files=])
+
+if test -n "$req_files"; then
+        OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /')"
+fi
+
+if test "$build_default" != no; then
+        OBJS="$OBJS
+        src/audio/playback/dump.o
+        src/audio/playback/mixer.o
+        src/audio/filter/delay.o
+        src/audio/filter/discard.o
+        src/audio/filter/controlport_stats.o
+        src/audio/filter/silence.o
+        src/capture_filter/change_pixfmt.o
+        src/capture_filter/color.o
+        src/capture_filter/display.o
+        src/capture_filter/disrupt.o
+        src/capture_filter/every.o
+        src/capture_filter/flip.o
+        src/capture_filter/gamma.o
+        src/capture_filter/grayscale.o
+        src/capture_filter/logo.o
+        src/capture_filter/matrix.o
+        src/capture_filter/mirror.o
+        src/capture_filter/override_prop.o
+        src/capture_filter/preview.o
+        src/capture_filter/ratelimit.o
+        src/capture_filter/split.o
+        src/video_capture/aggregate.o
+        src/video_capture/import.o
+        src/video_capture/switcher.o
+        src/video_capture/ug_input.o
+        src/video_display/aggregate.o
+        src/video_display/blend.o
+        src/video_display/dump.o
+        src/video_display/multiplier.o
+        src/video_display/pipe.o
+        src/video_display/unix_sock.o
+        src/video_rxtx/h264_sdp.o
+        src/video_rxtx/ihdtv.o
+        src/video_rxtx/loopback.o
+        src/video_rxtx/sage.o
+        src/vo_postprocess/3d-interlaced.o
+        src/vo_postprocess/border.o
+        src/vo_postprocess/crop.o
+        src/vo_postprocess/deinterlace.o
+        src/vo_postprocess/interlace.o
+        src/vo_postprocess/split.o
+        src/vo_postprocess/temporal-deint.o
+        "
+fi
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------

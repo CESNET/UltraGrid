@@ -109,8 +109,6 @@ COMMON_OBJS     = \
 		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
 		src/audio/playback/dummy.o \
-		src/audio/playback/dump.o \
-		src/audio/playback/mixer.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
 		src/audio/resampler.o \
@@ -120,27 +118,8 @@ COMMON_OBJS     = \
 		src/audio/wav_writer.o \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
-		src/audio/filter/delay.o \
-		src/audio/filter/discard.o \
-		src/audio/filter/controlport_stats.o \
-		src/audio/filter/silence.o \
 		src/capture_filter.o \
-		src/capture_filter/change_pixfmt.o \
-		src/capture_filter/color.o \
-		src/capture_filter/display.o \
-		src/capture_filter/disrupt.o \
-		src/capture_filter/every.o \
-		src/capture_filter/flip.o \
-		src/capture_filter/gamma.o \
-		src/capture_filter/grayscale.o \
-		src/capture_filter/logo.o \
-		src/capture_filter/matrix.o \
-		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
-		src/capture_filter/override_prop.o \
-		src/capture_filter/preview.o \
-		src/capture_filter/ratelimit.o \
-		src/capture_filter/split.o \
 		src/compat/alarm.o \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
@@ -197,41 +176,20 @@ COMMON_OBJS     = \
 		src/video_codec.o \
 		src/video_capture.o \
 		src/video_capture_params.o \
-		src/video_capture/aggregate.o \
-		src/video_capture/import.o \
 		src/video_capture/null.o \
-		src/video_capture/switcher.o \
 		src/video_capture/testcard.o \
 		src/video_capture/testcard_common.o \
-		src/video_capture/ug_input.o \
 		src/video_compress.o \
 		src/video_compress/none.o \
 		src/video_decompress.o \
 		src/video_display.o \
-		src/video_display/aggregate.o \
-		src/video_display/blend.o \
 		src/video_display/dummy.o \
-		src/video_display/dump.o \
 		src/video_display/null.o \
-		src/video_display/pipe.o \
-		src/video_display/multiplier.o \
-		src/video_display/unix_sock.o \
 		src/video_export.o \
 		src/video_rxtx.o \
-		src/video_rxtx/h264_sdp.o \
-		src/video_rxtx/ihdtv.o \
-		src/video_rxtx/loopback.o \
 		src/video_rxtx/rtp.o \
-		src/video_rxtx/sage.o \
 		src/video_rxtx/ultragrid_rtp.o \
 		src/vo_postprocess.o \
-		src/vo_postprocess/3d-interlaced.o \
-		src/vo_postprocess/border.o \
-		src/vo_postprocess/crop.o \
-		src/vo_postprocess/deinterlace.o \
-		src/vo_postprocess/interlace.o \
-		src/vo_postprocess/split.o \
-		src/vo_postprocess/temporal-deint.o \
 		ldgm/src/ldgm-session-cpu.o \
 		ldgm/src/ldgm-session.o \
 		ldgm/src/tanner.o \
