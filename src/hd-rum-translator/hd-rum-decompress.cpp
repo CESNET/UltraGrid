@@ -184,7 +184,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                 break;
         case BLEND:
                 snprintf(cfg, sizeof cfg, "pipe:%p", s);
-                ret = initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display);
+                ret = initialize_video_display(parent, "blend", cfg, 0, NULL, &s->display);
                 break;
         case CONFERENCE:
                 snprintf(cfg, sizeof cfg, "pipe:%p#%s", s, conf.arg);

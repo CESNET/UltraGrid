@@ -3306,7 +3306,6 @@ if test "$build_default" != no; then
         src/video_capture/switcher.o
         src/video_capture/ug_input.o
         src/video_display/aggregate.o
-        src/video_display/blend.o
         src/video_display/dump.o
         src/video_display/multiplier.o
         src/video_display/pipe.o
@@ -3322,6 +3321,9 @@ if test "$build_default" != no; then
         src/vo_postprocess/interlace.o
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
+        "
+        REFLECTOR_OBJS="$REFLECTOR_OBJS
+        src/video_display/blend.o
         "
 fi
 
@@ -3348,7 +3350,7 @@ fi
 TOREMOVE="$LIB_OBJS $UG_LIB_OBJS"
 
 # remove duplicite objs
-REFLECTOR_OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+REFLECTOR_OBJS=`echo $REFLECTOR_OBJS $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 ULTRAGRID_OBJS=`echo $ULTRAGRID_OBJS $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
