@@ -3321,13 +3321,13 @@ fi
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 TEST_LIBS="$LIB_MODULES $LIBS"
-TEST_OBJS="$OBJS $LIB_OBJS $X_OBJ"
+TEST_OBJS="$OBJS $LIB_OBJS"
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
 then
         LIBS="$LIB_MODULES $LIBS"
-        OBJS="$OBJS $LIB_OBJS $X_OBJ"
+        OBJS="$OBJS $LIB_OBJS"
         GENERATED_HEADERS="$GENERATED_HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_GENERATED_HEADERS=
