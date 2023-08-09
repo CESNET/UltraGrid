@@ -34,16 +34,19 @@ CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-I$srcdir -std=gnu++17"
 CUDA_FLAGS="${CUDA_FLAGS-}"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
-LIB_MODULES=
-LIB_OBJS=
+LIB_MODULES=     # modules libraries
+UG_LIB_MODULES=
+LIB_OBJS=        # module object files
+UG_LIB_OBJS=
 LIBS="${LIBS-}"
 MODULES=
 OBJS=
 TARGETS=
 AC_SUBST(INC)
 AC_SUBST(LIBS)
-AC_SUBST(OBJS)
+AC_SUBST(ULTRAGRID_LIBS)
 AC_SUBST(ULTRAGRID_OBJS)
+AC_SUBST(REFLECTOR_OBJS)
 AC_SUBST(POST_COMPILE_MSG)
 AC_SUBST(COMMON_FLAGS)
 
@@ -230,9 +233,14 @@ AC_CHECK_HEADERS([termios.h])
 # @param $2 object files
 # @param $3 libraries
 AC_DEFUN([ADD_MODULE], [
-          TARGET="lib/ultragrid/ultragrid_"$1".so"
-          LIB_OBJS=$LIB_OBJS" "$2
-          LIB_MODULES=$LIB_MODULES" "$3
+        TARGET="lib/ultragrid/ultragrid_"$1".so"
+        if `echo "$1" | grep -q vcompress\|display_video_mix`; then
+                LIB_OBJS=$LIB_OBJS" "$2
+                LIB_MODULES=$LIB_MODULES" "$3
+        else
+                UG_LIB_OBJS=$UG_LIB_OBJS" "$2
+                UG_LIB_MODULES=$UG_LIB_MODULES" "$3
+        fi
 	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
 	  AM_COND_IF([IS_TARGET],
 		                [
@@ -1703,7 +1711,7 @@ then
         fi
         LIBAVCODEC_AUDIO_CODEC_OBJ="$LIBAVCODEC_COMMON src/audio/codec/libavcodec.o"
 
-        LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO src/video_compress/libavcodec.o"
+        LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_compress/libavcodec.o"
         LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_decompress/libavcodec.o"
         if test $system = MacOSX; then
                 LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_DECOMPRESS_OBJ src/hwaccel_videotoolbox.o"
@@ -3320,14 +3328,16 @@ fi
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
-TEST_LIBS="$LIB_MODULES $LIBS"
-TEST_OBJS="$OBJS $LIB_OBJS"
+TEST_LIBS="$LIB_MODULES $LIBS $UG_LIB_MODULES"
+TEST_OBJS="$OBJS $LIB_OBJS $UG_LIB_OBJS"
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
 then
         LIBS="$LIB_MODULES $LIBS"
         OBJS="$OBJS $LIB_OBJS"
+        ULTRAGRID_OBJS="$ULTRAGRID_OBJS $UG_LIB_OBJS"
+        ULTRAGRID_LIBS="$UG_LIB_MODULES"
         GENERATED_HEADERS="$GENERATED_HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_GENERATED_HEADERS=
@@ -3335,20 +3345,21 @@ then
 	TARGETS=
 fi
 
+TOREMOVE="$LIB_OBJS $UG_LIB_OBJS"
+
 # remove duplicite objs
-OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+REFLECTOR_OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
-ULTRAGRID_OBJS=`echo $ULTRAGRID_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+ULTRAGRID_OBJS=`echo $ULTRAGRID_OBJS $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
 AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
-AC_SUBST(LIB_MODULES)
-AC_SUBST(LIB_OBJS)
 AC_SUBST(MODULES)
 AC_SUBST(TARGETS)
 AC_SUBST(TEST_LIBS)
 AC_SUBST(TEST_OBJS)
+AC_SUBST(TOREMOVE)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

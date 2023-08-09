@@ -195,12 +195,11 @@ COMMON_OBJS     = \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
 
-OBJS	      = @OBJS@ \
-		$(COMMON_OBJS)
+ULTRAGRID_LIBS = @ULTRAGRID_LIBS@
+ULTRAGRID_OBJS = $(COMMON_OBJS) @ULTRAGRID_OBJS@ src/main.o \
 
-ULTRAGRID_OBJS = @ULTRAGRID_OBJS@ src/main.o \
-
-REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
+REFLECTOR_OBJS = @REFLECTOR_OBJS@ $(COMMON_OBJS) \
+		src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
@@ -223,7 +222,7 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-DEP_FILES_1 = $(OBJS) $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
+DEP_FILES_1 = $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
 DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .lib (Windows) with .P
 # -------------------------------------------------------------------------------------------------
 .PHONY: doc
@@ -246,16 +245,16 @@ Frameworks/VideoMasterHD.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD.framework Frameworks
 
-$(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
+$(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
+	$(LINKER) $(LDFLAGS) $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
 	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
-$(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
+$(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
+	$(LINKER) $(LDFLAGS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 -include $(DEP_FILES)
 
@@ -545,7 +544,7 @@ clean:
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	$(COND_SILENCE)-rm -rf $(BUNDLE) $(GUI_BUNDLE) $(GUI_BUNDLE_DEP)
 	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	$(COND_SILENCE)-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
+	$(COND_SILENCE)-rm -rf @TOREMOVE@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
 	$(COND_SILENCE)-rm -rf bin/shaders
 	$(COND_SILENCE)if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
