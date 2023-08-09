@@ -53,9 +53,9 @@
 #define PORT_AUDIO              5006
 
 #include "audio/types.h"
+#include "module.h"
 #include "tv.h"
 
-struct module;
 struct state_audio;
 
 #ifdef __cplusplus
@@ -112,6 +112,9 @@ void audio_register_display_callbacks(struct state_audio *s, void *udata,
 struct audio_frame * audio_get_frame(struct state_audio *s);
 
 unsigned int audio_get_display_flags(struct state_audio *s);
+
+void sdp_send_change_address_message(struct module *root, enum module_class *path,
+                                 const char *address);
 
 #ifdef __cplusplus
 }

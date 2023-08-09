@@ -53,16 +53,17 @@
 #include "config_win32.h"
 #endif
 
+#include <array>
 #include <cinttypes>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <list>
 #include <memory>
 #include <sstream>
-#include <stdio.h>
 #include <string>
-#include <string.h>
-#include <stdlib.h>
 
 #include "audio/audio.h" 
 
@@ -96,7 +97,6 @@
 #include "utils/thread.h"
 #include "utils/worker.h"
 #include "utils/string_view_utils.hpp"
-#include "video_rxtx/h264_sdp.hpp" // send_change_address_message
 
 using namespace std;
 
@@ -232,10 +232,39 @@ static void should_exit_audio(void *state) {
         s->should_exit = true;
 }
 
-static void sdp_change_address_callback(void *udata, const char *address)
+void
+sdp_send_change_address_message(struct module *root, enum module_class *path,
+                            const char *address)
+{
+        array<char, 1024> pathV{};
+
+        append_message_path(pathV.data(), pathV.size(), path);
+
+        // CHANGE DST ADDRESS
+        auto *msgV2 = reinterpret_cast<struct msg_sender *>(
+            new_message(sizeof(struct msg_sender)));
+        strncpy(static_cast<char *>(msgV2->receiver), address,
+                sizeof(msgV2->receiver) - 1);
+        msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
+
+        auto *resp = send_message(root, pathV.data(),
+                                  reinterpret_cast<struct message *>(msgV2));
+        if (response_get_status(resp) == RESPONSE_OK) {
+                LOG(LOG_LEVEL_NOTICE)
+                    << "[SDP] Changing address to " << address << "\n";
+        } else {
+                LOG(LOG_LEVEL_WARNING)
+                    << "[SDP] Unable to change address to " << address << " ("
+                    << response_get_status(resp) << ")\n";
+        }
+        free_response(resp);
+}
+
+static void
+sdp_change_address_callback(void *udata, const char *address)
 {
         enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-        send_change_address_message((module*) udata, path_sender, address);
+        sdp_send_change_address_message((module*) udata, path_sender, address);
 }
 
 /**

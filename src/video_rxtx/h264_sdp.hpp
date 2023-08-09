@@ -44,12 +44,9 @@
 
 #include <string>
 
-#include "module.h"
 #include "utils/sdp.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
-
-void send_change_address_message(struct module *root, enum module_class *path, const char *address);
 
 class h264_sdp_video_rxtx : public rtp_video_rxtx {
 public:
