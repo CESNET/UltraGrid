@@ -41,9 +41,10 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include <sys/types.h>
 #include <dirent.h>
 #include <limits.h>
+#include <sys/types.h>
+#include <time.h>
 
 #include "export.h"
 
@@ -53,6 +54,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/fs.h" // MAX_PATH_SIZE
+#include "utils/misc.h"
 #include "video_export.h"
 
 #define MOD_NAME "[export] "
@@ -199,6 +201,8 @@ error:
         return false;
 }
 
+#define TOK_LEN(x) (sizeof #x)
+
 /**
  * Tries to create directories export.<date>[-????]
  * inside directory prefix. If succesful, returns its
@@ -206,32 +210,35 @@ error:
  */
 static char *create_anonymous_dir(const char *prefix)
 {
-        for (int i = 1; i <= 9999; i++) {
-                size_t max_len = strlen(prefix) + 1 + 21;
-                char *name = malloc(max_len);
-                time_t t = time(NULL);
-                struct tm *tmp = localtime(&t);
+        enum {
+                MAX_EXPORTS = 9999,
+                SUFFIX_LEN  = 1 + TOK_LEN(9999),
+        };
+        for (int i = 1; i <= MAX_EXPORTS; i++) {
+                char       name[MAX_PATH_SIZE];
+                time_t     t      = time(NULL);
+                struct tm  tm_buf = { 0 };
+                localtime_s(&t, &tm_buf);
                 strcpy(name, prefix);
                 strcat(name, "/");
-                strftime(name + strlen(name), max_len, "export.%Y%m%d", tmp);
+                strftime(name + strlen(name), MAX_PATH_SIZE, "export.%Y%m%d",
+                         &tm_buf);
                 if (i > 1) {
-                        char num[6];
+                        char num[SUFFIX_LEN];
                         snprintf(num, sizeof num, "-%d", i);
                         strncat(name, num, sizeof name - strlen(name) - 1);
                 }
                 int ret = platform_mkdir(name);
                 if(ret == -1) {
                         if(errno == EEXIST) { // record exists, try next directory
-                                free(name);
                                 continue;
                         }
-                        fprintf(stderr, "[Export] Directory creation failed: %s\n",
-                                        strerror(errno));
-                        free(name);
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Directory creation failed: %s\n",
+                                ug_strerror(errno));
                         return false;
-                } else {
-                        return name;
                 }
+                return strdup(name);
         }
         return NULL;
 }
