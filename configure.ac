@@ -166,11 +166,9 @@ if test $system = MacOSX; then
 fi
 
 if test $system = Windows; then
-	NET_LIBS="-lsetupapi -lws2_32 -liphlpapi -loleaut32"
-	LIBS="$LIBS $NET_LIBS"
+	LIBS="$LIBS -lsetupapi -lws2_32 -liphlpapi -lole32 -loleaut32"
 	AC_CHECK_FUNCS(SetThreadDescription)
 fi
-AC_SUBST(NET_LIBS)
 
 LINKER=$CXX
 
@@ -694,13 +692,13 @@ if test $decklink_req != no; then
                 DECKLINK_DISP_OBJ="src/blackmagic_common.o src/video_display/decklink.o"
                 DECKLINK_SOUND_PLAY_OBJ="src/blackmagic_common.o src/audio/playback/decklink.o"
                 if test $system = "Windows"; then
-                        OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
+                        DECK_COMMON_OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
                 else
-                        OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
+                        DECK_COMMON_OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
                 fi
-                ADD_MODULE("vidcap_decklink", "$DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
-                ADD_MODULE("display_decklink", "$DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
-                ADD_MODULE("aplay_decklink", "$DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
+                ADD_MODULE("vidcap_decklink", "$DECK_COMMON_OBJS $DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
+                ADD_MODULE("display_decklink", "$DECK_COMMON_OBJS $DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
+                ADD_MODULE("aplay_decklink", "$DECK_COMMON_OBJS $DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
                 decklink=yes
                 INC="$INC $DECKLINK_INC"
         fi
@@ -843,7 +841,7 @@ if test "$aja_req" != no; then
                 if test $system = Linux; then
                         AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
                         AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
-                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
+                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a -lrt"
                 else # mac
                         AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                         AJA_LIB="-lajantv2 -framework IOKit"
@@ -2961,9 +2959,8 @@ if test "$syphon_req" != no && test "$system" = MacOSX; then
         if test $my_cv_framework_Syphon = yes -a $host_cpu = x86_64
         then
                 AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
-                LIBS="$LIBS -framework Syphon"
-                OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
                 BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
+                ADD_MODULE("syphon", "src/syphon_server.o src/video_capture/syphon.o", "-framework Syphon")
                 syphon=yes
         fi
 fi
@@ -2997,8 +2994,7 @@ fi
 if test $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS -lSpoutLibrary"
-        OBJS="$OBJS src/spout_sender.o src/video_capture/spout.o"
+        ADD_MODULE("spout", "src/spout_sender.o src/video_capture/spout.o", "-lSpoutLibrary")
         spout=yes
 fi
 
