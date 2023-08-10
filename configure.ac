@@ -300,7 +300,6 @@ AC_DEFUN([DEFINE_CUDA], [
 AC_SUBST(DLL_LIBS)
 
 AC_CHECK_FUNCS(usleep)
-AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timespec_get)
 
 # ---------------------------------------------------------------------

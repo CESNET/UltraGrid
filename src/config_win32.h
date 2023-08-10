@@ -154,36 +154,6 @@ typedef DWORD gid_t;
 extern "C" {
 #endif
 
-// MinGW-w64 defines some broken macro for strtok_r in pthread.h
-// which can be accidently included before this resulting in compilation
-// error
-#undef strtok_r
-
-#if 0
-static inline char * strtok_r(char *str, const char *delim, char **save);
-
-/*
- * Public domain licensed code taken from:
- * http://en.wikibooks.org/wiki/C_Programming/Strings#The_strtok_function
- */
-static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
-{
-     char *sbegin, *send;
-     sbegin = s ? s : *lasts;
-     sbegin += strspn(sbegin, delimiters);
-     if (*sbegin == '\0') {
-         /* *lasts = ""; */
-         *lasts = sbegin;
-         return NULL;
-     }
-     send = sbegin + strcspn(sbegin, delimiters);
-     if (*send != '\0')
-         *send++ = '\0';
-     *lasts = send;
-     return sbegin;
-}
-#endif
-
 int uname(struct utsname *);
 int getopt(int, char * const *, const char *);
 //int strncasecmp(const char *, const char*, int len);
