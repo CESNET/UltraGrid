@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2017-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,10 +64,8 @@
 #define PACKAGE_BUGREPORT "ultragrid-dev@cesnet.cz"
 #endif
 
-#ifndef HAVE_ALIGNED_ALLOC
 #define aligned_malloc _aligned_malloc
 #define aligned_free _aligned_free
-#endif // defined HAVE_ALIGNED_ALLOC
 
 #define HAVE_TIMESPEC_GET 1
 

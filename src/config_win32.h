@@ -5,7 +5,7 @@
  *
  * Copyright (c) 1995-2001 University College London
  * Copyright (c) 2001-2002 University of Southern California
- * Copyright (c) 2004-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2004-2023 CESNET, z. s. p. o.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -194,12 +194,8 @@ void ShowMessage(int level, char *msg);
 
 #define M_PI		3.14159265358979323846
 
-#include <malloc.h>
-
-#ifndef HAVE_ALIGNED_ALLOC
 #define aligned_malloc _aligned_malloc
 #define aligned_free _aligned_free
-#endif
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>

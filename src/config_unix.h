@@ -12,7 +12,7 @@
  *
  * Copyright (c) 2001-2003 University of Southern California
  * Copyright (c) 1995-2001 University College London
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -165,9 +165,7 @@ typedef int     fd_t;
 
 #define USERNAMELEN	8
 
-#ifndef HAVE_ALIGNED_ALLOC
 static inline void *aligned_malloc(size_t size, size_t alignment) __attribute__((unused));
-
 static inline void *aligned_malloc(size_t size, size_t alignment)
 {
 	void *ptr = NULL;
@@ -183,9 +181,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 		return NULL;
 	}
 }
-
 #define aligned_free free
-#endif // HAVE_ALIGNED_ALLOC
 
 #define platform_mkdir(a) mkdir(a, 0777)
 
