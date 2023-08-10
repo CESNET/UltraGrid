@@ -195,9 +195,22 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 #define _ftelli64 ftell
 #define _fseeki64 fseek
 
+#ifdef __cplusplus
+#define CONF_NIX_EXT_C extern "C"
+#else
+#define CONF_NIX_EXT_C extern
+#endif
+
 #ifndef __STDC_LIB_EXT1__
 #define gmtime_s gmtime_r
 #define localtime_s localtime_r
+// strerror_s
+#if ! defined __gnu_linux__ // XSI version on non-glibc
+#define strerror_s(buf, bufsz, errnum) strerror_r(errnum, buf, bufsz)
+#else // use the XSI variant from glibc (strerror_r is either GNU or XSI)
+CONF_NIX_EXT_C int __xpg_strerror_r(int errcode, char *buffer, size_t length);
+#define strerror_s(buf, bufsz, errnum) __xpg_strerror_r(errnum, buf, bufsz)
+#endif
 #endif // ! defined __STDC_LIB_EXT1__
 
 #endif /* _CONFIG_UNIX_H */

@@ -38,9 +38,9 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 #include "config_unix.h"
 #include "config_win32.h"
-#endif
 
 #include <unistd.h>
 
@@ -62,8 +62,6 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
-
-#define STRERROR_BUF_LEN 1024
 
 using std::invalid_argument;
 using std::out_of_range;
@@ -187,19 +185,15 @@ int get_framerate_d(double fps) {
         }
 }
 
+/// @note consider using rather strerror_s() directly
 const char *ug_strerror(int errnum)
 {
+        enum {
+                STRERROR_BUF_LEN = 1024,
+        };
         static thread_local char strerror_buf[STRERROR_BUF_LEN];
-        const char *errstring = strerror_buf;
-#ifdef _WIN32
         strerror_s(strerror_buf, sizeof strerror_buf, errnum); // C11 Annex K (bounds-checking interfaces)
-#elif ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errnum, strerror_buf, sizeof strerror_buf); // XSI version
-#else // GNU strerror_r version
-        errstring = strerror_r(errnum, strerror_buf, sizeof strerror_buf);
-#endif
-
-        return errstring;
+        return strerror_buf;
 }
 
 void ug_perror(const char *s) {
