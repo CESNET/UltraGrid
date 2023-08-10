@@ -23,38 +23,11 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/synchronized_queue.h"
+#include "utils/profile_timer.hpp"
 #include "video.h"
 #include "video_capture.h"
 
 #define MOD_NAME "[screen_pw] "
-
-//#define ENABLE_INSTRUMENTATION
-
-#ifdef ENABLE_INSTRUMENTATION
-        
-        class instrumtation_ScopeStopwatch
-        {
-                const char *name;
-                std::chrono::time_point<std::chrono::high_resolution_clock> begin_time;
-
-        public:    
-                instrumtation_ScopeStopwatch (const char *name)
-                        :name(name)
-                {
-                        begin_time = std::chrono::high_resolution_clock::now();
-                }
-
-                ~instrumtation_ScopeStopwatch(){
-                        auto now = std::chrono::high_resolution_clock::now();
-                        auto delta = std::chrono::duration_cast<std::chrono::microseconds>(now-begin_time).count();
-                        LOG(LOG_LEVEL_NOTICE) << "[stopwatch \"" << name << "\"] took " << delta << " us\n";
-                }
-        };
-        #define SCOPE_STOPWATCH(name) instrumtation_ScopeStopwatch scope_stopwatch_##name(#name)
-
-#else
-        #define SCOPE_STOPWATCH(name)
-#endif
 
 static constexpr int DEFAULT_BUFFERS_PW = 2;
 static constexpr int MIN_BUFFERS_PW = 2;
@@ -462,7 +435,7 @@ static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src,
         int actual_width, int actual_height, int x_begin, int y_begin, int crop_width, int crop_height) 
 {
         UNUSED(actual_height);
-        SCOPE_STOPWATCH(copy_frame_impl_cropped);
+        PROFILE_FUNC;
         
         for(int y = y_begin; y < crop_height; ++y){
                 int line_offset_src = 4 * y * actual_width;
@@ -484,7 +457,7 @@ static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src,
 
 static void copy_frame_impl(bool swap_red_blue, char *dest, char *src, int width, int height)
 {
-        SCOPE_STOPWATCH(copy_frame_impl);
+        PROFILE_FUNC;
         int linesize = vc_get_linesize(width, RGBA);
         if (swap_red_blue) {
                 for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
@@ -528,7 +501,7 @@ static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_
 
 static void on_process(void *session_ptr) {
         using namespace std::chrono_literals;
-        SCOPE_STOPWATCH(on_process);
+        PROFILE_FUNC;
 
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
         pw_buffer *buffer;
@@ -965,7 +938,7 @@ static void vidcap_screen_pw_done(void *session_ptr)
 
 static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio_frame **audio)
 {    
-        SCOPE_STOPWATCH(vidcap_screen_pw_grab);
+        PROFILE_FUNC;
 
         assert(session_ptr != nullptr);
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
