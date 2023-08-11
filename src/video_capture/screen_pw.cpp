@@ -22,6 +22,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 #include "utils/synchronized_queue.h"
 #include "utils/profile_timer.hpp"
 #include "video.h"
@@ -78,14 +79,8 @@ private:
 
 unsigned int session_path_t::token_counter = 0;
 
-
-template <typename F>
-class ScopeExit {
-        F func;
-public:
-        ScopeExit(F&& func) : func(std::forward<F>(func)) {}
-        ~ScopeExit() { func(); }
-};
+struct GVariant_deleter { void operator()(GVariant *a) { g_variant_unref(a); } };
+using GVariant_uniq = std::unique_ptr<GVariant, GVariant_deleter>;
 
 using PortalCallCallback = std::function<void(uint32_t response, GVariant *results)>;
 
@@ -140,11 +135,10 @@ public:
                         
                         
                         uint32_t response;
-                        GVariant *results;
-                        g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                        ScopeExit scope_exit([&]() { g_variant_unref(results); });
+                        GVariant_uniq results;
+                        g_variant_get(parameters, "(u@a{sv})", &response, out_ptr(results));
 
-                        static_cast<const PortalCallCallback *> (user_data)->operator()(response, results);
+                        static_cast<const PortalCallCallback *> (user_data)->operator()(response, results.get());
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
                                         object_path, "org.freedesktop.portal.Request", "Close",
                                         nullptr, nullptr, G_DBUS_CALL_FLAGS_NONE, -1, nullptr, nullptr, nullptr);
@@ -163,8 +157,7 @@ public:
                 auto call_finished = [](GObject *source_object, GAsyncResult *result, gpointer user_data) {
                         auto& error_msg = *static_cast<std::promise<std::string>*>(user_data);
                         GError *error = nullptr;
-                        GVariant *result_finished = g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error);
-                        ScopeExit scope_exit([&](){ g_variant_unref(result_finished); });
+                        GVariant_uniq result_finished(g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error));
                         
                         if(error != nullptr){
                                 error_msg.set_value(error->message == nullptr ? "unknown error" : error->message);
@@ -172,7 +165,7 @@ public:
                         }
 
                         const char *path = nullptr;
-                        g_variant_get(result_finished, "(o)", &path);
+                        g_variant_get(result_finished.get(), "(o)", &path);
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "call_with_request finished: '" << path << "'\n";
                 };
 
@@ -707,12 +700,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GError *error = nullptr;
                 GUnixFDList *fd_list = nullptr;
 
-                GVariant *result = g_dbus_proxy_call_with_unix_fd_list_finish(G_DBUS_PROXY(source), &fd_list, res, &error);
+                GVariant_uniq result(g_dbus_proxy_call_with_unix_fd_list_finish(G_DBUS_PROXY(source), &fd_list, res, &error));
                 g_assert_no_error(error);
-                ScopeExit scope_exit([&]() { g_variant_unref(result); });
 
                 gint32 handle;
-                g_variant_get(result, "(h)", &handle);
+                g_variant_get(result.get(), "(h)", &handle);
                 assert(handle == 0); //it should always be the first index
 
                 session->pw.fd = g_unix_fd_list_get(fd_list, handle, &error);
