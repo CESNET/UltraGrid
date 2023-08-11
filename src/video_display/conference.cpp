@@ -511,16 +511,13 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                 s->common->layout = Video_mixer::Layout::One_big;
         }
 
-        struct display *d_ptr;
         int ret = initialize_video_display(parent, requested_display.c_str(), disp_conf.c_str(),
-                        flags, nullptr, &d_ptr);
+                        flags, nullptr, out_ptr(s->common->real_display));
 
         if(ret != 0){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init real display\n");
                 return nullptr;
         }
-
-        s->common->real_display.reset(d_ptr);
 
         return s.release();
 }
