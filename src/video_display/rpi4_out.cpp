@@ -47,6 +47,7 @@
 #include "hwaccel_rpi4.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 
 #include <memory>
 #include <queue>
@@ -208,11 +209,9 @@ Rpi4_video_out::Rpi4_video_out(int x, int y, int width, int height, bool fs, int
 {
         bcm_host_init();
 
-        MMAL_COMPONENT_T *c = nullptr;
-        if(mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &c) != MMAL_SUCCESS){
+        if(mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, out_ptr(renderer_component)) != MMAL_SUCCESS){
                 throw std::runtime_error("Failed to create renderer component");
         }
-        renderer_component.reset(c);
 
         set_output_params();
 
