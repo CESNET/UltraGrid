@@ -3264,6 +3264,7 @@ if test "$build_default" != no; then
         src/audio/filter/discard.o
         src/audio/filter/controlport_stats.o
         src/audio/filter/silence.o
+        src/audio/filter/playback.o
         src/capture_filter/change_pixfmt.o
         src/capture_filter/color.o
         src/capture_filter/display.o
