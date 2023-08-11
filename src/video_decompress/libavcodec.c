@@ -810,24 +810,29 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
         if (!first_nal) {
                 return 0;
         }
+        int nalu_type = 0;
         if (s->desc.color_spec == H264) {
-                int type = NALU_HDR_GET_TYPE(first_nal[0]);
-                if (type == NAL_SPS) {
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received H.264 SPS NALU, decoding begins.\n");
-                        s->sps_vps_found = 1;
-                        return 1;
-                }
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first H.264 SPS NALU...\n");
+                nalu_type = NALU_HDR_GET_TYPE(first_nal[0]);
         } else {
-                int type = first_nal[0] >> 1;
-                if (type == NAL_HEVC_VPS) {
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received HEVC VPS NALU, decoding begins.\n");
-                        s->sps_vps_found = 1;
-                        return 1;
-                }
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first HEVC VPS NALU...\n");
+                nalu_type = first_nal[0] >> 1;
         }
-        return 0;
+
+        s->sps_vps_found = 1;
+        switch (nalu_type) {
+        case NAL_SPS:
+                log_msg(LOG_LEVEL_VERBOSE,
+                        MOD_NAME "Received H.264 SPS NALU, decoding begins.\n");
+                return 1;
+        case NAL_HEVC_VPS:
+                log_msg(LOG_LEVEL_VERBOSE,
+                        MOD_NAME "Received HEVC VPS NALU, decoding begins.\n");
+                return 1;
+        default:
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Waiting for first SPS/VPS NALU...\n");
+                s->sps_vps_found = 0;
+                return 0;
+        }
 }
 
 /// print hint to improve performance if not making it
