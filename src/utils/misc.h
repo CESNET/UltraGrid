@@ -85,6 +85,25 @@ inline T get_map_val_or_default(std::map<key, T> const& map, key const& k, T con
         }
         return def;
 }
+
+/* Like std::out_ptr from C++23 */
+template<class Smart, class Pointer = typename Smart::pointer>
+class out_ptr{
+public:
+        out_ptr(Smart& out) noexcept: smart_ptr(out) {  }
+        ~out_ptr(){
+                smart_ptr.reset(ptr);
+        }
+
+        out_ptr(out_ptr&&) = delete;
+        out_ptr& operator=(out_ptr&&) = delete;
+
+        operator Pointer*() noexcept { return &ptr; }
+        operator void**() noexcept { return &ptr; }
+private:
+        Smart& smart_ptr;
+        Pointer ptr = nullptr;
+};
 #endif //__cplusplus
 
 #endif// UTILS_MISC_H_
