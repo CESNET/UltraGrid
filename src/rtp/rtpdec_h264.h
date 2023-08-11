@@ -54,6 +54,7 @@ enum {
         NAL_IDR = 5,
         NAL_SEI = 6,
         NAL_SPS = 7,
+        NAL_AUD = 9,
         NAL_MAX = 23,
         // HEVC
         NAL_HEVC_VPS = 32,

@@ -806,16 +806,22 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                 s->sps_vps_found = 1;
                 return 1;
         }
-        const unsigned char *first_nal = rtpenc_h264_get_next_nal(src, src_len, NULL);
-        if (!first_nal) {
-                return 0;
-        }
+
         int nalu_type = 0;
-        if (s->desc.color_spec == H264) {
-                nalu_type = NALU_HDR_GET_TYPE(first_nal[0]);
-        } else {
-                nalu_type = first_nal[0] >> 1;
-        }
+        const unsigned char *nal = src;
+        do {
+                nal =
+                    rtpenc_h264_get_next_nal(nal, src_len - (nal - src), NULL);
+                if (!nal) {
+                        return 0;
+                }
+                if (s->desc.color_spec == H264) {
+                        nalu_type = NALU_HDR_GET_TYPE(nal[0]);
+                } else {
+                        nalu_type = nal[0] >> 1;
+                }
+                debug_msg("Received %s NALU.", get_nalu_name(nalu_type));
+        } while (nalu_type == NAL_AUD);
 
         switch (nalu_type) {
         case NAL_SPS:

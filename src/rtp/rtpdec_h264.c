@@ -356,6 +356,8 @@ get_nalu_name(int type)
         return "H264 SEI";
     case NAL_SPS:
         return "H264 SPS";
+    case NAL_AUD:
+        return "H264 AUD";
     case NAL_HEVC_VPS:
         return "HEVC VPS";
     default:
