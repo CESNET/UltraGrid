@@ -51,6 +51,7 @@
 #include "audio/audio_playback.h" 
 #include "lib_common.h"
 #include "utils/string_view_utils.hpp"
+#include "utils/misc.h"
 
 namespace{
 struct Playback_dev_deleter{ void operator()(state_audio_playback *p){ audio_playback_done(p); } };
@@ -86,9 +87,7 @@ static af_result_code parse_cfg(state_playback *s, std::string_view cfg){
         auto dev = std::string(tok);
         auto dev_cfg = std::string(tokenize(cfg, ':'));
 
-        state_audio_playback *tmp_dev;
-        int ret = audio_playback_init(dev.c_str(), dev_cfg.c_str(), &tmp_dev);
-        s->playback_dev.reset(tmp_dev);
+        int ret = audio_playback_init(dev.c_str(), dev_cfg.c_str(), out_ptr(s->playback_dev));
 
         return ret == 0 ? AF_OK : AF_FAILURE;
 }
