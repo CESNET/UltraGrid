@@ -817,20 +817,17 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                 nalu_type = first_nal[0] >> 1;
         }
 
-        s->sps_vps_found = 1;
         switch (nalu_type) {
         case NAL_SPS:
-                log_msg(LOG_LEVEL_VERBOSE,
-                        MOD_NAME "Received H.264 SPS NALU, decoding begins.\n");
-                return 1;
         case NAL_HEVC_VPS:
+                s->sps_vps_found = 1;
                 log_msg(LOG_LEVEL_VERBOSE,
-                        MOD_NAME "Received HEVC VPS NALU, decoding begins.\n");
+                        MOD_NAME "Received %s NALU, decoding begins.\n",
+                        get_nalu_name(nalu_type));
                 return 1;
         default:
                 log_msg(LOG_LEVEL_WARNING,
                         MOD_NAME "Waiting for first SPS/VPS NALU...\n");
-                s->sps_vps_found = 0;
                 return 0;
         }
 }

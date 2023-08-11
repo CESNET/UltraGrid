@@ -344,4 +344,24 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
     return 0;
 }
 
+const char *
+get_nalu_name(int type)
+{
+    _Thread_local static char buf[32];
+
+    switch (type) {
+    case NAL_IDR:
+        return "H264 IDR";
+    case NAL_SEI:
+        return "H264 SEI";
+    case NAL_SPS:
+        return "H264 SPS";
+    case NAL_HEVC_VPS:
+        return "HEVC VPS";
+    default:
+        snprintf(buf, sizeof buf, "(NALU %d)", type);
+        return buf;
+    }
+}
+
 // vi: set et sw=4 :

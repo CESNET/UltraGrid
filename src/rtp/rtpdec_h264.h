@@ -48,13 +48,16 @@
 extern "C" {
 #endif
 
-#define NAL_MIN     1
-#define NAL_IDR     5
-#define NAL_SEI     6
-#define NAL_SPS     7
-#define NAL_MAX    23
-
-#define NAL_HEVC_VPS 32
+enum {
+        // H.264
+        NAL_MIN = 1,
+        NAL_IDR = 5,
+        NAL_SEI = 6,
+        NAL_SPS = 7,
+        NAL_MAX = 23,
+        // HEVC
+        NAL_HEVC_VPS = 32,
+};
 
 struct video_frame;
 
@@ -71,6 +74,7 @@ struct coded_data;
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
+const char *get_nalu_name(int type);
 
 #ifdef __cplusplus
 }
