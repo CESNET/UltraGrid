@@ -56,6 +56,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "utils/misc.h"
 #include "rtp/rtp.h"
 #include "tv.h"
 #include "video_compress.h"
@@ -192,11 +193,9 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
         auto& worker = s->workers[compress];
         if(!worker.compress){
                 worker.compress_cfg = compress;
-                compress_state *cmp = nullptr;
-                int ret = compress_init(s->parent, compress, &cmp);
+                int ret = compress_init(s->parent, compress, out_ptr(worker.compress));
                 if(ret != 0)
                         return -1;
-                worker.compress.reset(cmp);
 
                 worker.thread = std::thread(recompress_worker, &worker);
         }
