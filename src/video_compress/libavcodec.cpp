@@ -52,7 +52,6 @@
 #include <set>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -102,7 +101,6 @@ static constexpr int DEFAULT_CQP_MJPEG_QSV = 80;
 static constexpr int DEFAULT_CQP_QSV = 5000;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr int DEFAULT_SLICE_COUNT = 32;
-static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 
 // NOLINTNEXTLINE(*-macro-usage): for correct TOSTRING expansion
 #define DEFAULT_X26X_RC_BUF_SIZE_FACTOR  2.5
@@ -134,13 +132,10 @@ static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 typedef struct {
         function<const char*(bool)> get_prefered_encoder; ///< can be nullptr
         double avg_bpp;
-        string (*get_preset)(string const & enc_name, int width, int height, double fps);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
         int capabilities_priority;
 } codec_params_t;
 
-static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
-static string get_av1_preset(string const & enc_name, int width, int height, double fps);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
@@ -161,70 +156,60 @@ static map<codec_t, codec_params_t> codec_params = {
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
-                get_h264_h265_preset,
                 setparam_h264_h265_av1,
                 100
         }},
         { H265, codec_params_t{
                 [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
-                get_h264_h265_preset,
                 setparam_h264_h265_av1,
                 101
         }},
         { MJPG, codec_params_t{
                 nullptr,
                 1.2,
-                nullptr,
                 setparam_jpeg,
                 102
         }},
         { J2K, codec_params_t{
                 nullptr,
                 1.0,
-                nullptr,
                 setparam_default,
                 500
         }},
         { VP8, codec_params_t{
                 nullptr,
                 0.4,
-                nullptr,
                 setparam_vp8_vp9,
                 103
         }},
         { VP9, codec_params_t{
                 nullptr,
                 0.4,
-                nullptr,
                 setparam_vp8_vp9,
                 104
         }},
         { HFYU, codec_params_t{
                 nullptr,
                 0,
-                nullptr,
                 setparam_default,
                 501
         }},
         { FFV1, codec_params_t{
                 nullptr,
                 0,
-                nullptr,
                 setparam_default,
                 502
         }},
         { AV1, codec_params_t{
                 [](bool) { return is_arm_mac() ? "libaom-av1" : "libsvtav1"; },
                 0.1,
-                get_av1_preset,
                 setparam_h264_h265_av1,
                 600
         }},
         { PRORES, codec_params_t{
                 nullptr,
                 0.5,
-                nullptr,
                 setparam_default,
                 300,
         }},
@@ -746,8 +731,6 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         int_fast64_t bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
                 desc.width * desc.height * avg_bpp * desc.fps;
 
-        s->params.have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
-
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
@@ -781,22 +764,6 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
         set_codec_thread_mode(s->codec_ctx, &s->params);
         s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1 ? 16 : DEFAULT_SLICE_COUNT);
-
-        if (!s->params.have_preset) {
-                string preset{};
-                if (codec_params[ug_codec].get_preset) {
-                        preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name, desc.width, desc.height, desc.fps);
-                }
-
-                if (!preset.empty() && preset != DONT_SET_PRESET) {
-                        if (check_av_opt_set<const char *>(s->codec_ctx->priv_data, "preset", preset.c_str())) {
-                                LOG(LOG_LEVEL_INFO) << "[lavc] Setting preset to " << preset <<  ".\n";
-                        }
-                }
-                if (codec_params[ug_codec].get_preset && preset.empty()) {
-                        LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
-                }
-        }
 
         // set user supplied parameters
         for (auto const &item : s->lavc_opts) {
@@ -1443,6 +1410,15 @@ ADD_TO_PARAM(
 static void
 configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        const char *preset = "ultrafast";
+        if (strstr(codec_ctx->codec->name, "libx264") ==
+                codec_ctx->codec->name &&
+            (param->desc.width <= 1920 && param->desc.height <= 1080 &&
+             param->desc.fps <= 30)) {
+                preset = "veryfast";
+        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
+
         const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
         check_av_opt_set<const char *>(codec_ctx->priv_data, "tune", tune);
 
@@ -1498,6 +1474,8 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 
 static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
+                                       DEFAULT_QSV_PRESET);
         check_av_opt_set<const char *>(codec_ctx->priv_data, "scenario", "livestreaming");
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
 
@@ -1646,6 +1624,13 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<int>(codec_ctx->priv_data, "umv", 0);
                 }
         } else if ("libsvtav1"s == codec_ctx->codec->name) {
+                const char *preset = param->desc.width <= 1920 &&
+                                             param->desc.height <= 1080 &&
+                                             param->desc.fps <= 30
+                                         ? "9"
+                                         : "11";
+                check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
+                                               preset);
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
                 //pred-struct=1 is low-latency mode
                 if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "pred-struct=1:tile-columns=2:tile-rows=2", 0)) {
@@ -1724,55 +1709,6 @@ void show_encoder_help(string const &name) {
         if (name == "hevc_qsv" || name == "h264_qsv") {
                 col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << ", " << SBOLD("qvbr") << " or " << SBOLD("vbr") << "\n";
         }
-}
-
-/// @retval DEFER_PRESET_SETTING - preset will be set individually later (NVENC)
-static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps)
-{
-        if (enc_name == "libx264" || enc_name == "libx264rgb") {
-                if (width <= 1920 && height <= 1080 && fps <= 30) {
-                        return string("veryfast");
-                } else {
-                        return string("ultrafast");
-                }
-        }
-        if (enc_name == "libx265") {
-                return string("ultrafast");
-        }
-        if (regex_match(enc_name, regex(".*_amf"))) {
-                return string{DONT_SET_PRESET}; // AMF uses "usage"
-        }
-        if (regex_match(enc_name, regex(".*_mf"))) {
-                return string{DONT_SET_PRESET}; // MF uses "scenario"
-        }
-        if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                return string{DONT_SET_PRESET}; // nvenc preset is handled with configure_nvenc()
-        }
-        if (regex_match(enc_name, regex(".*_qsv"))) {
-                return string(DEFAULT_QSV_PRESET);
-        }
-        if (regex_match(enc_name, regex(".*_vaapi"))) {
-                return string{DONT_SET_PRESET}; // VAAPI doesn't support presets
-        }
-        return {};
-}
-
-static string get_av1_preset(string const & enc_name, int width, int height, double fps)
-{
-        if (enc_name == "libsvtav1") {
-                if (width <= 1920 && height <= 1080 && fps <= 30) {
-                        return string("9");
-                } else {
-                        return string("11");
-                }
-        }
-        if (enc_name == "libaom-av1") {
-                return string{DONT_SET_PRESET}; // configure_aom_av1() sets "usage" instead
-        }
-        if (enc_name == "librav1e") {
-                return string{DONT_SET_PRESET}; // no presets for rav1e
-        }
-        return {};
 }
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
