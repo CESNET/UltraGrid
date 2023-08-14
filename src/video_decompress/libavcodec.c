@@ -508,7 +508,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
         }
 
         struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
-        bool hwaccel = get_commandline_param("use-hw-accel") != NULL;
+        const char *hwaccel = get_commandline_param("use-hw-accel");
 #ifdef HWACC_COMMON_IMPL
         hwaccel_state_reset(&state->hwaccel);
 
@@ -543,10 +543,21 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                                         "but incoming video has not 4:2:0 subsampling, "
                                         "which is usually not supported by hw. accelerators\n");
                 }
+                enum hw_accel_type forced_hwaccel = HWACCEL_NONE;
+                if(strlen(hwaccel) > 0){
+                        forced_hwaccel = hw_accel_from_str(hwaccel);
+                        if(forced_hwaccel == HWACCEL_NONE){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown accel %s\n", hwaccel);
+                                return AV_PIX_FMT_NONE;
+                        }
+                }
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
                                 if(*it == accels[i].pix_fmt && !state->block_accel[accels[i].accel_type])
                                 {
+                                        if(forced_hwaccel != HWACCEL_NONE && accels[i].accel_type != forced_hwaccel){
+                                                break;
+                                        }
                                         int ret = accels[i].init_func(s, &state->hwaccel, state->out_codec);
                                         if(ret < 0){
                                                 hwaccel_state_reset(&state->hwaccel);
@@ -555,6 +566,10 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                                         SELECT_PIXFMT(accels[i].pix_fmt);
                                 }
                         }
+                }
+                if(forced_hwaccel != HWACCEL_NONE){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested hw accel \"%s\" is not available\n", hwaccel);
+                        return AV_PIX_FMT_NONE;
                 }
                 log_msg(LOG_LEVEL_WARNING, "[lavd] Falling back to software decoding!\n");
                 if (state->out_codec == HW_VDPAU) {

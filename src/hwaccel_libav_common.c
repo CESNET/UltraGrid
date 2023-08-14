@@ -50,6 +50,37 @@
 #include "hwaccel_libav_common.h"
 #include "libavcodec/lavc_common.h"
 
+struct {
+        const char *name;
+        enum hw_accel_type type;
+} accel_str_map[] = {
+        {"vdpau", HWACCEL_VDPAU},
+        {"vaapi", HWACCEL_VAAPI},
+        {"videotoolbox", HWACCEL_VIDEOTOOLBOX},
+        {"rpi4", HWACCEL_RPI4},
+        {"cuda", HWACCEL_CUDA},
+        {"vulkan", HWACCEL_VULKAN},
+};
+
+enum hw_accel_type hw_accel_from_str(const char *str){
+        for(unsigned i = 0; i < sizeof(accel_str_map) / sizeof(accel_str_map[0]); i++){
+                if(strcmp(str, accel_str_map[i].name) == 0){
+                        return accel_str_map[i].type;
+                }
+        }
+
+        return HWACCEL_NONE;
+}
+const char *hw_accel_to_str(enum hw_accel_type type){
+        for(unsigned i = 0; i < sizeof(accel_str_map) / sizeof(accel_str_map[0]); i++){
+                if(type == accel_str_map[i].type){
+                        return accel_str_map[i].name;
+                }
+        }
+
+        return "unknown";
+}
+
 void hwaccel_state_init(struct hw_accel_state *hwaccel){
         hwaccel->type = HWACCEL_NONE;
         hwaccel->copy = false;

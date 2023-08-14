@@ -67,6 +67,9 @@ enum hw_accel_type {
         HWACCEL_COUNT
 };
 
+enum hw_accel_type hw_accel_from_str(const char *str);
+const char *hw_accel_to_str(enum hw_accel_type type);
+
 /**
  * hw_accel_state describes the current state of hw. accleration
  */
