@@ -84,12 +84,12 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     uint8_t nri = NALU_HDR_GET_NRI(nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
 
-    if (type == NAL_SPS) {
+    if (type == NAL_H264_SPS) {
         fill_coded_frame_from_sps(frame, data, data_len);
     }
 
-    if (type >= NAL_MIN && type <= NAL_MAX) {
-        if (type == NAL_IDR || type == NAL_SEI) {
+    if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
+        if (type == NAL_H264_IDR || type == NAL_H264_SEI) {
             frame->frame_type = INTRA;
         } else if (frame->frame_type == BFRAME && nri != 0){
             frame->frame_type = OTHER;
@@ -102,7 +102,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
     int fu_length = 0;
     uint8_t nal = data[0];
     uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : NALU_HDR_GET_TYPE(nal);
-    if (type >= NAL_MIN && type <= NAL_MAX) {
+    if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
         type = H264_NAL;
     }
 
@@ -350,13 +350,13 @@ get_nalu_name(int type)
     _Thread_local static char buf[32];
 
     switch (type) {
-    case NAL_IDR:
+    case NAL_H264_IDR:
         return "H264 IDR";
-    case NAL_SEI:
+    case NAL_H264_SEI:
         return "H264 SEI";
-    case NAL_SPS:
+    case NAL_H264_SPS:
         return "H264 SPS";
-    case NAL_AUD:
+    case NAL_H264_AUD:
         return "H264 AUD";
     case NAL_HEVC_VPS:
         return "HEVC VPS";

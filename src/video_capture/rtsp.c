@@ -1124,7 +1124,7 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             uint8_t nalInfo = (uint8_t) nals[len_nals - length];
             uint8_t type = nalInfo & 0x1f;
             debug_msg(MOD_NAME "sprop-parameter %d (base64): %s\n", (int) type, nal);
-            if (type == NAL_SPS){
+            if (type == NAL_H264_SPS){
                 width_height_from_SDP(width, height, (unsigned char *) (nals+(len_nals - length)), length);
             }
         }

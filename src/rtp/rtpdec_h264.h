@@ -50,12 +50,12 @@ extern "C" {
 
 enum {
         // H.264
-        NAL_MIN = 1,
-        NAL_IDR = 5,
-        NAL_SEI = 6,
-        NAL_SPS = 7,
-        NAL_AUD = 9,
-        NAL_MAX = 23,
+        NAL_H264_MIN = 1,
+        NAL_H264_IDR = 5,
+        NAL_H264_SEI = 6,
+        NAL_H264_SPS = 7,
+        NAL_H264_AUD = 9,
+        NAL_H264_MAX = 23,
         // HEVC
         NAL_HEVC_VPS = 32,
         NAL_HEVC_AUD = 35,

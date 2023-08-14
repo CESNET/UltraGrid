@@ -836,10 +836,10 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                         nalu_type = nal[0] >> 1;
                 }
                 debug_msg("Received %s NALU.", get_nalu_name(nalu_type));
-        } while (nalu_type == NAL_AUD || nalu_type == NAL_HEVC_AUD);
+        } while (nalu_type == NAL_H264_AUD || nalu_type == NAL_HEVC_AUD);
 
         switch (nalu_type) {
-        case NAL_SPS:
+        case NAL_H264_SPS:
         case NAL_HEVC_VPS:
                 s->sps_vps_found = 1;
                 log_msg(LOG_LEVEL_VERBOSE,
