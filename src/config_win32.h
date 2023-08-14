@@ -207,11 +207,10 @@ void ShowMessage(int level, char *msg);
 #include <sys/stat.h>
 #endif
 
-// MinGW-w64 defines some broken macro for strtok_r in pthread.h
-#undef strtok_r
-
+#ifdef WANT_MKDIR
 #include <direct.h>
-#define platform_mkdir _mkdir
+#define mkdir(path, mode) _mkdir(path)
+#endif
 
 #define SHUT_RD SD_RECEIVE
 #define SHUT_WR SD_SEND

@@ -35,11 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define WANT_MKDIR
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include "config_unix.h"
 #include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
 
 #include <iomanip>
 #include <iostream>
@@ -179,7 +180,7 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
         snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
 #endif
 
-        res = platform_mkdir(path);
+        res = mkdir(path, S_IRWXU | S_IRWXG | S_IRWXO);
         if(res != 0) {
                 if(errno != EEXIST) {
                         perror("mkdir");

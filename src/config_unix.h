@@ -183,8 +183,6 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 }
 #define aligned_free free
 
-#define platform_mkdir(a) mkdir(a, 0777)
-
 #define INVALID_SOCKET -1
 #define CLOSESOCKET close
 

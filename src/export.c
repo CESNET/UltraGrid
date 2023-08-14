@@ -35,11 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define WANT_MKDIR
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include "config_unix.h"
 #include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
 
 #include <dirent.h>
 #include <limits.h>
@@ -228,7 +229,7 @@ static char *create_anonymous_dir(const char *prefix)
                         snprintf(num, sizeof num, "-%d", i);
                         strncat(name, num, sizeof name - strlen(name) - 1);
                 }
-                int ret = platform_mkdir(name);
+                int ret = mkdir(name, S_IRWXU | S_IRWXG | S_IRWXO);
                 if(ret == -1) {
                         if(errno == EEXIST) { // record exists, try next directory
                                 continue;
@@ -261,7 +262,7 @@ static bool create_dir(struct exporter *s)
         if (!s->dir) {
                 s->dir = create_anonymous_dir(".");
         } else {
-                int ret = platform_mkdir(s->dir);
+                int ret = mkdir(s->dir, S_IRWXU | S_IRWXG | S_IRWXO);
                 if(ret == -1) {
                         if(errno != EEXIST) {
                                 perror("[Export] Directory creation failed");
