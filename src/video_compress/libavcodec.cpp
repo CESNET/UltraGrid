@@ -1001,26 +1001,34 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
 }
 
 AVPixelFormat
-try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc, codec_t ug_codec,
-             const AVCodec *codec)
+try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
+                           codec_t ug_codec, const AVCodec *codec,
+                           set<AVPixelFormat> const &fmts_tried)
 {
 #ifndef HAVE_SWSCALE
         return AV_PIX_FMT_NONE;
 #endif
+        unsigned usable_fmt_cnt = 0;
+        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
+             ++pix) {
+                usable_fmt_cnt += 1;
+        }
+        if (usable_fmt_cnt == fmts_tried.size()) {
+                return AV_PIX_FMT_NONE; // no format to try
+        }
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: "
                                << get_codec_name(desc.color_spec)
                                << ". Trying to convert with swscale instead.\n";
         for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
              ++pix) {
                 const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
-                if (fmt_desc != nullptr &&
-                    (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
-                        AVPixelFormat curr_pix_fmt = *pix;
-                        if (try_open_codec(s, curr_pix_fmt, desc, ug_codec,
-                                           codec)) {
-                                return curr_pix_fmt;
-                                break;
-                        }
+                if (fmts_tried.count(*pix) == 1 || fmt_desc == nullptr ||
+                    (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0U) {
+                        continue;
+                }
+                AVPixelFormat curr_pix_fmt = *pix;
+                if (try_open_codec(s, curr_pix_fmt, desc, ug_codec, codec)) {
+                        return curr_pix_fmt;
                 }
         }
         return AV_PIX_FMT_NONE;
@@ -1052,7 +1060,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->req_conv_prop);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
+        set<AVPixelFormat> fmts_tried;
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+                fmts_tried.insert(pix_fmt);
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
                 }
@@ -1063,7 +1073,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
-                pix_fmt = try_open_remaining_pixfmts(s, desc, ug_codec, codec);
+                pix_fmt = try_open_remaining_pixfmts(s, desc, ug_codec, codec,
+                                                     fmts_tried);
         }
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
