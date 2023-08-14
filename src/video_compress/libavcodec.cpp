@@ -90,17 +90,23 @@ extern "C"{
 
 #define MOD_NAME "[lavc] "
 
-using namespace std;
+using std::array;
+using std::clamp;
+using std::cout;
+using std::function;
+using std::list;
+using std::invalid_argument;
+using std::map;
+using std::min;
+using std::regex;
+using std::set;
+using std::shared_ptr;
+using std::stof;
+using std::stoi;
+using std::string;
+using std::thread;
+using std::to_string;
 using namespace std::string_literals;
-
-static constexpr const codec_t DEFAULT_CODEC = MJPG;
-static constexpr double DEFAULT_X264_X265_CRF = 22.0;
-static constexpr int DEFAULT_CQP = 21;
-static constexpr int DEFAULT_CQP_MPJEG = 7;
-static constexpr int DEFAULT_CQP_MJPEG_QSV = 80;
-static constexpr int DEFAULT_CQP_QSV = 5000;
-static constexpr const int DEFAULT_GOP_SIZE = 20;
-static constexpr int DEFAULT_SLICE_COUNT = 32;
 
 // NOLINTNEXTLINE(*-macro-usage): for correct TOSTRING expansion
 #define DEFAULT_X26X_RC_BUF_SIZE_FACTOR  2.5
@@ -110,6 +116,23 @@ namespace {
 enum {
         FLW_THRESH = 1920 * 1080 * 30, //< in px/sec
 };
+
+constexpr const codec_t DEFAULT_CODEC       = MJPG;
+constexpr const int     DEFAULT_GOP_SIZE    = 20;
+constexpr int           DEFAULT_SLICE_COUNT = 32;
+
+constexpr const char *DEFAULT_AMF_USAGE     = "lowlatency";
+constexpr int         DEFAULT_CQP           = 21;
+constexpr int         DEFAULT_CQP_MPJEG     = 7;
+constexpr int         DEFAULT_CQP_MJPEG_QSV = 80;
+constexpr int         DEFAULT_CQP_QSV       = 5000;
+constexpr const char *DEFAULT_NVENC_PRESET  = "p4";
+constexpr const char *DEFAULT_NVENC_RC      = "cbr";
+constexpr const char *DEFAULT_NVENC_TUNE    = "ull";
+constexpr const char *DEFAULT_QSV_PRESET    = "medium";
+constexpr const char *DEFAULT_QSV_RC        = "vbr";
+constexpr double      DEFAULT_X264_X265_CRF = 22.0;
+constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
 
 struct setparam_param {
         setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
@@ -122,15 +145,6 @@ struct setparam_param {
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
         set<string>         &blacklist_opts; ///< options that should be blacklisted
 };
-
-constexpr const char *DEFAULT_AMF_USAGE = "lowlatency";
-constexpr const char *DEFAULT_NVENC_PRESET = "p4";
-constexpr const char *DEFAULT_NVENC_RC = "cbr";
-constexpr const char *DEFAULT_NVENC_TUNE = "ull";
-constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
-
-static constexpr const char *DEFAULT_QSV_RC = "vbr";
-static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
         function<const char*(bool)> get_prefered_encoder; ///< can be nullptr
