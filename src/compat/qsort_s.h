@@ -6,7 +6,7 @@
  * Must be included before config*h because those include stdlib.h.
  */
 /*
- * Copyright (c) 2022 CESNET z.s.p.o.
+ * Copyright (c) 2022-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,21 +41,16 @@
 #ifndef COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
 #define COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
 
-#if defined NULL && __STDC_WANT_LIB_EXT1__ != 1
-#error "compat/qsort_s.h compat must be included before stdlib.h"
-#endif
-#if defined  __STDC_WANT_LIB_EXT1__  && __STDC_WANT_LIB_EXT1__  != 1
-#error "__STDC_WANT_LIB_EXT1__  defined but not set to 1"
-#endif
-#if !defined  __STDC_WANT_LIB_EXT1__
+#if !defined EXIT_SUCCESS // stdlib.h not yet included
+#if defined  __STDC_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1 // we want qsort_s
 #endif
-
 #ifdef __cplusplus
 #include <cstdlib>
 #else
 #include <stdlib.h>
-#endif
+#endif // !defined __cplusplus
+#endif // !defined EXIT_SUCCESS
 
 #if !defined __STDC_LIB_EXT1__
 # if defined _WIN32
@@ -65,7 +60,7 @@
 #    define QSORT_S_COMP_FIRST 1 // BSD version of qsort_r() as well
 #    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
 #  else
-#    define qsort_s qsort_r
+#    define qsort_s qsort_r // GNU version
 #  endif
 # endif
 #endif

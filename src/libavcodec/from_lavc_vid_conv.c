@@ -44,8 +44,6 @@
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
 
-#include "compat/qsort_s.h"
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -57,9 +55,10 @@
 #include <stdint.h>
 
 #include "color.h"
+#include "compat/qsort_s.h"
 #include "host.h"
-#include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
+#include "hwaccel_vdpau.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/lavc_common.h"
 #include "utils/macros.h" // OPTIMIZED_FOR

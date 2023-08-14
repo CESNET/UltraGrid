@@ -36,14 +36,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat/qsort_s.h"
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include "compat/qsort_s.h"
 #include "debug.h"
 #include "hwaccel_videotoolbox.h"
 
