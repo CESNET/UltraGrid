@@ -1423,6 +1423,17 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
         }
 }
 
+void
+configure_mf(AVCodecContext                         *codec_ctx,
+             [[maybe_unused]] struct setparam_param *param)
+{
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "rate_control",
+                                       "cbr");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "scenario",
+                                       "video_conference");
+        check_av_opt_set<int>(codec_ctx->priv_data, "hw_encoding", 1);
+}
+
 ADD_TO_PARAM(
     "lavc-rc-buffer-size-factor",
     "* lavc-rc-buffer-size-factor=<val>\n"
@@ -1653,6 +1664,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 {
         if (regex_match(codec_ctx->codec->name, regex(".*_amf"))) {
                 configure_amf(codec_ctx, param);
+        } else if (regex_match(codec_ctx->codec->name, regex(".*_mf"))) {
+                configure_mf(codec_ctx, param);
         } else if (regex_match(codec_ctx->codec->name, regex(".*_vaapi"))) {
                 configure_vaapi(codec_ctx, param);
         } else if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
@@ -1728,6 +1741,9 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         }
         if (regex_match(enc_name, regex(".*_amf"))) {
                 return string{DONT_SET_PRESET}; // AMF uses "usage"
+        }
+        if (regex_match(enc_name, regex(".*_mf"))) {
+                return string{DONT_SET_PRESET}; // MF uses "scenario"
         }
         if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
                 return string{DONT_SET_PRESET}; // nvenc preset is handled with configure_nvenc()
