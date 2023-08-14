@@ -360,6 +360,8 @@ get_nalu_name(int type)
         return "H264 AUD";
     case NAL_HEVC_VPS:
         return "HEVC VPS";
+    case NAL_HEVC_AUD:
+        return "HEVC AUD";
     default:
         snprintf(buf, sizeof buf, "(NALU %d)", type);
         return buf;

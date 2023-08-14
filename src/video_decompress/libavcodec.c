@@ -836,7 +836,7 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                         nalu_type = nal[0] >> 1;
                 }
                 debug_msg("Received %s NALU.", get_nalu_name(nalu_type));
-        } while (nalu_type == NAL_AUD);
+        } while (nalu_type == NAL_AUD || nalu_type == NAL_HEVC_AUD);
 
         switch (nalu_type) {
         case NAL_SPS:

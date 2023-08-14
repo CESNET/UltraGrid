@@ -58,6 +58,7 @@ enum {
         NAL_MAX = 23,
         // HEVC
         NAL_HEVC_VPS = 32,
+        NAL_HEVC_AUD = 35,
 };
 
 struct video_frame;
