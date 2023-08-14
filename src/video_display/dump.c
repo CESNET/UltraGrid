@@ -82,7 +82,11 @@ static void *display_dump_init(struct module *parent, const char *cfg, unsigned 
         struct dump_display_state *s = calloc(1, sizeof *s);
         char dirname[128];
         if (strlen(cfg) == 0) {
-                snprintf(dirname, sizeof dirname, "dump.%jd", (intmax_t) time(NULL));
+                time_t     t      = time(NULL);
+                struct tm  tm_buf = { 0 };
+                localtime_s(&t, &tm_buf);
+                strftime(dirname, sizeof dirname, "dump.%Y%m%dT%H%M%S",
+                         &tm_buf);
                 cfg = dirname;
         }
         s->e = export_init(NULL, cfg, true);
