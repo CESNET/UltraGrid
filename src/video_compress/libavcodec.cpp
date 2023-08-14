@@ -107,6 +107,9 @@ static constexpr int DEFAULT_SLICE_COUNT = 32;
 #define DEFAULT_NVENC_RC_BUF_SIZE_FACTOR 1.5 // NOLINT: ditto
 
 namespace {
+enum {
+        FLW_THRESH = 1920 * 1080 * 30, //< in px/sec
+};
 
 struct setparam_param {
         setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
@@ -1413,8 +1416,8 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         const char *preset = "ultrafast";
         if (strstr(codec_ctx->codec->name, "libx264") ==
                 codec_ctx->codec->name &&
-            (param->desc.width <= 1920 && param->desc.height <= 1080 &&
-             param->desc.fps <= 30)) {
+            (param->desc.width * param->desc.height * param->desc.fps <=
+             FLW_THRESH)) {
                 preset = "veryfast";
         }
         check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
@@ -1624,11 +1627,11 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<int>(codec_ctx->priv_data, "umv", 0);
                 }
         } else if ("libsvtav1"s == codec_ctx->codec->name) {
-                const char *preset = param->desc.width <= 1920 &&
-                                             param->desc.height <= 1080 &&
-                                             param->desc.fps <= 30
-                                         ? "9"
-                                         : "11";
+                const char *preset =
+                    param->desc.width * param->desc.height * param->desc.fps <=
+                            FLW_THRESH
+                        ? "9"
+                        : "11";
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
                                                preset);
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
