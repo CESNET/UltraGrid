@@ -1000,6 +1000,32 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
 #endif //HAVE_SWSCALE
 }
 
+AVPixelFormat
+try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc, codec_t ug_codec,
+             const AVCodec *codec)
+{
+#ifndef HAVE_SWSCALE
+        return AV_PIX_FMT_NONE;
+#endif
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: "
+                               << get_codec_name(desc.color_spec)
+                               << ". Trying to convert with swscale instead.\n";
+        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
+             ++pix) {
+                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
+                if (fmt_desc != nullptr &&
+                    (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
+                        AVPixelFormat curr_pix_fmt = *pix;
+                        if (try_open_codec(s, curr_pix_fmt, desc, ug_codec,
+                                           codec)) {
+                                return curr_pix_fmt;
+                                break;
+                        }
+                }
+        }
+        return AV_PIX_FMT_NONE;
+}
+
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
@@ -1036,21 +1062,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
         }
 
-#ifdef HAVE_SWSCALE
         if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
-                for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
-                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
-                        if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
-                                AVPixelFormat curr_pix_fmt = *pix;
-                                if (try_open_codec(s, curr_pix_fmt, desc, ug_codec, codec)) {
-                                        pix_fmt = curr_pix_fmt;
-                                        break;
-                                }
-                        }
-                }
+                pix_fmt = try_open_remaining_pixfmts(s, desc, ug_codec, codec);
         }
-#endif
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
