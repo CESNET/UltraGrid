@@ -202,18 +202,16 @@ error:
         return false;
 }
 
-#define TOK_LEN(x) (sizeof #x)
-
 /**
  * Tries to create directories export.<date>[-????]
  * inside directory prefix. If succesful, returns its
  * name.
  */
-static char *create_anonymous_dir(const char *prefix)
+static char *
+create_implicit_dir(const char *prefix)
 {
         enum {
                 MAX_EXPORTS = 9999,
-                SUFFIX_LEN  = 1 + TOK_LEN(9999),
         };
         for (int i = 1; i <= MAX_EXPORTS; i++) {
                 char       name[MAX_PATH_SIZE];
@@ -224,9 +222,8 @@ static char *create_anonymous_dir(const char *prefix)
                 strftime(name + strlen(name), sizeof name - strlen(name),
                          "export.%Y%m%d", &tm_buf);
                 if (i > 1) {
-                        char num[SUFFIX_LEN];
-                        snprintf(num, sizeof num, "-%d", i);
-                        strncat(name, num, sizeof name - strlen(name) - 1);
+                        snprintf(name + strlen(name),
+                                 sizeof name - strlen(name), "-%d", i);
                 }
                 int ret = mkdir(name, S_IRWXU | S_IRWXG | S_IRWXO);
                 if(ret == -1) {
@@ -259,7 +256,7 @@ static bool dir_is_empty(const char *dir) {
 static bool create_dir(struct exporter *s)
 {
         if (!s->dir) {
-                s->dir = create_anonymous_dir(".");
+                s->dir = create_implicit_dir(".");
         } else {
                 int ret = mkdir(s->dir, S_IRWXU | S_IRWXG | S_IRWXO);
                 if(ret == -1) {
@@ -274,7 +271,7 @@ static bool create_dir(struct exporter *s)
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[Export] Warning: directory %s exists and is not an empty directory! Trying to create subdir.\n", s->dir);
                                 char *prefix = s->dir;
-                                s->dir = create_anonymous_dir(prefix);
+                                s->dir = create_implicit_dir(prefix);
                                 free(prefix);
                         }
                 }
