@@ -220,10 +220,9 @@ static char *create_anonymous_dir(const char *prefix)
                 time_t     t      = time(NULL);
                 struct tm  tm_buf = { 0 };
                 localtime_s(&t, &tm_buf);
-                strcpy(name, prefix);
-                strcat(name, "/");
-                strftime(name + strlen(name), MAX_PATH_SIZE, "export.%Y%m%d",
-                         &tm_buf);
+                snprintf(name, sizeof name, "%s/", prefix);
+                strftime(name + strlen(name), sizeof name - strlen(name),
+                         "export.%Y%m%d", &tm_buf);
                 if (i > 1) {
                         char num[SUFFIX_LEN];
                         snprintf(num, sizeof num, "-%d", i);
