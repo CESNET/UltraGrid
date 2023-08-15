@@ -43,13 +43,14 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
+#include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/lavc_common.h"
 #include "libavcodec/lavc_video.h"
-#include "libavcodec/from_lavc_vid_conv.h"
-#include "lib_common.h"
-#include "tv.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
+#include "tv.h"
+#include "utils/macros.h"
 #include "utils/misc.h" // get_cpu_core_count()
 #include "utils/worker.h"
 #include "video.h"
@@ -68,9 +69,11 @@
 #define MOD_NAME "[lavd] "
 
 struct state_libavcodec_decompress {
-        AVCodecContext  *codec_ctx;
-        AVFrame         *frame;
-        AVPacket        *pkt;
+        AVCodecContext       *codec_ctx;
+        AVCodecParserContext *parser;
+        AVFrame              *frame;
+        AVFrame              *tmp_frame;
+        AVPacket             *pkt;
 
         struct video_desc desc;
         int              pitch;
@@ -105,11 +108,14 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
+        av_parser_close(s->parser);
+        s->parser = NULL;
         if(s->codec_ctx) {
                 lavd_flush(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
         }
         av_frame_free(&s->frame);
+        av_frame_free(&s->tmp_frame);
         av_packet_free(&s->pkt);
 
         hwaccel_state_reset(&s->hwaccel);
@@ -349,6 +355,11 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         if (dec->codec_callback) {
                 dec->codec_callback();
         }
+        s->parser = av_parser_init(dec->avcodec_id);
+        if (s->parser == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Canot create parser!\n");
+                return false;
+        }
 
         // priority list of decoders that can be used for the codec
         const AVCodec *usable_decoders[DEC_LEN] = { NULL };
@@ -396,7 +407,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         s->frame = av_frame_alloc();
-        if(!s->frame) {
+        s->tmp_frame = av_frame_alloc();
+        if (s->frame == NULL || s->tmp_frame == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unable allocate frame.\n");
                 return false;
         }
@@ -760,6 +772,7 @@ static void parallel_convert(codec_t out_codec, const av_to_uv_convert_t *conver
 }
 
 static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s, enum AVPixelFormat av_codec, codec_t out_codec, int width, int height) {
+        assert(av_codec != AV_PIX_FMT_NONE);
         if (s->convert_in == av_codec) {
                 return 1;
         }
@@ -917,9 +930,11 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         }
 }
 
-static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
+static void
+handle_lavd_error(const char *prefix, struct state_libavcodec_decompress *s,
+                  int ret)
 {
-        print_decoder_error(MOD_NAME, ret);
+        print_decoder_error(prefix, ret);
         if(ret == AVERROR(EIO)){
                 s->consecutive_failed_decodes++;
                 if(s->consecutive_failed_decodes > 70 && !s->block_accel[s->hwaccel.type]){
@@ -964,6 +979,52 @@ read_forced_pixfmt(codec_t compress, const unsigned char *src,
         return true;
 }
 
+static bool
+decode_frame(struct state_libavcodec_decompress *s, const unsigned char *src,
+             int src_len)
+{
+        int         ret           = 0;
+        bool        frame_decoded = false;
+        const char *dec_err_pref  = MOD_NAME;
+
+        while (src_len > 0 &&
+               (ret = av_parser_parse2(
+                    s->parser, s->codec_ctx, &s->pkt->data, &s->pkt->size, src,
+                    src_len, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0)) >= 0) {
+                if (s->pkt->size == 0) {
+                        break;
+                }
+                src += ret;
+                src_len -= ret;
+                ret = avcodec_send_packet(s->codec_ctx, s->pkt);
+                if (ret != 0 && ret != AVERROR(EAGAIN)) {
+                        dec_err_pref = MOD_NAME "send - ";
+                        break;
+                }
+                // we output to tmp_frame because even if receive fails,
+                // it overrides previous potentially valid frame
+                while ((ret = avcodec_receive_frame(s->codec_ctx,
+                                                    s->tmp_frame)) == 0) {
+                        if (frame_decoded) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME
+                                        "Multiple frames decoded at once!\n");
+                        }
+                        frame_decoded = true;
+                        SWAP_PTR(s->frame, s->tmp_frame);
+                }
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        continue;
+                }
+                handle_lavd_error(MOD_NAME "recv - ", s, ret);
+        }
+
+        if (frame_decoded) {
+                return true;
+        }
+        handle_lavd_error(dec_err_pref, s, ret);
+        return false;
+}
+
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_props)
 {
@@ -989,22 +1050,13 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 src_len -= extradata_size + sizeof(uint32_t);
         }
 
-        s->pkt->size = src_len;
-        s->pkt->data = src;
-
         time_ns_t t0 = get_time_in_ns();
 
-        int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
-        if (ret == 0 || ret == AVERROR(EAGAIN)) {
-                ret = avcodec_receive_frame(s->codec_ctx, s->frame);
-                if (ret == 0) {
-                        s->consecutive_failed_decodes = 0;
-                }
-        }
-        if (ret != 0) {
-                handle_lavd_error(s, ret);
+        if (!decode_frame(s, src, src_len)) {
                 return DECODER_NO_FRAME;
         }
+        s->consecutive_failed_decodes = 0;
+
         time_ns_t t1 = get_time_in_ns();
 
         s->frame->opaque = callbacks;
@@ -1043,10 +1095,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
                 *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
                 return DECODER_GOT_CODEC;
-        }
-
-        if (avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
 
         return DECODER_GOT_FRAME;
