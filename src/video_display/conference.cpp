@@ -504,9 +504,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         disp_conf = tokenize(disp_cfg, ':');
         FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.width), "Failed to parse width\n");
         FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.height), "Failed to parse height\n");
-        FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.fps), "Failed to parse fps\n");
 
         auto tok = tokenize(conf_cfg, ':');
+        FAIL_IF(!tok.empty() && !parse_num(tokenize(tok, ':'), desc.fps), "Failed to parse fps\n");
+
+        tok = tokenize(conf_cfg, ':');
         if(tok == "one_big"){
                 s->common->layout = Video_mixer::Layout::One_big;
         }
