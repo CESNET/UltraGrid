@@ -937,7 +937,10 @@ static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
         }
 }
 
-static bool read_forced_pixfmt(codec_t compress, unsigned char *src, unsigned int src_len, struct pixfmt_desc *internal_props) {
+static bool
+read_forced_pixfmt(codec_t compress, const unsigned char *src,
+                   unsigned int src_len, struct pixfmt_desc *internal_props)
+{
         if (compress == H264) {
                 char expected_prefix[] = { START_CODE_3B, H264_NAL_SEI_PREFIX, sizeof (unsigned char[]) { UG_ORIG_FORMAT_ISO_IEC_11578_GUID } + 1, UG_ORIG_FORMAT_ISO_IEC_11578_GUID };
                 if (src_len < sizeof expected_prefix + 2 || memcmp(src + src_len - sizeof expected_prefix - 2, expected_prefix, sizeof expected_prefix) != 0) {
@@ -966,8 +969,15 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
 
-        if ((s->desc.color_spec == H264 || s->desc.color_spec == H265) && !check_first_sps_vps(s, src, src_len)) {
-                return DECODER_NO_FRAME;
+        if (s->desc.color_spec == H264 || s->desc.color_spec == H265) {
+                if (s->out_codec == VIDEO_CODEC_NONE &&
+                    read_forced_pixfmt(s->desc.color_spec, src, src_len,
+                                        internal_props)) {
+                        return DECODER_GOT_CODEC;
+                }
+                if (!check_first_sps_vps(s, src, src_len)) {
+                        return DECODER_NO_FRAME;
+                }
         }
 
         if (libav_codec_has_extradata(s->desc.color_spec)) {
@@ -1031,9 +1041,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                if (!read_forced_pixfmt(s->desc.color_spec, src, src_len, internal_props)) {
-                        *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
-                }
+                *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
                 return DECODER_GOT_CODEC;
         }
 
