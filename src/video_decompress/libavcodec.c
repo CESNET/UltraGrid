@@ -207,6 +207,12 @@ static void jpeg_callback(void)
                         "will use full-scale YUV.\n");
 }
 
+enum {
+        MAX_PREFERED = 10,
+        MAX_DECODERS = MAX_PREFERED + 1 + 1, ///< + user forced + default
+        DEC_LEN      = MAX_DECODERS + 1,     ///< + terminating NULL
+};
+
 struct decoder_info {
         codec_t ug_codec;
         enum AVCodecID avcodec_id;
@@ -220,7 +226,7 @@ struct decoder_info {
         // cuvid decoders cannot be currently used as the default ones because they
         // currently support only 4:2:0 subsampling and fail during decoding if other
         // subsampling is given.
-        const char *preferred_decoders[11]; // must be NULL-terminated
+        const char *preferred_decoders[MAX_PREFERED + 1]; // must be NULL-terminated
 };
 
 static const struct decoder_info decoders[] = {
@@ -242,6 +248,76 @@ static const struct decoder_info decoders[] = {
         { PRORES_422_PROXY, AV_CODEC_ID_PRORES, NULL, { NULL } },
         { PRORES_422_LT, AV_CODEC_ID_PRORES, NULL, { NULL } },
 };
+
+static bool
+get_usable_decoders(
+    enum AVCodecID    avcodec_id,
+    const char *const preferred_decoders[static MAX_PREFERED + 1],
+    const AVCodec    *usable_decoders[static DEC_LEN])
+{
+        unsigned int codec_index = 0;
+        // first try codec specified from cmdline if any
+        const char *param = get_commandline_param("force-lavd-decoder");
+        if (param != NULL) {
+                char *val = alloca(strlen(param) + 1);
+                strcpy(val, param);
+                char *item     = NULL;
+                char *save_ptr = NULL;
+                while ((item = strtok_r(val, ":", &save_ptr))) {
+                        val = NULL;
+                        const AVCodec *codec =
+                            avcodec_find_decoder_by_name(item);
+                        if (codec == NULL) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        MOD_NAME
+                                        "Forced decoder not found: %s\n",
+                                        item);
+                                exit_uv(1);
+                                return false;
+                        }
+                        if (codec->id != avcodec_id) {
+                                log_msg(
+                                    LOG_LEVEL_WARNING,
+                                    MOD_NAME
+                                    "Forced decoder not valid for codec: %s\n",
+                                    item);
+                                continue;
+                        }
+                        assert(codec_index < MAX_DECODERS);
+                        usable_decoders[codec_index++] = codec;
+                }
+        }
+        // then try preferred codecs
+        const char *const *preferred_decoders_it = preferred_decoders;
+        while (*preferred_decoders_it) {
+                const AVCodec *codec =
+                    avcodec_find_decoder_by_name(*preferred_decoders_it);
+                if (codec == NULL) {
+                        log_msg(LOG_LEVEL_VERBOSE,
+                                "[lavd] Decoder not available: %s\n",
+                                *preferred_decoders_it);
+                        preferred_decoders_it++;
+                        continue;
+                }
+                assert(codec_index < MAX_DECODERS);
+                preferred_decoders_it++;
+        }
+        // finally, add a default one if there are no preferred enc. or all fail
+        assert(codec_index < MAX_DECODERS);
+        const AVCodec *default_decoder = avcodec_find_decoder(avcodec_id);
+        if (default_decoder == NULL) {
+                log_msg(LOG_LEVEL_WARNING,
+                        "[lavd] No decoder found for the input codec "
+                        "(libavcodec perhaps compiled without any)!\n"
+                        "Use \"--param force-lavd-decoder=<d> to select a "
+                        "different decoder than libavcodec if there is "
+                        "any eligibe.\n");
+        } else {
+                usable_decoders[codec_index++] = default_decoder;
+        }
+        usable_decoders[codec_index] = NULL;
+        return true;
+}
 
 ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
                 "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
@@ -274,61 +350,15 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 dec->codec_callback();
         }
 
-        // construct priority list of decoders that can be used for the codec
-        const AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
-        memset(codecs_available, 0, sizeof codecs_available);
-        unsigned int codec_index = 0;
-        // first try codec specified from cmdline if any
-        if (get_commandline_param("force-lavd-decoder")) {
-                const char *param = get_commandline_param("force-lavd-decoder");
-                char *val = alloca(strlen(param) + 1);
-                strcpy(val, param);
-                char *item, *save_ptr;
-                while ((item = strtok_r(val, ":", &save_ptr))) {
-                        val = NULL;
-                        const AVCodec *codec = avcodec_find_decoder_by_name(item);
-                        if (codec == NULL) {
-                                log_msg(LOG_LEVEL_ERROR, "[lavd] Decoder not found: %s\n", item);
-                                exit_uv(1);
-                        } else {
-                                if (codec->id == dec->avcodec_id) {
-                                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
-                                                codecs_available[codec_index++] = codec;
-                                        }
-                                } else {
-                                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", item);
-                                }
-                        }
-                }
-        }
-        // then try preferred codecs
-        const char * const *preferred_decoders_it = dec->preferred_decoders;
-        while (*preferred_decoders_it) {
-                const AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
-                if (codec == NULL) {
-                        log_msg(LOG_LEVEL_VERBOSE, "[lavd] Decoder not available: %s\n", *preferred_decoders_it);
-                        preferred_decoders_it++;
-                        continue;
-                } else {
-                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
-                                codecs_available[codec_index++] = codec;
-                        }
-                }
-                preferred_decoders_it++;
-        }
-        // finally, add a default one if there are no preferred encoders or all fail
-        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                const AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
-                if (default_decoder == NULL) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] No decoder found for the input codec (libavcodec perhaps compiled without any)!\n"
-                                                "Use \"--param decompress=<d> to select a different decoder than libavcodec if there is any eligibe.\n");
-                } else {
-                        codecs_available[codec_index++] = default_decoder;
-                }
+        // priority list of decoders that can be used for the codec
+        const AVCodec *usable_decoders[DEC_LEN] = { NULL };
+        if (!get_usable_decoders(dec->avcodec_id, dec->preferred_decoders,
+                                 usable_decoders)) {
+                return false;
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
-        const AVCodec **codec_it = codecs_available;
+        const AVCodec **codec_it = usable_decoders;
         while (*codec_it) {
                 log_msg(LOG_LEVEL_VERBOSE, "[lavd] Trying decoder: %s\n", (*codec_it)->name);
                 s->codec_ctx = avcodec_alloc_context3(*codec_it);
