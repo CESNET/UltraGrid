@@ -252,6 +252,7 @@ struct state_video_compress_libav {
         AVPacket           *pkt = av_packet_alloc();
         // for every core - parts of the above
         AVCodecContext     *codec_ctx = nullptr;
+        int64_t             cur_pts   = 0;
 
         codec_t             requested_codec_id = VIDEO_CODEC_NONE;
         long long int       requested_bitrate = 0;
@@ -281,6 +282,8 @@ struct state_video_compress_libav {
         int conv_thread_count = clamp<unsigned int>(thread::hardware_concurrency(), 1, INT_MAX); ///< number of threads used for UG conversions
         double mov_avg_comp_duration = 0;
         long mov_avg_frames = 0;
+
+        map<int64_t, char[VF_METADATA_SIZE]> metadata_storage;
 };
 
 struct codec_encoders_decoders{
@@ -1175,6 +1178,36 @@ static void write_orig_format(struct video_frame *compressed_frame, codec_t orig
         *data_len += sizeof eob;
 }
 
+enum {
+        HOUSEKEEP_INTERVAL = 100,
+};
+void
+store_metadata(state_video_compress_libav *s, const struct video_frame *f,
+               int64_t pts)
+{
+        char *metadata_store = s->metadata_storage[pts];
+        assert((int) s->metadata_storage.size() <=
+               5 * HOUSEKEEP_INTERVAL); // something bad is happening
+        vf_store_metadata(f, metadata_store);
+}
+void
+restore_metadata(state_video_compress_libav *s, struct video_frame *out,
+                 int64_t pts)
+{
+        auto it = s->metadata_storage.find(pts);
+        if (it != s->metadata_storage.end()) {
+                vf_restore_metadata(out, it->second);
+        } else {
+                debug_msg("Metadata for frame %" PRIu64 " not found!\n", pts);
+        }
+        // batch remove frames older than HOUSEKEEP_INTERVAL
+        if (pts > HOUSEKEEP_INTERVAL && pts % HOUSEKEEP_INTERVAL == 0) {
+                s->metadata_storage.erase(
+                    s->metadata_storage.begin(),
+                    s->metadata_storage.lower_bound(pts - HOUSEKEEP_INTERVAL));
+        }
+}
+
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
@@ -1201,7 +1234,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 assert(s->codec_ctx->codec_tag != 0);
                 out->color_spec = get_codec_from_fcc(s->codec_ctx->codec_tag);
         }
-        vf_copy_metadata(out.get(), tx.get());
         const size_t max_len = MAX((size_t) s->compressed_desc.width * s->compressed_desc.height * 4, 4096);
         out->tiles[0].data = (char *) malloc(max_len);
 
@@ -1235,7 +1267,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         time_ns_t t2 = get_time_in_ns();
 
         /* encode the image */
-        frame->pts += 1;
+        frame->pts = s->cur_pts++;
         out->tiles[0].data_len = 0;
         if (libav_codec_has_extradata(s->compressed_desc.color_spec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
                 out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
@@ -1243,12 +1275,14 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
         }
 
+        store_metadata(s, tx.get(), frame->pts);
         if (int ret = avcodec_send_frame(s->codec_ctx, frame)) {
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
         }
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
         while (ret == 0) {
+                restore_metadata(s, out.get(), s->pkt->pts);
                 assert(s->pkt->size + out->tiles[0].data_len <= max_len - out->tiles[0].data_len);
                 memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
                                 s->pkt->data, s->pkt->size);
