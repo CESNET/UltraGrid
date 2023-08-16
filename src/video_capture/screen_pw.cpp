@@ -229,48 +229,15 @@ public:
         }
 };
 
-class video_frame_wrapper
-{
-private:
-        video_frame* frame;
-public:
-        explicit video_frame_wrapper(video_frame* frame = nullptr)
-                :frame(frame)
-        {}
-
-        video_frame_wrapper(video_frame_wrapper&) = delete;
-        video_frame_wrapper& operator= (video_frame_wrapper&) = delete;
-        
-        video_frame_wrapper(video_frame_wrapper&& other) noexcept
-                : frame(std::exchange(other.frame, nullptr))
-        {}
-
-        video_frame_wrapper& operator=(video_frame_wrapper&& other) noexcept{
-                vf_free(frame);
-                frame = std::exchange(other.frame, nullptr);
-                return *this;
-        }
-
-        ~video_frame_wrapper(){
-                vf_free(frame);
-        }
-
-        video_frame* get() {
-                return frame;
-        }
-
-        video_frame* operator->(){
-                return get();
-        }
-};
-
+struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
+using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 
 struct screen_cast_session { 
         // used exlusively by ultragrid thread
-        video_frame_wrapper in_flight_frame;
+        unique_frame in_flight_frame;
 
-        synchronized_queue<video_frame_wrapper, QUEUE_SIZE> blank_frames;
-        synchronized_queue<video_frame_wrapper, QUEUE_SIZE> sending_frames;
+        synchronized_queue<unique_frame, QUEUE_SIZE> blank_frames;
+        synchronized_queue<unique_frame, QUEUE_SIZE> sending_frames;
 
         struct {
                 bool show_cursor = false;
@@ -314,21 +281,21 @@ struct screen_cast_session {
                         return format.info.raw.format;
                 }
 
-                video_frame_wrapper allocate_video_frame()
+                unique_frame allocate_video_frame()
                 {
-                        struct video_frame *frame = vf_alloc(1);
+                        unique_frame frame(vf_alloc(1));
                         frame->color_spec = RGBA;
                         frame->interlacing = PROGRESSIVE;
                         frame->fps = expecting_fps;
                         frame->callbacks.data_deleter = vf_data_deleter;
                         
-                        struct tile* tile = vf_get_tile(frame, 0);
+                        struct tile* tile = vf_get_tile(frame.get(), 0);
                         assert(tile != nullptr);
                         tile->width = width();
                         tile->height = height();
                         tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                         tile->data = (char *) malloc(tile->data_len);
-                        return video_frame_wrapper(frame);
+                        return frame;
                 }
 
                 int frame_count = 0;
@@ -467,7 +434,7 @@ static void copy_frame_impl(bool swap_red_blue, char *dest, char *src, int width
         }
 }
 
-static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_frame_wrapper& output_frame, int session_width, int session_height, spa_region *crop_region = nullptr){
+static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_frame *output_frame, int session_width, int session_height, spa_region *crop_region = nullptr){
         bool swap_red_blue = video_format == SPA_VIDEO_FORMAT_BGRA || video_format == SPA_VIDEO_FORMAT_BGRx;
 
         if (crop_region != nullptr) {
@@ -479,7 +446,7 @@ static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_
                 copy_frame_impl(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height);
         }
         
-        struct tile *tile = vf_get_tile(output_frame.get(), 0);
+        struct tile *tile = vf_get_tile(output_frame, 0);
         assert(tile != nullptr);
         if (crop_region != nullptr){
                 tile->width = crop_region->size.width;
@@ -502,7 +469,7 @@ static void on_process(void *session_ptr) {
         while((buffer = pw_stream_dequeue_buffer(session.pw.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
-                video_frame_wrapper next_frame;
+                unique_frame next_frame;
                 
                 assert(buffer->buffer != nullptr);
                 assert(buffer->buffer->datas != nullptr);
@@ -528,7 +495,7 @@ static void on_process(void *session_ptr) {
                            crop_region = &meta_crop_region->region;
                 }
 
-                copy_frame(session.pw.video_format(), buffer->buffer, next_frame, session.pw.width(), session.pw.height(), crop_region);
+                copy_frame(session.pw.video_format(), buffer->buffer, next_frame.get(), session.pw.width(), session.pw.height(), crop_region);
                 session.sending_frames.push(std::move(next_frame));
                 pw_stream_queue_buffer(session.pw.stream, buffer);
                 
