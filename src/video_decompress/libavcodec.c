@@ -357,8 +357,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         s->parser = av_parser_init(dec->avcodec_id);
         if (s->parser == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Canot create parser!\n");
-                return false;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot create parser!\n");
         }
 
         // priority list of decoders that can be used for the codec
@@ -980,17 +979,27 @@ read_forced_pixfmt(codec_t compress, const unsigned char *src,
 }
 
 static bool
-decode_frame(struct state_libavcodec_decompress *s, const unsigned char *src,
+decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
              int src_len)
 {
         int         ret           = 0;
         bool        frame_decoded = false;
         const char *dec_err_pref  = MOD_NAME;
 
-        while (src_len > 0 &&
-               (ret = av_parser_parse2(
-                    s->parser, s->codec_ctx, &s->pkt->data, &s->pkt->size, src,
-                    src_len, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0)) >= 0) {
+        while (src_len > 0) {
+                if (s->parser == NULL) {
+                        s->pkt->data = src;
+                        s->pkt->size = src_len;
+                        ret = src_len;
+                } else {
+                        ret = av_parser_parse2(s->parser, s->codec_ctx,
+                                               &s->pkt->data, &s->pkt->size,
+                                               src, src_len, AV_NOPTS_VALUE,
+                                               AV_NOPTS_VALUE, 0);
+                        if (ret < 0) {
+                                break;
+                        }
+                }
                 if (s->pkt->size == 0) {
                         break;
                 }
