@@ -283,10 +283,6 @@ struct screen_cast_session {
                         return format.info.raw.format;
                 }
 
-                int frame_count = 0;
-                time_ns_t frame_counter_begin_time = get_time_in_ns();
-                int expecting_fps = DEFAULT_EXPECTING_FPS;
-
                 ~pw_() {
                         if(loop != nullptr){
                                 pw_thread_loop_stop(loop);
@@ -477,7 +473,7 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                if(!session.blank_frames.timed_pop(next_frame, 1000ms / session.pw.expecting_fps)) {
+                if(!session.blank_frames.timed_pop(next_frame, 1000ms / session.desc.fps)) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
@@ -497,23 +493,6 @@ static void on_process(void *session_ptr) {
                 copy_frame(session.pw.video_format(), buffer->buffer, next_frame.get(), session.pw.width(), session.pw.height(), crop_region);
                 session.sending_frames.push(std::move(next_frame));
                 pw_stream_queue_buffer(session.pw.stream, buffer);
-                
-                ++session.pw.frame_count;
-                const time_ns_t time_now = get_time_in_ns();
-
-                const time_ns_t delta =
-                    time_now - session.pw.frame_counter_begin_time;
-                if (delta >= 5 * NS_IN_SEC) {
-                        const double average_fps = session.pw.frame_count /
-                                                   static_cast<double>(delta) /
-                                                   NS_IN_SEC_DBL;
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "on process: average fps in last 5 seconds: " << average_fps << "\n";
-                        session.pw.expecting_fps = static_cast<int>(average_fps);
-                        if(session.pw.expecting_fps == 0)
-                                session.pw.expecting_fps = 1;
-                        session.pw.frame_count = 0;
-                        session.pw.frame_counter_begin_time = get_time_in_ns();
-                }
         }
         
         //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
