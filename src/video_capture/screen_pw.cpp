@@ -239,6 +239,8 @@ struct screen_cast_session {
         synchronized_queue<unique_frame, QUEUE_SIZE> blank_frames;
         synchronized_queue<unique_frame, QUEUE_SIZE> sending_frames;
 
+        video_desc desc = {};
+
         struct {
                 bool show_cursor = false;
                 std::string restore_file = "";
@@ -279,23 +281,6 @@ struct screen_cast_session {
 
                 spa_video_format video_format() {
                         return format.info.raw.format;
-                }
-
-                unique_frame allocate_video_frame()
-                {
-                        unique_frame frame(vf_alloc(1));
-                        frame->color_spec = RGBA;
-                        frame->interlacing = PROGRESSIVE;
-                        frame->fps = expecting_fps;
-                        frame->callbacks.data_deleter = vf_data_deleter;
-                        
-                        struct tile* tile = vf_get_tile(frame.get(), 0);
-                        assert(tile != nullptr);
-                        tile->width = width();
-                        tile->height = height();
-                        tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
-                        tile->data = (char *) malloc(tile->data_len);
-                        return frame;
                 }
 
                 int frame_count = 0;
@@ -350,7 +335,8 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         assert(session.pw.format.media_type == SPA_MEDIA_TYPE_video);
         assert(session.pw.format.media_subtype == SPA_MEDIA_SUBTYPE_raw);
 
-        spa_format_video_raw_parse(param, &session.pw.format.info.raw);
+        auto& raw_format = session.pw.format.info.raw;
+        spa_format_video_raw_parse(param, &raw_format);
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "size: " << session.pw.width() << " x " << session.pw.height() << "\n";
 
         int linesize = vc_get_linesize(session.pw.width(), RGBA);
@@ -384,8 +370,17 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         
         pw_stream_update_params(session.pw.stream, params, n_params);
 
-        for(int i = 0; i < QUEUE_SIZE; ++i)
-                session.blank_frames.push(session.pw.allocate_video_frame());
+        session.desc.width = raw_format.size.width;
+        session.desc.height = raw_format.size.height;
+        if(raw_format.framerate.num != 0)
+                session.desc.fps = static_cast<double>(raw_format.framerate.num) / raw_format.framerate.denom;
+        else{
+                //Variable framerate
+                session.desc.fps = static_cast<double>(raw_format.max_framerate.num) / raw_format.max_framerate.denom;
+        }
+        session.desc.color_spec = RGBA; //TODO
+        session.desc.interlacing = PROGRESSIVE;
+        session.desc.tile_count = 1;
 
         session.init_error.set_value("");
 }
@@ -486,6 +481,10 @@ static void on_process(void *session_ptr) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
+                }
+
+                if(!next_frame || !video_desc_eq(video_desc_from_frame(next_frame.get()), session.desc)){
+                        next_frame.reset(vf_alloc_desc_data(session.desc));
                 }
 
                 spa_region *crop_region = nullptr;
@@ -885,6 +884,10 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         }
 
         dbus_thread.detach();
+
+        for(int i = 0; i < QUEUE_SIZE; i++)
+                session.blank_frames.push({});
+
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
         return VIDCAP_INIT_OK;
 }
