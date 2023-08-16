@@ -1044,7 +1044,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         if (libav_codec_has_extradata(s->desc.color_spec)) {
                 int extradata_size = *(uint32_t *)(void *) src;
                 if (s->codec_ctx == NULL) {
-                        configure_with(s, s->desc, src + sizeof(uint32_t), extradata_size);
+                        if (!configure_with(s, s->desc, src + sizeof(uint32_t),
+                                            extradata_size)) {
+                                return DECODER_NO_FRAME;
+                        }
                 }
                 src += extradata_size + sizeof(uint32_t);
                 src_len -= extradata_size + sizeof(uint32_t);
