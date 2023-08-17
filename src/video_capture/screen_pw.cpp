@@ -267,8 +267,6 @@ struct screen_cast_session {
                 struct pw_stream *stream = nullptr;
                 struct spa_hook stream_listener = {};
 
-                struct spa_io_position *position = nullptr;
-
                 struct spa_video_info format = {};
 
                 int width() {
