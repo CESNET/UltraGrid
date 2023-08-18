@@ -69,8 +69,6 @@ struct state_cineform_decompress {
                         int width, int height, int pitch);
         std::vector<unsigned char> conv_buf;
 
-        unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
-        bool             last_frame_seq_initialized;
         bool             prepared_to_decode;
 
         CFHD_DecoderRef decoderRef;
@@ -175,7 +173,6 @@ static const struct {
 static bool configure_with(struct state_cineform_decompress *s,
                 struct video_desc desc)
 {
-        s->last_frame_seq_initialized = false;
         s->prepared_to_decode = false;
         s->saved_desc = desc;
 
