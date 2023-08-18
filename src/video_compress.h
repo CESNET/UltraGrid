@@ -68,7 +68,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 11
+#define VIDEO_COMPRESS_ABI_VERSION 12
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,7 +117,8 @@ std::shared_ptr<video_frame> compress_pop(struct compress_state *);
  * 
  * @param state        driver internal state
  * @param frame        uncompressed frame
- * @return             compressed frame, may be NULL if compression failed
+ *                     empty shared_ptr to fetch further compressed frames
+ * @return             compressed frame, may be NULL if compression failed or no compressed frame was output
  */
 typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, std::shared_ptr<video_frame> frame);
 
@@ -126,8 +127,8 @@ typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, 
  * 
  * @param[in]     state         driver internal state
  * @param[in]     in_frame      uncompressed frame containing exactly one tile;
- *                              empty shared_ptr to flush remaining tiles
- * @return                      compressed frame with one tile, may be NULL if compression failed
+ *                              empty shared_ptr to fetch remaining tiles
+ * @return                      compressed frame with one tile, may be NULL if compression failed or no compressed frame was output
  */
 typedef  std::shared_ptr<video_frame> (*compress_tile_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
 

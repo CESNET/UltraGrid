@@ -396,7 +396,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 sync_api_frame->compress_end = get_time_in_ns();
                 proxy->queue.push(sync_api_frame);
                 frame = nullptr;
-        } while (s->funcs->compress_tile_func != nullptr);
+        } while (true);
 }
 
 /**

@@ -229,6 +229,9 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
 
 shared_ptr<video_frame> uyvy_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
+        if (!tx) {
+                return {};
+        }
         struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
 
         gl_context_make_current(&s->context);

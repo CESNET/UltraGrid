@@ -260,6 +260,10 @@ struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
 
 shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
+        if (!tx) {
+                return {};
+        }
+
         struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
