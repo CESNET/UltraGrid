@@ -189,6 +189,10 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 
 shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
+        if (!tx) {
+                return {};
+        }
+
         struct state_video_compress_cuda_dxt *s =
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 

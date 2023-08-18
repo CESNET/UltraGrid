@@ -1210,6 +1210,10 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
 
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
+        if (!tx) {
+                return {};
+        }
+
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         shared_ptr<video_frame> out{};
         list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers

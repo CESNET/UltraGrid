@@ -371,20 +371,23 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 for(unsigned i = 0; i < separate_tiles.size(); i++){
                         s->funcs->compress_tile_async_push_func(s->state[i], separate_tiles[i]);
                 }
+                return;
+        }
 
-        } else {
-                if (!frame) { // pass poisoned pill
-                        proxy->queue.push(shared_ptr<video_frame>());
-                        return;
-                }
+        // sync APIs - pass poisoned pill to the queue but not to compressions,
+        if (!frame) { // which doesn't need that but use NULL frame differently
+                proxy->queue.push(shared_ptr<video_frame>());
+                return;
+        }
 
-                shared_ptr<video_frame> sync_api_frame;
+        shared_ptr<video_frame> sync_api_frame;
+        do {
                 if (s->funcs->compress_frame_func) {
                         sync_api_frame = s->funcs->compress_frame_func(s->state[0], frame);
                 } else if(s->funcs->compress_tile_func) {
                         sync_api_frame = compress_frame_tiles(proxy, frame);
                 } else {
-                        assert(!"No egliable compress API found");
+                        assert(!"No eligible compress API found");
                 }
 
                 // empty return value here represents error, but we don't want to pass it to queue, since it would
@@ -392,11 +395,10 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 if (!sync_api_frame) {
                         return;
                 }
-
                 sync_api_frame->compress_end = get_time_in_ns();
-
                 proxy->queue.push(sync_api_frame);
-        }
+                frame = nullptr;
+        } while (s->funcs->compress_tile_func != nullptr);
 }
 
 /**
@@ -439,19 +441,24 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
                 shared_ptr<video_frame> frame)
 {
         struct compress_state_real *s = proxy->ptr;
-
-        if(!check_state_count(frame->tile_count, proxy)){
-                return NULL;
+        const int tile_cnt = (int) proxy->ptr->state.size();
+        vector<shared_ptr<video_frame>> separate_tiles;
+        if (frame) {
+                if (!check_state_count(frame->tile_count, proxy)) {
+                        return nullptr;
+                }
+                separate_tiles = vf_separate_tiles(frame);
+        } else {
+                separate_tiles.resize(tile_cnt);
         }
 
-        vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
         // frame pointer may no longer be valid
         frame = NULL;
 
-        vector<task_result_handle_t> task_handle(separate_tiles.size());
+        vector<task_result_handle_t> task_handle(tile_cnt);
 
-        vector <compress_worker_data> data_tile(separate_tiles.size());
-        for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
+        vector <compress_worker_data> data_tile(tile_cnt);
+        for (int i = 0; i < tile_cnt; ++i) {
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
                 data->frame = separate_tiles[i];
