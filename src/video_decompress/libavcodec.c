@@ -87,9 +87,6 @@ struct state_libavcodec_decompress {
         bool             block_accel[HWACCEL_COUNT];
         long long        consecutive_failed_decodes;
 
-        unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
-        bool             last_frame_seq_initialized;
-
         struct state_libavcodec_decompress_sws {
                 int width, height;
                 enum AVPixelFormat in_codec, out_codec;
@@ -413,8 +410,6 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         s->pkt = av_packet_alloc();
-
-        s->last_frame_seq_initialized = false;
 
         return true;
 }
@@ -1037,6 +1032,7 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_props)
 {
+        UNUSED(frame_seq);
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
 
         if (s->desc.color_spec == H264 || s->desc.color_spec == H265) {
@@ -1072,18 +1068,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         time_ns_t t1 = get_time_in_ns();
 
         s->frame->opaque = callbacks;
-        /* Skip the frame if this is not an I-frame
-                 * and we have missed some of previous frames for VP8 because the
-                 * decoder makes ugly artifacts. We rather wait for next I-frame. */
-        if (s->desc.color_spec == VP8 &&
-                (s->frame->pict_type != AV_PICTURE_TYPE_I &&
-                (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
-                                "(last valid %d, this %u).\n",
-                                s->last_frame_seq_initialized ?
-                                s->last_frame_seq : -1, (unsigned) frame_seq);
-                        return DECODER_NO_FRAME;
-        }
 #ifdef HWACC_COMMON_IMPL
         if(s->hwaccel.copy){
                 transfer_frame(&s->hwaccel, s->frame);
@@ -1095,8 +1079,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
                 change_pixfmt(s->frame, dst, &s->convert, s->out_codec, s->desc.width,
                               s->desc.height, s->pitch, s->rgb_shift, &s->sws);
-                s->last_frame_seq_initialized = true;
-                s->last_frame_seq = frame_seq;
         }
         time_ns_t t2 = get_time_in_ns();
         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
