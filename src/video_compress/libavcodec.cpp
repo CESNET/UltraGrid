@@ -1208,38 +1208,74 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
         }
 }
 
-static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
-{
-        if (!tx) {
-                return {};
+auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
+        shared_ptr<video_frame> out;
+        if (pkt->size == 0) { // videotoolbox returns sometimes frames with
+                              // pkt->size == 0 but got_output == true
+                return out;
         }
 
-        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
-        shared_ptr<video_frame> out{};
-        list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
-
-        libavcodec_check_messages(s);
-
-        if(!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
-                                s->saved_desc, PARAM_TILE_COUNT)) {
-                cleanup(s);
-                int ret = configure_with(s, video_desc_from_frame(tx.get()));
-                if(!ret) {
-                        return {};
-                }
-        }
-
-        static auto dispose = [](struct video_frame *frame) {
-                free(frame->tiles[0].data);
-                vf_free(frame);
-        };
-        out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
+        out = shared_ptr<video_frame>(
+            vf_alloc_desc(s->compressed_desc), [](struct video_frame *frame) {
+                    free(frame->tiles[0].data);
+                    vf_free(frame);
+            });
         if (s->compressed_desc.color_spec == PRORES) {
                 assert(s->codec_ctx->codec_tag != 0);
                 out->color_spec = get_codec_from_fcc(s->codec_ctx->codec_tag);
         }
-        const size_t max_len = MAX((size_t) s->compressed_desc.width * s->compressed_desc.height * 4, 4096);
-        out->tiles[0].data = (char *) malloc(max_len);
+
+        restore_metadata(s, out.get(), pkt->pts);
+        size_t len = pkt->size;
+        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) {
+                // we need to store extradata for HuffYUV/FFV1 in the beginning
+                len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
+        }
+        out->tiles[0].data = (char *) malloc(len);
+        out->tiles[0].data_len = 0;
+        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) {
+                out->tiles[0].data_len +=
+                    sizeof(uint32_t) + s->codec_ctx->extradata_size;
+                *(uint32_t *) (void *) out->tiles[0].data =
+                    s->codec_ctx->extradata_size;
+                memcpy(out->tiles[0].data + sizeof(uint32_t),
+                       s->codec_ctx->extradata, s->codec_ctx->extradata_size);
+        }
+        memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
+               s->pkt->data, s->pkt->size);
+        out->tiles[0].data_len += s->pkt->size;
+
+        av_packet_unref(s->pkt);
+
+        return out;
+}
+
+static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
+{
+        auto *s = (state_video_compress_libav *) mod->priv_data;
+        list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
+
+        libavcodec_check_messages(s);
+
+        if (tx && !video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
+                                            s->saved_desc, PARAM_TILE_COUNT)) {
+                cleanup(s);
+                if (!configure_with(s, video_desc_from_frame(tx.get()))) {
+                        return {};
+                }
+        }
+
+        if (!tx) { // reading further encoded frames
+                const int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+                if (ret == 0) {
+                        return out_vf_from_pkt(s, s->pkt);
+                }
+                if (ret != AVERROR(EAGAIN)) {
+                        print_libav_error(LOG_LEVEL_WARNING,
+                                          MOD_NAME "Receive packet error", ret);
+                }
+                return {};
+        }
 
         time_ns_t t0 = get_time_in_ns();
         struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx->tiles[0].data);
@@ -1272,27 +1308,15 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         /* encode the image */
         frame->pts = s->cur_pts++;
-        out->tiles[0].data_len = 0;
-        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
-                out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
-                *(uint32_t *)(void *) out->tiles[0].data = s->codec_ctx->extradata_size;
-                memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
-        }
-
         store_metadata(s, tx.get(), frame->pts);
         if (int ret = avcodec_send_frame(s->codec_ctx, frame)) {
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
         }
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-        while (ret == 0) {
-                restore_metadata(s, out.get(), s->pkt->pts);
-                assert(s->pkt->size + out->tiles[0].data_len <= max_len - out->tiles[0].data_len);
-                memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-                                s->pkt->data, s->pkt->size);
-                out->tiles[0].data_len += s->pkt->size;
-                av_packet_unref(s->pkt);
-                ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+        shared_ptr<video_frame> out{};
+        if (ret == 0) {
+                out = out_vf_from_pkt(s, s->pkt);
         }
         if (ret != AVERROR(EAGAIN) && ret != 0) {
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
@@ -1303,10 +1327,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
         check_duration(s, t1 - t0, t3 - t0);
-
-        if (out->tiles[0].data_len == 0) { // videotoolbox returns sometimes frames with pkt->size == 0 but got_output == true
-                return {};
-        }
 
         if (s->store_orig_format) {
                 write_orig_format(out.get(), tx->color_spec);
