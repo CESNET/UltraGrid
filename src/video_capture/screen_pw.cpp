@@ -136,7 +136,7 @@ public:
                         
                         uint32_t response;
                         GVariant_uniq results;
-                        g_variant_get(parameters, "(u@a{sv})", &response, out_ptr(results));
+                        g_variant_get(parameters, "(u@a{sv})", &response, out_ptr(results).operator GVariant**());
 
                         static_cast<const PortalCallCallback *> (user_data)->operator()(response, results.get());
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
