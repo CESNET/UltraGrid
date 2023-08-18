@@ -365,8 +365,6 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 }
 
                 vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
-                // frame pointer may no longer be valid
-                frame = NULL;
 
                 for(unsigned i = 0; i < separate_tiles.size(); i++){
                         s->funcs->compress_tile_async_push_func(s->state[i], separate_tiles[i]);
