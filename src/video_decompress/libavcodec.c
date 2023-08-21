@@ -996,7 +996,6 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
                         }
                 }
                 if (s->pkt->size == 0) {
-                        ret = 0;
                         break;
                 }
                 src += ret;
