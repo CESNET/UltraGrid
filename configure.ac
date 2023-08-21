@@ -2705,7 +2705,7 @@ if test "$qt_req" != no; then
 
         #AC_MSG_NOTICE("Qmake: $QMAKE")
         if test "x$QMAKE" = "x"; then
-                AC_PATH_PROGS(QMAKE, [qmake6 qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
+                AC_PATH_PROGS(QMAKE, [qmake qmake6 qmake-qt5], [:], [/usr/lib/qt5/bin:$PATH])
         fi
 
         if test "$QMAKE" -a "$QMAKE" != ":"
