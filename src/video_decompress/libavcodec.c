@@ -980,8 +980,8 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
         int         ret           = 0;
         bool        frame_decoded = false;
         const char *dec_err_pref  = MOD_NAME;
-
-        while (src_len > 0) {
+        while (true) {
+                const bool eof = src_len == 0;
                 if (s->parser == NULL) {
                         s->pkt->data = src;
                         s->pkt->size = src_len;
@@ -992,14 +992,18 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
                                                src, src_len, AV_NOPTS_VALUE,
                                                AV_NOPTS_VALUE, 0);
                         if (ret < 0) {
+                                dec_err_pref = MOD_NAME "av_parser_parse2 - ";
                                 break;
                         }
                 }
-                if (s->pkt->size == 0) {
-                        break;
-                }
                 src += ret;
                 src_len -= ret;
+                if (s->pkt->size == 0) {
+                        if (eof) {
+                                break;
+                        }
+                        continue;
+                }
                 ret = avcodec_send_packet(s->codec_ctx, s->pkt);
                 if (ret != 0 && ret != AVERROR(EAGAIN)) {
                         dec_err_pref = MOD_NAME "send - ";
