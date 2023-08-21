@@ -2596,8 +2596,8 @@ PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30], [found_pw_audio_deps=
 if test $pipewire_audio_req != no -a $found_pw_audio_deps = yes
 then
         pipewire_audio=yes
-        PIPEWIRE_ACAP_OBJS="src/audio/pipewire_common.o src/audio/capture/pipewire.o"
-        PIPEWIRE_APLAY_OBJS="src/audio/pipewire_common.o src/audio/playback/pipewire.o"
+        PIPEWIRE_ACAP_OBJS="src/pipewire_common.o src/audio/capture/pipewire.o"
+        PIPEWIRE_APLAY_OBJS="src/pipewire_common.o src/audio/playback/pipewire.o"
         add_module acap_pipewire "$PIPEWIRE_ACAP_OBJS" "$PIPEWIRE_LIBS"
         add_module aplay_pipewire "$PIPEWIRE_APLAY_OBJS" "$PIPEWIRE_LIBS"
 fi

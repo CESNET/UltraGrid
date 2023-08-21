@@ -47,7 +47,7 @@
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
-#include "audio/pipewire_common.hpp"
+#include "pipewire_common.hpp"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
