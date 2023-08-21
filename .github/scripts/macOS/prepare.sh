@@ -26,7 +26,8 @@ brew install qt@5
 brew install glm
 curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
 
-sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
+rm -f /usr/local/opt/qt
+cp -af /usr/local/opt/qt@5 /usr/local/opt/qt
 
 .github/scripts/macOS/install_dylibbundler_v2.sh
 
