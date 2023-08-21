@@ -29,9 +29,9 @@ install_svt() {
         git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
-# The NVENC API implies respective driver version (see libavcodec/nvenc.c) - 455.28 (Linux) / 456.71 (Windows) for v11.0
+# The NV Video Codec SDK headers version 12.0 implies driver v520.56.06 in Linux
 install_nv_codec_headers() {
-        git clone --depth 1 -b sdk/11.0 https://github.com/FFmpeg/nv-codec-headers
+        git clone --depth 1 -b sdk/12.0 https://github.com/FFmpeg/nv-codec-headers
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
