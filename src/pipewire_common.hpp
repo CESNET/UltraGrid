@@ -9,6 +9,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h> //For pw format to string
 #include <pipewire/pipewire.h>
+#include "types.h"
 
 template<typename T, auto delete_func>
 struct raii_deleter_helper { void operator()(T *p) { delete_func(p); } };
@@ -149,6 +150,26 @@ inline unsigned get_bps_from_pw_format(spa_audio_format fmt){
         case SPA_AUDIO_FORMAT_S24: return 3;
         case SPA_AUDIO_FORMAT_S32: return 4;
         default: return 0;
+        }
+}
+
+inline codec_t uv_codec_from_pw_fmt(spa_video_format fmt){
+        switch(fmt){
+        case SPA_VIDEO_FORMAT_RGBA:
+        case SPA_VIDEO_FORMAT_RGBx:
+        case SPA_VIDEO_FORMAT_BGRA:
+        case SPA_VIDEO_FORMAT_BGRx:
+                return RGBA;
+        case SPA_VIDEO_FORMAT_RGB:
+                return RGB;
+        case SPA_VIDEO_FORMAT_BGR:
+                return BGR;
+        case SPA_VIDEO_FORMAT_UYVY:
+                return UYVY;
+        case SPA_VIDEO_FORMAT_YUY2:
+                return YUYV;
+        default:
+                return VIDEO_CODEC_NONE;
         }
 }
 
