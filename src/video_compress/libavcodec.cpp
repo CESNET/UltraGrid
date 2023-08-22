@@ -1756,7 +1756,7 @@ get_opt_default_value(const AVOption *opt)
         switch (opt->type) {
         case AV_OPT_TYPE_FLOAT:
         case AV_OPT_TYPE_DOUBLE:
-                return to_string(opt->default_val.dbl) + "F";
+                return to_string(opt->default_val.dbl) + " (float)";
         case AV_OPT_TYPE_CONST:
         case AV_OPT_TYPE_INT64:
         case AV_OPT_TYPE_INT:
@@ -1798,6 +1798,13 @@ void show_encoder_help(string const &name) {
                 string help_str;
                 if (opt->help != nullptr && strlen(opt->help) > 0) {
                         help_str = " - "s + opt->help;
+                        if (!default_val.empty()) {
+                                if (strstr(opt->help, "default") == nullptr) {
+                                        help_str += ", ";
+                                } else {
+                                        default_val = "";
+                                }
+                        }
                 }
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
