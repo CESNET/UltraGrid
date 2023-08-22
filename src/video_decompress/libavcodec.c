@@ -243,7 +243,7 @@ static const struct decoder_info decoders[] = {
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
         { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
         { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
-        { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
+        { AV1, AV_CODEC_ID_AV1, NULL, { "libdav1d" } },
         { PRORES_4444, AV_CODEC_ID_PRORES, NULL, { NULL } },
         { PRORES_4444_XQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
         { PRORES_422_HQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
