@@ -1750,6 +1750,27 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
         }
 }
 
+string
+get_opt_default_value(const AVOption *opt)
+{
+        switch (opt->type) {
+        case AV_OPT_TYPE_FLOAT:
+        case AV_OPT_TYPE_DOUBLE:
+                return to_string(opt->default_val.dbl) + "F";
+        case AV_OPT_TYPE_CONST:
+        case AV_OPT_TYPE_INT64:
+        case AV_OPT_TYPE_INT:
+        case AV_OPT_TYPE_BOOL:
+                return to_string(opt->default_val.i64);
+        case AV_OPT_TYPE_STRING:
+                return opt->default_val.str == nullptr
+                           ? ""
+                           : string("\"") + opt->default_val.str + "\"";
+        default:
+                return "";
+        }
+}
+
 void show_encoder_help(string const &name) {
         col() << "Options for " << SBOLD(name) << ":\n";
         auto *codec = avcodec_find_encoder_by_name(name.c_str());
@@ -1766,19 +1787,19 @@ void show_encoder_help(string const &name) {
         }
         while (opt->name != nullptr) {
                 string default_val;
+                const char *indent = "\t\t* ";
                 if (opt->offset != 0) {
-                        if (opt->type == AV_OPT_TYPE_FLOAT || opt->type == AV_OPT_TYPE_DOUBLE) {
-                                default_val = to_string(opt->default_val.dbl) + "F";
-                        } else if (opt->type == AV_OPT_TYPE_CONST || opt->type == AV_OPT_TYPE_INT64 || opt->type == AV_OPT_TYPE_INT || opt->type == AV_OPT_TYPE_BOOL) {
-                                default_val = to_string(opt->default_val.i64);
-                        } else if (opt->type == AV_OPT_TYPE_STRING && opt->default_val.str != nullptr) {
-                                default_val = string("\"") + opt->default_val.str + "\"";
-                        }
+                        default_val = get_opt_default_value(opt);
                         if (!default_val.empty()) {
-                                default_val = ", default " + default_val;
+                                default_val = "default " + default_val;
                         }
+                        indent = "\t- ";
                 }
-                col() << (opt->offset == 0 ? "\t\t* " : "\t- ") << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << default_val << "\n";
+                string help_str;
+                if (opt->help != nullptr && strlen(opt->help) > 0) {
+                        help_str = " - "s + opt->help;
+                }
+                col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
         }
         if (name == "libx264" || name == "libx265") {
