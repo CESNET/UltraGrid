@@ -1065,6 +1065,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         time_ns_t t0 = get_time_in_ns();
 
         if (!decode_frame(s, src, src_len)) {
+                if (s->parser) {
+                        log_msg(LOG_LEVEL_DEBUG,
+                                MOD_NAME "Parsed %c frame but not decoded.\n",
+                                av_get_picture_type_char(s->parser->pict_type));
+                }
                 return DECODER_NO_FRAME;
         }
         s->consecutive_failed_decodes = 0;
