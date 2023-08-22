@@ -27,3 +27,8 @@
 * fixed reflector address overflow + conference participant removal
 * fixed DeckLink incorrectly displaying interlaced video
 
+### 1.8.4
+
+* build fixes
+* fixed frame drop during RTP wrap-around
+* file video capture - detect interlacing
