@@ -3253,7 +3253,7 @@ AC_ARG_ENABLE(object,
         [req_files=])
 
 if test -n "$req_files"; then
-        OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /')"
+        OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /g')"
 fi
 
 if test "$build_default" != no; then
