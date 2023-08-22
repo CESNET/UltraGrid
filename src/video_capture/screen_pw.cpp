@@ -326,11 +326,18 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
 
         session.desc.width = raw_format.size.width;
         session.desc.height = raw_format.size.height;
-        if(raw_format.framerate.num != 0)
+        if(raw_format.framerate.num != 0){
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got framerate: %d / %d\n", raw_format.framerate.num, raw_format.framerate.denom);
                 session.desc.fps = static_cast<double>(raw_format.framerate.num) / raw_format.framerate.denom;
-        else{
+        } else {
                 //Variable framerate
-                session.desc.fps = static_cast<double>(raw_format.max_framerate.num) / raw_format.max_framerate.denom;
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got variable framerate: %d / %d\n", raw_format.max_framerate.num, raw_format.max_framerate.denom);
+                if(raw_format.max_framerate.num != 0){
+                        session.desc.fps = static_cast<double>(raw_format.max_framerate.num) / raw_format.max_framerate.denom;
+                } else {
+                        session.desc.fps = 60;
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid max framerate, using %f instead\n", session.desc.fps);
+                }
         }
         session.desc.color_spec = uv_codec_from_pw_fmt(raw_format.format);
         session.desc.interlacing = PROGRESSIVE;
