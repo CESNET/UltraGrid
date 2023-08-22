@@ -28,6 +28,7 @@
 #include "video.h"
 #include "video_capture.h"
 #include "pipewire_common.hpp"
+#include "pixfmt_conv.h"
 
 #define MOD_NAME "[screen_pw] "
 
@@ -366,89 +367,48 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         
         pw_stream_update_params(session.pw.stream, params, n_params);
 
-        //session.init_error.set_value("");
+        session.init_error.set_value("");
 }
 
+static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_video_format fmt, spa_rectangle size, const spa_region *crop){
+        auto offset = src->datas[0].chunk->offset;
+        auto chunk_size = src->datas[0].chunk->size;
+        auto stride = src->datas[0].chunk->stride;
 
-static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src, 
-        int actual_width, int actual_height, int x_begin, int y_begin, int crop_width, int crop_height) 
-{
-        UNUSED(actual_height);
-        PROFILE_FUNC;
-        
-        for(int y = y_begin; y < crop_height; ++y){
-                int line_offset_src = 4 * y * actual_width;
-                int line_offset_dest = 4 * y * crop_width;     
-                if (swap_red_blue) {
-                        for(int x = x_begin; x < crop_width; ++x) {
-                                int x_offset = 4 * x;
-                                // rgba <- bgra    
-                                dest[line_offset_dest + x_offset    ] = src[line_offset_src + x_offset + 2];
-                                dest[line_offset_dest + x_offset + 1] = src[line_offset_src + x_offset + 1];
-                                dest[line_offset_dest + x_offset + 2] = src[line_offset_src + x_offset    ];
-                                dest[line_offset_dest + x_offset + 3] = src[line_offset_src + x_offset + 3];
-                        }
-                } else {
-                        memcpy(dest+line_offset_dest, src + line_offset_src + 4 * x_begin, crop_width * 4);
-                }
-        }
-}
+        auto width = size.width;
+        auto height = size.height;
 
-static void copy_frame_impl(bool swap_red_blue, char *dest, char *src, int width, int height)
-{
-        PROFILE_FUNC;
-        int linesize = vc_get_linesize(width, RGB);
-        if (swap_red_blue) {
-                for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
-                        for(int x = 0; x < linesize; x += 4) {
-                                // rgba <- bgra
-                                dest[line_offset + x    ] = src[line_offset + x + 2];
-                                dest[line_offset + x + 1] = src[line_offset + x + 1];
-                                dest[line_offset + x + 2] = src[line_offset + x    ];
-                                dest[line_offset + x + 3] = src[line_offset + x + 3];
-                        }
-                }
-        } else {
-                memcpy(dest, src, height * linesize);
-        }
-}
-
-static void pw_frame_to_uv_frame(video_frame *dst, spa_buffer *src, spa_video_format fmt, spa_rectangle size){
-        bool swap_red_blue = fmt == SPA_VIDEO_FORMAT_BGRA || fmt == SPA_VIDEO_FORMAT_BGRx;
-
-        //TODO crop
-
-        auto linesize = vc_get_linesize(size.width, dst->color_spec);
-        for(unsigned i = 0; i < size.height; i++){
-                char *src_p = static_cast<char *>(src->datas[0].data) + linesize * i;
-                char *dst_p = static_cast<char *>(dst->tiles[0].data) + linesize * i;
-                memcpy(dst_p, src_p, linesize);
-        }
-}
-
-static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_frame *output_frame, int session_width, int session_height, spa_region *crop_region = nullptr){
-        bool swap_red_blue = video_format == SPA_VIDEO_FORMAT_BGRA || video_format == SPA_VIDEO_FORMAT_BGRx;
-
-        if (crop_region != nullptr) {
-            copy_frame_impl_cropped(swap_red_blue, output_frame->tiles[0].data,static_cast<char *>(buffer->datas[0].data),
-                                    session_width, session_height,
-                                    crop_region->position.x, crop_region->position.y,
-                                    static_cast<int>(crop_region->size.width), static_cast<int>(crop_region->size.height));
-        } else {
-                copy_frame_impl(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height);
-        }
-        
-        struct tile *tile = vf_get_tile(output_frame, 0);
-        assert(tile != nullptr);
-        if (crop_region != nullptr){
-                tile->width = crop_region->size.width;
-                tile->height = crop_region->size.height;
-        }else{
-                tile->width = session_width;
-                tile->height = session_height;
+        unsigned start_x = 0;
+        unsigned start_y = 0;
+        if(crop){
+                width = crop->size.width;
+                height = crop->size.height;
+                start_x = crop->position.x;
+                start_y = crop->position.y;
         }
 
-        tile->data_len = vc_get_linesize(tile->width, RGB) * tile->height;
+        if(stride == 0)
+                stride = chunk_size / size.height;
+
+        auto linesize = vc_get_linesize(width, dst->color_spec);
+        auto skip = vc_get_linesize(start_x, dst->color_spec);
+        bool swap_red_blue = fmt == SPA_VIDEO_FORMAT_BGRA || fmt == SPA_VIDEO_FORMAT_BGRx; //TODO
+        for(unsigned i = 0; i < height; i++){
+                auto src_p = static_cast<unsigned char *>(src->datas[0].data) + offset + skip + stride * (i + start_y);
+                auto dst_p = reinterpret_cast<unsigned char *>(dst->tiles[0].data) + linesize * i;
+                /* It would probably be better to have separate functions for
+                 * pipweire to uv frame conversions like lavd has. For now,
+                 * let's handle BGRA to RGBA like this.
+                 */
+                if(swap_red_blue)
+                        vc_copylineRGBA(dst_p, src_p, linesize, 16, 8, 0);
+                else
+                        memcpy(dst_p, src_p, linesize);
+        }
+
+        dst->tiles[0].width = width;
+        dst->tiles[0].height = height;
+        dst->tiles[0].data_len = linesize * height;
 }
 
 static void on_process(void *session_ptr) {
@@ -480,10 +440,6 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                if(!next_frame || !video_desc_eq(video_desc_from_frame(next_frame.get()), session.desc)){
-                        next_frame.reset(vf_alloc_desc_data(session.desc));
-                }
-
                 spa_region *crop_region = nullptr;
                 if (session.user_options.crop) {
                         spa_meta_region *meta_crop_region = static_cast<spa_meta_region*>(spa_buffer_find_meta_data(buffer->buffer, SPA_META_VideoCrop, sizeof(*meta_crop_region)));
@@ -491,10 +447,24 @@ static void on_process(void *session_ptr) {
                            crop_region = &meta_crop_region->region;
                 }
 
+                if(crop_region){
+                        //Update desc so that we don't reallocate on each frame
+                        //TODO: Figure what to do when we can't actually crop (MJPEG)
+                        session.desc.width = crop_region->size.width;
+                        session.desc.height = crop_region->size.height;
+                }
+
+                if(!next_frame || !video_desc_eq(video_desc_from_frame(next_frame.get()), session.desc)){
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Desc changed, allocating new video_frame\n");
+                        next_frame.reset(vf_alloc_desc_data(session.desc));
+                }
+
+
                 auto& raw_format = session.pw.format.info.raw;
 
                 //copy_frame(session.pw.video_format(), buffer->buffer, next_frame.get(), session.desc.width, session.desc.height, crop_region);
-                pw_frame_to_uv_frame(next_frame.get(), buffer->buffer, raw_format.format, raw_format.size);
+                pw_frame_to_uv_frame_memcpy(next_frame.get(), buffer->buffer, raw_format.format, raw_format.size, crop_region);
+
                 session.sending_frames.push(std::move(next_frame));
                 pw_stream_queue_buffer(session.pw.stream, buffer);
         }
