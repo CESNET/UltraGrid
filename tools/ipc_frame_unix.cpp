@@ -200,11 +200,13 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
 
         writer->data_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if(writer->data_fd == INVALID_SOCKET){
+                perror("ipc_frame_writer_new socket");
                 return nullptr;
         }
 
         int ret = connect(writer->data_fd, (const struct sockaddr *) &addr, sizeof(addr));
         if(ret == -1){
+                perror("ipc_frame_writer_new connect");
                 CLOSESOCKET(writer->data_fd);
                 return nullptr;
         }
