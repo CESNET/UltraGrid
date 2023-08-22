@@ -1461,7 +1461,8 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* 
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
         check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", DEFAULT_AMF_USAGE, "AMF usage (preset)");
-        if ("hevc_amf"s == codec_ctx->codec->name) {
+        if (codec_ctx->codec->id == AV_CODEC_ID_AV1 ||
+            codec_ctx->codec->id == AV_CODEC_ID_HEVC) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
         } else if ("h264_amf"s == codec_ctx->codec->name) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "header_spacing", 1);
