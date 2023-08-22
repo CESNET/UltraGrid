@@ -1147,6 +1147,9 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
 }
 
 static void write_orig_format(struct video_frame *compressed_frame, codec_t orig_pixfmt) {
+        if (compressed_frame == nullptr) {
+                return;
+        }
         if (compressed_frame->color_spec != H264 && compressed_frame->color_spec != H265) {
                 log_msg_once(LOG_LEVEL_ERROR, to_fourcc('L', 'W', 'P', 'T'), MOD_NAME
                                 "Currently cannot store input format to different compression stream than H.264/HEVC\n");
