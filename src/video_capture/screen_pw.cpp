@@ -322,6 +322,8 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         auto& raw_format = session.pw.format.info.raw;
         spa_format_video_raw_parse(param, &raw_format);
 
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got format: %s\n", spa_debug_type_find_name(spa_type_video_format, raw_format.format));
+
         session.desc.width = raw_format.size.width;
         session.desc.height = raw_format.size.height;
         if(raw_format.framerate.num != 0)
@@ -550,11 +552,13 @@ static int start_pipewire(screen_cast_session &session)
                         SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
                         SPA_FORMAT_VIDEO_format,
                         SPA_POD_CHOICE_ENUM_Id(7, 
-                                SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_BGRx,
-			        SPA_VIDEO_FORMAT_RGBA, SPA_VIDEO_FORMAT_RGBx,
-                                SPA_VIDEO_FORMAT_RGB,
                                 SPA_VIDEO_FORMAT_UYVY,
-                                SPA_VIDEO_FORMAT_YUY2
+                                SPA_VIDEO_FORMAT_RGB,
+                                SPA_VIDEO_FORMAT_RGBA,
+                                SPA_VIDEO_FORMAT_RGBx,
+                                SPA_VIDEO_FORMAT_YUY2,
+                                SPA_VIDEO_FORMAT_BGRA,
+                                SPA_VIDEO_FORMAT_BGRx
                                 ),
                         SPA_FORMAT_VIDEO_size,
                         SPA_POD_CHOICE_RANGE_Rectangle(
