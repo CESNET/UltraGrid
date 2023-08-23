@@ -70,7 +70,7 @@ install_pipewire() {(
         fi
 )}
 
-# TODO: needed only for U18.04, remove after upgrading to U20.04
+# FFmpeg master needs at least v1.3.238 as for 23th Aug '23
 install_vulkan() {(
         git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
         mkdir Vulkan-Headers/build

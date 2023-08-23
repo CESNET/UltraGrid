@@ -71,6 +71,7 @@ find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -p
         --enable-libsvtvp9 \
         --enable-libvpl \
         --disable-sdl2 \
+        --enable-vulkan \
 
 make -j "$(nproc)"
 sudo make install
