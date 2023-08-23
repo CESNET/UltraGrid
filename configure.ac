@@ -3384,8 +3384,8 @@ RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
 RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
-RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
 RESULT=`add_column "$RESULT" "Soxr" $soxr $?`
+RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
 RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
 RESULT=`add_column "$RESULT" "zfec" $zfec $?`
 RESULT=`end_section "$RESULT"`
@@ -3397,9 +3397,9 @@ RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
 RESULT=`add_column "$RESULT" "SDL_mixer" $sdl_mixer $?`
+RESULT=`add_column "$RESULT" "Pipewire" $pipewire_audio $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
-RESULT=`add_column "$RESULT" "Pipewire" $pipewire_audio $?`
 RESULT=`end_section "$RESULT"`
 
 # video
@@ -3455,10 +3455,10 @@ RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`
 RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
 RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
 RESULT=`add_column "$RESULT" "Spout" $spout $?`
+RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
 RESULT=`add_column "$RESULT" "Testcard extras" $testcard2 $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
-RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 RESULT=`end_section "$RESULT"`
 
 AC_MSG_RESULT(
