@@ -121,6 +121,7 @@ constexpr const codec_t DEFAULT_CODEC       = MJPG;
 constexpr const int     DEFAULT_GOP_SIZE    = 20;
 constexpr int           DEFAULT_SLICE_COUNT = 32;
 
+constexpr const char *DEFAULT_AMF_RC        = "cqp";
 constexpr const char *DEFAULT_AMF_USAGE     = "lowlatency";
 constexpr int         DEFAULT_CQP           = 21;
 constexpr int         DEFAULT_CQP_MPJEG     = 7;
@@ -1460,6 +1461,7 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* 
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
+        check_av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_AMF_RC);
         check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", DEFAULT_AMF_USAGE, "AMF usage (preset)");
         if (codec_ctx->codec->id == AV_CODEC_ID_AV1 ||
             codec_ctx->codec->id == AV_CODEC_ID_HEVC) {
