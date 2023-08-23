@@ -687,28 +687,22 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::c
 
 template<typename T, bool log_err = false>
 static inline bool check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
-        int ret = 0;
         string val_str;
-        if constexpr (std::is_same_v<T, int>) {
-                ret = av_opt_set_int(priv_data, key, val, 0);
-                val_str = to_string(val);
-        } else if constexpr (std::is_same_v<T, double>) {
-                ret = av_opt_set_double(priv_data, key, val, 0);
-                val_str = to_string(val);
-        } else if constexpr (std::is_same_v<T, const char *>) {
-                ret = av_opt_set(priv_data, key, val, 0);
+        if constexpr (std::is_same_v<T, const char *>) {
                 val_str = val;
         } else {
-                static_assert(!std::is_same_v<T, T>, "unsupported type");
+                val_str = to_string(val);
         }
         desc = desc ? desc : key;
+        const int ret = av_opt_set(priv_data, key, val_str.c_str(), 0);
         if (ret != 0) {
                 string err = string(MOD_NAME) + "Unable to set " + desc + " to " + val_str;
                 print_libav_error(log_err ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING, err.c_str(), ret);
-        } else {
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Successfully set codec %s to %s\n", desc, val_str.c_str());
+                return false;
         }
-        return ret == 0;
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Successfully set codec %s to %s\n",
+                desc, val_str.c_str());
+        return true;
 }
 
 /// @param requested_cqp requested CQP value if >= 0, autoselect if -1
