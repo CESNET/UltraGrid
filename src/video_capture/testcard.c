@@ -483,7 +483,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = true;
                 } else if (IS_KEY_PREFIX(tmp, "pattern")) {
-                        const char *pattern = tmp + strlen("pattern=");
+                        const char *pattern = strchr(tmp, '=') + 1;
                         strncpy(s->pattern, pattern, sizeof s->pattern - 1);
                 } else if (IS_KEY_PREFIX(tmp, "codec")) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
