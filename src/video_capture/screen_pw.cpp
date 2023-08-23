@@ -8,6 +8,8 @@
 #include <cassert>
 #include <fstream>
 #include <algorithm>
+#include <vector>
+#include <mutex>
 #include <unistd.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/version.h>
@@ -238,7 +240,8 @@ struct screen_cast_session {
         // used exlusively by ultragrid thread
         unique_frame in_flight_frame;
 
-        synchronized_queue<unique_frame, QUEUE_SIZE> blank_frames;
+        std::mutex mut;
+        std::vector<unique_frame> blank_frames;
         synchronized_queue<unique_frame, QUEUE_SIZE> sending_frames;
 
         video_desc desc = {};
@@ -443,8 +446,16 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                if(!session.blank_frames.timed_pop(next_frame, 1000ms / session.desc.fps)) {
-                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (blank frame dequeue timed out)\n";
+                {
+                        std::lock_guard<std::mutex> lock(session.mut);
+                        if(!session.blank_frames.empty()){
+                                next_frame = std::move(session.blank_frames.back());
+                                session.blank_frames.pop_back();
+                        }
+                }
+
+                if(!next_frame) {
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (no blank frames)\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
                 }
@@ -876,7 +887,7 @@ static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio
         *audio = nullptr;
    
         if(session.in_flight_frame.get() != nullptr){
-                session.blank_frames.push(std::move(session.in_flight_frame));
+                session.blank_frames.push_back(std::move(session.in_flight_frame));
         }
 
         using namespace std::chrono_literals;
