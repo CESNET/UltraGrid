@@ -122,7 +122,8 @@ constexpr const int     DEFAULT_GOP_SIZE    = 20;
 constexpr int           DEFAULT_SLICE_COUNT = 32;
 
 constexpr const char *DEFAULT_AMF_RC        = "cqp";
-constexpr const char *DEFAULT_AMF_USAGE     = "lowlatency";
+constexpr const char *DEFAULT_AMF_USAGE     = "ultralowlatency";
+constexpr const char *DEFAULT_AMF_USAGE_AV1 = "lowlatency";
 constexpr int         DEFAULT_CQP           = 21;
 constexpr int         DEFAULT_CQP_MPJEG     = 7;
 constexpr int         DEFAULT_CQP_MJPEG_QSV = 80;
@@ -700,7 +701,7 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
                 print_libav_error(log_err ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING, err.c_str(), ret);
                 return false;
         }
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Successfully set codec %s to %s\n",
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Setting codec parameter %s to %s\n",
                 desc, val_str.c_str());
         return true;
 }
@@ -1456,7 +1457,10 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* 
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
         check_av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_AMF_RC);
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", DEFAULT_AMF_USAGE, "AMF usage (preset)");
+        const char *const usage = codec_ctx->codec->id == AV_CODEC_ID_AV1
+                                      ? DEFAULT_AMF_USAGE_AV1
+                                      : DEFAULT_AMF_USAGE;
+        check_av_opt_set(codec_ctx->priv_data, "usage", usage);
         if (codec_ctx->codec->id == AV_CODEC_ID_AV1 ||
             codec_ctx->codec->id == AV_CODEC_ID_HEVC) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
