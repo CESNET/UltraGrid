@@ -80,8 +80,8 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
  * @retval H.264 or RTP NAL type
  */
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
-    uint8_t type = NALU_HDR_GET_TYPE(nal);
-    uint8_t nri = NALU_HDR_GET_NRI(nal);
+    uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
+    uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
@@ -101,7 +101,7 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
     int fu_length = 0;
     uint8_t nal = data[0];
-    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : NALU_HDR_GET_TYPE(nal);
+    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : H264_NALU_HDR_GET_TYPE(nal);
     if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
         type = H264_NAL;
     }
@@ -131,7 +131,10 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data += 2;
                 data_len -= 2;
 
-                log_msg(LOG_LEVEL_DEBUG2, "STAP-A subpacket NAL type %d (nri: %d)\n", (int) NALU_HDR_GET_TYPE(data[0]), (int) NALU_HDR_GET_NRI(nal));
+                log_msg(LOG_LEVEL_DEBUG2,
+                        "STAP-A subpacket NAL type %d (nri: %d)\n",
+                        (int) H264_NALU_HDR_GET_TYPE(data[0]),
+                        (int) H264_NALU_HDR_GET_NRI(nal));
 
                 if (nal_size <= data_len) {
                     if (pass == 0) {
@@ -180,7 +183,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 uint8_t fu_header = *data;
                 uint8_t start_bit = fu_header >> 7;
                 uint8_t end_bit       = (fu_header & 0x40) >> 6;
-                uint8_t nal_type = NALU_HDR_GET_TYPE(fu_header);
+                uint8_t nal_type = H264_NALU_HDR_GET_TYPE(fu_header);
                 uint8_t reconstructed_nal;
 
                 // Reconstruct this packet's true nal; only the data follows.
@@ -342,30 +345,6 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
     free(sps);
 
     return 0;
-}
-
-const char *
-get_nalu_name(int type)
-{
-    _Thread_local static char buf[32];
-
-    switch (type) {
-    case NAL_H264_IDR:
-        return "H264 IDR";
-    case NAL_H264_SEI:
-        return "H264 SEI";
-    case NAL_H264_SPS:
-        return "H264 SPS";
-    case NAL_H264_AUD:
-        return "H264 AUD";
-    case NAL_HEVC_VPS:
-        return "HEVC VPS";
-    case NAL_HEVC_AUD:
-        return "HEVC AUD";
-    default:
-        snprintf(buf, sizeof buf, "(NALU %d)", type);
-        return buf;
-    }
 }
 
 // vi: set et sw=4 :

@@ -53,6 +53,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "debug.h"
+#include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 
 static uint32_t get4Bytes(const unsigned char *ptr) {
@@ -108,3 +110,49 @@ const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long l
         return nal;
 }
 
+/// @returns first NAL that is not AUD
+const unsigned char *
+rtpenc_get_first_nal(const unsigned char *src, long src_len, bool hevc)
+{
+        const unsigned char *nal       = src;
+        int                  nalu_type = 0;
+        do {
+                nal =
+                    rtpenc_h264_get_next_nal(nal, src_len - (nal - src), NULL);
+                if (!nal) {
+                        return NULL;
+                }
+                nalu_type = NALU_HDR_GET_TYPE(nal[0], hevc);
+                debug_msg("Received %s NALU.\n", get_nalu_name(nalu_type));
+        } while (nalu_type == NAL_H264_AUD || nalu_type == NAL_HEVC_AUD);
+        return nal;
+}
+
+/// @returns name of NAL unit
+const char *
+get_nalu_name(int type)
+{
+        switch ((enum nal_type) type) {
+        case NAL_H264_IDR:
+                return "H264 IDR";
+        case NAL_H264_SEI:
+                return "H264 SEI";
+        case NAL_H264_SPS:
+                return "H264 SPS";
+        case NAL_H264_PPS:
+                return "H264 PPS";
+        case NAL_H264_AUD:
+                return "H264 AUD";
+        case NAL_HEVC_VPS:
+                return "HEVC VPS";
+        case NAL_HEVC_SPS:
+                return "HEVC SPS";
+        case NAL_HEVC_PPS:
+                return "HEVC PPS";
+        case NAL_HEVC_AUD:
+                return "HEVC AUD";
+        }
+        _Thread_local static char buf[32];
+        snprintf(buf, sizeof buf, "(NALU %d)", type);
+        return buf;
+}

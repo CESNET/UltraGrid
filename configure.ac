@@ -1692,7 +1692,7 @@ then
         LIBAVCODEC_AUDIO_CODEC_OBJ="$LIBAVCODEC_COMMON src/audio/codec/libavcodec.o"
 
         LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_compress/libavcodec.o"
-        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_decompress/libavcodec.o src/rtp/rtpdec_h264.o src/utils/h264_stream.o"
+        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_decompress/libavcodec.o"
         if test $system = MacOSX; then
                 LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_DECOMPRESS_OBJ src/hwaccel_videotoolbox.o"
         fi

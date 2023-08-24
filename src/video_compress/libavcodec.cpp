@@ -64,6 +64,7 @@
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"
+#include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "utils/color_out.h"
@@ -165,7 +166,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
 
 static void show_encoder_help(string const &name);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
-static void usage(void);
+void usage(bool full);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
 
@@ -234,6 +235,12 @@ static map<codec_t, codec_params_t> codec_params = {
         }},
 };
 
+struct aux_header {
+        bool   header_inserter_req = false;
+        char   buf[1024]{};
+        size_t buf_len = 0;
+};
+
 struct state_video_compress_libav {
         state_video_compress_libav(struct module *parent) {
                 module_init_default(&module_data);
@@ -262,6 +269,8 @@ struct state_video_compress_libav {
         double              requested_crf = -1;
         int                 requested_cqp = -1;
         struct to_lavc_req_prop req_conv_prop{ 0, 0, -1, VIDEO_CODEC_NONE };
+        bool store_orig_format = false;
+        struct aux_header aux_header;
 
         struct video_desc compressed_desc{};
 
@@ -273,7 +282,6 @@ struct state_video_compress_libav {
         set<string>         blacklist_opts; ///< options that has been processed by setparam handlers and should not be passed to codec
 
         bool hwenc = false;
-        bool store_orig_format = false;
         AVFrame *hwframe = nullptr;
 
 #ifdef HAVE_SWSCALE
@@ -358,7 +366,7 @@ static void get_codec_details(AVCodecID id, char *buf, size_t buflen)
         strncat(buf, ")", buflen - strlen(buf) - 1);
 }
 
-static void usage() {
+void usage(bool full) {
         printf("Libavcodec encoder usage:\n");
         col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>|:crf=<crf>|:cqp=<cqp>]\n"
                         "\t\t[:subsampling=<subsampling>][:depth=<depth>][:rgb|:yuv][:gop=<gop>]"
@@ -381,6 +389,11 @@ static void usage() {
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
+        if (full) {
+                col() << "\t" << SBOLD("header_inserter")
+                      << " repeat H.264 SPS/PPS hdrs (fixes problems when not "
+                         "contained in the stream)\n";
+        }
         col() << "\nSupported codecs:\n";
         for (auto && param : codec_params) {
                 enum AVCodecID avID = get_ug_to_av_codec(param.first);
@@ -413,15 +426,15 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 return 0;
         }
 
-        bool show_help = false;
+        int show_help = 0;
 
         // replace all '\:' with 2xDEL
         replace_all(fmt, ESCAPED_COLON, DELDEL);
         char *item, *save_ptr = NULL;
 
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
-                if(strncasecmp("help", item, strlen("help")) == 0) {
-                        show_help = true;
+                if (strcasecmp("help", item) == 0 || strcmp(item, "fullhelp") == 0) {
+                        show_help = strcmp(item, "fullhelp") == 0 ? 2 : 1;
                 } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
                         char *codec = item + strlen("codec=");
                         s->requested_codec_id = get_codec_from_name(codec);
@@ -484,6 +497,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
                         char *gop = item + strlen("gop=");
                         s->requested_gop = atoi(gop);
+                } else if (strcmp(item, "header_inserter") == 0) {
+                        s->aux_header.header_inserter_req = true;
                 } else if (strchr(item, '=')) {
                         char *c_val_dup = strdup(strchr(item, '=') + 1);
                         replace_all(c_val_dup, DELDEL, ":");
@@ -499,9 +514,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 fmt = NULL;
         }
 
-        if (show_help) {
+        if (show_help != 0) {
                 if (s->backend.empty()) {
-                        usage();
+                        usage(show_help == 2);
                 } else {
                         show_encoder_help(s->backend);
                 }
@@ -1207,6 +1222,30 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
         }
 }
 
+void process_sps_pps(state_video_compress_libav *s, AVPacket *pkt, video_frame *out)
+{
+        if (s->aux_header.buf_len > 0) {
+                memcpy(out->tiles[0].data + out->tiles[0].data_len,
+                       s->aux_header.buf, s->aux_header.buf_len);
+                out->tiles[0].data_len += s->aux_header.buf_len;
+                return;
+
+        }
+        const unsigned char *const sps =
+            rtpenc_get_first_nal(s->pkt->data, s->pkt->size, false);
+        if (sps == nullptr || H264_NALU_HDR_GET_TYPE(sps[0]) != NAL_H264_SPS) {
+                return;
+        }
+        const unsigned char       *endptr = nullptr;
+        const unsigned char *const pps    = rtpenc_h264_get_next_nal(
+            sps, pkt->size - (sps - pkt->data), &endptr);
+        if (pps == nullptr || H264_NALU_HDR_GET_TYPE(pps[0]) != NAL_H264_PPS) {
+                return;
+        }
+        s->aux_header.buf_len  = endptr - pkt->data;
+        memcpy(s->aux_header.buf, pkt->data, s->aux_header.buf_len);
+}
+
 auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
         shared_ptr<video_frame> out;
         if (pkt->size == 0) { // videotoolbox returns sometimes frames with
@@ -1230,6 +1269,7 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
                 // we need to store extradata for HuffYUV/FFV1 in the beginning
                 len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
         }
+        len += s->aux_header.buf_len;
         out->tiles[0].data = (char *) malloc(len);
         out->tiles[0].data_len = 0;
         if (libav_codec_has_extradata(s->compressed_desc.color_spec)) {
@@ -1239,6 +1279,8 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
                     s->codec_ctx->extradata_size;
                 memcpy(out->tiles[0].data + sizeof(uint32_t),
                        s->codec_ctx->extradata, s->codec_ctx->extradata_size);
+        } else if (s->aux_header.header_inserter_req && s->compressed_desc.color_spec == H264) {
+                process_sps_pps(s, pkt, out.get());
         }
         memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
                s->pkt->data, s->pkt->size);

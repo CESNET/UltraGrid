@@ -852,21 +852,13 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                 return 1;
         }
 
-        int nalu_type = 0;
-        const unsigned char *nal = src;
-        do {
-                nal =
-                    rtpenc_h264_get_next_nal(nal, src_len - (nal - src), NULL);
-                if (!nal) {
-                        return 0;
-                }
-                if (s->desc.color_spec == H264) {
-                        nalu_type = NALU_HDR_GET_TYPE(nal[0]);
-                } else {
-                        nalu_type = nal[0] >> 1;
-                }
-                debug_msg("Received %s NALU.", get_nalu_name(nalu_type));
-        } while (nalu_type == NAL_H264_AUD || nalu_type == NAL_HEVC_AUD);
+        const unsigned char *const nal =
+            rtpenc_get_first_nal(src, src_len, s->desc.color_spec == H265);
+        if (nal == NULL) {
+                return 0;
+        }
+        const int nalu_type =
+            NALU_HDR_GET_TYPE(nal[0], s->desc.color_spec == H265);
 
         switch (nalu_type) {
         case NAL_H264_SPS:
