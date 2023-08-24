@@ -1008,7 +1008,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
         const unsigned char *endptr = 0;
         const unsigned char *nal = start;
 
-        while ((nal = rtpenc_h264_get_next_nal(nal, data_len - (nal - start), &endptr))) {
+        while ((nal = rtpenc_get_next_nal(nal, data_len - (nal - start), &endptr))) {
                 unsigned int nalsize = endptr - nal;
                 bool eof = endptr == start + data_len;
                 bool lastNALUnitFragment = false; // by default

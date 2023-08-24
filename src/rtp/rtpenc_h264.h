@@ -48,6 +48,7 @@
 #define _RTP_ENC_H264_H
 
 #define START_CODE_3B 0x00, 0x00, 0x01
+#define START_CODE_4B 0x00, 0x00, 0x00, 0x01
 #define H264_NAL_SEI_PREFIX 0x06, 0x05 // SEI, category
 #define HEVC_NAL_SEI_PREFIX 0x4E, 0x01, 0x05 // SEI, category
 /// custom orig format byte syntax - highest 1 bit zero, next 2 bits (depth-8)/2, next 3 bits subsampling (Y-1) from X:Y:Z, next 1 bit - vertical is subsampled, last bit RGB
@@ -60,7 +61,8 @@ extern "C" {
 #endif
 
 // function documented at definition
-const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long len, const unsigned char **endptr);
+const unsigned char *rtpenc_get_next_nal(const unsigned char *start, long len,
+                                         const unsigned char **endptr);
 const unsigned char *rtpenc_get_first_nal(const unsigned char *src,
                                           long src_len, bool hevc);
 const char          *get_nalu_name(int type);

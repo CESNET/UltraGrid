@@ -391,7 +391,8 @@ void usage(bool full) {
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
         if (full) {
                 col() << "\t" << SBOLD("header_inserter")
-                      << " repeat H.264 SPS/PPS hdrs (fixes problems when not "
+                      << " repeat H.264/HEVC VPS/SPS/PPS hdrs (fixes problems "
+                         "when not "
                          "contained in the stream)\n";
         }
         col() << "\nSupported codecs:\n";
@@ -1222,28 +1223,48 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
         }
 }
 
-void process_sps_pps(state_video_compress_libav *s, AVPacket *pkt, video_frame *out)
+void
+process_sps_pps_vps(state_video_compress_libav *s, AVPacket *pkt,
+                    video_frame *out)
 {
+        if (s->compressed_desc.color_spec != H264 &&
+            s->compressed_desc.color_spec != H265) {
+                return;
+        }
         if (s->aux_header.buf_len > 0) {
                 memcpy(out->tiles[0].data + out->tiles[0].data_len,
                        s->aux_header.buf, s->aux_header.buf_len);
                 out->tiles[0].data_len += s->aux_header.buf_len;
                 return;
-
         }
-        const unsigned char *const sps =
-            rtpenc_get_first_nal(s->pkt->data, s->pkt->size, false);
-        if (sps == nullptr || H264_NALU_HDR_GET_TYPE(sps[0]) != NAL_H264_SPS) {
+        const bool is_hevc         = s->compressed_desc.color_spec == H265;
+        const int  h264_nalu_req[] = { NAL_H264_SPS, NAL_H264_PPS, 0 };
+        const int  hevc_nalu_req[] = { NAL_HEVC_VPS, NAL_HEVC_SPS, NAL_HEVC_PPS,
+                                       0 };
+        const int *nalu_req        = is_hevc ? hevc_nalu_req : h264_nalu_req;
+        const unsigned char *const first_nal =
+            rtpenc_get_first_nal(s->pkt->data, s->pkt->size, is_hevc);
+        const unsigned char *nal    = first_nal;
+        int                  i      = 0;
+        const unsigned char *endptr = nullptr;
+        while (nal != nullptr) {
+                if (NALU_HDR_GET_TYPE(nal[0], is_hevc) != nalu_req[i++]) {
+                        return;
+                }
+                if (nalu_req[i] == 0) { // correct seq of NALU
+                        break;
+                }
+                nal = rtpenc_get_next_nal(nal, pkt->size - (nal - pkt->data),
+                                          &endptr);
+        }
+        if (nalu_req[i] != 0) {
                 return;
         }
-        const unsigned char       *endptr = nullptr;
-        const unsigned char *const pps    = rtpenc_h264_get_next_nal(
-            sps, pkt->size - (sps - pkt->data), &endptr);
-        if (pps == nullptr || H264_NALU_HDR_GET_TYPE(pps[0]) != NAL_H264_PPS) {
-                return;
-        }
-        s->aux_header.buf_len  = endptr - pkt->data;
-        memcpy(s->aux_header.buf, pkt->data, s->aux_header.buf_len);
+        const char start_code[] = { START_CODE_4B };
+        memcpy(s->aux_header.buf, start_code, sizeof start_code);
+        memcpy(s->aux_header.buf + sizeof start_code, first_nal,
+               endptr - first_nal);
+        s->aux_header.buf_len = sizeof start_code + endptr - first_nal;
 }
 
 auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
@@ -1279,8 +1300,8 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
                     s->codec_ctx->extradata_size;
                 memcpy(out->tiles[0].data + sizeof(uint32_t),
                        s->codec_ctx->extradata, s->codec_ctx->extradata_size);
-        } else if (s->aux_header.header_inserter_req && s->compressed_desc.color_spec == H264) {
-                process_sps_pps(s, pkt, out.get());
+        } else if (s->aux_header.header_inserter_req) {
+                process_sps_pps_vps(s, pkt, out.get());
         }
         memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
                s->pkt->data, s->pkt->size);

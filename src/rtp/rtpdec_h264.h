@@ -77,8 +77,8 @@ struct decode_data_h264 {
 
 struct coded_data;
 
-#define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1FU)
-#define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60U) >> 5U)
+#define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
+#define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
 #define NALU_HDR_GET_TYPE(nal, is_hevc) \
         ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
 

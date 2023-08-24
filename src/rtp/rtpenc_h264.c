@@ -97,7 +97,10 @@ static const unsigned char *get_next_nal(const unsigned char *start, long len, _
  * @param endptr pointer to store the end of the NAL unit; may be NULL
  * @returns      NAL unit beginning or NULL if no further NAL unit was found
  */
-const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long len, const unsigned char **endptr) {
+const unsigned char *
+rtpenc_get_next_nal(const unsigned char *start, long len,
+                    const unsigned char **endptr)
+{
         const unsigned char *nal = get_next_nal(start, len, 0);
         if (endptr == NULL) {
                 return nal;
@@ -118,7 +121,7 @@ rtpenc_get_first_nal(const unsigned char *src, long src_len, bool hevc)
         int                  nalu_type = 0;
         do {
                 nal =
-                    rtpenc_h264_get_next_nal(nal, src_len - (nal - src), NULL);
+                    rtpenc_get_next_nal(nal, src_len - (nal - src), NULL);
                 if (!nal) {
                         return NULL;
                 }
