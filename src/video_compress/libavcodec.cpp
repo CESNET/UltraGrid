@@ -1107,6 +1107,16 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
         }
 
+        // we need to store extradata for HuffYUV/FFV1 in the beginning
+        if (libav_codec_has_extradata(ug_codec)) {
+                s->aux_header.buf_len =
+                    sizeof(uint32_t) + s->codec_ctx->extradata_size;
+                *(uint32_t *) (void *) s->aux_header.buf =
+                    s->codec_ctx->extradata_size;
+                memcpy(s->aux_header.buf + sizeof(uint32_t),
+                       s->codec_ctx->extradata, s->codec_ctx->extradata_size);
+        }
+
         s->saved_desc = desc;
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Successfully reconfigured to " << desc << "\n";
 
@@ -1224,17 +1234,13 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
 }
 
 void
-process_sps_pps_vps(state_video_compress_libav *s, AVPacket *pkt,
-                    video_frame *out)
+store_sps_pps_vps(state_video_compress_libav *s, AVPacket *pkt)
 {
         if (s->compressed_desc.color_spec != H264 &&
             s->compressed_desc.color_spec != H265) {
                 return;
         }
         if (s->aux_header.buf_len > 0) {
-                memcpy(out->tiles[0].data + out->tiles[0].data_len,
-                       s->aux_header.buf, s->aux_header.buf_len);
-                out->tiles[0].data_len += s->aux_header.buf_len;
                 return;
         }
         const bool is_hevc         = s->compressed_desc.color_spec == H265;
@@ -1285,27 +1291,14 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
         }
 
         restore_metadata(s, out.get(), pkt->pts);
-        size_t len = pkt->size;
-        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) {
-                // we need to store extradata for HuffYUV/FFV1 in the beginning
-                len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
+        out->tiles[0].data_len = s->aux_header.buf_len + pkt->size;
+        out->tiles[0].data     = (char *) malloc(out->tiles[0].data_len);
+        memcpy(out->tiles[0].data, s->aux_header.buf, s->aux_header.buf_len);
+        memcpy(out->tiles[0].data + s->aux_header.buf_len, pkt->data,
+               pkt->size);
+        if (s->aux_header.header_inserter_req) {
+                store_sps_pps_vps(s, pkt);
         }
-        len += s->aux_header.buf_len;
-        out->tiles[0].data = (char *) malloc(len);
-        out->tiles[0].data_len = 0;
-        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) {
-                out->tiles[0].data_len +=
-                    sizeof(uint32_t) + s->codec_ctx->extradata_size;
-                *(uint32_t *) (void *) out->tiles[0].data =
-                    s->codec_ctx->extradata_size;
-                memcpy(out->tiles[0].data + sizeof(uint32_t),
-                       s->codec_ctx->extradata, s->codec_ctx->extradata_size);
-        } else if (s->aux_header.header_inserter_req) {
-                process_sps_pps_vps(s, pkt, out.get());
-        }
-        memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-               s->pkt->data, s->pkt->size);
-        out->tiles[0].data_len += s->pkt->size;
 
         av_packet_unref(s->pkt);
 
