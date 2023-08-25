@@ -595,7 +595,8 @@ static int start_pipewire(screen_cast_session &session)
                                         session.pw.node,
                                         static_cast<pw_stream_flags>(
                                                 PW_STREAM_FLAG_AUTOCONNECT |
-                                                PW_STREAM_FLAG_MAP_BUFFERS
+                                                PW_STREAM_FLAG_MAP_BUFFERS |
+                                                PW_STREAM_FLAG_DONT_RECONNECT
                                         ),
                                         params, n_params);
         if (res < 0) {
