@@ -691,12 +691,6 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 assert(g_variant_iter_n_children(&iter) == 1);
                 bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pw.node, &stream_properties);
                 assert(got_item);
-                uint32_t capture_type;
-                g_variant_lookup(stream_properties, "source_type", "u", &capture_type);
-                if(capture_type == 1) {
-                        // user selected a whole screen inside Portal dialog, that means crop can be disabled without changing anything
-                        session.user_options.crop = false;
-                }
 
                 GVariantBuilder builder;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
