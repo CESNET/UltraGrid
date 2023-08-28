@@ -208,7 +208,8 @@ if test $target_cpu = x86_64 -o $target_cpu = i686
 then
         ARCH=${ARCH--msse4.1}
 fi
-if test $target_cpu = armv7l
+if test $target_cpu = armv7l || { test $target_cpu = aarch64 && \
+test $ac_cv_sizeof_int_p -eq 4; }
 then
         LIBS="${LIBS:+$LIBS }-latomic" # needed for atomic_uint64_t
 fi
