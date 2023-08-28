@@ -1008,6 +1008,9 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
         return AV_PIX_FMT_NONE;
 #endif
         unsigned usable_fmt_cnt = 0;
+        if (codec->pix_fmts == nullptr) {
+                return AV_PIX_FMT_NONE;
+        }
         for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
              ++pix) {
                 usable_fmt_cnt += 1;
