@@ -1708,17 +1708,17 @@ fi
 ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
 
 # -------------------------------------------------------------------------------------------------
-# File input
+# File vidcap/display
 # -------------------------------------------------------------------------------------------------
-vidcap_file=no
-AC_ARG_ENABLE(vidcap-file,
-      AS_HELP_STRING([--disable-vidcap-file], [disable file input support (default is auto)]
+file=no
+AC_ARG_ENABLE(file,
+      AS_HELP_STRING([--disable-file], [disable file IO support (default is auto)]
               [Requires: libavcodec libavformat libavutil libswscale]),
-        [vidcap_file_req=$enableval],
-        [vidcap_file_req=$build_default]
+        [file_req=$enableval],
+        [file_req=$build_default]
 )
 
-if test $vidcap_file_req != no && test $libavcodec = yes && test $libswscale = yes; then
+if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; then
         PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
         if test "$found_libavformat" != yes; then
                 SAVED_LIBS=$LIBS
@@ -1736,9 +1736,11 @@ if test $vidcap_file_req != no && test $libavcodec = yes && test $libswscale = y
         fi
         if test $found_libavformat = yes; then
                 COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
-                vidcap_file=yes
+                file=yes
                 add_module vidcap_file "src/libavcodec/lavc_common.o "\
 src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
+                add_module display_file "src/libavcodec/lavc_common.o "\
+src/video_display/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS"
         fi
 fi
 
@@ -3411,7 +3413,7 @@ RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
-RESULT=`add_column "$RESULT" "File input" $vidcap_file $?`
+RESULT=`add_column "$RESULT" "File" $file $?`
 RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`

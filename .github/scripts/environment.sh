@@ -30,6 +30,7 @@ export FEATURES="\
  --enable-caca\
  --enable-cineform\
  --enable-decklink\
+ --enable-file\
  --enable-gl\
  --enable-gl-display\
  --enable-holepunch\
@@ -57,7 +58,6 @@ export FEATURES="\
  --enable-libswscale\
  --enable-testcard-extras=all\
  --enable-text\
- --enable-vidcap-file\
  --enable-video-mixer\
  --enable-vulkan\
  --enable-ximea\

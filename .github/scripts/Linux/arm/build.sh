@@ -12,7 +12,9 @@ APPNAME=UltraGrid-latest-${ARCH}.AppImage
 
 set -- --enable-plugins --enable-openssl --enable-soxr --enable-speexdsp                                # general
 set -- "$@" --enable-alsa --enable-jack --enable-jack-transport                                         # audio
-set -- "$@" --enable-decklink --enable-ndi --enable-rtsp --enable-screen=x11 --enable-swmix --enable-v4l2 --enable-vidcap-file --enable-ximea # vcap
+# vidcap (+ duplex video)
+set -- "$@" --enable-decklink --enable-file --enable-ndi --enable-rtsp \
+            --enable-screen=x11 --enable-swmix --enable-v4l2 --enable-ximea
 set -- "$@" --enable-caca --enable-gl-display --enable-panogl_disp --enable-sdl                         # display
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
 set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-text --enable-video-mixer --enable-zfec # extras (pp. etc)
