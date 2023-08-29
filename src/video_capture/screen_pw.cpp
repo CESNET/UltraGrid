@@ -2,7 +2,6 @@
 #include <string.h>
 #include <iostream>
 #include <thread>
-#include <future>
 #include <chrono>
 #include <atomic>
 #include <cassert>
@@ -13,8 +12,6 @@
 #include <unistd.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/version.h>
-#include <gio/gio.h>
-#include <gio/gunixfdlist.h>
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
@@ -348,7 +345,13 @@ static int start_pipewire(screen_cast_session &session)
                 assert(false && "error starting pipewire thread loop");
         }
 
-        pw_core *core = pw_context_connect_fd(session.pw.context, session.pw.fd, nullptr, 0); 
+        pw_core *core = nullptr;
+
+        if(session.pw.fd != -1)
+                core = pw_context_connect_fd(session.pw.context, session.pw.fd, nullptr, 0); 
+        else
+                core = pw_context_connect(session.pw.context, nullptr, 0); 
+
         assert(core != nullptr);
 
         session.pw.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
@@ -506,6 +509,31 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         return VIDCAP_INIT_OK;
 }
 
+static int vidcap_pw_init(struct vidcap_params *params, void **state)
+{
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
+
+        screen_cast_session &session = *new screen_cast_session();
+        *state = &session;
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init\n";
+        
+        int params_ok = parse_params(params, session);
+        if(params_ok != VIDCAP_INIT_OK)
+                return params_ok;
+
+        for(int i = 0; i < QUEUE_SIZE; i++)
+                session.blank_frames.emplace_back(vf_alloc(1));
+
+        session.pw.fd = -1;
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
+        start_pipewire(session);
+        return VIDCAP_INIT_OK;
+}
+
 static void vidcap_screen_pw_done(void *session_ptr)
 {
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "done\n";   
@@ -538,5 +566,15 @@ static const struct video_capture_info vidcap_screen_pw_info = {
 };
 
 REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+
+static const struct video_capture_info vidcap_pw_info = {
+        vidcap_screen_pw_probe,
+        vidcap_pw_init,
+        vidcap_screen_pw_done,
+        vidcap_screen_pw_grab,
+        MOD_NAME,
+};
+
+REGISTER_MODULE(pipewire, &vidcap_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
 /* vim: set expandtab sw=8: */
