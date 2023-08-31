@@ -40,8 +40,11 @@
 #include <libavformat/avformat.h>
 #include <pthread.h>
 
+#include "audio/types.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec/utils.h"
 #include "types.h"
 #include "utils/color_out.h"
@@ -59,11 +62,15 @@ struct output_stream {
         AVCodecContext     *enc;
         AVPacket           *pkt;
         long long int       cur_pts;
-        struct video_frame *frame;
+        union {
+                struct video_frame *vid_frm;
+                AVFrame            *aud_frm;
+        };
 };
 
 struct state_file {
         AVFormatContext     *format_ctx;
+        struct output_stream audio;
         struct output_stream video;
         struct video_desc    video_desc;
         char                 filename[MAX_PATH_SIZE];
@@ -102,6 +109,8 @@ display_file_done(void *state)
                 avio_closep(&s->format_ctx->pb);
         }
         av_packet_free(&s->video.pkt);
+        vf_free(s->video.vid_frm);
+        av_frame_free(&s->audio.aud_frm);
         free(s);
 }
 
@@ -116,7 +125,6 @@ static void *
 display_file_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         const char *filename = DEFAULT_FILENAME;
-        UNUSED(flags);
         UNUSED(parent);
         if (strlen(fmt) > 0) {
                 if (IS_KEY_PREFIX(fmt, "file")) {
@@ -155,6 +163,12 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
         ret |= pthread_create(&s->thread_id, NULL, worker, s);
         assert(ret == 0);
 
+        if ((flags & DISPLAY_FLAG_AUDIO_ANY) != 0U) {
+                s->audio.st     = avformat_new_stream(s->format_ctx, NULL);
+                s->audio.st->id = 1;
+                s->audio.pkt    = av_packet_alloc();
+        }
+
         return s;
 }
 
@@ -174,7 +188,6 @@ display_file_getf(void *state)
         frame->format = get_ug_to_av_pixfmt(s->video_desc.color_spec);
         frame->width  = (int) s->video_desc.width;
         frame->height = (int) s->video_desc.height;
-        frame->pts    = s->video.cur_pts++;
         int ret       = av_frame_get_buffer(frame, 0);
         if (ret < 0) {
                 error_msg(MOD_NAME "Could not allocate frame data: %s.\n",
@@ -203,16 +216,16 @@ display_file_putf(void *state, struct video_frame *frame, long long timeout_ns)
                 pthread_cond_signal(&s->cv);
                 return true;
         }
-        if (s->video.frame != NULL) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
-                vf_free(frame);
-                pthread_mutex_unlock(&s->lock);
-                return false;
+        bool ret = true;
+        if (s->video.vid_frm != NULL) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Video frame dropped!\n");
+                vf_free(s->video.vid_frm);
+                ret = false;
         }
-        s->video.frame = frame;
+        s->video.vid_frm = frame;
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->cv);
-        return true;
+        return ret;
 }
 
 static bool
@@ -220,21 +233,31 @@ display_file_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
 
-        codec_t codecs[VIDEO_CODEC_COUNT] = { 0 };
-        int     count                     = 0;
-        for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
-                if (get_ug_to_av_pixfmt(i)) {
-                        codecs[count++] = i;
+        switch (property) {
+        case DISPLAY_PROPERTY_CODECS: {
+                codec_t codecs[VIDEO_CODEC_COUNT] = { 0 };
+                int     count                     = 0;
+                for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+                        if (get_ug_to_av_pixfmt(i)) {
+                                codecs[count++] = i;
+                        }
                 }
-        }
-        const size_t c_len = count * sizeof codecs[0];
-        if (property == DISPLAY_PROPERTY_CODECS) {
+                const size_t c_len = count * sizeof codecs[0];
                 assert(c_len <= *len);
                 memcpy(val, codecs, c_len);
                 *len = c_len;
-                return true;
+                break;
         }
-        return false;
+        case DISPLAY_PROPERTY_AUDIO_FORMAT: {
+                struct audio_desc *desc = val;
+                assert(*len == (int) sizeof *desc);
+                desc->codec = AC_PCM;
+                break;
+        }
+        default:
+                return false;
+        }
+        return true;
 }
 
 static bool
@@ -247,28 +270,99 @@ display_file_reconfigure(void *state, struct video_desc desc)
 }
 
 static bool
-reconfigure_video(struct state_file *s, struct video_desc desc)
+configure_audio(struct state_file *s, struct audio_desc aud_desc)
 {
-        s->video.st->time_base = (AVRational){ get_framerate_d(desc.fps),
-                                               get_framerate_n(desc.fps) };
+        avcodec_free_context(&s->audio.enc);
+        enum AVCodecID codec_id = AV_CODEC_ID_NONE;
+        switch (aud_desc.bps) {
+        case 1:
+                codec_id = AV_CODEC_ID_PCM_U8;
+                break;
+        case 2:
+                codec_id = AV_CODEC_ID_PCM_S16LE;
+                break;
+        case 3:
+        case 4:
+                codec_id = AV_CODEC_ID_PCM_S32LE;
+                break;
+        default:
+                abort();
+        }
+        const AVCodec *codec = avcodec_find_encoder(codec_id);
+        assert(codec != NULL);
+        s->audio.enc             = avcodec_alloc_context3(codec);
+        s->audio.enc->sample_fmt = audio_bps_to_sample_fmt(aud_desc.bps);
+        s->audio.enc->ch_layout  = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+            aud_desc.ch_count, (1 << aud_desc.ch_count) - 1);
+        s->audio.enc->sample_rate = aud_desc.sample_rate;
+        s->audio.st->time_base    = (AVRational){ 1, aud_desc.sample_rate };
+
+        int ret = avcodec_open2(s->audio.enc, codec, NULL);
+        if (ret < 0) {
+                error_msg(MOD_NAME "audio avcodec_open2: %s\n",
+                          av_err2str(ret));
+                return false;
+        }
+
+        ret = avcodec_parameters_from_context(s->audio.st->codecpar,
+                                              s->audio.enc);
+        if (ret < 0) {
+                error_msg(MOD_NAME
+                          "Could not copy audio stream parameters: %s\n",
+                          av_err2str(ret));
+                return false;
+        }
+
+        return true;
+}
+
+static bool
+initialize(struct state_file *s, struct video_desc *saved_vid_desc,
+           const struct video_frame *vid_frm, struct audio_desc *saved_aud_desc,
+           const AVFrame *aud_frm)
+{
+        if (!vid_frm || (s->audio.st != NULL && !aud_frm)) {
+                log_msg(LOG_LEVEL_INFO, "Waiting for all streams to init.\n");
+                return false;
+        }
+
+        const struct video_desc vid_desc = video_desc_from_frame(vid_frm);
+
+        // video
+        s->video.st->time_base = (AVRational){ get_framerate_d(vid_desc.fps),
+                                               get_framerate_n(vid_desc.fps) };
         const AVCodec *codec   = avcodec_find_encoder(AV_CODEC_ID_RAWVIDEO);
+        assert(codec != NULL);
         avcodec_free_context(&s->video.enc);
         s->video.enc            = avcodec_alloc_context3(codec);
-        s->video.enc->width     = (int) desc.width;
-        s->video.enc->height    = (int) desc.height;
+        s->video.enc->width     = (int) vid_desc.width;
+        s->video.enc->height    = (int) vid_desc.height;
         s->video.enc->time_base = s->video.st->time_base;
-        s->video.enc->pix_fmt   = get_ug_to_av_pixfmt(desc.color_spec);
+        s->video.enc->pix_fmt   = get_ug_to_av_pixfmt(vid_desc.color_spec);
         int ret                 = avcodec_open2(s->video.enc, codec, NULL);
         if (ret < 0) {
-                error_msg(MOD_NAME "avcodec_open2: %s\n", av_err2str(ret));
+                error_msg(MOD_NAME "video avcodec_open2: %s\n",
+                          av_err2str(ret));
                 return false;
         }
         ret = avcodec_parameters_from_context(s->video.st->codecpar,
                                               s->video.enc);
         if (ret < 0) {
-                error_msg(MOD_NAME "Could not copy the stream parameters: %s\n",
+                error_msg(MOD_NAME
+                          "Could not copy video stream parameters: %s\n",
                           av_err2str(ret));
                 return false;
+        }
+        *saved_vid_desc = vid_desc;
+
+        // audio
+        if (aud_frm != NULL) {
+                const struct audio_desc aud_desc =
+                    audio_desc_from_av_frame(aud_frm);
+                if (!configure_audio(s, aud_desc)) {
+                        return false;
+                }
+                *saved_aud_desc = aud_desc;
         }
 
         av_dump_format(s->format_ctx, 0, s->filename, 1);
@@ -286,32 +380,57 @@ reconfigure_video(struct state_file *s, struct video_desc desc)
 }
 
 static void
-write_video_frame(struct state_file *s, AVFrame *frame)
+write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
+            AVFrame *frame)
 {
-        int ret = avcodec_send_frame(s->video.enc, frame);
+        frame->pts = ost->cur_pts;
+        int ret    = avcodec_send_frame(ost->enc, frame);
         if (ret < 0) {
-                error_msg(MOD_NAME "avcodec_send_frame: %s\n", av_err2str(ret));
+                error_msg(MOD_NAME "avcodec_send_frame: %s\n",
+                          av_err2str(ret));
                 return;
         }
         while (ret >= 0) {
-                ret = avcodec_receive_packet(s->video.enc, s->video.pkt);
+                ret = avcodec_receive_packet(ost->enc, ost->pkt);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                         break;
                 }
                 if (ret < 0) {
-                        error_msg(MOD_NAME "avcodec_receive_frame: %s\n",
+                        error_msg(MOD_NAME "video avcodec_receive_frame: %s\n",
                                   av_err2str(ret));
                         return;
                 }
-                av_packet_rescale_ts(s->video.pkt, s->video.enc->time_base,
-                                     s->video.st->time_base);
-                s->video.pkt->stream_index = s->video.st->index;
-                ret = av_interleaved_write_frame(s->format_ctx, s->video.pkt);
+                av_packet_rescale_ts(ost->pkt, ost->enc->time_base,
+                                     ost->st->time_base);
+                ost->pkt->stream_index = ost->st->index;
+                ret = av_interleaved_write_frame(format_ctx, ost->pkt);
                 if (ret < 0) {
-                        error_msg(MOD_NAME "error writting packet: %s\n",
+                        error_msg(MOD_NAME "error writting video packet: %s\n",
                                   av_err2str(ret));
                 }
         }
+}
+
+static bool
+check_reconf(struct video_desc *saved_vid_desc,
+           const struct video_frame *vid_frm, struct audio_desc *saved_aud_desc,
+           const AVFrame *aud_frm)
+{
+        if (vid_frm != NULL) {
+                const struct video_desc cur_vid_desc =
+                    video_desc_from_frame(vid_frm);
+                if (!video_desc_eq(*saved_vid_desc, cur_vid_desc)) {
+                        return false;
+                }
+        }
+        if (aud_frm) {
+                const struct audio_desc cur_aud_desc =
+                    audio_desc_from_av_frame(aud_frm);
+                if (!audio_desc_eq(*saved_aud_desc, cur_aud_desc)) {
+                        return false;
+                }
+        }
+        return true;
 }
 
 static void *
@@ -319,36 +438,103 @@ worker(void *arg)
 {
         struct state_file *s = arg;
 
-        struct video_desc saved_vid_desc = { 0 };
+        struct video_desc   saved_vid_desc = { 0 };
+        struct audio_desc   saved_aud_desc = { 0 };
+        struct video_frame *vid_frm        = NULL;
+        AVFrame            *aud_frm        = NULL;
 
         while (!s->should_exit) {
-                struct video_frame *frame = NULL;
                 pthread_mutex_lock(&s->lock);
-                while (s->video.frame == NULL && !s->should_exit) {
+                while (s->audio.aud_frm == NULL && s->video.vid_frm == NULL &&
+                       !s->should_exit) {
                         pthread_cond_wait(&s->cv, &s->lock);
                 }
                 if (s->should_exit) {
                         break;
                 }
-                frame = s->video.frame;
-                s->video.frame = NULL;
+                if (s->video.vid_frm) {
+                        vf_free(vid_frm);
+                        vid_frm = s->video.vid_frm;
+                }
+                if (s->audio.aud_frm) {
+                        av_frame_free(&aud_frm);
+                        aud_frm = s->audio.aud_frm;
+                }
+                s->video.vid_frm = NULL;
+                s->audio.aud_frm = NULL;
                 pthread_mutex_unlock(&s->lock);
-                const struct video_desc frame_desc =
-                    video_desc_from_frame(frame);
-                if (!video_desc_eq(saved_vid_desc, frame_desc)) {
-                        if (!reconfigure_video(s, frame_desc)) {
-                                exit_uv(1);
-                                vf_free(frame);
+
+                if (!s->initialized) {
+                        if (!initialize(s, &saved_vid_desc, vid_frm,
+                                        &saved_aud_desc, aud_frm)) {
                                 continue;
                         }
-                        saved_vid_desc = frame_desc;
                 }
-                write_video_frame(s, frame->callbacks.dispose_udata);
-                vf_free(frame);
+
+                if (!check_reconf(&saved_vid_desc, vid_frm, &saved_aud_desc,
+                                  aud_frm)) {
+                        error_msg(MOD_NAME "Reconfiguration not implemented. "
+                                           "Let us know if desired.\n");
+                        continue;
+                }
+
+                if (aud_frm) {
+                        write_frame(s->format_ctx, &s->audio,
+                                    aud_frm);
+                        s->audio.cur_pts += aud_frm->nb_samples;
+                        av_frame_free(&aud_frm);
+                }
+                if (vid_frm) {
+                        AVFrame *frame = vid_frm->callbacks.dispose_udata;
+                        write_frame(s->format_ctx, &s->video, frame);
+                        s->video.cur_pts += 1;
+                        vf_free(vid_frm);
+                        vid_frm = NULL;
+                }
         }
+        vf_free(vid_frm);
+        av_frame_free(&aud_frm);
 
         pthread_mutex_unlock(&s->lock);
         return NULL;
+}
+
+static void
+display_file_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        struct state_file *s = state;
+
+        AVFrame *av_frm   = av_frame_alloc();
+        av_frm->format    = audio_bps_to_sample_fmt(frame->bps);
+        av_frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+            frame->ch_count, (frame->ch_count << 1) - 1);
+        av_frm->sample_rate = frame->sample_rate;
+        av_frm->nb_samples  = frame->data_len / frame->ch_count / frame->bps;
+
+        int ret = av_frame_get_buffer(av_frm, 0);
+        if (ret < 0) {
+                error_msg(MOD_NAME "audio buf alloc: %s\n", av_err2str(ret));
+                av_frame_free(&av_frm);
+                return;
+        }
+        memcpy(av_frm->data[0], frame->data, frame->data_len);
+        pthread_mutex_lock(&s->lock);
+        if (s->audio.aud_frm != NULL) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Audio frame dropped!\n");
+                av_frame_free(&s->audio.aud_frm);
+        }
+        s->audio.aud_frm = av_frm;
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->cv);
+}
+
+static bool
+display_file_reconfigure_audio(void *state, int quant_samples, int channels,
+                              int sample_rate)
+{
+        UNUSED(state), UNUSED(quant_samples), UNUSED(channels),
+            UNUSED(sample_rate);
+        return true;
 }
 
 static const void *
@@ -363,8 +549,8 @@ display_file_info_get()
                 display_file_putf,
                 display_file_reconfigure,
                 display_file_get_property,
-                NULL,
-                NULL,
+                display_file_put_audio_frame,
+                display_file_reconfigure_audio,
                 MOD_NAME,
         };
         return &display_file_info;

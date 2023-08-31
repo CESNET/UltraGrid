@@ -200,7 +200,8 @@ bool video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned
                 ((excluded_params & PARAM_FPS) || fabs(a.fps - b.fps) < 0.01);// &&
 }
 
-struct video_desc video_desc_from_frame(struct video_frame *frame)
+struct video_desc
+video_desc_from_frame(const struct video_frame *frame)
 {
         struct video_desc desc;
 

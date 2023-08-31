@@ -205,7 +205,7 @@ codec_t get_codec_from_name(const char *name) {
         }
 }
 
-struct video_desc video_desc_from_frame(struct video_frame *frame)
+struct video_desc video_desc_from_frame(const struct video_frame *frame)
 {
         struct video_desc desc;
 

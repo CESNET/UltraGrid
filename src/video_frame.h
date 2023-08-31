@@ -156,7 +156,7 @@ bool video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned
 /**
  * @brief Returns struct video_desc from video frame
  */
-struct video_desc video_desc_from_frame(struct video_frame *frame);
+struct video_desc video_desc_from_frame(const struct video_frame *frame);
 /**
  * @brief Returns description of interlacing
  * Eg. "progressive"

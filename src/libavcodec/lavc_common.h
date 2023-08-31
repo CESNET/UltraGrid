@@ -37,6 +37,7 @@
 #ifndef LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
 #define LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
 
+#include "audio/types.h"
 #include "debug.h"
 #include "types.h"
 
@@ -49,6 +50,7 @@ extern "C" {
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/samplefmt.h>
 #include <libavutil/version.h>
 
 #ifdef __cplusplus
@@ -111,6 +113,8 @@ int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) __attribute__((const));
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
 void lavd_flush(AVCodecContext *codec_ctx);
 const char *lavc_thread_type_to_str(int thread_type);
+struct audio_desc audio_desc_from_av_frame(const AVFrame *frm);
+enum AVSampleFormat audio_bps_to_sample_fmt(int bps);
 
 #ifdef __cplusplus
 }
