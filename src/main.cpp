@@ -1417,6 +1417,7 @@ int main(int argc, char *argv[])
         signal(SIGTERM, signal_handler);
 #ifndef WIN32
         signal(SIGHUP, signal_handler);
+        signal(SIGPIPE, signal_handler);
 #endif
 
 #ifdef USE_RT
