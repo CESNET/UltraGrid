@@ -25,6 +25,7 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/dbus_portal.hpp"
 #include "utils/synchronized_queue.h"
 #include "utils/profile_timer.hpp"
 #include "video.h"
@@ -40,199 +41,6 @@ static constexpr int MAX_BUFFERS_PW = 10;
 static constexpr int QUEUE_SIZE = 3;
 static constexpr int DEFAULT_EXPECTING_FPS = 30;
 
-struct request_path_t {
-        std::string token;
-        std::string path;
-
-        static request_path_t create(const std::string &name) {
-                ++token_counter;
-
-                auto token = std::string("uv") + std::to_string(token_counter);
-                request_path_t result = {
-                        .token = token,
-                        .path = std::string("/org/freedesktop/portal/desktop/request/") + name + "/" + token
-                };
-
-                LOG(LOG_LEVEL_DEBUG) << "new request: '" << result.path << "'\n";
-                return result;
-        }
-
-private:
-        static unsigned int token_counter;
-};
-
-unsigned int request_path_t::token_counter = 0;
-
-struct session_path_t {
-        std::string token;
-        std::string path;
-
-        static session_path_t create(const std::string &name) {
-                ++token_counter;
-
-                auto token = std::string("uv") + std::to_string(token_counter);
-                return {
-                        .token = token,
-                        .path = std::string("/org/freedesktop/portal/desktop/session/") + name + "/" + token
-                };
-        }
-
-private:
-        static unsigned int token_counter;
-};
-
-unsigned int session_path_t::token_counter = 0;
-
-struct GVariant_deleter { void operator()(GVariant *a) { g_variant_unref(a); } };
-using GVariant_uniq = std::unique_ptr<GVariant, GVariant_deleter>;
-
-using PortalCallCallback = std::function<void(uint32_t response, GVariant *results)>;
-
-class ScreenCastPortal {
-private:
-        GMainLoop *dbus_loop;
-        GDBusConnection *connection;
-        GDBusProxy *screencast_proxy;
-        std::string unique_name;
-        session_path_t session;
-public:
-        // see https://flatpak.github.io/xdg-desktop-portal/#gdbus-signal-org-freedesktop-portal-Request.Response
-        static constexpr uint32_t REQUEST_RESPONSE_OK = 0;
-        static constexpr uint32_t REQUEST_RESPONSE_CANCELLED_BY_USER = 1;
-        static constexpr uint32_t REQUEST_RESPONSE_OTHER_ERROR = 2;
-
-        ScreenCastPortal() 
-        {
-                GError *error = nullptr;
-                
-                dbus_loop = g_main_loop_new(nullptr, false);
-                connection = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
-                g_assert_no_error(error);
-                assert(connection != nullptr);
-
-                unique_name = g_dbus_connection_get_unique_name(connection) + 1;
-                std::replace(unique_name.begin(), unique_name.end(), '.', '_');
-                screencast_proxy = g_dbus_proxy_new_sync(
-                                connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
-                                "org.freedesktop.portal.Desktop",
-                                "/org/freedesktop/portal/desktop",
-                                "org.freedesktop.portal.ScreenCast", nullptr, &error);
-                g_assert_no_error(error); 
-                assert(screencast_proxy != nullptr);
-                
-                session = session_path_t::create(unique_name);
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "session path: '" << session.path << "'" << " token: '" << session.token << "'\n";
-        }
-        
-        void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, 
-                                                        std::promise<std::string>& error_msg, PortalCallCallback &on_response)
-        {
-                assert(method_name != nullptr);
-                request_path_t request_path = request_path_t::create(sender_name());
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
-                auto response_callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
-                                        const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
-                                        gpointer user_data) {
-                        (void) sender_name;
-                        (void) interface_name;
-                        (void) signal_name;
-                        
-                        
-                        uint32_t response;
-                        GVariant_uniq results;
-                        g_variant_get(parameters, "(u@a{sv})", &response, out_ptr(results).operator GVariant**());
-
-                        static_cast<const PortalCallCallback *> (user_data)->operator()(response, results.get());
-                        g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
-                                        object_path, "org.freedesktop.portal.Request", "Close",
-                                        nullptr, nullptr, G_DBUS_CALL_FLAGS_NONE, -1, nullptr, nullptr, nullptr);
-                };
-
-                g_dbus_connection_signal_subscribe(connection, "org.freedesktop.portal.Desktop",
-                                                                                "org.freedesktop.portal.Request",
-                                                                                "Response",
-                                                                                request_path.path.c_str(),
-                                                                                nullptr,
-                                                                                G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
-                                                                                response_callback,
-                                                                                const_cast<void*>(static_cast<const void*>(&on_response)),
-                                                                                nullptr);
-
-                auto call_finished = [](GObject *source_object, GAsyncResult *result, gpointer user_data) {
-                        auto& error_msg = *static_cast<std::promise<std::string>*>(user_data);
-                        GError *error = nullptr;
-                        GVariant_uniq result_finished(g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error));
-                        
-                        if(error != nullptr){
-                                error_msg.set_value(error->message == nullptr ? "unknown error" : error->message);
-                                return;
-                        }
-
-                        const char *path = nullptr;
-                        g_variant_get(result_finished.get(), "(o)", &path);
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "call_with_request finished: '" << path << "'\n";
-                };
-
-
-                g_variant_builder_add(&params_builder, "{sv}", "handle_token", g_variant_new_string(request_path.token.c_str()));
-                
-                GVariantBuilder args_builder;
-                g_variant_builder_init(&args_builder, G_VARIANT_TYPE_TUPLE);
-                for(GVariant* arg : arguments){
-                        g_variant_builder_add_value(&args_builder, arg);
-                }
-                g_variant_builder_add_value(&args_builder, g_variant_builder_end(&params_builder));
-
-                g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, &error_msg);     
-        }
-
-        void run_loop() {
-                g_main_loop_run(dbus_loop);
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "finished dbus loop \n";
-        }
-
-        void quit_loop() {
-                g_main_loop_quit(dbus_loop);
-        }
-
-        GDBusProxy *proxy() {
-                return screencast_proxy;
-        }
-
-        GDBusConnection *dbus_connection() const {
-                return connection;
-        }
-
-        const std::string& sender_name() const
-        {
-                return unique_name;
-        }
-
-        const std::string& session_path() const
-        {
-                return session.path;
-        }
-
-        const std::string& session_token() const
-        {
-                return session.token;
-        }
-
-        ~ScreenCastPortal() {
-                g_dbus_connection_call(dbus_connection(),
-                                        "org.freedesktop.portal.Desktop",
-                                        session.path.c_str(),
-                                        "org.freedesktop.portal.Session",
-                                        "Close", nullptr, nullptr,
-                                        G_DBUS_CALL_FLAGS_NONE, -1, nullptr, nullptr,
-                                        nullptr);
-                g_main_loop_quit(dbus_loop);
-                g_object_unref(screencast_proxy);
-                g_object_unref(connection);
-                g_main_loop_unref(dbus_loop);
-        }
-};
-
 struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
 using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 
@@ -246,17 +54,15 @@ struct screen_cast_session {
 
         video_desc desc = {};
 
+
+        ScreenCastPortal portal;
+
         struct {
                 bool show_cursor = false;
                 std::string restore_file = "";
                 uint32_t fps = 0;
                 bool crop = true;
         } user_options;
-
-        std::unique_ptr<ScreenCastPortal> portal;
-
-        // empty string if no error occured, or an error message
-        std::promise<std::string> init_error;
 
         struct pw_{
                 pw_() {
@@ -378,8 +184,6 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         }
         
         pw_stream_update_params(session.pw.stream, params, n_params);
-
-        session.init_error.set_value("");
 }
 
 static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_video_format fmt, spa_rectangle size, const spa_region *crop){
@@ -609,168 +413,6 @@ static int start_pipewire(screen_cast_session &session)
         return 0;
 }
 
-static void on_portal_session_closed(GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
-                                                                        const gchar *interface_name, const gchar *signal_name, GVariant *parameters, gpointer user_data)
-{
-        (void) connection;
-        (void) sender_name;
-        (void) object_path;
-        (void) interface_name;
-        (void) signal_name;
-        (void) parameters;
-        auto &session = *static_cast<screen_cast_session*>(user_data);
-        //TODO: check if this is fired by newer Gnome 
-        LOG(LOG_LEVEL_INFO) << MOD_NAME "session closed by compositor\n";
-        pw_thread_loop_stop(session.pw.loop);
-}
-
-static void run_screencast(screen_cast_session *session_ptr) {
-        auto& session = *session_ptr;
-        session.portal = std::make_unique<ScreenCastPortal>();
-
-        session.pw.fd = -1;
-        session.pw.node = UINT32_MAX;
-        
-        g_dbus_connection_signal_subscribe(session.portal->dbus_connection(), 
-                                                                           nullptr, // sender
-                                                                           "org.freedesktop.portal.Session", // interface_name
-                                                                           "closed", //signal name
-                                                                           session.portal->session_path().c_str(), // object path
-                                                                           nullptr, // arg0
-                                                                           G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
-                                                                           on_portal_session_closed,
-                                                                           session_ptr,
-                                                                           nullptr);
-
-        auto pipewire_opened = [](GObject *source, GAsyncResult *res, void *user_data) {
-                auto session = static_cast<screen_cast_session*>(user_data);
-                GError *error = nullptr;
-                GUnixFDList *fd_list = nullptr;
-
-                GVariant_uniq result(g_dbus_proxy_call_with_unix_fd_list_finish(G_DBUS_PROXY(source), &fd_list, res, &error));
-                g_assert_no_error(error);
-
-                gint32 handle;
-                g_variant_get(result.get(), "(h)", &handle);
-                assert(handle == 0); //it should always be the first index
-
-                session->pw.fd = g_unix_fd_list_get(fd_list, handle, &error);
-                g_assert_no_error(error);
-
-                assert(session->pw.fd != -1);
-                assert(session->pw.node != UINT32_MAX);
-                
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "starting pipewire\n";
-                start_pipewire(*session);
-        };
-
-        PortalCallCallback started = [&](uint32_t response, GVariant *results) {
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "started: " << g_variant_print(results, true) << "\n";
-                
-                if(response == ScreenCastPortal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
-                        session.init_error.set_value("failed to start (dialog cancelled by user)");
-                        return;
-                } else if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
-                        session.init_error.set_value("failed to start (unknown reason)");
-                        return;
-                }
-
-                const char *restore_token = nullptr;
-                if (g_variant_lookup(results, "restore_token", "s", &restore_token)){
-                        if(session.user_options.restore_file.empty()){
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "got unexpected restore_token from ScreenCast portal, ignoring it\n";
-                        }else{
-                                std::ofstream file(session.user_options.restore_file);
-                                file<<restore_token;
-                        }
-                }
-                
-                GVariant *streams = g_variant_lookup_value(results, "streams", G_VARIANT_TYPE_ARRAY);
-                GVariant *stream_properties;
-                GVariantIter iter;
-                g_variant_iter_init(&iter, streams);
-                assert(g_variant_iter_n_children(&iter) == 1);
-                bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pw.node, &stream_properties);
-                assert(got_item);
-
-                GVariantBuilder builder;
-                g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_dbus_proxy_call_with_unix_fd_list(session.portal->proxy(), "OpenPipeWireRemote",
-                                                                                        g_variant_new("(oa{sv})", session.portal->session_path().c_str(), &builder),
-                                                                                        G_DBUS_CALL_FLAGS_NONE, -1,
-                                                                                        nullptr, nullptr, pipewire_opened, &session);
-                g_variant_builder_clear(&builder);
-        };
-
-        PortalCallCallback sources_selected = [&](uint32_t response, GVariant *results) {
-                gchar *pretty = g_variant_print(results, true);
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "selected sources: " << pretty << "\n";
-                g_free((gpointer) pretty);
-
-                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
-                        session.init_error.set_value("Failed to select sources");
-                        return;
-                }
-
-                {
-                        GVariantBuilder options;
-                        g_variant_builder_init(&options, G_VARIANT_TYPE_VARDICT);
-                        session.portal->call_with_request("Start", {g_variant_new_object_path(session.portal->session_path().c_str()),  /*parent window: */ g_variant_new_string("")}, options, session.init_error, started);
-                }
-        };
-
-        PortalCallCallback session_created = [&](uint32_t response, GVariant *results) {
-                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
-                        session.init_error.set_value("Failed to create session");
-                        return;
-                }
-                
-                const char *session_handle = nullptr;
-                g_variant_lookup(results, "session_handle", "s", &session_handle);
-                
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME "session created with handle: " << session_handle << "\n";
-                assert(session.portal->session_path() == session_handle);
-                
-                {
-                        GVariantBuilder params;
-                        g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
-                        g_variant_builder_add(&params, "{sv}", "types", g_variant_new_uint32(3)); // 1 full screen, 2 - a window, 3 - both
-                        g_variant_builder_add(&params, "{sv}", "multiple", g_variant_new_boolean(false));
-                        if(session.user_options.show_cursor)
-                                g_variant_builder_add(&params, "{sv}", "cursor_mode", g_variant_new_uint32(2));
-                        
-                        if(!session.user_options.restore_file.empty()){
-                                std::string token;
-                                std::ifstream file(session.user_options.restore_file);
-
-                                if(file.is_open()) {
-                                        std::ostringstream ss;
-                                        ss << file.rdbuf();
-                                        token = ss.str();
-                                }
-                                
-                                //  0: Do not persist (default), 1: Permissions persist as long as the application is running, 2: Permissions persist until explicitly revoked
-                                g_variant_builder_add(&params, "{sv}", "persist_mode", g_variant_new_uint32(2)); 
-                                if(!token.empty())
-                                        g_variant_builder_add(&params, "{sv}", "restore_token", g_variant_new_string(token.c_str())); 
-                        }
-
-                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session.portal->session_path().c_str())}, params, session.init_error, sources_selected);
-                }
-        };
-
-
-        {
-                GVariantBuilder params;
-                g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
-                g_variant_builder_add(&params, "{sv}", "session_handle_token", g_variant_new_string(session.portal->session_token().c_str()));
-                
-                session.portal->call_with_request("CreateSession", {}, params, session.init_error, session_created);
-        }
-        
-        session.portal->run_loop();
-}
-
 static void vidcap_screen_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
@@ -802,7 +444,7 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
                 std::string param;
                 while (std::getline(params_stream, param, ':')) {
                         if (param == "help") {
-                                        show_help();
+                                        show_help();//session.init_error
                                         return VIDCAP_INIT_NOERR;
                         } else if (param == "cursor") {
                                 session.user_options.show_cursor = true;
@@ -850,20 +492,17 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         for(int i = 0; i < QUEUE_SIZE; i++)
                 session.blank_frames.emplace_back(vf_alloc(1));
 
-        std::future<std::string> future_error = session.init_error.get_future();
-        std::thread dbus_thread(run_screencast, &session);
-        future_error.wait();
+        auto portalResult = session.portal.run(session.user_options.restore_file, session.user_options.show_cursor);
         
-        if (std::string error_msg = future_error.get(); !error_msg.empty()) {
-                LOG(LOG_LEVEL_FATAL) << MOD_NAME << error_msg << "\n";
-                session.portal->quit_loop();
-                dbus_thread.join();
+        if (portalResult.pipewire_fd == -1) {
                 return VIDCAP_INIT_FAIL;
         }
 
-        dbus_thread.detach();
+        session.pw.fd = portalResult.pipewire_fd;
+        session.pw.node = portalResult.pipewire_node;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
+        start_pipewire(session);
         return VIDCAP_INIT_OK;
 }
 
