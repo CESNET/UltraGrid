@@ -38,6 +38,7 @@
 #include <assert.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <pthread.h>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -54,10 +55,11 @@
 #define MOD_NAME "[File disp.] "
 
 struct output_stream {
-        AVStream         *st;
-        AVCodecContext   *enc;
-        AVPacket         *pkt;
-        AVFrame          *frame;
+        AVStream           *st;
+        AVCodecContext     *enc;
+        AVPacket           *pkt;
+        long long int       cur_pts;
+        struct video_frame *frame;
 };
 
 struct state_file {
@@ -65,7 +67,14 @@ struct state_file {
         struct output_stream video;
         struct video_desc    video_desc;
         char                 filename[MAX_PATH_SIZE];
+        pthread_t            thread_id;
+        pthread_mutex_t      lock;
+        pthread_cond_t       cv;
+        bool                 initialized;
+        bool                 should_exit;
 };
+
+static void *worker(void *arg);
 
 static void
 display_file_probe(struct device_info **available_cards, int *count,
@@ -82,12 +91,16 @@ static void
 display_file_done(void *state)
 {
         struct state_file *s = state;
-        av_write_trailer(s->format_ctx);
+        pthread_join(s->thread_id, NULL);
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->cv);
+        if (s->initialized) {
+                av_write_trailer(s->format_ctx);
+        }
         avcodec_free_context(&s->video.enc);
         if (!(s->format_ctx->oformat->flags & AVFMT_NOFILE)) {
                 avio_closep(&s->format_ctx->pb);
         }
-        av_frame_free(&s->video.frame);
         av_packet_free(&s->video.pkt);
         free(s);
 }
@@ -135,55 +148,70 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
                         return NULL;
                 }
         }
-        s->video.frame = av_frame_alloc();
         s->video.pkt   = av_packet_alloc();
 
+        int ret = pthread_mutex_init(&s->lock, NULL);
+        ret |= pthread_cond_init(&s->cv, NULL);
+        ret |= pthread_create(&s->thread_id, NULL, worker, s);
+        assert(ret == 0);
+
         return s;
+}
+
+static void
+delete_frame(struct video_frame *frame)
+{
+        AVFrame *avfrm = frame->callbacks.dispose_udata;
+        av_frame_free(&avfrm);
 }
 
 static struct video_frame *
 display_file_getf(void *state)
 {
         struct state_file  *s   = state;
-        struct video_frame *out = vf_alloc_desc(s->video_desc);
-        out->tiles[0].data      = (char *) s->video.frame->data[0];
+        AVFrame            *frame = av_frame_alloc();
+
+        frame->format = get_ug_to_av_pixfmt(s->video_desc.color_spec);
+        frame->width  = (int) s->video_desc.width;
+        frame->height = (int) s->video_desc.height;
+        frame->pts    = s->video.cur_pts++;
+        int ret       = av_frame_get_buffer(frame, 0);
+        if (ret < 0) {
+                error_msg(MOD_NAME "Could not allocate frame data: %s.\n",
+                          av_err2str(ret));
+                av_frame_free(&frame);
+                return NULL;
+        }
+        struct video_frame *out      = vf_alloc_desc(s->video_desc);
+        out->tiles[0].data           = (char *) frame->data[0];
+        out->callbacks.dispose_udata = frame;
+        out->callbacks.data_deleter  = delete_frame;
         return out;
 }
 
 static bool
 display_file_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
-        vf_free(frame); // not needed
         if (timeout_ns == PUTF_DISCARD) {
                 return true;
         }
         struct state_file *s = state;
-
-        int ret = avcodec_send_frame(s->video.enc, s->video.frame);
-        s->video.frame->pts += 1;
-        if (ret < 0) {
-                error_msg(MOD_NAME "avcodec_send_frame: %s\n", av_err2str(ret));
+        pthread_mutex_lock(&s->lock);
+        if (frame == NULL) {
+                s->should_exit = true;
+                pthread_mutex_unlock(&s->lock);
+                pthread_cond_signal(&s->cv);
+                return true;
+        }
+        if (s->video.frame != NULL) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
+                vf_free(frame);
+                pthread_mutex_unlock(&s->lock);
                 return false;
         }
-        while (ret >= 0) {
-                ret = avcodec_receive_packet(s->video.enc, s->video.pkt);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                        break;
-                }
-                if (ret < 0) {
-                        error_msg(MOD_NAME "avcodec_receive_frame: %s\n",
-                                  av_err2str(ret));
-                        return false;
-                }
-                av_packet_rescale_ts(s->video.pkt, s->video.enc->time_base,
-                                     s->video.st->time_base);
-                s->video.pkt->stream_index = s->video.st->index;
-                ret = av_interleaved_write_frame(s->format_ctx, s->video.pkt);
-                if (ret < 0) {
-                        error_msg(MOD_NAME "error writting packet: %s\n",
-                                  av_err2str(ret));
-                }
-        }
+        s->video.frame = frame;
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->cv);
         return true;
 }
 
@@ -214,7 +242,13 @@ display_file_reconfigure(void *state, struct video_desc desc)
 {
         struct state_file *s = state;
 
-        s->video_desc          = desc;
+        s->video_desc = desc;
+        return true;
+}
+
+static bool
+reconfigure_video(struct state_file *s, struct video_desc desc)
+{
         s->video.st->time_base = (AVRational){ get_framerate_d(desc.fps),
                                                get_framerate_n(desc.fps) };
         const AVCodec *codec   = avcodec_find_encoder(AV_CODEC_ID_RAWVIDEO);
@@ -236,16 +270,6 @@ display_file_reconfigure(void *state, struct video_desc desc)
                           av_err2str(ret));
                 return false;
         }
-        s->video.frame->format = s->video.enc->pix_fmt;
-        s->video.frame->width  = (int) desc.width;
-        s->video.frame->height = (int) desc.height;
-        s->video.frame->pts    = 0;
-        ret                    = av_frame_get_buffer(s->video.frame, 0);
-        if (ret < 0) {
-                error_msg(MOD_NAME "Could not allocate frame data: %s.\n",
-                          av_err2str(ret));
-                return false;
-        }
 
         av_dump_format(s->format_ctx, 0, s->filename, 1);
 
@@ -257,7 +281,74 @@ display_file_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
 
+        s->initialized = true;
         return true;
+}
+
+static void
+write_video_frame(struct state_file *s, AVFrame *frame)
+{
+        int ret = avcodec_send_frame(s->video.enc, frame);
+        if (ret < 0) {
+                error_msg(MOD_NAME "avcodec_send_frame: %s\n", av_err2str(ret));
+                return;
+        }
+        while (ret >= 0) {
+                ret = avcodec_receive_packet(s->video.enc, s->video.pkt);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;
+                }
+                if (ret < 0) {
+                        error_msg(MOD_NAME "avcodec_receive_frame: %s\n",
+                                  av_err2str(ret));
+                        return;
+                }
+                av_packet_rescale_ts(s->video.pkt, s->video.enc->time_base,
+                                     s->video.st->time_base);
+                s->video.pkt->stream_index = s->video.st->index;
+                ret = av_interleaved_write_frame(s->format_ctx, s->video.pkt);
+                if (ret < 0) {
+                        error_msg(MOD_NAME "error writting packet: %s\n",
+                                  av_err2str(ret));
+                }
+        }
+}
+
+static void *
+worker(void *arg)
+{
+        struct state_file *s = arg;
+
+        struct video_desc saved_vid_desc = { 0 };
+
+        while (!s->should_exit) {
+                struct video_frame *frame = NULL;
+                pthread_mutex_lock(&s->lock);
+                while (s->video.frame == NULL && !s->should_exit) {
+                        pthread_cond_wait(&s->cv, &s->lock);
+                }
+                if (s->should_exit) {
+                        break;
+                }
+                frame = s->video.frame;
+                s->video.frame = NULL;
+                pthread_mutex_unlock(&s->lock);
+                const struct video_desc frame_desc =
+                    video_desc_from_frame(frame);
+                if (!video_desc_eq(saved_vid_desc, frame_desc)) {
+                        if (!reconfigure_video(s, frame_desc)) {
+                                exit_uv(1);
+                                vf_free(frame);
+                                continue;
+                        }
+                        saved_vid_desc = frame_desc;
+                }
+                write_video_frame(s, frame->callbacks.dispose_udata);
+                vf_free(frame);
+        }
+
+        pthread_mutex_unlock(&s->lock);
+        return NULL;
 }
 
 static const void *
