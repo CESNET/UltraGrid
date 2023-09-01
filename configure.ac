@@ -231,26 +231,24 @@ AC_CHECK_HEADERS([termios.h])
 #           sure that the modular build won't take place
 # @param $2 object files
 # @param $3 libraries
-AC_DEFUN([ADD_MODULE], [
-        TARGET="lib/ultragrid/ultragrid_"$1".so"
+add_module() {
+        TARGET=lib/ultragrid/ultragrid_"$1".so
         if `echo "$1" | grep -q vcompress\|display_video_mix`; then
-                LIB_OBJS=$LIB_OBJS" "$2
-                LIB_MODULES=$LIB_MODULES" "$3
+                LIB_OBJS="$LIB_OBJS $2"
+                LIB_MODULES="$LIB_MODULES $3"
         else
-                UG_LIB_OBJS=$UG_LIB_OBJS" "$2
-                UG_LIB_MODULES=$UG_LIB_MODULES" "$3
+                UG_LIB_OBJS="$UG_LIB_OBJS $2"
+                UG_LIB_MODULES="$UG_LIB_MODULES $3"
         fi
-	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
-	  AM_COND_IF([IS_TARGET],
-		                [
+        if test -n "$1"; then
 				 MODULES="$MODULES $TARGET"
 				 TARGETS="$TARGETS
-$TARGET: "$2"
+$TARGET: $2
 	\$(MKDIR_P) lib/ultragrid
-	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3"
+	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_$1.so $2 -o lib/ultragrid/ultragrid_$1.so $3
 "
-				 ])
-          ])
+        fi
+}
 
 # ---------------------------------------------------------------------
 # Dylib bundler
@@ -595,8 +593,8 @@ if test "$dvs_req" != no; then
                 then
                         DVS_LIB="$DVS_LIB -framework IOKit"
                 fi
-                ADD_MODULE("vidcap_dvs", "$DVS_CAP_OBJ", "$DVS_LIB")
-                ADD_MODULE("display_dvs", "$DVS_DISP_OBJ", "$DVS_LIB")
+                add_module vidcap_dvs "$DVS_CAP_OBJ" "$DVS_LIB"
+                add_module display_dvs "$DVS_DISP_OBJ" "$DVS_LIB"
                 INC="$INC $DVS_INC"
                 dvs=yes
         fi
@@ -679,9 +677,9 @@ if test $decklink_req != no; then
                 else
                         DECK_COMMON_OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
                 fi
-                ADD_MODULE("vidcap_decklink", "$DECK_COMMON_OBJS $DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
-                ADD_MODULE("display_decklink", "$DECK_COMMON_OBJS $DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
-                ADD_MODULE("aplay_decklink", "$DECK_COMMON_OBJS $DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
+                add_module vidcap_decklink "$DECK_COMMON_OBJS $DECKLINK_CAP_OBJ" "$DECKLINK_LIB"
+                add_module display_decklink "$DECK_COMMON_OBJS $DECKLINK_DISP_OBJ" "$DECKLINK_LIB"
+                add_module aplay_decklink "$DECK_COMMON_OBJS $DECKLINK_SOUND_PLAY_OBJ" "$DECKLINK_LIB"
                 decklink=yes
                 INC="$INC $DECKLINK_INC"
         fi
@@ -745,8 +743,8 @@ if test "$bluefish444_req" != no; then
         if test $BLUE_H = yes -a $BLUE_L = yes
         then
                 BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
-                ADD_MODULE("vidcap_bluefish444", "src/video_capture/bluefish444.o", "$BLUEFISH444_LIB")
-                ADD_MODULE("display_bluefish444", "src/video_display/bluefish444.o", "$BLUEFISH444_LIB")
+                add_module vidcap_bluefish444 src/video_capture/bluefish444.o "$BLUEFISH444_LIB"
+                add_module display_bluefish444 src/video_display/bluefish444.o "$BLUEFISH444_LIB"
                 INC="$INC $BLUEFISH444_INC"
                 bluefish444=yes
         fi
@@ -818,7 +816,7 @@ if test "$aja_req" != no; then
         fi
 
         if test $aja = yes -a $system = Windows; then
-                ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
+                add_module aja src/aja_win32_stub.o -laja
         elif test $aja = yes; then # Linux and macOS
                 AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
                 if test $system = Linux; then
@@ -830,7 +828,7 @@ if test "$aja_req" != no; then
                         AJA_LIB="-lajantv2 -framework IOKit"
                 fi
 
-                ADD_MODULE("aja", "src/aja_common.o src/video_capture/aja.o src/video_display/aja.o", "$AJA_LIB")
+                add_module aja "src/aja_common.o src/video_capture/aja.o src/video_display/aja.o" "$AJA_LIB"
                 INC="$INC $AJA_INC"
                 CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
         fi
@@ -856,7 +854,7 @@ if test "$libjuice_req" != no; then
         if test "$FOUND_LIBJUICE" = yes
         then
                 libjuice=yes
-                ADD_MODULE("holepunch", "src/utils/udp_holepunch.o", "$LIBJUICE_LIB")
+                add_module holepunch src/utils/udp_holepunch.o "$LIBJUICE_LIB"
                 COMMON_FLAGS="$COMMON_FLAGS -DHAVE_LIBJUICE"
         fi
 fi
@@ -959,8 +957,8 @@ if test "$deltacast_req" != no; then
                 if test -n "$DELTACAST_PATH"; then
                         INC="$INC -I$DELTACAST_PATH/Include"
                 fi
-                ADD_MODULE("vidcap_deltacast", "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o", "$DELTACAST_LIB")
-                ADD_MODULE("display_deltacast", "src/video_display/deltacast.o", "$DELTACAST_LIB")
+                add_module vidcap_deltacast "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
+                add_module display_deltacast src/video_display/deltacast.o "$DELTACAST_LIB"
                 deltacast=yes
         fi
 fi
@@ -1046,7 +1044,7 @@ fi
 
 if test $ximea = yes; then
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"
-        ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
+        add_module vidcap_ximea src/video_capture/ximea.o "$XIMEA_LIBS"
 fi
 
 ENSURE_FEATURE_PRESENT([$ximea_req], [$ximea], [XIMEA SDK not found])
@@ -1065,7 +1063,7 @@ if test $system = MacOSX -a $avfoundation_req != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
-	ADD_MODULE("", "$AVFOUNDATION_OBJ", "$AVFOUNDATION_LIB")
+	add_module "" "$AVFOUNDATION_OBJ" "$AVFOUNDATION_LIB"
 	avfoundation=yes
 fi
 
@@ -1100,7 +1098,7 @@ if test "$sdl_req" != no; then
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
                 SDL_LIBS=$(remove_mwindows "$SDL_LIBS")
-                ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
+                add_module display_sdl "$SDL_OBJ" "$SDL_LIBS"
                 sdl_version_str=" (ver. $sdl_version)"
                 sdl=yes
         fi
@@ -1135,7 +1133,7 @@ if test "$vulkan_req" != no; then
         if test $sdl = yes && test $sdl_version = 2 && test $found_vulkan = yes; then
                 VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
                 VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
-                ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
+                add_module display_vulkan_sdl2 "$VULKAN_OBJ" "$VULKAN_LIBS"
                 VULKAN=vulkanEnabled
                 AC_SUBST(VULKAN)
                 vulkan=yes
@@ -1189,7 +1187,7 @@ if test $panogl_disp_req != no && test $sdl = yes && test $sdl_version = 2 && te
 then
         PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         PANOGL_LIBS=$SDL_LIBS
-        ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
+        add_module display_panogl "$PANOGL_OBJ" "$PANOGL_LIBS"
         INC="$INC $GLM_INC"
         panogl_disp=yes
 fi
@@ -1211,7 +1209,7 @@ if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; th
         if test "$FOUND_XRGL_DEPS" = yes; then
                 XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
                 XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
-                ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
+                add_module display_xrgl "$XRGLDISP_OBJ" "$XRGLDISP_LIBS"
                 INC="$INC $GLM_INC"
                 xrgl_disp=yes
         fi
@@ -1236,7 +1234,7 @@ if test $caca_req != no; then
                 AC_MSG_ERROR([caca requested but libcaca was not found!])
         fi
         if test "$caca_found" = yes; then
-                ADD_MODULE("display_caca", "src/video_display/caca.o", "$CACA_LIBS")
+                add_module display_caca src/video_display/caca.o "$CACA_LIBS"
                 caca=yes
         fi
 fi
@@ -1338,7 +1336,7 @@ if test "$rtsp_req" != no; then
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
                 RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-                ADD_MODULE("vidcap_rtsp", "$RTSP_OBJ", "$RTSP_LIBS")
+                add_module vidcap_rtsp "$RTSP_OBJ" "$RTSP_LIBS"
                 rtsp=yes
         fi
 fi
@@ -1389,7 +1387,7 @@ if test $rtsp_server_req != no; then
                 CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
                 RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
-                ADD_MODULE("video_rxtx_h264", "$RTSP_SERVER_OBJ", "$RTSP_SERVER_LIBS")
+                add_module video_rxtx_h264 "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
                 rtsp_server=yes
                 livemedia=yes
         fi
@@ -1435,7 +1433,7 @@ then
         CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$OPENCV_LIBS -lopencv_imgproc")
+        add_module vcapfilter_resize "$RESIZE_OBJ" "$OPENCV_LIBS -lopencv_imgproc"
         resize=yes
 fi
 
@@ -1470,7 +1468,7 @@ if test $blank_req != no; then
                 CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
                 CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
                 BLANK_OBJ="src/capture_filter/blank.o src/libavcodec/utils.o" # get_ug_to_av_pixfmt()
-                ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
+                add_module vcapfilter_blank "$BLANK_OBJ" "$BLANK_LIBS"
                 blank=yes
         fi
 fi
@@ -1518,7 +1516,7 @@ then
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
                 AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
         fi
-        ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
+        add_module vidcap_testcard2 "$TESTCARD2_OBJ" "$TESTCARD2_LIB"
         testcard2=yes
 fi
 
@@ -1594,7 +1592,7 @@ if test $lavc_hwacc_rpi4_req = yes; then
         if test "$FOUND_HWACC_RPI4_DEP" = yes; then
                 LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
                 LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
-                ADD_MODULE("rpi4_hw_accel", "src/video_display/rpi4_out.o", "${MMAL_LIBS} ${BCM_HOST_LIBS}")
+                add_module rpi4_hw_accel src/video_display/rpi4_out.o "${MMAL_LIBS} ${BCM_HOST_LIBS}"
                 lavc_hwacc_rpi4=yes
                 lavc_hwacc_common=yes
         fi
@@ -1700,9 +1698,9 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
-        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS")
-        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS")
-        ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
+        add_module vcompress_libavcodec "$LIBAVCODEC_COMPRESS_OBJ" "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS"
+        add_module vdecompress_libavcodec "$LIBAVCODEC_DECOMPRESS_OBJ" "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS"
+        add_module acompress_libavcodec "$LIBAVCODEC_AUDIO_CODEC_OBJ" "$LIBAVCODEC_LIBS"
 else
         HW_ACC_OBJ=
 fi
@@ -1739,7 +1737,8 @@ if test $vidcap_file_req != no && test $libavcodec = yes && test $libswscale = y
         if test $found_libavformat = yes; then
                 COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
                 vidcap_file=yes
-                ADD_MODULE("vidcap_file", "src/libavcodec/lavc_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+                add_module vidcap_file "src/libavcodec/lavc_common.o "\
+src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
         fi
 fi
 
@@ -1768,7 +1767,7 @@ then
                         HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
                 fi
                 COMMON_FLAGS="$COMMON_FLAGS $GLFW_CFLAGS"
-                ADD_MODULE("display_gl", "$GL_COMMON_OBJ $HW_ACC_OBJ src/video_display/gl.o", "$GL_LIB $LAVC_HWACC_LIBS")
+                add_module display_gl "$GL_COMMON_OBJ $HW_ACC_OBJ src/video_display/gl.o" "$GL_LIB $LAVC_HWACC_LIBS"
         fi
 fi
 
@@ -1791,7 +1790,7 @@ then
         swmix=yes
         SWMIX_LIB="$OPENGL_LIB"
         SWMIX_OBJ="$SWMIX_OBJ $GL_COMMON_OBJ src/video_capture/swmix.o"
-        ADD_MODULE("vidcap_swmix", "$SWMIX_OBJ", "$SWMIX_LIB")
+        add_module vidcap_swmix "$SWMIX_OBJ" "$SWMIX_LIB"
 fi
 
 if test $swmix_req = yes && test $swmix = no; then
@@ -1809,8 +1808,8 @@ AC_ARG_ENABLE(dshow,
     )
 
 if test $system = Windows -a $dshow_req != no; then
-        ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
-                   "-lstrmiids -luuid -lole32 -loleaut32") #-lstrmbase -ldxguid -ldmoguids
+        add_module ""  "src/video_capture/DirectShowGrabber.o" \
+                   "-lstrmiids -luuid -lole32 -loleaut32" #-lstrmbase -ldxguid -ldmoguids
         dshow=yes
 fi
 
@@ -1868,7 +1867,7 @@ if test "$system" = Linux && test $screen_cap_req != no && test $screen_cap_req 
                         AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
                         SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
                 fi
-                ADD_MODULE("vidcap_screen_x11", "src/video_capture/screen_x11.o src/x11_common.o", "$SCREEN_CAP_LIB")
+                add_module vidcap_screen_x11 "src/video_capture/screen_x11.o src/x11_common.o" "$SCREEN_CAP_LIB"
                 screen_modules="${screen_modules:+$screen_modules,}X11"
         fi
 fi
@@ -1892,7 +1891,7 @@ if test $found_screen_screen_pw_deps = yes; then
         INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
-        ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+        add_module vidcap_screen_pipewire "$SCREEN_CAP_PIPEWIRE_OBJ" "$SCREEN_CAP_PIPEWIRE_LIBS"
         screen_modules="${screen_modules:+$screen_modules,}pipewire"
 fi
 
@@ -1906,7 +1905,7 @@ then
                 SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
                 DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
         fi
-        ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
+        add_module vidcap_screen "$SCREEN_CAP_OBJ" "$SCREEN_CAP_LIB"
 else
         screen_cap=no
 fi
@@ -1948,10 +1947,8 @@ then
         RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         COMMON_FLAGS="$COMMON_FLAGS -Idxt_compress"
-        ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMPRESS_OBJ ",
-                  "$RTDXT_LIB")
-        ADD_MODULE("vdecompress_rtdxt", "$RTDXT_DECOMPRESS_OBJ ",
-                  "$RTDXT_LIB")
+        add_module vcompress_rtdxt "$RTDXT_COMPRESS_OBJ" "$RTDXT_LIB"
+        add_module vdecompress_rtdxt "$RTDXT_DECOMPRESS_OBJ" "$RTDXT_LIB"
         LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
 fi
 
@@ -1980,7 +1977,7 @@ fi
 if test $uyvy = yes
 then
         UYVY_COMPRESS_OBJ="$GL_COMMON_OBJ src/video_compress/uyvy.o"
-        ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$OPENGL_LIB")
+        add_module vcompress_uyvy "$UYVY_COMPRESS_OBJ" "$OPENGL_LIB"
 fi
 
 if test $uyvy_req = yes && test $uyvy = no; then
@@ -2180,8 +2177,8 @@ if test "$gpujpeg_req" != no && test "$found_gpujpeg" = yes; then
         GPUJPEG_COMPRESS_OBJ="src/video_compress/gpujpeg.o"
         GPUJPEG_DECOMPRESS_OBJ="src/video_decompress/gpujpeg.o "
         AC_DEFINE([HAVE_GPUJPEG], [1], [Build with GPUJPEG support])
-        ADD_MODULE("vcompress_gpujpeg", "$GPUJPEG_COMPRESS_OBJ", "$GPUJPEG_LIB")
-        ADD_MODULE("vdecompress_gpujpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
+        add_module vcompress_gpujpeg "$GPUJPEG_COMPRESS_OBJ" "$GPUJPEG_LIB"
+        add_module vdecompress_gpujpeg "$GPUJPEG_DECOMPRESS_OBJ" "$GPUJPEG_LIB"
 
 	INC="$INC $GPUJPEG_INC"
 fi
@@ -2224,7 +2221,7 @@ then
         DEFINE_CUDA_DXT
         CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
-        ADD_MODULE("vcompress_cuda_dxt", $CUDA_DXT_OBJ, "$CUDA_DXT_LIB")
+        add_module vcompress_cuda_dxt "$CUDA_DXT_OBJ" "$CUDA_DXT_LIB"
         CUDA_MESSAGE
 fi
 
@@ -2249,7 +2246,7 @@ then
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
         GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
         GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
-        ADD_MODULE("vdecompress_gpujpeg_to_dxt", $GPUJPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
+        add_module vdecompress_gpujpeg_to_dxt "$GPUJPEG_TO_DXT_OBJ" "$GPUJPEG_TO_DXT_LIB"
         CUDA_MESSAGE
 fi
 
@@ -2291,7 +2288,7 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
 
                 GPUSTITCH_LIB="-lgpustitch $LIBGPUSTITCH_LIBS"
                 GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
-                ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
+                add_module vidcap_gpustitch "$GPUSTITCH_OBJ" "$GPUSTITCH_LIB"
 
                 INC="$INC $LIBGPUSTITCH_CFLAGS"
                 CUDA_MESSAGE
@@ -2350,7 +2347,7 @@ if test $sage_req != no; then
             SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
             SAGE_OBJ="src/video_display/sage.o"
             CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
-            ADD_MODULE("display_sage", "$SAGE_OBJ", "$SAGE_LIB")
+            add_module display_sage "$SAGE_OBJ" "$SAGE_LIB"
             INC="$INC $SAGE_INC"
             sage=yes
         fi
@@ -2385,8 +2382,8 @@ if test $portaudio_req != no; then
                                         has Pa_GetVersionInfo]))
                 PORTAUDIO_CAP_OBJ="src/audio/portaudio_common.o src/audio/capture/portaudio.o"
                 PORTAUDIO_PLAY_OBJ="src/audio/portaudio_common.o src/audio/playback/portaudio.o"
-                ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
-                ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
+                add_module acap_portaudio "$PORTAUDIO_CAP_OBJ" "$PORTAUDIO_LIB"
+                add_module aplay_portaudio "$PORTAUDIO_PLAY_OBJ" "$PORTAUDIO_LIB"
                 portaudio=yes
         fi
 fi
@@ -2520,8 +2517,8 @@ then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
     jack=yes
-    ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "")
-    ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
+    add_module acap_jack "$JACK_CAP_OBJ"
+    add_module aplay_jack "$JACK_PLAY_OBJ"
 fi
 
 ENSURE_FEATURE_PRESENT([$jack_req], [$jack], [JACK not found])
@@ -2547,8 +2544,8 @@ if test "$alsa_req" = yes || { test "$alsa_req" != no && test "$system" = Linux 
                 ALSA_CAP_OBJ="src/audio/capture/alsa.o"
                 ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
                 ALSA_LIB="-lasound"
-                ADD_MODULE("acap_alsa", "$ALSA_CAP_OBJ", "$ALSA_LIB")
-                ADD_MODULE("aplay_alsa", "$ALSA_PLAY_OBJ", "$ALSA_LIB")
+                add_module acap_alsa "$ALSA_CAP_OBJ" "$ALSA_LIB"
+                add_module aplay_alsa "$ALSA_PLAY_OBJ" "$ALSA_LIB"
         fi
 fi
 
@@ -2574,7 +2571,7 @@ if test $system = MacOSX && test $coreaudio_req != no; then
                 COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
                 COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                 coreaudio=yes
-                ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
+                add_module "" "$COREAUDIO_OBJ" "$COREAUDIO_LIB"
         fi
 fi
 
@@ -2599,8 +2596,8 @@ then
         pipewire_audio=yes
         PIPEWIRE_ACAP_OBJS="src/audio/pipewire_common.o src/audio/capture/pipewire.o"
         PIPEWIRE_APLAY_OBJS="src/audio/pipewire_common.o src/audio/playback/pipewire.o"
-        ADD_MODULE("acap_pipewire", "$PIPEWIRE_ACAP_OBJS", "$PIPEWIRE_LIBS")
-        ADD_MODULE("aplay_pipewire", "$PIPEWIRE_APLAY_OBJS", "$PIPEWIRE_LIBS")
+        add_module acap_pipewire "$PIPEWIRE_ACAP_OBJS" "$PIPEWIRE_LIBS"
+        add_module aplay_pipewire "$PIPEWIRE_APLAY_OBJS" "$PIPEWIRE_LIBS"
 fi
 
 if test $pipewire_audio_req = yes && test $pipewire_audio = no; then
@@ -2625,7 +2622,7 @@ then
         scale=yes
         SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
         SCALE_OBJ="$SCALE_OBJ $GL_COMMON_OBJ src/vo_postprocess/scale.o"
-        ADD_MODULE("vo_pp_scale", "$SCALE_OBJ", "$SCALE_LIB")
+        add_module vo_pp_scale "$SCALE_OBJ" "$SCALE_LIB"
 fi
 
 ENSURE_FEATURE_PRESENT([$scale_req], [$scale], [Scale not found])
@@ -2653,7 +2650,7 @@ if test $text_req != no; then
                 TEXT_LIB="$TEXT_LIBS"
                 TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
                 CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
-                ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
+                add_module vo_pp_text "$TEXT_OBJ" "$TEXT_LIB"
                 PKG_CHECK_MODULES([WAND7], [MagickWand > 7], [FOUND_WAND7=yes], [FOUND_WAND7=NO])
                 if test "$FOUND_WAND7" = yes; then
                         AC_DEFINE([WAND7], [1], [MagickWand is v7 or later])
@@ -2775,8 +2772,8 @@ then
         fi
         V4L2_CAP_OBJ="src/video_capture/v4l2.o"
         V4L2_DISP_OBJ="src/video_display/v4l2.o"
-        ADD_MODULE("vidcap_v4l2", "$V4L2_CAP_OBJ", "$V4LCONVERT_LIBS")
-        ADD_MODULE("display_v4l2", "$V4L2_DISP_OBJ", "")
+        add_module vidcap_v4l2 "$V4L2_CAP_OBJ" "$V4LCONVERT_LIBS"
+        add_module display_v4l2 "$V4L2_DISP_OBJ"
         CFLAGS="$CFLAGS $V4LCONVERT_CFLAGS"
         v4l2=yes
 fi
@@ -2794,7 +2791,7 @@ AC_ARG_ENABLE(wasapi,
     )
 
 if test $system = Windows -a $wasapi_req != no; then
-        ADD_MODULE("aplay_wasapi", "src/audio/capture/wasapi.o src/audio/playback/wasapi.o", "")
+        add_module aplay_wasapi "src/audio/capture/wasapi.o src/audio/playback/wasapi.o"
         wasapi=yes
 fi
 
@@ -2876,7 +2873,7 @@ if test -n "$crypto_impl"; then
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
         CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
-        ADD_MODULE("openssl", "$OPENSSL_OBJ", "$CRYPTO_LIBS")
+        add_module openssl "$OPENSSL_OBJ" "$CRYPTO_LIBS"
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
         # optional ciphers
@@ -2915,7 +2912,7 @@ then
         else
                 LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
         fi
-        ADD_MODULE("ldgm_gpu", "$LDGM_GPU_OBJS", "$LDGM_GPU_LIBS")
+        add_module ldgm_gpu "$LDGM_GPU_OBJS" "$LDGM_GPU_LIBS"
         if test $WORD_LEN = 32 -a $system = Linux; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -msse2"
         fi
@@ -2943,7 +2940,7 @@ if test "$syphon_req" != no && test "$system" = MacOSX; then
         then
                 AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
                 BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
-                ADD_MODULE("syphon", "src/syphon_server.o src/video_capture/syphon.o", "-framework Syphon")
+                add_module syphon "src/syphon_server.o src/video_capture/syphon.o" "-framework Syphon"
                 syphon=yes
         fi
 fi
@@ -2977,7 +2974,7 @@ fi
 if test $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        ADD_MODULE("spout", "src/spout_sender.o src/video_capture/spout.o", "-lSpoutLibrary")
+        add_module spout "src/spout_sender.o src/video_capture/spout.o" -lSpoutLibrary
         spout=yes
 fi
 
@@ -2998,7 +2995,7 @@ AC_ARG_ENABLE(video-mixer,
 if test $video_mix_req != no && test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes; then
         CFLAGS="$CFLAGS $OPENCV_CFLAGS"
         CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
-        ADD_MODULE("display_video_mix", "src/video_display/conference.o", "$OPENCV_LIBS -lopencv_imgproc")
+        add_module display_video_mix src/video_display/conference.o "$OPENCV_LIBS -lopencv_imgproc"
         video_mix=yes
 fi
 
@@ -3041,8 +3038,8 @@ if test $cmpto_j2k_req != no; then
 
         if test "$FOUND_CMPTO_J2K_ENC_H" = yes && test "$FOUND_CMPTO_J2K_DEC_H" = yes && test "$FOUND_CMPTO_J2K_ENC_L" = yes && test "$FOUND_CMPTO_J2K_DEC_L" = yes
         then
-                ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/cmpto_j2k.o", "-lcmpto_j2k_enc")
-                ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/cmpto_j2k.o", "-lcmpto_j2k_dec")
+                add_module vcompress_cmpto_j2k src/video_compress/cmpto_j2k.o -lcmpto_j2k_enc
+                add_module vdecompress_cmpto_j2k src/video_decompress/cmpto_j2k.o -lcmpto_j2k_dec
                 cmpto_j2k=yes
         fi
 fi
@@ -3078,8 +3075,8 @@ if test $ndi_req != no; then
                 if test -n "$NDI_VER"; then
                         AC_DEFINE_UNQUOTED([USE_NDI_VERSION], [$NDI_VER], [NDI version to use])
                 fi
-                ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "")
-                ADD_MODULE("display_ndi", "src/video_display/ndi.o", "")
+                add_module vidcap_ndi src/video_capture/ndi.o
+                add_module display_ndi src/video_display/ndi.o
                 ndi=yes
         fi
 fi
@@ -3154,8 +3151,8 @@ then
 
         INC="$INC $CINEFORM_CFLAGS"
         
-        ADD_MODULE("vcompress_cineform", "$CINEFORM_COMPRESS_OBJ", "$CINEFORM_LIBS")
-        ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIBS")
+        add_module vcompress_cineform "$CINEFORM_COMPRESS_OBJ" "$CINEFORM_LIBS"
+        add_module vdecompress_cineform "$CINEFORM_DECOMPRESS_OBJ" "$CINEFORM_LIBS"
 fi
 
 ENSURE_FEATURE_PRESENT([$cineform_req], [$cineform], [CINEFORM not found])
@@ -3225,7 +3222,7 @@ then
         if test "$found_sdl_mixer" = yes; then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
                 SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
-                ADD_MODULE("acap_sdl_mixer", "src/audio/capture/sdl_mixer.o", "$SDL_MIXER_LIBS")
+                add_module acap_sdl_mixer src/audio/capture/sdl_mixer.o "$SDL_MIXER_LIBS"
                 INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
                 sdl_mixer=yes
         fi
