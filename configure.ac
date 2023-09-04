@@ -1888,7 +1888,7 @@ if test $found_screen_screen_pw_deps = yes; then
 
         # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
         SCREEN_CAP_PIPEWIRE_INC="$($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g') $($PKG_CONFIG --cflags-only-I glib-2.0) $($PKG_CONFIG --cflags-only-I gobject-2.0) $($PKG_CONFIG --cflags-only-I gio-2.0) $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
-        SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pw.o src/utils/dbus_portal.o"
+        SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/pipewire.o src/utils/dbus_portal.o"
 
         INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
