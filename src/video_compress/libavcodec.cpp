@@ -268,7 +268,7 @@ struct state_video_compress_libav {
         double              requested_bpp = 0;
         double              requested_crf = -1;
         int                 requested_cqp = -1;
-        struct to_lavc_req_prop req_conv_prop{ 0, 0, -1, VIDEO_CODEC_NONE };
+        struct to_lavc_req_prop req_conv_prop{ TO_LAVC_REQ_PROP_INIT };
         bool store_orig_format = false;
         struct aux_header aux_header;
 

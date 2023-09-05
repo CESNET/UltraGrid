@@ -1740,7 +1740,8 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
                 add_module vidcap_file "src/libavcodec/lavc_common.o "\
 src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
                 add_module display_file "src/libavcodec/lavc_common.o "\
-src/video_display/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS"
+"src/video_display/file.o src/libavcodec/to_lavc_vid_conv.o" \
+"$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS"
         fi
 fi
 

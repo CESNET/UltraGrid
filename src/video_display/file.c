@@ -45,16 +45,19 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "libavcodec/lavc_common.h"
+#include "libavcodec/to_lavc_vid_conv.h"
 #include "libavcodec/utils.h"
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_display.h"
 
-#define DEFAULT_FILENAME "out.nut"
+#define DEFAULT_FILENAME "out.mp4"
+#define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P
 #define MOD_NAME "[File disp.] "
 
 struct output_stream {
@@ -70,9 +73,11 @@ struct output_stream {
 
 struct state_file {
         AVFormatContext     *format_ctx;
+        bool                 is_nut; // == use RAW
         struct output_stream audio;
         struct output_stream video;
         struct video_desc    video_desc;
+        struct to_lavc_vid_conv *video_conv;
         char                 filename[MAX_PATH_SIZE];
         pthread_t            thread_id;
         pthread_mutex_t      lock;
@@ -111,14 +116,21 @@ display_file_done(void *state)
         av_packet_free(&s->video.pkt);
         vf_free(s->video.vid_frm);
         av_frame_free(&s->audio.aud_frm);
+        to_lavc_vid_conv_destroy(&s->video_conv);
         free(s);
 }
 
 static void
 usage(void)
 {
+
         color_printf("Display " TBOLD("file") " syntax:\n");
-        color_printf("\t" TBOLD(TRED("file") "[:file=<name>]") "\n");
+        color_printf("\t" TBOLD(TRED("file") "[:file=<name>]") "\n\n");
+        char desc[] = "Video codec for " TBOLD(
+            "NUT") " files is uncompressed. For other file "
+                   "formats " TBOLD("FFmpeg") " container default "
+                                              "is used.\n\n";
+        color_printf("%s", indent_paragraph(desc));
 }
 
 static void *
@@ -144,6 +156,7 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
                                                filename);
                 assert(s->format_ctx != NULL);
         }
+        s->is_nut       = !strcmp(s->format_ctx->oformat->name, "nut");
         s->video.st     = avformat_new_stream(s->format_ctx, NULL);
         s->video.st->id = 0;
 
@@ -183,9 +196,12 @@ static struct video_frame *
 display_file_getf(void *state)
 {
         struct state_file  *s   = state;
-        AVFrame            *frame = av_frame_alloc();
 
-        frame->format = get_ug_to_av_pixfmt(s->video_desc.color_spec);
+        if (!s->is_nut) {
+                return vf_alloc_desc_data(s->video_desc);
+        }
+        AVFrame *frame = av_frame_alloc();
+        frame->format  = get_ug_to_av_pixfmt(s->video_desc.color_spec);
         frame->width  = (int) s->video_desc.width;
         frame->height = (int) s->video_desc.height;
         int ret       = av_frame_get_buffer(frame, 0);
@@ -229,17 +245,42 @@ display_file_putf(void *state, struct video_frame *frame, long long timeout_ns)
 }
 
 static bool
+avp_is_in_set(enum AVPixelFormat needle, int nmembers,
+              const enum AVPixelFormat *haystick)
+{
+        for (int i = 0; i < nmembers; ++i) {
+                if (haystick[i] == needle) {
+                        return true;
+                }
+        }
+        return false;
+}
+
+static bool
 display_file_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        struct state_file *s = state;
 
         switch (property) {
         case DISPLAY_PROPERTY_CODECS: {
                 codec_t codecs[VIDEO_CODEC_COUNT] = { 0 };
                 int     count                     = 0;
                 for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
-                        if (get_ug_to_av_pixfmt(i)) {
-                                codecs[count++] = i;
+                        if (s->is_nut) {
+                                if (get_ug_to_av_pixfmt(i)) {
+                                        codecs[count++] = i;
+                                }
+                        } else {
+                                enum AVPixelFormat      fmts[AV_PIX_FMT_NB];
+                                struct to_lavc_req_prop prop = {
+                                        TO_LAVC_REQ_PROP_INIT
+                                };
+                                const int nm =
+                                    get_available_pix_fmts(i, prop, fmts);
+                                if (avp_is_in_set(DEFAULT_PIXEL_FORMAT, nm,
+                                                  fmts)) {
+                                        codecs[count++] = i;
+                                }
                         }
                 }
                 const size_t c_len = count * sizeof codecs[0];
@@ -331,15 +372,20 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
         // video
         s->video.st->time_base = (AVRational){ get_framerate_d(vid_desc.fps),
                                                get_framerate_n(vid_desc.fps) };
-        const AVCodec *codec   = avcodec_find_encoder(AV_CODEC_ID_RAWVIDEO);
+        const AVCodec *codec   = avcodec_find_encoder(
+            s->is_nut ? AV_CODEC_ID_RAWVIDEO
+                      : s->format_ctx->oformat->video_codec);
         assert(codec != NULL);
         avcodec_free_context(&s->video.enc);
         s->video.enc            = avcodec_alloc_context3(codec);
         s->video.enc->width     = (int) vid_desc.width;
         s->video.enc->height    = (int) vid_desc.height;
         s->video.enc->time_base = s->video.st->time_base;
-        s->video.enc->pix_fmt   = get_ug_to_av_pixfmt(vid_desc.color_spec);
-        int ret                 = avcodec_open2(s->video.enc, codec, NULL);
+        s->video.enc->pix_fmt   = s->is_nut
+                                      ? get_ug_to_av_pixfmt(vid_desc.color_spec)
+                                      : DEFAULT_PIXEL_FORMAT;
+        av_opt_set(s->video.enc->priv_data, "preset", "ultrafast", 0);
+        int ret = avcodec_open2(s->video.enc, codec, NULL);
         if (ret < 0) {
                 error_msg(MOD_NAME "video avcodec_open2: %s\n",
                           av_err2str(ret));
@@ -354,6 +400,12 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
                 return false;
         }
         *saved_vid_desc = vid_desc;
+        if (!s->is_nut) {
+                s->video_conv = to_lavc_vid_conv_init(
+                    vid_desc.color_spec, (int) vid_desc.width,
+                    (int) vid_desc.height, DEFAULT_PIXEL_FORMAT,
+                    get_cpu_core_count());
+        }
 
         // audio
         if (aud_frm != NULL) {
@@ -485,7 +537,11 @@ worker(void *arg)
                         av_frame_free(&aud_frm);
                 }
                 if (vid_frm) {
-                        AVFrame *frame = vid_frm->callbacks.dispose_udata;
+                        AVFrame *frame =
+                            s->is_nut
+                                ? vid_frm->callbacks.dispose_udata
+                                : to_lavc_vid_conv(s->video_conv,
+                                                   vid_frm->tiles[0].data);
                         write_frame(s->format_ctx, &s->video, frame);
                         s->video.cur_pts += 1;
                         vf_free(vid_frm);

@@ -59,7 +59,10 @@ struct to_lavc_req_prop {
                                 // or (likely) no conversion at all
 
 };
-int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop, enum AVPixelFormat fmts[AV_PIX_FMT_NB]);
+#define TO_LAVC_REQ_PROP_INIT 0, 0, -1, VIDEO_CODEC_NONE
+int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
+                           enum AVPixelFormat fmts[AV_PIX_FMT_NB])
+    __attribute__((warn_unused_result));
 
 /// @returns colorspace/range details for given av_codec
 void get_av_pixfmt_details(enum AVPixelFormat av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
