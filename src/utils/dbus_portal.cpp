@@ -295,16 +295,15 @@ void ScreenCastPortal_impl::call_with_request(const char* method_name,
         g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, this);     
 }
 
-static void on_portal_session_closed(GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
-                const gchar *interface_name, const gchar *signal_name, GVariant *parameters, gpointer user_data)
+static void on_portal_session_closed([[maybe_unused]] GDBusConnection *connection,
+                [[maybe_unused]] const gchar *sender_name,
+                [[maybe_unused]] const gchar *object_path,
+                [[maybe_unused]] const gchar *interface_name,
+                [[maybe_unused]] const gchar *signal_name,
+                [[maybe_unused]] GVariant *parameters,
+                [[maybe_unused]] gpointer user_data)
 {
-        (void) connection;
-        (void) sender_name;
-        (void) object_path;
-        (void) interface_name;
-        (void) signal_name;
-        (void) parameters;
-        //TODO: check if this is fired by newer Gnome 
+        //Doesn't seem to be called by GNOME
         LOG(LOG_LEVEL_INFO) << MOD_NAME "session closed by compositor\n";
 }
 
