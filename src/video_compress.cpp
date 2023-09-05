@@ -6,7 +6,7 @@
  * @brief Video compress functions.
  */
 /*
- * Copyright (c) 2011-2021 CESNET z.s.p.o.
+ * Copyright (c) 2011-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -353,7 +353,9 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
                 s->funcs->compress_frame_async_push_func(s->state[0], frame);
-        } else if (s->funcs->compress_tile_async_push_func) {
+                return;
+        }
+        if (s->funcs->compress_tile_async_push_func) {
                 assert(s->funcs->compress_tile_async_pop_func);
                 if (!frame) {
                         async_poison(s);
