@@ -36,17 +36,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>
 #include <string>
 #include <memory>
-#include <mutex>
-#include <condition_variable>
-#include <functional>
 #include <cassert>
 #include <future>
-#include <iostream>
 #include <fstream>
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
+#include <glib-object.h>      // for GObject, g_object_unref
+#include <glib.h>             // for g_variant_builder_add, GVariant, g_vari...
+#include <glib/gtypes.h>      // for gint32
+#include <initializer_list>   // for initializer_list
 
 #include "debug.h"
 #include "misc.h"

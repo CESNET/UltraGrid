@@ -40,6 +40,7 @@
 #define DBUS_PORTAL_HPP_511c58c91818
 
 #include <memory>
+#include <string>
 #include <thread>
 #include <stdint.h>
 
