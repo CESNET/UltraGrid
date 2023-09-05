@@ -39,11 +39,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <thread>
 #include <chrono>
-#include <atomic>
 #include <cassert>
-#include <fstream>
 #include <algorithm>
 #include <vector>
 #include <mutex>
@@ -53,17 +50,16 @@
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
-#include <spa/debug/format.h>
+#include <spa/debug/types.h>
 
-#include "tv.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "utils/misc.h"
 #include "utils/dbus_portal.hpp"
 #include "utils/synchronized_queue.h"
 #include "utils/profile_timer.hpp"
-#include "video.h"
+#include "video_frame.h"
+#include "video_codec.h"
 #include "video_capture.h"
 #include "pipewire_common.hpp"
 #include "pixfmt_conv.h"
@@ -263,7 +259,6 @@ static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_v
 }
 
 static void on_process(void *session_ptr) {
-        using namespace std::chrono_literals;
         PROFILE_FUNC;
 
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
