@@ -54,11 +54,12 @@
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "tv.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/video_frame_pool.h"
-#include "video_compress.h"
 #include "video.h"
+#include "video_compress.h"
 
 #include <cmpto_j2k_enc.h>
 
@@ -257,6 +258,7 @@ start:
         memcpy(out->tiles[0].data, ptr, size);
         CHECK_OK(cmpto_j2k_enc_img_destroy(img), "Destroy image", NOOP);
         out->callbacks.dispose = j2k_compressed_frame_dispose;
+        out->compress_end = get_time_in_ns();
         return shared_ptr<video_frame>(out, out->callbacks.dispose);
 }
 
