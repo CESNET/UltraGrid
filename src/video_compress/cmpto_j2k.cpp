@@ -205,6 +205,16 @@ static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, vide
         return ret;
 }
 
+/// auxilliary data structure passed with encoded frame
+struct custom_data {
+        custom_data()                               = delete;
+        custom_data(custom_data &b)                 = delete;
+        custom_data &operator=(const custom_data &) = delete;
+        ~custom_data()                              = delete;
+        shared_ptr<video_frame> frame;
+        video_desc              desc;
+};
+
 /**
  * @fn j2k_compress_pop
  * @note
@@ -243,16 +253,16 @@ start:
                 log_msg(LOG_LEVEL_ERROR, "Image encoding failed: %s\n", encoding_error);
                 goto start;
         }
-        struct video_desc *desc;
+        struct custom_data *udata = nullptr;
         size_t len;
-        CHECK_OK(cmpto_j2k_enc_img_get_custom_data(img, (void **) &desc, &len),
+        CHECK_OK(cmpto_j2k_enc_img_get_custom_data(img, (void **) &udata, &len),
                         "get custom data", HANDLE_ERROR_COMPRESS_POP);
         size_t size;
         void * ptr;
         CHECK_OK(cmpto_j2k_enc_img_get_cstream(img, &ptr, &size),
                         "get cstream", HANDLE_ERROR_COMPRESS_POP);
 
-        struct video_frame *out = vf_alloc_desc(*desc);
+        struct video_frame *out = vf_alloc_desc(udata->desc);
         out->tiles[0].data_len = size;
         out->tiles[0].data = (char *) malloc(size);
         memcpy(out->tiles[0].data, ptr, size);
@@ -406,7 +416,8 @@ static void j2k_compressed_frame_dispose(struct video_frame *frame)
 static void release_cstream(void * custom_data, size_t custom_data_size, const void * codestream, size_t codestream_size)
 {
         (void) codestream; (void) custom_data_size; (void) codestream_size;
-        ((shared_ptr<video_frame> *)(void *) ((char *) custom_data + sizeof(struct video_desc)))->~shared_ptr<video_frame>();
+        auto *udata = static_cast<struct custom_data *>(custom_data);
+        udata->frame.~shared_ptr<video_frame>();
 }
 
 #define HANDLE_ERROR_COMPRESS_PUSH if (img) cmpto_j2k_enc_img_destroy(img); return
@@ -415,16 +426,14 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         struct state_video_compress_j2k *s =
                 (struct state_video_compress_j2k *) state;
         struct cmpto_j2k_enc_img *img = NULL;
-        struct video_desc desc;
-        void *udata;
-        shared_ptr<video_frame> *ref;
+        struct custom_data *udata = nullptr;
 
         if (tx == NULL) { // pass poison pill through encoder
                 CHECK_OK(cmpto_j2k_enc_ctx_stop(s->context), "stop", NOOP);
                 return;
         }
 
-        desc = video_desc_from_frame(tx.get());
+        const struct video_desc desc = video_desc_from_frame(tx.get());
         if (!video_desc_eq(s->saved_desc, desc)) {
                 int ret = configure_with(s, desc);
                 if (!ret) {
@@ -447,17 +456,17 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
          */
         CHECK_OK(cmpto_j2k_enc_img_allocate_custom_data(
                                 img,
-                                sizeof(struct video_desc) + sizeof(shared_ptr<video_frame>),
-                                &udata),
+                                sizeof *udata,
+                                (void **) &udata),
                         "Allocate custom image data",
                         HANDLE_ERROR_COMPRESS_PUSH);
-        memcpy(udata, &s->compressed_desc, sizeof(s->compressed_desc));
+        memcpy(&udata->desc, &s->compressed_desc, sizeof(s->compressed_desc));
+        new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
 
-        ref = (shared_ptr<video_frame> *)(void *)((char *) udata + sizeof(struct video_desc));
-        new (ref) shared_ptr<video_frame>(get_copy(s, tx.get()));
-
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, ref->get()->tiles[0].data, ref->get()->tiles[0].data_len, release_cstream),
-                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, udata->frame->tiles[0].data,
+                                               udata->frame->tiles[0].data_len,
+                                               release_cstream),
+                 "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         unique_lock<mutex> lk(s->lock);
         s->frame_popped.wait(lk, [s]{return s->in_frames < s->max_in_frames;});
