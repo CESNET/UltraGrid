@@ -432,9 +432,9 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
                 (struct state_libavcodec_decompress *) state;
 
         s->pitch = pitch;
-        s->rgb_shift[R] = rshift;
-        s->rgb_shift[G] = gshift;
-        s->rgb_shift[B] = bshift;
+        s->rgb_shift[R_SHIFT_IDX] = rshift;
+        s->rgb_shift[G_SHIFT_IDX] = gshift;
+        s->rgb_shift[B_SHIFT_IDX] = bshift;
         for(int i = 0; i < HWACCEL_COUNT; i++){
                 s->block_accel[i] = get_commandline_param("use-hw-accel") == NULL;
         }

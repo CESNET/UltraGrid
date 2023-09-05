@@ -76,6 +76,15 @@
 #define BYTE_SWAP(x) x
 #endif
 
+// shortcuts
+#define R R_SHIFT_IDX
+#define G G_SHIFT_IDX
+#define B B_SHIFT_IDX
+
+#define MK_RGBA(r, g, b, alpha_mask, depth) \
+        FORMAT_RGBA((r), (g), (b), (rgb_shift)[R], (rgb_shift)[G], \
+                    (rgb_shift)[B], (alpha_mask), (depth))
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
@@ -1033,7 +1042,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
+                                *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);
@@ -1043,7 +1052,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
 
                         y = (*src_y++ - 16) * Y_SCALE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
+                                *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);
@@ -1104,7 +1113,7 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                                 g >>= COMP_BASE;\
                                 b >>= COMP_BASE;\
                                 if (rgba) {\
-                                        *((uint32_t *)(void *) DST) = FORMAT_RGBA(r, g, b, alpha_mask, 8);\
+                                        *((uint32_t *)(void *) DST) = MK_RGBA(r, g, b, alpha_mask, 8);\
                                         DST += 4;\
                                 } else {\
                                         *DST++ = CLAMP_FULL(r, 8);\
@@ -1201,7 +1210,7 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
+                                *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP(r, 1, 254);
@@ -1647,7 +1656,7 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *(uint32_t *)(void *) dst = FORMAT_RGBA(r, g, b, alpha_mask, 8);
+                                *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);

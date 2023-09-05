@@ -128,8 +128,10 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 /**
  * @param alpha_mask alpha mask already positioned at target bit offset
  */
-#define FORMAT_RGBA(r, g, b, alpha_mask, depth) ((alpha_mask) | \
-        (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B]))
+#define FORMAT_RGBA(r, g, b, rshift, gshift, bshift, alpha_mask, depth) \
+        ((alpha_mask) | (CLAMP_FULL((r), (depth)) << (rshift) | \
+                         CLAMP_FULL((g), (depth)) << (gshift) | \
+                         CLAMP_FULL((b), (depth)) << (bshift)))
 /// @}
 
 #endif // !defined COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25

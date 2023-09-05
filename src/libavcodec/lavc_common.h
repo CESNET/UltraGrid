@@ -58,9 +58,11 @@ extern "C" {
 #include "libavcodec/utils.h"
 
 // component indices to rgb_shift[] (@ref av_to_uv_convert)
-#define R 0
-#define G 1
-#define B 2
+enum {
+        R_SHIFT_IDX = 0,
+        G_SHIFT_IDX = 1,
+        B_SHIFT_IDX = 2,
+};
 
 #define LIBAV_ERRBUF_LEN 1024
 
