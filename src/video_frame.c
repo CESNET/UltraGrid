@@ -562,9 +562,13 @@ const char *save_video_frame(struct video_frame *frame, const char *name, bool r
         return filename;
 }
 
-void vf_copy_metadata(struct video_frame *desc, const struct video_frame *src)
+void
+vf_copy_metadata(struct video_frame *dest, const struct video_frame *src)
 {
-        memcpy((char *) desc + offsetof(struct video_frame, VF_METADATA_START), (const char *) src + offsetof(struct video_frame, VF_METADATA_START), VF_METADATA_SIZE);
+        memcpy((char *) dest + offsetof(struct video_frame, VF_METADATA_START),
+               (const char *) src +
+                   offsetof(struct video_frame, VF_METADATA_START),
+               VF_METADATA_SIZE);
 }
 
 void

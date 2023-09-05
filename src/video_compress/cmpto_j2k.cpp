@@ -213,6 +213,9 @@ struct custom_data {
         ~custom_data()                              = delete;
         shared_ptr<video_frame> frame;
         video_desc              desc;
+        // metadata stored separately, frame may have already been deallocated
+        // by our release_cstream callback
+        char metadata[VF_METADATA_SIZE];
 };
 
 /**
@@ -263,6 +266,7 @@ start:
                         "get cstream", HANDLE_ERROR_COMPRESS_POP);
 
         struct video_frame *out = vf_alloc_desc(udata->desc);
+        vf_restore_metadata(out, udata->metadata);
         out->tiles[0].data_len = size;
         out->tiles[0].data = (char *) malloc(size);
         memcpy(out->tiles[0].data, ptr, size);
@@ -462,6 +466,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(&udata->desc, &s->compressed_desc, sizeof(s->compressed_desc));
         new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
+        vf_store_metadata(tx.get(), udata->metadata);
 
         CHECK_OK(cmpto_j2k_enc_img_set_samples(img, udata->frame->tiles[0].data,
                                                udata->frame->tiles[0].data_len,

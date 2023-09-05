@@ -192,7 +192,7 @@ bool parse_fps(const char *fps, struct video_desc *desc);
 bool save_video_frame_as_pnm(struct video_frame *frame, const char *name);
 const char *save_video_frame(struct video_frame *frame, const char *name, bool raw);
 
-void vf_copy_metadata(struct video_frame *desc, const struct video_frame *src);
+void vf_copy_metadata(struct video_frame *dest, const struct video_frame *src);
 void vf_store_metadata(const struct video_frame *f, void *);
 void vf_restore_metadata(struct video_frame *f, void *);
 
