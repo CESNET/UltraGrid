@@ -1120,7 +1120,7 @@ AC_ARG_ENABLE(vulkan,
 
 if test "$vulkan_req" != no; then
         SAVED_LIBS=$LIBS
-        VULKAN_LIBS="-L/opt/homebrew/lib -lMoltenVK" # mac MoltenVK
+        VULKAN_LIBS=-lMoltenVK # mac MoltenVK
         LIBS="$LIBS $VULKAN_LIBS"
         AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
         LIBS=$SAVED_LIBS
