@@ -54,7 +54,6 @@ $PACMAN_INSTALL $m-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
 $PACMAN_INSTALL $m-qt6-base $m-qt6-tools
 $PACMAN_INSTALL $m-imagemagick $m-opencv
-$PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
 
