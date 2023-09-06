@@ -56,6 +56,7 @@
 #include "video.h"
 #include "video_display.h"
 
+#define DEFAULT_COMPRESSED_AUDIO_CODEC AV_CODEC_ID_OPUS
 #define DEFAULT_FILENAME "out.mp4"
 #define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P
 #define MOD_NAME "[File disp.] "
@@ -126,10 +127,14 @@ usage(void)
 
         color_printf("Display " TBOLD("file") " syntax:\n");
         color_printf("\t" TBOLD(TRED("file") "[:file=<name>]") "\n\n");
-        char desc[] = "Video codec for " TBOLD(
-            "NUT") " files is uncompressed. For other file "
-                   "formats " TBOLD("FFmpeg") " container default "
-                                              "is used.\n\n";
+        char desc[] = TBOLD(
+            "NUT") " files are written uncompressed. For other file "
+                   "formats " TBOLD(
+                       "FFmpeg") " container default "
+                                 "codec is used for video, " TBOLD(
+                                     "OPUS") " for audio.\n\nDefault output "
+                                             "is: " TBOLD(
+                                                 DEFAULT_FILENAME) "\n\n";
         color_printf("%s", indent_paragraph(desc));
 }
 
@@ -293,6 +298,10 @@ display_file_get_property(void *state, int property, void *val, size_t *len)
                 struct audio_desc *desc = val;
                 assert(*len == (int) sizeof *desc);
                 desc->codec = AC_PCM;
+                if (!s->is_nut) {
+                        desc->ch_count = MIN(2, desc->ch_count);
+                        desc->bps      = 2;
+                }
                 break;
         }
         default:
@@ -308,6 +317,15 @@ display_file_reconfigure(void *state, struct video_desc desc)
 
         s->video_desc = desc;
         return true;
+}
+
+static AVChannelLayout get_channel_layout(int ch_count, bool raw) {
+        if (raw) {
+                return (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+                    ch_count, (1 << ch_count) - 1);
+        }
+        return ch_count == 1 ? (AVChannelLayout) AV_CHANNEL_LAYOUT_MONO
+                             : (AVChannelLayout) AV_CHANNEL_LAYOUT_STEREO;
 }
 
 static bool
@@ -329,12 +347,18 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc)
         default:
                 abort();
         }
-        const AVCodec *codec = avcodec_find_encoder(codec_id);
+        const AVCodec *codec = avcodec_find_encoder(
+            s->is_nut ? codec_id : DEFAULT_COMPRESSED_AUDIO_CODEC);
+        if (codec == NULL && !s->is_nut) {
+                codec = avcodec_find_encoder(codec_id);
+        }
         assert(codec != NULL);
         s->audio.enc             = avcodec_alloc_context3(codec);
-        s->audio.enc->sample_fmt = audio_bps_to_sample_fmt(aud_desc.bps);
-        s->audio.enc->ch_layout  = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
-            aud_desc.ch_count, (1 << aud_desc.ch_count) - 1);
+        s->audio.enc->sample_fmt = s->is_nut
+                                       ? audio_bps_to_sample_fmt(aud_desc.bps)
+                                       : AV_SAMPLE_FMT_S16;
+        s->audio.enc->ch_layout =
+            get_channel_layout(aud_desc.ch_count, s->is_nut);
         s->audio.enc->sample_rate = aud_desc.sample_rate;
         s->audio.st->time_base    = (AVRational){ 1, aud_desc.sample_rate };
 
@@ -485,6 +509,31 @@ check_reconf(struct video_desc *saved_vid_desc,
         return true;
 }
 
+static void
+write_audio_frame(struct state_file *s, AVFrame *aud_frm)
+{
+        if (s->is_nut) {
+                write_frame(s->format_ctx, &s->audio, aud_frm);
+                s->audio.cur_pts += aud_frm->nb_samples;
+                return;
+        }
+
+        // Opus
+        const size_t frame_size = (size_t) 2 * aud_frm->ch_layout.nb_channels;
+        int remaining_samples = aud_frm->nb_samples;
+        while (remaining_samples > 0) {
+                const int cur_samples =
+                    MIN(s->audio.enc->frame_size, remaining_samples);
+                aud_frm->nb_samples = cur_samples;
+                write_frame(s->format_ctx, &s->audio, aud_frm);
+                s->audio.cur_pts += cur_samples;
+                memmove(aud_frm->data[0],
+                        aud_frm->data[0] + cur_samples * frame_size,
+                        (remaining_samples - cur_samples) * frame_size);
+                remaining_samples -= cur_samples;
+        }
+}
+
 static void *
 worker(void *arg)
 {
@@ -531,9 +580,7 @@ worker(void *arg)
                 }
 
                 if (aud_frm) {
-                        write_frame(s->format_ctx, &s->audio,
-                                    aud_frm);
-                        s->audio.cur_pts += aud_frm->nb_samples;
+                        write_audio_frame(s, aud_frm);
                         av_frame_free(&aud_frm);
                 }
                 if (vid_frm) {
