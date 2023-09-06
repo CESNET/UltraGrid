@@ -203,13 +203,32 @@ delete_frame(struct video_frame *frame)
         av_frame_free(&avfrm);
 }
 
+static enum AVPixelFormat
+file_get_pix_fmt(bool is_nut, codec_t ug_codec)
+{
+        if (!is_nut) {
+                return DEFAULT_PIXEL_FORMAT;
+        }
+        if (ug_codec == R10k) {
+                return AV_PIX_FMT_GBRP10LE;
+        }
+        if (ug_codec == R12L) {
+                return AV_PIX_FMT_GBRP12LE;
+        }
+        if (ug_codec == v210) {
+                return AV_PIX_FMT_YUV422P10LE;
+        }
+        return get_ug_to_av_pixfmt(ug_codec);
+}
+
 static struct video_frame *
 display_file_getf(void *state)
 {
         struct state_file  *s   = state;
 
-        if (!s->is_nut) {
-                return vf_alloc_desc_data(s->video_desc);
+        if (file_get_pix_fmt(s->is_nut, s->video_desc.color_spec) !=
+            get_ug_to_av_pixfmt(s->video_desc.color_spec)) {
+                return vf_alloc_desc_data(s->video_desc); // conv needed
         }
         AVFrame *frame = av_frame_alloc();
         frame->format  = get_ug_to_av_pixfmt(s->video_desc.color_spec);
@@ -276,6 +295,11 @@ display_file_get_property(void *state, int property, void *val, size_t *len)
         case DISPLAY_PROPERTY_CODECS: {
                 codec_t codecs[VIDEO_CODEC_COUNT] = { 0 };
                 int     count                     = 0;
+                if (s->is_nut) {
+                        codecs[count++] = R10k;
+                        codecs[count++] = R12L;
+                        codecs[count++] = v210;
+                }
                 for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
                         if (s->is_nut) {
                                 if (get_ug_to_av_pixfmt(i) != AV_PIX_FMT_NONE) {
@@ -411,9 +435,7 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
         s->video.enc->width     = (int) vid_desc.width;
         s->video.enc->height    = (int) vid_desc.height;
         s->video.enc->time_base = s->video.st->time_base;
-        s->video.enc->pix_fmt   = s->is_nut
-                                      ? get_ug_to_av_pixfmt(vid_desc.color_spec)
-                                      : DEFAULT_PIXEL_FORMAT;
+        s->video.enc->pix_fmt   = file_get_pix_fmt(s->is_nut,vid_desc.color_spec);
         av_opt_set(s->video.enc->priv_data, "preset", "ultrafast", 0);
         int ret = avcodec_open2(s->video.enc, codec, NULL);
         if (ret < 0) {
@@ -430,10 +452,10 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
                 return false;
         }
         *saved_vid_desc = vid_desc;
-        if (!s->is_nut) {
+        if (s->video.enc->pix_fmt != get_ug_to_av_pixfmt(vid_desc.color_spec)) {
                 s->video_conv = to_lavc_vid_conv_init(
                     vid_desc.color_spec, (int) vid_desc.width,
-                    (int) vid_desc.height, DEFAULT_PIXEL_FORMAT,
+                    (int) vid_desc.height, s->video.enc->pix_fmt,
                     get_cpu_core_count());
         }
 
@@ -550,8 +572,9 @@ write_video_frame(struct state_file *s, struct video_frame *vid_frm)
         const long long vid_frm_time_ns =
             (long long) (NS_IN_SEC / s->video_desc.fps);
         AVFrame *frame =
-            s->is_nut ? vid_frm->callbacks.dispose_udata
-                      : to_lavc_vid_conv(s->video_conv, vid_frm->tiles[0].data);
+            s->video_conv == NULL
+                ? vid_frm->callbacks.dispose_udata
+                : to_lavc_vid_conv(s->video_conv, vid_frm->tiles[0].data);
         bool dup = false;
 
         // handle AV sync
