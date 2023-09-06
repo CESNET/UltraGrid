@@ -252,6 +252,7 @@ static bool
 display_file_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         if (timeout_ns == PUTF_DISCARD) {
+                vf_free(frame);
                 return true;
         }
         struct state_file *s = state;
