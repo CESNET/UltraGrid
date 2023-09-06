@@ -34,6 +34,10 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * Inspired and written according to mux.c FFmpeg example.
+ */
 
 #include <assert.h>
 #include <libavcodec/avcodec.h>
@@ -47,6 +51,7 @@
 #include "libavcodec/lavc_common.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "libavcodec/utils.h"
+#include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/fs.h"
@@ -65,7 +70,8 @@ struct output_stream {
         AVStream           *st;
         AVCodecContext     *enc;
         AVPacket           *pkt;
-        long long int       cur_pts;
+        long long int       next_pts;
+        time_ns_t           next_frm_time;
         union {
                 struct video_frame *vid_frm;
                 AVFrame            *aud_frm;
@@ -459,7 +465,7 @@ static void
 write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
             AVFrame *frame)
 {
-        frame->pts = ost->cur_pts;
+        frame->pts = ost->next_pts;
         int ret    = avcodec_send_frame(ost->enc, frame);
         if (ret < 0) {
                 error_msg(MOD_NAME "avcodec_send_frame: %s\n",
@@ -512,9 +518,13 @@ check_reconf(struct video_desc *saved_vid_desc,
 static void
 write_audio_frame(struct state_file *s, AVFrame *aud_frm)
 {
+        s->audio.next_frm_time =
+            get_time_in_ns() +
+            (aud_frm->nb_samples * NS_IN_SEC / aud_frm->sample_rate);
+
         if (s->is_nut) {
                 write_frame(s->format_ctx, &s->audio, aud_frm);
-                s->audio.cur_pts += aud_frm->nb_samples;
+                s->audio.next_pts += aud_frm->nb_samples;
                 return;
         }
 
@@ -526,11 +536,56 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm)
                     MIN(s->audio.enc->frame_size, remaining_samples);
                 aud_frm->nb_samples = cur_samples;
                 write_frame(s->format_ctx, &s->audio, aud_frm);
-                s->audio.cur_pts += cur_samples;
+                s->audio.next_pts += cur_samples;
                 memmove(aud_frm->data[0],
                         aud_frm->data[0] + cur_samples * frame_size,
                         (remaining_samples - cur_samples) * frame_size);
                 remaining_samples -= cur_samples;
+        }
+}
+
+static void
+write_video_frame(struct state_file *s, struct video_frame *vid_frm)
+{
+        const long long vid_frm_time_ns =
+            (long long) (NS_IN_SEC / s->video_desc.fps);
+        AVFrame *frame =
+            s->is_nut ? vid_frm->callbacks.dispose_udata
+                      : to_lavc_vid_conv(s->video_conv, vid_frm->tiles[0].data);
+        bool dup = false;
+
+        // handle AV sync
+        if (s->audio.st != NULL) {
+                const time_ns_t audio_start =
+                    s->audio.next_frm_time -
+                    s->audio.next_pts * NS_IN_SEC / s->audio.enc->sample_rate;
+                const time_ns_t video_start =
+                    s->video.next_frm_time -
+                    (long long) ((double) (s->video.next_pts * NS_IN_SEC) /
+                                 s->video_desc.fps);
+                if (s->video.next_frm_time != 0 &&
+                    llabs(audio_start - video_start) > vid_frm_time_ns) {
+                        log_msg(
+                            LOG_LEVEL_WARNING,
+                            MOD_NAME "A-V desync %f sec, video frame %s...\n",
+                            (double) (audio_start - video_start) /
+                                NS_IN_SEC_DBL,
+                            video_start < audio_start ? "dropped" : "dupped");
+                        if (video_start < audio_start) {
+                                return; // drop frame
+                        }
+                        dup = true;
+                }
+        }
+
+write_frame:
+        write_frame(s->format_ctx, &s->video, frame);
+        s->video.next_pts += 1;
+        s->video.next_frm_time = get_time_in_ns() + vid_frm_time_ns;
+
+        if (dup) {
+                dup = false;
+                goto write_frame;
         }
 }
 
@@ -584,13 +639,7 @@ worker(void *arg)
                         av_frame_free(&aud_frm);
                 }
                 if (vid_frm) {
-                        AVFrame *frame =
-                            s->is_nut
-                                ? vid_frm->callbacks.dispose_udata
-                                : to_lavc_vid_conv(s->video_conv,
-                                                   vid_frm->tiles[0].data);
-                        write_frame(s->format_ctx, &s->video, frame);
-                        s->video.cur_pts += 1;
+                        write_video_frame(s, vid_frm);
                         vf_free(vid_frm);
                         vid_frm = NULL;
                 }
