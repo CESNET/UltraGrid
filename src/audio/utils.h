@@ -127,13 +127,6 @@ void float2int(char *out, const char *in, int len);
  * @param[in] in 4-byte aligned input buffer
  */
 void int2float(char *out, const char *in, int len);
-/**
- * This fuction converts from int16_t to normalized float
- * Input and output data may overlap.
- * @param[out] out 4-byte aligned output buffer
- * @param[in] in 4-byte aligned input buffer
- */
-void short_int2float(char *out, const char *in, int in_len);
 
 void signed2unsigned(char *out, const char *in, int in_len);
 

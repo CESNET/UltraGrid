@@ -496,17 +496,6 @@ void int2float(char *out, const char *in, int len)
         }
 }
 
-void short_int2float(char *out, const char *in, int in_len)
-{
-        const auto *ini = reinterpret_cast<const int16_t *>(in);
-        float *outf = (float *)(void *) out;
-        int items = in_len / sizeof(int16_t);
-
-        while(items-- > 0) {
-                *outf++ = (float) *ini++ / SHRT_MAX;
-        }
-}
-
 /**
  * Converts int8_t samples to uint8_t by adding 128 (standard
  * shifted zero unsigned samples).
