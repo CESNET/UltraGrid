@@ -278,7 +278,7 @@ display_file_get_property(void *state, int property, void *val, size_t *len)
                 int     count                     = 0;
                 for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
                         if (s->is_nut) {
-                                if (get_ug_to_av_pixfmt(i)) {
+                                if (get_ug_to_av_pixfmt(i) != AV_PIX_FMT_NONE) {
                                         codecs[count++] = i;
                                 }
                         } else {
