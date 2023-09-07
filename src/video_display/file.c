@@ -65,7 +65,6 @@
 #include "video.h"
 #include "video_display.h"
 
-#define DEFAULT_COMPRESSED_AUDIO_CODEC AV_CODEC_ID_OPUS
 #define DEFAULT_FILENAME "out.mp4"
 #define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P
 #define MOD_NAME "[File disp.] "
@@ -137,14 +136,12 @@ usage(void)
 
         color_printf("Display " TBOLD("file") " syntax:\n");
         color_printf("\t" TBOLD(TRED("file") "[:file=<name>]") "\n\n");
-        char desc[] = TBOLD(
-            "NUT") " files are written uncompressed. For other file "
-                   "formats " TBOLD(
-                       "FFmpeg") " container default "
-                                 "codec is used for video, " TBOLD(
-                                     "OPUS") " for audio.\n\nDefault output "
-                                             "is: " TBOLD(
-                                                 DEFAULT_FILENAME) "\n\n";
+        char desc[] =
+            TBOLD("NUT") " files are written uncompressed. For other file "
+                         "formats " TBOLD(
+                             "FFmpeg") " container default "
+                                       "codecs are used.\n\nDefault output "
+                                       "is: " TBOLD(DEFAULT_FILENAME) "\n\n";
         color_printf("%s", indent_paragraph(desc));
 }
 
@@ -421,7 +418,7 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
                 abort();
         }
         const AVCodec *codec = avcodec_find_encoder(
-            s->is_nut ? codec_id : DEFAULT_COMPRESSED_AUDIO_CODEC);
+            s->is_nut ? codec_id : s->format_ctx->oformat->audio_codec);
         if (codec == NULL && !s->is_nut) {
                 codec = avcodec_find_encoder(codec_id);
         }
@@ -654,7 +651,7 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
                 return;
         }
 
-        // Opus
+        // compressed audio
         const int frame_size = s->audio.enc->frame_size;
         int consumed_samples = 0;
         while (tmp_frm->nb_samples +
