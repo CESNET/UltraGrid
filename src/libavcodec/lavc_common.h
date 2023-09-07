@@ -114,7 +114,7 @@ struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
 void lavd_flush(AVCodecContext *codec_ctx);
 const char *lavc_thread_type_to_str(int thread_type);
 struct audio_desc audio_desc_from_av_frame(const AVFrame *frm);
-enum AVSampleFormat audio_bps_to_sample_fmt(int bps);
+enum AVSampleFormat audio_bps_to_av_sample_fmt(int bps, bool planar);
 
 #ifdef __cplusplus
 }

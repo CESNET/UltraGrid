@@ -37,6 +37,10 @@
 /**
  * @file
  * Inspired and written according to mux.c FFmpeg example.
+ * @note
+ * when compression is enabled (output is not NUT), accepted audio format
+ * is restricted to 16-bit mono or stereo. We do not have to implement the
+ * whole stack of conversions (or utilize libavresample).
  */
 
 #include <assert.h>
@@ -360,10 +364,11 @@ static AVChannelLayout get_channel_layout(int ch_count, bool raw) {
 }
 
 static AVFrame *
-alloc_audio_frame(struct audio_desc desc,  int nb_samples)
+alloc_audio_frame(struct audio_desc desc, int nb_samples,
+                  enum AVSampleFormat fmt)
 {
         AVFrame *av_frm   = av_frame_alloc();
-        av_frm->format    = audio_bps_to_sample_fmt(desc.bps);
+        av_frm->format    = fmt;
         av_frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
             desc.ch_count, (desc.ch_count << 1) - 1);
         av_frm->sample_rate = desc.sample_rate;
@@ -379,6 +384,20 @@ alloc_audio_frame(struct audio_desc desc,  int nb_samples)
                 return NULL;
         }
         return av_frm;
+}
+
+static enum AVSampleFormat
+select_sample_format(const enum AVSampleFormat *fmts)
+{
+        while (*fmts) {
+                if (*fmts == AV_SAMPLE_FMT_S16P || *fmts == AV_SAMPLE_FMT_S16 ||
+                    *fmts == AV_SAMPLE_FMT_FLTP) {
+                        return *fmts;
+                }
+                fmts++;
+        }
+        assert(0 && MOD_NAME "Only S16, S16P and FLTP samples are currently "
+                             "handled, please report!");
 }
 
 static bool
@@ -408,9 +427,9 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
         }
         assert(codec != NULL);
         s->audio.enc             = avcodec_alloc_context3(codec);
-        s->audio.enc->sample_fmt = s->is_nut
-                                       ? audio_bps_to_sample_fmt(aud_desc.bps)
-                                       : AV_SAMPLE_FMT_S16;
+        s->audio.enc->sample_fmt =
+            s->is_nut ? audio_bps_to_av_sample_fmt(aud_desc.bps, false)
+                      : select_sample_format(s->audio.enc->codec->sample_fmts);
         s->audio.enc->ch_layout =
             get_channel_layout(aud_desc.ch_count, s->is_nut);
         s->audio.enc->sample_rate = aud_desc.sample_rate;
@@ -434,7 +453,9 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
         }
 
         av_frame_free(tmp_frame);
-        *tmp_frame = alloc_audio_frame(aud_desc, s->audio.enc->frame_size);
+        *tmp_frame = alloc_audio_frame(
+            aud_desc, s->audio.enc->frame_size,
+            s->audio.enc->sample_fmt);
         (*tmp_frame)->nb_samples = 0;
 
         return true;
@@ -579,6 +600,47 @@ check_reconf(struct video_desc *saved_vid_desc,
         return true;
 }
 
+/// append nb_samples to from src to dst, skipping skip_in_samples from input
+static void
+file_append_audio_frame(AVFrame *dst, const AVFrame *src, int skip_in_samples,
+                        int nb_samples)
+{
+        const int ch_count = src->ch_layout.nb_channels;
+        const int s_bps    = av_get_bytes_per_sample(src->format);
+        const int d_bps    = av_get_bytes_per_sample(dst->format);
+
+        if (av_sample_fmt_is_planar(dst->format)) {
+                char *dst_data[ch_count];
+                for (int i = 0; i < ch_count; ++i) {
+                        dst_data[i] = (char *) dst->data[i] +
+                                      (ptrdiff_t) dst->nb_samples * d_bps;
+                }
+                if (dst->format == AV_SAMPLE_FMT_FLTP) {
+                        interleaved2noninterleaved_float(
+                            dst_data,
+                            (char *) src->data[0] +
+                                (ptrdiff_t) skip_in_samples * s_bps * ch_count,
+                            s_bps, nb_samples * s_bps * ch_count, ch_count);
+                } else {
+                        assert(s_bps == d_bps);
+                        interleaved2noninterleaved2(
+                            dst_data,
+                            (char *) src->data[0] +
+                                (ptrdiff_t) skip_in_samples * s_bps * ch_count,
+                            s_bps, nb_samples * s_bps * ch_count, ch_count);
+                }
+
+        } else {
+                assert(s_bps == d_bps);
+                memcpy(dst->data[0] +
+                           (ptrdiff_t) dst->nb_samples * s_bps * ch_count,
+                       src->data[0] +
+                           (ptrdiff_t) skip_in_samples * s_bps * ch_count,
+                       (size_t) nb_samples * s_bps * ch_count);
+        }
+        dst->nb_samples += nb_samples;
+}
+
 static void
 write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
 {
@@ -593,27 +655,22 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
         }
 
         // Opus
-        const size_t frame_bytes = (size_t) 2 * aud_frm->ch_layout.nb_channels;
         const int frame_size = s->audio.enc->frame_size;
         int consumed_samples = 0;
         while (tmp_frm->nb_samples +
                    (aud_frm->nb_samples - consumed_samples) >=
                frame_size) {
                 const int needed_samples = frame_size - tmp_frm->nb_samples;
-                memcpy(tmp_frm->data[0] + tmp_frm->nb_samples * frame_bytes,
-                       aud_frm->data[0] + consumed_samples * frame_bytes,
-                       needed_samples * frame_bytes);
-                tmp_frm->nb_samples = frame_size;
+                file_append_audio_frame(tmp_frm, aud_frm, consumed_samples,
+                                    needed_samples);
                 write_frame(s->format_ctx, &s->audio, tmp_frm);
                 s->audio.next_pts += frame_size;
                 consumed_samples += needed_samples;
                 tmp_frm->nb_samples = 0;
         }
 
-        memcpy(tmp_frm->data[0] + tmp_frm->nb_samples * frame_bytes,
-               aud_frm->data[0] + consumed_samples * frame_bytes,
-               aud_frm->nb_samples - consumed_samples);
-        tmp_frm->nb_samples += aud_frm->nb_samples - consumed_samples;
+        file_append_audio_frame(tmp_frm, aud_frm, consumed_samples,
+                                aud_frm->nb_samples - consumed_samples);
 }
 
 static void
@@ -735,9 +792,11 @@ display_file_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_file *s = state;
 
+        // store always as intereleaved integer samples
         AVFrame *av_frm =
             alloc_audio_frame(audio_desc_from_frame(frame),
-                              frame->data_len / frame->ch_count / frame->bps);
+                              frame->data_len / frame->ch_count / frame->bps,
+                              audio_bps_to_av_sample_fmt(frame->bps, false));
         if (av_frm == NULL) {
                 return;
         }

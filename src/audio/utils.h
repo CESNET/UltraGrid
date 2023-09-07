@@ -104,6 +104,10 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
 void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream);
 
 void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len /* bytes */, int channel_count);
+void interleaved2noninterleaved2(char **out, const char *in, int bps,
+                                 int in_len /* bytes */, int channel_count);
+void interleaved2noninterleaved_float(char **out, const char *in, int in_bps,
+                                 int in_len /* bytes */, int channel_count);
 
 /*
  * Additional function that allosw mixing channels

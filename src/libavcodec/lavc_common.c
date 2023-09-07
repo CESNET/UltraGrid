@@ -327,25 +327,7 @@ struct audio_desc
 audio_desc_from_av_frame(const AVFrame *frm)
 {
         struct audio_desc desc = { 0 };
-        switch (frm->format) {
-        case AV_SAMPLE_FMT_U8:
-                desc.bps = 1;
-                break;
-        case AV_SAMPLE_FMT_S16:
-                desc.bps = 2;
-                break;
-        case AV_SAMPLE_FMT_S32:
-                desc.bps = 4;
-                break;
-        default:
-                log_msg(LOG_LEVEL_FATAL,
-                        "Unhandled AV sample format: %s. Please "
-                        "report!\n",
-                        av_get_sample_fmt_name(frm->format));
-                exit_uv(1);
-                return desc;
-        }
-
+        desc.bps = av_get_bytes_per_sample(frm->format);
         desc.ch_count = frm->ch_layout.nb_channels;
         desc.codec = AC_PCM;
         desc.sample_rate = frm->sample_rate;
@@ -354,17 +336,17 @@ audio_desc_from_av_frame(const AVFrame *frm)
 }
 
 enum AVSampleFormat
-audio_bps_to_sample_fmt(int bps)
+audio_bps_to_av_sample_fmt(int bps, bool planar)
 {
         switch (bps) {
         case 1:
-                return AV_SAMPLE_FMT_U8;
+                return planar ? AV_SAMPLE_FMT_U8P : AV_SAMPLE_FMT_U8;
         case 2:
-                return AV_SAMPLE_FMT_S16;
+                return planar ? AV_SAMPLE_FMT_S16P : AV_SAMPLE_FMT_S16;
                 break;
         case 3:
         case 4:
-                return AV_SAMPLE_FMT_S32;
+                return planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
                 break;
         default:
                 abort();

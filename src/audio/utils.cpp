@@ -546,22 +546,43 @@ void format_to_out_bps(char *out, int bps, int32_t out_value) {
         }
 }
 
-void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len, int channel_count)
+void
+interleaved2noninterleaved2(char **out_ch, const char *in, int bps, int in_len,
+                            int channel_count)
+{
+        for (int i = 0; i < in_len / channel_count / bps; ++i) {
+                for (int ch = 0; ch < channel_count; ++ch) {
+                        memcpy(out_ch[ch] + (ptrdiff_t) i * bps, in, bps);
+                        in += bps;
+                }
+        }
+}
+
+void
+interleaved2noninterleaved_float(char **out_ch, const char *in, int in_bps, int in_len,
+                            int channel_count)
+{
+        assert(in_bps != 1); // bps 1 is unsigned
+        for (int i = 0; i < in_len / channel_count / in_bps; ++i) {
+                for (int ch = 0; ch < channel_count; ++ch) {
+                        int32_t val = 0;
+                        memcpy((char *) &val + 4 - in_bps, in, in_bps);
+                        *(float *) (out_ch[ch] + (ptrdiff_t) i * 4) =
+                            (float) val / INT32_MAX;
+                        in += in_bps;
+                }
+        }
+}
+
+void
+interleaved2noninterleaved(char *out, const char *in, int bps, int in_len,
+                           int channel_count)
 {
         vector<char *> out_ch(channel_count);
         for (int i = 0; i < channel_count; ++i) {
-                out_ch[i] = out + in_len / channel_count * i;
+                out_ch[i] = out + (ptrdiff_t) in_len / channel_count * i;
         }
-
-        int offset = 0;
-        int index = 0;
-        while (offset < in_len) {
-                memcpy(out_ch[index], in, bps);
-                out_ch[index] += bps;
-                index = (index + 1) % channel_count;
-                in += bps;
-                offset += bps;
-        }
+        interleaved2noninterleaved2(out_ch.data(), in, bps, in_len, channel_count);
 }
 
 bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len) {
