@@ -359,8 +359,31 @@ static AVChannelLayout get_channel_layout(int ch_count, bool raw) {
                              : (AVChannelLayout) AV_CHANNEL_LAYOUT_STEREO;
 }
 
+static AVFrame *
+alloc_audio_frame(struct audio_desc desc,  int nb_samples)
+{
+        AVFrame *av_frm   = av_frame_alloc();
+        av_frm->format    = audio_bps_to_sample_fmt(desc.bps);
+        av_frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+            desc.ch_count, (desc.ch_count << 1) - 1);
+        av_frm->sample_rate = desc.sample_rate;
+        av_frm->nb_samples  = nb_samples;
+
+        if (nb_samples == 0) {
+                return av_frm;
+        }
+        int ret = av_frame_get_buffer(av_frm, 0);
+        if (ret < 0) {
+                error_msg(MOD_NAME "audio buf alloc: %s\n", av_err2str(ret));
+                av_frame_free(&av_frm);
+                return NULL;
+        }
+        return av_frm;
+}
+
 static bool
-configure_audio(struct state_file *s, struct audio_desc aud_desc)
+configure_audio(struct state_file *s, struct audio_desc aud_desc,
+                AVFrame **tmp_frame)
 {
         avcodec_free_context(&s->audio.enc);
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
@@ -410,13 +433,17 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc)
                 return false;
         }
 
+        av_frame_free(tmp_frame);
+        *tmp_frame = alloc_audio_frame(aud_desc, s->audio.enc->frame_size);
+        (*tmp_frame)->nb_samples = 0;
+
         return true;
 }
 
 static bool
 initialize(struct state_file *s, struct video_desc *saved_vid_desc,
            const struct video_frame *vid_frm, struct audio_desc *saved_aud_desc,
-           const AVFrame *aud_frm)
+           const AVFrame *aud_frm, AVFrame **tmp_aud_frame)
 {
         if (!vid_frm || (s->audio.st != NULL && !aud_frm)) {
                 log_msg(LOG_LEVEL_INFO, "Waiting for all streams to init.\n");
@@ -467,7 +494,7 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
         if (aud_frm != NULL) {
                 const struct audio_desc aud_desc =
                     audio_desc_from_av_frame(aud_frm);
-                if (!configure_audio(s, aud_desc)) {
+                if (!configure_audio(s, aud_desc, tmp_aud_frame)) {
                         return false;
                 }
                 *saved_aud_desc = aud_desc;
@@ -542,7 +569,7 @@ check_reconf(struct video_desc *saved_vid_desc,
 }
 
 static void
-write_audio_frame(struct state_file *s, AVFrame *aud_frm)
+write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
 {
         s->audio.next_frm_time =
             get_time_in_ns() +
@@ -555,19 +582,27 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm)
         }
 
         // Opus
-        const size_t frame_size = (size_t) 2 * aud_frm->ch_layout.nb_channels;
-        int remaining_samples = aud_frm->nb_samples;
-        while (remaining_samples > 0) {
-                const int cur_samples =
-                    MIN(s->audio.enc->frame_size, remaining_samples);
-                aud_frm->nb_samples = cur_samples;
-                write_frame(s->format_ctx, &s->audio, aud_frm);
-                s->audio.next_pts += cur_samples;
-                memmove(aud_frm->data[0],
-                        aud_frm->data[0] + cur_samples * frame_size,
-                        (remaining_samples - cur_samples) * frame_size);
-                remaining_samples -= cur_samples;
+        const size_t frame_bytes = (size_t) 2 * aud_frm->ch_layout.nb_channels;
+        const int frame_size = s->audio.enc->frame_size;
+        int consumed_samples = 0;
+        while (tmp_frm->nb_samples +
+                   (aud_frm->nb_samples - consumed_samples) >=
+               frame_size) {
+                const int needed_samples = frame_size - tmp_frm->nb_samples;
+                memcpy(tmp_frm->data[0] + tmp_frm->nb_samples * frame_bytes,
+                       aud_frm->data[0] + consumed_samples * frame_bytes,
+                       needed_samples * frame_bytes);
+                tmp_frm->nb_samples = frame_size;
+                write_frame(s->format_ctx, &s->audio, tmp_frm);
+                s->audio.next_pts += frame_size;
+                consumed_samples += needed_samples;
+                tmp_frm->nb_samples = 0;
         }
+
+        memcpy(tmp_frm->data[0] + tmp_frm->nb_samples * frame_bytes,
+               aud_frm->data[0] + consumed_samples * frame_bytes,
+               aud_frm->nb_samples - consumed_samples);
+        tmp_frm->nb_samples += aud_frm->nb_samples - consumed_samples;
 }
 
 static void
@@ -625,6 +660,7 @@ worker(void *arg)
         struct audio_desc   saved_aud_desc = { 0 };
         struct video_frame *vid_frm        = NULL;
         AVFrame            *aud_frm        = NULL;
+        AVFrame            *tmp_aud_frm    = NULL;
 
         while (!s->should_exit) {
                 pthread_mutex_lock(&s->lock);
@@ -649,7 +685,8 @@ worker(void *arg)
 
                 if (!s->initialized) {
                         if (!initialize(s, &saved_vid_desc, vid_frm,
-                                        &saved_aud_desc, aud_frm)) {
+                                        &saved_aud_desc, aud_frm,
+                                        &tmp_aud_frm)) {
                                 continue;
                         }
                 }
@@ -662,7 +699,7 @@ worker(void *arg)
                 }
 
                 if (aud_frm) {
-                        write_audio_frame(s, aud_frm);
+                        write_audio_frame(s, aud_frm, tmp_aud_frm);
                         av_frame_free(&aud_frm);
                 }
                 if (vid_frm) {
@@ -673,6 +710,10 @@ worker(void *arg)
         }
         vf_free(vid_frm);
         av_frame_free(&aud_frm);
+        if (tmp_aud_frm != NULL && tmp_aud_frm->nb_samples > 0) { // last frame
+                write_frame(s->format_ctx, &s->audio, tmp_aud_frm);
+        }
+        av_frame_free(&tmp_aud_frm);
 
         pthread_mutex_unlock(&s->lock);
         return NULL;
@@ -683,17 +724,10 @@ display_file_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_file *s = state;
 
-        AVFrame *av_frm   = av_frame_alloc();
-        av_frm->format    = audio_bps_to_sample_fmt(frame->bps);
-        av_frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
-            frame->ch_count, (frame->ch_count << 1) - 1);
-        av_frm->sample_rate = frame->sample_rate;
-        av_frm->nb_samples  = frame->data_len / frame->ch_count / frame->bps;
-
-        int ret = av_frame_get_buffer(av_frm, 0);
-        if (ret < 0) {
-                error_msg(MOD_NAME "audio buf alloc: %s\n", av_err2str(ret));
-                av_frame_free(&av_frm);
+        AVFrame *av_frm =
+            alloc_audio_frame(audio_desc_from_frame(frame),
+                              frame->data_len / frame->ch_count / frame->bps);
+        if (av_frm == NULL) {
                 return;
         }
         memcpy(av_frm->data[0], frame->data, frame->data_len);
