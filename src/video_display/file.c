@@ -392,6 +392,7 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc)
             get_channel_layout(aud_desc.ch_count, s->is_nut);
         s->audio.enc->sample_rate = aud_desc.sample_rate;
         s->audio.st->time_base    = (AVRational){ 1, aud_desc.sample_rate };
+        s->video.enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
         int ret = avcodec_open2(s->audio.enc, codec, NULL);
         if (ret < 0) {
@@ -436,7 +437,9 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
         s->video.enc->width     = (int) vid_desc.width;
         s->video.enc->height    = (int) vid_desc.height;
         s->video.enc->time_base = s->video.st->time_base;
-        s->video.enc->pix_fmt   = file_get_pix_fmt(s->is_nut,vid_desc.color_spec);
+        s->video.enc->pix_fmt =
+            file_get_pix_fmt(s->is_nut, vid_desc.color_spec);
+        s->video.enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         av_opt_set(s->video.enc->priv_data, "preset", "ultrafast", 0);
         int ret = avcodec_open2(s->video.enc, codec, NULL);
         if (ret < 0) {
@@ -452,13 +455,13 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
                           av_err2str(ret));
                 return false;
         }
-        *saved_vid_desc = vid_desc;
         if (s->video.enc->pix_fmt != get_ug_to_av_pixfmt(vid_desc.color_spec)) {
                 s->video_conv = to_lavc_vid_conv_init(
                     vid_desc.color_spec, (int) vid_desc.width,
                     (int) vid_desc.height, s->video.enc->pix_fmt,
                     get_cpu_core_count());
         }
+        *saved_vid_desc = vid_desc;
 
         // audio
         if (aud_frm != NULL) {
