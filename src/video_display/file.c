@@ -441,18 +441,8 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
 }
 
 static bool
-initialize(struct state_file *s, struct video_desc *saved_vid_desc,
-           const struct video_frame *vid_frm, struct audio_desc *saved_aud_desc,
-           const AVFrame *aud_frm, AVFrame **tmp_aud_frame)
+configure_video(struct state_file *s, struct video_desc vid_desc)
 {
-        if (!vid_frm || (s->audio.st != NULL && !aud_frm)) {
-                log_msg(LOG_LEVEL_INFO, "Waiting for all streams to init.\n");
-                return false;
-        }
-
-        const struct video_desc vid_desc = video_desc_from_frame(vid_frm);
-
-        // video
         s->video.st->time_base = (AVRational){ get_framerate_d(vid_desc.fps),
                                                get_framerate_n(vid_desc.fps) };
         const AVCodec *codec   = avcodec_find_encoder(
@@ -490,6 +480,25 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
                     (int) vid_desc.height, s->video.enc->pix_fmt,
                     get_cpu_core_count());
         }
+        return true;
+}
+
+static bool
+initialize(struct state_file *s, struct video_desc *saved_vid_desc,
+           const struct video_frame *vid_frm, struct audio_desc *saved_aud_desc,
+           const AVFrame *aud_frm, AVFrame **tmp_aud_frame)
+{
+        if (!vid_frm || (s->audio.st != NULL && !aud_frm)) {
+                log_msg(LOG_LEVEL_INFO, "Waiting for all streams to init.\n");
+                return false;
+        }
+
+
+        // video
+        const struct video_desc vid_desc = video_desc_from_frame(vid_frm);
+        if (!configure_video(s, vid_desc)) {
+                return false;
+        }
         *saved_vid_desc = vid_desc;
 
         // audio
@@ -504,7 +513,7 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
 
         av_dump_format(s->format_ctx, 0, s->filename, 1);
 
-        ret = avformat_write_header(s->format_ctx, NULL);
+        int ret = avformat_write_header(s->format_ctx, NULL);
         if (ret < 0) {
                 error_msg(MOD_NAME
                           "Error occurred when opening output file: %s\n",
