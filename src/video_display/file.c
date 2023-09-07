@@ -467,7 +467,9 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
         s->video.enc->pix_fmt =
             file_get_pix_fmt(s->is_nut, vid_desc.color_spec);
         s->video.enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-        av_opt_set(s->video.enc->priv_data, "preset", "ultrafast", 0);
+        av_opt_set(s->video.enc->priv_data, "preset", "ultrafast", 0); // x264/5
+        av_opt_set(s->video.enc->priv_data, "deadline", "realtime", 0); // vp9
+        av_opt_set(s->video.enc->priv_data, "cpu-used", "8", 0);
         int ret = avcodec_open2(s->video.enc, codec, NULL);
         if (ret < 0) {
                 error_msg(MOD_NAME "video avcodec_open2: %s\n",
