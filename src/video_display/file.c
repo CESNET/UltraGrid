@@ -356,8 +356,9 @@ static AVChannelLayout get_channel_layout(int ch_count, bool raw) {
                 return (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
                     ch_count, (1 << ch_count) - 1);
         }
-        return ch_count == 1 ? (AVChannelLayout) AV_CHANNEL_LAYOUT_MONO
-                             : (AVChannelLayout) AV_CHANNEL_LAYOUT_STEREO;
+        AVChannelLayout layout;
+        av_channel_layout_default(&layout, ch_count);
+        return layout;
 }
 
 static AVFrame *
