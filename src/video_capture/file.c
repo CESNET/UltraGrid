@@ -543,11 +543,16 @@ static void *vidcap_file_worker(void *state) {
 
 static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const char *fmt,
                 bool *opportunistic_audio) {
-        s->src_filename = strdup_path_with_expansion(fmt);
-        assert(s->src_filename != NULL);
-        char *tmp = s->src_filename, *item, *saveptr;
+        char fmt_cpy[MAX_PATH_SIZE] = "";
+        strncpy(fmt_cpy, fmt, sizeof fmt_cpy - 1);
+        char *tmp     = fmt_cpy;
+        char *item    = NULL;
+        char *saveptr = NULL;
         while ((item = strtok_r(tmp, ":", &saveptr)) != NULL) {
-                if (tmp != NULL) { // already stored in src_filename
+                if (tmp != NULL) { // first item
+                        s->src_filename = strdup_path_with_expansion(
+                            IS_KEY_PREFIX(item, "name") ? strchr(item, '=') + 1
+                                                        : item);
                         tmp = NULL;
                         continue;
                 }
