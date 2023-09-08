@@ -563,11 +563,14 @@ interleaved2noninterleaved_float(char **out_ch, const char *in, int in_bps, int 
                             int channel_count)
 {
         assert(in_bps != 1); // bps 1 is unsigned
+        for (int ch = 0; ch < channel_count; ++ch) {
+                assert((uintptr_t) out_ch[ch] % 4 == 0);
+        }
         for (int i = 0; i < in_len / channel_count / in_bps; ++i) {
                 for (int ch = 0; ch < channel_count; ++ch) {
                         int32_t val = 0;
                         memcpy((char *) &val + 4 - in_bps, in, in_bps);
-                        *(float *) (out_ch[ch] + (ptrdiff_t) i * 4) =
+                        *(float *) (void *) (out_ch[ch] + (ptrdiff_t) i * 4) =
                             (float) val / INT32_MAX;
                         in += in_bps;
                 }

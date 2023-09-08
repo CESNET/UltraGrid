@@ -282,9 +282,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 int mtu, int ttl, struct exporter *exporter)
 {
         char *tmp, *unused = NULL;
-        UNUSED(unused);
         char *addr;
-        int resample_to = get_audio_codec_sample_rate(opt->codec_cfg);
         int retval = -1;
         
         assert(opt->send_cfg != NULL);
@@ -308,7 +306,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_scale = opt->scale;
 
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
-        s->resample_to = resample_to;
+        s->resample_to = get_audio_codec_sample_rate(opt->codec_cfg);
 
         s->exporter = exporter;
 
@@ -418,7 +416,6 @@ int audio_init(struct state_audio **ret, struct module *parent,
                                    AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
                                    &s->audio_network_device, &len);
         }
-
 
         if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
                 if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device), opt->send_port, IF_NOT_NULL_ELSE(get_audio_codec_sample_rate(opt->codec_cfg), 48000),
