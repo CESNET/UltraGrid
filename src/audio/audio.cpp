@@ -359,10 +359,6 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         retval = ret;
                         goto error;
                 }
-                size_t len = sizeof(struct rtp *);
-                audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
-                                        &s->audio_network_device, &len);
-
                 s->audio_tx_mode |= MODE_RECEIVER;
         } else {
                 s->audio_playback_device = audio_playback_init_null_device();
@@ -376,6 +372,13 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         goto error;
                 }
         }
+        if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
+                size_t len = sizeof(struct rtp *);
+                audio_playback_ctl(s->audio_playback_device,
+                                   AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
+                                   &s->audio_network_device, &len);
+        }
+
 
         if ((s->audio_tx_mode & MODE_SENDER) != 0U || "help"s == opt->codec_cfg) {
                 if ((s->audio_encoder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER)) == nullptr) {
