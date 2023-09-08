@@ -387,15 +387,20 @@ alloc_audio_frame(struct audio_desc desc, int nb_samples,
 static enum AVSampleFormat
 select_sample_format(const enum AVSampleFormat *fmts)
 {
+        enum AVSampleFormat fmt = AV_SAMPLE_FMT_NONE;
         while (*fmts) {
-                if (*fmts == AV_SAMPLE_FMT_S16P || *fmts == AV_SAMPLE_FMT_S16 ||
-                    *fmts == AV_SAMPLE_FMT_FLTP) {
+                if (*fmts == AV_SAMPLE_FMT_S16P || *fmts == AV_SAMPLE_FMT_S16) {
                         return *fmts;
+                }
+                if (*fmts == AV_SAMPLE_FMT_FLTP) { // use fltp only if no s16[p]
+                        fmt = *fmts;
                 }
                 fmts++;
         }
-        assert(0 && MOD_NAME "Only S16, S16P and FLTP samples are currently "
-                             "handled, please report!");
+        assert(fmt != AV_SAMPLE_FMT_NONE && MOD_NAME
+               "Only S16, S16P and FLTP samples are currently "
+               "handled, please report!");
+        return fmt;
 }
 
 static bool
