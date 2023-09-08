@@ -135,7 +135,7 @@ usage(void)
 {
 
         color_printf("Display " TBOLD("file") " syntax:\n");
-        color_printf("\t" TBOLD(TRED("file") "[:file=<name>]") "\n\n");
+        color_printf("\t" TBOLD(TRED("file") "[:name=<filename>]") "\n\n");
         char desc[] =
             TBOLD("NUT") " files are written uncompressed. For other file "
                          "formats " TBOLD(
@@ -151,7 +151,7 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
         const char *filename = DEFAULT_FILENAME;
         UNUSED(parent);
         if (strlen(fmt) > 0) {
-                if (IS_KEY_PREFIX(fmt, "file")) {
+                if (IS_KEY_PREFIX(fmt, "file") || IS_KEY_PREFIX(fmt, "name")) {
                         filename = strchr(fmt, '=') + 1;
                 } else {
                         usage();
