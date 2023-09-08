@@ -402,28 +402,32 @@ static bool
 configure_audio(struct state_file *s, struct audio_desc aud_desc,
                 AVFrame **tmp_frame)
 {
-        avcodec_free_context(&s->audio.enc);
-        enum AVCodecID codec_id = AV_CODEC_ID_NONE;
-        switch (aud_desc.bps) {
-        case 1:
-                codec_id = AV_CODEC_ID_PCM_U8;
-                break;
-        case 2:
-                codec_id = AV_CODEC_ID_PCM_S16LE;
-                break;
-        case 3:
-        case 4:
-                codec_id = AV_CODEC_ID_PCM_S32LE;
-                break;
-        default:
-                abort();
+        enum AVCodecID codec_id = s->format_ctx->oformat->audio_codec;
+        if (s->is_nut) {
+                switch (aud_desc.bps) {
+                case 1:
+                        codec_id = AV_CODEC_ID_PCM_U8;
+                        break;
+                case 2:
+                        codec_id = AV_CODEC_ID_PCM_S16LE;
+                        break;
+                case 3:
+                case 4:
+                        codec_id = AV_CODEC_ID_PCM_S32LE;
+                        break;
+                default:
+                        abort();
+                }
         }
-        const AVCodec *codec = avcodec_find_encoder(
-            s->is_nut ? codec_id : s->format_ctx->oformat->audio_codec);
+        const AVCodec *codec = avcodec_find_encoder(codec_id);
         if (codec == NULL && !s->is_nut) {
                 codec = avcodec_find_encoder(codec_id);
         }
-        assert(codec != NULL);
+        if (codec == NULL) {
+                error_msg(MOD_NAME "Unable to find audio encoder for %s\n",
+                          avcodec_get_name(codec_id));
+                return false;
+        }
         s->audio.enc             = avcodec_alloc_context3(codec);
         s->audio.enc->sample_fmt =
             s->is_nut ? audio_bps_to_av_sample_fmt(aud_desc.bps, false)
@@ -464,11 +468,15 @@ configure_video(struct state_file *s, struct video_desc vid_desc)
 {
         s->video.st->time_base = (AVRational){ get_framerate_d(vid_desc.fps),
                                                get_framerate_n(vid_desc.fps) };
-        const AVCodec *codec   = avcodec_find_encoder(
+        const enum AVCodecID codec_id =
             s->is_nut ? AV_CODEC_ID_RAWVIDEO
-                      : s->format_ctx->oformat->video_codec);
-        assert(codec != NULL);
-        avcodec_free_context(&s->video.enc);
+                      : s->format_ctx->oformat->video_codec;
+        const AVCodec *codec = avcodec_find_encoder(codec_id);
+        if (codec == NULL) {
+                error_msg(MOD_NAME "Unable to find video encoder for %s\n",
+                          avcodec_get_name(codec_id));
+                return false;
+        }
         s->video.enc            = avcodec_alloc_context3(codec);
         s->video.enc->width     = (int) vid_desc.width;
         s->video.enc->height    = (int) vid_desc.height;
@@ -508,14 +516,15 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
            const AVFrame *aud_frm, AVFrame **tmp_aud_frame)
 {
         if (!vid_frm || (s->audio.st != NULL && !aud_frm)) {
-                log_msg(LOG_LEVEL_INFO, "Waiting for all streams to init.\n");
+                log_msg(LOG_LEVEL_INFO,
+                        MOD_NAME "Waiting for all streams to init.\n");
                 return false;
         }
-
 
         // video
         const struct video_desc vid_desc = video_desc_from_frame(vid_frm);
         if (!configure_video(s, vid_desc)) {
+                exit_uv(1);
                 return false;
         }
         *saved_vid_desc = vid_desc;
@@ -525,6 +534,7 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
                 const struct audio_desc aud_desc =
                     audio_desc_from_av_frame(aud_frm);
                 if (!configure_audio(s, aud_desc, tmp_aud_frame)) {
+                        exit_uv(1);
                         return false;
                 }
                 *saved_aud_desc = aud_desc;
