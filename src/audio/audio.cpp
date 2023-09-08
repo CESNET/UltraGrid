@@ -399,10 +399,6 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         retval = ret;
                         goto error;
                 }
-                size_t len = sizeof(struct rtp *);
-                audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
-                                        &s->audio_network_device, &len);
-
                 s->audio_tx_mode |= MODE_RECEIVER;
         } else {
                 s->audio_playback_device = audio_playback_init_null_device();
@@ -416,6 +412,13 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         goto error;
                 }
         }
+        if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
+                size_t len = sizeof(struct rtp *);
+                audio_playback_ctl(s->audio_playback_device,
+                                   AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
+                                   &s->audio_network_device, &len);
+        }
+
 
         if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
                 if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device), opt->send_port, IF_NOT_NULL_ELSE(get_audio_codec_sample_rate(opt->codec_cfg), 48000),
