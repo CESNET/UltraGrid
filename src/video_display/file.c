@@ -73,7 +73,6 @@
 struct output_stream {
         AVStream           *st;
         AVCodecContext     *enc;
-        AVPacket           *pkt;
         long long int       next_pts;
         time_ns_t           next_frm_time;
         union {
@@ -124,10 +123,10 @@ display_file_done(void *state)
                 av_write_trailer(s->format_ctx);
         }
         avcodec_free_context(&s->video.enc);
+        avcodec_free_context(&s->audio.enc);
         if (!(s->format_ctx->oformat->flags & AVFMT_NOFILE)) {
                 avio_closep(&s->format_ctx->pb);
         }
-        av_packet_free(&s->video.pkt);
         vf_free(s->video.vid_frm);
         av_frame_free(&s->audio.aud_frm);
         to_lavc_vid_conv_destroy(&s->video_conv);
@@ -221,7 +220,6 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
                         return NULL;
                 }
         }
-        s->video.pkt   = av_packet_alloc();
 
         int ret = pthread_mutex_init(&s->lock, NULL);
         ret |= pthread_cond_init(&s->cv, NULL);
@@ -231,7 +229,6 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
         if ((flags & DISPLAY_FLAG_AUDIO_ANY) != 0U) {
                 s->audio.st     = avformat_new_stream(s->format_ctx, NULL);
                 s->audio.st->id = 1;
-                s->audio.pkt    = av_packet_alloc();
         }
 
         return s;
@@ -615,7 +612,7 @@ initialize(struct state_file *s, struct video_desc *saved_vid_desc,
 
 static void
 write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
-            AVFrame *frame)
+            AVFrame *frame, AVPacket *pkt)
 {
         frame->pts = ost->next_pts;
         int ret    = avcodec_send_frame(ost->enc, frame);
@@ -625,7 +622,7 @@ write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
                 return;
         }
         while (ret >= 0) {
-                ret = avcodec_receive_packet(ost->enc, ost->pkt);
+                ret = avcodec_receive_packet(ost->enc, pkt);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                         break;
                 }
@@ -634,10 +631,10 @@ write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
                                   av_err2str(ret));
                         return;
                 }
-                av_packet_rescale_ts(ost->pkt, ost->enc->time_base,
+                av_packet_rescale_ts(pkt, ost->enc->time_base,
                                      ost->st->time_base);
-                ost->pkt->stream_index = ost->st->index;
-                ret = av_interleaved_write_frame(format_ctx, ost->pkt);
+                pkt->stream_index = ost->st->index;
+                ret = av_interleaved_write_frame(format_ctx, pkt);
                 if (ret < 0) {
                         error_msg(MOD_NAME "error writting video packet: %s\n",
                                   av_err2str(ret));
@@ -714,14 +711,15 @@ file_append_audio_frame(AVFrame *dst, const AVFrame *src, int skip_in_samples,
 }
 
 static void
-write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
+write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm,
+                  AVPacket *pkt)
 {
         s->audio.next_frm_time =
             get_time_in_ns() +
             (aud_frm->nb_samples * NS_IN_SEC / aud_frm->sample_rate);
 
         if (s->is_nut) {
-                write_frame(s->format_ctx, &s->audio, aud_frm);
+                write_frame(s->format_ctx, &s->audio, aud_frm, pkt);
                 s->audio.next_pts += aud_frm->nb_samples;
                 return;
         }
@@ -729,13 +727,13 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
         // compressed audio
         const int frame_size = s->audio.enc->frame_size;
         int consumed_samples = 0;
-        while (tmp_frm->nb_samples +
+        while (tmp_frm->nb_samples + // NOLINT
                    (aud_frm->nb_samples - consumed_samples) >=
                frame_size) {
                 const int needed_samples = frame_size - tmp_frm->nb_samples;
                 file_append_audio_frame(tmp_frm, aud_frm, consumed_samples,
                                     needed_samples);
-                write_frame(s->format_ctx, &s->audio, tmp_frm);
+                write_frame(s->format_ctx, &s->audio, tmp_frm, pkt);
                 s->audio.next_pts += frame_size;
                 consumed_samples += needed_samples;
                 tmp_frm->nb_samples = 0;
@@ -746,7 +744,8 @@ write_audio_frame(struct state_file *s, AVFrame *aud_frm, AVFrame *tmp_frm)
 }
 
 static void
-write_video_frame(struct state_file *s, struct video_frame *vid_frm)
+write_video_frame(struct state_file *s, struct video_frame *vid_frm,
+                  AVPacket *pkt)
 {
         const long long vid_frm_time_ns =
             (long long) (NS_IN_SEC / s->video_desc.fps);
@@ -783,7 +782,7 @@ write_video_frame(struct state_file *s, struct video_frame *vid_frm)
         }
 
 write_frame:
-        write_frame(s->format_ctx, &s->video, frame);
+        write_frame(s->format_ctx, &s->video, frame, pkt);
         s->video.next_pts += 1;
         s->video.next_frm_time = get_time_in_ns() + vid_frm_time_ns;
 
@@ -803,6 +802,7 @@ worker(void *arg)
         struct video_frame *vid_frm        = NULL;
         AVFrame            *aud_frm        = NULL;
         AVFrame            *tmp_aud_frm    = NULL;
+        AVPacket           *pkt            = av_packet_alloc();
 
         while (!s->should_exit) {
                 pthread_mutex_lock(&s->lock);
@@ -841,11 +841,11 @@ worker(void *arg)
                 }
 
                 if (aud_frm) {
-                        write_audio_frame(s, aud_frm, tmp_aud_frm);
+                        write_audio_frame(s, aud_frm, tmp_aud_frm, pkt);
                         av_frame_free(&aud_frm);
                 }
                 if (vid_frm) {
-                        write_video_frame(s, vid_frm);
+                        write_video_frame(s, vid_frm, pkt);
                         vf_free(vid_frm);
                         vid_frm = NULL;
                 }
@@ -853,9 +853,10 @@ worker(void *arg)
         vf_free(vid_frm);
         av_frame_free(&aud_frm);
         if (tmp_aud_frm != NULL && tmp_aud_frm->nb_samples > 0) { // last frame
-                write_frame(s->format_ctx, &s->audio, tmp_aud_frm);
+                write_frame(s->format_ctx, &s->audio, tmp_aud_frm, pkt);
         }
         av_frame_free(&tmp_aud_frm);
+        av_packet_free(&pkt);
 
         pthread_mutex_unlock(&s->lock);
         return NULL;
