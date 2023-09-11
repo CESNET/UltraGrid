@@ -328,7 +328,11 @@ audio_desc_from_av_frame(const AVFrame *frm)
 {
         struct audio_desc desc = { 0 };
         desc.bps = av_get_bytes_per_sample(frm->format);
+ #if FF_API_NEW_CHANNEL_LAYOUT
         desc.ch_count = frm->ch_layout.nb_channels;
+#else
+        desc.ch_count = av_get_channel_layout_nb_channels(frm->channel_layout);
+#endif
         desc.codec = AC_PCM;
         desc.sample_rate = frm->sample_rate;
 

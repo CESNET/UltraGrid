@@ -351,14 +351,30 @@ display_file_reconfigure(void *state, struct video_desc desc)
         return true;
 }
 
-static AVChannelLayout get_channel_layout(int ch_count, bool raw) {
+static void
+aud_ctx_set_ch_layout(struct AVCodecContext *ctx, int ch_count, bool raw)
+{
+#if FF_API_NEW_CHANNEL_LAYOUT
         if (raw) {
-                return (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+                ctx->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
                     ch_count, (1 << ch_count) - 1);
+                return;
         }
-        AVChannelLayout layout;
-        av_channel_layout_default(&layout, ch_count);
-        return layout;
+        av_channel_layout_default(&ctx->ch_layout, ch_count);
+#else
+        ctx->channel_layout = av_get_default_channel_layout(ch_count);
+#endif
+}
+
+static void
+aud_frm_set_ch_layout(AVFrame *frm, int ch_count)
+{
+#if FF_API_NEW_CHANNEL_LAYOUT
+        frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
+            ch_count, (1 << ch_count) - 1);
+#else
+        frm->channel_layout = av_get_default_channel_layout(ch_count);
+#endif
 }
 
 static AVFrame *
@@ -367,8 +383,7 @@ alloc_audio_frame(struct audio_desc desc, int nb_samples,
 {
         AVFrame *av_frm   = av_frame_alloc();
         av_frm->format    = fmt;
-        av_frm->ch_layout = (AVChannelLayout) AV_CHANNEL_LAYOUT_MASK(
-            desc.ch_count, (desc.ch_count << 1) - 1);
+        aud_frm_set_ch_layout(av_frm, desc.ch_count);
         av_frm->sample_rate = desc.sample_rate;
         av_frm->nb_samples  = nb_samples;
 
@@ -437,8 +452,7 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
         s->audio.enc->sample_fmt =
             s->is_nut ? audio_bps_to_av_sample_fmt(aud_desc.bps, false)
                       : select_sample_format(s->audio.enc->codec->sample_fmts);
-        s->audio.enc->ch_layout =
-            get_channel_layout(aud_desc.ch_count, s->is_nut);
+        aud_ctx_set_ch_layout(s->audio.enc, aud_desc.ch_count, s->is_nut);
         s->audio.enc->sample_rate = aud_desc.sample_rate;
         s->audio.st->time_base    = (AVRational){ 1, aud_desc.sample_rate };
         s->video.enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -618,7 +632,12 @@ static void
 file_append_audio_frame(AVFrame *dst, const AVFrame *src, int skip_in_samples,
                         int nb_samples)
 {
+#if FF_API_NEW_CHANNEL_LAYOUT
         const int ch_count = src->ch_layout.nb_channels;
+#else
+        const int ch_count =
+            av_get_channel_layout_nb_channels(src->channel_layout);
+#endif
         const int s_bps    = av_get_bytes_per_sample(src->format);
         const int d_bps    = av_get_bytes_per_sample(dst->format);
 
