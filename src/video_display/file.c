@@ -65,9 +65,10 @@
 #include "video.h"
 #include "video_display.h"
 
-#define DEFAULT_FILENAME "out.mp4"
+#define DEFAULT_FILENAME     "out.mp4"
+#define DEFAULT_MAX_AV_DIFF  1.0
 #define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P
-#define MOD_NAME "[File disp.] "
+#define MOD_NAME             "[File disp.] "
 
 struct output_stream {
         AVStream           *st;
@@ -89,6 +90,7 @@ struct state_file {
         struct video_desc    video_desc;
         struct to_lavc_vid_conv *video_conv;
         char                 filename[MAX_PATH_SIZE];
+        double               max_av_diff; ///< max A/V diff in vf time
         pthread_t            thread_id;
         pthread_mutex_t      lock;
         pthread_cond_t       cv;
@@ -113,9 +115,11 @@ static void
 display_file_done(void *state)
 {
         struct state_file *s = state;
-        pthread_join(s->thread_id, NULL);
-        pthread_mutex_destroy(&s->lock);
-        pthread_cond_destroy(&s->cv);
+        if (s->should_exit) { // thread started
+                pthread_join(s->thread_id, NULL);
+                pthread_mutex_destroy(&s->lock);
+                pthread_cond_destroy(&s->cv);
+        }
         if (s->initialized) {
                 av_write_trailer(s->format_ctx);
         }
@@ -131,41 +135,76 @@ display_file_done(void *state)
 }
 
 static void
-usage(void)
+usage(bool full)
 {
+        color_printf("Display " TBOLD("file") " syntax:\n\n");
+        color_printf("\t" TBOLD(TRED("file") "[:name=<filename>]") " | " TBOLD(
+            "file:[full]help") "\n\n");
+        color_printf("where\n\n");
+        color_printf("\t" TBOLD("<filename>") " - output file name\n");
+        if (full) {
+                color_printf(
+                    "\t" TBOLD("max_av_diff") " - allowed A/V descync length "
+                                              "(video frame duration)\n");
+        }
+        color_printf("\n");
+        char codec_note[] = TBOLD(
+            "NUT") " files are written uncompressed. For other file "
+                   "formats " TBOLD(
+                       "FFmpeg") " container default "
+                                 "codecs are used.\n\nDefault output file "
+                                 "is: " TBOLD(DEFAULT_FILENAME) "\n\n";
+        color_printf("%s", indent_paragraph(codec_note));
+}
 
-        color_printf("Display " TBOLD("file") " syntax:\n");
-        color_printf("\t" TBOLD(TRED("file") "[:name=<filename>]") "\n\n");
-        char desc[] =
-            TBOLD("NUT") " files are written uncompressed. For other file "
-                         "formats " TBOLD(
-                             "FFmpeg") " container default "
-                                       "codecs are used.\n\nDefault output "
-                                       "is: " TBOLD(DEFAULT_FILENAME) "\n\n";
-        color_printf("%s", indent_paragraph(desc));
+static bool
+parse_fmt(struct state_file *s, char *fmt)
+{
+        char *end_ptr = NULL;
+        char *item = NULL;
+        while ((item = strtok_r(fmt, ":", &end_ptr))) {
+                fmt = NULL;
+                char *val = strchr(item, '=') + 1;
+                if (IS_KEY_PREFIX(item, "file") || IS_KEY_PREFIX(item, "name")) {
+                        snprintf(s->filename, sizeof s->filename, "%s", val);
+                } else if (IS_KEY_PREFIX(item, "max_av_diff")) {
+                        s->max_av_diff = strtod(val, NULL);
+                        assert(s->max_av_diff >= 0.0);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unknown option: %s\n", item);
+                        return false;
+                }
+        }
+        return true;
 }
 
 static void *
 display_file_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        const char *filename = DEFAULT_FILENAME;
         UNUSED(parent);
-        if (strlen(fmt) > 0) {
-                if (IS_KEY_PREFIX(fmt, "file") || IS_KEY_PREFIX(fmt, "name")) {
-                        filename = strchr(fmt, '=') + 1;
-                } else {
-                        usage();
-                        return strcmp(fmt, "help") == 0 ? INIT_NOERR : NULL;
-                }
+        if (!strcmp(fmt, "help") || !strcmp(fmt, "fullhelp")) {
+                usage(!strcmp(fmt, "fullhelp"));
+                return INIT_NOERR;
         }
+
         struct state_file *s = calloc(1, sizeof *s);
-        strncat(s->filename, filename, sizeof s->filename - 1);
-        avformat_alloc_output_context2(&s->format_ctx, NULL, NULL, filename);
+        snprintf(s->filename, sizeof s->filename, "%s", DEFAULT_FILENAME);
+        s->max_av_diff  = DEFAULT_MAX_AV_DIFF;
+        char *fmt_c     = strdup(fmt);
+        bool  parse_ret = parse_fmt(s, fmt_c);
+        free(fmt_c);
+        if (!parse_ret) {
+                free(s);
+                return NULL;
+        }
+
+        avformat_alloc_output_context2(&s->format_ctx, NULL, NULL, s->filename);
         if (s->format_ctx == NULL) {
                 log_msg(LOG_LEVEL_WARNING, "Could not deduce output format "
                                            "from file extension, using NUT.\n");
                 avformat_alloc_output_context2(&s->format_ctx, NULL, "nut",
-                                               filename);
+                                               s->filename);
                 assert(s->format_ctx != NULL);
         }
         s->is_nut       = !strcmp(s->format_ctx->oformat->name, "nut");
@@ -174,9 +213,10 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
 
         if (!(s->format_ctx->oformat->flags & AVFMT_NOFILE)) {
                 int ret =
-                    avio_open(&s->format_ctx->pb, filename, AVIO_FLAG_WRITE);
+                    avio_open(&s->format_ctx->pb, s->filename, AVIO_FLAG_WRITE);
                 if (ret < 0) {
-                        error_msg(MOD_NAME "avio_open: %s\n", av_err2str(ret));
+                        error_msg(MOD_NAME "avio_open %s: %s\n", s->filename,
+                                  av_err2str(ret));
                         display_file_done(s);
                         return NULL;
                 }
@@ -726,7 +766,9 @@ write_video_frame(struct state_file *s, struct video_frame *vid_frm)
                     (long long) ((double) (s->video.next_pts * NS_IN_SEC) /
                                  s->video_desc.fps);
                 if (s->video.next_frm_time != 0 &&
-                    llabs(audio_start - video_start) > vid_frm_time_ns) {
+                    llabs(audio_start - video_start) >
+                        (long long) (s->max_av_diff *
+                                     (double) vid_frm_time_ns)) {
                         log_msg(
                             LOG_LEVEL_WARNING,
                             MOD_NAME "A-V desync %f sec, video frame %s...\n",
