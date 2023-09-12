@@ -585,7 +585,9 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 	cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
 	cp -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
 	for n in $(BUNDLE)/Contents/MacOS/*; \
-		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+		do echo quit \
+			| $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -cd -b \
+				-d $(BUNDLE)/Contents/libs/ -p @executable_path/../libs/ -x $$n; \
 	done
 	if otool -L $(TARGET) | grep -q VideoMaster; then \
 		cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD*.framework $(BUNDLE)/Contents/Frameworks; \
@@ -600,18 +602,25 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 	rm -rf $(GUI_BUNDLE)
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	cp -R $(GUI_BUNDLE_DEP)/* $(GUI_BUNDLE)
-	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/
+	echo quit \
+		| $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs -cd -b\
+			-x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/
 	cp -nR $(BUNDLE)/* $(GUI_BUNDLE) || true
 	# add Qt frameworks
-	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
+	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)\
+		-verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv\
+		-executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
 	if [ $(MACOS_LEGACY) = no ]; then \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
-			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null; then continue; fi; \
+			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null; \
+			then continue; fi; \
 			mv -f $$n $$n-real; cp -f $(srcdir)/data/scripts/macos-wrapper $$n; \
 		done; \
 	fi
-	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription 'Allow camera for video capture'
-	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription 'Allow microphone for audio capture'
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription \
+		'Allow camera for video capture'
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription \
+		'Allow microphone for audio capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
