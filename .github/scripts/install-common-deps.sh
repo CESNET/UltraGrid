@@ -1,5 +1,8 @@
 #!/bin/sh -eux
 
+curdir=$(cd "$(dirname "$0")"; pwd)
+readonly curdir
+
 win=no
 case "$(uname -s)" in
         CYGWIN*|MINGW32*|MSYS*|MINGW*)
@@ -21,10 +24,9 @@ is_arm() { expr "$(dpkg --print-architecture)" : arm >/dev/null; }
 
 # for Win only download here, compilation is handled differently
 download_install_cineform() {(
-        cd "$GITHUB_WORKSPACE"
         git clone --depth 1 https://github.com/gopro/cineform-sdk
         cd cineform-sdk
-        git apply "$GITHUB_WORKSPACE/.github/scripts/0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch"
+        git apply "$curdir/0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch"
         mkdir build && cd build
         if [ "$win" = no ]; then
                 cmake -DBUILD_TOOLS=OFF ..
