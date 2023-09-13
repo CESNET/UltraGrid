@@ -2675,8 +2675,6 @@ GUI_TARGET=
 QMAKE=
 #qmake # default for most distributions
 
-define(qt5_gui_dep, Qt5Core >= 5.4 Qt5Widgets Qt5Gui)
-
 AC_ARG_ENABLE(qt,
 [  --enable-qt             build Qt GUI (default is disabled)]
 [                          Requires: qt5_gui_dep | Qt6 ],
@@ -2691,65 +2689,22 @@ AC_ARG_ENABLE(static-qt,
     )
 
 if test "$qt_req" != no; then
-        # Check for Qt libraries
-        SAVED_PKG_CONFIG=$PKG_CONFIG
-        if test $static_qt = yes; then
-                PKG_CONFIG='pkg-config --static'
-        fi
-        PKG_CHECK_MODULES(QT, [qt5_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
-        PKG_CONFIG=$SAVED_PKG_CONFIG
-
-        # TODO: fix Qt 6 lookup (and precedence?)
-        AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser],
-                [AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
-                        [QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
-
+        AC_PATH_PROGS(QMAKE, [qmake qmake6 qmake-qt5], [:],
+                [/usr/lib/qt5/bin:$PATH])
         #AC_MSG_NOTICE("Qmake: $QMAKE")
-        if test "x$QMAKE" = "x"; then
-                AC_PATH_PROGS(QMAKE, [qmake qmake6 qmake-qt5], [:], [/usr/lib/qt5/bin:$PATH])
-        fi
-
-        if test "$QMAKE" -a "$QMAKE" != ":"
-        then
-                QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \(@<:@^ @:>@*\).*/\1/p'`
-        fi
-
-        # Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
-        if test $FOUND_QT_DEP = no && test -n "$QMAKE_VERSION" && expr "$QMAKE_VERSION" \>= 6 >/dev/null
-        then
-                touch qt.pro
-                MAKEFILE=Make.qt
-                $QMAKE qt.pro -o $MAKEFILE
-                if test -f Make.qt.Release; then
-                        MAKEFILE=Make.qt.Release
-                fi
-                printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> $MAKEFILE
-                printf 'print-cxxflags:\n\t@echo $(INCPATH) $(CXXFLAGS)\n\n' >> $MAKEFILE
-                QT_CFLAGS=$(make -f $MAKEFILE print-cxxflags)
-                QT_LIBS=$(make -f $MAKEFILE print-libs)
-                rm qt.pro Make.qt*
-                FOUND_QT_DEP=yes
-        fi
-
-        if test $FOUND_QT_DEP = yes; then
+        if test $QMAKE != :; then
                 GUI_TARGET=gui/QT/uv-qt$APPEXT
                 GUI_EXE=$GUI_TARGET
                 if test $system = MacOSX; then
                         GUI_EXE=$GUI_TARGET/Contents/MacOS/uv-qt
                 fi
-
-                if test ":" = "$QMAKE"; then
-                        qt_gui=no
-                else
-                        qt_gui=yes
-                fi
+                qt_gui=yes
         fi
 fi
 
 AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
-AC_SUBST(QT_CFLAGS)
 
 ENSURE_FEATURE_PRESENT([$qt_req], [$qt_gui], [Qt libraries are required.])
 

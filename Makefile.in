@@ -51,7 +51,6 @@ SYSTEM	      = @system@
 
 GUI_EXE      ?= @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
-QT_CFLAGS     = @QT_CFLAGS@
 ifeq (@REFLECTOR_REQ@,yes)
 REFLECTOR_TARGET ?= bin/hd-rum-transcode$(EXEEXT)
 endif
