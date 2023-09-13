@@ -1,9 +1,16 @@
 #!/bin/bash -eux
 
+srcroot=$(cd "$(dirname "$0")/../../.."; pwd)
+readonly srcroot
+
 # shellcheck source=/dev/null
-. .github/scripts/json-common.sh
+. "$srcroot/.github/scripts/json-common.sh"
 
 TEMP_INST=/tmp/install
+
+if [ -z "${GITHUB_ENV-}" ]; then
+        GITHUB_ENV=/dev/null
+fi
 
 CPATH=/usr/local/include:/usr/local/opt/qt/include
 DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
@@ -24,7 +31,8 @@ brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt@5
 brew install glm
-curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
+sudo curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/\
+natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
 
 rm -f /usr/local/opt/qt
 cp -af /usr/local/opt/qt@5 /usr/local/opt/qt
@@ -44,7 +52,7 @@ install_ximea() {
 
 install_aja() {
         # shellcheck source=/dev/null
-        . "$GITHUB_WORKSPACE/.github/scripts/aja-common.sh"
+        . "$srcroot/.github/scripts/aja-common.sh"
         AJA_DIRECTORY=/private/var/tmp/ntv2sdk
         git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
         cd $AJA_DIRECTORY
@@ -56,7 +64,7 @@ install_aja() {
 }
 
 install_deltacast() {
-        DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
+        DELTA_CACHE_INST=${SDK_NONFREE_PATH-nonexistent}/VideoMasterHD_inst
         if [ ! -d "$DELTA_CACHE_INST" ]; then
                 return 0
         fi
@@ -105,20 +113,20 @@ install_live555() {
 }
 
 install_soundfont() {
-        . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
-        sf_dir="$GITHUB_WORKSPACE/data/MacOS-bundle-template/Contents/share/soundfonts"
+        . "$srcroot/.github/scripts/defs.sh"
+        sf_dir="$srcroot/data/MacOS-bundle-template/Contents/share/soundfonts"
         mkdir -p "$sf_dir"
         curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
 }
 
 install_syphon() {
-        wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
+        curl -LO https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
         unzip Syphon.SDK.5.zip
         sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
 }
 
 # Install cross-platform deps
-"$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
+"$srcroot/.github/scripts/install-common-deps.sh"
 
 install_aja
 install_deltacast
