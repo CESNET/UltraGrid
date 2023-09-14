@@ -588,11 +588,7 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 			| $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -cd -b \
 				-d $(BUNDLE)/Contents/libs/ -p @executable_path/../libs/ -x $$n; \
 	done
-	if otool -L $(TARGET) | grep -q VideoMaster; then \
-		cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD*.framework $(BUNDLE)/Contents/Frameworks; \
-		rm -rf $(BUNDLE)/Contents/Frameworks/VideoMasterHD*.framework/Versions/Current/Headers; \
-	fi
-	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
+	if [ -d Frameworks ]; then cp -R Frameworks/* $(BUNDLE)/Contents/Frameworks; fi
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 # ships UltraGrid itself to GUI bundle which is copied from
