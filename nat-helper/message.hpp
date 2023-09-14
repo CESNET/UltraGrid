@@ -40,19 +40,21 @@
 #include <string_view>
 #include <functional>
 #include <asio.hpp>
+#include "status_code.hpp"
 
 class Message{
 public:
+	using CompletionCallback = std::function<void(CompletionStatus)>;
 	Message() = default;
 
 	void async_readMsg(asio::ip::tcp::socket& socket,
-			std::function<void(bool)> onComplete);
+			CompletionCallback onComplete);
 
 	std::string_view getStr() const;
 
 	void setStr(std::string_view msg);
 	void async_sendMsg(asio::ip::tcp::socket& socket,
-			std::function<void(bool)> onComplete);
+			CompletionCallback onComplete);
 
 	size_t getSize() const { return size; }
 	bool empty() const { return size == 0; }
@@ -61,13 +63,13 @@ public:
 
 private:
 	void async_readBody(asio::ip::tcp::socket& socket,
-			std::function<void(bool)> onComplete,
+			CompletionCallback onComplete,
 			const std::error_code& ec, size_t readLen);
 
-	void async_readBodyComplete(std::function<void(bool)> onComplete,
+	void async_readBodyComplete(CompletionCallback onComplete,
 			const std::error_code& ec, size_t readLen);
 
-	void async_sendComplete(std::function<void(bool)> onComplete,
+	void async_sendComplete(CompletionCallback onComplete,
 			const std::error_code& ec, size_t sentLen);
 
 	size_t size = 0;

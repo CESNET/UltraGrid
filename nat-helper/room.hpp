@@ -40,6 +40,7 @@
 #include <map>
 #include <memory>
 #include "client.hpp"
+#include "status_code.hpp"
 
 class Room : public std::enable_shared_from_this<Room>{
 public:
@@ -51,7 +52,7 @@ public:
 	bool isEmpty() const { return clients.empty(); }
 
 private:
-	void onClientCandidate(Client& client, bool success);
+	void onClientCandidate(Client& client, CompletionStatus success);
 
 	std::string name;
 	std::map<Client *, std::shared_ptr<Client>> clients;

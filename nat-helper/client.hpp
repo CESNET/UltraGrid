@@ -44,9 +44,12 @@
 #include <memory>
 #include <asio.hpp>
 #include "message.hpp"
+#include "status_code.hpp"
 
 class Client : public std::enable_shared_from_this<Client>{
 public:
+	using CompletionCallback = std::function<void(Client&, CompletionStatus)>;
+
 	Client(asio::ip::tcp::socket&& socket);
 	Client(const Client&) = delete;
 	Client(Client&&) = delete;
@@ -54,32 +57,32 @@ public:
 	Client& operator=(const Client&) = delete;
 	Client& operator=(Client&&) = delete;
 
-	void readDescription(std::function<void(Client&, bool)> onComplete);
+	void readDescription(CompletionCallback onComplete);
 	std::string getClientName() { return clientName; }
 	std::string getRoomName() { return roomName; }
 	std::string getSdpDesc() { return sdpDesc; }
 
 	void sendMsg(std::string_view msg);
 
-	void readCandidate(std::function<void(Client&, bool)> onComplete);
+	void readCandidate(CompletionCallback onComplete);
 	const std::vector<std::string>& getCandidates() { return candidates; }
 
 	bool isSendCallbackPending() const;
 
 private:
 	void readNameComplete(asio::ip::tcp::socket& socket,
-			std::function<void(Client&, bool)> onComplete, bool success);
+			CompletionCallback onComplete, CompletionStatus status);
 
 	void readRoomComplete(asio::ip::tcp::socket& socket,
-			std::function<void(Client&, bool)> onComplete, bool success);
+			CompletionCallback onComplete, CompletionStatus status);
 
 	void readDescComplete(
-			std::function<void(Client&, bool)> onComplete, bool success);
+			CompletionCallback onComplete, CompletionStatus status);
 
 	void readCandidateComplete(
-			std::function<void(Client&, bool)> onComplete, bool success);
+			CompletionCallback onComplete, CompletionStatus status);
 
-	void onMsgSent(bool success);
+	void onMsgSent(CompletionStatus status);
 
 	std::string clientName;
 	std::string roomName;

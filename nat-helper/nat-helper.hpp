@@ -57,7 +57,7 @@ private:
 	void worker();
 
 	void onConnectionAccepted(const std::error_code& ec);
-	void onClientDesc(Client& client, bool success);
+	void onClientDesc(Client& client, CompletionStatus status);
 
 	void cleanEmptyRooms();
 

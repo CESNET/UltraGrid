@@ -64,10 +64,16 @@ void Room::addClient(std::shared_ptr<Client>&& client){
 
 }
 
-void Room::onClientCandidate(Client& client, bool success){
-	if(!success){
-		std::cerr << "Error reading candidate, removing client "
-			<< client.getClientName() << std::endl;
+void Room::onClientCandidate(Client& client, CompletionStatus status){
+	if(status != CompletionStatus::Success){
+		if(status == CompletionStatus::UnexpectedDisconnect)
+			std::cerr << "Unexpected disconnect";
+		else if(status == CompletionStatus::GracefulDisconnect)
+			std::cerr << "Client is disconnecting";
+		else
+			std::cerr << "Error reading candidate";
+
+		std::cerr << ", removing client " << client.getClientName() << std::endl;
 
 		clients.erase(&client);
 		return;

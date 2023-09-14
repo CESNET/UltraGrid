@@ -112,8 +112,8 @@ void NatHelper::cleanEmptyRooms(){
 	}
 }
 
-void NatHelper::onClientDesc(Client& client, bool success){
-	if(!success){
+void NatHelper::onClientDesc(Client& client, CompletionStatus status){
+	if(status != CompletionStatus::Success){
 		std::cerr << "Error reading client description" << std::endl;
 		incomingClients.erase(&client);
 		return;

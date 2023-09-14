@@ -34,11 +34,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <iostream>
 #include "client.hpp"
 
 Client::Client(asio::ip::tcp::socket&& socket) : socket(std::move(socket)) {  }
 
-void Client::readDescription(std::function<void(Client&, bool)> onComplete){
+void Client::readDescription(CompletionCallback onComplete){
 	using namespace std::placeholders;
 	inMsg.async_readMsg(socket,
 			std::bind(&Client::readNameComplete,
@@ -46,11 +47,11 @@ void Client::readDescription(std::function<void(Client&, bool)> onComplete){
 }
 
 void Client::readNameComplete(asio::ip::tcp::socket& socket,
-		std::function<void(Client&, bool)> onComplete,
-		bool success)
+		CompletionCallback onComplete,
+		CompletionStatus status)
 {
-	if(!success){
-		onComplete(*this, false);
+	if(status != CompletionStatus::Success){
+		onComplete(*this, status);
 		return;
 	}
 
@@ -62,11 +63,11 @@ void Client::readNameComplete(asio::ip::tcp::socket& socket,
 }
 
 void Client::readRoomComplete(asio::ip::tcp::socket& socket,
-		std::function<void(Client&, bool)> onComplete,
-		bool success)
+		CompletionCallback onComplete,
+		CompletionStatus status)
 {
-	if(!success){
-		onComplete(*this, false);
+	if(status != CompletionStatus::Success){
+		onComplete(*this, status);
 		return;
 	}
 
@@ -77,19 +78,19 @@ void Client::readRoomComplete(asio::ip::tcp::socket& socket,
 }
 
 void Client::readDescComplete(
-		std::function<void(Client&, bool)> onComplete,
-		bool success)
+		CompletionCallback onComplete,
+		CompletionStatus status)
 {
-	if(!success){
-		onComplete(*this, false);
+	if(status != CompletionStatus::Success){
+		onComplete(*this, status);
 		return;
 	}
 
 	sdpDesc = std::string(inMsg.getStr());
-	onComplete(*this, true);
+	onComplete(*this, CompletionStatus::Success);
 }
 
-void Client::readCandidate(std::function<void(Client&, bool)> onComplete){
+void Client::readCandidate(CompletionCallback onComplete){
 	using namespace std::placeholders;
 	inMsg.async_readMsg(socket,
 			std::bind(&Client::readCandidateComplete,
@@ -97,16 +98,21 @@ void Client::readCandidate(std::function<void(Client&, bool)> onComplete){
 }
 
 void Client::readCandidateComplete(
-		std::function<void(Client&, bool)> onComplete,
-		bool success)
+		CompletionCallback onComplete,
+		CompletionStatus status)
 {
-	if(!success){
-		onComplete(*this, false);
+	if(status != CompletionStatus::Success){
+		onComplete(*this, status);
+		return;
+	}
+
+	if(inMsg.getStr() == "disconnect"){
+		onComplete(*this, CompletionStatus::GracefulDisconnect);
 		return;
 	}
 
 	candidates.emplace_back(inMsg.getStr());
-	onComplete(*this, true);
+	onComplete(*this, CompletionStatus::Success);
 }
 
 bool Client::isSendCallbackPending() const{
@@ -125,9 +131,9 @@ void Client::sendMsg(std::string_view msg){
 	outMsg.async_sendMsg(socket, std::bind(&Client::onMsgSent, shared_from_this(), _1));
 }
 
-void Client::onMsgSent(bool success){
-	if(!success){
-		//TODO
+void Client::onMsgSent(CompletionStatus status){
+	if(status != CompletionStatus::Success){
+		std::cerr << "Failed to send a message\n";
 	}
 
 	if(sendQueue.empty())

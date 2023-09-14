@@ -37,6 +37,7 @@
 #include <charconv>
 #include <cassert>
 #include <cstring>
+#include <iostream>
 #include "message.hpp"
 
 std::string_view Message::getStr() const{
@@ -44,7 +45,7 @@ std::string_view Message::getStr() const{
 }
 
 void Message::async_readMsg(asio::ip::tcp::socket& socket,
-		std::function<void(bool)> onComplete)
+		CompletionCallback onComplete)
 {
 	using namespace std::placeholders;
 	asio::async_read(socket,
@@ -64,7 +65,7 @@ void Message::setStr(std::string_view msg){
 }
 
 void Message::async_sendMsg(asio::ip::tcp::socket& socket,
-		std::function<void(bool)> onComplete)
+		CompletionCallback onComplete)
 {
 	using namespace std::placeholders;
 	sendingNow = true;
@@ -75,11 +76,13 @@ void Message::async_sendMsg(asio::ip::tcp::socket& socket,
 }
 
 void Message::async_readBody(asio::ip::tcp::socket& socket,
-		std::function<void(bool)> onComplete,
-		const std::error_code& ec, [[maybe_unused]] size_t readLen)
+		CompletionCallback onComplete,
+		const asio::error_code& ec, [[maybe_unused]] size_t readLen)
 {
 	if(ec){
-		onComplete(false);
+		std::cerr << "Msg error " << ec.message() << "\n";
+		onComplete(ec == asio::error::eof ?
+				CompletionStatus::UnexpectedDisconnect : CompletionStatus::Error);
 		return;
 	}
 
@@ -88,7 +91,7 @@ void Message::async_readBody(asio::ip::tcp::socket& socket,
 
 	auto res = std::from_chars(data, data + headerSize, expectedSize);
 	if(res.ec != std::errc()){
-		onComplete(false);
+		onComplete(CompletionStatus::Error);
 		return;
 	}
 
@@ -100,22 +103,24 @@ void Message::async_readBody(asio::ip::tcp::socket& socket,
 
 }
 
-void Message::async_readBodyComplete(std::function<void(bool)> onComplete,
+void Message::async_readBodyComplete(CompletionCallback onComplete,
 		const std::error_code& ec, size_t readLen)
 {
 	if(ec){
-		onComplete(false);
+		std::cerr << "Msg error: " << ec.message() << "\n";
+		onComplete(ec == asio::error::eof ?
+				CompletionStatus::UnexpectedDisconnect : CompletionStatus::Error);
 		return;
 	}
 
 	size = readLen;
 
-	onComplete(true);
+	onComplete(CompletionStatus::Success);
 }
 
-void Message::async_sendComplete(std::function<void(bool)> onComplete,
+void Message::async_sendComplete(CompletionCallback onComplete,
 		const std::error_code& ec, [[maybe_unused]] size_t sentLen)
 {
 	sendingNow = false;
-	onComplete(!ec);
+	onComplete(!ec ? CompletionStatus::Success : CompletionStatus::Error);
 }
