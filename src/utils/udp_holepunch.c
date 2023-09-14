@@ -342,6 +342,7 @@ static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
 
 static void cleanup_punch(struct Punch_ctx *ctx){
         juice_destroy(ctx->juice_agent);
+        send_msg(ctx->coord_sock, "disconnect");
         CLOSESOCKET(ctx->coord_sock);
 
 }
