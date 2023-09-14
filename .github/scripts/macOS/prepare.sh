@@ -12,14 +12,14 @@ if [ -z "${GITHUB_ENV-}" ]; then
         GITHUB_ENV=/dev/null
 fi
 
-CPATH=/usr/local/include:/usr/local/opt/qt/include
+CPATH=/usr/local/include
 DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
-LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
+LIBRARY_PATH=/usr/local/lib
 # shellcheck disable=SC2140
 printf "%b" \
 "CPATH=$CPATH\n"\
 "LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
-echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/readline/lib/pkgconfig" >> "$GITHUB_ENV"
+echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
