@@ -595,11 +595,12 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 # gui/QT/uv-qt.app to uv-qt.app (referred as $(GUI_BUNDLE))
 $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 	rm -rf $(GUI_BUNDLE)
-	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
+	$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs
+	ln -s libs $(GUI_BUNDLE)/Contents/Frameworks
 	cp -R $(GUI_BUNDLE_DEP)/* $(GUI_BUNDLE)
-	cp -nR $(BUNDLE)/* $(GUI_BUNDLE) || true
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2
+	cp -nR $(BUNDLE)/* $(GUI_BUNDLE) || true
 	if [ $(MACOS_LEGACY) = no ]; then \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
 			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null; \
