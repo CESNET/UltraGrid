@@ -373,7 +373,6 @@ bool punch_udp(struct Holepunch_config *c){
 
         strncpy(c->host_addr, remote, c->host_addr_len);
 
-        c->bind_addr = local;
         if(!initialize_punch(&audio_ctx, c, "_audio")){
                 cleanup_punch(&video_ctx);
                 return false;
