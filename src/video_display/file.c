@@ -153,7 +153,7 @@ usage(bool full)
                        "FFmpeg") " container default "
                                  "codecs are used.\n\nDefault output file "
                                  "is: " TBOLD(DEFAULT_FILENAME) "\n\n";
-        color_printf("%s", indent_paragraph(codec_note));
+        color_printf("%s", wrap_paragraph(codec_note));
 }
 
 static bool

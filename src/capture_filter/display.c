@@ -147,7 +147,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         char warn[] = MOD_NAME "Capture filter \"display\" is experimental and may not "
                 "always work as expected, especially if the same SW display "
                 "type (eg. GL) is given as both preview display and a regular one.";
-        log_msg(LOG_LEVEL_WARNING, "%s\n", indent_paragraph(warn));
+        log_msg(LOG_LEVEL_WARNING, "%s\n", wrap_paragraph(warn));
 
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 color_printf("Previews captured frame with specified dispay.\n"

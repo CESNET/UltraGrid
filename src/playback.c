@@ -58,7 +58,7 @@ static void  playback_usage(void) {
                 "stored data, which can be either a regular video file, "
                 "or a directory with data recorded by UltraGrid itself "
                 "(--record option).";
-        color_printf("%s\n\n", indent_paragraph(desc));
+        color_printf("%s\n\n", wrap_paragraph(desc));
         color_printf("Usage:\n");
         color_printf(TBOLD(TRED("\t--playback <file>|<dir>") "[:loop]\n"));
         color_printf(TBOLD(TRED("\t-I{<file>|<dir>}") "[:loop]\n"));

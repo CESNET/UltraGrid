@@ -71,7 +71,7 @@ static void usage() {
                              "altering actual video content.\n\nParametes' "
                              "validity is not checked in any way and incorrect "
                              "values may cause a misbehaving or a crash.";
-        color_printf("%s\n\n", indent_paragraph(desc));
+        color_printf("%s\n\n", wrap_paragraph(desc));
         color_printf("usage:\n\t" TBOLD(
             "-F override_prop[:fps=<n>|:size=<X>x<Y>|:codec=<c>") "\n");
         printf("where:\n");

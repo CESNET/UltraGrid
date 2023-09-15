@@ -154,7 +154,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                 char desc[] = "Display " TBOLD("dummy") " only consumes the video without displaying it. A difference to avoiding "
                                 "display specification is that it forces decoding (otherwise it will be skipped altogether).\n\n"
                                 "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump") " are available for debugging.\n\n";
-                color_printf("%s", indent_paragraph(desc));
+                color_printf("%s", wrap_paragraph(desc));
                 struct key_val options[] = {
                         { "codec=<codec>[,<codec2>] | codec=<setlist>", "force the use of a codec instead of default set; special set list also possible (see below)" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },

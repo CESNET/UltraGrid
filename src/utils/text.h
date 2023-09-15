@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 unsigned char *base64_decode(const char *in, unsigned int *length);
-char *indent_paragraph(char *text);
+char *wrap_paragraph(char *text);
 int urlencode_html5_eval(int c);
 int urlencode_rfc3986_eval(int c);
 size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);

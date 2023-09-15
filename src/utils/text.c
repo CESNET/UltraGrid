@@ -200,7 +200,9 @@ unsigned char *base64_decode(const char *in, unsigned int *length) {
  * of 80. Inplace (just replaces spaces with newlines).
  * @returns     text
  */
-char *indent_paragraph(char *text) {
+char *
+wrap_paragraph(char *text)
+{
         char *pos = text;
         char *last_space = NULL;
 

@@ -112,7 +112,7 @@ static void * text_init(const char *config) {
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
                 char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
                         "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
-                color_printf("%s", indent_paragraph(desc));
+                color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");
                 color_printf("\t" TBOLD("-p text:<text>") "\n");
                 color_printf("\t" TBOLD("-p text:x=<x>:y=<y>:h=<text_height>:t=<text>") "\n");

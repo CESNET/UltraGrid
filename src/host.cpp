@@ -260,7 +260,7 @@ int set_pixfmt_conv_policy(const char *optarg) {
                 char desc[] =
                         TBOLD("--conv-policy") " specifies the order in which various pixfmt properties are to be evaluated "
                         "if some pixel format needs conversion to another suitable pixel format.";
-                 color_printf("%s\n\n", indent_paragraph(desc));
+                 color_printf("%s\n\n", wrap_paragraph(desc));
                  color_printf("\t" TBOLD("c") " - color space\n");
                  color_printf("\t" TBOLD("d") " - bit depth\n");
                  color_printf("\t" TBOLD("s") " - subsampling\n");

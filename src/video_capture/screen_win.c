@@ -84,7 +84,7 @@ static void show_help()
                 "remains registered permanently (you can unregister it with \"" TBOLD(":unregister") "\" (otherwise it is "
                 "unloaded in the end. You can also download and install it from " FILTER_UPSTREAM_URL " to get latest "
                 "version.\n\n";
-        color_printf("%s", indent_paragraph(desc));
+        color_printf("%s", wrap_paragraph(desc));
         color_printf("Usage\n");
         color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps=<f>]") " | " TBOLD("-t screen:help") " | " TBOLD("-t screen:unregister") "\n");
         color_printf("where:\n");

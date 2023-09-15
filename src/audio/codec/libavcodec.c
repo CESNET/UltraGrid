@@ -359,7 +359,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
                                 "with UltraGrid. You may be able to use 'libopus' encoder instead. Please let "
                                 "us know to " PACKAGE_BUGREPORT " if you either want to use the native encoder "
                                 "or it even works for you.\n";
-                log_msg(LOG_LEVEL_WARNING, "%s", indent_paragraph(warn));
+                log_msg(LOG_LEVEL_WARNING, "%s", wrap_paragraph(warn));
                 int ret = av_opt_set_double(s->codec_ctx->priv_data, "opus_delay", 5, 0);
                 if (ret != 0) {
                         print_libav_audio_error(LOG_LEVEL_WARNING, "Cannot set Opus delay to 5", ret);
