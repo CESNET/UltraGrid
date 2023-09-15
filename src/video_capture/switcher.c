@@ -197,9 +197,11 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                                                 vidcap_params_get_fmt(tmp));
                                 goto error;
                         }
-                        snprintf(s->device_names[i], sizeof s->device_names[i], "%s%s%s", vidcap_params_get_driver(tmp),
-                                                strlen(vidcap_params_get_fmt(tmp)) > 0 ? ":" : "", vidcap_params_get_fmt(tmp));
                 }
+                snprintf(s->device_names[i], sizeof s->device_names[i],
+                         "%s%s%s", vidcap_params_get_driver(tmp),
+                         strlen(vidcap_params_get_fmt(tmp)) > 0 ? ":" : "",
+                         vidcap_params_get_fmt(tmp));
         }
 
         s->params = params;
@@ -261,7 +263,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 s->devices[s->selected_device] = NULL;
-                                int ret = initialize_video_capture(NULL,
+                                int ret = initialize_video_capture(&s->mod,
                                                 vidcap_params_get_nth((struct vidcap_params *) s->params, new_selected_device + 1),
                                                 &s->devices[new_selected_device]);
                                 assert(ret == 0);
