@@ -32,3 +32,10 @@
 * build fixes
 * fixed frame drop during RTP wrap-around
 * file video capture - detect interlacing
+
+## 1.8.5
+
+* fixed audio mixer segfault
+* fixed file capture initialized from switcher
+* fixed switcher with excl_init
+* fixed holepunch
