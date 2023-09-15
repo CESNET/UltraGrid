@@ -259,7 +259,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 s->devices[s->selected_device] = NULL;
-                                int ret = initialize_video_capture(NULL,
+                                int ret = initialize_video_capture(&s->mod,
                                                 vidcap_params_get_nth((struct vidcap_params *) s->params, new_selected_device + 1),
                                                 &s->devices[new_selected_device]);
                                 assert(ret == 0);
