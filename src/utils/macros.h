@@ -105,6 +105,10 @@
 #define OPTIMIZED_FOR for
 #endif
 
+enum {
+        STR_LEN = 1024, ///< "standard" string length placeholder
+};
+
 /// expands to true value if <k> from tok in format <k>=<v> is prefix of key
 #define IS_KEY_PREFIX(tok, key) \
         (strchr((tok), '=') != 0 && \

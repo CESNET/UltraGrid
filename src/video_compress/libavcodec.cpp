@@ -71,6 +71,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/string.h" // replace_all
+#include "utils/text.h"
 #include "video.h"
 #include "video_compress.h"
 
@@ -649,25 +650,28 @@ fail:
 #endif
 
 void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
-        string out;
+        char out[STR_LEN] = MOD_NAME "Codec supported pixel formats:" TERM_BOLD;
         if (first == nullptr) {
-                out += " (none)";
+                snprintf(out + strlen(out), sizeof out - strlen(out),
+                         " (none)");
         }
         const enum AVPixelFormat *it = first;
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
-                out += " "s + av_get_pix_fmt_name(*it++);
+                snprintf(out + strlen(out), sizeof out - strlen(out), " %s",
+                         av_get_pix_fmt_name(*it++));
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Codec supported pixel formats:" << SBOLD(out) << "\n";
+        LOG(LOG_LEVEL_VERBOSE) << wrap_paragraph(out) << TERM_RESET "\n";
 }
 
 void print_pix_fmts(const list<enum AVPixelFormat>
                 &req_pix_fmts, const enum AVPixelFormat *first) {
         print_codec_supp_pix_fmts(first);
-        string out;
+        char out[STR_LEN] = MOD_NAME "Supported pixel formats:" TERM_BOLD;
         for (auto &c : req_pix_fmts) {
-                out += " "s + av_get_pix_fmt_name(c);
+                snprintf(out + strlen(out), sizeof out - strlen(out), " %s",
+                         av_get_pix_fmt_name(c));
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Supported pixel formats:" << SBOLD(out) << "\n";
+        LOG(LOG_LEVEL_VERBOSE) << wrap_paragraph(out) << TERM_RESET "\n";
 }
 
 /**
