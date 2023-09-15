@@ -437,16 +437,18 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                 if (strcasecmp("help", item) == 0 || strcmp(item, "fullhelp") == 0) {
                         show_help = strcmp(item, "fullhelp") == 0 ? 2 : 1;
-                } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
-                        char *codec = item + strlen("codec=");
-                        s->requested_codec_id = get_codec_from_name(codec);
+                } else if (IS_KEY_PREFIX(item, "codec")) {
+                        const char *const codec = strchr(item, '=') + 1;
+                        s->requested_codec_id   = get_codec_from_name(codec);
                         if (s->requested_codec_id == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to find codec: \"%s\"\n", codec);
                                 return -1;
                         }
-                } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
-                        char *bitrate_str = item + strlen("bitrate=");
-                        s->requested_bitrate = unit_evaluate(bitrate_str);
+                } else if (IS_KEY_PREFIX(item, "encoder")) {
+                        s->backend = strchr(item, '=') + 1;
+                } else if (IS_KEY_PREFIX(item, "bitrate")) {
+                        s->requested_bitrate =
+                            unit_evaluate(strchr(item, '=') + 1);
                         assert(s->requested_bitrate >= 0);
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
@@ -463,9 +465,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");
                         }
                         s->requested_cqp = atoi(strchr(item, '=') + 1);
-                } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
-                        char *subsample_str = item + strlen("subsampling=");
-                        s->req_conv_prop.subsampling = atoi(subsample_str);
+                } else if (IS_KEY_PREFIX(item, "subsampling")) {
+                        s->req_conv_prop.subsampling =
+                            atoi(strchr(item, '=') + 1);
                         if (s->req_conv_prop.subsampling < 1000) {
                                 s->req_conv_prop.subsampling *= 10; // 420->4200
                         }
@@ -475,7 +477,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                 return -1;
                         }
-                } else if (strstr(item, "depth=") == item) {
+                } else if (IS_KEY_PREFIX(item, "depth")) {
                         s->req_conv_prop.depth = atoi(strchr(item, '=') + 1);
                 } else if (strcasecmp(item, "rgb") == 0 || strcasecmp(item, "yuv") == 0) {
                         s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
@@ -483,8 +485,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
                 } else if (strstr(item, "interlaced_dct") != nullptr) {
                         s->params.interlaced_dct = strstr(item, "disable_") == item ? 0 : 1;
-                } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
-                        char *threads = item + strlen("threads=");
+                } else if (IS_KEY_PREFIX(item, "threads")) {
+                        char *threads = strchr(item, '=') + 1;
                         if (strchr(threads, ',')) {
                                 s->conv_thread_count = stoi(strchr(threads, ',') + 1);
                                 *strchr(threads, ',') = '\0';
@@ -493,9 +495,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("slices=", item, strlen("slices=")) == 0) {
                         char *slices = strchr(item, '=') + 1;
                         s->params.slices = stoi(slices);
-                } else if(strncasecmp("encoder=", item, strlen("encoder=")) == 0) {
-                        char *backend = item + strlen("encoder=");
-                        s->backend = backend;
                 } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
                         char *gop = item + strlen("gop=");
                         s->requested_gop = atoi(gop);
@@ -1923,6 +1922,8 @@ const struct video_compress_info libavcodec_info = {
 };
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(lavc, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS,
+                       VIDEO_COMPRESS_ABI_VERSION);
 
 } // end of anonymous namespace
 
