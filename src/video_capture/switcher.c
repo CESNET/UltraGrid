@@ -41,6 +41,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
@@ -63,13 +64,23 @@ static void vidcap_switcher_done(void *state);
 
 static void show_help()
 {
-        printf("switcher capture\n");
-        printf("Usage\n");
-        printf("\t--control-port <port> -t switcher[:excl_init][:fallback] -t <dev1_config> -t <dev2_config> ....]\n");
-        printf("\t\t<devn_config> is a configuration of device to be switched\n");
-        printf("\t\t<port> specifies port which should be used to control switching\n");
-        printf("\t\texcl_init - devices will be initialized after switching to and deinitialized after switching to another\n");
-        printf("\t\tfallback - in case that capture doesn't return a frame (in time), capture from next available device(s)\n");
+        color_printf(TBOLD("switcher") " capture\n\n");
+        printf("Usage:\n");
+        printf("\t" TBOLD(TRED("-t switcher")) "[opts] " TBOLD(
+            "-t <dev1_config> -t "
+            "<dev2_config> [-t ...]") "\n\n");
+        printf("options:\n");
+        printf("\t" TBOLD(
+            "<devn_config>") " - a configuration of device to be switched\n");
+        printf("\t" TBOLD(
+            "<port>") " - specifies port which should be used to control "
+                      "switching\n");
+        printf("\t" TBOLD(
+            "excl_init") " - devices will be initialized after switching to "
+                         "and\n\t\tdeinitialized after switching to another\n");
+        printf("\t" TBOLD(
+            "fallback") " - in case that capture doesn't return a frame (in "
+                        "time),\n\t\tcapture from next available device(s)\n");
 }
 
 struct vidcap_switcher_state {
