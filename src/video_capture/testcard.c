@@ -116,6 +116,7 @@ struct testcard_state {
         struct audio_frame audio;
         struct audio_len_pattern apattern;
         int audio_frequency;
+        long long capture_frames;
 
         char **tiles_data;
         int tiles_cnt_horizontal;
@@ -437,6 +438,8 @@ static void show_help(bool full) {
         color_printf(TBOLD("\t still ") "      - send still image\n");
         if (full) {
                 color_printf(TBOLD("       afrequency") "    - embedded audio frequency\n");
+                color_printf(TBOLD("\t frames") "      - total number of video "
+                                                "frames to capture\n");
         }
         color_printf("\n");
         testcard_show_codec_help("testcard", false);
@@ -531,6 +534,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         filename = strchr(tmp, '=') + 1;
                 } else if (strstr(tmp, "afrequency=") == tmp) {
                         s->audio_frequency = atoi(strchr(tmp, '=') + 1);
+                } else if (IS_KEY_PREFIX(tmp, "frames")) {
+                        s->capture_frames =
+                            strtoll(strchr(tmp, '=') + 1, NULL, 0);
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
@@ -654,7 +660,9 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         state = (struct testcard_state *)arg;
 
         time_ns_t curr_time = get_time_in_ns();
-        if ((curr_time - state->last_frame_time) / NS_IN_SEC_DBL < 1.0 / state->frame->fps) {
+        if (state->video_frames + 1 == state->capture_frames ||
+            (curr_time - state->last_frame_time) / NS_IN_SEC_DBL <
+                1.0 / state->frame->fps) {
                 return NULL;
         }
         state->last_frame_time = curr_time;
