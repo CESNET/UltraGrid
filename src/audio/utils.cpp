@@ -73,52 +73,22 @@ using std::vector;
  * Loads sample with BPS width and returns it cast to
  * int32_t.
  */
-template<int BPS> static int32_t load_sample(const char *data);
-
-template<> int32_t load_sample<1>(const char *data) {
-        return *reinterpret_cast<const int8_t *>(data);
-}
-
-template<> int32_t load_sample<2>(const char *data) {
-        return *reinterpret_cast<const int16_t *>(data);
-}
-
-template<> int32_t load_sample<3>(const char *data) {
-        int32_t in_value = 0;
-        memcpy(&in_value, data, 3);
-
-        if ((in_value & 1U<<23U) != 0U) { // negative
-                in_value |= 0xFF000000U;
-        }
-
-        return in_value;
-}
-
-template<> int32_t load_sample<4>(const char *data) {
-        return *reinterpret_cast<const int32_t *>(data);
-}
-
-template<int BPS> static void store_sample(char *data, int32_t val);
-
-template<> void store_sample<1>(char *data, int32_t val) {
-        *reinterpret_cast<int8_t *>(data) = clamp(val, INT8_MIN, INT8_MAX);
-}
-
-template<> void store_sample<2>(char *data, int32_t val) {
-        *reinterpret_cast<int16_t *>(data) =  clamp(val, INT16_MIN, INT16_MAX);
-}
-
-template<> void store_sample<3>(char *data, int32_t val) {
-        val = clamp<int32_t>(val, -(1L<<24), (1L<<24) - 1);
-        memcpy(data, &val, 3);
-}
-
-template<> void store_sample<4>(char *data, int32_t val) {
-        *reinterpret_cast<int32_t *>(data) = val;
+template <int BPS>
+static int32_t
+load_sample(const char *data)
+{
+        int32_t ret = 0;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        memcpy(&ret, data, BPS);
+#else
+        memcpy((char *) &ret + 4 - BPS, data, BPS);
+#endif
+        return ret;
 }
 
 /**
  * @brief Calculates mean and peak RMS from audio samples
+ *
  *
  * @param[in]  frame   audio frame
  * @param[in]  channel channel index to calculate RMS to
@@ -537,13 +507,11 @@ int32_t format_from_in_bps(const char * in, int bps) {
 }
 
 void format_to_out_bps(char *out, int bps, int32_t out_value) {
-
-        switch (bps) {
-                case 1: store_sample<1>(out, out_value); break;
-                case 2: store_sample<2>(out, out_value); break;
-                case 3: store_sample<3>(out, out_value); break;
-                case 4: store_sample<4>(out, out_value); break;
-        }
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        memcpy(out, &out_value, bps);
+#else
+        memcpy(out, (char *) &out_value + 4 - bps, bps);
+#endif
 }
 
 void
