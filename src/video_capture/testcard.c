@@ -150,6 +150,21 @@ static void configure_fallback_audio(struct testcard_state *s) {
 
 static bool configure_audio(struct testcard_state *s)
 {
+        if (audio_capture_bps != 0 && audio_capture_bps != AUDIO_BPS) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Requested %d-bit capture, but only 16-bit "
+                                 "audio is currently supported by "
+                                 "this module!\n",
+                        audio_capture_bps * CHAR_BIT);
+        }
+        if (audio_capture_sample_rate != 0 &&
+            audio_capture_sample_rate != AUDIO_SAMPLE_RATE) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Requested %d Hz audio but only %d HZ is "
+                                 "currently supported by "
+                                 "this module!\n",
+                        audio_capture_sample_rate, AUDIO_SAMPLE_RATE);
+        }
         s->audio.bps = AUDIO_BPS;
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
