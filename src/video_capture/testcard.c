@@ -128,12 +128,23 @@ struct testcard_state {
 };
 
 static void configure_fallback_audio(struct testcard_state *s) {
-        static_assert(AUDIO_BPS == sizeof(int16_t), "Only 2-byte audio is supported for testcard audio at the moment");
+        static_assert(
+            AUDIO_BPS == sizeof(int16_t),
+            "Only 2-byte audio is supported for testcard audio at the moment");
         const double scale = 0.1;
+        int16_t     *out   = (int16_t *) s->audio_data;
 
-        for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
-                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / s->audio_frequency)) * M_PI * 2. ) * ((1U << (AUDIO_BPS * 8U - 1)) - 1) * scale);
-
+        for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS /
+                                s->audio.ch_count;
+             i += 1) {
+                const int16_t val =
+                    round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE /
+                                             s->audio_frequency)) *
+                              M_PI * 2.) *
+                          ((1U << (AUDIO_BPS * CHAR_BIT - 1)) - 1) * scale);
+                for (int j = 0; j < s->audio.ch_count; ++j) {
+                        *out++ = val;
+                }
         }
 }
 
