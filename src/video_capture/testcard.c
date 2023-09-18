@@ -64,6 +64,7 @@
 #include <stdlib.h>
 
 #include "audio/types.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -82,14 +83,13 @@
 #include "video_capture/testcard_common.h"
 
 enum {
-        AUDIO_SAMPLE_RATE = 48000,
-        AUDIO_BPS = 2,
-        BUFFER_SEC = 1,
+        AUDIO_SAMPLE_RATE        = 48000,
+        BUFFER_SEC               = 1,
+        DEFAULT_AUDIO_BPS        = 2,
         DEFAULT_AUIDIO_FREQUENCY = 1000,
 };
 #define MOD_NAME "[testcard] "
-#define AUDIO_BUFFER_SIZE(ch_count)                                            \
-        ((ptrdiff_t)AUDIO_SAMPLE_RATE * AUDIO_BPS * (ch_count)*BUFFER_SEC)
+#define AUDIO_BUFFER_SAMPLES (AUDIO_SAMPLE_RATE * BUFFER_SEC)
 #define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 })
 #define DEFAULT_PATTERN "bars"
 
@@ -127,36 +127,27 @@ struct testcard_state {
         char pattern[128];
 };
 
-static void configure_fallback_audio(struct testcard_state *s) {
-        static_assert(
-            AUDIO_BPS == sizeof(int16_t),
-            "Only 2-byte audio is supported for testcard audio at the moment");
+static void
+generate_audio_sine(struct testcard_state *s)
+{
         const double scale = 0.1;
-        int16_t     *out   = (int16_t *) s->audio_data;
+        char        *out   = s->audio_data;
 
-        for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS /
-                                s->audio.ch_count;
-             i += 1) {
-                const int16_t val =
+        for (int i = 0; i < AUDIO_BUFFER_SAMPLES; i += 1) {
+                const int32_t val =
                     round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE /
                                              s->audio_frequency)) *
                               M_PI * 2.) *
-                          ((1U << (AUDIO_BPS * CHAR_BIT - 1)) - 1) * scale);
+                          INT32_MAX * scale);
                 for (int j = 0; j < s->audio.ch_count; ++j) {
-                        *out++ = val;
+                        STORE_I32_SAMPLE(out, val, s->audio.bps);
+                        out += s->audio.bps;
                 }
         }
 }
 
 static bool configure_audio(struct testcard_state *s)
 {
-        if (audio_capture_bps != 0 && audio_capture_bps != AUDIO_BPS) {
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "Requested %d-bit capture, but only 16-bit "
-                                 "audio is currently supported by "
-                                 "this module!\n",
-                        audio_capture_bps * CHAR_BIT);
-        }
         if (audio_capture_sample_rate != 0 &&
             audio_capture_sample_rate != AUDIO_SAMPLE_RATE) {
                 log_msg(LOG_LEVEL_WARNING,
@@ -165,10 +156,10 @@ static bool configure_audio(struct testcard_state *s)
                                  "this module!\n",
                         audio_capture_sample_rate, AUDIO_SAMPLE_RATE);
         }
-        s->audio.bps = AUDIO_BPS;
+        s->audio.bps = IF_NOT_NULL_ELSE(audio_capture_bps, DEFAULT_AUDIO_BPS);
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-        s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
+        s->audio.max_size = AUDIO_BUFFER_SAMPLES * s->audio.bps * s->audio.ch_count;
         s->audio.data = s->audio_data = (char *) realloc(s->audio.data, 2 * s->audio.max_size);
         s->audio.flags |= TIMESTAMP_VALID;
         if ((AUDIO_SAMPLE_RATE * s->fps_den) % s->fps_num == 0) {
@@ -188,7 +179,7 @@ static bool configure_audio(struct testcard_state *s)
                 return false;
         }
 
-        configure_fallback_audio(s);
+        generate_audio_sine(s);
         memcpy(s->audio.data + s->audio.max_size, s->audio.data, s->audio.max_size);
         s->grab_audio = true;
 
@@ -646,8 +637,8 @@ static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
         s->audio.data_len = s->audio.ch_count * s->audio.bps *
                             s->apattern.samples[s->apattern.current_idx];
         if (s->audio.data >=
-            s->audio_data + AUDIO_BUFFER_SIZE(s->audio.ch_count)) {
-                s->audio.data -= AUDIO_BUFFER_SIZE(s->audio.ch_count);
+            s->audio_data + s->audio.max_size) {
+                s->audio.data -= s->audio.max_size;
         }
         s->audio.timestamp =
             ((int64_t)s->audio_frames * 90000 + AUDIO_SAMPLE_RATE - 1) /
