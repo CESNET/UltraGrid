@@ -137,8 +137,13 @@ void signed2unsigned(char *out, const char *in, int in_len);
 struct audio_desc audio_desc_from_frame(const struct audio_frame *frame);
 const char *audio_desc_to_cstring(struct audio_desc desc);
 
-int32_t format_from_in_bps(const char * in, int bps);
-void format_to_out_bps(char *out, int bps, int32_t out_value);
+/// stores given int32_t sample at required out_bps
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define STORE_I32_SAMPLE(ptr, val, out_bps) \
+        memcpy((ptr), ((const char *) &(val)) + 4 - (out_bps), (out_bps))
+#else
+#define STORE_I32_SAMPLE(ptr, val, out_bps) memcpy((ptr), &(val), (out_bps))
+#endif
 
 /**
  * Appends data to audio frame

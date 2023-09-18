@@ -69,6 +69,9 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+static int32_t format_from_in_bps(const char *in, int bps);
+static void format_to_out_bps(char *out, int bps, int32_t out_value);
+
 /**
  * Loads sample with BPS width and returns it cast to
  * int32_t.
@@ -496,7 +499,9 @@ void audio_channel_demux(const audio_frame2 *frame, int index, audio_channel *ch
         channel->sample_rate = frame->get_sample_rate();
 }
 
-int32_t format_from_in_bps(const char * in, int bps) {
+static int32_t
+format_from_in_bps(const char *in, int bps)
+{
         switch (bps) {
                 case 1: return load_sample<1>(in);
                 case 2: return load_sample<2>(in);
@@ -506,7 +511,9 @@ int32_t format_from_in_bps(const char * in, int bps) {
         }
 }
 
-void format_to_out_bps(char *out, int bps, int32_t out_value) {
+static void
+format_to_out_bps(char *out, int bps, int32_t out_value)
+{
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
         memcpy(out, &out_value, bps);
 #else
