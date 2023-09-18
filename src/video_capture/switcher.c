@@ -303,6 +303,10 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 frame = vidcap_grab(s->devices[i], &audio_frame);
                 *audio = audio_frame;
                 if (frame != NULL) {
+                        log_msg(LOG_LEVEL_INFO,
+                                MOD_NAME
+                                "Frame timed out, using fallback device #%d\n",
+                                i);
                         break;
                 }
         }
