@@ -64,15 +64,10 @@
 #ifndef MODULE_H_
 #define MODULE_H_
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_win32.h"
-#include "config_unix.h"
-#endif
-
 #include "messaging.h"
 #include "utils/macros.h"
 
+#include <pthread.h>
 #ifndef __cplusplus
 #include <stdalign.h>
 #endif
