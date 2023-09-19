@@ -80,7 +80,6 @@
 #include "host.h"
 #include "lib_common.h"
 #include "video_display.h"
-#include "rang.hpp"
 #include "video.h"
 
 #include "aja_common.h" // should be included last (overrides log_msg etc.)
@@ -719,69 +718,73 @@ void aja::display::print_stats() {
 }
 
 void aja::display::show_help() {
-        cout << "Usage:\n"
-                "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:no-setup[-route]][:RGB|:YUV][:{smpte|full}-range]|:help] [-r embedded]\n" << rang::style::reset <<
-                "where\n";
+        col() << "Usage:\n"
+                  "\t"
+               << SBOLD(SRED("-d aja")
+                        << "[[:buffers=<b>][:channel=<ch>][:clear-routing][:"
+                           "connection=<c>][:device=<d>][:[no-]multi-channel][:"
+                           "novsync][:no-setup[-route]][:RGB|:YUV][:{smpte|"
+                           "full}-range]|:help] [-r embedded]")
+               << "\nwhere\n";
 
-        cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
+        col() << SBOLD("\tbuffers\n") <<
                 "\t\tuse <b> output buffers (default is " << DEFAULT_MAX_FRAME_QUEUE_LEN << ") - higher values increase stability\n"
                 "\t\tbut may also increase latency (when VBlank is enabled)\n";
 
-        cout << rang::style::bold << "\tclear-routing\n" << rang::style::reset <<
+        col() << SBOLD("\tclear-routing\n") <<
                 "\t\tremove all existing signal paths for device\n";
 
-        cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
+        col() << SBOLD("\tconnection\n") <<
                 "\t\tone of: ";
         NTV2OutputDestination dest = NTV2OutputDestination();
         while (dest != NTV2_OUTPUTDESTINATION_INVALID) {
                 if (dest > 0) {
-                        cout << ", ";
+                        col() << ", ";
                 }
-                cout << NTV2OutputDestinationToString(dest, true);
+                col() << NTV2OutputDestinationToString(dest, true);
                 // should be this, but GetNTV2InputSourceForIndex knows only SDIs
                 //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
                 dest = (NTV2OutputDestination) ((int) dest + 1);
         }
-        cout << "\n";
+        col() << "\n";
 
-        cout << rang::style::bold << "\tchannel\n" << rang::style::reset <<
+        col() << SBOLD("\tchannel\n") <<
                 "\t\tchannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use, see \"-t aja:help\" to see number of available channels).\n";
 
-        cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
+        col() << SBOLD("\tdevice\n") <<
                 "\t\tdevice identifier (number or name)\n";
 
-        cout << rang::style::bold << "\t[no-]multi-channel\n" << rang::style::reset <<
+        col() << SBOLD("\t[no-]multi-channel\n") <<
                 "\t\tdo (not) treat the device as a multi-channel\n";
 
-        cout << rang::style::bold << "\tno-setup[-route]\n" << rang::style::reset <<
+        col() << SBOLD("\tno-setup[-route]\n") <<
                 "\t\tdo not setup anything/routing (user must set it eg. in Cables app)\n";
 
-        cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
+        col() << SBOLD("\tnovsync\n") <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
 
-        cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset <<
+        col() << SBOLD("\tRGB|YUV\n") <<
                 "\t\tforce SDI output to be RGB or YCbCr, otherwise UG keeps the colorspace\n";
 
-        cout << rang::style::bold << "\tsmpte-|full-range\n" << rang::style::reset <<
+        col() << SBOLD("\tsmpte-|full-range\n") <<
                 "\t\tuse either SMPTE (default) or full RGB range\n";
 
-        cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
+        col() << SBOLD("\t-r embedded\n") <<
                 "\t\treceive also audio and embed it to SDI\n";
 
-        cout << "\n";
-        cout << "Available devices:\n";
+        col() << "\n";
+        col() << "Available devices:\n";
 
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                cout << "\t" << rang::style::bold << i << rang::style::reset << ") " << rang::style::bold << info.deviceIdentifier << rang::style::reset << ". " << info;
-                cout << "\n";
+                col() << "\t" << SBOLD(i) << ") " << SBOLD(info.deviceIdentifier) << ". " << info;
+                col() << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
-                cout << rang::fg::red << "\tno devices found\n" << rang::fg::reset;
+                col() << SRED("\tno devices found\n");
         }
-        cout << "\n";
+        col() << "\n";
 }
 
 NTV2FrameRate aja::display::getFrameRate(double fps)
