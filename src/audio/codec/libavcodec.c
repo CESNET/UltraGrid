@@ -504,28 +504,31 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
                 }
 		int ret = avcodec_send_frame(s->codec_ctx, s->av_frame);
-		if (ret == 0) {
-                        ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-			while (ret == 0) {
-				//assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
-                                if (s->output_channel.data_len + s->pkt->size > TMP_DATA_LEN) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Output buffer overflow!\n");
-                                        return NULL;
-                                }
-				memcpy(s->output_channel_data + s->output_channel.data_len,
-                                                s->pkt->data, s->pkt->size);
-                                s->output_channel.data_len += s->pkt->size;
-                                av_packet_unref(s->pkt);
-                                ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-                                s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
-			}
-			if (ret != AVERROR(EAGAIN) && ret != 0) {
-				print_libav_audio_error(LOG_LEVEL_WARNING, "Receive packet error", ret);
-			}
-		} else {
+                if (ret != 0) {
                         print_libav_audio_error(LOG_LEVEL_ERROR, "Error encoding frame", ret);
-			return NULL;
-		}
+                        return NULL;
+                }
+                ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+                while (ret == 0) {
+                        if (s->output_channel.data_len + s->pkt->size >
+                            TMP_DATA_LEN) {
+                                MSG(ERROR, "Output buffer overflow!\n");
+                                return NULL;
+                        }
+                        memcpy(s->output_channel_data +
+                                   s->output_channel.data_len,
+                               s->pkt->data, s->pkt->size);
+                        s->output_channel.data_len += s->pkt->size;
+                        av_packet_unref(s->pkt);
+                        ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+                        s->output_channel.duration +=
+                            s->codec_ctx->frame_size /
+                            (double) s->output_channel.sample_rate;
+                }
+                if (ret != AVERROR(EAGAIN) && ret != 0) {
+                        print_libav_audio_error(LOG_LEVEL_WARNING,
+                                                "Receive packet error", ret);
+                }
                 offset += chunk_size;
                 // since 2023-04-25, this may not be necessary (for AAC/MP3, it just triggers "Multiple frames in a packet." It seems not
                 // working only with native Opus encoder+decoder combination (which doesn't work anyways now). Consider removing this
