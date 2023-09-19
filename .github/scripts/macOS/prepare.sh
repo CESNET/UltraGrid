@@ -23,7 +23,6 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-brew install molten-vk vulkan-headers
 # TOREMOVE
 if [ "$(brew config | awk '/HOMEBREW_VERSION/{print $2}')" == 4.1.7 ]; then
         brew update
@@ -32,6 +31,7 @@ fi
 brew install autoconf automake libtool pkg-config
 brew install libsoxr speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
+brew install molten-vk vulkan-headers
 brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt
