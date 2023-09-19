@@ -62,7 +62,6 @@
 #include "audio/utils.h"
 #include "crypto/crc.h"
 #include "crypto/openssl_decrypt.h"
-#include "rang.hpp"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"
@@ -85,7 +84,6 @@
 using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
-using rang::style;
 using std::fixed;
 using std::hex;
 using std::map;
@@ -158,10 +156,12 @@ private:
         steady_clock::time_point t_last = steady_clock::now();
 
         void print() const {
-                LOG(LOG_LEVEL_INFO) << style::underline << "Audio dec stats" << style::reset << " (cumulative): "
-                        << style::bold << played << style::reset << " played / "
-                        << style::bold << played + missed << style::reset << " total audio frames\n";
+                LOG(LOG_LEVEL_INFO)
+                    << SUNDERLINE("Audio dec stats")
+                    << " (cumulative): " << SBOLD(played) << " played / "
+                    << SBOLD(played + missed) << " total audio frames\n";
         }
+
 public:
         ~state_audio_decoder_summary() {
                 print();

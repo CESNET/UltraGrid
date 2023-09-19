@@ -40,7 +40,6 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"

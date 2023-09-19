@@ -49,7 +49,6 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "utils/color_out.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -61,7 +60,6 @@ constexpr const char *MOD_NAME = "[gamma cap. f.] ";
 using std::cout;
 using std::exception;
 using std::numeric_limits;
-using rang::style;
 using std::vector;
 using std::thread;
 
@@ -155,11 +153,12 @@ static auto init(struct module *parent, const char *cfg, void **state)
         UNUSED(parent);
 
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
-                cout << "Performs gamma transformation.\n\n"
+                col() << "Performs gamma transformation.\n\n"
                        "usage:\n";
-                cout << style::bold << "\t--capture-filter gamma:value[:8|:16]\n" << style::reset;
-                cout << "where:\n";
-                cout << style::bold << "\t8|16" << style::reset << " - force output to 8 (16) bits regardless the input\n";
+                col() << "\t" << SBOLD("-F gamma:value[:8|:16]") << "\n";
+                col() << "where:\n";
+                col() << SBOLD("8|16")
+                     << " - force output to 8 (16) bits regardless the input\n";
                 return 1;
         }
         char *endptr = nullptr;
