@@ -30,6 +30,10 @@ brew install ossp-uuid # for cineform
 brew install qt@5
 brew install glm
 curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
+# TOREMOVE - missing header in Vulkan v1.3.264
+sudo curl -L https://raw.githubusercontent.com/KhronosGroup/Vulkan-Headers/main/\
+include/vulkan/vulkan_hpp_macros.hpp -o /usr/local/include/vulkan/\
+vulkan_hpp_macros.hpp
 
 rm -f /usr/local/opt/qt
 cp -af /usr/local/opt/qt@5 /usr/local/opt/qt
