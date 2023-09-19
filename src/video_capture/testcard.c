@@ -492,8 +492,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
-                } else if (strncmp(tmp, "s=", 2) == 0) {
-                        strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
                         desc.interlacing = INTERLACED_MERGED;
                         log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'i' option. Use format testcard:1920:1080:50i:UYVY instead!\n");
@@ -516,6 +514,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
                         desc.color_spec = saved_codec;
                 } else if (IS_KEY_PREFIX(tmp, "size")) {
+                        if (!strncmp(tmp, "s=", 2)) {
+                                MSG(WARNING, "parameter s= denotes now size "
+                                             "(not strip)\n");
+                        }
                         tmp = strchr(tmp, '=') + 1;
                         if (isdigit(tmp[0]) && strchr(tmp, 'x') != NULL) {
                                 desc.width = atoi(tmp);
@@ -526,6 +528,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 desc.width = size_dsc.width;
                                 desc.height = size_dsc.height;
                         }
+                } else if (IS_KEY_PREFIX(tmp, "strip")) {
+                        strip_fmt = strchr(tmp, '=') + 1;
                 } else if (IS_KEY_PREFIX(tmp, "fps")) {
                         if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
                                 goto error;
