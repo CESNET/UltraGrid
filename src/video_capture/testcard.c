@@ -656,15 +656,16 @@ static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
 
 static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
 {
-        struct testcard_state *state;
-        state = (struct testcard_state *)arg;
+        struct testcard_state *state = arg;
 
-        time_ns_t curr_time = get_time_in_ns();
-        if (state->video_frames + 1 == state->capture_frames ||
-            (curr_time - state->last_frame_time) / NS_IN_SEC_DBL <
-                1.0 / state->frame->fps) {
+        if (state->video_frames + 1 == state->capture_frames) {
                 return NULL;
         }
+        time_ns_t curr_time = 0;
+        do {
+                curr_time = get_time_in_ns();
+        } while ((double) (curr_time - state->last_frame_time) / NS_IN_SEC <
+                 1.0 / state->frame->fps);
         state->last_frame_time = curr_time;
         state->frame->timestamp =
             (state->video_frames * state->fps_den * 90000 + state->fps_num - 1) /
