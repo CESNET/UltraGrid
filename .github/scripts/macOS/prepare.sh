@@ -38,6 +38,10 @@ brew install qt
 brew install glm
 sudo curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/\
 natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
+# TOREMOVE - missing header in Vulkan v1.3.264
+sudo curl -L https://raw.githubusercontent.com/KhronosGroup/Vulkan-Headers/main/\
+include/vulkan/vulkan_hpp_macros.hpp -o /usr/local/include/vulkan/\
+vulkan_hpp_macros.hpp
 
 .github/scripts/macOS/install_dylibbundler_v2.sh
 
