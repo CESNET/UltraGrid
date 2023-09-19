@@ -668,6 +668,7 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                                 ret);
                         }
                 }
+                av_frame_unref(s->av_frame);
         }
 
         avcodec_free_context(&s->codec_ctx);
