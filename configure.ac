@@ -3259,6 +3259,7 @@ if test "$build_default" != no; then
         "
         REFLECTOR_OBJS="$REFLECTOR_OBJS
         src/video_display/blend.o
+        src/video_display/pipe.o
         "
 fi
 
