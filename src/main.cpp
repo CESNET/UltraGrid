@@ -174,17 +174,22 @@ struct state_uv {
         static constexpr uint32_t state_magic = to_fourcc('U', 'G', 'S', 'T');
 };
 
-static void signal_handler(int signal)
+static void signal_handler(int signum)
 {
+#ifdef SIGPIPE
+        if (signum == SIGPIPE) {
+                signal(SIGPIPE, SIG_IGN);
+        }
+#endif // defined SIGPIPE
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 char buf[128];
                 char *ptr = buf;
                 char *ptr_end = buf + sizeof buf;
                 strappend(&ptr, ptr_end, "Caught signal ");
-                if (signal / 10) {
-                        *ptr++ = '0' + signal/10;
+                if (signum / 10 != 0) {
+                        *ptr++ = (char) ('0' + signum / 10);
                 }
-                *ptr++ = '0' + signal%10;
+                *ptr++ = (char) ('0' + signum % 10);
                 *ptr++ = '\n';
                 write_all(ptr - buf, buf);
         }
