@@ -46,7 +46,6 @@ AC_SUBST(INC)
 AC_SUBST(LIBS)
 AC_SUBST(ULTRAGRID_LIBS)
 AC_SUBST(ULTRAGRID_OBJS)
-AC_SUBST(REFLECTOR_OBJS)
 AC_SUBST(POST_COMPILE_MSG)
 AC_SUBST(COMMON_FLAGS)
 
@@ -3257,10 +3256,6 @@ if test "$build_default" != no; then
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
         "
-        REFLECTOR_OBJS="$REFLECTOR_OBJS
-        src/video_display/blend.o
-        src/video_display/pipe.o
-        "
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3294,6 +3289,7 @@ AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
 AC_SUBST(MODULES)
+AC_SUBST(REFLECTOR_OBJS)
 AC_SUBST(TARGETS)
 AC_SUBST(TEST_LIBS)
 AC_SUBST(TEST_OBJS)

@@ -203,7 +203,9 @@ ULTRAGRID_OBJS = $(COMMON_OBJS) @ULTRAGRID_OBJS@ src/main.o \
 REFLECTOR_OBJS = @REFLECTOR_OBJS@ $(COMMON_OBJS) \
 		src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
-		src/hd-rum-translator/hd-rum-translator.o
+		src/hd-rum-translator/hd-rum-translator.o \
+		src/video_display/blend.o \
+		src/video_display/pipe.o \
 
 TEST_OBJS = $(COMMON_OBJS) \
 	    @TEST_OBJS@ \
