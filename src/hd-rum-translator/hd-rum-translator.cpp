@@ -885,7 +885,16 @@ static void hd_rum_translator_should_exit_callback(void *arg) {
     *should_exit = true;
 }
 
-#define EXIT(retval) { hd_rum_translator_deinit(&state); if (sock_in != nullptr) udp_exit(sock_in); common_cleanup(init); return retval; }
+#define EXIT(retval) \
+    { \
+            exit_uv(0); \
+            hd_rum_translator_deinit(&state); \
+            if (sock_in != nullptr) \
+                    udp_exit(sock_in); \
+            common_cleanup(init); \
+            return retval; \
+    }
+
 int main(int argc, char **argv)
 {
     struct init_data *init;
