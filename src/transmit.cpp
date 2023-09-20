@@ -616,6 +616,13 @@ get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long pa
         return packet_rate;
 }
 
+static int
+get_tx_hdr_len(bool is_ipv6)
+{
+        return (is_ipv6 ? IPV6_HDR_LEN : IPV4_HDR_LEN) + UDP_HDR_LEN +
+               RTP_HDR_LEN;
+}
+
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -644,8 +651,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         long delta, overslept = 0;
         array <int, FEC_MAX_MULT> mult_pos{};
         int mult_index = 0;
-
-        int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // IP hdr size + UDP hdr size + RTP hdr size
+        int hdrs_len = get_tx_hdr_len(rtp_is_ipv6(rtp_session));
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -834,8 +840,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         uint32_t rtp_hdr[100];
 
         int rtp_hdr_len = 0;
-        int hdrs_len    = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 +
-                       12; // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
+        int hdrs_len = get_tx_hdr_len(rtp_is_ipv6(rtp_session));
         const unsigned int fec_symbol_size = pkt->fec_desc.symbol_size;
 
         const char    *chan_data = pkt->data;

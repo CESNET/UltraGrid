@@ -61,6 +61,14 @@ extern "C" {
 #define RTP_MAX_MTU 9000
 #define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE+MAX_PADDING)
 
+enum {
+        IPV4_HDR_LEN = 20,
+        IPV6_HDR_LEN = 40,
+        UDP_HDR_LEN  = 8,
+        RTP_HDR_LEN  = 12,
+
+};
+
 #if !defined(WORDS_BIGENDIAN) && !defined(WORDS_SMALLENDIAN)
 #error RTP library requires WORDS_BIGENDIAN or WORDS_SMALLENDIAN to be defined.
 #endif
