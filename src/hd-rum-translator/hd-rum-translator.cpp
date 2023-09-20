@@ -519,31 +519,54 @@ static void *writer(void *arg)
 }
 
 static void usage(const char *progname) {
-        col() << SBOLD(SRED(progname) <<
-            " [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...") << "\n";
-        col() << "\twhere " << SUNDERLINE("global_opts") << " may be:\n" <<
-                SBOLD("\t\t--control-port <port_number>[:0|:1]") << " - control port to connect to, optionally client/server (default)\n" <<
-                SBOLD("\t\t--blend") << " - enable blending from original to newly received stream, increases latency\n" <<
-                SBOLD("\t\t--server <port>") << " - enable server mode for clients to connect on specified port\n" <<
-                SBOLD("\t\t--conference <width>:<height>[:fps]") << " - enable combining of multiple inputs, increases latency\n" <<
-                SBOLD("\t\t--conference-compression <compression>") << " - compression for conference participants\n" <<
-                SBOLD("\t\t--capture-filter <cfg_string>") << " - apply video capture filter to incoming video\n" <<
-                SBOLD("\t\t--param") << " - additional parameters\n" <<
-                SBOLD("\t\t--help\n") <<
-                SBOLD("\t\t--verbose\n") <<
-                SBOLD("\t\t-v") << " - print version\n";
-        col() << "\tand " << SUNDERLINE("hostX_options") << " may be:\n" <<
-                SBOLD("\t\t-P [<rx_port>:]<tx_port>") << " - TX port to be used (optionally also RX)\n" <<
-                SBOLD("\t\t-c <compression>") << " - compression\n" <<
-                "\t\tFollowing options will be used only if " << SUNDERLINE("'-c'") << " parameter is set:\n" <<
-                SBOLD("\t\t-m <mtu>") << " - MTU size\n" <<
-                SBOLD("\t\t-l <limiting_bitrate>") << " - bitrate to be shaped to\n" <<
-                SBOLD("\t\t-f <fec>") << " - FEC that will be used for transmission.\n" <<
-                SBOLD("\t\t-4/-6") << " - force IPv4/IPv6\n";
-        printf("\tPlease note that blending and capture filter is used only for host for which\n"
-               "\tcompression is specified (transcoding is active). If compression is not\n"
-               "\tset, simple packet retransmission is used. Compression can be also 'none'\n"
-               "\tfor uncompressed transmission (see 'uv -c help' for list).\n");
+    col() << "Usage:\n\t"
+          << SBOLD(SRED(progname)
+                   << " [global_opts] buffer_size port \\\n\t\t[host1_options] "
+                      "host1 [[host2_options] host2] ...")
+          << "\n";
+
+    col() << "\nwhere:\n"
+          << SBOLD("\tbuffer_size")
+          << " - network buffer size, eg. 200k for compressed\n\t\t or "
+             "8M for uncompressed video\n"
+          << SBOLD("\tport") << " - UDP port number\n";
+    col() << SUNDERLINE("global_opts") << " may be:\n"
+          << SBOLD("\t--control-port <port_number>[:0|:1]")
+          << " - control port to connect to, optionally client/server "
+             "(default)\n"
+          << SBOLD("\t--blend")
+          << " - enable blending from original to newly received stream, "
+             "increases latency\n"
+          << SBOLD("\t--server <port>")
+          << " - enable server mode for clients to connect on specified "
+             "port\n"
+          << SBOLD("\t--conference <width>:<height>[:fps]")
+          << " - enable combining of multiple inputs, increases latency\n"
+          << SBOLD("\t--conference-compression <compression>")
+          << " - compression for conference participants\n"
+          << SBOLD("\t--capture-filter <cfg_string>")
+          << " - apply video capture filter to incoming video\n"
+          << SBOLD("\t--param") << " - additional parameters\n"
+          << SBOLD("\t--help\n") << SBOLD("\t--verbose\n") << SBOLD("\t-v")
+          << " - print version\n";
+    col() << "and " << SUNDERLINE("hostX_options") << " may be:\n"
+          << SBOLD("\t-P [<rx_port>:]<tx_port>")
+          << " - TX port to be used (optionally also RX)\n"
+          << SBOLD("\t-c <compression>") << " - compression\n"
+          << "\tFollowing options will be used only if " << SUNDERLINE("'-c'")
+          << " parameter is set:\n"
+          << SBOLD("\t-m <mtu>") << " - MTU size\n"
+          << SBOLD("\t-l <limiting_bitrate>") << " - bitrate to be shaped to\n"
+          << SBOLD("\t-f <fec>")
+          << " - FEC that will be used for transmission.\n"
+          << SBOLD("\t-4/-6") << " - force IPv4/IPv6\n";
+    printf("\nPlease note that blending and capture filter is used only "
+           "for host for which\n"
+           "compression is specified (transcoding is active). If "
+           "compression is not\n"
+           "set, simple packet retransmission is used. Compression can be "
+           "also 'none'\n"
+           "for uncompressed transmission (see 'uv -c help' for list).\n");
 }
 
 struct host_opts {
