@@ -965,6 +965,9 @@ void udp_fd_zero_r(struct udp_fd_r *fd_struct)
  **/
 void udp_exit(socket_udp * s)
 {
+        if (s == NULL) {
+                return;
+        }
         switch (s->local->mode) {
         case IPv4:
                 udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd);
