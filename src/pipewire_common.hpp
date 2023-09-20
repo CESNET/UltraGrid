@@ -173,6 +173,21 @@ inline codec_t uv_codec_from_pw_fmt(spa_video_format fmt){
         }
 }
 
+inline spa_video_format pw_fmt_from_uv_codec(codec_t codec){
+        switch(codec){
+        case RGBA:
+                return SPA_VIDEO_FORMAT_RGBA;
+        case RGB:
+                return SPA_VIDEO_FORMAT_RGB;
+        case BGR:
+                return SPA_VIDEO_FORMAT_BGR;
+        case UYVY:
+                return SPA_VIDEO_FORMAT_UYVY;
+        default:
+                return SPA_VIDEO_FORMAT_UNKNOWN;
+        }
+}
+
 #if !PW_CHECK_VERSION(0, 3, 64)
 #    define STREAM_TARGET_PROPERTY_KEY PW_KEY_NODE_TARGET
 #else
