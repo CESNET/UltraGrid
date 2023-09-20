@@ -106,7 +106,8 @@ struct replica {
             throw string("Cannot initialize output port!\n");
         }
         if (udp_set_send_buf(sock.get(), bufsize) != TRUE)
-            fprintf(stderr, "Cannot set send buffer!\n");
+            fprintf(stderr, "Cannot set send buffer to %sB!\n",
+                    format_in_si_units(bufsize));
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
         mod.name = get_replica_mod_name(addr, tx_port);
@@ -978,7 +979,8 @@ int main(int argc, char **argv)
     }
 
     if (udp_set_recv_buf(sock_in, state.bufsize) != TRUE) {
-        fprintf(stderr, "Cannot set recv buffer!\n");
+        fprintf(stderr, "Cannot set recv buffer to %sB!\n",
+                format_in_si_units(state.bufsize));
     }
 
     printf("listening on *:%d\n", params.port);
