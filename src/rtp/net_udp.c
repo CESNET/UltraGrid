@@ -1433,56 +1433,42 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         return ret;
 }
 
-bool udp_set_recv_buf(socket_udp *s, int size)
+static bool
+udp_set_buf(socket_udp *s, int sockopt, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if (SETSOCKOPT(s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
+        if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, sockopt, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 socket_error("Unable to set socket buffer size");
                 return false;
         }
 
         opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
+        if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, sockopt, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 socket_error("Unable to get socket buffer size");
                 return false;
         }
 
-        if(opt < size) {
-                return false;
-        }
-
-        verbose_msg("Socket recv buffer size set to %d B.\n", opt);
-
-        return true;
+        const bool ret = opt >= size;
+        log_msg(ret ? LOG_LEVEL_DEBUG : LOG_LEVEL_VERBOSE,
+                "Socket %s buffer size set to %d B%srequested %d B%s\n",
+                sockopt == SO_RCVBUF ? "recv" : "send", opt,
+                ret ? " (" : ", ", size, ret ? "" : "!");
+        return ret;
 }
 
-bool udp_set_send_buf(socket_udp *s, int size)
+bool
+udp_set_recv_buf(socket_udp *s, int size)
 {
-        int opt = 0;
-        socklen_t opt_size;
-        if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
-                        sizeof(size)) != 0) {
-                socket_error("Unable to set socket buffer size");
-                return false;
-        }
+        return udp_set_buf(s, SO_RCVBUF, size);
+}
 
-        opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
-                        &opt_size) != 0) {
-                socket_error("Unable to get socket buffer size");
-                return false;
-        }
-
-        if(opt < size) {
-                return false;
-        }
-
-        verbose_msg("Socket send buffer size set to %d B.\n", opt);
-
-        return true;
+bool
+udp_set_send_buf(socket_udp *s, int size)
+{
+        return udp_set_buf(s, SO_SNDBUF, size);
 }
 
 /*
