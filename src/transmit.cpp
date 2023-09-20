@@ -86,6 +86,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 #define MOD_NAME "[transmit] "
@@ -548,6 +549,32 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         return ret;
 }
 
+static void
+report_stats(struct tx *tx, struct rtp *rtp_session, long data_sent)
+{
+        if (!control_stats_enabled(tx->control)) {
+                return;
+        }
+
+        tx->sent_since_report += data_sent;
+
+        const time_ns_t current_time_ns = get_time_in_ns();
+        if (current_time_ns - tx->last_stat_report <
+            CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS) {
+                return;
+        }
+
+        const char *media =
+            tx->media_type == TX_MEDIA_VIDEO ? "video" : "audio";
+        std::ostringstream oss;
+        oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec
+            << " " << media << " " << tx->sent_since_report;
+
+        control_report_stats(tx->control, oss.str());
+        tx->last_stat_report  = current_time_ns;
+        tx->sent_since_report = 0;
+}
+
 /**
  * Returns inter-packet interval in nanoseconds.
  */
@@ -703,20 +730,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data = encrypted_data;
                         }
 
-                        if (control_stats_enabled(tx->control)) {
-                                const time_ns_t current_time_ns =
-                                    get_time_in_ns();
-                                if (current_time_ns - tx->last_stat_report >=
-                                    CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS) {
-                                        std::ostringstream oss;
-                                        oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec << " video " << tx->sent_since_report;
-                                        control_report_stats(tx->control, oss.str());
-                                        tx->last_stat_report = current_time_ns;
-                                        tx->sent_since_report = 0;
-                                }
-                                tx->sent_since_report += data_len + rtp_hdr_len;
-                        }
-
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   (char *) rtp_hdr_packet, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
@@ -743,6 +756,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         //fprintf(stdout, "%ld ", overslept);
                 }
         } while (pos < tile->data_len || mult_index != 0); // when multiplying, we need all streams go to the end
+
+        const long data_sent = tile->data_len + rtp_hdr_len * packet_count;
+        report_stats(tx, rtp_session, data_sent);
 
         if (!tx->encryption) {
                 rtp_async_wait(rtp_session);
@@ -857,6 +873,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
         }
 
+        long data_sent = 0;
         do {
                 const char *data     = chan_data + pos;
                 unsigned    data_len = tx->mtu - hdrs_len;
@@ -879,20 +896,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                         data = encrypted_data;
                 }
 
-                if (control_stats_enabled(tx->control)) {
-                        const time_ns_t current_time_ns = get_time_in_ns();
-                        if (current_time_ns - tx->last_stat_report >=
-                            CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS) {
-                                std::ostringstream oss;
-                                oss << "tx_send " << std::hex
-                                    << rtp_my_ssrc(rtp_session) << std::dec
-                                    << " audio " << tx->sent_since_report;
-                                control_report_stats(tx->control, oss.str());
-                                tx->last_stat_report  = current_time_ns;
-                                tx->sent_since_report = 0;
-                        }
-                        tx->sent_since_report += data_len + rtp_hdr_len;
-                }
+                data_sent += data_len + rtp_hdr_len;
 
                 rtp_send_data_hdr(rtp_session, timestamp, pt, m,
                                   0, /* contributing sources */
@@ -901,6 +905,8 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                                   const_cast<char *>(data), data_len, 0, 0, 0);
 
         } while (pos < len);
+
+        report_stats(tx, rtp_session, data_sent);
 }
 
 /**
