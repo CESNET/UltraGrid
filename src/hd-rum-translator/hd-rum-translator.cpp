@@ -567,7 +567,7 @@ struct cmdline_parameters {
     int server_port = -1;
     struct hd_rum_output_conf out_conf = {NORMAL, NULL};
     const char *capture_filter = NULL;
-    bool verbose = false;
+    int log_level = -1;
     const char *conference_compression = nullptr;
 };
 
@@ -616,8 +616,10 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             return 1;
         } else if(strcmp(argv[start_index], "-v") == 0) {
             return 1;
-        } else if(strcmp(argv[start_index], "--verbose") == 0) {
-            parsed->verbose = true;
+        } else if (strstr(argv[start_index], "--verbose") == argv[start_index]) {
+            parsed->log_level = strchr(argv[start_index], '=')
+                ? atoi(strchr(argv[start_index], '=') + 1)
+                : LOG_LEVEL_VERBOSE;
         } else if(strcmp(argv[start_index], "--param") == 0 && start_index < argc - 1) {
             // already handled in common_preinit()
         } else if (!strcmp(argv[start_index], "--list-modules")) {
@@ -947,8 +949,8 @@ int main(int argc, char **argv)
         EXIT(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
     }
 
-    if (params.verbose) {
-        log_level = LOG_LEVEL_VERBOSE;
+    if (params.log_level != -1) {
+        log_level = params.log_level;
     }
 
     if ((state.bufsize = atoi(params.bufsize)) <= 0) {

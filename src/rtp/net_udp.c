@@ -1455,7 +1455,7 @@ udp_set_buf(socket_udp *s, int sockopt, int size)
         log_msg(ret ? LOG_LEVEL_DEBUG : LOG_LEVEL_VERBOSE,
                 "Socket %s buffer size set to %d B%srequested %d B%s\n",
                 sockopt == SO_RCVBUF ? "recv" : "send", opt,
-                ret ? " (" : ", ", size, ret ? "" : "!");
+                ret ? " (" : ", ", size, ret ? ")" : "!");
         return ret;
 }
 
