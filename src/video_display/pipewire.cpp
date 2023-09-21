@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory>
+#include <mutex>
 
 #include "debug.h"
 #include "host.h"
@@ -27,6 +28,14 @@
 namespace{
         struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
         using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
+
+        struct pw_memfd_frame{
+                std::mutex mut;
+                int fd;
+                int size;
+                pw_buffer *b;
+                video_frame *f;
+        };
 }
 
 struct display_pw_state{
@@ -82,38 +91,73 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(stride * s->desc.height),
+		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemFd),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride));
 
 	pw_stream_update_params(s->stream.get(), params, 1);
 
 }
 
+static void on_add_buffer(void *data, struct pw_buffer *buffer){
+        auto s = static_cast<display_pw_state *>(data);
+
+        auto ug_frame = vf_alloc_desc(s->desc);
+        auto ug_pw_frame = std::make_unique<pw_memfd_frame>();
+
+        int stride = vc_get_linesize(s->desc.width, s->desc.color_spec);
+        int size = stride * s->desc.height;
+
+        struct spa_data *d = buffer->buffer->datas;
+        if ((d->type & (1<<SPA_DATA_MemFd)) == 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Buffer doesn't support MemFd type\n");
+                return;
+        }
+
+        d->type = SPA_DATA_MemFd;
+        d->flags = SPA_DATA_FLAG_READWRITE;
+        d->fd = memfd_create("ultragrid-display", MFD_CLOEXEC);
+        if(d->fd < 0){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot create memfd\n");
+                return;
+        }
+        d->maxsize = size;
+        d->mapoffset = 0;
+
+        if(ftruncate(d->fd, d->maxsize) < 0){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to resize memfd\n");
+                close(d->fd);
+                return;
+        }
+
+        ug_pw_frame->f = ug_frame;
+        ug_pw_frame->b = buffer;
+        ug_pw_frame->fd = dup(d->fd);
+        ug_pw_frame->size = d->maxsize;
+
+        ug_frame->callbacks.dispose_udata = ug_pw_frame.get();
+        ug_frame->tiles[0].data = (char *) mmap(nullptr, d->maxsize, PROT_READ|PROT_WRITE,
+                        MAP_SHARED, ug_pw_frame->fd, d->mapoffset);
+
+        buffer->user_data = ug_pw_frame.release();
+
+        log_msg(LOG_LEVEL_NOTICE, "Buffer added\n");
+}
+
 static void on_remove_buffer(void *data, struct pw_buffer *buffer){
+        auto ug_pw_frame = static_cast<pw_memfd_frame *>(buffer->user_data);
+
+        close(buffer->buffer->datas[0].fd);
         log_msg(LOG_LEVEL_NOTICE, "Buffer removed\n");
+
+        close(buffer->buffer->datas[0].fd);
+
+        std::lock_guard<std::mutex> lock(ug_pw_frame->mut);
+        ug_pw_frame->b = nullptr;
 }
 
 static void on_process(void *userdata) noexcept{
         auto s = static_cast<display_pw_state *>(userdata);
 
-#if 0
-        struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
-        if (!b) {
-                pw_log_warn("out of buffers: %m");
-                return;
-        }
-        struct spa_buffer *buf = b->buffer;
-
-        char *dst = static_cast<char *>(buf->datas[0].data);
-        if (!dst)
-                return;
-
-
-        buf->datas[0].chunk->offset = 0;
-        buf->datas[0].chunk->stride = s->desc.ch_count * s->desc.bps;
-        buf->datas[0].chunk->size = to_write;
-
-        pw_stream_queue_buffer(s->stream.get(), b);
-#endif
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "on process\n");
 }
 
@@ -125,7 +169,7 @@ const static pw_stream_events stream_events = {
         .control_info = nullptr,
         .io_changed = nullptr,
         .param_changed = on_param_changed,
-        .add_buffer = nullptr,
+        .add_buffer = on_add_buffer,
         .remove_buffer = on_remove_buffer,
         .process = on_process,
         .drained = nullptr,
@@ -161,15 +205,6 @@ static struct video_frame *display_pw_getf(void *state)
 
         pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
-        /* 
-         * TODO: The buffer could be destroyed at any time when the stream
-         * disconnects (or for any other reason). Before it is destroyed, the
-         * remove_buffer callback is called. If we don't do anything about it
-         * the decoder will cause a SIGSEGV when writing to it. The solution
-         * (from the pipewire Matrix channel) seems to be to block in the
-         * remove_buffer callback until the frame comes back to the display.
-         */
-
         auto get_dummy = [](display_pw_state *s){
                 if (!s->dummy_frame || video_desc_eq(video_desc_from_frame(s->dummy_frame.get()), s->desc))
                 {
@@ -189,10 +224,8 @@ static struct video_frame *display_pw_getf(void *state)
                 return get_dummy(s);
         }
 
-        auto f = vf_alloc_desc(s->desc);
-        f->callbacks.dispose_udata = b;
-
-        f->tiles[0].data = static_cast<char *>(b->buffer->datas[0].data);
+        auto pw_ug_frame = static_cast<pw_memfd_frame *>(b->user_data);
+        video_frame *f = pw_ug_frame->f;
 
         b->buffer->datas[0].chunk->size = f->tiles[0].data_len;
         b->buffer->datas[0].chunk->offset = 0;
@@ -212,9 +245,19 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 
         pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
-        auto b = static_cast<pw_buffer *>(frame->callbacks.dispose_udata);
+        auto pw_ug_frame = static_cast<pw_memfd_frame *>(frame->callbacks.dispose_udata);
+        std::lock_guard frame_lock(pw_ug_frame->mut);
 
-        pw_stream_queue_buffer(s->stream.get(), b);
+        if(!pw_ug_frame->b){
+                //Frame is invalid - buffer got removed
+                munmap(frame->tiles[0].data, pw_ug_frame->size);
+                close(pw_ug_frame->fd);
+                vf_free(pw_ug_frame->f);
+                delete pw_ug_frame; //TODO deleting mutex while it's locked
+                return true;
+        }
+
+        pw_stream_queue_buffer(s->stream.get(), pw_ug_frame->b);
 
         return true;
 }
@@ -296,7 +339,7 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
                         static_cast<pw_stream_flags>(
                                 PW_STREAM_FLAG_AUTOCONNECT |
                                 PW_STREAM_FLAG_DRIVER |
-                                PW_STREAM_FLAG_MAP_BUFFERS),
+                                PW_STREAM_FLAG_ALLOC_BUFFERS),
                         &params[0], 1);
 
         return true;
