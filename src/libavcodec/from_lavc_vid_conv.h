@@ -1,6 +1,9 @@
 /**
  * @file   libavcodec/from_lavc_vid_conv.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ *
+ * This file contains conversions from FFmpeg to UltraGrid pixfmts.
+ * @sa to_lavc_vid_conv.h
  */
 /*
  * Copyright (c) 2013-2023 CESNET, z. s. p. o.

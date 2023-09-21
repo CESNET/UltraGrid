@@ -1,9 +1,12 @@
 /**
  * @file   libavcodec/to_lavc_vid_conv.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ *
+ * This file contains conversions from UltraGrid to FFmpeg pixel formats.
+ * @sa from_lavc_vid_conv.h
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

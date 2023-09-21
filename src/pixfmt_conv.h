@@ -7,6 +7,10 @@
  * @author Jiri Matela      <matela@ics.muni.cz>
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *
+ * This file contains conversions between UltraGrid pixel formats (uncompressed
+ * codec_t).
+ * @sa video_codec.h from_lavc_vid_conv.h to_lavc_vid_conv.h
  */
 /* Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
