@@ -24,11 +24,18 @@
 
 #define MOD_NAME "[pw_disp] "
 
+namespace{
+        struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
+        using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
+}
+
 struct display_pw_state{
         pipewire_state_common pw;
 
         pw_stream_uniq stream;
         spa_hook_uniq stream_listener;
+
+        unique_frame dummy_frame;
 
         video_desc desc = {};
 };
@@ -163,10 +170,23 @@ static struct video_frame *display_pw_getf(void *state)
          * remove_buffer callback until the frame comes back to the display.
          */
 
+        auto get_dummy = [](display_pw_state *s){
+                if (!s->dummy_frame || video_desc_eq(video_desc_from_frame(s->dummy_frame.get()), s->desc))
+                {
+                        s->dummy_frame.reset(vf_alloc_desc_data(s->desc));
+                }
+                return s->dummy_frame.get();
+        };
+
+        const char *error = nullptr;
+        auto stream_state = pw_stream_get_state(s->stream.get(), &error);
+        if(stream_state != PW_STREAM_STATE_STREAMING)
+                return get_dummy(s);
+
         struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
         if (!b) {
                 log_msg(LOG_LEVEL_WARNING, "Out of buffers!\n");
-                return vf_alloc_desc_data(s->desc);
+                return get_dummy(s);
         }
 
         auto f = vf_alloc_desc(s->desc);
@@ -186,7 +206,7 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 {
         auto s = static_cast<display_pw_state *>(state);
 
-        if (flags == PUTF_DISCARD || frame == NULL) {
+        if (flags == PUTF_DISCARD || frame == NULL || frame == s->dummy_frame.get()) {
                 return true;
         }
 
@@ -194,10 +214,7 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 
         auto b = static_cast<pw_buffer *>(frame->callbacks.dispose_udata);
 
-        if(b)
-                pw_stream_queue_buffer(s->stream.get(), b);
-        else
-                vf_free(frame);
+        pw_stream_queue_buffer(s->stream.get(), b);
 
         return true;
 }
