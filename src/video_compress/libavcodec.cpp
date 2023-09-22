@@ -144,6 +144,7 @@ struct setparam_param {
         bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int interlaced_dct = -1; ///< -1 default; 0 disable/not enable; 1 enable
+        int header_inserter_req = -1;
         string thread_mode;
         int slices = -1;
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
@@ -237,7 +238,6 @@ static map<codec_t, codec_params_t> codec_params = {
 };
 
 struct aux_header {
-        bool   header_inserter_req = false;
         char   buf[1024]{};
         size_t buf_len = 0;
 };
@@ -391,7 +391,7 @@ void usage(bool full) {
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
         if (full) {
-                col() << "\t" << SBOLD("header_inserter")
+                col() << "\t" << SBOLD("header_inserter[=no]")
                       << " repeat H.264/HEVC VPS/SPS/PPS hdrs (fixes problems "
                          "when not "
                          "contained in the stream)\n";
@@ -498,8 +498,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
                         char *gop = item + strlen("gop=");
                         s->requested_gop = atoi(gop);
-                } else if (strcmp(item, "header_inserter") == 0) {
-                        s->aux_header.header_inserter_req = true;
+                } else if (strstr(item, "header_inserter") == item) {
+                        s->params.header_inserter_req =
+                            strstr(item, "=no") ? 1 : 0;
                 } else if (strchr(item, '=')) {
                         char *c_val_dup = strdup(strchr(item, '=') + 1);
                         replace_all(c_val_dup, DELDEL, ":");
@@ -1302,7 +1303,7 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
         memcpy(out->tiles[0].data, s->aux_header.buf, s->aux_header.buf_len);
         memcpy(out->tiles[0].data + s->aux_header.buf_len, pkt->data,
                pkt->size);
-        if (s->aux_header.header_inserter_req) {
+        if (s->params.header_inserter_req == 1) {
                 store_sps_pps_vps(s, pkt);
         }
 
@@ -1799,6 +1800,12 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_x264_x265(codec_ctx, param);
         } else if (regex_match(codec_ctx->codec->name, regex(".*nvenc.*"))) {
                 configure_nvenc(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "h264_omx") == 0)  {
+                if (param->header_inserter_req == -1) {
+                        MSG(INFO, "Enablling header inserter for h264_omx by "
+                                  "default.\n");
+                        param->header_inserter_req = 1; // (untested)
+                }
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv_h264_hevc(codec_ctx, param);
