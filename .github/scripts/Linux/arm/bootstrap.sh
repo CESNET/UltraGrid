@@ -3,29 +3,33 @@
 # If changing the file, do not forget to regenerate cache in ARM Build GitHub action
 
 OLDPWD=$(pwd)
+readonly debver=bullseye
 
 apt -y install curl gnupg
 echo -k > ~/.curlrc
 
-if grep -q Raspbian /etc/os-release; then
-        curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
-        echo 'deb http://archive.raspberrypi.org/debian bullseye main' >> /etc/apt/sources.list
-        apt -y update
-        apt -y install libraspberrypi-dev
+if grep -q Debian /etc/os-release; then
+        cat >/etc/apt/sources.list <<EOF
+deb http://deb.debian.org/debian $debver main contrib non-free
+deb http://security.debian.org/debian-security $debver-security main contrib non-free
+deb http://deb.debian.org/debian $debver-updates main contrib non-free
+EOF
 fi
+curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
+echo "deb http://archive.raspberrypi.org/debian $debver main" >> \
+        /etc/apt/sources.list
+apt -y update
 
 apt -y install autoconf automake build-essential cmake git pkg-config libtool sudo
 apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
 apt -y install libcaca-dev libmagickwand-dev libnatpmp-dev libopencv-core-dev libopencv-imgproc-dev
+apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev libraspberrypi-dev
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi
 /.github/scripts/Linux/install_others.sh ximea
-
-# FFmpeg
-apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev
 
 # mkappimage
 mkai_arch=$(dpkg --print-architecture)
