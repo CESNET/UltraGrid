@@ -851,7 +851,8 @@ void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe
         // macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st one, picture is ok 444 YUV, second produces
         // incorrect colors). Anyways, even for the case #1 it is perhaps better to keep it blacklisted to allow
         // selection of gbrp16, which doesn't convert to YUV.
-        if (strstr(encoder_name, "nvenc") != nullptr) {
+        if (strstr(encoder_name, "nvenc") != nullptr ||
+            strstr(encoder_name, "qsv") != nullptr) {
                 if (formats.size() == 1) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting x2rgb10le!\n";
                         return;
