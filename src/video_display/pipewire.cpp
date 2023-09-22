@@ -21,6 +21,7 @@
 #include "video_display.h"
 
 #include "pipewire_common.hpp"
+#include "utils/string_view_utils.hpp"
 #include <spa/param/video/format-utils.h>
 
 #define MOD_NAME "[pw_disp] "
@@ -125,6 +126,8 @@ struct display_pw_state{
 
         pw_stream_uniq stream;
         spa_hook_uniq stream_listener;
+
+        std::string target;
 
         unique_frame dummy_frame;
 
@@ -252,6 +255,20 @@ static void *display_pw_init(struct module *parent, const char *cfg, unsigned in
 {
         auto s = std::make_unique<display_pw_state>();
 
+        std::string_view cfg_sv(cfg);
+        while(!cfg_sv.empty()){
+                auto tok = tokenize(cfg_sv, ':', '"');
+
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
+
+                if(key == "help"){
+                        return INIT_NOERR;
+                } else if(key == "target"){
+                        s->target = val;
+                }
+        }
+
         initialize_pw_common(s->pw);
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Compiled with libpipewire %s\n", pw_get_headers_version());
@@ -367,7 +384,7 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
                         PW_KEY_APP_NAME, "UltraGrid",
                         PW_KEY_APP_ICON_NAME, "ultragrid",
                         PW_KEY_NODE_NAME, "ug video out",
-//                        STREAM_TARGET_PROPERTY_KEY, s->target.c_str(),
+                        STREAM_TARGET_PROPERTY_KEY, s->target.c_str(),
                         nullptr);
 
         pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
