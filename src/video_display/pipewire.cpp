@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <memory>
-#include <mutex>
+#include <atomic>
 
 #include "debug.h"
 #include "host.h"
@@ -29,13 +29,95 @@ namespace{
         struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
         using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 
-        struct pw_memfd_frame{
-                std::mutex mut;
-                int fd;
-                int size;
-                pw_buffer *b;
-                video_frame *f;
+        struct memfd_buffer{
+                memfd_buffer() = default;
+                memfd_buffer(const memfd_buffer&) = delete;
+                ~memfd_buffer();
+
+                memfd_buffer& operator=(const memfd_buffer&) = delete;
+
+                /* The buffer is shared by the pipewire buffer and ultragrid.
+                 * Since both can be deleted independently at any time from
+                 * different threads we need reference counting. 
+                 */
+                std::atomic<int> ref_count = 0;
+
+                int fd = -1;
+                int size = 0;
+                void *ptr = nullptr;
+
+                /* Access to these pointers is synchronized by the pipewire
+                 * thread loop lock.
+                 *
+                 * The pw_buffer pointer is also used to signal that the
+                 * pipewire buffer got removed and should not be queued by
+                 * setting it to null in the on_remove_buffer callback.
+                 *
+                 * The video_frame pointer is used to signal the current
+                 * ownership of the frame. The ownership is transferred in the
+                 * getf and putf functions.
+                 *
+                 * If set - the frame is owned by pipewire and should be
+                 * deleted in the on_remove_callback.
+                 *
+                 * If unset - frame is owned
+                 * by ultragrid, which should delete it.
+                 */
+                pw_buffer *b = nullptr;
+                video_frame *f = nullptr;
         };
+
+        memfd_buffer::~memfd_buffer(){
+                assert(ref_count == 0);
+                if(ptr){
+                        munmap(ptr, size);
+                }
+                if(fd > 0){
+                        close(fd);
+                }
+        }
+
+        memfd_buffer *memfd_buf_create(size_t size){
+                auto buf = std::make_unique<memfd_buffer>();
+
+                buf->fd = memfd_create("ultragrid-display", MFD_CLOEXEC);
+                if(buf->fd < 0){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot create memfd\n");
+                        return nullptr;
+                }
+
+                buf->size = size;
+                if(ftruncate(buf->fd, size) < 0){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to resize memfd\n");
+                        return nullptr;
+                }
+
+                buf->ptr = mmap(nullptr, size, PROT_READ|PROT_WRITE,
+                                MAP_SHARED, buf->fd, 0);
+
+                return buf.release();
+        }
+
+        void memfd_buf_unref(memfd_buffer **buffer){
+                auto buf = *buffer;
+                *buffer = nullptr;
+
+                int refcount = buf->ref_count.fetch_sub(1) - 1;
+                if(refcount < 1)
+                        delete buf;
+        }
+
+        memfd_buffer *memfd_buf_ref(memfd_buffer *buf){
+                buf->ref_count++;
+                return buf;
+        }
+
+        void memfd_frame_data_deleter(video_frame *f){
+                auto buf = static_cast<memfd_buffer *>(f->callbacks.dispose_udata);
+
+                if(buf)
+                        memfd_buf_unref(&buf);
+        }
 }
 
 struct display_pw_state{
@@ -101,9 +183,6 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
 static void on_add_buffer(void *data, struct pw_buffer *buffer){
         auto s = static_cast<display_pw_state *>(data);
 
-        auto ug_frame = vf_alloc_desc(s->desc);
-        auto ug_pw_frame = std::make_unique<pw_memfd_frame>();
-
         int stride = vc_get_linesize(s->desc.width, s->desc.color_spec);
         int size = stride * s->desc.height;
 
@@ -113,46 +192,36 @@ static void on_add_buffer(void *data, struct pw_buffer *buffer){
                 return;
         }
 
+        auto buf = memfd_buf_create(size);
+        buffer->user_data = memfd_buf_ref(buf);
+
         d->type = SPA_DATA_MemFd;
         d->flags = SPA_DATA_FLAG_READWRITE;
-        d->fd = memfd_create("ultragrid-display", MFD_CLOEXEC);
-        if(d->fd < 0){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot create memfd\n");
-                return;
-        }
-        d->maxsize = size;
+        d->fd = buf->fd;
+        d->maxsize = buf->size;
         d->mapoffset = 0;
 
-        if(ftruncate(d->fd, d->maxsize) < 0){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to resize memfd\n");
-                close(d->fd);
-                return;
-        }
+        auto ug_frame = vf_alloc_desc(s->desc);
+        buf->f = ug_frame;
+        buf->b = buffer;
 
-        ug_pw_frame->f = ug_frame;
-        ug_pw_frame->b = buffer;
-        ug_pw_frame->fd = dup(d->fd);
-        ug_pw_frame->size = d->maxsize;
-
-        ug_frame->callbacks.dispose_udata = ug_pw_frame.get();
-        ug_frame->tiles[0].data = (char *) mmap(nullptr, d->maxsize, PROT_READ|PROT_WRITE,
-                        MAP_SHARED, ug_pw_frame->fd, d->mapoffset);
-
-        buffer->user_data = ug_pw_frame.release();
+        ug_frame->callbacks.data_deleter = memfd_frame_data_deleter;
+        ug_frame->callbacks.dispose_udata = memfd_buf_ref(buf);
+        ug_frame->tiles[0].data = (char *) buf->ptr;
 
         log_msg(LOG_LEVEL_NOTICE, "Buffer added\n");
 }
 
 static void on_remove_buffer(void *data, struct pw_buffer *buffer){
-        auto ug_pw_frame = static_cast<pw_memfd_frame *>(buffer->user_data);
+        auto buf = static_cast<memfd_buffer *>(buffer->user_data);
 
-        close(buffer->buffer->datas[0].fd);
+        if(buf->f)
+                vf_free(buf->f);
+
+        buf->b = nullptr;
+        memfd_buf_unref(&buf);
+
         log_msg(LOG_LEVEL_NOTICE, "Buffer removed\n");
-
-        close(buffer->buffer->datas[0].fd);
-
-        std::lock_guard<std::mutex> lock(ug_pw_frame->mut);
-        ug_pw_frame->b = nullptr;
 }
 
 static void on_process(void *userdata) noexcept{
@@ -203,8 +272,6 @@ static struct video_frame *display_pw_getf(void *state)
 {
         auto s = static_cast<display_pw_state *>(state);
 
-        pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
-
         auto get_dummy = [](display_pw_state *s){
                 if (!s->dummy_frame || video_desc_eq(video_desc_from_frame(s->dummy_frame.get()), s->desc))
                 {
@@ -212,6 +279,8 @@ static struct video_frame *display_pw_getf(void *state)
                 }
                 return s->dummy_frame.get();
         };
+
+        pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
         const char *error = nullptr;
         auto stream_state = pw_stream_get_state(s->stream.get(), &error);
@@ -224,8 +293,8 @@ static struct video_frame *display_pw_getf(void *state)
                 return get_dummy(s);
         }
 
-        auto pw_ug_frame = static_cast<pw_memfd_frame *>(b->user_data);
-        video_frame *f = pw_ug_frame->f;
+        auto buf = static_cast<memfd_buffer *>(b->user_data);
+        video_frame *f = std::exchange(buf->f, nullptr);
 
         b->buffer->datas[0].chunk->size = f->tiles[0].data_len;
         b->buffer->datas[0].chunk->offset = 0;
@@ -245,19 +314,17 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 
         pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
-        auto pw_ug_frame = static_cast<pw_memfd_frame *>(frame->callbacks.dispose_udata);
-        std::lock_guard frame_lock(pw_ug_frame->mut);
+        auto buf = static_cast<memfd_buffer *>(frame->callbacks.dispose_udata);
 
-        if(!pw_ug_frame->b){
+        if(!buf->b){
                 //Frame is invalid - buffer got removed
-                munmap(frame->tiles[0].data, pw_ug_frame->size);
-                close(pw_ug_frame->fd);
-                vf_free(pw_ug_frame->f);
-                delete pw_ug_frame; //TODO deleting mutex while it's locked
+                vf_free(frame);
                 return true;
         }
 
-        pw_stream_queue_buffer(s->stream.get(), pw_ug_frame->b);
+        buf->f = frame;
+
+        pw_stream_queue_buffer(s->stream.get(), buf->b);
 
         return true;
 }
