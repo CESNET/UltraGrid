@@ -21,6 +21,7 @@ set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --ena
 if [ "$ARCH" = armhf ]; then # Raspbian
         set -- "$@" --enable-lavc-hw-accel-rpi4
 fi
+set -- "$@" --disable-vulkan
 
 ./autogen.sh "$@"
 make -j "$(nproc)"
