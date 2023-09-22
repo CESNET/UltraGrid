@@ -130,6 +130,7 @@ struct display_pw_state{
         std::string target;
 
         unique_frame dummy_frame;
+        unique_frame in_flight_frame;
 
         video_desc desc = {};
 };
@@ -282,6 +283,11 @@ static void display_pw_done(void *state)
 {
         auto s = std::unique_ptr<display_pw_state>(static_cast<display_pw_state *>(state));
 
+        {
+                pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
+                pw_stream_disconnect(s->stream.get());
+        }
+
         pw_thread_loop_stop(s->pw.pipewire_loop.get());
 }
 
@@ -311,13 +317,13 @@ static struct video_frame *display_pw_getf(void *state)
         }
 
         auto buf = static_cast<memfd_buffer *>(b->user_data);
-        video_frame *f = std::exchange(buf->f, nullptr);
+        s->in_flight_frame.reset(std::exchange(buf->f, nullptr));
 
-        b->buffer->datas[0].chunk->size = f->tiles[0].data_len;
+        b->buffer->datas[0].chunk->size = s->in_flight_frame->tiles[0].data_len;
         b->buffer->datas[0].chunk->offset = 0;
         b->buffer->datas[0].chunk->stride = vc_get_linesize(s->desc.width, s->desc.color_spec);
 
-        return f;
+        return s->in_flight_frame.get();
 }
 
 
@@ -335,11 +341,11 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 
         if(!buf->b){
                 //Frame is invalid - buffer got removed
-                vf_free(frame);
                 return true;
         }
 
-        buf->f = frame;
+        assert(frame == s->in_flight_frame.get());
+        buf->f = s->in_flight_frame.release();
 
         pw_stream_queue_buffer(s->stream.get(), buf->b);
 
