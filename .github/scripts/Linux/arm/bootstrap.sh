@@ -18,13 +18,14 @@ raspbian_build_sdl2() {
         )
 }
 
-apt -y install curl
+apt -y install curl gnupg
 echo -k > ~/.curlrc
 
 if grep -q Raspbian /etc/os-release; then
         curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
         echo 'deb http://archive.raspberrypi.org/debian buster main' >> /etc/apt/sources.list
         apt -y update
+        apt -y install libraspberrypi-dev
 fi
 
 apt -y install cmake=3.13.4-1 cmake-data=3.13.4-1 # 3.16 in the above added repository is broken with chrooted qemu-user-static
@@ -40,23 +41,7 @@ apt -y install libcaca-dev libmagickwand-dev libnatpmp-dev libopencv-core-dev li
 /.github/scripts/Linux/install_others.sh ximea
 
 # FFmpeg
-if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
-        apt -y install libraspberrypi-dev libdrm-dev
-        sed -i '/^deb /p;s/deb /deb-src /' /etc/apt/sources.list
-        apt -y update && apt -y build-dep ffmpeg
-        raspbian_build_sdl2
-        apt -y remove libavcodec58 && apt -y autoremove
-        git clone --depth 1 -b n4.3.3 https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
-
-        # apply patches
-        find /.github/scripts/Linux/arm/ffmpeg-arm-patches -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
-
-        ./configure --enable-gpl --disable-stripping --enable-libaom --enable-libmp3lame --enable-libopenjpeg --enable-libopus --enable-libspeex --enable-libvpx --enable-libwebp --enable-libx265 --enable-omx --enable-neon --enable-libx264 --enable-mmal --enable-omx-rpi --enable-rpi --enable-vout-drm --enable-libdrm --enable-v4l2-request --enable-libudev --cpu=arm1176jzf-s --enable-shared --disable-static
-        make -j3 install
-        cd "$OLDPWD"
-else
-        apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev
-fi
+apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev
 
 # mkappimage
 mkai_arch=$(dpkg --print-architecture)
