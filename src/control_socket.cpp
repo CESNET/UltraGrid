@@ -47,7 +47,6 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
-#include <stdio.h>
 #include <string>
 #include <thread>
 
@@ -306,6 +305,35 @@ void control_start(struct control_state *s)
 #define suffix(x,y) x + strlen(y)
 #define is_internal_port(x) (x == s->internal_fd[0])
 
+static struct response *
+process_audio_message(struct module *root_module, const char *cmd)
+{
+        char path[STR_LEN] = "";
+        if (strcmp(cmd, "mute") == 0) {
+                strncpy(path, "audio.receiver", sizeof path);
+                auto *msg = (struct msg_receiver *) new_message(
+                    sizeof(struct msg_receiver));
+                msg->type = RECEIVER_MSG_MUTE;
+                return send_message(root_module, path, (struct message *) msg);
+        }
+        if (prefix_matches(cmd, "volume ")) {
+                strncpy(path, "audio.receiver", sizeof path);
+                auto *msg = (struct msg_receiver *) new_message(
+                    sizeof(struct msg_receiver));
+                const char *dir = suffix(cmd, "volume ");
+                if (strcmp(dir, "up") == 0) {
+                        msg->type = RECEIVER_MSG_INCREASE_VOLUME;
+                } else if (strcmp(dir, "down") == 0) {
+                        msg->type = RECEIVER_MSG_DECREASE_VOLUME;
+                } else {
+                        free_message((struct message *) msg, nullptr);
+                        return new_response(RESPONSE_BAD_REQUEST, nullptr);
+                }
+                return send_message(root_module, path, (struct message *) msg);
+        }
+        abort();
+}
+
 /**
   * @retval -1 exit thread
   * @retval -2 close handle
@@ -555,28 +583,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         append_message_path(path, sizeof(path), path_compress);
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
-        } else if (prefix_matches(message, "volume ")) {
-                strncpy(path, "audio.receiver", sizeof path);
-                struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                char *dir = suffix(message, "volume ");
-                if (strcmp(dir, "up") == 0) {
-                        msg->type = RECEIVER_MSG_INCREASE_VOLUME;
-                } else if (strcmp(dir, "down") == 0) {
-                        msg->type = RECEIVER_MSG_DECREASE_VOLUME;
-                } else {
-                        free_message((struct message *) msg, NULL);
-                        msg = NULL;
-                        resp = new_response(RESPONSE_BAD_REQUEST, NULL);
-                }
-
-                if (msg) {
-                        resp = send_message(s->root_module, path, (struct message *) msg);
-                }
-        } else if (prefix_matches(message, "mute")) {
-                strncpy(path, "audio.receiver", sizeof path);
-                struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                msg->type = RECEIVER_MSG_MUTE;
-                resp = send_message(s->root_module, path, (struct message *) msg);
+        } else if (prefix_matches(message, "volume ") ||
+                   strcmp(message, "mute") == 0) {
+                resp = process_audio_message(s->root_module, message);
         } else if (prefix_matches(message, "av-delay ")) {
                 int val = atoi(suffix(message, "av-delay "));
                 set_audio_delay(val);
