@@ -62,8 +62,11 @@
 #define TYPE_SINGLETON 2
 typedef int type_t;
 
-using namespace std;
-using namespace ultragrid;
+using std::logic_error;
+using std::map;
+using std::pair;
+using std::string;
+using ultragrid::pthread_mutex_guard;
 
 class options_t {
         public:
