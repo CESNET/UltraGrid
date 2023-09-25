@@ -100,7 +100,6 @@ static void catch_signal(int)
 #endif
 
 #ifdef HAVE_TERMIOS_H
-static bool old_tio_set = false;
 static struct termios old_tio;
 #endif
 
@@ -161,9 +160,6 @@ void keyboard_control::stop() {
 void restore_old_tio(void)
 {
 #ifdef HAVE_TERMIOS_H
-        if (!old_tio_set) {
-                return;
-        }
         struct sigaction sa, sa_old;
         memset(&sa, 0, sizeof sa);
         sa.sa_handler = SIG_IGN;
@@ -173,7 +169,6 @@ void restore_old_tio(void)
         /* restore the former settings */
         tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
         sigaction(SIGTTOU, &sa_old, NULL);
-        old_tio_set = false;
 #endif
 }
 
@@ -234,7 +229,6 @@ void keyboard_control::impl::start()
                 log_msg(LOG_LEVEL_WARNING, "[key control] Background task - disabling keyboard control.\n");
                 return;
         }
-        old_tio_set = true;
         atexit(restore_old_tio);
 #endif
 
