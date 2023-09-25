@@ -348,13 +348,16 @@ static bool display_pw_get_property(void *state, int property, void *val, size_t
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        {
-                                //TODO
-                                *len = sizeof(codecs);
-                                memcpy(val, codecs, *len);
+                        if(*len < sizeof(codecs)) {
+                                return false;
                         }
+                        *len = sizeof(codecs);
+                        memcpy(val, codecs, *len);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return false;
+                        }
                         memcpy(val, rgb_shift, sizeof(rgb_shift));
                         *len = sizeof(rgb_shift);
                         break;
