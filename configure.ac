@@ -1588,6 +1588,7 @@ if test $lavc_hwacc_rpi4_req != no; then
         PKG_CHECK_MODULES([BCM_HOST], [bcm_host], [ ], [ FOUND_HWACC_RPI4_DEP=no ])
         PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
         AC_CHECK_HEADER([libavcodec/rpi_zc.h], [  ], [FOUND_HWACC_RPI4_DEP=no], [#include <libavcodec/avcodec.h>])
+        AC_CHECK_HEADER([interface/mmal/mmal.h], [], [FOUND_HWACC_RPI4_DEP=no])
         if test "$FOUND_HWACC_RPI4_DEP" = yes; then
                 LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
                 LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
