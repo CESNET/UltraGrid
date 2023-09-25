@@ -985,25 +985,25 @@ bool control_stats_enabled(struct control_state *s)
 }
 
 static void print_control_help() {
-        printf("Control internal commands:\n"
-                        "\texit\n"
-                        "\tpause\n"
-                        "\tplay\n"
-                        "\treciever {pause|play}\n"
-                        "\treset-ssrc\n"
-                        "\t{receiver|sender}-port <XY>\n"
-                        "\tfec {audio|video} <fec-string>\n"
-                        "\tcompress <new-compress>\n"
-                        "\tcompress param <new-compress-param>\n"
-                        "\tvolume {up|down}\n"
-                        "\tav-delay <ms>\n"
-                        "\tmute\n"
-                                "\t\tthe three items above apply to receiver\n"
-                        "\tpostprocess <new_postprocess>|flush\n"
-                        "\tdump-tree\n");
-        printf("\nOther commands can be issued directly to individual "
-                        "modules (see \"dump-tree\"), eg.:\n"
-                        "\tcapture.filter mirror\n"
-                        "\nSometimes those modules support help (eg. \"capture.filter help)\"\n\n");
+        color_printf("Control internal commands:\n"
+                        TBOLD("\texit") "\n"
+                        TBOLD("\tpause") "\n"
+                        TBOLD("\tplay") "\n"
+                        TBOLD("\treciever {pause|play}") "\n"
+                        TBOLD("\treset-ssrc") "\n"
+                        TBOLD("\t{receiver|sender}-port <XY>") "\n"
+                        TBOLD("\tfec {audio|video} <fec-string>") "\n"
+                        TBOLD("\tcompress <new-compress>") "\n"
+                        TBOLD("\tcompress param <new-compress-param>") "\n"
+                        TBOLD("\tvolume {up|down}") u8"¹\n"
+                        TBOLD("\tav-delay <ms>") u8"¹\n"
+                        TBOLD("\tmute") u8"¹ - toggles mute\n"
+                        TBOLD("\tpostprocess <new_postprocess> | flush") "\n"
+                        TBOLD("\tdump-tree")"\n");
+        color_printf("\nOther commands can be issued directly to individual "
+                        "modules (see \"" TBOLD("dump-tree") "\"), eg.:\n"
+                        "\t" TBOLD("capture.filter mirror") "\n"
+                        "\nSometimes those modules support help (eg. \"" TBOLD("capture.filter help") "\")\n\n");
+        color_printf(TBOLD(u8"¹") " audio commands applying to receiver\n\n");
 }
 
