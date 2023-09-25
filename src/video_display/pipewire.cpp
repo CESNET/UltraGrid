@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <memory>
 #include <atomic>
@@ -373,13 +374,20 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
 
         s->desc = desc;
 
+        std::string node_name = "ultragrid_out_";
+        {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%ld", (long) getpid());
+                node_name += buf;
+        }
+
         auto props = pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Video",
                         PW_KEY_MEDIA_CATEGORY, "Source",
                         PW_KEY_MEDIA_ROLE, "Communication",
                         PW_KEY_APP_NAME, "UltraGrid",
                         PW_KEY_APP_ICON_NAME, "ultragrid",
-                        PW_KEY_NODE_NAME, "ug video out",
+                        PW_KEY_NODE_NAME, node_name.c_str(),
                         STREAM_TARGET_PROPERTY_KEY, s->target.c_str(),
                         nullptr);
 
