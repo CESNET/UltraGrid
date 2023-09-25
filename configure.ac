@@ -1581,7 +1581,7 @@ if test $lavc_hwacc_vaapi_req != no; then
                 lavc_hwacc_common=yes
         fi
 fi
-if test $lavc_hwacc_rpi4_req = yes; then
+if test $lavc_hwacc_rpi4_req != no; then
         SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
         export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/vc/lib/pkgconfig/"
         PKG_CHECK_MODULES([MMAL], [mmal], [ FOUND_HWACC_RPI4_DEP=yes ], [ FOUND_HWACC_RPI4_DEP=no ])
