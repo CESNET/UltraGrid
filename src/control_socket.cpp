@@ -313,7 +313,7 @@ process_audio_message(struct module *root_module, const char *cmd)
                 strncpy(path, "audio.receiver", sizeof path);
                 auto *msg = (struct msg_receiver *) new_message(
                     sizeof(struct msg_receiver));
-                msg->type = RECEIVER_MSG_MUTE;
+                msg->type = RECEIVER_MSG_MUTE_TOGGLE;
                 return send_message(root_module, path, (struct message *) msg);
         }
         if (prefix_matches(cmd, "volume ")) {

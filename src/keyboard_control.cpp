@@ -559,7 +559,7 @@ void keyboard_control::impl::run()
                         case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
                         case '9':
                         case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
-                        case 'm': m->type = RECEIVER_MSG_MUTE; break;
+                        case 'm': m->type = RECEIVER_MSG_MUTE_TOGGLE; break;
                         }
 
                         auto resp = send_message(m_root, path, (struct message *) m);
@@ -570,7 +570,7 @@ void keyboard_control::impl::run()
                 {
                         char path[] = "audio.sender";
                         auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                        m->type = SENDER_MSG_MUTE;
+                        m->type = SENDER_MSG_MUTE_TOGGLE;
 
                         auto resp = send_message(m_root, path, (struct message *) m);
                         free_response(resp);

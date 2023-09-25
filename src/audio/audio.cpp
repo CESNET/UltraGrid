@@ -624,9 +624,9 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                 }
         case RECEIVER_MSG_INCREASE_VOLUME:
         case RECEIVER_MSG_DECREASE_VOLUME:
-        case RECEIVER_MSG_MUTE:
+        case RECEIVER_MSG_MUTE_TOGGLE:
                 {
-                        if (msg->type == RECEIVER_MSG_MUTE) {
+                        if (msg->type == RECEIVER_MSG_MUTE_TOGGLE) {
                                 s->muted_receiver = !s->muted_receiver;
                         } else if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
                                 s->volume *= 1.1;
@@ -635,7 +635,7 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                         }
                         double new_volume = s->muted_receiver ? 0.0 : s->volume;
                         double db = 20.0 * log10(new_volume);
-                        if (msg->type == RECEIVER_MSG_MUTE) {
+                        if (msg->type == RECEIVER_MSG_MUTE_TOGGLE) {
                                 LOG(LOG_LEVEL_NOTICE) << "Audio receiver " << (s->muted_receiver ? "" : "un") << "muted.\n";
                         } else {
                                 log_msg(LOG_LEVEL_INFO, "Playback volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
@@ -941,7 +941,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 return new_response(RESPONSE_OK, status);
                                 break;
                         }
-                case SENDER_MSG_MUTE:
+                case SENDER_MSG_MUTE_TOGGLE:
                         s->muted_sender = !s->muted_sender;
                         log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n", s->muted_sender ? "" : "un");
                         break;
