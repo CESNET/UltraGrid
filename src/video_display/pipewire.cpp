@@ -155,33 +155,27 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
         if(!param || id != SPA_PARAM_Format)
                 return;
 
-        //TODO
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "on param changed\n");
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "on param changed\n");
 
-	struct spa_video_info_raw format;
-	spa_format_video_raw_parse(param, &format);
-
-	int stride = vc_get_linesize(s->desc.width, s->desc.color_spec);
-
-        log_msg(LOG_LEVEL_NOTICE, "Setting stride to %d\n", stride);
+        struct spa_video_info_raw format;
+        spa_format_video_raw_parse(param, &format);
 
         const int MAX_BUFFERS = 16;
+        int stride = vc_get_linesize(s->desc.width, s->desc.color_spec);
 
-	const struct spa_pod *params[1];
-
+        const struct spa_pod *params[1];
         std::byte buffer[1024];
         auto pod_builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-	params[0] = (spa_pod *) spa_pod_builder_add_object(&pod_builder,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(stride * s->desc.height),
-		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemFd),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride));
+        params[0] = (spa_pod *) spa_pod_builder_add_object(&pod_builder,
+                        SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+                        SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
+                        SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+                        SPA_PARAM_BUFFERS_size,    SPA_POD_Int(stride * s->desc.height),
+                        SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemFd),
+                        SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride));
 
-	pw_stream_update_params(s->stream.get(), params, 1);
-
+        pw_stream_update_params(s->stream.get(), params, 1);
 }
 
 static void on_add_buffer(void *data, struct pw_buffer *buffer){
@@ -213,7 +207,7 @@ static void on_add_buffer(void *data, struct pw_buffer *buffer){
         ug_frame->callbacks.dispose_udata = memfd_buf_ref(buf);
         ug_frame->tiles[0].data = (char *) buf->ptr;
 
-        log_msg(LOG_LEVEL_NOTICE, "Buffer added\n");
+        log_msg(LOG_LEVEL_VERBOSE, "Buffer added\n");
 }
 
 static void on_remove_buffer(void *data, struct pw_buffer *buffer){
@@ -225,15 +219,8 @@ static void on_remove_buffer(void *data, struct pw_buffer *buffer){
         buf->b = nullptr;
         memfd_buf_unref(&buf);
 
-        log_msg(LOG_LEVEL_NOTICE, "Buffer removed\n");
+        log_msg(LOG_LEVEL_VERBOSE, "Buffer removed\n");
 }
-
-static void on_process(void *userdata) noexcept{
-        auto s = static_cast<display_pw_state *>(userdata);
-
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "on process\n");
-}
-
 
 const static pw_stream_events stream_events = { 
         .version = PW_VERSION_STREAM_EVENTS,
@@ -244,7 +231,7 @@ const static pw_stream_events stream_events = {
         .param_changed = on_param_changed,
         .add_buffer = on_add_buffer,
         .remove_buffer = on_remove_buffer,
-        .process = on_process,
+        .process = nullptr,
         .drained = nullptr,
 #if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 39)
         .command = nullptr,
@@ -406,7 +393,7 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
                         &stream_events,
                         s);
 
-	const struct spa_pod *params[1];
+        const struct spa_pod *params[1];
 
         //TODO: Figure out if we can pass the fps (in desc it's not fractional)
         auto framerate = SPA_FRACTION(0, 1);
