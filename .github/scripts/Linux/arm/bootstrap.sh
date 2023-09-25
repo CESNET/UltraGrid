@@ -15,9 +15,12 @@ deb http://security.debian.org/debian-security $debver-security main contrib non
 deb http://deb.debian.org/debian $debver-updates main contrib non-free
 EOF
 fi
-curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
-echo "deb http://archive.raspberrypi.org/debian $debver main" >> \
-        /etc/apt/sources.list
+curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key -o \
+        /usr/share/keyrings/raspberrypi.gpg.key
+cat >>/etc/apt/sources.list <<EOF
+deb [signed-by=/usr/share/keyrings/raspberrypi.gpg.key] \
+http://archive.raspberrypi.org/debian $debver main
+EOF
 apt -y update
 
 apt -y install autoconf automake build-essential cmake git pkg-config libtool sudo
