@@ -395,8 +395,7 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
 
         const struct spa_pod *params[1];
 
-        //TODO: Figure out if we can pass the fps (in desc it's not fractional)
-        auto framerate = SPA_FRACTION(0, 1);
+        auto framerate = SPA_FRACTION(get_framerate_n(desc.fps), get_framerate_d(desc.fps));
         auto size = SPA_RECTANGLE(desc.width, desc.height);
 
         std::byte buffer[1024];
