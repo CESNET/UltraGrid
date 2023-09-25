@@ -210,7 +210,7 @@ static void on_add_buffer(void *data, struct pw_buffer *buffer){
         log_msg(LOG_LEVEL_VERBOSE, "Buffer added\n");
 }
 
-static void on_remove_buffer(void *data, struct pw_buffer *buffer){
+static void on_remove_buffer(void * /*data*/, struct pw_buffer *buffer){
         auto buf = static_cast<memfd_buffer *>(buffer->user_data);
 
         if(buf->f)
@@ -239,7 +239,7 @@ const static pw_stream_events stream_events = {
 #endif
 };
 
-static void *display_pw_init(struct module *parent, const char *cfg, unsigned int flags)
+static void *display_pw_init(struct module * /*parent*/, const char *cfg, unsigned int /*flags*/)
 {
         auto s = std::make_unique<display_pw_state>();
 
@@ -341,9 +341,9 @@ static bool display_pw_putf(void *state, struct video_frame *frame, long long fl
 
 static bool display_pw_get_property(void *state, int property, void *val, size_t *len)
 {
-        auto s = static_cast<display_pw_state *>(state);
+        [[maybe_unused]] auto s = static_cast<display_pw_state *>(state);
 
-        codec_t codecs[] = {UYVY, RGB, RGBA};
+        codec_t codecs[] = {UYVY, RGB, RGBA, BGR};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
@@ -395,7 +395,9 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
 
         const struct spa_pod *params[1];
 
-        auto framerate = SPA_FRACTION(get_framerate_n(desc.fps), get_framerate_d(desc.fps));
+        auto framerate = SPA_FRACTION(
+                        static_cast<unsigned>(get_framerate_n(desc.fps)),
+                        static_cast<unsigned>(get_framerate_d(desc.fps)));
         auto size = SPA_RECTANGLE(desc.width, desc.height);
 
         std::byte buffer[1024];
