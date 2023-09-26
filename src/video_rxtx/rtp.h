@@ -82,7 +82,7 @@ protected:
         time_ns_t        m_start_time;
         video_desc       m_video_desc;
 private:
-        struct response *process_sender_message(struct msg_sender *i) override;
+        struct response *process_sender_message(struct msg_sender *msg) override;
 };
 
 #endif // VIDEO_RXTX_RTP_H_

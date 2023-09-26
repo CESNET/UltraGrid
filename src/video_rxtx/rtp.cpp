@@ -96,11 +96,10 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed receiver to %s.\n",
                                                         msg->receiver);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                } else {
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed receiver to %s.\n",
-                                                        msg->receiver);
-                                        destroy_rtp_device(old_device);
                                 }
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Changed receiver to %s.\n",
+                                                msg->receiver);
+                                destroy_rtp_device(old_device);
                         }
                         break;
                 case SENDER_MSG_CHANGE_PORT:
@@ -126,11 +125,10 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to Change TX port to %d.\n",
                                                         msg->tx_port);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing TX port failed!");
-                                } else {
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed TX port to %d.\n",
-                                                        msg->tx_port);
-                                        destroy_rtp_device(old_device);
                                 }
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Changed TX port to %d.\n",
+                                                msg->tx_port);
+                                destroy_rtp_device(old_device);
                         }
                         break;
                 case SENDER_MSG_CHANGE_FEC:
@@ -140,32 +138,31 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 m_fec_state = NULL;
                                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                                         delete old_fec_state;
-                                } else {
-                                        m_fec_state = fec::create_from_config(msg->fec_cfg);
-                                        if (!m_fec_state) {
-                                                m_fec_state = old_fec_state;
-                                                if (strstr(msg->fec_cfg, "help") != nullptr || m_frames_sent == 0ULL) { // -f LDGM:help or so + init
-                                                        exit_uv(0);
-                                                } else {
-                                                        LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
-                                                }
-                                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                        } else {
-                                                delete old_fec_state;
-                                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
-                                        }
+                                        break;
                                 }
+                                m_fec_state = fec::create_from_config(msg->fec_cfg);
+                                if (!m_fec_state) {
+                                        m_fec_state = old_fec_state;
+                                        if (strstr(msg->fec_cfg, "help") != nullptr || m_frames_sent == 0ULL) { // -f LDGM:help or so + init
+                                                exit_uv(0);
+                                        } else {
+                                                LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
+                                        }
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                }
+                                delete old_fec_state;
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
                         }
                         break;
-                case SENDER_MSG_QUERY_VIDEO_MODE:
+                case SENDER_MSG_QUERY_VIDEO_MODE: {
                         if (!m_video_desc) {
                                 return new_response(RESPONSE_NO_CONTENT, NULL);
-                        } else {
-                                ostringstream oss;
-                                oss << m_video_desc;
-                                return new_response(RESPONSE_OK, oss.str().c_str());
                         }
+                        ostringstream oss;
+                        oss << m_video_desc;
+                        return new_response(RESPONSE_OK, oss.str().c_str());
                         break;
+                }
                 case SENDER_MSG_RESET_SSRC:
                         {
                                 lock_guard<mutex> lock(m_network_devices_lock);
@@ -179,11 +176,10 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                         m_network_device = old_device;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Unable to change SSRC!\n");
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                } else {
-                                        destroy_rtp_device(old_device);
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08" PRIx32 " to "
-                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(m_network_device));
                                 }
+                                destroy_rtp_device(old_device);
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08" PRIx32 " to "
+                                                "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(m_network_device));
                         }
                         break;
                 case SENDER_MSG_GET_STATUS:

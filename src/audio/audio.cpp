@@ -873,21 +873,20 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 s->fec_state = NULL;
                                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                                         delete old_fec_state;
-                                } else {
-                                        s->fec_state = fec::create_from_config(msg->fec_cfg);
-                                        if (!s->fec_state) {
-                                                s->fec_state = old_fec_state;
-                                                if (strstr(msg->fec_cfg, "help") != nullptr) { // -f LDGM:help or so + init
-                                                        exit_uv(0);
-                                                } else {
-                                                        LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
-                                                }
-                                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                        } else {
-                                                delete old_fec_state;
-                                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
-                                        }
+                                        break;
                                 }
+                                s->fec_state = fec::create_from_config(msg->fec_cfg);
+                                if (!s->fec_state) {
+                                        s->fec_state = old_fec_state;
+                                        if (strstr(msg->fec_cfg, "help") != nullptr) { // -f LDGM:help or so + init
+                                                exit_uv(0);
+                                        } else {
+                                                LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
+                                        }
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                }
+                                delete old_fec_state;
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
                         }
                         break;
                 case SENDER_MSG_CHANGE_RECEIVER:
@@ -903,11 +902,10 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                         s->audio_network_device = old_device;
                                         free(s->audio_network_parameters.addr);
                                         s->audio_network_parameters.addr = old_receiver;
-                                                return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                } else {
-                                        free(old_receiver);
-                                        rtp_done(old_device);
+                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
                                 }
+                                free(old_receiver);
+                                rtp_done(old_device);
 
                                 break;
                         }
@@ -926,10 +924,9 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 if (!s->audio_network_device) {
                                         s->audio_network_device = old_device;
                                         s->audio_network_parameters.send_port = old_port;
-                                                return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                } else {
-                                        rtp_done(old_device);
+                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
                                 }
+                                rtp_done(old_device);
 
                                 break;
                         }
@@ -958,11 +955,11 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                         s->audio_network_device = old_devices;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Audio: Unable to change SSRC!\n");
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                } else {
-                                        rtp_done(old_devices);
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08" PRIx32 " to "
-                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
                                 }
+
+                                rtp_done(old_devices);
+                                log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08" PRIx32 " to "
+                                                "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
                         }
                         break;
         }
