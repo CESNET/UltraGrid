@@ -309,11 +309,34 @@ static struct response *
 process_audio_message(struct module *root_module, const char *cmd)
 {
         char path[STR_LEN] = "";
-        if (strcmp(cmd, "mute") == 0) {
+        if (strcmp(cmd, "mute") == 0 || strstr(cmd, "-receiver") != nullptr) {
                 strncpy(path, "audio.receiver", sizeof path);
                 auto *msg = (struct msg_receiver *) new_message(
                     sizeof(struct msg_receiver));
-                msg->type = RECEIVER_MSG_MUTE_TOGGLE;
+                if (strcmp(cmd, "mute") == 0) {
+                        msg->type = RECEIVER_MSG_MUTE_TOGGLE;
+                } else if (prefix_matches(cmd, "mute-")) {
+                        msg->type = RECEIVER_MSG_MUTE;
+                } else if (prefix_matches(cmd, "unmute-")) {
+                        msg->type = RECEIVER_MSG_UNMUTE;
+                } else {
+                        return new_response(RESPONSE_BAD_REQUEST,
+                                            "malformed audio recv mute msg");
+                }
+                return send_message(root_module, path, (struct message *) msg);
+        }
+        if (strstr(cmd, "-sender") != nullptr) {
+                strncpy(path, "audio.sender", sizeof path);
+                auto *msg = (struct msg_sender *) new_message(
+                    sizeof(struct msg_sender));
+                if (prefix_matches(cmd, "mute-")) {
+                        msg->type = SENDER_MSG_MUTE;
+                } else if (prefix_matches(cmd, "unmute-")) {
+                        msg->type = SENDER_MSG_UNMUTE;
+                } else {
+                        return new_response(RESPONSE_BAD_REQUEST,
+                                            "malformed audio send mute msg");
+                }
                 return send_message(root_module, path, (struct message *) msg);
         }
         if (prefix_matches(cmd, "volume ")) {
@@ -331,7 +354,7 @@ process_audio_message(struct module *root_module, const char *cmd)
                 }
                 return send_message(root_module, path, (struct message *) msg);
         }
-        abort();
+        return new_response(RESPONSE_BAD_REQUEST, "unexpected audio msg");
 }
 
 /**
@@ -584,7 +607,8 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
         } else if (prefix_matches(message, "volume ") ||
-                   strcmp(message, "mute") == 0) {
+                   prefix_matches(message, "mute") ||
+                   prefix_matches(message, "unmute")) {
                 resp = process_audio_message(s->root_module, message);
         } else if (prefix_matches(message, "av-delay ")) {
                 int val = atoi(suffix(message, "av-delay "));
@@ -997,7 +1021,9 @@ static void print_control_help() {
                         TBOLD("\tcompress param <new-compress-param>") "\n"
                         TBOLD("\tvolume {up|down}") u8"¹\n"
                         TBOLD("\tav-delay <ms>") u8"¹\n"
-                        TBOLD("\tmute") u8"¹ - toggles mute\n"
+                        TBOLD("\tmute") " - toggles receiver mute\n"
+                        TBOLD("\t[un]mute-{receiver,sender}")
+                                " - (un)mutes audio sender or receiver\n"
                         TBOLD("\tpostprocess <new_postprocess> | flush") "\n"
                         TBOLD("\tdump-tree")"\n");
         color_printf("\nOther commands can be issued directly to individual "

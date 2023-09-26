@@ -99,6 +99,8 @@ enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
         SENDER_MSG_GET_STATUS,
+        SENDER_MSG_MUTE,
+        SENDER_MSG_UNMUTE,
         SENDER_MSG_MUTE_TOGGLE,
         SENDER_MSG_CHANGE_FEC,
         SENDER_MSG_QUERY_VIDEO_MODE,
@@ -124,6 +126,8 @@ enum msg_receiver_type {
         RECEIVER_MSG_GET_AUDIO_STATUS,
         RECEIVER_MSG_INCREASE_VOLUME,
         RECEIVER_MSG_DECREASE_VOLUME,
+        RECEIVER_MSG_MUTE,
+        RECEIVER_MSG_UNMUTE,
         RECEIVER_MSG_MUTE_TOGGLE,
 };
 struct msg_receiver {

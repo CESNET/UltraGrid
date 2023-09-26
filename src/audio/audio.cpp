@@ -624,14 +624,19 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                 }
         case RECEIVER_MSG_INCREASE_VOLUME:
         case RECEIVER_MSG_DECREASE_VOLUME:
+        case RECEIVER_MSG_MUTE:
+        case RECEIVER_MSG_UNMUTE:
         case RECEIVER_MSG_MUTE_TOGGLE:
                 {
-                        if (msg->type == RECEIVER_MSG_MUTE_TOGGLE) {
-                                s->muted_receiver = !s->muted_receiver;
-                        } else if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
+                        if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
                                 s->volume *= 1.1;
-                        } else {
+                        } else if (msg->type == RECEIVER_MSG_DECREASE_VOLUME) {
                                 s->volume /= 1.1;
+                        } else {
+                                s->muted_receiver =
+                                    msg->type == RECEIVER_MSG_MUTE_TOGGLE
+                                        ? !s->muted_receiver
+                                        : msg->type == RECEIVER_MSG_MUTE;
                         }
                         double new_volume = s->muted_receiver ? 0.0 : s->volume;
                         double db = 20.0 * log10(new_volume);
@@ -653,7 +658,7 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                         pdb_iter_done(&it);
                         break;
                 }
-        default:
+        case RECEIVER_MSG_VIDEO_PROP_CHANGED:
                 abort();
         }
 
@@ -938,8 +943,13 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 return new_response(RESPONSE_OK, status);
                                 break;
                         }
+                case SENDER_MSG_MUTE:
+                case SENDER_MSG_UNMUTE:
                 case SENDER_MSG_MUTE_TOGGLE:
-                        s->muted_sender = !s->muted_sender;
+                        s->muted_sender =
+                                    msg->type == SENDER_MSG_MUTE_TOGGLE
+                                        ? !s->muted_sender
+                                        : msg->type == SENDER_MSG_MUTE;
                         log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n", s->muted_sender ? "" : "un");
                         break;
                 case SENDER_MSG_QUERY_VIDEO_MODE:
