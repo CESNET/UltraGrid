@@ -1820,6 +1820,81 @@ if test $dshow_req = yes && test $dshow = no; then
         AC_MSG_ERROR([DirectShow not found]);
 fi
 
+# -----------------------------------------------------------------------------
+# Pipewire common
+# -----------------------------------------------------------------------------
+pipewire_common=no
+
+AC_ARG_ENABLE(pipewire,
+[  --disable-pipewire        disable all pipewire stuff (default is auto)]
+[                          Requires: pipewire],
+    [pipewire_common_req=$enableval],
+    [pipewire_common_req=$build_default]
+    )
+
+PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30], [found_pw_common_deps=yes], [found_pw_common_deps=no])
+
+if test $pipewire_common_req != no -a $found_pw_common_deps = yes
+then
+        pipewire_common=yes
+        PIPEWIRE_COMMON_LIBS="$($PKG_CONFIG --libs libpipewire-0.3)"
+        # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
+        PIPEWIRE_COMMON_INC="$($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g')"
+        PIPEWIRE_COMMON_OBJ="src/pipewire_common.o"
+
+        INC="$INC $PIPEWIRE_COMMON_INC"
+        CXXFLAGS="$CXXFLAGS $PIPEWIRE_COMMON_INC"
+fi
+
+# -----------------------------------------------------------------------------
+# Pipewire audio
+# -----------------------------------------------------------------------------
+pipewire_audio=no
+
+AC_ARG_ENABLE(pipewire-audio,
+[  --disable-pipewire-audio        disable pipewire audio (default is auto)]
+[                          Requires: pipewire],
+    [pipewire_audio_req=$enableval],
+    [pipewire_audio_req=$build_default]
+    )
+
+if test $pipewire_audio_req != no -a $pipewire_common = yes
+then
+        pipewire_audio=yes
+        PIPEWIRE_ACAP_OBJS="$PIPEWIRE_COMMON_OBJ src/audio/capture/pipewire.o"
+        PIPEWIRE_APLAY_OBJS="$PIPEWIRE_COMMON_OBJ src/audio/playback/pipewire.o"
+        add_module acap_pipewire "$PIPEWIRE_ACAP_OBJS" "$PIPEWIRE_LIBS"
+        add_module aplay_pipewire "$PIPEWIRE_APLAY_OBJS" "$PIPEWIRE_LIBS"
+fi
+
+if test $pipewire_audio_req = yes && test $pipewire_audio = no; then
+        AC_MSG_ERROR([pipewire audio was not found (libraries missing)]);
+fi
+
+# -----------------------------------------------------------------------------
+# Pipewire video
+# -----------------------------------------------------------------------------
+pipewire_video=no
+
+AC_ARG_ENABLE(pipewire-video,
+[  --disable-pipewire-video       disable pipewire video (default is auto)]
+[                          Requires: pipewire],
+    [pipewire_video_req=$enableval],
+    [pipewire_video_req=$build_default]
+    )
+
+if test $pipewire_video_req != no -a $pipewire_common = yes
+then
+        pipewire_video=yes
+        PIPEWIRE_DISP_OBJS="$PIPEWIRE_COMMON_OBJ src/video_display/pipewire.o"
+        add_module display_pipewire "$PIPEWIRE_DISP_OBJS" "$PIPEWIRE_LIBS"
+        #TODO: Make pipewire capture buildable without the dbus screencap portal stuff and add it here
+fi
+
+if test $pipewire_video_req = yes && test $pipewire_video = no; then
+        AC_MSG_ERROR([pipewire video was not found (libraries missing)]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Screen capture stuff
 # -------------------------------------------------------------------------------------------------
@@ -1879,19 +1954,18 @@ fi
 found_screen_screen_pw_deps=no
 screen_cap_pw=no
 if test $screen_cap_req != no && test $screen_cap_req != x11; then
-        PKG_CHECK_MODULES([SCREEN_PW_DEPS], [libpipewire-0.3  glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
+        PKG_CHECK_MODULES([SCREEN_PW_DEPS], [glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
 fi
 
-if test $found_screen_screen_pw_deps = yes; then
+if test $found_screen_screen_pw_deps = yes && test $pipewire_common = yes; then
         screen_cap=yes
         screen_cap_pw=yes
-        SCREEN_CAP_PIPEWIRE_LIBS="$($PKG_CONFIG --libs libpipewire-0.3) $($PKG_CONFIG --libs glib-2.0) $($PKG_CONFIG --libs gobject-2.0) $($PKG_CONFIG --libs gio-2.0) $($PKG_CONFIG --libs gio-unix-2.0)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$($PKG_CONFIG --libs glib-2.0) $($PKG_CONFIG --libs gobject-2.0) $($PKG_CONFIG --libs gio-2.0) $($PKG_CONFIG --libs gio-unix-2.0)"
 
-        # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
-        SCREEN_CAP_PIPEWIRE_INC="$($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g') $($PKG_CONFIG --cflags-only-I glib-2.0) $($PKG_CONFIG --cflags-only-I gobject-2.0) $($PKG_CONFIG --cflags-only-I gio-2.0) $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
-        SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/pipewire.o src/utils/dbus_portal.o"
+        SCREEN_CAP_PIPEWIRE_INC="$($PKG_CONFIG --cflags-only-I glib-2.0) $($PKG_CONFIG --cflags-only-I gobject-2.0) $($PKG_CONFIG --cflags-only-I gio-2.0) $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
+        SCREEN_CAP_PIPEWIRE_OBJ="$PIPEWIRE_COMMON_OBJ src/video_capture/pipewire.o src/utils/dbus_portal.o"
 
-        INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
+        INC="$INC $SCREEN_CAP_PIPEWIRE_INC"
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
         add_module vidcap_screen_pipewire "$SCREEN_CAP_PIPEWIRE_OBJ" "$SCREEN_CAP_PIPEWIRE_LIBS"
@@ -2579,33 +2653,6 @@ if test $system = MacOSX && test $coreaudio_req != no; then
 fi
 
 ENSURE_FEATURE_PRESENT([$coreaudio_req], [$coreaudio], [Core Audio not found])
-
-# -----------------------------------------------------------------------------
-# Pipewire audio
-# -----------------------------------------------------------------------------
-pipewire_audio=no
-
-AC_ARG_ENABLE(pipewire-audio,
-[  --disable-pipewire-audio        disable pipewire audio (default is auto)]
-[                          Requires: pipewire],
-    [pipewire_audio_req=$enableval],
-    [pipewire_audio_req=$build_default]
-    )
-
-PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30], [found_pw_audio_deps=yes], [found_pw_audio_deps=no])
-
-if test $pipewire_audio_req != no -a $found_pw_audio_deps = yes
-then
-        pipewire_audio=yes
-        PIPEWIRE_ACAP_OBJS="src/pipewire_common.o src/audio/capture/pipewire.o"
-        PIPEWIRE_APLAY_OBJS="src/pipewire_common.o src/audio/playback/pipewire.o"
-        add_module acap_pipewire "$PIPEWIRE_ACAP_OBJS" "$PIPEWIRE_LIBS"
-        add_module aplay_pipewire "$PIPEWIRE_APLAY_OBJS" "$PIPEWIRE_LIBS"
-fi
-
-if test $pipewire_audio_req = yes && test $pipewire_audio = no; then
-        AC_MSG_ERROR([pipewire audio was not found (libraries missing)]);
-fi
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
@@ -3381,6 +3428,7 @@ RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
+RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
