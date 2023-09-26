@@ -453,6 +453,24 @@ static void show_help(bool full) {
         color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
 }
 
+static bool
+validate_settings(struct testcard_state *s, struct video_desc desc)
+{
+        if (desc.width <= 0 || desc.height <= 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video size, given: %dx%d\n",
+                       desc.width, desc.height);
+                return false;
+        }
+        if (s->audio_frequency <= 0) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME
+                        "Audio frequency must be positive, given: %d\n",
+                        s->audio_frequency);
+                return false;
+        }
+        return true;
+}
+
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = NULL;
@@ -483,9 +501,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         desc.fps = 0;
         if (strlen(ptr) > 0 && isdigit(ptr[0])) {
                 desc = parse_format(&ptr, &save_ptr);
-                if (!desc.width) {
-                        goto error;
-                }
         }
 
         tmp = strtok_r(ptr, ":", &save_ptr);
@@ -548,8 +563,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 tmp = strtok_r(NULL, ":", &save_ptr);
         }
 
-        if (desc.width <= 0 || desc.height <= 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video format: %s\n", video_desc_to_string(desc));;
+        if (!validate_settings(s, desc)) {
                 goto error;
         }
 
