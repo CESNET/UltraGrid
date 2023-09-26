@@ -278,16 +278,32 @@ void keyboard_control::impl::stop()
 }
 
 #ifdef HAVE_TERMIOS_H
-#define GETCH getchar
+static int
+GETCH()
+{
+        unsigned char ch = 0;
+        const ssize_t ret = read(0, &ch, sizeof ch);
+        return ret <= 0 ? (int) ret - 1 : ch;
+}
 #else
 #define GETCH getch
 #endif
 
-#define CHECK_EOF(x) do { if (x == EOF) { LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unexpected EOF detected!\n"; return EOF; } } while(0)
+#define CHECK_EOF(x) \
+        do { \
+                if ((x) < 0) { \
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME \
+                            "Unexpected " << ((x) == -1 ? "EOF" : "error") \
+                                               << " detected!\n"; \
+                        return EOF; \
+                } \
+        } while (0)
 
 /**
  * Tries to parse at least some small subset of ANSI control sequences not to
  * be ArrowUp interpreted as '\033', '[' and 'A' individually.
+ *
+ * @retval <0 on error
  *
  * @todo
  * * improve coverage and/or find some suitable implemnation (ideally one file,
@@ -343,6 +359,7 @@ static int count_utf8_bytes(unsigned int i) {
         return count;
 }
 
+/// @retval <0 on error
 static int64_t get_utf8_code(int c) {
         if (c < 0xc0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF sequence!\n";
@@ -441,7 +458,9 @@ static string get_keycode_representation(int64_t ch) {
 
 /**
  * @returns next key either from keyboard or received via control socket.
- *          If m_should_exit is set, returns 0.
+ * @retval  0 if m_should_exit is set
+ * @retval -1 on EOF
+ * @retval -2 on error
  */
 int64_t keyboard_control::impl::get_next_key()
 {
@@ -516,16 +535,14 @@ void keyboard_control::impl::run()
         int64_t c;
 
         while ((c = get_next_key())) {
-                if (c == EOF) {
-                        if (feof(stdin)) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected! Exiting keyboard control.\n";
-                                break;
-                        }
-                        if (ferror(stdin)) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Error detected!\n";
-                                clearerr(stdin);
-                                continue;
-                        }
+                if (c == -1) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME
+                            "EOF detected! Exiting keyboard control.\n";
+                        break;
+                }
+                if (c == -2) {
+                        perror(MOD_NAME "Error detected");
+                        continue;
                 }
                 if (c == K_CTRL('X')) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
