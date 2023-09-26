@@ -209,19 +209,26 @@ void keyboard_control::impl::start()
                 force_key_control = true;
         }
 
-        if (running_in_debugger() && !force_key_control) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Running inside gdb - disabling interactive keyboard control\n";
-                return;
+        if (!force_key_control) {
+                if (running_in_debugger()) {
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME "Running inside gdb - disabling "
+                                        "interactive keyboard control\n";
+                        return;
+                }
+#ifdef HAVE_TERMIOS_H
+                if (!isatty(STDIN_FILENO)) {
+                        log_msg(LOG_LEVEL_WARNING,
+                                "[key control] Stdin is not a TTY - disabling "
+                                "keyboard control.\n");
+                        return;
+                }
+#endif // defined HAVE_TERMIOS_H
         }
 
 #ifdef HAVE_TERMIOS_H
         if (pipe(m_event_pipe) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "[key control] Cannot create control pipe!\n");
-                return;
-        }
-
-        if (!isatty(STDIN_FILENO)) {
-                log_msg(LOG_LEVEL_WARNING, "[key control] Stdin is not a TTY - disabling keyboard control.\n");
                 return;
         }
 
