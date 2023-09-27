@@ -1683,7 +1683,7 @@ static void configure_aom_av1(AVCodecContext *codec_ctx, struct setparam_param *
 {
         auto && usage = get_map_val_or_default<string, string>(param->lavc_opts, "usage", "realtime");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", usage.c_str());
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "4x4");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "8x8");
 }
 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
@@ -1747,7 +1747,7 @@ static void configure_rav1e(AVCodecContext *codec_ctx, struct setparam_param * /
 {
         check_av_opt_set<const char *>(codec_ctx->priv_data, "rav1e-params", "low_latency=true");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "speed", "10");
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "16");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "64");
 }
 
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
