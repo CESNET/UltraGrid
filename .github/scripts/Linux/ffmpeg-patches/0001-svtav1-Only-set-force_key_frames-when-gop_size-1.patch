@@ -1,0 +1,36 @@
+From 3ae6ccde35cbb6283e68173824446145fd37df1f Mon Sep 17 00:00:00 2001
+From: Martin Piatka <piatka@cesnet.cz>
+Date: Wed, 27 Sep 2023 13:06:05 +0200
+Subject: [PATCH] svtav1: Only set force_key_frames when gop_size <= 1
+
+---
+ libavcodec/libsvtav1.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/libsvtav1.c b/libavcodec/libsvtav1.c
+index 5015169244..facafe05d1 100644
+--- a/libavcodec/libsvtav1.c
++++ b/libavcodec/libsvtav1.c
+@@ -249,12 +249,13 @@ static int config_enc_params(EbSvtAv1EncConfiguration *param,
+     // See: https://gitlab.com/AOMediaCodec/SVT-AV1/-/issues/2076
+     if (avctx->gop_size > 1)
+         param->intra_period_length  = avctx->gop_size - 1;
+-
+-    // In order for SVT-AV1 to force keyframes by setting pic_type to
+-    // EB_AV1_KEY_PICTURE on any frame, force_key_frames has to be set. Note
+-    // that this does not force all frames to be keyframes (it only forces a
+-    // keyframe with pic_type is set to EB_AV1_KEY_PICTURE).
+-    param->force_key_frames = 1;
++    else {
++        // In order for SVT-AV1 to force keyframes by setting pic_type to
++        // EB_AV1_KEY_PICTURE on any frame, force_key_frames has to be set. Note
++        // that this does not force all frames to be keyframes (it only forces a
++        // keyframe with pic_type is set to EB_AV1_KEY_PICTURE).
++        param->force_key_frames = 1;
++    }
+ 
+     if (avctx->framerate.num > 0 && avctx->framerate.den > 0) {
+         param->frame_rate_numerator   = avctx->framerate.num;
+-- 
+2.42.0
+
