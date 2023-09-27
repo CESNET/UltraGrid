@@ -1753,7 +1753,11 @@ static void configure_rav1e(AVCodecContext *codec_ctx, struct setparam_param * /
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
-        set_forced_idr(codec_ctx, strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
+        if (codec_ctx->codec_id != AV_CODEC_ID_AV1) {
+                set_forced_idr(
+                    codec_ctx,
+                    strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
+        }
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "la_depth", 0);
