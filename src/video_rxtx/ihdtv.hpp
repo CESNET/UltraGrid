@@ -1,5 +1,5 @@
 /*
- * FILE:    video_rxtx/ihdtv.h
+ * FILE:    video_rxtx/ihdtv.hpp
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -56,7 +56,7 @@
 
 #include "video_capture.h"
 #include "video_display.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 
 #ifdef HAVE_IHDTV
 #include "ihdtv/ihdtv.h"

@@ -65,8 +65,8 @@
 #include "ihdtv/ihdtv.h"
 #include "video_display.h"
 #include "video_capture.h"
-#include "video_rxtx.h"
-#include "video_rxtx/ihdtv.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/ihdtv.hpp"
 #include "video.h"
 
 using namespace std;

@@ -49,8 +49,8 @@
 #include "video_capture.h"
 #include "video_display.h"
 #include "video_display/pipe.hpp" // frame_recv_delegate
-#include "video_rxtx.h"
-#include "video_rxtx/ultragrid_rtp.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/ultragrid_rtp.hpp"
 
 #include <chrono>
 #include <iostream>

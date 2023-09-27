@@ -48,8 +48,8 @@
 #include "host.h"
 #include "lib_common.h"
 #include "video_display.h"
-#include "video_rxtx/sage.h"
-#include "video_rxtx.h"
+#include "video_rxtx/sage.hpp"
+#include "video_rxtx.hpp"
 #include "video.h"
 
 using namespace std;

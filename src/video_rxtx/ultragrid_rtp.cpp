@@ -69,8 +69,8 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
-#include "video_rxtx.h"
-#include "video_rxtx/ultragrid_rtp.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/ultragrid_rtp.hpp"
 #include "ug_runtime_error.hpp"
 #include "utils/worker.h"
 

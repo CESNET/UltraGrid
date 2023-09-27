@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/rtp.h
+ * @file   video_rxtx/rtp.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -39,7 +39,7 @@
 #define VIDEO_RXTX_RTP_H_
 
 #include "tv.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 
 #include <mutex>
 #include <string>

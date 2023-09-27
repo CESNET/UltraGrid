@@ -45,8 +45,8 @@
 #include <string>
 
 #include "utils/sdp.h"
-#include "video_rxtx.h"
-#include "video_rxtx/rtp.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/rtp.hpp"
 
 class h264_sdp_video_rxtx : public rtp_video_rxtx {
 public:

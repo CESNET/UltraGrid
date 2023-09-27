@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/ultragrid_rtp.h
+ * @file   video_rxtx/ultragrid_rtp.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -38,8 +38,8 @@
 #ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_
 #define VIDEO_RXTX_ULTRAGRID_RTP_H_
 
-#include "video_rxtx.h"
-#include "video_rxtx/rtp.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/rtp.hpp"
 
 #include <condition_variable>
 #include <list>

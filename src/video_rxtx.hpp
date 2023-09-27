@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx.h
+ * @file   video_rxtx.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

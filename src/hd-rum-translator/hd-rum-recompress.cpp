@@ -61,7 +61,7 @@
 #include "tv.h"
 #include "video_compress.h"
 
-#include "video_rxtx/ultragrid_rtp.h"
+#include "video_rxtx/ultragrid_rtp.hpp"
 #include "utils/profile_timer.hpp"
 
 namespace {

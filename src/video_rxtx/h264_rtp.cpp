@@ -60,8 +60,8 @@
 #include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
 #include "utils/color_out.h"
-#include "video_rxtx.h"
-#include "video_rxtx/h264_rtp.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/h264_rtp.hpp"
 #include "video.h"
 
 using namespace std;

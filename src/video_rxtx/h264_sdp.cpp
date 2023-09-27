@@ -61,7 +61,7 @@
 #include "utils/color_out.h"
 #include "utils/sdp.h"
 #include "video.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 #include "video_rxtx/h264_sdp.hpp"
 
 using std::array;

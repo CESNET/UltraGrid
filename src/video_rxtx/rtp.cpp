@@ -42,7 +42,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_rxtx/rtp.h"
+#include "video_rxtx/rtp.hpp"
 
 #include "debug.h"
 
@@ -53,7 +53,6 @@
 #include <utility>
 
 #include "host.h"
-#include "ihdtv.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
@@ -72,7 +71,7 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 
 using namespace std;
 

@@ -65,7 +65,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_display/pipe.hpp"
-#include "video_rxtx/ultragrid_rtp.h"
+#include "video_rxtx/ultragrid_rtp.hpp"
 
 #include "utils/profile_timer.hpp"
 

@@ -44,7 +44,7 @@
 #include <queue>
 
 #include "types.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 
 struct display;
 

@@ -109,7 +109,7 @@
 #include "video_display.h"
 #include "video_compress.h"
 #include "export.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"

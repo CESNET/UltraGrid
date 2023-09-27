@@ -1,9 +1,13 @@
 /**
- * @file   video_rxtx/sage.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   video_rxtx/h264_rtp.hpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author David Cassany    <david.cassany@i2cat.net>
+ * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
+ * @author Gerard Castillo  <gerard.castillo@i2cat.net>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,29 +39,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_RXTX_SAGE_H_
-#define VIDEO_RXTX_SAGE_H_
+#ifndef VIDEO_RXTX_H264_RTP_H_
+#define VIDEO_RXTX_H264_RTP_H_
 
-#include "types.h"
-#include "video_capture.h"
-#include "video_display.h"
-#include "video_rxtx.h"
+#include "rtsp/c_basicRTSPOnlyServer.h"
+#include "video_rxtx.hpp"
+#include "video_rxtx/rtp.hpp"
 
-struct video_frame;
-struct display;
-
-class sage_video_rxtx: public video_rxtx {
+class h264_rtp_video_rxtx : public rtp_video_rxtx {
 public:
-        sage_video_rxtx(std::map<std::string, param_u> const &);
-        ~sage_video_rxtx();
+        h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
+        virtual ~h264_rtp_video_rxtx();
 private:
-        void send_frame(std::shared_ptr<video_frame>) noexcept override;
-        void *(*get_receiver_thread() noexcept)(void *arg) override {
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
-        struct video_desc     m_saved_video_desc;
-        struct display       *m_sage_tx_device;
+        rtsp_serv_t *m_rtsp_server;
 };
 
-#endif // VIDEO_RXTX_SAGE_H_
+#endif // VIDEO_RXTX_H264_RTP_H_
 

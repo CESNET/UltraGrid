@@ -66,7 +66,7 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
-#include "video_rxtx.h"
+#include "video_rxtx.hpp"
 
 using namespace std;
 
