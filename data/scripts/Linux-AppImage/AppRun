@@ -238,7 +238,7 @@ setup_wayland
 # ultragrid_aplay_jack.so is not used because it loads JACK with dlopen,
 # while portaudio is linked directly to JACK library
 set_ld_preload ultragrid_aplay_portaudio.so libjack
-set_ld_preload ultragrid_vidcap_screen_pipewire.so libpipewire
+set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
 
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
         command -v firejail >/dev/null || { echo "Firejail not present in system!"; exit 1; }

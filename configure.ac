@@ -1887,8 +1887,10 @@ if test $pipewire_video_req != no -a $pipewire_common = yes
 then
         pipewire_video=yes
         PIPEWIRE_DISP_OBJS="$PIPEWIRE_COMMON_OBJ src/video_display/pipewire.o"
+        PIPEWIRE_CAP_OBJS="$PIPEWIRE_COMMON_OBJ src/video_capture/pipewire.o"
+        PIPEWIRE_CAP_LIBS="$PIPEWIRE_LIBS"
         add_module display_pipewire "$PIPEWIRE_DISP_OBJS" "$PIPEWIRE_LIBS"
-        #TODO: Make pipewire capture buildable without the dbus screencap portal stuff and add it here
+        #vcap_pipewire module added after screen
 fi
 
 if test $pipewire_video_req = yes && test $pipewire_video = no; then
@@ -1957,18 +1959,20 @@ if test $screen_cap_req != no && test $screen_cap_req != x11; then
         PKG_CHECK_MODULES([SCREEN_PW_DEPS], [glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
 fi
 
-if test $found_screen_screen_pw_deps = yes && test $pipewire_common = yes; then
+if test $found_screen_screen_pw_deps = yes && test $pipewire_video = yes; then
         screen_cap=yes
         screen_cap_pw=yes
         SCREEN_CAP_PIPEWIRE_LIBS="$($PKG_CONFIG --libs glib-2.0) $($PKG_CONFIG --libs gobject-2.0) $($PKG_CONFIG --libs gio-2.0) $($PKG_CONFIG --libs gio-unix-2.0)"
 
         SCREEN_CAP_PIPEWIRE_INC="$($PKG_CONFIG --cflags-only-I glib-2.0) $($PKG_CONFIG --cflags-only-I gobject-2.0) $($PKG_CONFIG --cflags-only-I gio-2.0) $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
-        SCREEN_CAP_PIPEWIRE_OBJ="$PIPEWIRE_COMMON_OBJ src/video_capture/pipewire.o src/utils/dbus_portal.o"
 
         INC="$INC $SCREEN_CAP_PIPEWIRE_INC"
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
+        AC_DEFINE([HAVE_DBUS_SCREENCAST], [1],  [Build with pipewire screencast dbus support])
 
-        add_module vidcap_screen_pipewire "$SCREEN_CAP_PIPEWIRE_OBJ" "$SCREEN_CAP_PIPEWIRE_LIBS"
+        PIPEWIRE_CAP_LIBS="$PIPEWIRE_CAP_LIBS $SCREEN_CAP_PIPEWIRE_LIBS"
+        PIPEWIRE_CAP_OBJS="$PIPEWIRE_CAP_OBJS src/utils/dbus_portal.o"
+
         screen_modules="${screen_modules:+$screen_modules,}pipewire"
 fi
 
@@ -1996,6 +2000,12 @@ fi
 if test -n "$screen_modules"; then
         screen_modules=" ($screen_modules)"
 fi
+
+if test $pipewire_video = yes
+then
+        add_module vidcap_pipewire "$PIPEWIRE_CAP_OBJS" "$PIPEWIRE_CAP_LIBS"
+fi
+
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT

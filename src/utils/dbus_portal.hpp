@@ -39,10 +39,15 @@
 #ifndef DBUS_PORTAL_HPP_511c58c91818
 #define DBUS_PORTAL_HPP_511c58c91818
 
+#include "config.h"
+
+#ifdef HAVE_DBUS_SCREENCAST
+
 #include <memory>
 #include <string>
 #include <thread>
 #include <stdint.h>
+
 
 class ScreenCastPortal_impl;
 
@@ -61,5 +66,7 @@ private:
         std::unique_ptr<ScreenCastPortal_impl> impl;
         std::thread thread;
 };
+
+#endif //HAVE_DBUS_SCREENCAST
 
 #endif

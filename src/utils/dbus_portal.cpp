@@ -36,6 +36,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <algorithm>
 #include <string>
 #include <memory>
@@ -51,8 +52,8 @@
 
 #include "debug.h"
 #include "misc.h"
-
 #include "dbus_portal.hpp"
+
 
 #define MOD_NAME "[dbus] "
 

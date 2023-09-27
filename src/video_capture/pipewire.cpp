@@ -36,6 +36,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
@@ -85,8 +87,9 @@ struct screen_cast_session {
 
         video_desc desc = {};
 
-
+#ifdef HAVE_DBUS_SCREENCAST
         ScreenCastPortal portal;
+#endif
 
         struct {
                 bool show_cursor = false;
@@ -511,6 +514,7 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
         return VIDCAP_INIT_OK;
 }
 
+#ifdef HAVE_DBUS_SCREENCAST
 static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
@@ -542,6 +546,7 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         start_pipewire(session);
         return VIDCAP_INIT_OK;
 }
+#endif
 
 static int vidcap_pw_init(struct vidcap_params *params, void **state)
 {
@@ -591,6 +596,8 @@ static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio
         return session.in_flight_frame.get();
 }
 
+#ifdef HAVE_DBUS_SCREENCAST
+
 static const struct video_capture_info vidcap_screen_pw_info = {
         vidcap_screen_pw_probe,
         vidcap_screen_pw_init,
@@ -600,6 +607,8 @@ static const struct video_capture_info vidcap_screen_pw_info = {
 };
 
 REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+
+#endif
 
 static const struct video_capture_info vidcap_pw_info = {
         vidcap_screen_pw_probe,
