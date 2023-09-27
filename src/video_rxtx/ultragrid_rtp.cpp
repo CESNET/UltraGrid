@@ -115,11 +115,13 @@ void *ultragrid_rtp_video_rxtx::receiver_thread(void *arg) {
         return s->receiver_loop();
 }
 
-void *(*ultragrid_rtp_video_rxtx::get_receiver_thread())(void *arg) {
+void *(*ultragrid_rtp_video_rxtx::get_receiver_thread() noexcept)(void *arg)
+{
         return receiver_thread;
 }
 
-void ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
+void
+ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         m_video_desc = video_desc_from_frame(tx_frame.get());
         if (m_fec_state) {

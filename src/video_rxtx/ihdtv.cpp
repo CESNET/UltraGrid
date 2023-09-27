@@ -10,7 +10,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -71,7 +71,8 @@
 
 using namespace std;
 
-void ihdtv_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
+void
+ihdtv_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
 #ifdef HAVE_IHDTV
         ihdtv_send(&m_tx_connection, tx_frame.get(), 9000000);      // FIXME: fix the use of frame size!!

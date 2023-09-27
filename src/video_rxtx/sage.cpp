@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,10 +74,11 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
 }
 
-void sage_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
+void
+sage_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        if(!video_desc_eq(m_saved_video_desc,
-                                video_desc_from_frame(tx_frame.get()))) {
+        if (!video_desc_eq(m_saved_video_desc,
+                           video_desc_from_frame(tx_frame.get()))) {
                 display_reconfigure(m_sage_tx_device,
                                 video_desc_from_frame(tx_frame.get()), VIDEO_NORMAL);
                 m_saved_video_desc = video_desc_from_frame(tx_frame.get());

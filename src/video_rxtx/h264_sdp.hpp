@@ -54,8 +54,8 @@ public:
         virtual ~h264_sdp_video_rxtx();
 private:
         static void change_address_callback(void *udata, const char *address);
-        virtual void send_frame(std::shared_ptr<video_frame>);
-        virtual void *(*get_receiver_thread())(void *arg) {
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
         void sdp_add_video(codec_t codec);

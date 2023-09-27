@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,11 +60,11 @@ public:
         friend ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
 private:
         static void *receiver_thread(void *arg);
-        virtual void send_frame(std::shared_ptr<video_frame>);
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         void *receiver_loop();
         static void *send_frame_async_callback(void *arg);
         virtual void send_frame_async(std::shared_ptr<video_frame>);
-        virtual void *(*get_receiver_thread())(void *arg);
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) override;
 
         void receiver_process_messages();
         void remove_display_from_decoders();

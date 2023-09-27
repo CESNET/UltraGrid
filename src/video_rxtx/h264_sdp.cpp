@@ -114,7 +114,8 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
  * producing H.264/JPEG natively (eg. v4l2) to be passed untouched to transport. Fallback H.264 is applied when uncompressed
  * stream is detected.
  */
-void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
+void
+h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         if (!is_codec_opaque(tx_frame->color_spec)) {
 		if (m_sent_compress_change) {

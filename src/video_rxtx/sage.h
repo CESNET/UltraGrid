@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,8 @@ public:
         sage_video_rxtx(std::map<std::string, param_u> const &);
         ~sage_video_rxtx();
 private:
-        void send_frame(std::shared_ptr<video_frame>);
-        void *(*get_receiver_thread())(void *arg) {
+        void send_frame(std::shared_ptr<video_frame>) noexcept override;
+        void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
         struct video_desc     m_saved_video_desc;

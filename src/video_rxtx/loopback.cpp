@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_rxtx/loopback.h"
+#include "video_rxtx/loopback.hpp"
 
 #include <chrono>
 
@@ -81,7 +81,8 @@ void *loopback_video_rxtx::receiver_thread(void *arg)
         return s->receiver_loop();
 }
 
-void loopback_video_rxtx::send_frame(std::shared_ptr<video_frame> f)
+void
+loopback_video_rxtx::send_frame(std::shared_ptr<video_frame> f) noexcept
 {
         unique_lock<mutex> lk(m_lock);
         if (m_frames.size() >= BUFF_MAX_LEN) {
@@ -91,7 +92,6 @@ void loopback_video_rxtx::send_frame(std::shared_ptr<video_frame> f)
         m_frames.push(f);
         lk.unlock();
         m_frame_ready.notify_one();
-
 }
 
 void *loopback_video_rxtx::receiver_loop()
@@ -123,7 +123,7 @@ void *loopback_video_rxtx::receiver_loop()
         return nullptr;
 }
 
-void *(*loopback_video_rxtx::get_receiver_thread())(void *arg)
+void *(*loopback_video_rxtx::get_receiver_thread() noexcept)(void *arg)
 {
         return receiver_thread;
 }

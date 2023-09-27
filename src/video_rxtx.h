@@ -101,8 +101,8 @@ protected:
         unsigned long long int m_frames_sent;
 private:
         void start();
-        virtual void send_frame(std::shared_ptr<video_frame>) = 0;
-        virtual void *(*get_receiver_thread())(void *arg) = 0;
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept = 0;
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) = 0;
         static void *sender_thread(void *args);
         void *sender_loop();
         virtual struct response *process_sender_message(struct msg_sender *) {

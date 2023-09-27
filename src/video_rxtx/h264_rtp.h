@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,8 @@ public:
         h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
         virtual ~h264_rtp_video_rxtx();
 private:
-        virtual void send_frame(std::shared_ptr<video_frame>);
-        virtual void *(*get_receiver_thread())(void *arg) {
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
         rtsp_serv_t *m_rtsp_server;

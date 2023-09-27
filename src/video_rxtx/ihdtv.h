@@ -11,7 +11,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -70,12 +70,12 @@ public:
         ihdtv_video_rxtx(std::map<std::string, param_u> const &);
         ~ihdtv_video_rxtx();
 private:
-        void send_frame(std::shared_ptr<video_frame>);
+        void send_frame(std::shared_ptr<video_frame>) noexcept override;
         static void *receiver_thread(void *arg) {
                 ihdtv_video_rxtx *s = static_cast<ihdtv_video_rxtx *>(arg);
                 return s->receiver_loop();
         }
-        void *(*get_receiver_thread())(void *arg) {
+        void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return receiver_thread;
         }
         void *receiver_loop();

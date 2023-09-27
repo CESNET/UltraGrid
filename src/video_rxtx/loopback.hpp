@@ -1,9 +1,9 @@
 /**
- * @file   video_rxtx/ultragrid_rtp.h
+ * @file   video_rxtx/loopback.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,8 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_RXTX_LOOPBACK_H
-#define VIDEO_RXTX_LOOPBACK_H
+#ifndef VIDEO_RXTX_LOOPBACK_HPP
+#define VIDEO_RXTX_LOOPBACK_HPP
 
 #include <condition_variable>
 #include <memory>
@@ -55,9 +55,9 @@ public:
 
 private:
         static void *receiver_thread(void *arg);
-        virtual void send_frame(std::shared_ptr<video_frame>) override;
+        virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         void *receiver_loop();
-        virtual void *(*get_receiver_thread())(void *arg) override;
+        virtual void *(*get_receiver_thread() noexcept)(void *arg) override;
 
         struct display *m_display_device;
         struct video_desc m_configure_desc{};
@@ -66,5 +66,5 @@ private:
         std::mutex m_lock;
 };
 
-#endif // VIDEO_RXTX_LOOPBACK_H
+#endif // !defined VIDEO_RXTX_LOOPBACK_HPP
 

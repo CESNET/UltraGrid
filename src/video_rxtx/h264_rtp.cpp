@@ -81,7 +81,8 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 #endif
 }
 
-void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
+void
+h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         tx_send_h264(m_tx, tx_frame.get(), m_network_device);
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
