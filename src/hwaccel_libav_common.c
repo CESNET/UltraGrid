@@ -49,6 +49,8 @@
 
 #include "hwaccel_libav_common.h"
 #include "libavcodec/lavc_common.h"
+#include "utils/color_out.h"
+#include "utils/macros.h"
 
 struct {
         const char *name;
@@ -63,6 +65,17 @@ struct {
 };
 
 enum hw_accel_type hw_accel_from_str(const char *str){
+        if (strcmp(str, "help") == 0) {
+                char msg[STR_LEN] = "Available decode accelerations:";
+                for (unsigned i = 0;
+                     i < sizeof(accel_str_map) / sizeof(accel_str_map[0]);
+                     i++) {
+                        snprintf(msg + strlen(msg), sizeof msg - strlen(msg),
+                                 " " TBOLD("%s"), accel_str_map[i].name);
+                }
+                color_printf("%s\n", msg);
+                return HWACCEL_NONE;
+        }
         for(unsigned i = 0; i < sizeof(accel_str_map) / sizeof(accel_str_map[0]); i++){
                 if(strcmp(str, accel_str_map[i].name) == 0){
                         return accel_str_map[i].type;

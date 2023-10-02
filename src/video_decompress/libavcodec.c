@@ -324,8 +324,10 @@ ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>..
                 "  Use '-c libavcodec:help' to see available decoders.\n");
 
 #ifdef HWACC_COMMON_IMPL
-ADD_TO_PARAM("use-hw-accel", "* use-hw-accel\n"
-                "  Try to use hardware accelerated decoding with lavd (NVDEC/VAAPI/VDPAU/VideoToolbox). \n");
+ADD_TO_PARAM("use-hw-accel", "* use-hw-accel[=<api>|help]\n"
+        "  Try to use hardware accelerated decoding with lavd "
+        "(NVDEC/VAAPI/VDPAU/VideoToolbox).\n"
+        "  Optionally with enforced API option.\n");
 #endif
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc, void *extradata, int extradata_size)
@@ -407,8 +409,33 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         return true;
 }
 
+/// @retval false on 1. help; 2. incorect hwacc spec
+static bool
+validate_hwacc_param(void)
+{
+        const char *const hwaccel = get_commandline_param("use-hw-accel");
+        if (hwaccel == NULL) {
+                return true;
+        }
+        if (strlen(hwaccel) == 0 ||
+            hw_accel_from_str(hwaccel) != HWACCEL_NONE) {
+                return true;
+        }
+        if (strcmp(hwaccel, "help") == 0) {
+                exit_uv(0);
+                return false;
+        }
+        MSG(ERROR, "Wrong HW acceleration specified: %s\n", hwaccel);
+        exit_uv(1);
+        return false;
+}
+
 static void * libavcodec_decompress_init(void)
 {
+        if (!validate_hwacc_param()) {
+                return NULL;
+        }
+
         struct state_libavcodec_decompress *s =
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
@@ -572,15 +599,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                                         "but incoming video has not 4:2:0 subsampling, "
                                         "which is usually not supported by hw. accelerators\n");
                 }
-                enum hw_accel_type forced_hwaccel = HWACCEL_NONE;
-                if(strlen(hwaccel) > 0){
-                        forced_hwaccel = hw_accel_from_str(hwaccel);
-                        if(forced_hwaccel == HWACCEL_NONE){
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown accel %s\n", hwaccel);
-                                exit_uv(1);
-                                return AV_PIX_FMT_NONE;
-                        }
-                }
+                const enum hw_accel_type forced_hwaccel =
+                    strlen(hwaccel) > 0 ? hw_accel_from_str(hwaccel)
+                                        : HWACCEL_NONE;
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
                                 if(*it == accels[i].pix_fmt && !state->block_accel[accels[i].accel_type])
