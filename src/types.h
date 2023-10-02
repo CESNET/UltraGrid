@@ -108,12 +108,23 @@ typedef enum {
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;
 
+enum hw_accel_type {
+        HWACCEL_NONE,
+        HWACCEL_VDPAU,
+        HWACCEL_VAAPI,
+        HWACCEL_VIDEOTOOLBOX,
+        HWACCEL_RPI4,
+        HWACCEL_CUDA,
+        HWACCEL_VULKAN,
+        HWACCEL_COUNT
+};
+
 struct pixfmt_desc {
         int depth;       ///< bit depth; 0 means that whole struct is undefined
         int subsampling; ///< in 'JabA' format, eg. '4444'
         bool rgb;
+        enum hw_accel_type accel_type;
 };
-
 
 /**
  * @enum interlacing_t

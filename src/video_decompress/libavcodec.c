@@ -54,6 +54,7 @@
 #include "utils/misc.h" // get_cpu_core_count()
 #include "utils/worker.h"
 #include "video.h"
+#include "video_codec.h"
 #include "video_decompress.h"
 
 #ifdef HAVE_SWSCALE
@@ -573,26 +574,25 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
         static const struct{
                 enum AVPixelFormat pix_fmt;
-                enum hw_accel_type accel_type;
                 int (*init_func)(AVCodecContext *, struct hw_accel_state *, codec_t);
         } accels[] = {
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
-                {AV_PIX_FMT_VULKAN, HWACCEL_VULKAN, vulkan_init},
+                {AV_PIX_FMT_VULKAN, vulkan_init},
 #endif
 #ifdef HWACC_VDPAU
-                {AV_PIX_FMT_VDPAU, HWACCEL_VDPAU, vdpau_init},
+                {AV_PIX_FMT_VDPAU, vdpau_init},
 #endif
-                {AV_PIX_FMT_CUDA, HWACCEL_CUDA, hwacc_cuda_init},
+                {AV_PIX_FMT_CUDA, hwacc_cuda_init},
 #ifdef HWACC_VAAPI
-                {AV_PIX_FMT_VAAPI, HWACCEL_VAAPI, vaapi_init},
+                {AV_PIX_FMT_VAAPI, vaapi_init},
 #endif
 #ifdef HAVE_MACOSX
-                {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init},
+                {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init},
 #endif
 #ifdef HWACC_RPI4
-                {AV_PIX_FMT_RPI4_8, HWACCEL_RPI4, rpi4_hwacc_init},
+                {AV_PIX_FMT_RPI4_8, rpi4_hwacc_init},
 #endif
-                {AV_PIX_FMT_NONE, HWACCEL_NONE, NULL}
+                {AV_PIX_FMT_NONE, NULL}
         };
 
         if (hwaccel != NULL) {
@@ -607,18 +607,21 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                                         : HWACCEL_NONE;
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
-                                if(*it == accels[i].pix_fmt && !state->block_accel[accels[i].accel_type])
-                                {
-                                        if(forced_hwaccel != HWACCEL_NONE && accels[i].accel_type != forced_hwaccel){
-                                                break;
-                                        }
-                                        int ret = accels[i].init_func(s, &state->hwaccel, state->out_codec);
-                                        if(ret < 0){
-                                                hwaccel_state_reset(&state->hwaccel);
-                                                break;
-                                        }
-                                        SELECT_PIXFMT(accels[i].pix_fmt);
+                                if (*it != accels[i].pix_fmt ||
+                                    state->block_accel[hw_accel_from_pixfmt(accels[i].pix_fmt)]) {
+                                        continue;
                                 }
+                                if (forced_hwaccel != HWACCEL_NONE &&
+                                    hw_accel_from_pixfmt(accels[i].pix_fmt) !=
+                                        forced_hwaccel) {
+                                        break;
+                                }
+                                int ret = accels[i].init_func(s, &state->hwaccel, state->out_codec);
+                                if(ret < 0){
+                                        hwaccel_state_reset(&state->hwaccel);
+                                        break;
+                                }
+                                SELECT_PIXFMT(accels[i].pix_fmt);
                         }
                 }
                 if(forced_hwaccel != HWACCEL_NONE){
@@ -1074,6 +1077,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         av_get_pix_fmt_name(s->codec_ctx->pix_fmt),
                         av_get_pix_fmt_name(s->codec_ctx->sw_pix_fmt));
                 *internal_props = av_pixfmt_get_desc(s->codec_ctx->sw_pix_fmt);
+                internal_props->accel_type =
+                    hw_accel_from_pixfmt(s->codec_ctx->pix_fmt);
                 return DECODER_GOT_CODEC;
         }
 
@@ -1130,9 +1135,7 @@ static void libavcodec_decompress_done(void *state)
  * This should be take into account existing conversions.
  */
 static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
-        if (get_commandline_param("use-hw-accel") &&
-                        (((compression == H264 || compression == H265) && ugc == HW_VDPAU) ||
-                         (compression == H265 && ugc == RPI4_8))) {
+        if (hw_accel_to_ug_pixfmt(internal.accel_type) == ugc) {
                 return 200;
         }
 

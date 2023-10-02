@@ -92,6 +92,14 @@ enum {
 #define AV_CODEC_CAP_OTHER_THREADS AV_CODEC_CAP_AUTO_THREADS
 #endif
 
+
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
+#define AV_PIX_FMT_VULKAN AV_PIX_FMT_NONE
+#endif
+#ifndef HWACC_RPI4
+#define AV_PIX_FMT_RPI4_8 AV_PIX_FMT_NONE
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

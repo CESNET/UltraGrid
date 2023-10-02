@@ -56,18 +56,9 @@ extern "C" {
 #include <libavutil/hwcontext.h>
 #endif
 
-enum hw_accel_type {
-        HWACCEL_NONE,
-        HWACCEL_VDPAU,
-        HWACCEL_VAAPI,
-        HWACCEL_VIDEOTOOLBOX,
-        HWACCEL_RPI4,
-        HWACCEL_CUDA,
-        HWACCEL_VULKAN,
-        HWACCEL_COUNT
-};
-
+enum hw_accel_type hw_accel_from_pixfmt(enum AVPixelFormat);
 enum hw_accel_type hw_accel_from_str(const char *str);
+codec_t hw_accel_to_ug_pixfmt(enum hw_accel_type type);
 const char *hw_accel_to_str(enum hw_accel_type type);
 
 /**

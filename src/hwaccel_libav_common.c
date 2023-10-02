@@ -49,19 +49,22 @@
 
 #include "hwaccel_libav_common.h"
 #include "libavcodec/lavc_common.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 
-struct {
+static const struct {
         const char *name;
         enum hw_accel_type type;
+        enum AVPixelFormat av_pixfmt;
+        codec_t ug_pixfmt;
 } accel_str_map[] = {
-        {"vdpau", HWACCEL_VDPAU},
-        {"vaapi", HWACCEL_VAAPI},
-        {"videotoolbox", HWACCEL_VIDEOTOOLBOX},
-        {"rpi4", HWACCEL_RPI4},
-        {"cuda", HWACCEL_CUDA},
-        {"vulkan", HWACCEL_VULKAN},
+        {"vdpau",         HWACCEL_VDPAU,        AV_PIX_FMT_VDPAU,     HW_VDPAU},
+        { "vaapi",        HWACCEL_VAAPI,        AV_PIX_FMT_VAAPI,     0       },
+        { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0    },
+        { "rpi4",         HWACCEL_RPI4,         AV_PIX_FMT_RPI4_8,    RPI4_8  },
+        { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,      0       },
+        { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,    0       },
 };
 
 enum hw_accel_type hw_accel_from_str(const char *str){
@@ -84,6 +87,20 @@ enum hw_accel_type hw_accel_from_str(const char *str){
 
         return HWACCEL_NONE;
 }
+
+enum hw_accel_type
+hw_accel_from_pixfmt(enum AVPixelFormat pixfmt)
+{
+        for (unsigned i = 0; i < sizeof accel_str_map / sizeof accel_str_map[0];
+             i++) {
+                if (accel_str_map[i].av_pixfmt == pixfmt) {
+                        return accel_str_map[i].type;
+                }
+        }
+
+        return HWACCEL_NONE;
+}
+
 const char *hw_accel_to_str(enum hw_accel_type type){
         for(unsigned i = 0; i < sizeof(accel_str_map) / sizeof(accel_str_map[0]); i++){
                 if(type == accel_str_map[i].type){
@@ -92,6 +109,18 @@ const char *hw_accel_to_str(enum hw_accel_type type){
         }
 
         return "unknown";
+}
+
+codec_t
+hw_accel_to_ug_pixfmt(enum hw_accel_type type)
+{
+        for (unsigned i = 0;
+             i < sizeof(accel_str_map) / sizeof(accel_str_map[0]); i++) {
+                if (type == accel_str_map[i].type) {
+                        return accel_str_map[i].ug_pixfmt;
+                }
+        }
+        return VIDEO_CODEC_NONE;
 }
 
 void hwaccel_state_init(struct hw_accel_state *hwaccel){
