@@ -595,7 +595,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                 {AV_PIX_FMT_NONE, HWACCEL_NONE, NULL}
         };
 
-        if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
+        if (hwaccel != NULL) {
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
                 if (!pixfmt_list_has_420_subsampling(fmt)){
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Hw. acceleration requested "

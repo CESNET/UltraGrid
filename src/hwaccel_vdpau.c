@@ -53,6 +53,7 @@
 #include <string.h>
 #include "debug.h"
 #include "hwaccel_vdpau.h"
+#include "types.h"
 
 #define DEFAULT_SURFACES 20
 
@@ -113,7 +114,7 @@ int vdpau_init(struct AVCodecContext *s,
 
         state->type = HWACCEL_VDPAU;
         state->copy = out_codec != HW_VDPAU;
-        if(state->copy){
+        if (state->copy && out_codec != VIDEO_CODEC_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavd] Vdpau copy mode enabled"
                                 " because the decoder wasn't configured to output HW_VDPAU"
                                 " (maybe the display doesn't support it)"
