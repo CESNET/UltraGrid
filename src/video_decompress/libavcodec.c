@@ -323,12 +323,10 @@ ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>..
                 "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
                 "  Use '-c libavcodec:help' to see available decoders.\n");
 
-#ifdef HWACC_COMMON_IMPL
 ADD_TO_PARAM("use-hw-accel", "* use-hw-accel[=<api>|help]\n"
         "  Try to use hardware accelerated decoding with lavd "
         "(NVDEC/VAAPI/VDPAU/VideoToolbox).\n"
         "  Optionally with enforced API option.\n");
-#endif
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc, void *extradata, int extradata_size)
 {
@@ -409,7 +407,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         return true;
 }
 
-/// @retval false on 1. help; 2. incorect hwacc spec
+/// @retval false if 1. hwacc not enabled; 2. help; 3. incorect hwacc spec
 static bool
 validate_hwacc_param(void)
 {
@@ -417,6 +415,11 @@ validate_hwacc_param(void)
         if (hwaccel == NULL) {
                 return true;
         }
+#if !defined HWACC_COMMON_IMPL
+        MSG(FATAL, "HW acceleration not compiled in!\n");
+        exit_uv(1);
+        return NULL;
+#endif
         if (strlen(hwaccel) == 0 ||
             hw_accel_from_str(hwaccel) != HWACCEL_NONE) {
                 return true;
