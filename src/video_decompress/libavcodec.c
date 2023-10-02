@@ -577,6 +577,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                         forced_hwaccel = hw_accel_from_str(hwaccel);
                         if(forced_hwaccel == HWACCEL_NONE){
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown accel %s\n", hwaccel);
+                                exit_uv(1);
                                 return AV_PIX_FMT_NONE;
                         }
                 }
