@@ -1069,8 +1069,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         check_duration(s, (t2 - t0) / NS_IN_SEC_DBL, (t2 - t1) / NS_IN_MS_DBL);
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
+                log_msg(LOG_LEVEL_VERBOSE,
+                        MOD_NAME "Probed output pixel format: %s (%s)\n",
+                        av_get_pix_fmt_name(s->codec_ctx->pix_fmt),
+                        av_get_pix_fmt_name(s->codec_ctx->sw_pix_fmt));
+                *internal_props = av_pixfmt_get_desc(s->codec_ctx->sw_pix_fmt);
                 return DECODER_GOT_CODEC;
         }
 
