@@ -76,7 +76,6 @@ typedef enum {
         DXT1_YUV, ///< Structure same as DXT1, instead of RGB, YCbCr values are stored
         DXT5,     ///< S3 Texture Compression DXT5
         RGB,      ///< RGB 8-bit (packed into 24-bit word)
-        DPX10,    ///< 10-bit DPX raw data
         JPEG,     ///< JPEG image, restart intervals may be used. Compatible with GPUJPEG
         RAW,      ///< RAW HD-SDI frame
         H264,     ///< H.264 frame

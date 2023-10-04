@@ -57,7 +57,6 @@ static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
         //DXT1_YUV,
         //DXT5,
         {RGB, AV_PIX_FMT_RGB24},
-        // DPX10,
         //JPEG,
         //RAW,
         //H264,

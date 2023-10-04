@@ -2182,85 +2182,6 @@ void vc_memcpy(unsigned char * __restrict dst, const unsigned char * __restrict 
         memcpy(dst, src, dst_len);
 }
 
-/**
- * @brief Converts DPX10 to RGBA
- * @copydetails vc_copyliner10k
- */
-static void
-vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
-{
-        
-        register const unsigned int *in = (const unsigned int *)(const void *) src;
-        register unsigned int *out = (unsigned int *)(void *) dst;
-        register int r,g,b;
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
-
-        while (dst_len >= 4) {
-                register unsigned int val = *in;
-                r = val >> 24;
-                g = 0xff & (val >> 14);
-                b = 0xff & (val >> 4);
-                
-                *out++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
-                ++in;
-                dst_len -= 4;
-        }
-}
-
-/**
- * @brief Converts DPX10 to RGB.
- * @copydetails vc_copylinev210
- */
-static void
-vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
-                int gshift, int bshift)
-{
-        UNUSED(rshift);
-        UNUSED(gshift);
-        UNUSED(bshift);
-        register const unsigned int *in = (const unsigned int *)(const void *) src;
-        register unsigned int *out = (unsigned int *)(void *) dst;
-        register int r1,g1,b1,r2,g2,b2;
-
-        int x = 0;
-        OPTIMIZED_FOR (; x <= dst_len - 12; x += 12) {
-                register unsigned int val;
-                
-                val = *in++;
-                r1 = val >> 24;
-                g1 = 0xff & (val >> 14);
-                b1 = 0xff & (val >> 4);
-                
-                val = *in++;
-                r2 = val >> 24;
-                g2 = 0xff & (val >> 14);
-                b2 = 0xff & (val >> 4);
-                
-                *out++ = r1 | g1 << 8 | b1 << 16 | r2 << 24;
-                
-                val = *in++;
-                r1 = val >> 24;
-                g1 = 0xff & (val >> 14);
-                b1 = 0xff & (val >> 4);
-                
-                *out++ = g2 | b2 << 8 | r1 << 16 | g1 << 24;
-                
-                val = *in++;
-                r2 = val >> 24;
-                g2 = 0xff & (val >> 14);
-                b2 = 0xff & (val >> 4);
-                
-                *out++ = b1 | r2 << 8 | g2 << 16 | b2 << 24;
-        }
-        unsigned char *out_c = (void *) out;
-        for (; x < dst_len; x += 3) {
-                uint32_t val = *in++;
-                *out_c++ = val >> 24;
-                *out_c++ = 0xff & (val >> 14);
-                *out_c++ = 0xff & (val >> 4);
-        }
-}
-
 static void vc_copylineRGBAtoR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2666,8 +2587,6 @@ static const struct decoder_item decoders[] = {
         { vc_copylineR10ktoUYVY,  R10k,  UYVY },
         { vc_copylineRGBAtoUYVY,  RGBA,  UYVY },
         { vc_copylineBGRtoRGB,    BGR,   RGB },
-        { vc_copylineDPX10toRGBA, DPX10, RGBA },
-        { vc_copylineDPX10toRGB,  DPX10, RGB },
         { vc_copylineRGB,         RGB,   RGB },
         { vc_copylineRGBAtoR10k,  RGBA,  R10k },
         { vc_copylineUYVYtoV210,  UYVY,  v210 },

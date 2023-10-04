@@ -137,8 +137,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('D','X','T','5'), 1, 1, 0, 4, FALSE, TRUE, FALSE, FALSE, 0, "yog"},/* DXT5 YCoCg */
         [RGB] = {"RGB", "Red Green Blue 24bit",
                 to_fourcc('R','G','B','2'), 3, 1, 1, 8, TRUE, FALSE, FALSE, FALSE, 4440, "rgb"},
-        [DPX10] = {"DPX10", "DPX10",
-                to_fourcc('D','P','1','0'), 4, 1, 1, 10, TRUE, FALSE, FALSE, FALSE, 4440, "dpx"},
         [JPEG] = {"JPEG",  "JPEG",
                 to_fourcc('J','P','E','G'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "jpg"},
         [RAW] = {"raw", "Raw SDI video",

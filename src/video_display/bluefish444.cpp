@@ -34,6 +34,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * RGBA and v210 seem to be supported by reconfigure but not advertised
+ * by get_property.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -582,9 +587,9 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 case RGBA:
                         MemoryFormat = MEM_FMT_RGBA;
                         break;
-                case DPX10:
-                        MemoryFormat = MEM_FMT_CINEON_LITTLE_ENDIAN;
-                        break;
+                // case DPX10:
+                //         MemoryFormat = MEM_FMT_CINEON_LITTLE_ENDIAN;
+                //         break;
                 default:
                         throw logic_error("Unknown video format!!!");
         }
