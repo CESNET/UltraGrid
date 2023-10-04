@@ -320,6 +320,7 @@ process_audio_message(struct module *root_module, const char *cmd)
                 } else if (prefix_matches(cmd, "unmute-")) {
                         msg->type = RECEIVER_MSG_UNMUTE;
                 } else {
+                        free_message((struct message *) msg, nullptr);
                         return new_response(RESPONSE_BAD_REQUEST,
                                             "malformed audio recv mute msg");
                 }
@@ -334,6 +335,7 @@ process_audio_message(struct module *root_module, const char *cmd)
                 } else if (prefix_matches(cmd, "unmute-")) {
                         msg->type = SENDER_MSG_UNMUTE;
                 } else {
+                        free_message((struct message *) msg, nullptr);
                         return new_response(RESPONSE_BAD_REQUEST,
                                             "malformed audio send mute msg");
                 }
