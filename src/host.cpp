@@ -1076,11 +1076,6 @@ ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
 ADD_TO_PARAM("color", "* color=CT\n"
                 "  [experimental] Color space to use, C - colorimetry: 0 - undefined, 1 - BT.709, 2 - BT.2020/2100, 3 - P3; T - transfer fn: 0 - undefined, 1 - 709, 2 - HLG; 3 - PQ (signalized to GLFW on mac, NDI receiver)\n");
-#ifdef DEBUG
-ADD_TO_PARAM("debug-dump", "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n"
-                "  Dumps specified buffer for debugging, n-th buffer may be selected, name is <module>.dump.\n"
-                "  Avaiable modules: lavd-uncompressed\n");
-#endif
 ADD_TO_PARAM("incompatible", "* incompatible\n"
                 "  Features that may possibly not be compatible with at least older or even any other UG version.\n");
 ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"

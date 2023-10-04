@@ -299,10 +299,23 @@ bool parse_log_cfg(const char *conf_str,
 }
 
 #ifdef DEBUG
+#define DUMP_FILE_USAGE \
+        "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n" \
+        "  Dumps specified buffer to a file for debugging, n-th buffer may " \
+        "be selected, name is <module>.dump.\n" \
+        "  Avaiable modules: lavc-avframe, lavd-avframe\n"
+ADD_TO_PARAM("debug-dump", DUMP_FILE_USAGE);
 void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data) {
         const char *dump_file_val = get_commandline_param("debug-dump");
         static thread_local unordered_map<string, int> skip_map;
         if (dump_file_val == nullptr) {
+                return;
+        }
+
+        if (strcmp(dump_file_val, "help") == 0) {
+                color_printf("\n" TBOLD("debug-dump") " usage:\n");
+                printf("%s\n", DUMP_FILE_USAGE);
+                exit_uv(0);
                 return;
         }
 
