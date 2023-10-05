@@ -375,7 +375,10 @@ void usage(bool full) {
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
         col() << "\t" << SBOLD("<codec_name>") << " - codec name (default MJPEG) if encoder name is not specified\n";
-        col() << "\t" << SBOLD("[disable_]intra_refresh") << ", " << SBOLD("[disable_]intrelaced_dct") << " - (do not) use Periodic Intra Refresh (H.264/H.265), (do not) use interlaced DCT for H.264\n";
+        col() << "\t" << SBOLD("[disable_]intra_refresh") << ", "
+              << SBOLD("[disable_]interlaced_dct")
+              << " - (do not) use Periodic Intra Refresh (H.264/H.265), (do "
+                 "not) use interlaced DCT for H.264\n";
         col() << "\t" << SBOLD("<bits_per_sec>") << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         col() << "\t" << SBOLD("<bits_per_pixel>") << " specifies requested bitrate using compressed bits per pixel\n"
@@ -1544,15 +1547,28 @@ configure_mf(AVCodecContext                         *codec_ctx,
         check_av_opt_set<int>(codec_ctx->priv_data, "hw_encoding", 1);
 }
 
+enum incomp_feature {
+        INCOMP_INTRA_REFRESH,
+        INCOMP_INTERLACED_DCT,
+};
 void
-periodic_intra_warn(int req_val)
+incomp_feature_warn(int req_val, enum incomp_feature f)
 {
         if (req_val != -1) {
                 return;
         }
-        MSG(WARNING, "Auto-enabling intra-refresh "
-                     "which may not be supported by HW decoders.\n");
-        MSG(INFO, "Use ':disable_intra_refresh' to disable.\n");
+        switch (f) {
+        case INCOMP_INTRA_REFRESH:
+                MSG(WARNING, "Auto-enabling intra-refresh "
+                             "which may not be supported by HW decoders.\n");
+                MSG(INFO, "Use ':disable_intra_refresh' to disable.\n");
+                break;
+        case INCOMP_INTERLACED_DCT:
+                MSG(WARNING, "Auto-enabling interlaced DCT "
+                             "which may not be supported by HW decoders.\n");
+                MSG(INFO, "Use ':disable_interlaced_dct ' to disable.\n");
+                break;
+        }
 }
 
 ADD_TO_PARAM(
@@ -1596,6 +1612,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         //codec_ctx->scenechange_threshold = 100;
 
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
+                incomp_feature_warn(param->interlaced_dct, INCOMP_INTERLACED_DCT);
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1612,7 +1629,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         x265_params_append("keyint", to_string(codec_ctx->gop_size));
         /// turn on periodic intra refresh, unless explicitely disabled
         if (param->periodic_intra != 0) {
-                periodic_intra_warn(param->periodic_intra);
+                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
                         check_av_opt_set<const char *>(codec_ctx->priv_data, "intra-refresh", "1");
@@ -1635,12 +1652,13 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
 
         if (param->periodic_intra != 0) {
-                periodic_intra_warn(param->periodic_intra);
+                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
                 check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
 
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
+                incomp_feature_warn(param->interlaced_dct, INCOMP_INTERLACED_DCT);
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1726,7 +1744,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 #endif
 
         if ((patched_ff && param->periodic_intra != 0) || param->periodic_intra == 1) {
-                periodic_intra_warn(param->periodic_intra);
+                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
                 check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
         }
 
