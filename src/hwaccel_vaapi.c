@@ -48,18 +48,20 @@
 #include "config_win32.h"
 #endif // defined HAVE_CONFIG_H
 
-#include "hwaccel_vaapi.h"
-
-#include "debug.h"
-
-#include "hwaccel_libav_common.h"
 #include <libavcodec/version.h>
+#include <libavutil/pixdesc.h>
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
 #include <libavcodec/vaapi.h>
 #endif
 #include <libavutil/hwcontext_vaapi.h>
 
+#include "debug.h"
+#include "hwaccel_libav_common.h"
+#include "hwaccel_vaapi.h"
+#include "libavcodec/lavc_common.h"
+
 #define DEFAULT_SURFACES 20
+#define MOD_NAME "[vaapi] "
 
 struct vaapi_ctx {
         AVBufferRef          *device_ref;
@@ -196,6 +198,84 @@ static int vaapi_create_context(struct vaapi_ctx *ctx,
 }
 #endif //LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
 
+/**
+ * Returns first SW format from valid_sw_formats. This is usually
+ * AV_PIX_FMT_YUV420P or AV_PIX_FMT_NV12.
+ *
+ * The code borrows heavily from mpv
+ * <https://github.com/mpv-player/mpv/blob/master/video/out/hwdec/hwdec_vaapi.c>
+ * namely from function try_format_config().
+ */
+static enum AVPixelFormat
+get_sw_format(VADisplay display, AVBufferRef *device_ref,
+              enum AVPixelFormat fallback_fmt)
+{
+        enum AVPixelFormat     ret       = AV_PIX_FMT_NONE;
+        AVVAAPIHWConfig       *hwconfig  = NULL;
+        VAConfigID             config_id = 0;
+        AVHWFramesConstraints *fc        = NULL;
+
+        VAStatus status = vaCreateConfig(
+            display, VAProfileNone, VAEntrypointVideoProc, NULL, 0, &config_id);
+        if (status != VA_STATUS_SUCCESS) {
+                MSG(ERROR, "cannot create config\n");
+                goto fail;
+        }
+        fc = av_hwdevice_get_hwframe_constraints(device_ref, hwconfig);
+        if (!fc) {
+                MSG(ERROR, "failed to retrieve libavutil frame constraints\n");
+                goto fail;
+        }
+
+        /*
+         * We need a hwframe_ctx to be able to get the valid formats, but to
+         * initialise it, we need a format, so we get the first format from the
+         * hwconfig. We don't care about the other formats in the config because
+         * the transfer formats list will already include them.
+         */
+        AVBufferRef *fref = NULL;
+        fref              = av_hwframe_ctx_alloc(device_ref);
+        if (!fref) {
+                MSG(ERROR, "failed to alloc libavutil frame context\n");
+                goto fail;
+        }
+        AVHWFramesContext *fctx = (void *) fref->data;
+        enum {
+                INIT_SIZE = 128, ///< just some valid size
+        };
+        fctx->format    = AV_PIX_FMT_VAAPI;
+        fctx->sw_format = fc->valid_sw_formats[0];
+        fctx->width     = INIT_SIZE;
+        fctx->height    = INIT_SIZE;
+        if (av_hwframe_ctx_init(fref) < 0) {
+                MSG(ERROR, "failed to init libavutil frame context\n");
+                goto fail;
+        }
+
+        enum AVPixelFormat *fmts = NULL;
+        int                 rc   = av_hwframe_transfer_get_formats(
+            fref, AV_HWFRAME_TRANSFER_DIRECTION_FROM, &fmts, 0);
+        if (rc) {
+                MSG(ERROR, "failed to get libavutil frame context supported "
+                           "formats\n");
+                goto fail;
+        }
+        MSG(DEBUG, "Available HW layouts: %s\n", get_avpixfmts_names(fmts));
+        ret = fmts[0];
+
+fail:
+        av_hwframe_constraints_free(&fc);
+        av_buffer_unref(&fref);
+        if (ret == AV_PIX_FMT_NONE) {
+                MSG(WARNING, "Using fallback HW frames layout: %s\n",
+                    av_get_pix_fmt_name(ret));
+                ret = fallback_fmt;
+        }
+        MSG(VERBOSE, "Selected HW frames layout: %s\n",
+            av_get_pix_fmt_name(ret));
+        return ret;
+}
+
 int vaapi_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec)
@@ -224,11 +304,13 @@ int vaapi_init(struct AVCodecContext *s,
         if (s->active_thread_type & FF_THREAD_FRAME)
                 decode_surfaces += s->thread_count;
 
+        const enum AVPixelFormat sw_format = get_sw_format(
+            ctx->device_vaapi_ctx->display, ctx->device_ref, s->sw_pix_fmt);
         ret = create_hw_frame_ctx(ctx->device_ref,
                         s->coded_width,
                         s->coded_height,
                         AV_PIX_FMT_VAAPI,
-                        s->sw_pix_fmt,
+                        sw_format,
                         decode_surfaces,
                         &ctx->hw_frames_ctx);
         if(ret < 0)

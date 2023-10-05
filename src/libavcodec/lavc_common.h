@@ -123,6 +123,7 @@ void lavd_flush(AVCodecContext *codec_ctx);
 const char *lavc_thread_type_to_str(int thread_type);
 struct audio_desc audio_desc_from_av_frame(const AVFrame *frm);
 enum AVSampleFormat audio_bps_to_av_sample_fmt(int bps, bool planar);
+const char         *get_avpixfmts_names(const enum AVPixelFormat *pixfmts);
 
 #ifdef __cplusplus
 }

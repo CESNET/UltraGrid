@@ -56,6 +56,7 @@
 
 #include "host.h"
 #include "libavcodec/lavc_common.h"
+#include "utils/macros.h"
 #include "video.h"
 
 #define MOD_NAME "[lavc_common] "
@@ -355,5 +356,26 @@ audio_bps_to_av_sample_fmt(int bps, bool planar)
         default:
                 abort();
         }
+}
+
+/**
+ * Prints space-separated nammes of AVPixelFormats in AV_PIX_FMT_NONE-terminated
+ * pixfmts list to given buf and returns pointer to given buf.
+ */
+const char *
+get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
+{
+        _Thread_local static char buf[STR_LEN];
+        if (pixfmts == NULL || *pixfmts == AV_PIX_FMT_NONE) {
+                snprintf(buf, sizeof buf, " (none)");
+                return buf;
+        }
+        const enum AVPixelFormat *it = pixfmts;
+        while (*it != AV_PIX_FMT_NONE) {
+                snprintf(buf + strlen(buf), sizeof buf - strlen(buf), "%s%s",
+                         it != pixfmts ? " " : "", av_get_pix_fmt_name(*it));
+                it++;
+        }
+        return buf;
 }
 /* vi: set expandtab sw=8: */

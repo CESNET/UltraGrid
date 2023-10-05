@@ -672,16 +672,10 @@ fail:
 #endif
 
 void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
-        char out[STR_LEN] = MOD_NAME "Codec supported pixel formats:" TERM_BOLD;
-        if (first == nullptr) {
-                snprintf(out + strlen(out), sizeof out - strlen(out),
-                         " (none)");
-        }
-        const enum AVPixelFormat *it = first;
-        while (it != nullptr && *it != AV_PIX_FMT_NONE) {
-                snprintf(out + strlen(out), sizeof out - strlen(out), " %s",
-                         av_get_pix_fmt_name(*it++));
-        }
+        char out[STR_LEN];
+        snprintf(out, sizeof out,
+                 MOD_NAME "Codec supported pixel formats: " TBOLD("%s"),
+                 get_avpixfmts_names(first));
         LOG(LOG_LEVEL_VERBOSE) << wrap_paragraph(out) << TERM_RESET "\n";
 }
 
