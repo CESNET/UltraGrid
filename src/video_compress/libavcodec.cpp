@@ -1965,8 +1965,20 @@ const struct video_compress_info libavcodec_info = {
         get_libavcodec_module_info,
 };
 
+const struct video_compress_info lavc_info = {
+        "lavc",
+        libavcodec_compress_init,
+        nullptr,
+        libavcodec_compress_tile,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+};
+
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
-REGISTER_HIDDEN_MODULE(lavc, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS,
+REGISTER_HIDDEN_MODULE(lavc, &lavc_info, LIBRARY_CLASS_VIDEO_COMPRESS,
                        VIDEO_COMPRESS_ABI_VERSION);
 
 } // end of anonymous namespace
