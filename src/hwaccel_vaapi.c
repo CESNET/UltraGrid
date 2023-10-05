@@ -5,7 +5,7 @@
  * @brief This file contains functions related to hw acceleration
  */
 /*
- * Copyright (c) 2018-2021 CESNET z.s.p.o.
+ * Copyright (c) 2018-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

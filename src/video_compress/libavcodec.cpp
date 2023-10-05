@@ -1544,6 +1544,17 @@ configure_mf(AVCodecContext                         *codec_ctx,
         check_av_opt_set<int>(codec_ctx->priv_data, "hw_encoding", 1);
 }
 
+void
+periodic_intra_warn(int req_val)
+{
+        if (req_val != -1) {
+                return;
+        }
+        MSG(WARNING, "Auto-enabling intra-refresh "
+                     "which may not be supported by HW decoders.\n");
+        MSG(INFO, "Use ':disable_intra_refresh' to disable.\n");
+}
+
 ADD_TO_PARAM(
     "lavc-rc-buffer-size-factor",
     "* lavc-rc-buffer-size-factor=<val>\n"
@@ -1601,6 +1612,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         x265_params_append("keyint", to_string(codec_ctx->gop_size));
         /// turn on periodic intra refresh, unless explicitely disabled
         if (param->periodic_intra != 0) {
+                periodic_intra_warn(param->periodic_intra);
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
                         check_av_opt_set<const char *>(codec_ctx->priv_data, "intra-refresh", "1");
@@ -1623,6 +1635,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
 
         if (param->periodic_intra != 0) {
+                periodic_intra_warn(param->periodic_intra);
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
                 check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
@@ -1713,6 +1726,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 #endif
 
         if ((patched_ff && param->periodic_intra != 0) || param->periodic_intra == 1) {
+                periodic_intra_warn(param->periodic_intra);
                 check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
         }
 
