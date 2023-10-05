@@ -141,12 +141,18 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 }
                                 m_fec_state = fec::create_from_config(msg->fec_cfg);
                                 if (!m_fec_state) {
-                                        m_fec_state = old_fec_state;
-                                        if (strstr(msg->fec_cfg, "help") != nullptr || m_frames_sent == 0ULL) { // -f LDGM:help or so + init
-                                                exit_uv(0);
-                                        } else {
+                                        int rc = 0;
+                                        if(strstr(msg->fec_cfg, "help") == nullptr){
                                                 LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
+                                                rc = 1;
                                         }
+
+                                        //Exit only if we failed because of command line params, not control port msg
+                                        if (m_frames_sent == 0ULL) {
+                                                exit_uv(rc);
+                                        }
+
+                                        m_fec_state = old_fec_state;
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                 }
                                 delete old_fec_state;
