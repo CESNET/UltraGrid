@@ -99,6 +99,13 @@
 #define X11_LIB_NAME "libX11.so.6"
 #endif
 
+#ifdef HAVE_FEC_INIT
+#define restrict __restrict // not a C++ keyword
+extern "C" {
+#include <fec.h>
+}
+#endif
+
 #ifdef __linux__
 #include <mcheck.h>
 #endif
@@ -430,6 +437,10 @@ struct init_data *common_preinit(int argc, char *argv[])
         if (get_commandline_param("incompatible") != nullptr) {
                 incompatible_features = true;
         }
+
+#ifdef HAVE_FEC_INIT
+        fec_init();
+#endif
 
         return new init_data{init};
 }
