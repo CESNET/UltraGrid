@@ -93,8 +93,6 @@ typedef struct module *(*compress_init_t)(struct module *parent,
 void show_compress_help(bool full);
 // documented at definition
 int compress_init(struct module *parent, const char *config_string, struct compress_state **);
-// documented at definition
-const char *get_compress_name(struct compress_state *);
 #ifdef __cplusplus
 }
 #endif
@@ -212,7 +210,7 @@ struct compress_module_info{
  * 4. Async tile API - compress a tile asynchronously
  */
 struct video_compress_info {
-        const char        * name;         ///< compress (unique) name
+        const char        * name;         ///< not used
         compress_init_t     init_func;           ///< compress driver initialization function
 
         compress_frame_t    compress_frame_func; ///< compress function for Frame API

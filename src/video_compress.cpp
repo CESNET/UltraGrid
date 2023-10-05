@@ -280,20 +280,6 @@ void compress_state_real::start(struct compress_state *proxy)
 }
 
 /**
- * @brief Returns name of compression module
- *
- * @param proxy compress state
- * @returns     compress name
- */
-const char *get_compress_name(struct compress_state *proxy)
-{
-        if(proxy)
-                return proxy->ptr->funcs->name;
-        else
-                return NULL;
-}
-
-/**
  * Checks if there are at least as many states as there are tiles.
  * If there are not enough states it initializes new ones. 
  *
