@@ -51,33 +51,13 @@
 extern "C" {
 #endif
 
-#include "hwaccel_libav_common.h"
-#include <libavcodec/version.h>
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
-#include <libavcodec/vaapi.h>
-#endif
-#include <libavutil/hwcontext_vaapi.h>
+#include "types.h"
 
-struct vaapi_ctx{
-        AVBufferRef *device_ref;
-        AVHWDeviceContext *device_ctx;
-        AVVAAPIDeviceContext *device_vaapi_ctx;
-
-        AVBufferRef *hw_frames_ctx;
-        AVHWFramesContext *frame_ctx;
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
-        VAProfile va_profile;
-        VAEntrypoint va_entrypoint;
-        VAConfigID va_config;
-        VAContextID va_context;
-
-        struct vaapi_context decoder_context;
-#endif
-};
+struct AVCodecContext;
+struct hw_accel_state;
+struct vaapi_ctx;
 
 void vaapi_uninit(struct hw_accel_state *s);
-int vaapi_create_context(struct vaapi_ctx *ctx, AVCodecContext *codec_ctx);
 int vaapi_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec);
