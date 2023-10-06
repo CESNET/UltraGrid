@@ -303,8 +303,9 @@ struct codec_encoders_decoders{
 };
 
 enum incomp_feature {
-        INCOMP_INTRA_REFRESH,
+        INCOMP_DEPTH,
         INCOMP_INTERLACED_DCT,
+        INCOMP_INTRA_REFRESH,
         INCOMP_SUBSAMPLING,
 };
 void incomp_feature_warn(enum incomp_feature f, int req_val);
@@ -519,9 +520,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->params.header_inserter_req =
                             strstr(item, "=no") ? 1 : 0;
                 } else if (strcmp(item, "safe") == 0) {
-                        s->params.periodic_intra = 0;
-                        s->params.periodic_intra = 0;
-                        s->params.interlaced_dct = 0;
+                        s->params.periodic_intra     = 0;
+                        s->params.periodic_intra     = 0;
+                        s->params.interlaced_dct     = 0;
+                        s->req_conv_prop.depth       = 8;
                         s->req_conv_prop.subsampling = SUBS_420;
                 } else if (strchr(item, '=')) {
                         char *c_val_dup = strdup(strchr(item, '=') + 1);
@@ -1116,6 +1118,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         incomp_feature_warn(INCOMP_SUBSAMPLING,
                             av_pixfmt_get_subsampling(pix_fmt));
+        incomp_feature_warn(INCOMP_DEPTH,
+                            av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = ug_codec;
@@ -1563,6 +1567,16 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
 {
         const char *disable_opt = nullptr;
         switch (f) {
+        case INCOMP_DEPTH:
+                if (req_val == 8) {
+                        return;
+                }
+                MSG(WARNING,
+                    "Selected color depth %d b may not be supported by HW "
+                    "decoders.\n",
+                    req_val);
+                disable_opt = ":depth=8";
+                break;
         case INCOMP_INTRA_REFRESH:
                 if (req_val != -1) {
                         return;
@@ -1584,7 +1598,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                         return;
                 }
                 MSG(WARNING,
-                    "Selected pixfmt has subsampling %d:%d:%d and not 4:2:0, "
+                    "Selected pixfmt has subsampling %d:%d:%d, "
                     "which is usually not supported by hw. decoders\n",
                     (req_val / 1000), ((req_val / 100) % 10),
                     ((req_val / 10) % 10));
