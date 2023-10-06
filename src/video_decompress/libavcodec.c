@@ -554,6 +554,29 @@ fail:
 }
 #endif
 
+static void
+check_pixfmt_hw_eligibility(enum AVPixelFormat sw_pix_fmt)
+{
+        const char *fmt_name = av_get_pix_fmt_name(sw_pix_fmt);
+        const int   depth    = av_pix_fmt_desc_get(sw_pix_fmt)->comp[0].depth;
+        if (depth != 8) {
+                MSG(WARNING,
+                    "HW acceleration requested "
+                    "but incoming video has %d bit depth (%s), which is more "
+                    "than "
+                    "universally supported 8b.\n",
+                    depth, fmt_name);
+        }
+        if (av_pixfmt_get_subsampling(sw_pix_fmt) != SUBS_420) {
+                log_msg(LOG_LEVEL_WARNING,
+                        "[lavd] Hw. acceleration requested "
+                        "but incoming video has not 4:2:0 subsampling (format "
+                        "is %s), "
+                        "which is usually not supported by hw. accelerators\n",
+                        fmt_name);
+        }
+}
+
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
 #define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
@@ -590,12 +613,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
         if (hwaccel != NULL) {
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
-                if (av_pixfmt_get_subsampling(s->sw_pix_fmt) != SUBS_420) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Hw. acceleration requested "
-                                        "but incoming video has not 4:2:0 subsampling (format is %s), "
-                                        "which is usually not supported by hw. accelerators\n",
-                                        av_get_pix_fmt_name(s->sw_pix_fmt));
-                }
+                check_pixfmt_hw_eligibility(s->sw_pix_fmt);
                 const enum hw_accel_type forced_hwaccel =
                     strlen(hwaccel) > 0 ? hw_accel_from_str(hwaccel)
                                         : HWACCEL_NONE;
