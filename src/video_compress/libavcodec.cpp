@@ -1648,7 +1648,9 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
 
-        if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
+        if (param->desc.interlacing == INTERLACED_MERGED &&
+            param->interlaced_dct != 0 &&
+            codec_ctx->codec_id == AV_CODEC_ID_H264) {
                 incomp_feature_warn(INCOMP_INTERLACED_DCT, param->interlaced_dct);
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
