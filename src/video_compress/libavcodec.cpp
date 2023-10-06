@@ -1584,8 +1584,10 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                         return;
                 }
                 MSG(WARNING,
-                    "Selected pixfmt has not 4:2:0 subsampling, "
-                    "which is usually not supported by hw. decoders\n");
+                    "Selected pixfmt has subsampling %d:%d:%d and not 4:2:0, "
+                    "which is usually not supported by hw. decoders\n",
+                    (req_val / 1000), ((req_val / 100) % 10),
+                    ((req_val / 10) % 10));
                 disable_opt = ":subs=420";
                 break;
         }
