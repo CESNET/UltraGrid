@@ -105,9 +105,6 @@ extern "C" {
 #endif
 
 void print_decoder_error(const char *mod_name, int rc);
-bool pixfmt_has_420_subsampling(enum AVPixelFormat fmt);
-/// @retval true if all pixel formats have either 420 subsampling or are HW accelerated
-bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt);
 
 void print_libav_error(int verbosity, const char *msg, int rc);
 void printf_libav_error(int verbosity, int rc, const char *msg, ...) __attribute__((format (printf, 3, 4)));

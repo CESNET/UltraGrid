@@ -288,24 +288,6 @@ void print_decoder_error(const char *mod_name, int rc) {
         }
 }
 
-bool pixfmt_has_420_subsampling(enum AVPixelFormat fmt){
-        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(fmt);
-
-        return fmt_desc && (fmt_desc->log2_chroma_w == 1 && fmt_desc->log2_chroma_h == 1);
-}
-
-/// @retval true if all pixel formats have either 420 subsampling or are HW accelerated
-bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt){
-        for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
-                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*it);
-                if (!pixfmt_has_420_subsampling(*it) && !(fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
-                        return false;
-                }
-        }
-
-        return true;
-}
-
 const char *lavc_thread_type_to_str(int thread_type) {
         static _Thread_local char buf[128];
         memset(buf, 0, sizeof buf);
