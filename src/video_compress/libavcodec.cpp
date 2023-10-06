@@ -302,6 +302,13 @@ struct codec_encoders_decoders{
         std::vector<std::string> decoders;
 };
 
+enum incomp_feature {
+        INCOMP_INTRA_REFRESH,
+        INCOMP_INTERLACED_DCT,
+        INCOMP_SUBSAMPLING,
+};
+void incomp_feature_warn(enum incomp_feature f, int req_val);
+
 static codec_encoders_decoders get_codec_encoders_decoders(AVCodecID id){
         codec_encoders_decoders res;
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 9, 100)
@@ -1101,10 +1108,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X using thread type %d, count %d\n", codec->name,
                         codec->capabilities, s->codec_ctx->thread_type, s->codec_ctx->thread_count);
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-        if (!pixfmt_has_420_subsampling(pix_fmt)) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has not 4:2:0 subsampling, "
-                                "which is usually not supported by hw. decoders\n");
-        }
+        incomp_feature_warn(INCOMP_SUBSAMPLING,
+                            av_pixfmt_get_subsampling(pix_fmt));
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = ug_codec;
@@ -1547,26 +1552,34 @@ configure_mf(AVCodecContext                         *codec_ctx,
         check_av_opt_set<int>(codec_ctx->priv_data, "hw_encoding", 1);
 }
 
-enum incomp_feature {
-        INCOMP_INTRA_REFRESH,
-        INCOMP_INTERLACED_DCT,
-};
 void
-incomp_feature_warn(int req_val, enum incomp_feature f)
+incomp_feature_warn(enum incomp_feature f, int req_val)
 {
-        if (req_val != -1) {
-                return;
-        }
         switch (f) {
         case INCOMP_INTRA_REFRESH:
+                if (req_val != -1) {
+                        return;
+                }
                 MSG(WARNING, "Auto-enabling intra-refresh "
                              "which may not be supported by HW decoders.\n");
                 MSG(INFO, "Use ':disable_intra_refresh' to disable.\n");
                 break;
         case INCOMP_INTERLACED_DCT:
+                if (req_val != -1) {
+                        return;
+                }
                 MSG(WARNING, "Auto-enabling interlaced DCT "
                              "which may not be supported by HW decoders.\n");
-                MSG(INFO, "Use ':disable_interlaced_dct ' to disable.\n");
+                MSG(INFO, "Use ':disable_interlaced_dct' to disable.\n");
+                break;
+        case INCOMP_SUBSAMPLING:
+                if (req_val == SUBS_420) {
+                        return;
+                }
+                MSG(WARNING,
+                    "Selected pixfmt has not 4:2:0 subsampling, "
+                    "which is usually not supported by hw. decoders\n");
+                MSG(INFO, "Use ':subs=420' to disable.\n");
                 break;
         }
 }
@@ -1612,7 +1625,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         //codec_ctx->scenechange_threshold = 100;
 
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
-                incomp_feature_warn(param->interlaced_dct, INCOMP_INTERLACED_DCT);
+                incomp_feature_warn(INCOMP_INTERLACED_DCT, param->interlaced_dct);
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1629,7 +1642,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         x265_params_append("keyint", to_string(codec_ctx->gop_size));
         /// turn on periodic intra refresh, unless explicitely disabled
         if (param->periodic_intra != 0) {
-                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
+                incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
                         check_av_opt_set<const char *>(codec_ctx->priv_data, "intra-refresh", "1");
@@ -1652,13 +1665,13 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
 
         if (param->periodic_intra != 0) {
-                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
+                incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
                 check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
 
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
-                incomp_feature_warn(param->interlaced_dct, INCOMP_INTERLACED_DCT);
+                incomp_feature_warn(INCOMP_INTERLACED_DCT, param->interlaced_dct);
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1744,7 +1757,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 #endif
 
         if ((patched_ff && param->periodic_intra != 0) || param->periodic_intra == 1) {
-                incomp_feature_warn(param->periodic_intra, INCOMP_INTRA_REFRESH);
+                incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);
                 check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
         }
 
