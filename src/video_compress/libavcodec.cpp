@@ -376,9 +376,15 @@ static void get_codec_details(AVCodecID id, char *buf, size_t buflen)
 
 void usage(bool full) {
         printf("Libavcodec encoder usage:\n");
-        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>|:crf=<crf>|:cqp=<cqp>]\n"
-                        "\t\t[:subsampling=<subsampling>][:depth=<depth>][:rgb|:yuv][:gop=<gop>]"
-                        "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*") << "\n";
+        col() << "\t" SBOLD(SRED("-c libavcodec")
+                            << "[:codec=<codec_name>|:encoder=<encoder>]\n\t\t["
+                               ":bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>|:"
+                               "crf=<crf>|:cqp=<cqp>]\n\t\t[:subsampling=<"
+                               "subsampling>][:depth=<depth>"
+                               "][:rgb|:yuv][:gop=<gop>]\n\t\t"
+                               "[:[disable_]intra_refresh][:threads=<threads>]["
+                               ":slices=<slices>]\n\t\t[:<lavc_opt>=<val>]*")
+              << "\n\t" << SBOLD(SRED("-c libavcodec") << ":[full]help") << "\n";
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
         col() << "\t" << SBOLD("<codec_name>") << " - codec name (default MJPEG) if encoder name is not specified\n";
