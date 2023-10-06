@@ -383,7 +383,7 @@ void usage(bool full) {
                                "subsampling>][:depth=<depth>"
                                "][:rgb|:yuv][:gop=<gop>]\n\t\t"
                                "[:[disable_]intra_refresh][:threads=<threads>]["
-                               ":slices=<slices>]\n\t\t[:<lavc_opt>=<val>]*")
+                               ":slices=<slices>][safe]\n\t\t[:<lavc_opt>=<val>]*")
               << "\n\t" << SBOLD(SRED("-c libavcodec") << ":[full]help") << "\n";
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
@@ -406,6 +406,7 @@ void usage(bool full) {
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
+        col() << "\t" << SBOLD("safe") << " use opts for (HW) decode compatibility - 420, no intra refresh and interlacing\n";
         if (full) {
                 col() << "\t" << SBOLD("header_inserter[=no]")
                       << " repeat H.264/HEVC VPS/SPS/PPS hdrs (fixes problems "
@@ -517,6 +518,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if (strstr(item, "header_inserter") == item) {
                         s->params.header_inserter_req =
                             strstr(item, "=no") ? 1 : 0;
+                } else if (strcmp(item, "safe") == 0) {
+                        s->params.periodic_intra = 0;
+                        s->params.periodic_intra = 0;
+                        s->params.interlaced_dct = 0;
+                        s->req_conv_prop.subsampling = SUBS_420;
                 } else if (strchr(item, '=')) {
                         char *c_val_dup = strdup(strchr(item, '=') + 1);
                         replace_all(c_val_dup, DELDEL, ":");
@@ -1561,6 +1567,7 @@ configure_mf(AVCodecContext                         *codec_ctx,
 void
 incomp_feature_warn(enum incomp_feature f, int req_val)
 {
+        const char *disable_opt = nullptr;
         switch (f) {
         case INCOMP_INTRA_REFRESH:
                 if (req_val != -1) {
@@ -1568,7 +1575,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                 }
                 MSG(WARNING, "Auto-enabling intra-refresh "
                              "which may not be supported by HW decoders.\n");
-                MSG(INFO, "Use ':disable_intra_refresh' to disable.\n");
+                disable_opt = ":disable_intra_refresh";
                 break;
         case INCOMP_INTERLACED_DCT:
                 if (req_val != -1) {
@@ -1576,7 +1583,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                 }
                 MSG(WARNING, "Auto-enabling interlaced DCT "
                              "which may not be supported by HW decoders.\n");
-                MSG(INFO, "Use ':disable_interlaced_dct' to disable.\n");
+                disable_opt = ":disable_interlaced_dct";
                 break;
         case INCOMP_SUBSAMPLING:
                 if (req_val == SUBS_420) {
@@ -1585,9 +1592,10 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                 MSG(WARNING,
                     "Selected pixfmt has not 4:2:0 subsampling, "
                     "which is usually not supported by hw. decoders\n");
-                MSG(INFO, "Use ':subs=420' to disable.\n");
+                disable_opt = ":subs=420";
                 break;
         }
+        MSG(INFO, "Use '%s' or ':safe' to disable.\n", disable_opt);
 }
 
 ADD_TO_PARAM(
