@@ -349,7 +349,7 @@ get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
 {
         _Thread_local static char buf[STR_LEN];
         if (pixfmts == NULL || *pixfmts == AV_PIX_FMT_NONE) {
-                snprintf(buf, sizeof buf, " (none)");
+                snprintf(buf, sizeof buf, "(none)");
                 return buf;
         }
         const enum AVPixelFormat *it = pixfmts;

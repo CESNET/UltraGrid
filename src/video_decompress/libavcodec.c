@@ -557,15 +557,8 @@ fail:
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
 #define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
-        if (log_level >= LOG_LEVEL_VERBOSE) {
-                char out[1024] = "[lavd] Available output pixel formats:";
-                const enum AVPixelFormat *it = fmt;
-                while (*it != AV_PIX_FMT_NONE) {
-                        strncat(out, " ", sizeof out - strlen(out) - 1);
-                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
-                }
-                log_msg(LOG_LEVEL_VERBOSE, "%s\n", out);
-        }
+        MSG(VERBOSE, "Available output pixel formats: %s\n",
+            get_avpixfmts_names(fmt));
 
         struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         const char *hwaccel = get_commandline_param("use-hw-accel");
