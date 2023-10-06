@@ -462,11 +462,12 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
 
                 if(key == "help"){
                         col() << "Usage:\n" <<
-                                "\tuv " << TBOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>] \n") <<
+                                "\tuv " << TBOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>][:bind_ip=<addr>] \n") <<
                                 "\twhere\n"
                                 "\t\t" << TBOLD("server") << " - used if both stun & coord server are on the same host on standard ports (3478, 12558)\n"
                                 "\t\t" << TBOLD("room") << " - name of room to join\n"
                                 "\t\t" << TBOLD("client_name") << " - name to identify as to the coord server, if not specified hostname is used\n"
+                                "\t\t" << TBOLD("bind_ip") << " - local ip to bind to\n"
                                 "\n";
                         return false;
                 }
@@ -507,6 +508,8 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
                         copy_sv_to_c_buf(punch_c->room_name, val);
                 } else if(key == "client_name"){
                         copy_sv_to_c_buf(punch_c->client_name, val);
+                } else if(key == "bind_ip"){
+                        copy_sv_to_c_buf(punch_c->bind_addr, val);
                 }
         }
 

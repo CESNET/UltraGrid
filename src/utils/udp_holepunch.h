@@ -60,7 +60,7 @@ struct Holepunch_config{
         char *host_addr;
         size_t host_addr_len;
 
-        const char *bind_addr;
+        char bind_addr[64];
 
         char coord_srv_addr[512];
         int coord_srv_port;
