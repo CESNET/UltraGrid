@@ -44,3 +44,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/**
+ * Implement handling functions for RTSP methods
+ * 
+ * @note for inspiration look in Live555 library 
+ *       liveMedia/include/OnDemandServerMediaSubsession.hh
+ *       liveMedia/OnDemandServerMediaSubsession.cpp
+*/
+
+#ifndef BASIC_RTSP_SUBSESSION_HH
+#define BASIC_RTSP_SUBSESSION_HH
+
+#ifdef __clang__
+#define MAYBE_UNUSED_ATTRIBUTE [[maybe_unused]]
+#else
+#define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
+#endif
+
+class UltragridRTSPSubsessionCommon {
+    UltragridRTSPSubsessionCommon();
+};
+
+typedef UltragridRTSPSubsessionCommon BasicRTSPOnlySubsession; // kept for legacy maintanance
+
+#undef MAYBE_UNUSED_ATTRIBUTE
+
+#endif // BASIC_RTSP_SUBSESSION_HH
