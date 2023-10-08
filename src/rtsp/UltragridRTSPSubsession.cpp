@@ -55,8 +55,8 @@
 #define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
 #endif
 
-UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(int RTPPort)
-    : destPort(0), RTPPort(RTPPort) {}
+UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(struct module *mod, int RTPPort, enum module_class *path_sender)
+    : destPort(0), mod(mod), RTPPort(RTPPort), path_sender(path_sender) {}
 
 void UltragridRTSPSubsessionCommon::getStreamParameters(
     MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
@@ -83,6 +83,26 @@ void UltragridRTSPSubsessionCommon::getStreamParameters(
     // in
     destAddress = destinationAddress;
     destPort = clientRTPPort;
+}
+
+void UltragridRTSPSubsessionCommon::redirectStream(const char* destinationAddress, int destinationPort) {
+    char pathV[1024];
+    memset(pathV, 0, sizeof(pathV));
+    append_message_path(pathV, sizeof(pathV), path_sender);
+    struct response *resp = NULL;
+    // change destination port
+    struct msg_sender *msg1 = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+    msg1->tx_port = ntohs(destinationPort);
+    msg1->type = SENDER_MSG_CHANGE_PORT;
+    resp = send_message(mod, pathV, (struct message *) msg1);
+    free_response(resp);
+
+    // change destination address
+    struct msg_sender *msg2 = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+    strncpy(msg2->receiver, destinationAddress, sizeof(msg2->receiver) - 1);
+    msg2->type = SENDER_MSG_CHANGE_RECEIVER;
+    resp = send_message(mod, pathV, (struct message *) msg2);
+    free_response(resp);
 }
 
 #undef MAYBE_UNUSED_ATTRIBUTE

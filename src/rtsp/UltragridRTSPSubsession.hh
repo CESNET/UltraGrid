@@ -63,9 +63,10 @@
 
 #include <ServerMediaSession.hh>
 #include <BasicUsageEnvironment.hh>
+#include "module.h"
 
 class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
-    UltragridRTSPSubsessionCommon(int RTPPort);
+    UltragridRTSPSubsessionCommon(struct module *mod, int RTPPort, enum module_class *path_sender);
 
     /**
     * @note called by Live555 when handling SETUP method
@@ -114,11 +115,18 @@ class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
         MAYBE_UNUSED_ATTRIBUTE RTPSink *& /* rtpSink */,
         MAYBE_UNUSED_ATTRIBUTE RTCPInstance *& /* rtcp */) {}
 
+    /**
+    * tells UltraGrid (SENDER module) where (IP adress and port) to send media
+    */
+    void redirectStream(const char* destinationAddress, int destinationPort);
+
     struct sockaddr_storage destAddress;
     Port destPort;
 
+    struct module *mod;
     int RTPPort;
 
+    enum module_class *path_sender;
     const Boolean fReuseFirstSource = True; // tells Live555 that all clients use same source, eg. no pausing, seeking ...
 };
 
