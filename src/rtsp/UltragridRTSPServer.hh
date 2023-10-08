@@ -44,3 +44,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#ifndef ULTRAGRID_RTSP_SERVER_HH
+#define ULTRAGRID_RTSP_SERVER_HH
+
+#include <RTSPServer.hh>
+#include <BasicUsageEnvironment.hh>
+
+class UltragridRTSPServer {
+public:
+    UltragridRTSPServer();
+    ~UltragridRTSPServer();
+
+    /**
+     * Copy constructor and copy assignment operator do not make sense in this context
+    */
+    UltragridRTSPServer(const UltragridRTSPServer&) = delete;
+    UltragridRTSPServer& operator=(const UltragridRTSPServer&) = delete;
+};
+
+typedef UltragridRTSPServer BasicRTSPOnlyServer; // kept for legacy maintanance
+
+#endif // ULTRAGRID_RTSP_SERVER_HH
