@@ -73,8 +73,6 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 #include "BasicUsageEnvironment.hh"
 
-void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms); // forward
-
 UltragridRTSPServer::UltragridRTSPServer() {
     // Begin by setting up our usage environment:
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
@@ -122,7 +120,7 @@ UltragridRTSPServer::UltragridRTSPServer() {
 }
 
 // copied from Live555 library live555/testProgs/announceURL.cpp, published under LGPL3 licence
-void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms) {
+void UltragridRTSPServer::announceURL(RTSPServer* rtspServer, ServerMediaSession* sms) {
   if (rtspServer == NULL || sms == NULL) return; // sanity check
 
   UsageEnvironment& env = rtspServer->envir();

@@ -63,6 +63,12 @@ public:
     */
     UltragridRTSPServer(const UltragridRTSPServer&) = delete;
     UltragridRTSPServer& operator=(const UltragridRTSPServer&) = delete;
+
+private:
+    /**
+     * @note Copied as is from live555/testProgs/announceURL.hh.
+     */
+    static void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms);
 };
 
 typedef UltragridRTSPServer BasicRTSPOnlyServer; // kept for legacy maintanance
