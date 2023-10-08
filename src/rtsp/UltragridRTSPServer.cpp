@@ -78,61 +78,59 @@ UsageEnvironment* env;
 Boolean reuseFirstSource = False;
 
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
-			   char const* streamName, char const* inputFileName); // forward
+                           char const* streamName, char const* inputFileName); // forward
 
 int main(int argc, char** argv) {
-  // Begin by setting up our usage environment:
-  TaskScheduler* scheduler = BasicTaskScheduler::createNew();
-  env = BasicUsageEnvironment::createNew(*scheduler);
+    // Begin by setting up our usage environment:
+    TaskScheduler* scheduler = BasicTaskScheduler::createNew();
+    env = BasicUsageEnvironment::createNew(*scheduler);
 
-  UserAuthenticationDatabase* authDB = NULL;
-#ifdef ACCESS_CONTROL
-  // To implement client access control to the RTSP server, do the following:
-  authDB = new UserAuthenticationDatabase;
-  authDB->addUserRecord("username1", "password1"); // replace these with real strings
-  // Repeat the above with each <username>, <password> that you wish to allow
-  // access to the server.
-#endif
+    UserAuthenticationDatabase* authDB = NULL;
+    #ifdef ACCESS_CONTROL
+        // To implement client access control to the RTSP server, do the following:
+        authDB = new UserAuthenticationDatabase;
+        authDB->addUserRecord("username1", "password1"); // replace these with real strings
+        // Repeat the above with each <username>, <password> that you wish to allow
+        // access to the server.
+    #endif
 
-  // Create the RTSP server:
-  RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
-  if (rtspServer == NULL) {
-    *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
-    exit(1);
-  }
+    // Create the RTSP server:
+    RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
+    if (rtspServer == NULL) {
+        *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
+        exit(1);
+    }
 
-  char const* descriptionString
-    = "Session streamed by \"testOnDemandRTSPServer\"";
+    char const* descriptionString = "Session streamed by \"testOnDemandRTSPServer\"";
 
-  // Set up each of the possible streams that can be served by the
-  // RTSP server.  Each such stream is implemented using a
-  // "ServerMediaSession" object, plus one or more
-  // "ServerMediaSubsession" objects for each audio/video substream.
+    // Set up each of the possible streams that can be served by the
+    // RTSP server.  Each such stream is implemented using a
+    // "ServerMediaSession" object, plus one or more
+    // "ServerMediaSubsession" objects for each audio/video substream.
 
-  // A MPEG-4 video elementary stream:
-  {
-    char const* streamName = "mpeg4ESVideoTest";
-    char const* inputFileName = "test.m4e";
-    ServerMediaSession* sms
-      = ServerMediaSession::createNew(*env, streamName, streamName,
-				      descriptionString);
-    sms->addSubsession(MPEG4VideoFileServerMediaSubsession
-		       ::createNew(*env, inputFileName, reuseFirstSource));
-    rtspServer->addServerMediaSession(sms);
+    // A MPEG-4 video elementary stream:
+    {
+        char const* streamName = "mpeg4ESVideoTest";
+        char const* inputFileName = "test.m4e";
+        ServerMediaSession* sms = 
+            ServerMediaSession::createNew(*env, streamName, streamName, descriptionString);
+        sms->addSubsession(MPEG4VideoFileServerMediaSubsession
+            ::createNew(*env, inputFileName, reuseFirstSource));
+        rtspServer->addServerMediaSession(sms);
 
-    announceStream(rtspServer, sms, streamName, inputFileName);
-  }
+        announceStream(rtspServer, sms, streamName, inputFileName);
+    }
 
-  env->taskScheduler().doEventLoop(); // does not return
+    env->taskScheduler().doEventLoop(); // does not return
 
-  return 0; // only to prevent compiler warning
+    return 0; // only to prevent compiler warning
 }
 
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
-			   char const* streamName, char const* inputFileName) {
-  UsageEnvironment& env = rtspServer->envir();
+                           char const* streamName, char const* inputFileName) {
+    UsageEnvironment& env = rtspServer->envir();
 
-  env << "\n\"" << streamName << "\" stream, from the file \""
-      << inputFileName << "\"\n";
-  announceURL(rtspServer, sms);
+    env << "\n\"" << streamName << "\" stream, from the file \""
+        << inputFileName << "\"\n";
+    announceURL(rtspServer, sms);
 }
