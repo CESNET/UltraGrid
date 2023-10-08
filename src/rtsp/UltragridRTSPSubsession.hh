@@ -66,7 +66,7 @@
 #include "module.h"
 
 class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
-    UltragridRTSPSubsessionCommon(struct module *mod, int RTPPort, enum module_class *path_sender);
+    UltragridRTSPSubsessionCommon(UsageEnvironment& env, struct module *mod, int RTPPort, enum module_class *path_sender);
 
     /**
     * @note called by Live555 when handling SETUP method
@@ -120,6 +120,7 @@ class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
     */
     void redirectStream(const char* destinationAddress, int destinationPort);
 
+    UsageEnvironment& env;
     struct sockaddr_storage destAddress;
     Port destPort;
 

@@ -55,8 +55,11 @@
 #define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
 #endif
 
-UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(struct module *mod, int RTPPort, enum module_class *path_sender)
-    : destPort(0), mod(mod), RTPPort(RTPPort), path_sender(path_sender) {}
+UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(UsageEnvironment& env, struct module *mod, int RTPPort, enum module_class *path_sender)
+    : ServerMediaSubsession(env), env(env), destPort(0), mod(mod), RTPPort(RTPPort), path_sender(path_sender) {
+        if (mod == NULL)
+            throw std::system_error();
+}
 
 void UltragridRTSPSubsessionCommon::getStreamParameters(
     MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
@@ -83,6 +86,32 @@ void UltragridRTSPSubsessionCommon::getStreamParameters(
     // in
     destAddress = destinationAddress;
     destPort = clientRTPPort;
+}
+
+void UltragridRTSPSubsessionCommon::startStream(
+        MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */,
+        MAYBE_UNUSED_ATTRIBUTE void* /* streamToken */,
+        MAYBE_UNUSED_ATTRIBUTE TaskFunc* /* rtcpRRHandler */,
+        MAYBE_UNUSED_ATTRIBUTE void* /* rtcpRRHandlerClientData */,
+        MAYBE_UNUSED_ATTRIBUTE unsigned short& /* rtpSeqNum */,
+        MAYBE_UNUSED_ATTRIBUTE unsigned& /* rtpTimestamp */,
+        MAYBE_UNUSED_ATTRIBUTE ServerRequestAlternativeByteHandler* /* serverRequestAlternativeByteHandler */,
+        MAYBE_UNUSED_ATTRIBUTE void* /* serverRequestAlternativeByteHandlerClientData */
+    ) {
+
+    if (addressIsNull(destAddress) || destPort.num() == 0) {
+        env << "[RTSP Server] Error: Failed to start (audio OR video) stream due to empty destination address\n";
+        return;
+    }
+    
+    redirectStream(AddressString(destAddress).val(), destPort.num());
+}
+
+void UltragridRTSPSubsessionCommon::deleteStream(MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, MAYBE_UNUSED_ATTRIBUTE  void*& /* streamToken */) {
+    destAddress = sockaddr_storage();
+    destPort = Port(0);
+
+    redirectStream("127.0.0.1", RTPPort);
 }
 
 void UltragridRTSPSubsessionCommon::redirectStream(const char* destinationAddress, int destinationPort) {
