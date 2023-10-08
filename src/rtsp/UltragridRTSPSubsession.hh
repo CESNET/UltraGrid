@@ -61,8 +61,65 @@
 #define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
 #endif
 
-class UltragridRTSPSubsessionCommon {
-    UltragridRTSPSubsessionCommon();
+#include <ServerMediaSession.hh>
+#include <BasicUsageEnvironment.hh>
+
+class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
+    UltragridRTSPSubsessionCommon(int RTPPort);
+
+    /**
+    * @note called by Live555 when handling SETUP method
+    */
+    virtual void getStreamParameters(
+        unsigned clientSessionId, // in
+        struct sockaddr_storage const& clientAddress, // in
+        Port const& clientRTPPort, // in
+        Port const& clientRTCPPort, // in
+        int tcpSocketNum, // in (-1 means use UDP, not TCP)
+        unsigned char rtpChannelId, // in (used if TCP)
+        unsigned char rtcpChannelId, // in (used if TCP)
+        TLSState* tlsState, // in (used if TCP)
+        struct sockaddr_storage& destinationAddress, // in out
+        u_int8_t& destinationTTL, // in out
+        Boolean& isMulticast, // out
+        Port& serverRTPPort, // out
+        Port& serverRTCPPort, // out
+        void*& streamToken // out
+    );
+
+    /**
+    * @note called by Live555 when handling PLAY method
+    */
+    virtual void startStream(
+        unsigned clientSessionId,
+        void* streamToken,
+        TaskFunc* rtcpRRHandler,
+        void* rtcpRRHandlerClientData,
+        unsigned short& rtpSeqNum,
+        unsigned& rtpTimestamp,
+        ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
+        void* serverRequestAlternativeByteHandlerClientData
+    );
+
+    /**
+    * @note called by Live555 when handling TEARDOWN method
+    */
+    virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+
+    /**
+    * none of the arguments are used in this implementaton of server, so the function does nothing
+    */
+    virtual void getRTPSinkandRTCP(
+        MAYBE_UNUSED_ATTRIBUTE void* /* streamToken */,
+        MAYBE_UNUSED_ATTRIBUTE RTPSink *& /* rtpSink */,
+        MAYBE_UNUSED_ATTRIBUTE RTCPInstance *& /* rtcp */) {}
+
+    struct sockaddr_storage destAddress;
+    Port destPort;
+
+    int RTPPort;
+
+    const Boolean fReuseFirstSource = True; // tells Live555 that all clients use same source, eg. no pausing, seeking ...
 };
 
 typedef UltragridRTSPSubsessionCommon BasicRTSPOnlySubsession; // kept for legacy maintanance

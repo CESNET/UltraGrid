@@ -46,3 +46,43 @@
  */
 
 #include "rtsp/UltragridRTSPSubsession.hh"
+#include "messaging.h"
+#include "host.h"
+
+#ifdef __clang__
+#define MAYBE_UNUSED_ATTRIBUTE [[maybe_unused]]
+#else
+#define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
+#endif
+
+UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(int RTPPort)
+    : destPort(0), RTPPort(RTPPort) {}
+
+void UltragridRTSPSubsessionCommon::getStreamParameters(
+    MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
+    MAYBE_UNUSED_ATTRIBUTE struct sockaddr_storage const& clientAddress, // in
+    MAYBE_UNUSED_ATTRIBUTE Port const& clientRTPPort, // in
+    MAYBE_UNUSED_ATTRIBUTE Port const& /* clientRTCPPort */, // in
+    MAYBE_UNUSED_ATTRIBUTE int /* tcpSocketNum */, // in (-1 means use UDP, not TCP)
+    MAYBE_UNUSED_ATTRIBUTE unsigned char /* rtpChannelId */, // in (used if TCP)
+    MAYBE_UNUSED_ATTRIBUTE unsigned char /* rtcpChannelId */, // in (used if TCP)
+    MAYBE_UNUSED_ATTRIBUTE TLSState* /* tlsState */, // in (used if TCP)
+    MAYBE_UNUSED_ATTRIBUTE struct sockaddr_storage& destinationAddress, // in out
+    MAYBE_UNUSED_ATTRIBUTE u_int8_t& /* destinationTTL */, // in out
+    MAYBE_UNUSED_ATTRIBUTE Boolean& /* isMulticast */, // out
+    MAYBE_UNUSED_ATTRIBUTE Port& serverRTPPort, // out
+    MAYBE_UNUSED_ATTRIBUTE Port& serverRTCPPort, // out
+    MAYBE_UNUSED_ATTRIBUTE void*& /* streamToken */ // out
+    ) {
+    
+    // out
+    destinationAddress = clientAddress;
+    serverRTPPort = Port(RTPPort);
+    serverRTCPPort = Port(RTPPort + 1);
+    
+    // in
+    destAddress = destinationAddress;
+    destPort = clientRTPPort;
+}
+
+#undef MAYBE_UNUSED_ATTRIBUTE
