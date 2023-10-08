@@ -65,22 +65,16 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 **********/
 // Copyright (c) 1996-2023, Live Networks, Inc.  All rights reserved
 
+#include "rtsp/UltragridRTSPServer.hh"
 #include "liveMedia.hh"
 
 #include "BasicUsageEnvironment.hh"
 #include "announceURL.hh"
 
-UsageEnvironment* env;
-
-// To make the second and subsequent client for each stream reuse the same
-// input stream as the first client (rather than playing the file from the
-// start for each client), change the following "False" to "True":
-Boolean reuseFirstSource = False;
-
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
                            char const* streamName, char const* inputFileName); // forward
 
-int main(int argc, char** argv) {
+UltragridRTSPServer::UltragridRTSPServer() {
     // Begin by setting up our usage environment:
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);

@@ -53,6 +53,8 @@
 
 class UltragridRTSPServer {
 public:
+    UsageEnvironment* env;
+
     UltragridRTSPServer();
     ~UltragridRTSPServer();
 
