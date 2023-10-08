@@ -47,6 +47,8 @@
 /**
  * @note This code was created as a set of steps on file from Live555 library testProgs/testOnDemandRTSPServer.cpp
  *       Original file licenece is posted below
+ * @note This file also contains function announceURL what was copied from Live555 library testProgs/announceURL.cpp
+ *       announceURL.cpp licence is the same as in testOnDemandRTSPServer.cpp
 */
 /**********
 This library is free software; you can redistribute it and/or modify it under
@@ -66,13 +68,12 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // Copyright (c) 1996-2023, Live Networks, Inc.  All rights reserved
 
 #include "rtsp/UltragridRTSPServer.hh"
+#include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
 #include "liveMedia.hh"
 
 #include "BasicUsageEnvironment.hh"
-#include "announceURL.hh"
 
-static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
-                           char const* streamName, char const* inputFileName); // forward
+void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms); // forward
 
 UltragridRTSPServer::UltragridRTSPServer() {
     // Begin by setting up our usage environment:
@@ -112,7 +113,7 @@ UltragridRTSPServer::UltragridRTSPServer() {
             ::createNew(*env, inputFileName, reuseFirstSource));
         rtspServer->addServerMediaSession(sms);
 
-        announceStream(rtspServer, sms, streamName, inputFileName);
+        announceURL(rtspServer, sms);
     }
 
     env->taskScheduler().doEventLoop(); // does not return
@@ -120,11 +121,23 @@ UltragridRTSPServer::UltragridRTSPServer() {
     return 0; // only to prevent compiler warning
 }
 
-static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
-                           char const* streamName, char const* inputFileName) {
-    UsageEnvironment& env = rtspServer->envir();
+// copied from Live555 library live555/testProgs/announceURL.cpp, published under LGPL3 licence
+void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms) {
+  if (rtspServer == NULL || sms == NULL) return; // sanity check
 
-    env << "\n\"" << streamName << "\" stream, from the file \""
-        << inputFileName << "\"\n";
-    announceURL(rtspServer, sms);
+  UsageEnvironment& env = rtspServer->envir();
+
+  env << "Play this stream using the URL ";
+  if (weHaveAnIPv4Address(env)) {
+    char* url = rtspServer->ipv4rtspURL(sms);
+    env << "\"" << url << "\"";
+    delete[] url;
+    if (weHaveAnIPv6Address(env)) env << " or ";
+  }
+  if (weHaveAnIPv6Address(env)) {
+    char* url = rtspServer->ipv6rtspURL(sms);
+    env << "\"" << url << "\"";
+    delete[] url;
+  }
+  env << "\n";
 }
