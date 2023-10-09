@@ -9,7 +9,6 @@ on:
     branches:
       - master
       - ndi-build
-      - 'release/*'
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
