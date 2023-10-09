@@ -73,7 +73,9 @@ extern "C"
 {
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
 #include <libavcodec/vaapi.h>
+#endif
 }
 #include "hwaccel_libav_common.h"
 #endif

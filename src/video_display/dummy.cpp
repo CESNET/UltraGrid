@@ -46,6 +46,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 const constexpr char *MOD_NAME = "[dummy] ";
