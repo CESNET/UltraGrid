@@ -146,6 +146,13 @@ set_libva_ld_preload() {
                         libva_libs=$libva_libs:$NAME
                 fi
         done
+        # preload also VDPAU
+        libvdpau_lib=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB"\
+                 | grep libvdpau.so | grep -v 'not found' | awk '{print $3}')
+        if [ -n "$libvdpau_lib" ]; then
+                libva_libs=$libva_libs:$libvdpau_lib
+        fi
+
         LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
         export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
 }
