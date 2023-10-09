@@ -59,12 +59,13 @@ static const struct {
         enum AVPixelFormat av_pixfmt;
         codec_t ug_pixfmt;
 } accel_str_map[] = {
-        {"vdpau",         HWACCEL_VDPAU,        AV_PIX_FMT_VDPAU,     HW_VDPAU},
-        { "vaapi",        HWACCEL_VAAPI,        AV_PIX_FMT_VAAPI,     0       },
-        { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0    },
-        { "rpi4",         HWACCEL_RPI4,         AV_PIX_FMT_RPI4_8,    RPI4_8  },
-        { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,      0       },
-        { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,    0       },
+        {"vdpau",         HWACCEL_VDPAU,        AV_PIX_FMT_VDPAU,        HW_VDPAU},
+        { "vdpau-copy",   HWACCEL_VDPAU,        AV_PIX_FMT_VDPAU,        HW_VDPAU},
+        { "vaapi",        HWACCEL_VAAPI,        AV_PIX_FMT_VAAPI,        0       },
+        { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0       },
+        { "rpi4",         HWACCEL_RPI4,         AV_PIX_FMT_RPI4_8,       RPI4_8  },
+        { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,         0       },
+        { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,       0       },
 };
 
 enum hw_accel_type hw_accel_from_str(const char *str){

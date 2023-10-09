@@ -1455,13 +1455,15 @@ static bool
 vdp_interop_supported()
 {
 #ifdef HWACC_VDPAU
+        const char *hwacc_param = get_commandline_param("use-hw-accel");
+        if (hwacc_param != nullptr && strcmp(hwacc_param, "vdpau-copy") == 0) {
+                return false;
+        }
         if (strstr((const char *) glGetString(GL_EXTENSIONS),
                    "GL_NV_vdpau_interop") != nullptr) {
                 return true;
         }
-        log_msg(get_commandline_param("use-hw-accel") == nullptr
-                    ? LOG_LEVEL_VERBOSE
-                    : LOG_LEVEL_WARNING,
+        log_msg(hwacc_param == nullptr ? LOG_LEVEL_VERBOSE : LOG_LEVEL_WARNING,
                 MOD_NAME "VDPAU interop NOT supported!\n");
         MSG(DEBUG, "Available extensions:%s\n", glGetString(GL_EXTENSIONS));
 #endif
