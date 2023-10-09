@@ -405,6 +405,7 @@ struct state_gl {
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
+        bool         vdp_interop;
         vector<char> scratchpad; ///< scratchpad sized WxHx8
 
         state_gl(struct module *parent) {
@@ -1450,6 +1451,23 @@ static void set_gamma(struct state_gl *s) {
         }
 }
 
+static bool
+vdp_interop_supported()
+{
+#ifdef HWACC_VDPAU
+        if (strstr((const char *) glGetString(GL_EXTENSIONS),
+                   "GL_NV_vdpau_interop") != nullptr) {
+                return true;
+        }
+        log_msg(get_commandline_param("use-hw-accel") == nullptr
+                    ? LOG_LEVEL_VERBOSE
+                    : LOG_LEVEL_WARNING,
+                MOD_NAME "VDPAU interop NOT supported!\n");
+        MSG(DEBUG, "Available extensions:%s\n", glGetString(GL_EXTENSIONS));
+#endif
+        return false;
+}
+
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
@@ -1572,6 +1590,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glGenFramebuffersEXT(1, &s->fbo_id);
 
         glGenBuffersARB(1, &s->pbo_id);
+
+        s->vdp_interop = vdp_interop_supported();
+
         glfwMakeContextCurrent(nullptr);
 
         return true;
@@ -1869,6 +1890,9 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                                                 return false;
                                         }
                                         if (glsl_programs.find(c) != glsl_programs.end() && s->PHandles.find(c) == s->PHandles.end()) { // GLSL shader needed but compilation failed
+                                                return false;
+                                        }
+                                        if (c == HW_VDPAU && !s->vdp_interop) {
                                                 return false;
                                         }
                                         return true;

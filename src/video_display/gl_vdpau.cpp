@@ -226,6 +226,8 @@ void state_vdpau::uninitInterop(){
  * @brief Initializes state_vdpau
  */
 bool state_vdpau::init(){
+        assert(strstr((const char *) glGetString(GL_EXTENSIONS),
+                      "GL_NV_vdpau_interop") != nullptr);
         initialized = true;
         glGenTextures(4, textures);
         hw_vdpau_frame_init(&lastFrame);
