@@ -69,7 +69,9 @@ extern "C"
 {
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
 #include <libavcodec/vaapi.h>
+#endif
 }
 #endif
 
@@ -731,7 +733,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         int ret;
         codec_t ug_codec = VIDEO_CODEC_NONE;
         AVPixelFormat pix_fmt;
-        AVCodec *codec = nullptr;
+        const AVCodec *codec = nullptr;
 
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;

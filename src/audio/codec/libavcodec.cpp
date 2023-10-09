@@ -110,7 +110,7 @@ struct libavcodec_codec_state {
         uint32_t magic;
         pthread_mutex_t    *libav_global_lock;
         AVCodecContext     *codec_ctx;
-        AVCodec            *codec;
+        const AVCodec      *codec;
 
         AVFrame            *av_frame;
 
