@@ -73,6 +73,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/math.h"
 #include "utils/windows.h"
 #include "video.h"
@@ -706,15 +707,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 } else {
                         s->audio_consumer_levels = 1;
                 }
-        } else if(strncasecmp(opt, "conversion=",
-                                strlen("conversion=")) == 0) {
+        } else if (IS_KEY_PREFIX(opt, "conversion")) {
                 s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
-        } else if (strncasecmp(opt, "device=", strlen("device=")) == 0 ||
-                   strstr(opt, "d=") == opt) {
+        } else if (IS_KEY_PREFIX(opt, "device")) {
                 parse_devices(s, strchr(opt, '=') + 1);
-        } else if (strncasecmp(opt, "mode=", strlen("mode=")) == 0 || strstr(opt, "m=") == opt) {
+        } else if (IS_KEY_PREFIX(opt, "mode")) {
                 s->mode = strchr(opt, '=') + 1;
-        } else if (strncasecmp(opt, "codec=", strlen("codec=")) == 0 || strstr(opt, "m=") == opt) {
+        } else if (IS_KEY_PREFIX(opt, "codec")) {
                 const char *codec = strchr(opt, '=') + 1;
                 s->set_codec(get_codec_from_name(codec));
                 if(s->codec == VIDEO_CODEC_NONE) {

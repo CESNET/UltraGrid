@@ -60,6 +60,7 @@
 #include "module.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
+#include "utils/macros.h"
 #include "utils/math.h"
 #include "utils/misc.h"
 #include "utils/string.h" // is_prefix_of
@@ -1135,8 +1136,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         }
 
         while (ptr != nullptr)  {
-                if (strncasecmp(ptr, "device=", strlen("device=")) == 0 ||
-                    strstr(ptr, "d=") == ptr) {
+                if (IS_KEY_PREFIX(ptr, "device")) {
                         cardId = strchr(ptr, '=') + 1;
                 } else if (strcasecmp(ptr, "3D") == 0) {
                         s->stereo = true;
@@ -1182,8 +1182,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         } else {
                                 *audio_consumer_levels = 1;
                         }
-                } else if (strncasecmp(ptr, "conversion=",
-                                        strlen("conversion=")) == 0) {
+                } else if (IS_KEY_PREFIX(ptr, "conversion")) {
                         s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
                         s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse(strchr(ptr, '=') + 1);
