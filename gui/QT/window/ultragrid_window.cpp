@@ -118,6 +118,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.statusbar->addPermanentWidget(&versionLabel);
 
 	ui.vuMeter->setControlPort(&controlPort);
+	ui.vuMeter->setOnRightSide(true);
 	ui.vuMeterSend->setControlPort(&controlPort);
 	ui.vuMeterSend->setParsePrefix("stats ASEND");
 

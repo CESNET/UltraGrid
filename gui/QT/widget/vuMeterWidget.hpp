@@ -20,6 +20,8 @@ public:
 	void setControlPort(ControlPort *controlPort);
 	void setParsePrefix(std::string_view prefix);
 
+	void setOnRightSide(bool side) { onRightSide = side; }
+
 protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
@@ -34,6 +36,8 @@ private:
 	double barLevel[max_channels];
 	double rmsLevel[max_channels];
 
+	bool onRightSide = false;
+
 	QTimer timer;
 	int updatesPerSecond;
 	using clock = std::chrono::steady_clock;
@@ -43,7 +47,7 @@ private:
 	bool connected = false;
 
 	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms);
-	void paintScale(QPainter&, int x, int y, int width, int height);
+	void paintScale(QPainter&, int x, int y, int width, int height, bool leftTicks, bool rightTicks);
 
 public slots:
 	void updateVal();

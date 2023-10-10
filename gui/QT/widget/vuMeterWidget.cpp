@@ -112,7 +112,8 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 		double peak,
 		double rms)
 {
-	const int in_width = width - meterBarPad * 2;
+	const int meterBarPadHorizontal = 1;
+	const int in_width = width - meterBarPadHorizontal * 2;
 	const int in_full_height = height - meterBarPad * 2;
 
 	int barHeight = in_full_height * (peak / 100);
@@ -128,24 +129,28 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 	using namespace std::chrono_literals;
 	bool enabled = connected && (clock::now() - lastUpdate <= 2s);
 
-	painter.fillRect(x, y, width, height, enabled ? Qt::black : Qt::gray);
+	painter.fillRect(x, y + 1, width, height - 2, enabled ? Qt::black : Qt::gray);
 	if(!enabled)
 		return;
 
-	painter.fillRect(x + meterBarPad,
+	painter.fillRect(x + meterBarPadHorizontal,
 			y + meterBarPad + (in_full_height - barHeight),
 			in_width, barHeight,
 			brush);
 	int pos = y + meterBarPad + (in_full_height - rmsHeight);
-	painter.setPen(Qt::red);
-	painter.drawLine(x, pos, x + width, pos);
+	QPen rmsPen(Qt::blue);
+	rmsPen.setWidth(4);
+	painter.setPen(rmsPen);
+	painter.drawLine(x + meterBarPadHorizontal, pos, x + in_width, pos);
 }
 
 void VuMeterWidget::paintScale(QPainter& painter,
 		int x,
 		int y,
 		int width,
-		int height)
+		int height,
+		bool leftTicks,
+		bool rightTicks)
 {
 	const int barHeight = height - meterVerticalPad * 2 - meterBarPad * 2;	
 	const int barStart = y + meterVerticalPad + meterBarPad;
@@ -153,21 +158,31 @@ void VuMeterWidget::paintScale(QPainter& painter,
 
 	painter.setPen(connected ? Qt::black : Qt::gray);
 	int i = 0;
+
+	int textPosX;
+	if(leftTicks && rightTicks){
+		textPosX = x + width / 2 - 8;
+	} else if(leftTicks){
+		textPosX = x + width - 16;
+	} else {
+		textPosX = x;
+	}
+
 	for(float y = barStart; y <= barStart + barHeight + 0.1; y += stepPx){
 		static const int lineLenghtSmall = 2;
 		static const int lineLenghtMid = 4;
 		static const int lineLenghtLarge = 6;
 		static const int drawThreshold = 4;
 		if(i % 10 == 0){
-			painter.drawLine(x, y, x + lineLenghtLarge, y);
-			painter.drawLine(x + width - lineLenghtLarge, y, x + width, y);
-			painter.drawText(QRect(x + width / 2 - 8, y - 6, 16, 12), Qt::AlignCenter,QString::number(i));
+			if(leftTicks) painter.drawLine(x, y, x + lineLenghtLarge, y);
+			if(rightTicks) painter.drawLine(x + width - lineLenghtLarge, y, x + width, y);
+			painter.drawText(QRect(textPosX, y - 6, 16, 12), Qt::AlignCenter,QString::number(i));
 		} else if(i % 5 == 0){
-			painter.drawLine(x, y, x + lineLenghtMid, y);
-			painter.drawLine(x + width - lineLenghtMid, y, x + width, y);
+			if(leftTicks) painter.drawLine(x, y, x + lineLenghtMid, y);
+			if(rightTicks) painter.drawLine(x + width - lineLenghtMid, y, x + width, y);
 		} else if(stepPx >= drawThreshold){
-			painter.drawLine(x, y, x + lineLenghtSmall, y);
-			painter.drawLine(x + width - lineLenghtSmall, y, x + width, y);
+			if(leftTicks) painter.drawLine(x, y, x + lineLenghtSmall, y);
+			if(rightTicks) painter.drawLine(x + width - lineLenghtSmall, y, x + width, y);
 		}
 
 		i++;
@@ -188,39 +203,65 @@ void VuMeterWidget::paintScale(QPainter& painter,
 }
 
 void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
-	const int meter_width = 10;
+	const int scaleWidth = 30;
+
+	const int meterCount = std::max(1, channels);
+
+	const int meterWidth = (width() - scaleWidth) / meterCount;
 
 	QPainter painter(this);
 
-	int leftBar = barLevel[0];
-	int leftRms = rmsLevel[0];
-	int rightBar = leftBar;
-	int rightRms = leftRms;
+	if(meterCount % 2 != 0){
+		int scaleX = onRightSide ? 0 : meterCount * meterWidth;
+		int metersStartX = onRightSide ? scaleWidth : 0;
 
-	if(channels > 1){
-		rightBar = barLevel[1];
-		rightRms = rmsLevel[1];
+		for(int i = 0; i < meterCount; i++){
+			paintMeter(painter,
+					metersStartX + i * meterWidth,
+					meterVerticalPad,
+					meterWidth,
+					height() - meterVerticalPad * 2,
+					barLevel[i],
+					rmsLevel[i]);
+		}
+
+		paintScale(painter,
+				scaleX,
+				0,
+				scaleWidth,
+				height(),
+				!onRightSide,
+				onRightSide);
+	} else {
+		int i = 0;
+		for(; i < meterCount / 2; i++){
+			paintMeter(painter,
+					i * meterWidth,
+					meterVerticalPad,
+					meterWidth,
+					height() - meterVerticalPad * 2,
+					barLevel[i],
+					rmsLevel[i]);
+		}
+
+		paintScale(painter,
+				i * meterWidth,
+				0,
+				scaleWidth,
+				height(),
+				true,
+				true);
+
+		for(; i < meterCount; i++){
+			paintMeter(painter,
+					i * meterWidth + scaleWidth,
+					meterVerticalPad,
+					meterWidth,
+					height() - meterVerticalPad * 2,
+					barLevel[i],
+					rmsLevel[i]);
+		}
+
 	}
-
-	paintMeter(painter,
-			0,
-			meterVerticalPad,
-			meter_width,
-			height() - meterVerticalPad * 2,
-			leftBar,
-			leftRms);
-	paintMeter(painter,
-			width() - meter_width,
-			meterVerticalPad,
-			meter_width,
-			height() - meterVerticalPad * 2,
-			rightBar,
-			rightRms);
-
-	paintScale(painter,
-			meter_width,
-			0,
-			width() - meter_width * 2,
-			height());
 
 }

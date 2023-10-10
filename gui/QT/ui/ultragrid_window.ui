@@ -45,7 +45,7 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>50</width>
+                <width>55</width>
                 <height>100</height>
                </size>
               </property>
@@ -143,7 +143,7 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>50</width>
+                <width>55</width>
                 <height>100</height>
                </size>
               </property>
@@ -602,7 +602,7 @@
      <x>0</x>
      <y>0</y>
      <width>935</width>
-     <height>20</height>
+     <height>24</height>
     </rect>
    </property>
    <property name="contextMenuPolicy">
