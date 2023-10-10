@@ -228,7 +228,7 @@ int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) {
 }
 
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt) {
-        struct pixfmt_desc ret;
+        struct pixfmt_desc ret = { 0 };
         const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(pixfmt);
         ret.depth = avd->comp[0].depth;
         ret.rgb = avd->flags & AV_PIX_FMT_FLAG_RGB;

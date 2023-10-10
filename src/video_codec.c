@@ -1014,7 +1014,7 @@ void i444_8_to_uyvy(int width, int height, const char *in, char *out)
 
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
 {
-        struct pixfmt_desc ret;
+        struct pixfmt_desc ret = { 0 };
         ret.depth = codec_info[pixfmt].bits_per_channel;
         ret.subsampling = codec_info[pixfmt].subsampling;
         ret.rgb = codec_info[pixfmt].rgb;
