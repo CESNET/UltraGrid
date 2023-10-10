@@ -251,7 +251,9 @@ static void compute_scale(struct scale_data *scale_data, double vol_avg, int sam
                 scale_data->scale *= ratio;
                 scale_data->vol_avg *= ratio;
 
-                debug_msg("Audio scale adjusted to: %f (average volume was %f)\n", scale_data->scale, scale_data->vol_avg);
+                MSG(VERBOSE,
+                    "Audio scale adjusted to: %f (average volume was %f)\n",
+                    scale_data->scale, scale_data->vol_avg);
 
                 scale_data->samples = 4 * sample_rate;
         }
