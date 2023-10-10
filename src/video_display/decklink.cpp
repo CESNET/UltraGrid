@@ -2142,6 +2142,13 @@ static void print_output_modes (IDeckLink* deckLink)
 
                 displayModeNumber++;
         }
+        color_printf("\n\tsupported pixel formats:" TERM_BOLD);
+        for (auto & c : uv_to_bmd_codec_map) {
+                if (decklink_display_supports_codec(deckLinkOutput, c.second)) {
+                        printf(" %s", get_codec_name(c.first));
+                }
+        }
+        color_printf(TERM_RESET "\n\n");
 
 bail:
         // Ensure that the interfaces we obtained are released to prevent a memory leak
