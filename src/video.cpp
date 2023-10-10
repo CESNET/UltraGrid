@@ -46,12 +46,15 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "rtp/rtp_types.h" // FPS_MAX
 #include "utils/macros.h"
 #include "video.h"
 
 #include <iomanip>
 #include <sstream>
 #include <map>
+
+#define MOD_NAME "[video] "
 
 using namespace std;
 
@@ -242,6 +245,37 @@ const char *video_desc_to_string(struct video_desc d)
         return desc_str.c_str();
 }
 
+static double
+parse_fps(const char *string, bool interlaced)
+{
+        const char *fps_str = strpbrk(string, "dikp") + 1;
+        assert(fps_str != nullptr);
+        char      *endptr = nullptr;
+        const long fps_l  = strtol(fps_str, &endptr, 10);
+        if (fps_l <= 0 || fps_l > FPS_MAX || *endptr != '\0') {
+                MSG(ERROR, "Wrong mode specification: %s\n", string);
+                return 0.0;
+        }
+        double fps = 0;
+        // adjust FPS (Hi29 has FPS 29.97)
+        switch (fps_l) {
+        case 23:
+                fps = 23.98;
+                break;
+        case 29:
+                fps = 29.97;
+                break;
+        case 59:
+                fps = 59.94;
+                break;
+        default:
+                fps = (double) fps_l;
+                break;
+        }
+        // convert field per sec to FPS if needed (interlaced)
+        return interlaced ? fps / 2.0 : fps;
+}
+
 /**
  * @returns video description according to the configuration string, allowing
  * BMD-like FourCC (pal, ntsc, Hi59 etc.)
@@ -291,7 +325,7 @@ struct video_desc get_video_desc_from_string(const char *string)
                         return map[i].desc;
                 }
         }
-        // BMD-like syntax
+        // BMD-like syntax (+ line-counted syntax like 1080p<FPS>)
         struct video_desc ret{};
         ret.color_spec = UYVY;
         ret.tile_count  = 1;
@@ -318,15 +352,10 @@ struct video_desc get_video_desc_from_string(const char *string)
         if (ret.width == 0) {
                 return {};
         }
-        string += 2;
-        ret.fps = atoi(string);
-        switch ((int) ret.fps) {
-                case 23: ret.fps = 23.98; break;
-                case 29: ret.fps = 29.97; break;
-                case 59: ret.fps = 59.94; break;
+        ret.fps = parse_fps(string, ret.interlacing == INTERLACED_MERGED);
+        if (ret.fps == 0.0) {
+                return {};
         }
-        if (ret.interlacing == INTERLACED_MERGED) {
-                ret.fps /= 2;
-        }
+
         return ret;
 }

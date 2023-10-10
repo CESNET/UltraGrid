@@ -163,3 +163,7 @@ typedef uint32_t crypto_payload_hdr_t[1];
 #define PT_VIDEO_IS_ENCRYPTED(pt) (pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_RS)
 
 #define BUFNUM_BITS 22U
+
+enum {
+        FPS_MAX = 1024, ///< given by UG RTP payload header
+};
