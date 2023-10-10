@@ -160,5 +160,14 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
 
+template <typename T>
+bool decklink_supports_codec(T *deckLink, BMDPixelFormat pf);
+extern template bool
+decklink_supports_codec<IDeckLinkOutput>(IDeckLinkOutput *deckLink,
+                                         BMDPixelFormat   pf);
+extern template bool
+decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
+                                        BMDPixelFormat  pf);
+
 #endif // defined BLACKMAGIC_COMMON_HPP
 

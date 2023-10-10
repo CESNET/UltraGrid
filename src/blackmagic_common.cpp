@@ -909,6 +909,64 @@ const map<BMDVideoConnection, string> &get_connection_string_map() {
         return m;
 }
 
+template <typename T> struct bmd_no_conv {
+};
+template <> struct bmd_no_conv<IDeckLinkInput> {
+        static constexpr BMDVideoInputConversionMode value =
+            bmdNoVideoInputConversion;
+};
+template <> struct bmd_no_conv<IDeckLinkOutput> {
+        static constexpr BMDVideoOutputConversionMode value =
+            bmdNoVideoOutputConversion;
+};
+/**
+ * This function returns true if any display mode and any output supports the
+ * codec. The codec, however, may not be supported with actual video mode.
+ *
+ * @todo For UltraStudio Pro DoesSupportVideoMode returns E_FAIL on not
+ * supported pixel formats instead of setting supported to false.
+ */
+template <typename T>
+bool
+decklink_supports_codec(T *deckLink, BMDPixelFormat pf)
+{
+        IDeckLinkDisplayModeIterator *displayModeIterator = nullptr;
+        IDeckLinkDisplayMode         *deckLinkDisplayMode = nullptr;
+
+        if (FAILED(
+                deckLink->GetDisplayModeIterator(&displayModeIterator))) {
+                MSG(ERROR, "Fatal: cannot create display mode iterator.\n");
+                return false;
+        }
+
+        while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
+                BMD_BOOL supported = false;
+                const HRESULT res       = deckLink->DoesSupportVideoMode(
+                    bmdVideoConnectionUnspecified,
+                    deckLinkDisplayMode->GetDisplayMode(), pf,
+                    bmd_no_conv<T>::value, bmdSupportedVideoModeDefault,
+                    nullptr, &supported);
+                deckLinkDisplayMode->Release();
+                if (res != S_OK) {
+                        MSG(WARNING, "DoesSupportVideoMode: %s\n",
+                            bmd_hresult_to_string(res).c_str());
+                        continue;
+                }
+                if (supported) {
+                        displayModeIterator->Release();
+                        return true;
+                }
+        }
+        displayModeIterator->Release();
+
+        return false;
+}
+template bool
+decklink_supports_codec<IDeckLinkOutput>(IDeckLinkOutput *deckLink,
+                                         BMDPixelFormat   pf);
+template bool decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
+                                                      BMDPixelFormat  pf);
+
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
 

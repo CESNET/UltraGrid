@@ -1511,40 +1511,6 @@ static void display_decklink_done(void *state)
         delete s;
 }
 
-/**
- * This function returns true if any display mode and any output supports the
- * codec. The codec, however, may not be supported with actual video mode.
- *
- * @todo For UltraStudio Pro DoesSupportVideoMode returns E_FAIL on not supported
- * pixel formats instead of setting supported to false.
- */
-static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMDPixelFormat pf) {
-        IDeckLinkDisplayModeIterator     *displayModeIterator;
-        IDeckLinkDisplayMode*             deckLinkDisplayMode;
-
-        if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator))) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fatal: cannot create display mode iterator.\n");
-                return false;
-        }
-
-        while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
-                BMD_BOOL supported;
-                HRESULT res = deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdNoVideoOutputConversion, bmdSupportedVideoModeDefault, nullptr, &supported);
-                deckLinkDisplayMode->Release();
-                if (res != S_OK) {
-                        CALL_AND_CHECK(res, "DoesSupportVideoMode");
-                        continue;
-                }
-                if (supported) {
-                        displayModeIterator->Release();
-                        return true;
-                }
-        }
-        displayModeIterator->Release();
-
-        return false;
-}
-
 static bool display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decklink *s = (struct state_decklink *)state;
@@ -1553,7 +1519,7 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int count = 0;
         for (auto & c : uv_to_bmd_codec_map) {
-                if (decklink_display_supports_codec(s->deckLinkOutput, c.second)) {
+                if (decklink_supports_codec(s->deckLinkOutput, c.second)) {
                         codecs[count++] = c.first;
                 }
         }
@@ -2144,7 +2110,7 @@ static void print_output_modes (IDeckLink* deckLink)
         }
         color_printf("\n\tsupported pixel formats:" TERM_BOLD);
         for (auto & c : uv_to_bmd_codec_map) {
-                if (decklink_display_supports_codec(deckLinkOutput, c.second)) {
+                if (decklink_supports_codec(deckLinkOutput, c.second)) {
                         printf(" %s", get_codec_name(c.first));
                 }
         }

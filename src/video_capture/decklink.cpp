@@ -484,6 +484,22 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
                 cout << "Could not query device attributes.\n\n";
                 return;
         }
+
+        IDeckLinkInput *deckLinkInput = nullptr;
+        color_printf("\n\tsupported pixel formats:" TERM_BOLD);
+        if ((deckLink->QueryInterface(IID_IDeckLinkInput,
+                                      (void **) &deckLinkInput)) == S_OK) {
+                for (auto &c : uv_to_bmd_codec_map) {
+                        if (decklink_supports_codec(deckLinkInput, c.second)) {
+                                printf(" %s", get_codec_name(c.first));
+                        }
+                }
+                RELEASE_IF_NOT_NULL(deckLinkInput);
+        } else {
+                color_printf(TRED("(error)"));
+        }
+        color_printf(TERM_RESET "\n");
+
         int64_t connections = 0;
         if (deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
