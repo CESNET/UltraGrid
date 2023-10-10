@@ -850,21 +850,17 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         decoder->decoded.append(decompressed);
 
         if (control_stats_enabled(decoder->control)) {
-                double rms, peak;
-                rms = calculate_rms(&decompressed, 0, &peak);
-                double rms_dbfs0 = 20 * log(rms) / log(10);
-                double peak_dbfs0 = 20 * log(peak) / log(10);
-                double rms_dbfs1;
-                double peak_dbfs1;
-                if (decompressed.get_channel_count() == 1) {
-                        rms_dbfs1 = rms_dbfs0;
-                        peak_dbfs1 = peak_dbfs0;
-                } else {
-                        rms = calculate_rms(&decompressed, 1, &peak);
-                        rms_dbfs1 = 20 * log(rms) / log(10);
-                        peak_dbfs1 = 20 * log(peak) / log(10);
+                std::string report = "ARECV";
+                for(int i = 0; i < decompressed.get_channel_count() && i <= 8; i++){
+                        double rms, peak;
+                        rms = calculate_rms(&decompressed, i, &peak);
+                        double rms_dbfs0 = 20 * log(rms) / log(10);
+                        double peak_dbfs0 = 20 * log(peak) / log(10);
+                        report += " volrms" + std::to_string(i) + " " + std::to_string(rms_dbfs0);
+                        report += " volpeak" + std::to_string(i) + " " + std::to_string(peak_dbfs0);
                 }
-                control_report_stats(decoder->control, static_cast<ostringstream&&>(ostringstream() << "ARECV volrms0 " << rms_dbfs0 << " volpeak0 " << peak_dbfs0 << " volrms1 " << rms_dbfs1 << " volpeak1 " << peak_dbfs1).str());
+
+                control_report_stats(decoder->control, report);
         }
 
         double seconds;
