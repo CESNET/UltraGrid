@@ -510,6 +510,7 @@ void audio_channel_demux(const audio_frame2 *frame, int index, audio_channel *ch
         channel->sample_rate = frame->get_sample_rate();
 }
 
+/// reads sample at specified BPS and returns it in i32 container (not scaled)
 static int32_t
 format_from_in_bps(const char *in, int bps)
 {
@@ -522,6 +523,11 @@ format_from_in_bps(const char *in, int bps)
         }
 }
 
+/**
+ * writes out_value in i32 container at specified bps
+ *
+ * out_value is not scaled, so allowed range eg. for bps = 2 is [-32768..32767]
+ */
 static void
 format_to_out_bps(char *out, int bps, int32_t out_value)
 {
