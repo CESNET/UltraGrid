@@ -53,7 +53,7 @@ class ultragrid_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         ultragrid_rtp_video_rxtx(std::map<std::string, param_u> const &);
         virtual ~ultragrid_rtp_video_rxtx();
-        virtual void join();
+        void join() override;
         uint32_t get_ssrc();
 
         // transcoder functions

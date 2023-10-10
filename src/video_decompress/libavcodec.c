@@ -554,6 +554,7 @@ fail:
 }
 #endif
 
+#ifdef HWACC_COMMON_IMPL
 static void
 check_pixfmt_hw_eligibility(enum AVPixelFormat sw_pix_fmt)
 {
@@ -576,6 +577,7 @@ check_pixfmt_hw_eligibility(enum AVPixelFormat sw_pix_fmt)
                         fmt_name);
         }
 }
+#endif
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
