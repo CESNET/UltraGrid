@@ -26,6 +26,12 @@ protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
 private:
+	using clock = std::chrono::steady_clock;
+	struct PeakMaximum {
+		double val = 0;
+		clock::time_point ts;
+	};
+
 	static const int max_channels = 8;
 	std::string parsePrefix = "stats ARECV";
 
@@ -35,18 +41,18 @@ private:
 
 	double barLevel[max_channels];
 	double rmsLevel[max_channels];
+	PeakMaximum maximumLevel[max_channels];
 
 	bool onRightSide = false;
 
 	QTimer timer;
 	int updatesPerSecond;
-	using clock = std::chrono::steady_clock;
 	clock::time_point lastUpdate;
 
 	ControlPort *controlPort = nullptr;
 	bool connected = false;
 
-	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms);
+	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms, double maxPeak);
 	void paintScale(QPainter&, int x, int y, int width, int height, bool leftTicks, bool rightTicks);
 
 public slots:

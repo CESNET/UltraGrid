@@ -80,19 +80,31 @@ void VuMeterWidget::setParsePrefix(std::string_view prefix){
 
 void VuMeterWidget::updateVal(){
 	const double fallSpeed = 200.0;
+	const double maximumPeakFallSpeed = 10.0;
+	auto maximumPeakHoldTime = std::chrono::seconds(2);
 
 	connected = controlPort->getState() == QAbstractSocket::ConnectedState;
 
 	for(int i = 0; i < channels; i++){
+		auto& maxPeak = maximumLevel[i];
+		auto now = clock::now();
 
 		barLevel[i] = std::max(barLevel[i] - fallSpeed / updatesPerSecond, 0.0);
 		rmsLevel[i] = std::max(rmsLevel[i] - fallSpeed / updatesPerSecond, 0.0);
+		if(now - maxPeak.ts > maximumPeakHoldTime){
+			maxPeak.val = std::max(maxPeak.val - maximumPeakFallSpeed / updatesPerSecond, 0.0);
+		}
 
 		double newPeakHeight = 100 - std::max(peak[i], zeroLevel) * (100 / zeroLevel);
 		double newRmsHeight = 100 - std::max(rms[i], zeroLevel) * (100 / zeroLevel);
 
 		barLevel[i] = std::max(barLevel[i], newPeakHeight);
 		rmsLevel[i] = std::max(rmsLevel[i], newRmsHeight);
+
+		if(barLevel[i] >= maxPeak.val){
+			maxPeak.val = barLevel[i];
+			maxPeak.ts = now;
+		}
 	}
 
 	update();
@@ -110,7 +122,8 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 		int width,
 		int height,
 		double peak,
-		double rms)
+		double rms,
+		double maxPeak)
 {
 	const int meterBarPadHorizontal = 1;
 	const int in_width = width - meterBarPadHorizontal * 2;
@@ -118,6 +131,7 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 
 	int barHeight = in_full_height * (peak / 100);
 	int rmsHeight = in_full_height * (rms / 100);
+	int maxPeakHeight = in_full_height * (maxPeak / 100);
 
 	QLinearGradient gradient(0, 0, in_width, in_full_height);
 	gradient.setColorAt(0, Qt::red);
@@ -137,10 +151,16 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 			y + meterBarPad + (in_full_height - barHeight),
 			in_width, barHeight,
 			brush);
-	int pos = y + meterBarPad + (in_full_height - rmsHeight);
+
+	int maxPos = y + meterBarPad + (in_full_height - maxPeakHeight);
+	QPen maxLevelPen(brush, 1);
+	painter.setPen(maxLevelPen);
+	painter.drawLine(x + meterBarPadHorizontal, maxPos, x + in_width, maxPos);
+
 	QPen rmsPen(Qt::blue);
 	rmsPen.setWidth(4);
 	painter.setPen(rmsPen);
+	int pos = y + meterBarPad + (in_full_height - rmsHeight);
 	painter.drawLine(x + meterBarPadHorizontal, pos, x + in_width, pos);
 }
 
@@ -222,7 +242,8 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 					meterWidth,
 					height() - meterVerticalPad * 2,
 					barLevel[i],
-					rmsLevel[i]);
+					rmsLevel[i],
+					maximumLevel[i].val);
 		}
 
 		paintScale(painter,
@@ -241,7 +262,8 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 					meterWidth,
 					height() - meterVerticalPad * 2,
 					barLevel[i],
-					rmsLevel[i]);
+					rmsLevel[i],
+					maximumLevel[i].val);
 		}
 
 		paintScale(painter,
@@ -259,7 +281,8 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 					meterWidth,
 					height() - meterVerticalPad * 2,
 					barLevel[i],
-					rmsLevel[i]);
+					rmsLevel[i],
+					maximumLevel[i].val);
 		}
 
 	}
