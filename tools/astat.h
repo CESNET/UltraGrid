@@ -1,3 +1,5 @@
+#ifndef ASTAT_H_64f15ac8bc64
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,4 +16,6 @@ bool astat_parse_line(const char *str, double volpeak[2], double volrms[2]);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
