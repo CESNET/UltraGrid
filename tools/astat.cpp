@@ -10,6 +10,7 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
+#include <string_view>
 
 #include "astat.h"
 
@@ -20,6 +21,7 @@
 #ifndef MSG_DONTWAIT
 #define MSG_DONTWAIT 0
 #endif
+
 
 using namespace std;
 
@@ -45,8 +47,8 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 struct ug_connection {
         fd_t fd;
         ug_connection(int f, fd_t sef[]) : fd(f), should_exit_fd{sef[0], sef[1]}, t(worker, ref(*this)) {}
-        double volpeak[2] = {-INFINITY, -INFINITY};
-        double volrms[2] = {0, 0};
+        double volpeak[CH_COUNT] = {-INFINITY, -INFINITY};
+        double volrms[CH_COUNT] = {0, 0};
         int sample_count = 0;
         mutex lock;
 
@@ -57,19 +59,34 @@ struct ug_connection {
         bool connection_lost = false;
 };
 
-bool astat_parse_line(const char *str, double volpeak[2], double volrms[2]){
-        int ret = sscanf(str, "stats ARECV volrms0 %lf volpeak0 %lf volrms1 %lf volpeak1 %lf",
-                        &volrms[0], &volpeak[0], &volrms[1], &volpeak[1]);
+bool astat_parse_line(const char *str, double volpeak[CH_COUNT], double volrms[CH_COUNT]){
+        std::string_view prefix = "stats ARECV ";
+        if(strncmp(prefix.data(), str, prefix.size()) != 0)
+                return false;
 
-        return ret == 4;
+        const char *c = str + prefix.size();
+
+        int i = 0;
+        while(*c != '\0' && i < CH_COUNT){
+                int read_chars;
+                int ret = sscanf(c, "volrms%*d %lf volpeak%*d %lf %n",
+                                &volrms[i], &volpeak[i], &read_chars);
+                c += read_chars;
+                i++;
+
+                if(ret != 2)
+                        return false;
+        }
+
+        return true;
 }
 
 // Line format example:
 // stats ARECV volrms0 -18.0004 volpeak0 -14.9897 volrms1 -18.0004 volpeak1 -14.9897"
 static void parse_and_store(ug_connection &c, const char *str)
 {
-        double volpeak[2];
-        double volrms[2];
+        double volpeak[CH_COUNT];
+        double volrms[CH_COUNT];
         if (!astat_parse_line(str, volpeak, volrms)) {
 #ifdef ASTAT_DEBUG
                 fprintf(stderr, "Wrong line format!");
@@ -78,7 +95,7 @@ static void parse_and_store(ug_connection &c, const char *str)
         }
 
         lock_guard<mutex> lk(c.lock);
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < CH_COUNT; i++) {
                 c.volpeak[i] = std::max(c.volpeak[i], volpeak[i]);
                 c.volrms[i] = (volrms[i] * c.sample_count + volrms[i]) / (c.sample_count + 1);
         }
@@ -263,8 +280,8 @@ int main() {
         signal(SIGTERM, signal_handler);
 
         while (!should_exit) {
-                double volpeak[2];
-                double volrms[2];
+                double volpeak[CH_COUNT];
+                double volrms[CH_COUNT];
                 int sample_count;
 
                 sleep(1);

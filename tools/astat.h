@@ -1,5 +1,7 @@
 #ifndef ASTAT_H_64f15ac8bc64
 
+#define CH_COUNT 2
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -12,7 +14,7 @@ void ug_control_connection_done(struct ug_connection *);
 void ug_control_init();
 void ug_control_cleanup();
 
-bool astat_parse_line(const char *str, double volpeak[2], double volrms[2]);
+bool astat_parse_line(const char *str, double volpeak[CH_COUNT], double volrms[CH_COUNT]);
 
 #ifdef __cplusplus
 }
