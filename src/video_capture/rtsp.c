@@ -829,7 +829,7 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
             if(tmpBuff!=NULL){
                 if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
                     //debug_msg("track = %s\n",tmpBuff);
-                    strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
+                    strncpy(tracks[countT], tmpBuff, sizeof tracks[countT] - 1);
                     tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
                     countT++;
                 } else {

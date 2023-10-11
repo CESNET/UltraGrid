@@ -399,6 +399,7 @@ aud_ctx_set_ch_layout(struct AVCodecContext *ctx, int ch_count, bool raw)
         }
         av_channel_layout_default(&ctx->ch_layout, ch_count);
 #else
+        (void) raw;
         ctx->channel_layout = av_get_default_channel_layout(ch_count);
 #endif
 }
