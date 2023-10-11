@@ -92,6 +92,7 @@ void	    udp_fd_zero(void);
 void        udp_fd_set(socket_udp *s);
 int         udp_fd_isset(socket_udp *s);
 
+int         udp_get_recv_buf(socket_udp *s);
 bool        udp_set_recv_buf(socket_udp *s, int size);
 bool        udp_set_send_buf(socket_udp *s, int size);
 void        udp_flush_recv_buf(socket_udp *s);

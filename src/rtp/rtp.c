@@ -3945,6 +3945,12 @@ bool rtp_set_recv_buf(struct rtp *session, int bufsize)
         return udp_set_recv_buf(session->rtp_socket, bufsize);
 }
 
+int
+rtp_get_recv_buf(struct rtp *session)
+{
+        return udp_get_recv_buf(session->rtp_socket);
+}
+
 /**
  * Sets sender buffer size
  * @param session the RTP Session

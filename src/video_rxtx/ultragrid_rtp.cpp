@@ -278,7 +278,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         set_thread_name(__func__);
         struct pdb_e *cp;
         int fr;
-        int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+        int last_buf_size = rtp_get_recv_buf(m_network_device);
 
 #ifdef SHARED_DECODER
         struct vcodec_state *shared_decoder = new_video_decoder(m_display_device);

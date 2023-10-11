@@ -304,6 +304,7 @@ bool             rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc);
 uint8_t		*rtp_get_userdata(struct rtp *session);
 void 		 rtp_set_recv_iov(struct rtp *session, struct msghdr *m);
 
+int              rtp_get_recv_buf(struct rtp *session);
 bool             rtp_set_recv_buf(struct rtp *session, int bufsize);
 bool             rtp_set_send_buf(struct rtp *session, int bufsize);
 

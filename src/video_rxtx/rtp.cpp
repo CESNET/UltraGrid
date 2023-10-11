@@ -250,13 +250,13 @@ rtp_video_rxtx::~rtp_video_rxtx()
 
 void rtp_video_rxtx::display_buf_increase_warning(int size)
 {
-        log_msg(LOG_LEVEL_VERBOSE, "\n***\n"
+        log_msg(LOG_LEVEL_INFO, "\n***\n"
                         "Unable to set buffer size to %d B.\n"
 #if defined WIN32
                         "See https://github.com/CESNET/UltraGrid/wiki/Extending-Network-Buffers-%%28Windows%%29 for details.\n",
 #else
-                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                        "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid)\n"
+                        "Please set net.core.rmem_max value to %d or greater (see also\n"
+                        "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
 #ifdef HAVE_MACOSX
                         "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
                         "\tsysctl -w net.inet.udp.recvspace=%d\n"
@@ -301,10 +301,7 @@ struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,
                 rtp_set_option(device, RTP_OPT_SEND_BACK, TRUE);
         }
 
-        if (!rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE)) {
-                display_buf_increase_warning(INITIAL_VIDEO_RECV_BUFFER_SIZE);
-        }
-
+        rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
         rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
 
         pdb_add(participants, rtp_my_ssrc(device));

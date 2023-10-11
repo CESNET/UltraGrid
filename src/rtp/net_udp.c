@@ -1433,6 +1433,19 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         return ret;
 }
 
+int
+udp_get_recv_buf(socket_udp *s)
+{
+        int       opt      = 0;
+        socklen_t opt_size = sizeof opt;
+        if (GETSOCKOPT(s->local->tx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &opt,
+                       &opt_size) != 0) {
+                socket_error("Unable to get socket buffer size");
+                return -1;
+        }
+        return opt;
+}
+
 static bool
 udp_set_buf(socket_udp *s, int sockopt, int size)
 {
