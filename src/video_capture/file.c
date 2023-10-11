@@ -79,6 +79,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "playback.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/list.h"
@@ -140,6 +141,9 @@ struct vidcap_state_lavf_decoder {
         struct timeval last_stream_stat;
 
         bool should_exit;
+
+        long long audio_frames;
+        long long video_frames;
 };
 
 static void flush_captured_data(struct vidcap_state_lavf_decoder *s);
@@ -416,6 +420,7 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
                 return NULL;
         }
         struct video_frame *out = vf_alloc_desc_data(s->video_desc);
+        out->flags |= TIMESTAMP_VALID;
 
         /* copy decoded frame to destination buffer:
          * this is required since rawvideo expects non aligned data */
@@ -883,8 +888,9 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
                 return NULL;
         }
 
-        struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
+        struct audio_frame *ret = calloc(1, sizeof *ret);
         audio_frame_write_desc(ret, s->audio_desc);
+        ret->flags |= TIMESTAMP_VALID;
 
         AVRational atb = s->fmt_ctx->streams[s->audio_stream_idx]->time_base;
         long drop_samples = 0;
@@ -964,7 +970,35 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
         return ret;
 }
 
-static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **audio) {
+static struct audio_frame *
+get_timestamped_audio(struct vidcap_state_lavf_decoder *s,
+                      const struct video_frame         *vid_frm)
+{
+        if (s->audio_stream_idx == -1) {
+                return NULL;
+        }
+        struct audio_frame *aud_frm = get_audio(s, vid_frm);
+        if (aud_frm == NULL) {
+                s->audio_frames = -1; // invalide timestamp
+                return NULL;
+        }
+        if (s->audio_frames == -1) {
+                MSG(WARNING, "Resynchronizing audio timestamps.\n");
+                s->audio_frames = (long long) (((double) s->video_frames /
+                                                s->video_desc.fps) *
+                                               aud_frm->sample_rate);
+        }
+        aud_frm->timestamp =
+            ((int64_t) s->audio_frames * kHZ90 + aud_frm->sample_rate) /
+            aud_frm->sample_rate;
+        s->audio_frames +=
+            aud_frm->data_len / (aud_frm->ch_count * aud_frm->bps);
+        return aud_frm;
+}
+
+static struct video_frame *
+vidcap_file_grab(void *state, struct audio_frame **audio)
+{
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         struct video_frame *out;
 
@@ -982,7 +1016,11 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
-        *audio = s->audio_stream_idx != -1 ? get_audio(s, out) : NULL;
+        out->timestamp =
+            (uint32_t) ((double) s->video_frames * kHZ90 / s->video_desc.fps);
+
+        *audio = get_timestamped_audio(s, out);
+        s->video_frames += 1;
 
         struct timeval t;
         do {

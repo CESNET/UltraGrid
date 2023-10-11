@@ -132,6 +132,10 @@ struct pixfmt_desc {
         enum hw_accel_type accel_type;
 };
 
+enum {
+        kHZ90 = 90000, ///< timestamp time base
+};
+
 /**
  * @enum interlacing_t
  * Specifies interlacing mode of the frame
