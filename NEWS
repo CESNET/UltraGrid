@@ -1,9 +1,15 @@
 next
 ====
 * added basic nvdec support
+* added Pipewire screen capture
+* added Pipewire generic video capture & display
+* added Pipewire audio capture & display
 * GUI: Don't block whole interface when querying UG capabilities
 * GUI: Better handling of UG crash during capability query
+* GUI: vuMeter: Redesigned to allow variable channel count
+* GUI: vuMeter: Added maximum recent peak indicator
 * swmix: Optionaly specify a custom config file path
+* holepunch: New 'bind_ip' option
 
 1.8
 ====
