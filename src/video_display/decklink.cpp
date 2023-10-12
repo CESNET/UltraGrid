@@ -1195,7 +1195,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                             << "Deprecated, do not use - "
                                "see option \"synchroninzed\" instead.\n";
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
-                } else if (strstr(ptr, "sync") == ptr) {
+                } else if (IS_PREFIX(ptr, "synchronized")) {
                         s->low_latency = false;
                         ptr = strchr(ptr, '=');
                         if (ptr != nullptr) {

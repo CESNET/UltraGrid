@@ -113,6 +113,9 @@ enum {
 #define IS_KEY_PREFIX(tok, key) \
         (strchr((tok), '=') != 0 && \
          strncmp(key, tok, strchr((tok), '=') - (tok)) == 0)
+/// similar as above, but also key without a value is accepted (value optional)
+#define IS_PREFIX(tok, key) \
+        (IS_KEY_PREFIX(tok, key) || strncmp(tok, key, strlen(tok)) == 0)
 
 #endif // !defined UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 
