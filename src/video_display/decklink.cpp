@@ -1268,7 +1268,18 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
 
-        if (!settings_init(s, fmt, cardId, &audio_consumer_levels)) {
+        bool succeeded = false;
+        try {
+                succeeded = settings_init(s, fmt, cardId, &audio_consumer_levels);
+        } catch (logic_error &e) {
+                if (strcmp(e.what(), "stoi") != 0 &&
+                    strcmp(e.what(), "stod") != 0) {
+                        throw;
+                }
+                MSG(ERROR,
+                    "Invalid number passed where numeric argument expected!\n");
+        }
+        if (!succeeded) {
                 delete s;
                 return NULL;
         }
