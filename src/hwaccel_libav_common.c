@@ -65,7 +65,9 @@ static const struct {
         { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0       },
         { "rpi4",         HWACCEL_RPI4,         AV_PIX_FMT_RPI4_8,       RPI4_8  },
         { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,         0       },
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
         { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,       0       },
+#endif
 };
 
 enum hw_accel_type hw_accel_from_str(const char *str){
