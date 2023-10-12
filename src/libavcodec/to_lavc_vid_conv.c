@@ -933,6 +933,47 @@ static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
         rg48_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
+static void
+rgb_to_yuv444p(AVFrame *__restrict out_frame,
+               const unsigned char *__restrict in_data, int width, int height)
+{
+        typedef uint8_t t; // in/out type
+        enum {
+                DEPTH = sizeof(t) * CHAR_BIT,
+        };
+        const ptrdiff_t src_linesize = vc_get_linesize(width, RGB);
+        for (ptrdiff_t y = 0; y < height; y++) {
+                const t *src =
+                    (const t *) (const void *) (in_data + y * src_linesize);
+                t *dst_y =
+                    (t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                t *dst_cb =
+                    (t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                t *dst_cr =
+                    (t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                OPTIMIZED_FOR(int x = 0; x < width; x++)
+                {
+                        const comp_type_t r = *src++;
+                        const comp_type_t g = *src++;
+                        const comp_type_t b = *src++;
+
+                        const comp_type_t res_y =
+                            (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (1 << (DEPTH - 4));
+                        const comp_type_t res_cb =
+                            (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (1 << (DEPTH - 1));
+                        const comp_type_t res_cr =
+                            (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (1 << (DEPTH - 1));
+
+                        *dst_y++  = CLAMP_LIMITED_Y(res_y, DEPTH);
+                        *dst_cb++ = CLAMP_LIMITED_Y(res_cb, DEPTH);
+                        *dst_cr++ = CLAMP_LIMITED_Y(res_cr, DEPTH);
+                }
+        }
+}
+
 #if defined __GNUC__
 static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int depth)
         __attribute__((always_inline));
@@ -1296,6 +1337,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { Y216, AV_PIX_FMT_YUV444P16LE, y216_to_yuv444p16le },
                 { RGB, AV_PIX_FMT_BGR0,         rgb_to_bgr0 },
                 { RGB, AV_PIX_FMT_GBRP,         rgb_to_gbrp },
+                { RGB, AV_PIX_FMT_YUV444P,      rgb_to_yuv444p },
                 { RGBA, AV_PIX_FMT_GBRP,        rgba_to_gbrp },
                 { RGBA, AV_PIX_FMT_BGRA,        rgba_to_bgra },
                 { R10k, AV_PIX_FMT_BGR0,        r10k_to_bgr0 },
