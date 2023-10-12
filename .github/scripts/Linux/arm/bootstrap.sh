@@ -1,6 +1,7 @@
 #!/bin/sh -exu
 
-readonly debver=bullseye
+debver=$(. /etc/os-release; echo "$VERSION_CODENAME")
+readonly debver
 
 apt -y install curl gnupg
 echo -k > ~/.curlrc
@@ -20,7 +21,14 @@ http://archive.raspberrypi.org/debian $debver main
 EOF
 apt -y update
 
-apt -y install autoconf automake build-essential cmake git pkg-config libtool sudo
+if [ "$debver" = buster ]; then
+        # 3.16 in the added repository is broken with chrooted qemu-user-static
+        apt -y install cmake=3.13.4-1 cmake-data=3.13.4-1
+else
+        apt -y install cmake
+fi
+
+apt -y install autoconf automake build-essential git pkg-config libtool sudo
 apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev

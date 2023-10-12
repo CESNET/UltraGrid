@@ -20,10 +20,12 @@ jobs:
             repo: http://mirrordirector.raspbian.org/raspbian/
             keyring: /etc/apt/trusted.gpg
             qemu_bin_arch: arm
+            deb_release: bullseye
           - arch: arm64
             repo: https://deb.debian.org/debian
             keyring: /usr/share/keyrings/debian-archive-keyring.gpg
             qemu_bin_arch: aarch64
+            deb_release: bullseye
 
     steps:
     - uses: actions/checkout@v3
@@ -60,7 +62,7 @@ jobs:
         sudo mkdir -p ~/chroot/var/tmp
         sudo mv /var/tmp/*NDI* ~/chroot/var/tmp
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
-        sudo debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} bullseye ~/chroot ${{ matrix.repo }}
+        sudo debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} ${{ matrix.deb_release }} ~/chroot ${{ matrix.repo }}
         sudo cp -r $GITHUB_WORKSPACE/.github ~/chroot
         sudo cp /usr/bin/qemu-${{ matrix.qemu_bin_arch }}-static ~/chroot/usr/bin
         sudo chroot ~/chroot /.github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }}
