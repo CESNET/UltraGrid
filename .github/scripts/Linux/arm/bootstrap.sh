@@ -1,8 +1,5 @@
 #!/bin/sh -exu
 
-# If changing the file, do not forget to regenerate cache in ARM Build GitHub action
-
-OLDPWD=$(pwd)
 readonly debver=bullseye
 
 apt -y install curl gnupg
