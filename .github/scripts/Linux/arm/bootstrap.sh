@@ -22,10 +22,23 @@ EOF
 apt -y update
 
 if [ "$debver" = buster ]; then
+        raspbian_build_sdl2() { (
+                sed -i '/^deb /p;s/deb /deb-src /' /etc/apt/sources.list
+                apt -y update
+                apt-get -y build-dep libsdl2-dev
+                apt -y install libgbm-dev
+                readonly sdl_ver=2.0.22
+                curl -k -LO https://www.libsdl.org/release/SDL2-$sdl_ver.tar.gz
+                tar xaf SDL2-$sdl_ver.tar.gz
+                cd SDL2-$sdl_ver
+                ./configure --enable-video-kmsdrm
+                make -j "$(nproc)" install
+        ); }
         # 3.16 in the added repository is broken with chrooted qemu-user-static
         apt -y install cmake=3.13.4-1 cmake-data=3.13.4-1
+        raspbian_build_sdl2
 else
-        apt -y install cmake
+        apt -y install cmake libsdl2-dev
 fi
 
 apt -y install autoconf automake build-essential git pkg-config libtool sudo
@@ -33,7 +46,7 @@ apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
 apt -y install libcaca-dev libmagickwand-dev libnatpmp-dev libopencv-core-dev libopencv-imgproc-dev
-apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev libraspberrypi-dev
+apt -y install libavcodec-dev libavformat-dev libswscale-dev libraspberrypi-dev
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi
