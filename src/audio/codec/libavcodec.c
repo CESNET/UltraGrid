@@ -420,6 +420,7 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
 
         s->codec_ctx->bits_per_coded_sample = 4; // ADPCM
         s->codec_ctx->sample_rate = desc.sample_rate;
+        s->codec_ctx->time_base = (AVRational) { 1, desc.sample_rate };
 
         /* open it */
         if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
@@ -491,6 +492,29 @@ process_input(struct libavcodec_codec_state *s, const audio_channel *channel)
         return true;
 }
 
+/// @returns timestamp of the channel minus already buffered frames (in s->tmp)
+static int64_t
+get_in_ts(struct libavcodec_codec_state *s, const audio_channel *channel)
+{
+        if (channel->timestamp == -1) {
+                return AV_NOPTS_VALUE;
+        }
+        const int64_t ts = channel->timestamp * channel->sample_rate / kHz90;
+        return ts - s->tmp.data_len / channel->bps;
+}
+
+static void
+set_out_ts(int recv_ret, struct libavcodec_codec_state *s)
+{
+        if (recv_ret != 0 || s->output_channel.timestamp != -1 ||
+            s->pkt->pts == AV_NOPTS_VALUE) {
+                return;
+        }
+        s->output_channel.timestamp =
+            (s->pkt->pts * kHz90 + s->codec_ctx->sample_rate - 1) /
+            s->codec_ctx->sample_rate;
+}
+
 static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
@@ -498,6 +522,10 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 
         assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
                         s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
+
+        if (channel != NULL) {
+                s->av_frame->pts = get_in_ts(s, channel);
+        }
 
         if (!process_input(s, channel)) {
                 return NULL;
@@ -507,6 +535,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         int offset = 0;
         s->output_channel.data_len = 0;
         s->output_channel.duration = 0.0;
+        s->output_channel.timestamp = -1;
         int chunk_size = s->codec_ctx->frame_size * bps;
         while(offset + chunk_size <= s->tmp.data_len) {
                 if (bps == 1) {
@@ -519,7 +548,11 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         print_libav_audio_error(LOG_LEVEL_ERROR, "Error encoding frame", ret);
                         return NULL;
                 }
+                if (s->av_frame->pts != AV_NOPTS_VALUE) {
+                        s->av_frame->pts += s->codec_ctx->frame_size;
+                }
                 ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+                set_out_ts(ret, s);
                 while (ret == 0) {
                         if (s->output_channel.data_len + s->pkt->size >
                             TMP_DATA_LEN) {

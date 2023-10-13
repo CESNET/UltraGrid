@@ -247,6 +247,7 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
         }
 
         audio_channel channel;
+        channel.timestamp = frame == nullptr ? -1 : frame->get_timestamp();
         int nonzero_channels = 0;
         for (int i = 0; i < s->desc.ch_count; ++i) {
                 audio_channel *encode_channel = NULL;
@@ -266,6 +267,7 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
                                         && out->sample_rate == res.get_sample_rate());
                 }
                 res.append(i, out->data, out->data_len);
+                res.set_timestamp(out->timestamp);
                 nonzero_channels += 1;
         }
 

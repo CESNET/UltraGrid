@@ -125,6 +125,7 @@ typedef struct
         const char *data;       /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         audio_codec_t codec;
+        int64_t timestamp;
         double duration;
 } audio_channel;
 
