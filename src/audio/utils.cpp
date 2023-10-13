@@ -201,7 +201,9 @@ struct audio_desc audio_desc_from_frame(const struct audio_frame *frame) {
         };
 }
 
-struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
+struct audio_desc
+audio_desc_from_audio_channel(const audio_channel *channel)
+{
         return audio_desc { channel->bps,
                 channel->sample_rate,
                 1,

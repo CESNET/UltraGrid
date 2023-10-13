@@ -49,6 +49,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/mem.h>
+#include <stddef.h>
 
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -445,6 +446,63 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
         return true;
 }
 
+static bool
+process_input(struct libavcodec_codec_state *s, const audio_channel *channel)
+{
+        if (channel == NULL) {
+                return true;
+        }
+
+        if (!audio_desc_eq(s->saved_desc,
+                           audio_desc_from_audio_channel(channel))) {
+                if (!reinitialize_encoder(
+                        s, audio_desc_from_audio_channel(channel))) {
+                        MSG(ERROR, "Unable to reinitialize audio compress!\n");
+                        return false;
+                }
+        }
+
+        if (s->output_channel.bps == channel->bps &&
+            s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_FLT &&
+            s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_FLTP) {
+                memcpy(s->tmp_data + s->tmp.data_len, channel->data,
+                       channel->data_len);
+                s->tmp.data_len += channel->data_len;
+                return true;
+        }
+        if (s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_FLT &&
+            s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_FLTP) {
+                change_bps(s->tmp_data + s->tmp.data_len, s->output_channel.bps,
+                           channel->data, s->saved_desc.bps, channel->data_len);
+                s->tmp.data_len += channel->data_len / s->saved_desc.bps *
+                                   s->output_channel.bps;
+                return true;
+        }
+        if (s->output_channel.bps == channel->bps) {
+                if (s->tmp.data_len + channel->data_len > TMP_DATA_LEN) {
+                        MSG(ERROR, "Auxiliary buffer overflow!\n");
+                } else {
+                        int2float(s->tmp_data + s->tmp.data_len, channel->data,
+                                  channel->data_len);
+                        s->tmp.data_len += channel->data_len;
+                }
+        } else {
+                int data_len = channel->data_len / channel->bps * 4;
+                resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size,
+                                  data_len);
+                change_bps((char *) s->tmp_buffer, 4, channel->data,
+                           channel->bps, channel->data_len);
+                if (s->tmp.data_len + data_len > TMP_DATA_LEN) {
+                        MSG(ERROR, "Auxiliary buffer overflow!\n");
+                } else {
+                        int2float(s->tmp_data + s->tmp.data_len,
+                                  (char *) s->tmp_buffer, data_len);
+                        s->tmp.data_len += data_len;
+                }
+        }
+        return true;
+}
+
 static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
@@ -453,43 +511,8 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
                         s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
 
-        if(channel) {
-                if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
-                        if(!reinitialize_encoder(s, audio_desc_from_audio_channel(channel))) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reinitialize audio compress!\n");
-                                return NULL;
-                        }
-                }
-
-                if (s->output_channel.bps != channel->bps || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
-                        if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
-                                if (s->output_channel.bps == channel->bps) {
-                                        if (s->tmp.data_len + channel->data_len > TMP_DATA_LEN) {
-                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Auxiliary buffer overflow!\n");
-                                        } else {
-                                                int2float(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
-                                                s->tmp.data_len += channel->data_len;
-                                        }
-                                } else {
-                                        size_t data_len = channel->data_len / channel->bps * 4;
-                                        resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, data_len);
-                                        change_bps((char *) s->tmp_buffer, 4, channel->data, channel->bps, channel->data_len);
-                                        if (s->tmp.data_len + data_len > TMP_DATA_LEN) {
-                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Auxiliary buffer overflow!\n");
-                                        } else {
-                                                int2float(s->tmp_data + s->tmp.data_len, (char *) s->tmp_buffer, data_len);
-                                                s->tmp.data_len += data_len;
-                                        }
-                                }
-                        } else {
-                                change_bps(s->tmp_data + s->tmp.data_len, s->output_channel.bps,
-                                                channel->data, s->saved_desc.bps, channel->data_len);
-                                s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->output_channel.bps;
-                        }
-                } else {
-                        memcpy(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
-                        s->tmp.data_len += channel->data_len;
-                }
+        if (!process_input(s, channel)) {
+                return NULL;
         }
 
         int bps = s->output_channel.bps;
