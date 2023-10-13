@@ -989,7 +989,7 @@ get_timestamped_audio(struct vidcap_state_lavf_decoder *s,
                                                aud_frm->sample_rate);
         }
         aud_frm->timestamp =
-            ((int64_t) s->audio_frames * kHZ90 + aud_frm->sample_rate) /
+            ((int64_t) s->audio_frames * kHz90 + aud_frm->sample_rate) /
             aud_frm->sample_rate;
         s->audio_frames +=
             aud_frm->data_len / (aud_frm->ch_count * aud_frm->bps);
@@ -1017,7 +1017,7 @@ vidcap_file_grab(void *state, struct audio_frame **audio)
         pthread_cond_signal(&s->frame_consumed);
 
         out->timestamp =
-            (uint32_t) ((double) s->video_frames * kHZ90 / s->video_desc.fps);
+            (uint32_t) ((double) s->video_frames * kHz90 / s->video_desc.fps);
 
         *audio = get_timestamped_audio(s, out);
         s->video_frames += 1;
