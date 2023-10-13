@@ -328,7 +328,7 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
         }
 
         if (enable_validation) {
-                dynamic_dispatcher = std::make_unique<vk::DispatchLoaderDynamic>(instance, vkGetInstanceProcAddr);
+                dynamic_dispatcher = std::make_unique<vk::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
                 init_validation_layers_error_messenger();
         }
 }
@@ -480,7 +480,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
         assert(false);
 }
 
-void VulkanContext::init(vulkan_display::VulkanInstance&& instance, VkSurfaceKHR surface,
+void VulkanContext::init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
         WindowParameters parameters, uint32_t gpu_index, vk::PresentModeKHR preferredMode)
 {
         assert(!this->instance);

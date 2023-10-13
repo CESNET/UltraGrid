@@ -229,7 +229,7 @@ bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Ex
 
 namespace vulkan_display {
 
-void VulkanDisplay::init(VulkanInstance&& instance, VkSurfaceKHR surface, uint32_t initial_image_count,
+void VulkanDisplay::init(VulkanInstance&& instance, vk::SurfaceKHR surface, uint32_t initial_image_count,
         WindowChangedCallback& window, uint32_t gpu_index, std::string shaders_path, bool vsync, bool tearing_permitted) {
         assert(surface);
         this->window = &window;

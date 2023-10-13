@@ -188,7 +188,7 @@ private:
 public:
         VulkanContext() = default;
 
-        void init(vulkan_display::VulkanInstance&& instance, VkSurfaceKHR surface,
+        void init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
                 vulkan_display::WindowParameters window_parameters, uint32_t gpu_index, vk::PresentModeKHR preferred_mode);
 
         void destroy();
@@ -228,7 +228,7 @@ class VulkanInstance {
         void init_validation_layers_error_messenger();
 
         friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
-                VkSurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
+                vk::SurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 public:
         VulkanInstance() = default;
         VulkanInstance(const VulkanInstance& other) = delete;

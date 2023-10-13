@@ -152,7 +152,7 @@ public:
                 }
         }
 
-        void init(VulkanInstance&& instance, VkSurfaceKHR surface, uint32_t transfer_image_count,
+        void init(VulkanInstance&& instance, vk::SurfaceKHR surface, uint32_t transfer_image_count,
                 WindowChangedCallback& window, uint32_t gpu_index = no_gpu_selected,
                 std::string path_to_shaders = "./shaders", bool vsync = true, bool tearing_permitted = false);
 

@@ -821,14 +821,14 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                         throw std::runtime_error("Surface cannot be created.");
                 }
 #else
-                VkSurfaceKHR surface = nullptr;
-                if (!SDL_Vulkan_CreateSurface(s->window, instance.get_instance(), &surface)) {
+                VkSurfaceKHR surface{};
+                if (!SDL_Vulkan_CreateSurface(s->window, (VkInstance) instance.get_instance(), &surface)) {
                         std::cout << SDL_GetError() << std::endl;
                         throw std::runtime_error("SDL cannot create surface.");
                 }
 #endif
                 s->vulkan = new vkd::VulkanDisplay{};
-                s->vulkan->init(std::move(instance), surface, initial_frame_count, *s->window_callback, args.gpu_idx, path_to_shaders, args.vsync, args.tearing_permitted);
+                s->vulkan->init(std::move(instance), vk::SurfaceKHR(surface), initial_frame_count, *s->window_callback, args.gpu_idx, path_to_shaders, args.vsync, args.tearing_permitted);
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Vulkan display initialised." << std::endl;
         }
         catch (std::exception& e) { log_and_exit_uv(e); return nullptr; }
