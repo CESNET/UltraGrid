@@ -136,12 +136,18 @@ class UltragridRTSPVideoSubsession: public UltragridRTSPSubsessionCommon {
 public:
     static UltragridRTSPVideoSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
     UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
+
+private:
+    enum module_class path_sender[2] = {MODULE_CLASS_SENDER, MODULE_CLASS_NONE}; // for communication with sender module
 };
 
 class UltragridRTSPAudioSubsession: public UltragridRTSPSubsessionCommon {
 public:
     static UltragridRTSPAudioSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
     UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
+
+private:
+    enum module_class path_sender[3] = {MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE}; // for communication with sender module
 };
 
 typedef UltragridRTSPSubsessionCommon BasicRTSPOnlySubsession; // kept for legacy maintanance

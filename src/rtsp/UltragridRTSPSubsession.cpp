@@ -66,14 +66,14 @@ UltragridRTSPVideoSubsession* UltragridRTSPVideoSubsession::createNew(UsageEnvir
 }
 
 UltragridRTSPVideoSubsession::UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
-    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, nullptr) {}
+    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, path_sender) {}
 
 UltragridRTSPAudioSubsession* UltragridRTSPAudioSubsession::createNew(UsageEnvironment& env, struct module *mod, int RTPPort) {
     return new UltragridRTSPAudioSubsession(env, mod, RTPPort);
 }
 
 UltragridRTSPAudioSubsession::UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
-    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, nullptr) {}
+    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, path_sender) {}
 
 void UltragridRTSPSubsessionCommon::getStreamParameters(
     MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
