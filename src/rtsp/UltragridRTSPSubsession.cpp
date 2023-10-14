@@ -61,6 +61,20 @@ UltragridRTSPSubsessionCommon::UltragridRTSPSubsessionCommon(UsageEnvironment& e
             throw std::system_error();
 }
 
+UltragridRTSPVideoSubsession* UltragridRTSPVideoSubsession::createNew(UsageEnvironment& env, struct module *mod, int RTPPort) {
+    return new UltragridRTSPVideoSubsession(env, mod, RTPPort);
+}
+
+UltragridRTSPVideoSubsession::UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
+    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, nullptr) {}
+
+UltragridRTSPAudioSubsession* UltragridRTSPAudioSubsession::createNew(UsageEnvironment& env, struct module *mod, int RTPPort) {
+    return new UltragridRTSPAudioSubsession(env, mod, RTPPort);
+}
+
+UltragridRTSPAudioSubsession::UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
+    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, nullptr) {}
+
 void UltragridRTSPSubsessionCommon::getStreamParameters(
     MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
     MAYBE_UNUSED_ATTRIBUTE struct sockaddr_storage const& clientAddress, // in

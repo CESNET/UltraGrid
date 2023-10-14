@@ -66,6 +66,7 @@
 #include "module.h"
 
 class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
+protected:
     UltragridRTSPSubsessionCommon(UsageEnvironment& env, struct module *mod, int RTPPort, enum module_class *path_sender);
 
     /**
@@ -129,6 +130,18 @@ class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
 
     enum module_class *path_sender;
     const Boolean fReuseFirstSource = True; // tells Live555 that all clients use same source, eg. no pausing, seeking ...
+};
+
+class UltragridRTSPVideoSubsession: public UltragridRTSPSubsessionCommon {
+public:
+    static UltragridRTSPVideoSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
+    UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
+};
+
+class UltragridRTSPAudioSubsession: public UltragridRTSPSubsessionCommon {
+public:
+    static UltragridRTSPAudioSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
+    UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
 };
 
 typedef UltragridRTSPSubsessionCommon BasicRTSPOnlySubsession; // kept for legacy maintanance
