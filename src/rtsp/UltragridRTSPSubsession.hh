@@ -63,6 +63,7 @@
 
 #include <ServerMediaSession.hh>
 #include <BasicUsageEnvironment.hh>
+#include "audio/types.h"
 #include "module.h"
 
 class UltragridRTSPSubsessionCommon: public ServerMediaSubsession {
@@ -122,6 +123,7 @@ protected:
     void redirectStream(const char* destinationAddress, int destinationPort);
 
     UsageEnvironment& env;
+    std::string SDPLines;
     struct sockaddr_storage destAddress;
     Port destPort;
 
@@ -137,16 +139,39 @@ public:
     static UltragridRTSPVideoSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
     UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
 
+    /**
+    * Generates media description according to SDP
+    * 
+    * @note called by Live555 when handling DESCRIBE method
+    */
+    virtual char const* sdpLines(int addressFamily);
+
 private:
     enum module_class path_sender[2] = {MODULE_CLASS_SENDER, MODULE_CLASS_NONE}; // for communication with sender module
 };
 
 class UltragridRTSPAudioSubsession: public UltragridRTSPSubsessionCommon {
 public:
-    static UltragridRTSPAudioSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort);
-    UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort);
+    static UltragridRTSPAudioSubsession* createNew(UsageEnvironment& env, struct module *mod, int RTPPort, int sampleRate, int numOfChannels, audio_codec_t codec);
+    UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort, int sampleRate, int numOfChannels, audio_codec_t codec);
+
+    /**
+    * Generates media description according to SDP
+    * 
+    * @note called by Live555 when handling DESCRIBE method
+    */
+    virtual char const* sdpLines(int addressFamily);
 
 private:
+    /**
+    * returns payload type according to RFC 3551
+    */
+    int calculateRTPPayloadType();
+
+    int sampleRate;
+    int numOfChannels;
+    audio_codec_t codec;
+
     enum module_class path_sender[3] = {MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE}; // for communication with sender module
 };
 

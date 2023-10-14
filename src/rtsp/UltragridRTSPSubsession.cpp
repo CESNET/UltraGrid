@@ -68,12 +68,62 @@ UltragridRTSPVideoSubsession* UltragridRTSPVideoSubsession::createNew(UsageEnvir
 UltragridRTSPVideoSubsession::UltragridRTSPVideoSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
     : UltragridRTSPSubsessionCommon(env, mod, RTPPort, path_sender) {}
 
-UltragridRTSPAudioSubsession* UltragridRTSPAudioSubsession::createNew(UsageEnvironment& env, struct module *mod, int RTPPort) {
-    return new UltragridRTSPAudioSubsession(env, mod, RTPPort);
+UltragridRTSPAudioSubsession* UltragridRTSPAudioSubsession::createNew(UsageEnvironment& env, struct module *mod, int RTPPort, int sampleRate, int numOfChannels, audio_codec_t codec) {
+    return new UltragridRTSPAudioSubsession(env, mod, RTPPort, sampleRate, numOfChannels, codec);
 }
 
-UltragridRTSPAudioSubsession::UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort)
-    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, path_sender) {}
+UltragridRTSPAudioSubsession::UltragridRTSPAudioSubsession(UsageEnvironment& env, struct module *mod, int RTPPort, int sampleRate, int numOfChannels, audio_codec_t codec)
+    : UltragridRTSPSubsessionCommon(env, mod, RTPPort, path_sender), sampleRate(sampleRate), numOfChannels(numOfChannels), codec(codec) {}
+
+char const* UltragridRTSPVideoSubsession::sdpLines(int addressFamily) {
+    // already created
+    if (SDPLines.size() != 0)
+        return SDPLines.c_str();
+
+    AddressString ipAddressStr(nullAddress(addressFamily));
+
+    SDPLines += "m=video " + std::to_string(RTPPort) + " RTP/AVP 96\r\n";
+    SDPLines += std::string("c=IN ") + (addressFamily == AF_INET ? "IP4 " : "IP6 ") + std::string(ipAddressStr.val()) + "\r\n";
+    SDPLines += "b=AS:5000\r\n";
+    SDPLines += "a=rtcp:" + std::to_string(RTPPort + 1) + "\r\n";
+    SDPLines += "a=rtpmap:96 H264/90000\r\n";
+    SDPLines += "a=control:" + std::string(trackId()) + "\r\n";
+
+    return SDPLines.c_str();
+}
+
+char const* UltragridRTSPAudioSubsession::sdpLines(int addressFamily) {
+    // already created
+    if (SDPLines.size() != 0)
+        return SDPLines.c_str();
+
+    AddressString ipAddressStr(nullAddress(addressFamily));
+
+    std::string audioCodec;
+    audioCodec.append(codec == AC_MULAW ? "PCMU" : codec == AC_ALAW ? "PCMA" : "OPUS");
+
+    int RTPPayloadType = calculateRTPPayloadType();
+
+    SDPLines += "m=audio " + std::to_string(RTPPort) + " RTP/AVP " + std::to_string(RTPPayloadType) + "\r\n";
+    SDPLines += std::string("c=IN ") + (addressFamily == AF_INET ? "IP4 " : "IP6 ") + std::string(ipAddressStr.val()) + "\r\n";
+    SDPLines += "b=AS:384\r\n";
+    SDPLines += "a=rtcp:" + std::to_string(RTPPort + 1) + "\r\n";
+    SDPLines += "a=rtpmap:" + std::to_string(RTPPayloadType) + " " + std::move(audioCodec) + "/" + std::to_string(sampleRate) + "/" + std::to_string(numOfChannels) + "\r\n";
+    SDPLines += "a=control:" + std::string(trackId()) + "\r\n";
+
+    return SDPLines.c_str();
+}
+
+int UltragridRTSPAudioSubsession::calculateRTPPayloadType() {
+    if (sampleRate != 8000 || numOfChannels != 1)
+        return 97;
+
+    if (codec == AC_MULAW)
+        return 0;
+    if (codec == AC_ALAW)
+        return 8;
+    return 97;
+}
 
 void UltragridRTSPSubsessionCommon::getStreamParameters(
     MAYBE_UNUSED_ATTRIBUTE unsigned /* clientSessionId */, // in
