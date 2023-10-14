@@ -73,7 +73,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 #include "BasicUsageEnvironment.hh"
 
-UltragridRTSPServer::UltragridRTSPServer() {
+UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port) {
     // Begin by setting up our usage environment:
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
@@ -87,11 +87,14 @@ UltragridRTSPServer::UltragridRTSPServer() {
         // access to the server.
     #endif
 
-    // Create the RTSP server:
-    RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
+    if (rtsp_port == 0)
+        rtsp_port = 8554; // default port number
+
+    // only trying specified port because using different port than expected could lead to issues
+    rtspServer = RTSPServer::createNew(*env, rtsp_port, authDB);
     if (rtspServer == NULL) {
-        *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
-        exit(1);
+        *env << "[RTSP Server] Error: Failed to create RTSP server: " << env->getResultMsg() << "\n";
+        throw std::system_error();
     }
 
     char const* descriptionString = "Session streamed by \"testOnDemandRTSPServer\"";

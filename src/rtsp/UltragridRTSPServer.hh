@@ -55,7 +55,7 @@ class UltragridRTSPServer {
 public:
     UsageEnvironment* env;
 
-    UltragridRTSPServer();
+    UltragridRTSPServer(unsigned int rtsp_port);
     ~UltragridRTSPServer();
 
     /**
@@ -69,6 +69,8 @@ private:
      * @note Copied as is from live555/testProgs/announceURL.hh.
      */
     static void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms);
+
+    RTSPServer* rtspServer;
 };
 
 typedef UltragridRTSPServer BasicRTSPOnlyServer; // kept for legacy maintanance
