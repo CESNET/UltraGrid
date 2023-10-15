@@ -234,7 +234,7 @@ struct audio_rtsp_state {
 struct rtsp_state {
     CURL *curl;
     char uri[1024];
-    rtps_types_t avType;
+    rtsp_media_type_t media_type;
     const char *addr;
     char *sdp;
 
@@ -483,7 +483,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     int len = -1;
     char *save_ptr = NULL;
-    s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
+    s->media_type = none;  //-1 none, 0 a&v, 1 v, 2 a
 
     s->addr = "127.0.0.1";
     s->vrtsp_state.device = NULL;

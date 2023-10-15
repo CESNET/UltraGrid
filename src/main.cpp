@@ -1480,16 +1480,16 @@ int main(int argc, char *argv[])
                 params["a_tx_port"].i = opt.audio.send_port;
 
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
-                        rtps_types_t avType;
-                        if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0 && (strcmp("none",opt.audio.send_cfg) != 0)) avType = av; //AVStream
-                        else if((strcmp("none",opt.audio.send_cfg) != 0)) avType = audio; //AStream
-                        else if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head))) avType = video; //VStream
+                        rtsp_media_type_t media_type;
+                        if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0 && (strcmp("none",opt.audio.send_cfg) != 0)) media_type = av; //AVStream
+                        else if((strcmp("none",opt.audio.send_cfg) != 0)) media_type = audio; //AStream
+                        else if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head))) media_type = video; //VStream
                         else {
                                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
-                                avType = none;
+                                media_type = none;
                         }
 
-                        params["avType"].l = (long) avType;
+                        params["media_type"].l = (long) media_type;
                 }
 
                 sdp_set_properties(opt.requested_receiver, opt.video_rxtx_mode & MODE_SENDER && strcasecmp(opt.video_protocol, "sdp") == 0, opt.audio.send_port != 0 && strcasecmp(opt.audio.proto, "sdp") == 0);
