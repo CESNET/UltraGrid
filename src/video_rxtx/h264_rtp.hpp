@@ -42,7 +42,7 @@
 #ifndef VIDEO_RXTX_H264_RTP_H_
 #define VIDEO_RXTX_H264_RTP_H_
 
-#include "rtsp/c_basicRTSPOnlyServer.h"
+#include "rtsp/ultragrid_rtsp.hh"
 #include "video_rxtx.hpp"
 #include "video_rxtx/rtp.hpp"
 
@@ -56,7 +56,9 @@ private:
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
-        rtsp_serv_t *m_rtsp_server;
+        #ifdef HAVE_RTSP_SERVER
+        ultragrid_rtsp m_rtsp_server;
+        #endif // HAVE_RTSP_SERVER
 };
 
 #endif // VIDEO_RXTX_H264_RTP_H_

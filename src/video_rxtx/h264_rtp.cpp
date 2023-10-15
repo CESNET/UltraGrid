@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,48 +46,47 @@
  * version from 7th Aug 2015).
  */
 
-#include <cstdlib>
-#include <cstring>
-#include <memory>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
 #include "compat/misc.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rtp/rtp.h"
-#include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
+#include "rtp/rtp.h"
+#include "rtp/rtpenc_h264.h"
 #include "utils/color_out.h"
-#include "video.h"
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
+#include "video.h"
 
-#define MOD_NAME "[vrxtx/h264_rtp] "
-
-using std::shared_ptr;
+using namespace std;
 
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params,
                 int rtsp_port) :
         rtp_video_rxtx(params)
-{
-        m_rtsp_server = init_rtsp_server(rtsp_port,
+        #ifdef HAVE_RTSP_SERVER
+        , m_rtsp_server(rtsp_port,
                         static_cast<struct module *>(params.at("parent").ptr),
                         static_cast<rtsp_media_type_t>(params.at("media_type").l),
                         static_cast<audio_codec_t>(params.at("audio_codec").l),
                         params.at("audio_sample_rate").i, params.at("audio_channels").i,
-                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i);
-        c_start_server(m_rtsp_server);
+                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i)
+        #endif // HAVE_RTSP_SERVER
+{
+#ifdef HAVE_RTSP_SERVER
+        m_rtsp_server.start_server();
+#endif // HAVE_RTSP_SERVER
 }
 
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        if (tx_frame->color_spec != H264) {
-                MSG(ERROR,
-                    "codecs other than H.264 currently not supported, got %s\n",
-                    get_codec_name(tx_frame->color_spec));
-        }
         tx_send_h264(m_tx, tx_frame.get(), m_network_device);
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
@@ -105,13 +104,6 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 {
-        free(m_rtsp_server);
-}
-
-void h264_rtp_video_rxtx::join()
-{
-        c_stop_server(m_rtsp_server);
-        video_rxtx::join();
 }
 
 static void rtps_server_usage(){
@@ -150,13 +142,14 @@ static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> con
         if (strlen(rtsp_port_str) == 0) {
                 rtsp_port = 0;
         } else {
-                if (strcmp(rtsp_port_str, "help") == 0) {
+                if (!strcmp(rtsp_port_str, "help")) {
+#ifdef HAVE_RTSP_SERVER
                         rtps_server_usage();
-                        return nullptr;
-                }
-                rtsp_port = get_rtsp_server_port(rtsp_port_str);
-                if (rtsp_port == -1) {
-                        return nullptr;
+#endif
+                        return 0;
+                } else {
+                        rtsp_port = get_rtsp_server_port(rtsp_port_str);
+                        if (rtsp_port == -1) return 0;
                 }
         }
         return new h264_rtp_video_rxtx(params, rtsp_port);
