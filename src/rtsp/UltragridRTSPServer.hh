@@ -50,12 +50,22 @@
 
 #include <RTSPServer.hh>
 #include <BasicUsageEnvironment.hh>
+#include "rtsp/rtsp_utils.h"
+#include "audio/types.h"
+#include "module.h"
 
+/**
+ * Implements these RTSP methods:
+ * DESCRIBE - creates media description in SDP protocol format
+ * PLAY - begins stream by changing IP address and port to reciever, simmilar to control port
+ * TEARDOWN - end stream by changing IP address and port to localhost
+*/
 class UltragridRTSPServer {
 public:
     UsageEnvironment* env;
 
-    UltragridRTSPServer(unsigned int rtsp_port);
+    UltragridRTSPServer(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port);
     ~UltragridRTSPServer();
 
     /**

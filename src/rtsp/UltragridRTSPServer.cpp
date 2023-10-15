@@ -68,12 +68,14 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // Copyright (c) 1996-2023, Live Networks, Inc.  All rights reserved
 
 #include "rtsp/UltragridRTSPServer.hh"
+#include "rtsp/UltragridRTSPSubsession.hh"
 #include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
-#include "liveMedia.hh"
 
-#include "BasicUsageEnvironment.hh"
+UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port) {
+    if(mod == NULL)
+        throw std::system_error();
 
-UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port) {
     // Begin by setting up our usage environment:
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
@@ -97,25 +99,24 @@ UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port) {
         throw std::system_error();
     }
 
-    char const* descriptionString = "Session streamed by \"testOnDemandRTSPServer\"";
+    ServerMediaSession* sms = ServerMediaSession::createNew(*env, "ultragrid", "UltraGrid RTSP server enabling standard transport", "UltraGrid RTSP server");
 
-    // Set up each of the possible streams that can be served by the
-    // RTSP server.  Each such stream is implemented using a
-    // "ServerMediaSession" object, plus one or more
-    // "ServerMediaSubsession" objects for each audio/video substream.
+    if (media_type == video || media_type == av)
+        sms->addSubsession(UltragridRTSPVideoSubsession::createNew(*env, mod, rtp_video_port));
+    if (media_type == audio || media_type == av)
+        sms->addSubsession(UltragridRTSPAudioSubsession::createNew(*env, mod, rtp_audio_port, audio_sample_rate, audio_channels, audio_codec));
 
-    // A MPEG-4 video elementary stream:
-    {
-        char const* streamName = "mpeg4ESVideoTest";
-        char const* inputFileName = "test.m4e";
-        ServerMediaSession* sms = 
-            ServerMediaSession::createNew(*env, streamName, streamName, descriptionString);
-        sms->addSubsession(MPEG4VideoFileServerMediaSubsession
-            ::createNew(*env, inputFileName, reuseFirstSource));
-        rtspServer->addServerMediaSession(sms);
-
-        announceURL(rtspServer, sms);
+    if (media_type == none) {
+        *env << "\n[RTSP Server] Error: No media type selected: \"none\"\n";
+        throw std::system_error();
     }
+    if (media_type < 0 || media_type >= NUM_RTSP_MEDIA_TYPES) {
+        *env << "\n[RTSP Server] Error: Incompatible media type for subsession: \"" << media_type << "\"\n";
+        throw std::system_error();
+    }
+
+    rtspServer->addServerMediaSession(sms);
+    announceURL(rtspServer, sms);
 
     env->taskScheduler().doEventLoop(); // does not return
 
