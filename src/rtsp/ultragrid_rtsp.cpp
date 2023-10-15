@@ -44,3 +44,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#include "rtsp/ultragrid_rtsp.hh"
+#include "rtsp/UltragridRTSPServer.hh"
+
+ultragrid_rtsp::ultragrid_rtsp(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port) {
+    rtsp_server = std::make_unique<UltragridRTSPServer>(rtsp_port, mod, media_type, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_video_port, rtp_audio_port);
+}

@@ -44,3 +44,35 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#ifndef ULTRAGRID_RTSP_HH
+#define ULTRAGRID_RTSP_HH
+
+#include "rtsp/rtsp_utils.h"
+#include "audio/types.h"
+#include "module.h"
+
+class UltragridRTSPServer;
+
+class ultragrid_rtsp {
+public:
+    /** 
+     * @param rtsp_port The caller is responsible for ensuring the port is available.
+     *                  If set as 0, the server will use the default value.
+    */
+    ultragrid_rtsp(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+            int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port);
+    ~ultragrid_rtsp();
+
+    /**
+     * Copy constructor and copy assignment operator do not make sense in this context
+    */
+    ultragrid_rtsp(const ultragrid_rtsp&) = delete;
+    ultragrid_rtsp& operator=(const ultragrid_rtsp&) = delete;
+
+private:
+
+    std::unique_ptr<UltragridRTSPServer> rtsp_server; // pointer to avoid name clashes with live555
+};
+
+#endif // ULTRAGRID_RTSP_HH
