@@ -49,6 +49,37 @@
 #include "rtsp/UltragridRTSPServer.hh"
 
 ultragrid_rtsp::ultragrid_rtsp(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
-        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port) {
+        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port)
+        : thread_running(false) {
     rtsp_server = std::make_unique<UltragridRTSPServer>(rtsp_port, mod, media_type, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_video_port, rtp_audio_port);
+}
+
+ultragrid_rtsp::~ultragrid_rtsp() {
+    stop_server();
+}
+
+int ultragrid_rtsp::start_server() {
+    if (thread_running)
+        return 1;
+    server_stop_flag = 0;
+
+    int ret;
+    ret = pthread_create(&server_thread, NULL, ultragrid_rtsp::server_runner, this);
+    thread_running = (ret == 0) ? true : false;
+    return ret;
+}
+
+void ultragrid_rtsp::stop_server() {
+    server_stop_flag = 1;
+
+    if (thread_running) {
+        pthread_join(server_thread, NULL);
+        thread_running = false;
+    }
+}
+
+void* ultragrid_rtsp::server_runner(void* args) {
+    ultragrid_rtsp* server_instance = (ultragrid_rtsp*) args;
+    server_instance->rtsp_server->serverRunner(&server_instance->server_stop_flag);
+    return NULL;
 }
