@@ -76,7 +76,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                         static_cast<rtsp_media_type_t>(params.at("media_type").l),
                         static_cast<audio_codec_t>(params.at("audio_codec").l),
                         params.at("audio_sample_rate").i, params.at("audio_channels").i,
-                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i)
+                        params.at("rx_port").i, params.at("a_rx_port").i)
         #endif // HAVE_RTSP_SERVER
 {
 #ifdef HAVE_RTSP_SERVER

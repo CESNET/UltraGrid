@@ -65,7 +65,7 @@ public:
     UsageEnvironment* env;
 
     UltragridRTSPServer(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
-        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port);
+        int audio_sample_rate, int audio_channels, int rtp_video_port, int rtp_audio_port);
     ~UltragridRTSPServer();
 
     /**

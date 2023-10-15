@@ -72,7 +72,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
 
 UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
-        int audio_sample_rate, int audio_channels, int audio_bps, int rtp_video_port, int rtp_audio_port) {
+        int audio_sample_rate, int audio_channels, int rtp_video_port, int rtp_audio_port) {
     if(mod == NULL)
         throw std::system_error();
 
