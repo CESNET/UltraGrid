@@ -117,10 +117,20 @@ UltragridRTSPServer::UltragridRTSPServer(unsigned int rtsp_port, struct module* 
 
     rtspServer->addServerMediaSession(sms);
     announceURL(rtspServer, sms);
+}
 
-    env->taskScheduler().doEventLoop(); // does not return
+UltragridRTSPServer::~UltragridRTSPServer() {
+    if (rtspServer != NULL) {
+        Medium::close(rtspServer);
+    }
+    if (env != NULL) {
+        delete &env->taskScheduler();
+        env->reclaim();
+    }
+}
 
-    return 0; // only to prevent compiler warning
+void UltragridRTSPServer::serverRunner(char* serverStopFlag) {
+        env->taskScheduler().doEventLoop(serverStopFlag);
 }
 
 // copied from Live555 library live555/testProgs/announceURL.cpp, published under LGPL3 licence

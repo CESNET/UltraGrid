@@ -69,6 +69,14 @@ public:
     ~UltragridRTSPServer();
 
     /**
+     * starts and then runs the server
+     * returns control after serverStopFlag has been set to 1
+     * 
+     * @param serverStopFlag if set to 0 server is running, when changed to 1 server stops
+    */
+    void serverRunner(char* serverStopFlag);
+
+    /**
      * Copy constructor and copy assignment operator do not make sense in this context
     */
     UltragridRTSPServer(const UltragridRTSPServer&) = delete;
