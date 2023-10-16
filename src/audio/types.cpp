@@ -370,22 +370,3 @@ bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
 
         return true;
 }
-
-audio_tx_data
-audio_frame2::get_tx_data()
-{
-        tx_channels.resize(get_channel_count());
-        audio_tx_data ret{};
-        ret.desc = get_desc();
-        ret.timestamp = get_timestamp();
-        ret.channels  = tx_channels.data();
-
-        for (int i = 0; i < get_channel_count(); ++i) {
-                ret.channels[i].pkt_count        = 1;
-                ret.channels[i].pkts[0].data     = get_data(i);
-                ret.channels[i].pkts[0].len      = (int) get_data_len(i);
-                ret.channels[i].pkts[0].fec_desc = get_fec_params(i);
-        }
-
-        return ret;
-}

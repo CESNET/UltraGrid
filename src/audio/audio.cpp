@@ -1132,8 +1132,7 @@ static void *audio_sender_thread(void *arg)
                                         if (s->fec_state != nullptr) {
                                                 to_send = s->fec_state->encode(to_send);
                                         }
-                                        audio_tx_data tx = to_send.get_tx_data();
-                                        audio_tx_send(s->tx_session, s->audio_network_device, &tx);
+                                        audio_tx_send(s->tx_session, s->audio_network_device, &to_send);
                                         uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){
