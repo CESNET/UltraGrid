@@ -46,7 +46,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/misc.h"
-#include "utils/packet_counter.h"
 
 #include <algorithm>
 #include <climits>
@@ -276,9 +275,7 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
         return res;
 }
 
-audio_frame2
-audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame,
-                       packet_counter *counter)
+audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame)
 {
         if (s->state_count < frame->get_channel_count()) {
                 s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
@@ -309,8 +306,7 @@ audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame,
                 if (channel.data_len == 0) {
                         continue;
                 }
-                struct packet_iterator it = { counter, i, 0 };
-                audio_channel *out = s->funcs->decompress(s->state[i], &channel, &it);
+                audio_channel *out = s->funcs->decompress(s->state[i], &channel);
                 if (out) {
                         if (!out_frame_initialized) {
                                 ret.init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);

@@ -47,14 +47,11 @@ typedef enum {
         AUDIO_DECODER
 } audio_codec_direction_t;
 
-struct packet_counter;
-struct packet_iterator;
-
 struct audio_compress_info {
         const audio_codec_t *supported_codecs;
         void *(*init)(audio_codec_t, audio_codec_direction_t, bool, int bitrate);
         audio_channel *(*compress)(void *, audio_channel *);
-        audio_channel *(*decompress)(void *, audio_channel *, struct packet_iterator *);
+        audio_channel *(*decompress)(void *, audio_channel *);
         const int *(*get_samplerates)(void *);
         void (*done)(void *);
 };
@@ -80,8 +77,7 @@ struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg, audi
 struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
                 audio_codec_t audio_codec, audio_codec_direction_t);
 audio_frame2 audio_codec_compress(struct audio_codec_state *, const audio_frame2 *);
-audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *,
-                                    packet_counter *);
+audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
 const int   *audio_codec_get_supported_samplerates(struct audio_codec_state *);
 void audio_codec_done(struct audio_codec_state *);
 

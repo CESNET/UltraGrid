@@ -70,6 +70,7 @@ struct libavcodec_codec_state;
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
                 bool silent, int bitrate);
 static audio_channel *libavcodec_compress(void *, audio_channel *);
+static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
 static void cleanup_common(struct libavcodec_codec_state *s);
 
@@ -557,11 +558,8 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         }
 }
 
-static audio_channel *
-libavcodec_decompress(void *state, audio_channel *channel,
-                      struct packet_iterator *it)
+static audio_channel *libavcodec_decompress(void *state, audio_channel * channel)
 {
-        UNUSED(it);
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
         assert(channel->data_len > 0);
         assert(s->magic == MAGIC);
