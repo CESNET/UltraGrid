@@ -84,11 +84,6 @@ int audio_init(struct state_audio **state, struct module *parent,
                 long long int bitrate, volatile int *audio_delay,
                 time_ns_t start_time,
                 int mtu, int ttl, struct exporter *exporter);
-
-void audio_compress_send_native(struct rtp               *audio_network_device,
-                                struct audio_codec_state *audio_encoder,
-                                struct tx *tx_session, void *fec_state,
-                                audio_frame2 *uncompressed);
 #endif
 
 #ifdef __cplusplus

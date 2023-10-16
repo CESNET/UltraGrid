@@ -145,7 +145,6 @@ struct audio_tx_data {
         int64_t                  timestamp; ///< -1 if not valid
         struct audio_tx_channel *channels;
 };
-void audio_tx_data_cleanup(struct audio_tx_data *d);
 
 #ifdef __cplusplus
 #include <memory>
@@ -212,7 +211,7 @@ public:
         bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
         ///@ resamples to new sample rate while keeping nominal sample rate intact
         std::tuple<bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
-        audio_tx_data *append_tx_data(audio_tx_data *src);
+        audio_tx_data get_tx_data();
 private:
         struct channel {
                 std::unique_ptr<char []> data;
@@ -226,6 +225,7 @@ private:
         std::vector<channel> channels; /* data should be at least 4B aligned */
         double duration = 0.0; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
         int64_t timestamp = -1;
+        std::vector<audio_tx_channel> tx_channels;
 
         friend class audio_frame2_resampler;
         friend class soxr_resampler;

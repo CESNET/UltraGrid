@@ -772,10 +772,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         free(rtp_headers);
 }
 
-static void audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session,
-                              uint32_t                    timestamp,
-                              const struct audio_tx_data *buffer, int channel,
-                              int packet, int buflen, int pktoff, bool send_m);
+static void audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session,
+                               uint32_t                    timestamp,
+                               const struct audio_tx_data *buffer, int channel,
+                               int packet, bool send_m);
 
 /* 
  * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
@@ -798,37 +798,20 @@ audio_tx_send(struct tx *tx, struct rtp *rtp_session,
 
         for (int iter = 0; iter < tx->mult_count; ++iter) {
                 for (int chan = 0; chan < buffer->desc.ch_count; ++chan) {
-                        int buflen = 0;
-                        for (int pkt = 0; pkt < buffer->channels[chan].pkt_count;
-                             ++pkt) {
-                                buflen += buffer->channels[chan].pkts[pkt].len;
-                        }
-                        int pktoff = 0;
-                        for (int pkt = 0; pkt < buffer->channels[chan].pkt_count;
-                             ++pkt) {
-                                bool send_m =
-                                    iter == tx->mult_count - 1 &&
-                                    chan == buffer->desc.ch_count - 1 &&
-                                    pkt == buffer->channels[chan].pkt_count - 1;
-                                audio_tx_send_pkt(tx, rtp_session, timestamp,
-                                                   buffer, chan, pkt, buflen,
-                                                   pktoff, send_m);
-                                pktoff += buffer->channels[chan].pkts[pkt].len;
-                        }
+                        bool send_m = iter == tx->mult_count - 1 &&
+                                      chan == buffer->desc.ch_count - 1;
+                        assert(buffer->channels[chan].pkt_count == 1);
+                        audio_tx_send_chan(tx, rtp_session, timestamp, buffer,
+                                           chan, 0, send_m);
                 }
         }
 
         tx->buffer++;
 }
 
-/**
- * @param buflen aggregate size of all audio packages to be sent
- * @param pktoff offset of the audio packet inside the buffer
-*/
 static void
-audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
-                   const struct audio_tx_data *buffer, int channel, int packet,
-                   int buflen, int pktoff, bool send_m)
+audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
+                   const struct audio_tx_data *buffer, int channel, int packet, bool send_m)
 {
         const struct audio_tx_pkt *pkt = &buffer->channels[channel].pkts[packet];
 
@@ -850,7 +833,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         if (pkt->fec_desc.type == FEC_NONE) {
                 hdrs_len += (sizeof(audio_payload_hdr_t));
                 rtp_hdr_len = sizeof(audio_payload_hdr_t);
-                format_audio_header(buffer->desc, channel, buflen, tx->buffer,
+                format_audio_header(buffer->desc, channel, len, tx->buffer,
                                     rtp_hdr);
         } else {
                 hdrs_len += (sizeof(fec_payload_hdr_t));
@@ -859,7 +842,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
                 rtp_hdr[0] = htonl(tmp);
-                rtp_hdr[2] = htonl(buflen);
+                rtp_hdr[2] = htonl(len);
                 rtp_hdr[3] = htonl(pkt->fec_desc.k << 19 |
                                    pkt->fec_desc.m << 6 |
                                    pkt->fec_desc.c);
@@ -888,7 +871,7 @@ audio_tx_send_pkt(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                                 m = 1;
                         }
                 }
-                rtp_hdr[1] = htonl(pktoff + pos);
+                rtp_hdr[1] = htonl(pos);
                 pos += data_len;
 
                 char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
