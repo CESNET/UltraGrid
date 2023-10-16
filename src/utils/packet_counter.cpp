@@ -42,6 +42,7 @@
 #endif // defined HAVE_CONFIG_H
 
 #include "utils/packet_counter.h"
+#include <cassert>
 #include <map>
 #include <vector>
 
@@ -49,20 +50,26 @@ using std::map;
 using std::vector;
 
 struct packet_counter {
-        explicit packet_counter(int ns) : packets(ns) {}
+        explicit packet_counter(int ns) : num_substreams(ns), packets(ns) {}
 
         void register_packet(int substream_id, int bufnum, int offset, int len) {
-                packets.at(substream_id)[bufnum][offset] = len;
+                assert(substream_id < num_substreams); 
+
+                packets[substream_id][bufnum][offset] = len;
                 current_bufnum = bufnum;
         }
 
         int get_total_bytes() {
                 int ret = 0;
 
-                for (auto &&chan : packets) {
-                        for (auto &&buffer : chan) {
-                                for (auto &&packet : buffer.second) {
-                                        ret += packet.second;
+                for(int i = 0; i < num_substreams; ++i) {
+                        for(map<int, map<int, int> >::const_iterator it = packets[i].begin();
+                                       it != packets[i].end();
+                                       ++it) {
+                                for(map<int, int>::const_iterator it2 = it->second.begin();
+                                               it2 != it->second.end();
+                                               ++it2) {
+                                        ret += it2->second;
                                 }
                         }
                 }
@@ -73,11 +80,12 @@ struct packet_counter {
         int get_all_bytes() {
                 int ret = 0;
 
-                for (auto &&chan : packets) {
-                        for (auto &buf : chan) {
-                                if (!buf.second.empty()) {
-                                        ret += (--buf.second.end())->first +
-                                               (--buf.second.end())->second;
+                for(int i = 0; i < num_substreams; ++i) {
+                        for(map<int, map<int, int> >::const_iterator it = packets[i].begin();
+                                       it != packets[i].end();
+                                       ++it) {
+                                if(!it->second.empty()) {
+                                        ret += (--it->second.end())->first + (--it->second.end())->second;
                                 }
                         }
                 }
@@ -86,8 +94,8 @@ struct packet_counter {
         }
 
         void clear() {
-                for (auto &&chan : packets) {
-                        chan.clear();
+                for(int i = 0; i < num_substreams; ++i) {
+                        packets[i].clear();
                 }
         }
 
@@ -111,6 +119,7 @@ struct packet_counter {
         }
 
       private:
+        int                             num_substreams;
         vector<map<int, map<int, int>>> packets; ///< channel, bufnum, off, len
         int current_bufnum = 0;
 
@@ -118,11 +127,17 @@ struct packet_counter {
 };
 
 struct packet_counter *packet_counter_init(int num_substreams) {
-        return new packet_counter(num_substreams);
+        struct packet_counter *state;
+        
+        state = new packet_counter(num_substreams);
+
+        return state;
 }
 
 void packet_counter_destroy(struct packet_counter *state) {
-        delete state;
+        if(state) {
+                delete state;
+        }
 }
 
 void packet_counter_register_packet(struct packet_counter *state, unsigned int substream_id, unsigned int bufnum,
@@ -143,7 +158,7 @@ int packet_counter_get_all_bytes(struct packet_counter *state)
 
 int packet_counter_get_channels(struct packet_counter *state)
 {
-        return (int) state->packets.size();
+        return state->num_substreams;
 }
 
 void packet_counter_clear(struct packet_counter *state)
