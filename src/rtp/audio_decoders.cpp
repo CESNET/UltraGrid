@@ -842,7 +842,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 }
         }
         s->buffer.data_len = new_data_len;
-        s->buffer.timestamp = decompressed.get_timestamp();
+        if (s->buffer.timestamp == -1) {
+                s->buffer.timestamp = decompressed.get_timestamp();
+        }
 
         decoder->decoded.append(decompressed);
 
