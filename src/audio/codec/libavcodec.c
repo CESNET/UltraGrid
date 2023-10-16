@@ -395,6 +395,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
                 return false;
         }
 
+        s->tmp.data_len = 0;
         s->output_channel.sample_rate = desc.sample_rate;
         s->output_channel.bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         s->saved_desc = desc;
