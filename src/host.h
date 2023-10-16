@@ -109,7 +109,6 @@ extern void *mainloop_udata;
 extern int glfw_init_count;
 extern char pixfmt_conv_pref[]; // defined in video_codec.c
 extern char *sage_network_device;
-extern bool incompatible_features;
 
 // Both of following varables are non-negative. It indicates amount of milliseconds that
 // audio or video should be delayed. This shall be used for AV sync control. For

@@ -115,7 +115,7 @@ using namespace std;
 unsigned int audio_capture_channels = 0;
 unsigned int audio_capture_bps = 0;
 unsigned int audio_capture_sample_rate = 0;
-bool incompatible_features = false;
+
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
 
@@ -433,10 +433,6 @@ struct init_data *common_preinit(int argc, char *argv[])
 #endif
 
         load_libgcc();
-
-        if (get_commandline_param("incompatible") != nullptr) {
-                incompatible_features = true;
-        }
 
 #ifdef HAVE_FEC_INIT
         fec_init();
@@ -1076,8 +1072,6 @@ ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
 ADD_TO_PARAM("color", "* color=CT\n"
                 "  [experimental] Color space to use, C - colorimetry: 0 - undefined, 1 - BT.709, 2 - BT.2020/2100, 3 - P3; T - transfer fn: 0 - undefined, 1 - 709, 2 - HLG; 3 - PQ (signalized to GLFW on mac, NDI receiver)\n");
-ADD_TO_PARAM("incompatible", "* incompatible\n"
-                "  Features that may possibly not be compatible with at least older or even any other UG version.\n");
 ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n"
                 "  Add ultra for even more aggressive setting.\n");
