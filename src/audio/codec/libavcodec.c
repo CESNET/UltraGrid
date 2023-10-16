@@ -507,7 +507,7 @@ static void
 set_out_ts(int recv_ret, struct libavcodec_codec_state *s)
 {
         if (recv_ret != 0 || s->output_channel.timestamp != -1 ||
-            s->pkt->pts == AV_NOPTS_VALUE) {
+            s->pkt->pts < 0) {
                 return;
         }
         s->output_channel.timestamp =
@@ -520,6 +520,9 @@ write_out_data(struct libavcodec_codec_state *s)
 {
         if (s->output_channel.data_len + s->pkt->size > TMP_DATA_LEN) {
                 MSG(ERROR, "Output buffer overflow!\n");
+        }
+        if (s->pkt->pts != AV_NOPTS_VALUE && s->pkt->pts < 0) {
+                return;
         }
         memcpy(s->output_channel_data + s->output_channel.data_len,
                s->pkt->data, s->pkt->size);
