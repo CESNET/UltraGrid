@@ -51,7 +51,7 @@
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
 
-#define MOD_NAME "[PW play.] "
+#define MOD_NAME "[PW aplay] "
 
 struct state_pipewire_play{
         pipewire_state_common pw;

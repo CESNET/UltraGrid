@@ -25,7 +25,7 @@
 #include "utils/string_view_utils.hpp"
 #include <spa/param/video/format-utils.h>
 
-#define MOD_NAME "[pw_disp] "
+#define MOD_NAME "[PW disp] "
 
 namespace{
         struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };

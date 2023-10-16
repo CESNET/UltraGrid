@@ -54,7 +54,7 @@
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
 
-#define MOD_NAME "[PW cap.] "
+#define MOD_NAME "[PW acap] "
 
 struct state_pipewire_cap{
         pipewire_state_common pw;

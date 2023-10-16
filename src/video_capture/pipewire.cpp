@@ -66,7 +66,7 @@
 #include "pipewire_common.hpp"
 #include "pixfmt_conv.h"
 
-#define MOD_NAME "[screen_pw] "
+#define MOD_NAME "[PW vcap] "
 
 static constexpr int DEFAULT_BUFFERS_PW = 2;
 static constexpr int MIN_BUFFERS_PW = 2;
