@@ -50,21 +50,24 @@ using std::map;
 using std::vector;
 
 struct packet_counter {
-        explicit packet_counter(int ns) : num_substreams(ns), packets(ns) {}
+        explicit packet_counter(int ns)
+            : num_substreams(ns), cumulative(ns), current_frame(ns)
+        {
+        }
 
         void register_packet(int substream_id, int bufnum, int offset, int len) {
                 assert(substream_id < num_substreams); 
 
-                packets[substream_id][bufnum][offset] = len;
-                current_bufnum = bufnum;
+                cumulative[substream_id][bufnum][offset] = len;
+                current_frame[substream_id][offset] = len;
         }
 
         int get_total_bytes() {
                 int ret = 0;
 
                 for(int i = 0; i < num_substreams; ++i) {
-                        for(map<int, map<int, int> >::const_iterator it = packets[i].begin();
-                                       it != packets[i].end();
+                        for(map<int, map<int, int> >::const_iterator it = cumulative[i].begin();
+                                       it != cumulative[i].end();
                                        ++it) {
                                 for(map<int, int>::const_iterator it2 = it->second.begin();
                                                it2 != it->second.end();
@@ -81,8 +84,8 @@ struct packet_counter {
                 int ret = 0;
 
                 for(int i = 0; i < num_substreams; ++i) {
-                        for(map<int, map<int, int> >::const_iterator it = packets[i].begin();
-                                       it != packets[i].end();
+                        for(map<int, map<int, int> >::const_iterator it = cumulative[i].begin();
+                                       it != cumulative[i].end();
                                        ++it) {
                                 if(!it->second.empty()) {
                                         ret += (--it->second.end())->first + (--it->second.end())->second;
@@ -93,22 +96,28 @@ struct packet_counter {
                 return ret;
         }
 
-        void clear() {
+        void clear_cumulative() {
                 for(int i = 0; i < num_substreams; ++i) {
-                        packets[i].clear();
+                        cumulative[i].clear();
+                }
+        }
+
+        void clear_current_frame() {
+                for (auto && chan : current_frame) {
+                        chan.clear();
                 }
         }
 
         void iterator_init(int channel, packet_iterator *it) {
                 it->counter = this;
                 it->channel = channel;
-                auto &&chan      = packets.at(channel).at(current_bufnum);
+                auto &&chan      = current_frame.at(channel);
                 auto &&first_pkt = chan.begin();
                 it->offset       = first_pkt->first;
                 it->len          = first_pkt->second;
         }
         bool next_packet(packet_iterator *it) {
-                auto &&chan      = packets.at(it->channel).at(current_bufnum);
+                auto &&chan      = current_frame.at(it->channel);
                 auto &&cur_pkt = chan.find(it->offset);
                 if (++cur_pkt == chan.end()) {
                         return false;
@@ -120,8 +129,8 @@ struct packet_counter {
 
       private:
         int                             num_substreams;
-        vector<map<int, map<int, int>>> packets; ///< channel, bufnum, off, len
-        int current_bufnum = 0;
+        vector<map<int, map<int, int>>> cumulative;
+        vector<map<int, int>> current_frame;
 
         friend int packet_counter_get_channels(struct packet_counter *state);
 };
@@ -161,9 +170,14 @@ int packet_counter_get_channels(struct packet_counter *state)
         return state->num_substreams;
 }
 
-void packet_counter_clear(struct packet_counter *state)
+void packet_counter_clear_cumulative(struct packet_counter *state)
 {
-        state->clear();
+        state->clear_cumulative();
+}
+
+void packet_counter_clear_current_frame(struct packet_counter *state)
+{
+        state->clear_current_frame();
 }
 
 /**

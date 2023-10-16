@@ -325,6 +325,7 @@ audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame,
                         nonzero_channels += 1;
                 }
         }
+        packet_counter_clear_current_frame(counter);
 
         if (nonzero_channels != frame->get_channel_count()) {
                 log_msg(LOG_LEVEL_WARNING,

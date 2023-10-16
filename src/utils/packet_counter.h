@@ -55,7 +55,8 @@ void packet_counter_register_packet(struct packet_counter *state, unsigned int s
 int packet_counter_get_total_bytes(struct packet_counter *state);
 int packet_counter_get_all_bytes(struct packet_counter *state);
 int packet_counter_get_channels(struct packet_counter *state);
-void packet_counter_clear(struct packet_counter *state);
+void packet_counter_clear_cumulative(struct packet_counter *state);
+void packet_counter_clear_current_frame(struct packet_counter *state);
 
 struct packet_iterator {
         struct packet_counter *counter;
