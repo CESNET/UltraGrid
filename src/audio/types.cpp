@@ -212,13 +212,6 @@ char *audio_frame2::get_data(int channel)
         return channels[channel].data.get();
 }
 
-audio_desc audio_frame2::get_desc() const
-{
-        struct audio_desc ret = desc;
-        ret.ch_count = channels.size();
-        return ret;
-}
-
 const char *audio_frame2::get_data(int channel) const
 {
         return channels[channel].data.get();

@@ -87,9 +87,6 @@ void tx_send_jpeg(struct tx *tx_session, struct video_frame *frame, struct rtp *
  */
 int tx_get_buffer_id(struct tx *tx_session);
 
-void format_audio_header(struct audio_desc desc, int channel,
-                         size_t data_len, int buffer_idx, uint32_t *audio_hdr);
-
 #ifdef __cplusplus
 }
 #endif
@@ -98,6 +95,7 @@ void format_audio_header(struct audio_desc desc, int channel,
 class audio_frame2;
 void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, const audio_frame2 *buffer);
 void             audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer);
+void             format_audio_header(const class audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr);
 #endif
 
 #endif // TRANSMIT_H_
