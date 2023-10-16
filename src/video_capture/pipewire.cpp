@@ -462,6 +462,15 @@ static void vidcap_screen_pw_probe(struct device_info **available_devices, int *
         snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Screen capture PipeWire");
 }
 
+static void vidcap_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
+{
+        *deleter = free;
+        *count = 1;
+        *available_devices = (struct device_info *) calloc(*count, sizeof(struct device_info));
+        // (*available_devices)[0].dev can be "" since screen cap. doesn't require parameters
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Generic PipeWire video capture");
+}
+
 static void show_help() {
         auto param = [](const char* name) -> std::ostream& {
                 col() << "  " << SBOLD(name) << " - ";
@@ -611,7 +620,7 @@ REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, 
 #endif
 
 static const struct video_capture_info vidcap_pw_info = {
-        vidcap_screen_pw_probe,
+        vidcap_pw_probe,
         vidcap_pw_init,
         vidcap_screen_pw_done,
         vidcap_screen_pw_grab,
