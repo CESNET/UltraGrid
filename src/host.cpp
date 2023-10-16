@@ -914,7 +914,10 @@ bool parse_params(const char *optarg, bool preinit)
                         }
                         LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
                         LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
-                        return false;
+                        if (get_commandline_param("allow-unknown-params") ==
+                            nullptr) {
+                                return false;
+                        }
                 }
                 commandline_params[key_cstr] = val_cstr;
         }
@@ -1064,6 +1067,8 @@ void hang_signal_handler(int sig)
 }
 
 // some common parameters used within multiple modules
+ADD_TO_PARAM("allow-unknown-params", "* allow-unknown-params\n"
+                "  Do not exit on unknown parameter.\n");
 ADD_TO_PARAM("audio-buffer-len", "* audio-buffer-len=<ms>\n"
                 "  Sets length of software audio playback buffer (in ms, ALSA/Coreaudio/Portaudio/WASAPI)\n");
 ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
