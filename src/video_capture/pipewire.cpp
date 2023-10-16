@@ -96,6 +96,7 @@ struct screen_cast_session {
                 std::string restore_file = "";
                 uint32_t fps = 0;
                 bool crop = true;
+                std::string target = "";
         } user_options;
 
         struct pw_{
@@ -390,11 +391,18 @@ static int start_pipewire(screen_cast_session &session)
 
         assert(core != nullptr);
 
-        session.pw.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
+        auto props = pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Video",
                         PW_KEY_MEDIA_CATEGORY, "Capture",
                         PW_KEY_MEDIA_ROLE, "Screen",
-                        nullptr));
+                        nullptr);
+
+        if(!session.user_options.target.empty()){
+                pw_properties_set(props, STREAM_TARGET_PROPERTY_KEY, session.user_options.target.c_str());
+        }
+
+        session.pw.stream = pw_stream_new(core, "ug_screencapture", props);
+
         assert(session.pw.stream != nullptr);
         pw_stream_add_listener(session.pw.stream, &session.pw.stream_listener, &stream_events, &session);
 
@@ -511,6 +519,9 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
                                                 continue;
                                         }else if(name == "restore"){
                                                 session.user_options.restore_file = value;
+                                                continue;
+                                        } else if(name =="target"){
+                                                session.user_options.target = value;
                                                 continue;
                                         }
                                 }
