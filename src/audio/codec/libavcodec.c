@@ -55,7 +55,6 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "libavcodec/lavc_common.h"
-#include "utils/packet_counter.h"
 #include "utils/text.h"
 
 #define MAGIC 0xb135ca11
@@ -74,36 +73,24 @@ static audio_channel *libavcodec_compress(void *, audio_channel *);
 static void libavcodec_done(void *);
 static void cleanup_common(struct libavcodec_codec_state *s);
 
-enum codec_flags {
-        /// Decoder requires the packets to be passed packetized by the encoder
-        /// so that eg. two packet cannot be given in a singe buffer. Some codec
-        /// seem to be more tolerant even though it generates packetized output,
-        /// eg. AAC or MP3 even though it generates packetized output, eg. AAC
-        /// or MP3 even though it generates packetized output, eg. AAC or MP3
-        /// even though it generates packetized output, eg. AAC or MP3.
-        PACKETIZED_DEC = 1 << 0,
-};
-
 struct codec_param {
         enum AVCodecID id;
         const char *preferred_encoder;
-        int flags;
 };
 
 static const struct codec_param mapping[AC_COUNT] = {
-        [AC_ALAW]  = {AV_CODEC_ID_PCM_ALAW,    NULL,         0             },
-        [AC_MULAW] = { AV_CODEC_ID_PCM_MULAW,  NULL,         0             },
-        [AC_SPEEX] = { AV_CODEC_ID_SPEEX,      NULL,         0             },
-        [AC_OPUS]  = { AV_CODEC_ID_OPUS,       NULL,         PACKETIZED_DEC},
-        [AC_G722]  = { AV_CODEC_ID_ADPCM_G722, NULL,         0             },
-        [AC_FLAC]  = { AV_CODEC_ID_FLAC,       NULL,         0             },
-        [AC_MP3]   = { AV_CODEC_ID_MP3,        NULL,         0             },
-        [AC_AAC]   = { AV_CODEC_ID_AAC,        "libfdk_aac", 0             },
+        [AC_ALAW]  = {AV_CODEC_ID_PCM_ALAW,    NULL        },
+        [AC_MULAW] = { AV_CODEC_ID_PCM_MULAW,  NULL        },
+        [AC_SPEEX] = { AV_CODEC_ID_SPEEX,      NULL        },
+        [AC_OPUS]  = { AV_CODEC_ID_OPUS,       NULL        },
+        [AC_G722]  = { AV_CODEC_ID_ADPCM_G722, NULL        },
+        [AC_FLAC]  = { AV_CODEC_ID_FLAC,       NULL        },
+        [AC_MP3]   = { AV_CODEC_ID_MP3,        NULL        },
+        [AC_AAC]   = { AV_CODEC_ID_AAC,        "libfdk_aac"},
 };
 
 struct libavcodec_codec_state {
         uint32_t magic;
-        const struct codec_param *codec_info;
         struct AVPacket *pkt;
         struct AVCodecContext *codec_ctx;
         const struct AVCodec *codec;
@@ -196,7 +183,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         struct libavcodec_codec_state *s = calloc(1, sizeof *s);
         s->magic = MAGIC;
-        s->codec_info = it;
         s->direction = direction;
         if(direction == AUDIO_CODER) {
                 if (preferred_encoder) {
@@ -591,56 +577,36 @@ libavcodec_decompress(void *state, audio_channel *channel,
         resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(s->tmp_buffer, channel->data, channel->data_len);
 
-        if ((s->codec_info->flags & PACKETIZED_DEC) != 0)  {
-                s->pkt->data = s->tmp_buffer + it->offset;
-                s->pkt->size = it->len;
-        } else {
-                s->pkt->data = s->tmp_buffer;
-                s->pkt->size = channel->data_len;
-        }
+        s->pkt->data = s->tmp_buffer;
+        s->pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
 
         av_frame_unref(s->av_frame);
 
-        while (1) {
-                int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
-                if (ret != 0) {
-                        print_decoder_error(
-                            MOD_NAME "error sending decoded frame -", ret);
+        int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
+        if (ret != 0) {
+                print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
+                return NULL;
+        }
+        /* read all the output frames (in general there may be any number of them */
+        while (ret >= 0) {
+                ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;
+                }
+                if (ret < 0) {
+                        print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
                         return NULL;
                 }
-                /* read all the output frames (in general there may be any
-                 * number of them */
-                while (ret >= 0) {
-                        ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
-                        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                                break;
-                        }
-                        if (ret < 0) {
-                                print_decoder_error(
-                                    MOD_NAME "error receiving decoded frame -",
-                                    ret);
-                                return NULL;
-                        }
-                        int channels  = 1;
-                        /* if a frame has been decoded, output it */
-                        int data_size = av_samples_get_buffer_size(
-                            NULL, channels, s->av_frame->nb_samples,
-                            s->codec_ctx->sample_fmt, 1);
-                        memcpy(s->output_channel_data +
-                                   s->output_channel.data_len,
-                               s->av_frame->data[0], data_size);
-                        s->output_channel.data_len += data_size;
-                        s->pkt->dts = s->pkt->pts = AV_NOPTS_VALUE;
-                }
-                if ((s->codec_info->flags & PACKETIZED_DEC) == 0) {
-                        break;
-                }
-                if (!packet_next(it)) {
-                        break;
-                }
-                s->pkt->data = s->tmp_buffer + it->offset;
-                s->pkt->size = it->len;
+                int channels = 1;
+                /* if a frame has been decoded, output it */
+                int data_size = av_samples_get_buffer_size(NULL, channels,
+                                s->av_frame->nb_samples,
+                                s->codec_ctx->sample_fmt, 1);
+                memcpy(s->output_channel_data + s->output_channel.data_len, s->av_frame->data[0],
+                                data_size);
+                s->output_channel.data_len += data_size;
+                s->pkt->dts = s->pkt->pts = AV_NOPTS_VALUE;
         }
 
         //
