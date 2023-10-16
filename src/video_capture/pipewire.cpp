@@ -104,7 +104,7 @@ struct screen_cast_session {
                 }
                 
                 int fd = -1;
-                uint32_t node = -1;
+                uint32_t node = PW_ID_ANY;
                 
                 struct pw_thread_loop *loop = nullptr;
                 struct pw_context *context = nullptr;
@@ -549,6 +549,11 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         }
 
         session.pw.fd = portalResult.pipewire_fd;
+        /* TODO: The node target_id param when calling stream_connect should be
+         * always set to PW_ID_ANY as using object ids is now deprecated.
+         * However, the dbus ScreenCast portal doesn't yet expose the object
+         * serial which shoud be used instead.
+         */
         session.pw.node = portalResult.pipewire_node;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
