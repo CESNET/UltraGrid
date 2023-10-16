@@ -315,7 +315,8 @@ struct video_frame {
         struct fec_desc fec_params;
         int flags;
         uint32_t ssrc;
-        uint32_t timestamp; ///< frame timestamp
+        int64_t timestamp; ///< frame timestamp, monotonous on the sender,
+                           ///< wraps-around at 2^32 on receiver
         uint32_t seq; ///< seq num, used internally by JPEG enc, file cap
         union {
                 uint32_t timecode; ///< BCD timecode (hrs, min, sec, frm num)

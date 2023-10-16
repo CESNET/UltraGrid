@@ -106,7 +106,8 @@ typedef struct audio_frame
         void *network_source;   /* pointer to sockaddr_storage containing
                                    network source that the audio stream came
                                    from. Relevant only for receiver. */
-        uint32_t timestamp;     ///< frame timestamp
+        int64_t timestamp;      ///< frame timestamp - monotonous on sender,
+                                ///< wraps-around at 2^32 on the receiver
         int flags;
         void (*dispose)(struct audio_frame *); ///< called by sender when frame was processed
         void *dispose_udata;    ///< additional data that may the caller use in dispose

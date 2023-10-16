@@ -334,7 +334,7 @@ void  audio_frame2::change_bps(int new_bps)
 
 void audio_frame2::set_timestamp(int64_t ts)
 {
-        assert(ts == -1 || (ts >= 0 && ts <= UINT32_MAX));
+        assert(ts >= -1);
         timestamp = ts;
 }
 int64_t audio_frame2::get_timestamp() const { return timestamp; }
