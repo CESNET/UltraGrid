@@ -515,6 +515,21 @@ set_out_ts(int recv_ret, struct libavcodec_codec_state *s)
             s->codec_ctx->sample_rate;
 }
 
+static bool
+write_out_data(struct libavcodec_codec_state *s)
+{
+        if (s->output_channel.data_len + s->pkt->size > TMP_DATA_LEN) {
+                MSG(ERROR, "Output buffer overflow!\n");
+                return false;
+        }
+        memcpy(s->output_channel_data + s->output_channel.data_len,
+               s->pkt->data, s->pkt->size);
+        s->output_channel.data_len += s->pkt->size;
+        s->output_channel.duration +=
+            s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
+        return true;
+}
+
 static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
@@ -554,20 +569,11 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
                 set_out_ts(ret, s);
                 while (ret == 0) {
-                        if (s->output_channel.data_len + s->pkt->size >
-                            TMP_DATA_LEN) {
-                                MSG(ERROR, "Output buffer overflow!\n");
+                        if (!write_out_data(s)) {
                                 return NULL;
                         }
-                        memcpy(s->output_channel_data +
-                                   s->output_channel.data_len,
-                               s->pkt->data, s->pkt->size);
-                        s->output_channel.data_len += s->pkt->size;
                         av_packet_unref(s->pkt);
                         ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-                        s->output_channel.duration +=
-                            s->codec_ctx->frame_size /
-                            (double) s->output_channel.sample_rate;
                 }
                 if (ret != AVERROR(EAGAIN) && ret != 0) {
                         print_libav_audio_error(LOG_LEVEL_WARNING,
