@@ -442,14 +442,17 @@ static int start_pipewire(screen_cast_session &session)
                                         &framerate_max)
         ));
 
+        auto flags = PW_STREAM_FLAG_MAP_BUFFERS |
+                PW_STREAM_FLAG_DONT_RECONNECT;
+
+        if(!session.user_options.target.empty()){
+                flags |= PW_STREAM_FLAG_AUTOCONNECT;
+        }
+
         int res = pw_stream_connect(session.pw.stream,
                                         PW_DIRECTION_INPUT,
                                         session.pw.node,
-                                        static_cast<pw_stream_flags>(
-                                                PW_STREAM_FLAG_AUTOCONNECT |
-                                                PW_STREAM_FLAG_MAP_BUFFERS |
-                                                PW_STREAM_FLAG_DONT_RECONNECT
-                                        ),
+                                        static_cast<pw_stream_flags>(flags),
                                         params, n_params);
         if (res < 0) {
                 fprintf(stderr, MOD_NAME "can't connect: %s\n", spa_strerror(res));
