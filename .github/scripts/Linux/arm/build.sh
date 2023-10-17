@@ -14,7 +14,7 @@ set -- --enable-plugins --enable-openssl --enable-soxr --enable-speexdsp        
 set -- "$@" --enable-alsa --enable-jack --enable-jack-transport                                         # audio
 # vidcap (+ duplex video)
 set -- "$@" --enable-decklink --enable-file --enable-ndi --enable-rtsp \
-            --enable-screen=x11 --enable-swmix --enable-v4l2 --enable-ximea
+            --enable-screen --enable-swmix --enable-v4l2 --enable-ximea
 set -- "$@" --enable-caca --enable-gl-display --enable-panogl_disp --enable-sdl                         # display
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
 set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-text --enable-video-mixer --enable-zfec # extras (pp. etc)

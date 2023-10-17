@@ -49,8 +49,7 @@ apt -y install libcaca-dev libmagickwand-dev libnatpmp-dev libopencv-core-dev li
 apt -y install libavcodec-dev libavformat-dev libswscale-dev libraspberrypi-dev
 
 /.github/scripts/install-common-deps.sh
-/.github/scripts/Linux/install_others.sh ndi
-/.github/scripts/Linux/install_others.sh ximea
+/.github/scripts/Linux/install_others.sh ndi pipewire ximea
 
 # mkappimage
 mkai_arch=$(dpkg --print-architecture)

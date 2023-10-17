@@ -53,7 +53,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: '~/chroot.tar'
-        key: cache-bootstrap-${{ matrix.arch }}-${{ hashFiles('.github/scripts/Linux/arm/bootstrap.sh') }}
+        key: cache-bootstrap-${{ matrix.arch }}-${{ hashFiles('.github/scripts/Linux/arm/bootstrap.sh', '.github/scripts/Linux/install_others.sh') }}
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |

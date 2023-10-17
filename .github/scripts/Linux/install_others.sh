@@ -57,8 +57,10 @@ install_ndi() {(
 
 # TODO: needed only for U20.04, remove after upgrading to U22.04
 install_pipewire() {(
-        if [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; then
-                sudo apt install libdbus-1-dev meson
+        if { [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; } ||
+                { [ "${ID_LIKE-$ID}" = debian ] && [ "$VERSION_ID" -le 11 ]; }
+        then
+                sudo apt -y install libdbus-1-dev meson
                 git clone https://github.com/PipeWire/pipewire
                 cd pipewire
                 git checkout 19bcdaebe29b95edae2b285781dab1cc841be638 # last one supporting meson 0.53.2 in U20.04
@@ -66,7 +68,7 @@ install_pipewire() {(
                 make -j "$(nproc)"
                 sudo make install
         else
-                sudo apt install libpipewire-0.3-dev
+                sudo apt -y install libpipewire-0.3-dev
         fi
 )}
 
