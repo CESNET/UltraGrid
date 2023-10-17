@@ -1604,7 +1604,8 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
             bmdAudioSampleRate48kHz / 90000;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "streamTime: " << streamTime
-                             << "; timestamp: " << frame->timestamp
+                             << "; samples: " << *samples
+                             << "; RTP timestamp: " << frame->timestamp
                              << "; sync TS: " << m_audio_sync_ts << "\n";
         const HRESULT res = m_deckLinkOutput->ScheduleAudioSamples(
             frame->data, *samples, streamTime, bmdAudioSampleRate48kHz,
