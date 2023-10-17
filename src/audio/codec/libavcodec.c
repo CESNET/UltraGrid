@@ -494,13 +494,13 @@ process_input(struct libavcodec_codec_state *s, const audio_channel *channel)
 
 /// @returns timestamp of the channel minus already buffered frames (in s->tmp)
 static int64_t
-get_in_ts(struct libavcodec_codec_state *s, const audio_channel *channel)
+get_in_ts(const audio_channel *channel, int cached_samples)
 {
         if (channel->timestamp == -1) {
                 return AV_NOPTS_VALUE;
         }
         const int64_t ts = channel->timestamp * channel->sample_rate / kHz90;
-        return ts - s->tmp.data_len / channel->bps;
+        return ts - cached_samples;
 }
 
 static void
@@ -539,12 +539,13 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
                         s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
 
-        if (channel != NULL) {
-                s->av_frame->pts = get_in_ts(s, channel);
-        }
-
+        const int cached_bytes = s->tmp.data_len;
         if (!process_input(s, channel)) {
                 return NULL;
+        }
+        if (channel != NULL) {
+                s->av_frame->pts =
+                    get_in_ts(channel, cached_bytes / s->output_channel.bps);
         }
 
         int bps = s->output_channel.bps;
