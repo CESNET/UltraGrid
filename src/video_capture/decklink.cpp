@@ -530,7 +530,11 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                           "val>}* | decklink:[full]help")
               << "\n";
         col() << "\t\tor\n";
-        col() << SBOLD(SRED("\t-t decklink") << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]") << "\n";
+        col() << SBOLD(SRED("\t-t decklink")
+                       << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D]["
+                          ":sync_timecode][:connection=<input>][:aacl][:detect-"
+                          "format][:conversion=<conv_mode>]]")
+              << "\n";
         col() << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
         col() << "\n";
 
@@ -540,9 +544,8 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         printf("\tin video format listing above by flag \"3D\".\n");
 	printf("\n");
 
-        col() << SBOLD("audio_level") << "\n";
-        col() << SBOLD("\tline") << " - the selected analog input gain levels are used\n";
-        col() << SBOLD("\tmic") << "  - analog audio levels are set to maximum gain on audio input.\n";
+        col() << SBOLD("aacl") << "\n";
+        col() << "\tset analog audio levels to maximum gain on audio input\n";
 	printf("\n");
 
         col() << SBOLD("detect-format") << "\n";

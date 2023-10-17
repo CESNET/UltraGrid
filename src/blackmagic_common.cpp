@@ -984,9 +984,12 @@ decklink_supports_codec<IDeckLinkOutput>(IDeckLinkOutput *deckLink,
 template bool decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
                                                       BMDPixelFormat  pf);
 
+/// TOREMOVE (implicit "aacl" option is preferred)
 bool
 bmd_parse_audio_levels(const char *opt) noexcept(false)
 {
+        MSG(WARNING, "audio_level option is deprecated, use "
+                     "\"aacl[=true|false]\" instead\n");
         if (strcasecmp(opt, "false") == 0 || strcasecmp(opt, "off") == 0 ||
             strcasecmp(opt, "line") == 0) {
                 return false;

@@ -515,7 +515,7 @@ static void show_help(bool full)
 
         col() << "Decklink display options:\n";
         col() << SBOLD(SRED("\t-d decklink")
-                       << "[:d[evice]=<device>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-"
+                       << "[:d[evice]=<device>][:Level{A|B}][:3D][:aacl][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
         col() << "\nOptions:\n";
@@ -525,7 +525,7 @@ static void show_help(bool full)
         col() << SBOLD("\tdevice") << "\t\tindex or name of output device\n";
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
-        col() << SBOLD("\taudio_level") << "\tset maximum attenuation for mic\n";
+        col() << SBOLD("\taacl") << "\t\tset maximum audio attenuation on output\n";
         col() << SBOLD("\thalf-duplex | full-duplex")
                 << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
