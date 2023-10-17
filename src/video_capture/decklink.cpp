@@ -171,8 +171,6 @@ struct vidcap_decklink_state {
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
                 { bmdDeckLinkConfigCapturePassThroughMode, bmd_option((int64_t) bmdDeckLinkCapturePassthroughModeDisabled, false) },
         };
-        int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
-
         bool                    detect_format = false;
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i = false;
@@ -701,6 +699,7 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 /* Parses option in format key=value */
 static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
 {
+        const char *val = strchr(opt, '=') + 1;
         if(strcasecmp(opt, "3D") == 0) {
                 s->stereo = true;
         } else if(strcasecmp(opt, "timecode") == 0) {
@@ -718,7 +717,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if(strncasecmp(opt, "audio_level=",
                                 strlen("audio_level=")) == 0) {
-                s->audio_consumer_levels = bmd_parse_audio_levels(strchr(opt, '=') + 1);
+                s->device_options[bmdDeckLinkConfigAnalogAudioConsumerLevels] =
+                    bmd_option(bmd_parse_audio_levels(val));
         } else if (IS_KEY_PREFIX(opt, "conversion")) {
                 s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
         } else if (IS_KEY_PREFIX(opt, "device")) {
@@ -1350,12 +1350,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                                 "channels. "
                                 "1, 2, 8, 16, 32 or 64 may work.\n",
                                 s->audio.ch_count);
-                }
-                if (s->audio_consumer_levels != -1) {
-                        if (HRESULT result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                                s->audio_consumer_levels == 1 ? true : false); result != S_OK) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
-                        }
                 }
                 BMD_CHECK(deckLinkInput->EnableAudioInput(
                               bmdAudioSampleRate48kHz,

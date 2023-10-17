@@ -568,6 +568,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
                 BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
+                BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
                 BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
                 BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
                 BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),

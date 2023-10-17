@@ -1106,8 +1106,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 }
 
 static bool settings_init(struct state_decklink *s, const char *fmt,
-                string &cardId,
-                int *audio_consumer_levels) {
+                string &cardId) {
         if (strlen(fmt) == 0) {
                 return true;
         }
@@ -1136,6 +1135,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         }
 
         while (ptr != nullptr)  {
+                const char *val = strchr(ptr, '=') + 1;
                 if (IS_KEY_PREFIX(ptr, "device")) {
                         cardId = strchr(ptr, '=') + 1;
                 } else if (strcasecmp(ptr, "3D") == 0) {
@@ -1177,7 +1177,9 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 return false;
                         }
                 } else if (strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
-                        *audio_consumer_levels = bmd_parse_audio_levels(strchr(ptr, '=') + 1);
+                        s->device_options
+                            [bmdDeckLinkConfigAnalogAudioConsumerLevels] =
+                            bmd_option(bmd_parse_audio_levels(val));
                 } else if (IS_KEY_PREFIX(ptr, "conversion")) {
                         s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
@@ -1250,7 +1252,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
-        int audio_consumer_levels = -1;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
@@ -1266,7 +1267,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         bool succeeded = false;
         try {
-                succeeded = settings_init(s, fmt, cardId, &audio_consumer_levels);
+                succeeded = settings_init(s, fmt, cardId);
         } catch (exception &e) {
                 if (strcmp(e.what(), "stoi") == 0 ||
                     strcmp(e.what(), "stod") == 0) {
@@ -1458,16 +1459,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                                  "card shall support it. Check if it is ok. "
                                                  "Continuing anyway.\n");
                         }
-                }
-
-                if (audio_consumer_levels != -1) {
-                                result = deckLinkConfiguration->SetFlag(
-                                    bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                    audio_consumer_levels == 1 ? true : false);
-                                if (result != S_OK) {
-                                log_msg(LOG_LEVEL_WARNING,
-                                        MOD_NAME "Unable set output audio consumer levels.\n");
-                                }
                 }
         }
 
