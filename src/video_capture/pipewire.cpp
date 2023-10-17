@@ -77,7 +77,7 @@ static constexpr int DEFAULT_EXPECTING_FPS = 30;
 struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
 using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 
-struct screen_cast_session { 
+struct vcap_pw_state { 
         // used exlusively by ultragrid thread
         unique_frame in_flight_frame;
 
@@ -135,8 +135,7 @@ struct screen_cast_session {
         }pw;
 };
 
-static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
-        (void) session_ptr;
+static void on_stream_state_changed(void * /*state*/, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
         LOG(LOG_LEVEL_INFO) << MOD_NAME "stream state changed \"" << pw_stream_state_as_string(old) 
                                                 << "\" -> \""<<pw_stream_state_as_string(state)<<"\"\n";
         
@@ -146,51 +145,51 @@ static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old,
 }
 
 
-static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct spa_pod *param) {
-        auto &session = *static_cast<screen_cast_session*>(session_ptr);
+static void on_stream_param_changed(void *state, uint32_t id, const struct spa_pod *param) {
+        auto s = static_cast<vcap_pw_state *>(state);
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "param changed:\n";
 
         if (param == nullptr || id != SPA_PARAM_Format)
                 return;
 
-        int parse_format_ret = spa_format_parse(param, &session.pw.format.media_type, &session.pw.format.media_subtype);
+        int parse_format_ret = spa_format_parse(param, &s->pw.format.media_type, &s->pw.format.media_subtype);
         assert(parse_format_ret > 0);
 
-        if(session.pw.format.media_type != SPA_MEDIA_TYPE_video
-                        || session.pw.format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+        if(s->pw.format.media_type != SPA_MEDIA_TYPE_video
+                        || s->pw.format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Format not video/raw!\n");
                 return;
         }
 
-        auto& raw_format = session.pw.format.info.raw;
+        auto& raw_format = s->pw.format.info.raw;
         spa_format_video_raw_parse(param, &raw_format);
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got format: %s\n", spa_debug_type_find_name(spa_type_video_format, raw_format.format));
 
-        session.desc.width = raw_format.size.width;
-        session.desc.height = raw_format.size.height;
+        s->desc.width = raw_format.size.width;
+        s->desc.height = raw_format.size.height;
         if(raw_format.framerate.num != 0){
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got framerate: %d / %d\n", raw_format.framerate.num, raw_format.framerate.denom);
-                session.desc.fps = static_cast<double>(raw_format.framerate.num) / raw_format.framerate.denom;
+                s->desc.fps = static_cast<double>(raw_format.framerate.num) / raw_format.framerate.denom;
         } else {
                 //Variable framerate
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got variable framerate: %d / %d\n", raw_format.max_framerate.num, raw_format.max_framerate.denom);
                 if(raw_format.max_framerate.num != 0){
-                        session.desc.fps = static_cast<double>(raw_format.max_framerate.num) / raw_format.max_framerate.denom;
+                        s->desc.fps = static_cast<double>(raw_format.max_framerate.num) / raw_format.max_framerate.denom;
                 } else {
-                        session.desc.fps = 60;
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid max framerate, using %f instead\n", session.desc.fps);
+                        s->desc.fps = 60;
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid max framerate, using %f instead\n", s->desc.fps);
                 }
         }
-        session.desc.color_spec = uv_codec_from_pw_fmt(raw_format.format);
-        session.desc.interlacing = PROGRESSIVE;
-        session.desc.tile_count = 1;
+        s->desc.color_spec = uv_codec_from_pw_fmt(raw_format.format);
+        s->desc.interlacing = PROGRESSIVE;
+        s->desc.tile_count = 1;
 
-        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "size: %dx%d\n", session.desc.width, session.desc.height);
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "size: %dx%d\n", s->desc.width, s->desc.height);
 
-        int linesize = vc_get_linesize(session.desc.width, session.desc.color_spec);
-        int32_t size = linesize * session.desc.height;
+        int linesize = vc_get_linesize(s->desc.width, s->desc.color_spec);
+        int32_t size = linesize * s->desc.height;
 
         uint8_t params_buffer[1024];
 
@@ -209,7 +208,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                 SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr)))
         );
         
-        if(session.user_options.crop) {
+        if(s->user_options.crop) {
                 params[n_params++] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
                         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
@@ -218,7 +217,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                 );
         }
         
-        pw_stream_update_params(session.pw.stream, params, n_params);
+        pw_stream_update_params(s->pw.stream, params, n_params);
 }
 
 static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_video_format fmt, spa_rectangle size, const spa_region *crop){
@@ -262,13 +261,13 @@ static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_v
         dst->tiles[0].data_len = linesize * height;
 }
 
-static void on_process(void *session_ptr) {
+static void on_process(void *state) {
         PROFILE_FUNC;
 
-        screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
+        auto s= static_cast<vcap_pw_state *>(state);
         pw_buffer *buffer;
         [[maybe_unused]] int n_buffers_from_pw = 0;
-        while((buffer = pw_stream_dequeue_buffer(session.pw.stream)) != nullptr){    
+        while((buffer = pw_stream_dequeue_buffer(s->pw.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
                 unique_frame next_frame;
@@ -280,26 +279,26 @@ static void on_process(void *session_ptr) {
 
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping - empty pw frame " << "\n";
-                        pw_stream_queue_buffer(session.pw.stream, buffer);
+                        pw_stream_queue_buffer(s->pw.stream, buffer);
                         continue;
                 }
 
                 {
-                        std::lock_guard<std::mutex> lock(session.mut);
-                        if(!session.blank_frames.empty()){
-                                next_frame = std::move(session.blank_frames.back());
-                                session.blank_frames.pop_back();
+                        std::lock_guard<std::mutex> lock(s->mut);
+                        if(!s->blank_frames.empty()){
+                                next_frame = std::move(s->blank_frames.back());
+                                s->blank_frames.pop_back();
                         }
                 }
 
                 if(!next_frame) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (no blank frames)\n";
-                        pw_stream_queue_buffer(session.pw.stream, buffer);
+                        pw_stream_queue_buffer(s->pw.stream, buffer);
                         continue;
                 }
 
                 spa_region *crop_region = nullptr;
-                if (session.user_options.crop) {
+                if (s->user_options.crop) {
                         spa_meta_region *meta_crop_region = static_cast<spa_meta_region*>(spa_buffer_find_meta_data(buffer->buffer, SPA_META_VideoCrop, sizeof(*meta_crop_region)));
                         if (meta_crop_region != nullptr && spa_meta_region_is_valid(meta_crop_region))
                            crop_region = &meta_crop_region->region;
@@ -308,26 +307,26 @@ static void on_process(void *session_ptr) {
                 if(crop_region){
                         //Update desc so that we don't reallocate on each frame
                         //TODO: Figure what to do when we can't actually crop (MJPEG)
-                        session.desc.width = crop_region->size.width;
-                        session.desc.height = crop_region->size.height;
+                        s->desc.width = crop_region->size.width;
+                        s->desc.height = crop_region->size.height;
                 }
 
-                if(!next_frame || !video_desc_eq(video_desc_from_frame(next_frame.get()), session.desc)){
+                if(!next_frame || !video_desc_eq(video_desc_from_frame(next_frame.get()), s->desc)){
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Desc changed, allocating new video_frame\n");
-                        next_frame.reset(vf_alloc_desc_data(session.desc));
+                        next_frame.reset(vf_alloc_desc_data(s->desc));
                 }
 
 
-                auto& raw_format = session.pw.format.info.raw;
+                auto& raw_format = s->pw.format.info.raw;
 
-                //copy_frame(session.pw.video_format(), buffer->buffer, next_frame.get(), session.desc.width, session.desc.height, crop_region);
+                //copy_frame(s->pw.video_format(), buffer->buffer, next_frame.get(), s->desc.width, s->desc.height, crop_region);
                 pw_frame_to_uv_frame_memcpy(next_frame.get(), buffer->buffer, raw_format.format, raw_format.size, crop_region);
 
-                session.sending_frames.push(std::move(next_frame));
-                pw_stream_queue_buffer(session.pw.stream, buffer);
+                s->sending_frames.push(std::move(next_frame));
+                pw_stream_queue_buffer(s->pw.stream, buffer);
         }
         
-        //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
+        //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<s->sending_frames.size_approx() << "\t blank: " << s->blank_frames.size_approx() << "\n";
         
 }
 
@@ -336,16 +335,13 @@ static void on_drained(void*)
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: drained\n";
 }
 
-static void on_add_buffer(void *session_ptr, struct pw_buffer *)
+static void on_add_buffer(void * /*state*/, struct pw_buffer *)
 {
-        (void) session_ptr;
-
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: add_buffer\n";
 }
 
-static void on_remove_buffer(void *session_ptr, struct pw_buffer *)
+static void on_remove_buffer(void * /*state*/, struct pw_buffer *)
 {
-        (void) session_ptr;
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "pipewire: remove_buffer\n";
 }
 
@@ -366,28 +362,28 @@ static const struct pw_stream_events stream_events = {
 #endif
 };
 
-static int start_pipewire(screen_cast_session &session)
+static int start_pipewire(vcap_pw_state *s)
 {    
         const struct spa_pod *params[2] = {};
         uint8_t params_buffer[1024];
         struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 
-        session.pw.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
-        assert(session.pw.loop != nullptr);
-        pw_thread_loop_lock(session.pw.loop);
-        session.pw.context = pw_context_new(pw_thread_loop_get_loop(session.pw.loop), nullptr, 0);
-        assert(session.pw.context != nullptr);
+        s->pw.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
+        assert(s->pw.loop != nullptr);
+        pw_thread_loop_lock(s->pw.loop);
+        s->pw.context = pw_context_new(pw_thread_loop_get_loop(s->pw.loop), nullptr, 0);
+        assert(s->pw.context != nullptr);
 
-        if (pw_thread_loop_start(session.pw.loop) != 0) {
+        if (pw_thread_loop_start(s->pw.loop) != 0) {
                 assert(false && "error starting pipewire thread loop");
         }
 
         pw_core *core = nullptr;
 
-        if(session.pw.fd != -1)
-                core = pw_context_connect_fd(session.pw.context, session.pw.fd, nullptr, 0); 
+        if(s->pw.fd != -1)
+                core = pw_context_connect_fd(s->pw.context, s->pw.fd, nullptr, 0); 
         else
-                core = pw_context_connect(session.pw.context, nullptr, 0); 
+                core = pw_context_connect(s->pw.context, nullptr, 0); 
 
         assert(core != nullptr);
 
@@ -397,20 +393,20 @@ static int start_pipewire(screen_cast_session &session)
                         PW_KEY_MEDIA_ROLE, "Screen",
                         nullptr);
 
-        if(!session.user_options.target.empty()){
-                pw_properties_set(props, STREAM_TARGET_PROPERTY_KEY, session.user_options.target.c_str());
+        if(!s->user_options.target.empty()){
+                pw_properties_set(props, STREAM_TARGET_PROPERTY_KEY, s->user_options.target.c_str());
         }
 
-        session.pw.stream = pw_stream_new(core, "ug_screencapture", props);
+        s->pw.stream = pw_stream_new(core, "ug_screencapture", props);
 
-        assert(session.pw.stream != nullptr);
-        pw_stream_add_listener(session.pw.stream, &session.pw.stream_listener, &stream_events, &session);
+        assert(s->pw.stream != nullptr);
+        pw_stream_add_listener(s->pw.stream, &s->pw.stream_listener, &stream_events, s);
 
         auto size_rect_def = SPA_RECTANGLE(1920, 1080);
         auto size_rect_min = SPA_RECTANGLE(1, 1);
         auto size_rect_max = SPA_RECTANGLE(3840, 2160);
 
-        auto framerate_def = SPA_FRACTION(session.user_options.fps > 0 ? session.user_options.fps : DEFAULT_EXPECTING_FPS, 1);
+        auto framerate_def = SPA_FRACTION(s->user_options.fps > 0 ? s->user_options.fps : DEFAULT_EXPECTING_FPS, 1);
         auto framerate_min = SPA_FRACTION(0, 1);
         auto framerate_max = SPA_FRACTION(600, 1);
 
@@ -445,13 +441,14 @@ static int start_pipewire(screen_cast_session &session)
         auto flags = PW_STREAM_FLAG_MAP_BUFFERS |
                 PW_STREAM_FLAG_DONT_RECONNECT;
 
-        if(!session.user_options.target.empty()){
+        if(!s->user_options.target.empty()){
                 flags |= PW_STREAM_FLAG_AUTOCONNECT;
         }
+                flags |= PW_STREAM_FLAG_AUTOCONNECT;
 
-        int res = pw_stream_connect(session.pw.stream,
+        int res = pw_stream_connect(s->pw.stream,
                                         PW_DIRECTION_INPUT,
-                                        session.pw.node,
+                                        s->pw.node,
                                         static_cast<pw_stream_flags>(flags),
                                         params, n_params);
         if (res < 0) {
@@ -459,8 +456,8 @@ static int start_pipewire(screen_cast_session &session)
                 return -1;
         }
 
-        pw_stream_set_active(session.pw.stream, true);
-        pw_thread_loop_unlock(session.pw.loop);
+        pw_stream_set_active(s->pw.stream, true);
+        pw_thread_loop_unlock(s->pw.loop);
         return 0;
 }
 
@@ -497,19 +494,19 @@ static void show_help() {
 }
 
 
-static int parse_params(struct vidcap_params *params, screen_cast_session &session) {
+static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
         if(const char *fmt = vidcap_params_get_fmt(params)) {        
                 std::istringstream params_stream(fmt);
                 
                 std::string param;
                 while (std::getline(params_stream, param, ':')) {
                         if (param == "help") {
-                                        show_help();//session.init_error
+                                        show_help();
                                         return VIDCAP_INIT_NOERR;
                         } else if (param == "cursor") {
-                                session.user_options.show_cursor = true;
+                                s->user_options.show_cursor = true;
                         } else if (param == "nocrop") {
-                                session.user_options.crop = false;
+                                s->user_options.crop = false;
                         } else {
                                 auto split_index = param.find('=');
                                 if(split_index != std::string::npos && split_index != 0){
@@ -518,13 +515,13 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
 
                                         if (name == "fps" || name == "FPS"){
                                                 std::istringstream is(value);
-                                                is >> session.user_options.fps;
+                                                is >> s->user_options.fps;
                                                 continue;
                                         }else if(name == "restore"){
-                                                session.user_options.restore_file = value;
+                                                s->user_options.restore_file = value;
                                                 continue;
                                         } else if(name =="target"){
-                                                session.user_options.target = value;
+                                                s->user_options.target = value;
                                                 continue;
                                         }
                                 }
@@ -544,34 +541,36 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
-        screen_cast_session &session = *new screen_cast_session();
-        *state = &session;
+        auto s = std::make_unique<vcap_pw_state>();
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init\n";
         
-        int params_ok = parse_params(params, session);
+        int params_ok = parse_params(params, s.get());
         if(params_ok != VIDCAP_INIT_OK)
                 return params_ok;
 
         for(int i = 0; i < QUEUE_SIZE; i++)
-                session.blank_frames.emplace_back(vf_alloc(1));
+                s->blank_frames.emplace_back(vf_alloc(1));
 
-        auto portalResult = session.portal.run(session.user_options.restore_file, session.user_options.show_cursor);
+        auto portalResult = s->portal.run(s->user_options.restore_file, s->user_options.show_cursor);
         
         if (portalResult.pipewire_fd == -1) {
                 return VIDCAP_INIT_FAIL;
         }
 
-        session.pw.fd = portalResult.pipewire_fd;
+        s->pw.fd = portalResult.pipewire_fd;
         /* TODO: The node target_id param when calling stream_connect should be
          * always set to PW_ID_ANY as using object ids is now deprecated.
          * However, the dbus ScreenCast portal doesn't yet expose the object
          * serial which shoud be used instead.
          */
-        session.pw.node = portalResult.pipewire_node;
+        s->pw.node = portalResult.pipewire_node;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
-        start_pipewire(session);
+        start_pipewire(s.get());
+        
+        *state = s.release();
+
         return VIDCAP_INIT_OK;
 }
 #endif
@@ -582,46 +581,48 @@ static int vidcap_pw_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
-        screen_cast_session &session = *new screen_cast_session();
-        *state = &session;
+        auto s = std::make_unique<vcap_pw_state>();
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init\n";
         
-        int params_ok = parse_params(params, session);
+        int params_ok = parse_params(params, s.get());
         if(params_ok != VIDCAP_INIT_OK)
                 return params_ok;
 
         for(int i = 0; i < QUEUE_SIZE; i++)
-                session.blank_frames.emplace_back(vf_alloc(1));
+                s->blank_frames.emplace_back(vf_alloc(1));
 
-        session.pw.fd = -1;
+        s->pw.fd = -1;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
-        start_pipewire(session);
+        start_pipewire(s.get());
+
+        *state = s.release();
+
         return VIDCAP_INIT_OK;
 }
 
-static void vidcap_screen_pw_done(void *session_ptr)
+static void vidcap_screen_pw_done(void *state)
 {
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "done\n";   
-        delete static_cast<screen_cast_session*>(session_ptr);
+        delete static_cast<vcap_pw_state *>(state);
 }
 
-static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio_frame **audio)
+static struct video_frame *vidcap_screen_pw_grab(void *state, struct audio_frame **audio)
 {    
         PROFILE_FUNC;
 
-        assert(session_ptr != nullptr);
-        auto &session = *static_cast<screen_cast_session*>(session_ptr);
+        assert(state != nullptr);
+        auto s = static_cast<vcap_pw_state *>(state);
         *audio = nullptr;
    
-        if(session.in_flight_frame.get() != nullptr){
-                session.blank_frames.push_back(std::move(session.in_flight_frame));
+        if(s->in_flight_frame.get() != nullptr){
+                s->blank_frames.push_back(std::move(s->in_flight_frame));
         }
 
         using namespace std::chrono_literals;
-        session.sending_frames.timed_pop(session.in_flight_frame, 500ms);
-        return session.in_flight_frame.get();
+        s->sending_frames.timed_pop(s->in_flight_frame, 500ms);
+        return s->in_flight_frame.get();
 }
 
 #ifdef HAVE_DBUS_SCREENCAST
