@@ -582,6 +582,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
                 BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
                 BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
+                BMDFCC(bmdIdleVideoOutputBlack),
                 BMDFCC(bmdIdleVideoOutputLastFrame),
                 BMDFCC(bmdLinkConfigurationSingleLink), BMDFCC(bmdLinkConfigurationDualLink), BMDFCC(bmdLinkConfigurationQuadLink),
         };
