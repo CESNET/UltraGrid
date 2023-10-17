@@ -1177,11 +1177,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 return false;
                         }
                 } else if (strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
-                        if (strcasecmp(ptr + strlen("audio_level="), "false") || strcasecmp(ptr + strlen("audio_level="), "mic") == 0) {
-                                *audio_consumer_levels = 0;
-                        } else {
-                                *audio_consumer_levels = 1;
-                        }
+                        *audio_consumer_levels = bmd_parse_audio_levels(strchr(ptr, '=') + 1);
                 } else if (IS_KEY_PREFIX(ptr, "conversion")) {
                         s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
@@ -1271,13 +1267,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         bool succeeded = false;
         try {
                 succeeded = settings_init(s, fmt, cardId, &audio_consumer_levels);
-        } catch (logic_error &e) {
-                if (strcmp(e.what(), "stoi") != 0 &&
-                    strcmp(e.what(), "stod") != 0) {
-                        throw;
+        } catch (exception &e) {
+                if (strcmp(e.what(), "stoi") == 0 ||
+                    strcmp(e.what(), "stod") == 0) {
+                        MSG(ERROR, "Invalid number passed where numeric "
+                                   "argument expected!\n");
+                } else {
+                        MSG(ERROR, "%s\n", e.what());
                 }
-                MSG(ERROR,
-                    "Invalid number passed where numeric argument expected!\n");
         }
         if (!succeeded) {
                 delete s;

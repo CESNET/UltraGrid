@@ -46,6 +46,7 @@
 #include <iomanip>
 #include <map>
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
@@ -60,7 +61,22 @@
 
 #define MOD_NAME "[DeckLink] "
 
-using namespace std;
+using std::clamp;
+using std::fixed;
+using std::hex;
+using std::invalid_argument;
+using std::map;
+using std::min;
+using std::pair;
+using std::ostringstream;
+using std::setfill;
+using std::setw;
+using std::stod;
+using std::stoi;
+using std::string;
+using std::uppercase;
+using std::unordered_map;
+using std::vector;
 
 string bmd_hresult_to_string(HRESULT res)
 {
@@ -966,6 +982,20 @@ decklink_supports_codec<IDeckLinkOutput>(IDeckLinkOutput *deckLink,
                                          BMDPixelFormat   pf);
 template bool decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
                                                       BMDPixelFormat  pf);
+
+bool
+bmd_parse_audio_levels(const char *opt) noexcept(false)
+{
+        if (strcasecmp(opt, "false") == 0 || strcasecmp(opt, "off") == 0 ||
+            strcasecmp(opt, "line") == 0) {
+                return false;
+        }
+        if (strcasecmp(opt, "true") == 0 || strcasecmp(opt, "on") == 0 ||
+            strcasecmp(opt, "mic") == 0) {
+                return true;
+        }
+        throw invalid_argument(string("invalid BMD audio level ") + opt);
+}
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");

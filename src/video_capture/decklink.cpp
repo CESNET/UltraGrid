@@ -62,6 +62,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -717,12 +718,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if(strncasecmp(opt, "audio_level=",
                                 strlen("audio_level=")) == 0) {
-                const char *levels = opt + strlen("audio_level=");
-                if (strcasecmp(levels, "false") == 0) {
-                        s->audio_consumer_levels = 0;
-                } else {
-                        s->audio_consumer_levels = 1;
-                }
+                s->audio_consumer_levels = bmd_parse_audio_levels(strchr(opt, '=') + 1);
         } else if (IS_KEY_PREFIX(opt, "conversion")) {
                 s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
         } else if (IS_KEY_PREFIX(opt, "device")) {
@@ -783,7 +779,8 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
         return true;
 }
 
-static int settings_init(struct vidcap_decklink_state *s, char *fmt)
+static bool
+settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
         char *tmp;
         char *save_ptr = NULL;
@@ -791,7 +788,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
         if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
                 printf("[DeckLink] Auto-choosen device 0.\n");
 
-                return 1;
+                return true;
         }
 
         // options are in format <device>:<mode>:<codec>[:other_opts]
@@ -810,23 +807,23 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
                                 s->set_codec(get_codec_from_name(tmp));
                                 if(s->codec == VIDEO_CODEC_NONE) {
                                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", tmp);
-                                        return 0;
+                                        return false;
                                 }
                         }
                         if (!settings_init_key_val(s, &save_ptr)) {
-                                return 0;
+                                return false;
                         }
                 }
         } else { // options are in format key=val
                 if (!parse_option(s, tmp)) {
-                        return 0;
+                        return false;
                 }
                 if (!settings_init_key_val(s, &save_ptr)) {
-                        return 0;
+                        return false;
                 }
         }
 
-        return 1;
+        return true;
 }
 
 /* External API ***************************************************************/
@@ -1410,7 +1407,12 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
-        int ret = settings_init(s, tmp_fmt);
+        bool ret =  false;
+        try {
+                ret = settings_init(s, tmp_fmt);
+        } catch (exception &e) {
+                MSG(ERROR, "%s\n", e.what());
+        }
         free(tmp_fmt);
 	if (!ret) {
                 delete s;
