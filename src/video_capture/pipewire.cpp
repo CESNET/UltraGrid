@@ -91,6 +91,11 @@ struct vcap_pw_state {
         ScreenCastPortal portal;
 #endif
 
+        enum class Mode {
+                Generic,
+                Screen_capture
+        } mode = Mode::Generic;
+
         struct {
                 bool show_cursor = false;
                 std::string restore_file = "";
@@ -397,7 +402,9 @@ static int start_pipewire(vcap_pw_state *s)
                 pw_properties_set(props, STREAM_TARGET_PROPERTY_KEY, s->user_options.target.c_str());
         }
 
-        s->pw.stream = pw_stream_new(core, "ug_screencapture", props);
+        s->pw.stream = pw_stream_new(core,
+                        s->mode == vcap_pw_state::Mode::Screen_capture ? "ug_screencapture" : "ug_videocap",
+                        props);
 
         assert(s->pw.stream != nullptr);
         pw_stream_add_listener(s->pw.stream, &s->pw.stream_listener, &stream_events, s);
@@ -542,6 +549,8 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         }
 
         auto s = std::make_unique<vcap_pw_state>();
+
+        s->mode = vcap_pw_state::Mode::Screen_capture;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init\n";
         
