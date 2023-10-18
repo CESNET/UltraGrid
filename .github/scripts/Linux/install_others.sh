@@ -64,7 +64,7 @@ install_pipewire() {(
                 git clone https://github.com/PipeWire/pipewire
                 cd pipewire
                 git checkout 19bcdaebe29b95edae2b285781dab1cc841be638 # last one supporting meson 0.53.2 in U20.04
-                ./autogen.sh
+                ./autogen.sh -Dtests=disabled
                 make -j "$(nproc)"
                 sudo make install
         else
