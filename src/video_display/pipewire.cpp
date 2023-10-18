@@ -240,6 +240,16 @@ const static pw_stream_events stream_events = {
 #endif
 };
 
+static void display_pw_help(){
+        color_printf("Pipewire video output.\n");
+        color_printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-d pipewire" TERM_FG_RESET "[:target=<device>]\n" TERM_RESET);
+        color_printf("\n");
+
+        color_printf("Devices:\n");
+        print_devices("Stream/Input/Video");
+}
+
 static void *display_pw_init(struct module * /*parent*/, const char *cfg, unsigned int /*flags*/)
 {
         auto s = std::make_unique<display_pw_state>();
@@ -252,6 +262,7 @@ static void *display_pw_init(struct module * /*parent*/, const char *cfg, unsign
                 auto val = tokenize(tok, '=');
 
                 if(key == "help"){
+                        display_pw_help();
                         return INIT_NOERR;
                 } else if(key == "target"){
                         s->target = val;
