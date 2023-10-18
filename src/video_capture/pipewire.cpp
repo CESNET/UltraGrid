@@ -451,7 +451,6 @@ static int start_pipewire(vcap_pw_state *s)
         if(!s->user_options.target.empty()){
                 flags |= PW_STREAM_FLAG_AUTOCONNECT;
         }
-                flags |= PW_STREAM_FLAG_AUTOCONNECT;
 
         int res = pw_stream_connect(s->pw.stream,
                                         PW_DIRECTION_INPUT,
