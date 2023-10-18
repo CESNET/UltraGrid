@@ -492,11 +492,12 @@ static int
 decklink_help(bool full, const char *query_prop_fcc = nullptr)
 {
 	col() << "\nDecklink options:\n";
+        col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
+              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << "\n";
         col() << SBOLD(SRED("\t-t decklink")
                        << "{:m[ode]=<mode>|:d[evice]=<device_index>|:c[odec]=<colorspace>...<key>=<"
-                          "val>}* | decklink:[full]help")
+                          "val>}*")
               << "\n";
-        col() << "\t\tor\n";
         col() << SBOLD(SRED("\t-t decklink")
                        << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D]["
                           ":sync_timecode][:connection=<input>][:aacl][:detect-"

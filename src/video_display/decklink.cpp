@@ -517,7 +517,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD(SRED("\t-d decklink")
                        << "[:d[evice]=<device>][:Level{A|B}][:3D][:aacl][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
-        col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
+        col() << SBOLD(SRED("\t-d decklink") << ":[full]help") << " | "
+              << SBOLD(SRED("-d decklink") << ":query=<FourCC>"
+                                              "\n");
         col() << "\nOptions:\n";
         if (!full) {
                 col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
@@ -568,6 +570,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
                 col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                col() << SBOLD("\tquery=<FourCC>") << "\tquery specified device argument in help listing\n";
                 col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value\n";
         }
 
