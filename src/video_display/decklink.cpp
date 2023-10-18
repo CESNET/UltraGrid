@@ -95,7 +95,7 @@ enum {
 
 #define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) { (x)->Release(); (x) = nullptr; }
 
-static void print_output_modes(IDeckLink *);
+static void print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc);
 static void display_decklink_done(void *state);
 static bool display_decklink_reconfigure(void *state, struct video_desc desc);
 
@@ -505,10 +505,10 @@ struct state_decklink {
         AudioDriftFixer audio_drift_fixer{};
  };
 
-static void show_help(bool full);
-
-static void show_help(bool full)
-{
+/// @param query_prop_fcc if not NULL, print corresponding BMDDeckLinkAttribute
+static void
+show_help(bool full, const char *query_prop_fcc = nullptr)
+ {
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
         int                             numDevices = 0;
@@ -594,7 +594,7 @@ static void show_help(bool full)
                 // *** Print the model name of the DeckLink card
                 col() << "\t" << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
                 if (full) {
-                        print_output_modes(deckLink);
+                        print_output_modes(deckLink, query_prop_fcc);
                 }
 
                 // Increment the total number of DeckLink cards found
@@ -624,7 +624,7 @@ static void show_help(bool full)
                 print_decklink_version();
                 printf("\n");
         }
-}
+ }
 
 static DeckLinkFrame*
 allocate_new_decklink_frame(struct state_decklink *s)
@@ -1255,6 +1255,10 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
+                return INIT_NOERR;
+        }
+        if (IS_KEY_PREFIX(fmt, "query")) {
+                show_help(true, strchr(fmt, '=') + 1);
                 return INIT_NOERR;
         }
 
@@ -2048,8 +2052,8 @@ HRESULT DeckLink3DFrame::GetFrameForRightEye(IDeckLinkVideoFrame ** frame)
 }
 
 /* function from DeckLink SDK sample DeviceList */
-
-static void print_output_modes (IDeckLink* deckLink)
+static void
+print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
 {
         IDeckLinkOutput*                        deckLinkOutput = NULL;
         IDeckLinkDisplayModeIterator*           displayModeIterator = NULL;
@@ -2114,7 +2118,22 @@ static void print_output_modes (IDeckLink* deckLink)
                         printf(" %s", get_codec_name(c.first));
                 }
         }
-        color_printf(TERM_RESET "\n\n");
+        color_printf(TERM_RESET "\n");
+
+        if (query_prop_fcc != nullptr) {
+                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+                if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                             (void **) &deckLinkAttributes) ==
+                    S_OK) {
+                        cout << "\n";
+                        print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
+                        deckLinkAttributes->Release();
+                } else {
+                        MSG(ERROR, "Could not query device attributes.\n\n");
+                }
+        }
+
+        color_printf("\n");
 
 bail:
         // Ensure that the interfaces we obtained are released to prevent a memory leak
