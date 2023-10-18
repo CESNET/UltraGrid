@@ -496,7 +496,7 @@ static void vidcap_pw_probe(struct device_info **available_devices, int *count, 
         snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Generic PipeWire video capture");
 }
 
-static void show_help() {
+static void show_screen_help() {
         auto param = [](const char* name) -> std::ostream& {
                 col() << "  " << SBOLD(name) << " - ";
                 return std::cout;
@@ -510,6 +510,16 @@ static void show_help() {
         param("<token_file>") << "restore the selected window/display from a file.\n\t\tIf not possible, display the selection dialog and save the token to the file specified.\n";
 }
 
+static void show_generic_help(){
+        color_printf("Pipewire video capture.\n");
+        color_printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t pipewire" TERM_FG_RESET "[:fps=<fps>][:target=<device>]\n" TERM_RESET);
+        color_printf("\n");
+
+        color_printf("Devices:\n");
+        print_devices("Video/Source");
+}
+
 
 static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
         if(const char *fmt = vidcap_params_get_fmt(params)) {        
@@ -518,8 +528,11 @@ static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
                 std::string param;
                 while (std::getline(params_stream, param, ':')) {
                         if (param == "help") {
-                                        show_help();
-                                        return VIDCAP_INIT_NOERR;
+                                if(s->mode == vcap_pw_state::Mode::Screen_capture)
+                                        show_screen_help();
+                                else
+                                        show_generic_help();
+                                return VIDCAP_INIT_NOERR;
                         } else if (param == "cursor") {
                                 s->user_options.show_cursor = true;
                         } else if (param == "nocrop") {
