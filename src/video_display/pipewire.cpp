@@ -399,6 +399,7 @@ static bool display_pw_reconfigure(void *state, struct video_desc desc)
                         PW_KEY_APP_NAME, "UltraGrid",
                         PW_KEY_APP_ICON_NAME, "ultragrid",
                         PW_KEY_NODE_NAME, node_name.c_str(),
+                        PW_KEY_NODE_DESCRIPTION, "UltraGrid playback",
                         STREAM_TARGET_PROPERTY_KEY, s->target.c_str(),
                         nullptr);
 
