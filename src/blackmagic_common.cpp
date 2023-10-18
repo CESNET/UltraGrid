@@ -63,7 +63,6 @@
 
 using std::clamp;
 using std::fixed;
-using std::dec;
 using std::hex;
 using std::invalid_argument;
 using std::map;
@@ -1009,34 +1008,53 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 {
         if (strcmp(query_prop_fcc, "help") == 0) {
                 col{} << "Query usage:\n"
-                      << SBOLD("\tq[uery]=<fcc>") << " - gets Int value\n"
-                      << SBOLD("\tq[uery]=<fcc>F")
-                      << " - gets Flag (bool) value\n"
-                      << "(other types not yet supported)\n";
+                      << SBOLD("\tq[uery]=<fcc>")
+                      << " - gets DeckLink attribute value\n";
+                return;
         }
         union {
-                char                   fcc[5] = "";
+                char                   fcc[sizeof(BMDDeckLinkAttributeID)] = "";
                 BMDDeckLinkAttributeID key;
         };
         strncpy(fcc, query_prop_fcc, sizeof fcc);
         key            = (BMDDeckLinkAttributeID) htonl(key);
-        int64_t val    = 0;
-        HRESULT result = 0;
-        if (tolower(fcc[4]) == 'f') {
-                result = deckLinkAttributes->GetFlag(key, (BMD_BOOL *) &val);
-                fcc[4] = '\0';
-        } else {
-                result = deckLinkAttributes->GetInt(key, &val);
-        }
+        BMD_BOOL      bool_val{};
+        int64_t       int_val{};
+        double        float_val{};
+        BMD_STR       string_val{};
+        ostringstream oss;
+        HRESULT result = deckLinkAttributes->GetFlag(key, &bool_val);
         if (result == S_OK) {
-                col() << "\t" << hex << "Value of " << SBOLD(query_prop_fcc)
-                      << " for this device is 0x" << val << dec << " (" << val
-                      << ")\n";
-        } else {
+                oss << (bool_val ? "true" : "false");
+        }
+        if (result == E_INVALIDARG) {
+                result = deckLinkAttributes->GetInt(key, &int_val);
+                if (result == S_OK) {
+                        oss << int_val << " (0x" << hex << int_val << ")";
+                }
+        }
+        if (result == E_INVALIDARG) {
+                result = deckLinkAttributes->GetFloat(key, &float_val);
+                if (result == S_OK) {
+                        oss << float_val;
+                }
+        }
+        if (result == E_INVALIDARG) {
+                result = deckLinkAttributes->GetString(key, &string_val);
+                if (result == S_OK) {
+                        string str = get_str_from_bmd_api_str(string_val);
+                        release_bmd_api_str(string_val);
+                        oss << str;
+                }
+        }
+        if (result != S_OK) {
                 LOG(LOG_LEVEL_ERROR)
                     << MOD_NAME << "Cannot get " << query_prop_fcc << ": "
                     << bmd_hresult_to_string(result) << "\n";
+                return;
         }
+        col() << "\t" << hex << "Value of " << SBOLD(query_prop_fcc)
+              << " attribute for this device is " << SBOLD(oss.str()) << "\n";
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

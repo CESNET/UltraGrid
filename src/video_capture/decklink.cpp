@@ -434,6 +434,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	return S_OK;
 }
 
+/// @param query_prop_fcc if not NULL, print corresponding BMDDeckLinkAttribute
 static void
 vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
 {
@@ -479,6 +480,7 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
 
         if (query_prop_fcc != nullptr) {
                 print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
+                cout << "\n";
         }
 
         // Release the IDeckLink instance when we've finished with it to prevent leaks
