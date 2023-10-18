@@ -63,6 +63,7 @@
 
 using std::clamp;
 using std::fixed;
+using std::dec;
 using std::hex;
 using std::invalid_argument;
 using std::map;
@@ -1000,6 +1001,42 @@ bmd_parse_audio_levels(const char *opt) noexcept(false)
                 return true;
         }
         throw invalid_argument(string("invalid BMD audio level ") + opt);
+}
+
+void
+print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
+                    const char                 *query_prop_fcc)
+{
+        if (strcmp(query_prop_fcc, "help") == 0) {
+                col{} << "Query usage:\n"
+                      << SBOLD("\tq[uery]=<fcc>") << " - gets Int value\n"
+                      << SBOLD("\tq[uery]=<fcc>F")
+                      << " - gets Flag (bool) value\n"
+                      << "(other types not yet supported)\n";
+        }
+        union {
+                char                   fcc[5] = "";
+                BMDDeckLinkAttributeID key;
+        };
+        strncpy(fcc, query_prop_fcc, sizeof fcc);
+        key            = (BMDDeckLinkAttributeID) htonl(key);
+        int64_t val    = 0;
+        HRESULT result = 0;
+        if (tolower(fcc[4]) == 'f') {
+                result = deckLinkAttributes->GetFlag(key, (BMD_BOOL *) &val);
+                fcc[4] = '\0';
+        } else {
+                result = deckLinkAttributes->GetInt(key, &val);
+        }
+        if (result == S_OK) {
+                col() << "\t" << hex << "Value of " << SBOLD(query_prop_fcc)
+                      << " for this device is 0x" << val << dec << " (" << val
+                      << ")\n";
+        } else {
+                LOG(LOG_LEVEL_ERROR)
+                    << MOD_NAME << "Cannot get " << query_prop_fcc << ": "
+                    << bmd_hresult_to_string(result) << "\n";
+        }
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

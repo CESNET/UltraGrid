@@ -435,41 +435,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 }
 
 static void
-print_property(IDeckLinkProfileAttributes *deckLinkAttributes, const char *query_prop_fcc)
-{
-        if (strcmp(query_prop_fcc, "help") == 0) {
-                col{} << "Query usage:\n"
-                      << SBOLD("\tq[uery]=<fcc>") << " - gets Int value\n"
-                      << SBOLD("\tq[uery]=<fcc>F")
-                      << " - gets Flag (bool) value\n"
-                      << "(other types not yet supported)\n";
-        }
-        union {
-                char                   fcc[5] = "";
-                BMDDeckLinkAttributeID key;
-        };
-        strncpy(fcc, query_prop_fcc, sizeof fcc);
-        key            = (BMDDeckLinkAttributeID) htonl(key);
-        int64_t val    = 0;
-        HRESULT result = 0;
-        if (tolower(fcc[4]) == 'f') {
-                result = deckLinkAttributes->GetFlag(key, (BMD_BOOL *) &val);
-                fcc[4] = '\0';
-        } else {
-                result = deckLinkAttributes->GetInt(key, &val);
-        }
-        if (result == S_OK) {
-                col() << hex << "\tValue of " << SBOLD(query_prop_fcc)
-                      << " for this device is 0x" << val << dec << " (" << val
-                      << ")\n";
-        } else {
-                LOG(LOG_LEVEL_ERROR)
-                    << MOD_NAME << "Cannot get " << query_prop_fcc << ": "
-                    << bmd_hresult_to_string(result) << "\n";
-        }
-}
-
-static void
 vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
 {
 
@@ -513,7 +478,7 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
         cout << "\n";
 
         if (query_prop_fcc != nullptr) {
-                print_property(deckLinkAttributes, query_prop_fcc);
+                print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
         }
 
         // Release the IDeckLink instance when we've finished with it to prevent leaks

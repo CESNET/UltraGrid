@@ -169,6 +169,8 @@ extern template bool
 decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
                                         BMDPixelFormat  pf);
 bool bmd_parse_audio_levels(const char *opt) noexcept(false);
+void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
+                         const char                 *query_prop_fcc);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 
