@@ -515,7 +515,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
 
         col() << "Decklink display options:\n";
         col() << SBOLD(SRED("\t-d decklink")
-                       << "[:d[evice]=<device>][:Level{A|B}][:3D][:aacl][:half-"
+                       << "[:d[evice]=<device>][:Level{A|B}][:3D][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help") << " | "
               << SBOLD(SRED("-d decklink") << ":query=<FourCC>"
@@ -527,7 +527,6 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\tdevice") << "\t\tindex or name of output device\n";
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
-        col() << SBOLD("\taacl") << "\t\tset maximum audio attenuation on output\n";
         col() << SBOLD("\thalf-duplex | full-duplex")
                 << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
@@ -571,7 +570,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
                 col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << SBOLD("\tquery=<FourCC>") << "\tquery specified device argument in help listing\n";
-                col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value\n";
+                col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
+                col() << SBOLD("\t\taacl") << "\t\tset maximum audio attenuation on output\n";
         }
 
         col() << "\nRecognized pixel formats:";

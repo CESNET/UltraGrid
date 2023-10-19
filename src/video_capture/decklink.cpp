@@ -500,7 +500,7 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
               << "\n";
         col() << SBOLD(SRED("\t-t decklink")
                        << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D]["
-                          ":sync_timecode][:connection=<input>][:aacl][:detect-"
+                          ":sync_timecode][:connection=<input>][:detect-"
                           "format][:conversion=<conv_mode>]]")
               << "\n";
         col() << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
@@ -510,10 +510,6 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
         printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
         printf("\tin video format listing above by flag \"3D\".\n");
-	printf("\n");
-
-        col() << SBOLD("aacl") << "\n";
-        col() << "\tset analog audio levels to maximum gain on audio input\n";
 	printf("\n");
 
         col() << SBOLD("detect-format") << "\n";
@@ -571,7 +567,8 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << "\n";
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
-                col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value\n";
+                col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
+                col() << SBOLD("\taacl") << "\t\tset analog audio levels to maximum gain on audio input\n";
                 col() << "\n";
         } else {
                 col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
@@ -621,7 +618,10 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 		deckLink->Release();
 	}
         if (!full) {
-                cout << "(use \"-t decklink:fullhelp\" to see full list of device modes and available connections)\n\n";
+                col() << "\n(use \"-t decklink:"
+                      << SBOLD(
+                             "fullhelp") "\" to see full list of device modes "
+                                         "and available connections)\n\n";
         }
 	
 	deckLinkIterator->Release();
