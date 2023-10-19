@@ -487,7 +487,6 @@ struct state_decklink {
         bmd_option          profile_req;
         bmd_option          quad_square_division_split{true, false};
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
-                { bmdDeckLinkConfigVideoOutputIdleOperation, bmd_option{(int64_t) bmdIdleVideoOutputLastFrame, false} },
                 { bmdDeckLinkConfigOutput1080pAsPsF, bmd_option{false, false}},
                 { bmdDeckLinkConfigFieldFlickerRemoval, bmd_option{false, false}}, ///< required for interlaced video in low-latency
                 { bmdDeckLinkConfigLowLatencyVideoOutput, bmd_option{true, false}}
@@ -572,6 +571,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\tquery=<FourCC>") << "\tquery specified device argument in help listing\n";
                 col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
                 col() << SBOLD("\t\taacl") << "\t\tset maximum audio attenuation on output\n";
+                col() << SBOLD("\t\tvoio=blac|lafa") << "\tdisplay either black or last frame when idle\n";
         }
 
         col() << "\nRecognized pixel formats:";
