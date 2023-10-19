@@ -1013,11 +1013,12 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                 return;
         }
         union {
-                char                   fcc[sizeof(BMDDeckLinkAttributeID)] = "";
+                char fcc[sizeof(BMDDeckLinkAttributeID)] = { ' ', ' ', ' ',
+                                                             ' ' };
                 BMDDeckLinkAttributeID key;
         };
-        strncpy(fcc, query_prop_fcc, sizeof fcc);
-        key            = (BMDDeckLinkAttributeID) htonl(key);
+        memcpy(fcc, query_prop_fcc, min(strlen(query_prop_fcc), sizeof fcc));
+        key = (BMDDeckLinkAttributeID) htonl(key);
         BMD_BOOL      bool_val{};
         int64_t       int_val{};
         double        float_val{};
