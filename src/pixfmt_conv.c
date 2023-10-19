@@ -1358,6 +1358,102 @@ static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned
 #undef WRITE_RES
 }
 
+static void
+vc_copylineR12LtoUYVY(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dst_len,
+                      int rshift, int gshift, int bshift)
+{
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        enum {
+                D_DPTH        = 8,
+                YOFF          = 1 << (D_DPTH - 4),
+                COFF          = 1 << (D_DPTH - 1),
+                PX_PER_BLK_IN = 8,
+                UYVY_BPP      = 2,
+                DST_BYTE_SZ   = PX_PER_BLK_IN * UYVY_BPP,
+        };
+        uint8_t *d = (void *) dst;
+#define WRITE_RES \
+        { \
+                comp_type_t u = ((RGB_TO_CB_709_SCALED(r1, g1, b1) + \
+                                  RGB_TO_CB_709_SCALED(r2, g2, b2)) >> \
+                                 (COMP_BASE + D_DPTH + 1)) + \
+                                COFF; \
+                *d++          = CLAMP_LIMITED_CBCR(u, D_DPTH); \
+                comp_type_t y = (RGB_TO_Y_709_SCALED(r1, g1, b1) >> \
+                                 (COMP_BASE + D_DPTH)) + \
+                                YOFF; \
+                *d++          = CLAMP_LIMITED_Y(y, D_DPTH); \
+                comp_type_t v = ((RGB_TO_CR_709_SCALED(r1, g1, b1) + \
+                                  RGB_TO_CR_709_SCALED(r2, g2, b2)) >> \
+                                 (COMP_BASE + D_DPTH + 1)) + \
+                                COFF; \
+                *d++ = CLAMP_LIMITED_CBCR(v, D_DPTH); \
+                y    = (RGB_TO_Y_709_SCALED(r2, g2, b2) >> \
+                     (COMP_BASE + D_DPTH)) + \
+                    YOFF; \
+                *d++ = CLAMP_LIMITED_Y(y, D_DPTH); \
+        }
+        OPTIMIZED_FOR(int x = 0; x < dst_len; x += DST_BYTE_SZ)
+        {
+                comp_type_t r1 = (src[BYTE_SWAP(1)] & 0xFU) << 12U |
+                                 src[BYTE_SWAP(0)] << 4U; // 0
+                comp_type_t g1 =
+                    src[BYTE_SWAP(2)] << 8U | (src[BYTE_SWAP(1)] & 0xF0U);
+                comp_type_t b1 = (src[4 + BYTE_SWAP(0)] & 0xFU) << 12U |
+                                 src[BYTE_SWAP(3)] << 4U;
+                comp_type_t r2 = src[4 + BYTE_SWAP(1)] << 8U |
+                                 (src[4 + BYTE_SWAP(0)] & 0xF0U); // 1
+                comp_type_t g2 = (src[4 + BYTE_SWAP(3)] & 0xFU) << 12U |
+                                 (src[4 + BYTE_SWAP(2)]) << 4U;
+                comp_type_t b2 = src[8 + BYTE_SWAP(0)] << 8U |
+                                 (src[4 + BYTE_SWAP(3)] & 0xF0U);
+                WRITE_RES
+                r1 = (src[8 + BYTE_SWAP(2)] & 0xFU) << 12U |
+                     src[8 + BYTE_SWAP(1)] << 4U; // 2
+                g1 = src[8 + BYTE_SWAP(3)] << 8U |
+                     (src[8 + BYTE_SWAP(2)] & 0xF0U);
+                b1 = (src[12 + BYTE_SWAP(1)] & 0xFU) << 12U |
+                     src[12 + BYTE_SWAP(0)] << 4U;
+                r2 = src[12 + BYTE_SWAP(2)] << 8U |
+                     (src[12 + BYTE_SWAP(1)] & 0xF0U); // 3
+                g2 = (src[16 + BYTE_SWAP(0)] & 0xFU) << 12U |
+                     src[12 + BYTE_SWAP(3)] << 4U;
+                b2 = src[16 + BYTE_SWAP(1)] << 8U |
+                     (src[16 + BYTE_SWAP(0)] & 0xF0U);
+                WRITE_RES
+                r1 = (src[16 + BYTE_SWAP(3)] & 0xFU) << 12U |
+                     src[16 + BYTE_SWAP(2)] << 4U; // 4
+                g1 = src[20 + BYTE_SWAP(0)] << 8U |
+                     (src[16 + BYTE_SWAP(3)] & 0xF0U);
+                b1 = (src[20 + BYTE_SWAP(2)] & 0xFU) << 12U |
+                     src[20 + BYTE_SWAP(1)] << 4U;
+                r2 = src[20 + BYTE_SWAP(3)] << 8U |
+                     (src[20 + BYTE_SWAP(2)] & 0xF0U); // 5
+                g2 = (src[24 + BYTE_SWAP(1)] & 0xFU) << 12U |
+                     src[24 + BYTE_SWAP(0)] << 4U;
+                b2 = src[24 + BYTE_SWAP(2)] << 8U |
+                     (src[24 + BYTE_SWAP(1)] & 0xF0U);
+                WRITE_RES
+                r1 = (src[28 + BYTE_SWAP(0)] & 0xFU) << 12U |
+                     src[24 + BYTE_SWAP(3)] << 4U; // 6
+                g1 = src[28 + BYTE_SWAP(1)] << 8U |
+                     (src[28 + BYTE_SWAP(0)] & 0xF0U);
+                b1 = (src[28 + BYTE_SWAP(3)] & 0xFU) << 12U |
+                     src[28 + BYTE_SWAP(2)] << 4U;
+                r2 = src[32 + BYTE_SWAP(0)] << 8U |
+                     (src[28 + BYTE_SWAP(3)] & 0xF0U); // 7
+                g2 = (src[32 + BYTE_SWAP(2)] & 0xFU) << 12U |
+                     src[32 + BYTE_SWAP(1)] << 4U;
+                b2 = src[32 + BYTE_SWAP(3)] << 8U |
+                     (src[32 + BYTE_SWAP(2)] & 0xF0U);
+                WRITE_RES
+
+                src += 36;
+        }
+#undef WRITE_RES
+}
+
 static void vc_copylineR12LtoR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2561,6 +2657,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineR12LtoRG48,  R12L,  RG48 },
         { vc_copylineR12LtoR10k,  R12L,  R10k },
         { vc_copylineR12LtoY416,  R12L,  Y416 },
+        { vc_copylineR12LtoUYVY,  R12L,  UYVY },
         { vc_copylineRGBAtoR12L,  RGBA,  R12L },
         { vc_copylineRGBtoR12L,   RGB,   R12L },
         { vc_copylineRGBAtoRG48,  RGBA,  RG48 },
