@@ -269,7 +269,11 @@ static bool create_dir(struct exporter *s)
                         } else if (s->override) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: directory %s exists and is not an empty directory but using as requested.\n", s->dir);
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, "[Export] Warning: directory %s exists and is not an empty directory! Trying to create subdir.\n", s->dir);
+                                MSG(ERROR,
+                                    "Warning: directory %s exists and is not "
+                                    "an empty directory! Trying to create "
+                                    "subdir.\n",
+                                    s->dir);
                                 char *prefix = s->dir;
                                 s->dir = create_implicit_dir(prefix);
                                 free(prefix);
