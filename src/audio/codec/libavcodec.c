@@ -46,6 +46,7 @@
 #include "debug.h"
 #include "lib_common.h"
 
+#include <inttypes.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/mem.h>
@@ -388,6 +389,9 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
         s->av_frame->sample_rate    = s->codec_ctx->sample_rate;
+        MSG(VERBOSE, "Setting AV frame: %d samples, format %d, sample rate %d",
+            s->av_frame->nb_samples, s->av_frame->format,
+            s->av_frame->sample_rate);
 
         ret = av_frame_get_buffer(s->av_frame, 0);
         if (ret != 0) {
@@ -560,6 +564,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 } else {
                         memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
                 }
+                MSG(DEBUG2, "Sending PTS %" PRId64 "\n", s->av_frame->pts);
 		int ret = avcodec_send_frame(s->codec_ctx, s->av_frame);
                 if (ret != 0) {
                         print_libav_audio_error(LOG_LEVEL_ERROR, "Error encoding frame", ret);
