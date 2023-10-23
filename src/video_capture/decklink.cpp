@@ -46,8 +46,6 @@
  *
  */
 
-#define MODULE_NAME "[Decklink capture] "
-
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -281,12 +279,21 @@ public:
                         BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) noexcept override {
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents, flags) << ").\n";
+                LOG(LOG_LEVEL_NOTICE)
+                    << MOD_NAME << "Format change detected ("
+                    << getNotificationEventsStr(notificationEvents, flags)
+                    << ").\n";
 
                 bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
                 if (detected_3d != s->stereo) {
-                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME <<  "Stereoscopic 3D " << (detected_3d ? "" : "not ") << "detected but " << (s->stereo ? "" : "not ") << "enabled! "
-                                "Switching automatically. This behavior is experimental so please report any problems. You can also specify `3D` option explicitly.\n";
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME << "Stereoscopic 3D "
+                            << (detected_3d ? "" : "not ") << "detected but "
+                            << (s->stereo ? "" : "not ")
+                            << "enabled! "
+                               "Switching automatically. This behavior is "
+                               "experimental so please report any problems. "
+                               "You can also specify `3D` option explicitly.\n";
                         s->stereo = detected_3d;
                         s->enable_flags ^= bmdVideoInputDualStream3D;
                 }
@@ -309,7 +316,11 @@ public:
                         };
                         if (s->requested_bit_depth == 0 && (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
                                 const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
+                                LOG(LOG_LEVEL_WARNING)
+                                    << MOD_NAME << "Detected " << depth
+                                    << "-bit signal, use \":codec=UYVY\" to "
+                                       "enforce 8-bit capture (old "
+                                       "behavior).\n";
                         }
 
                         s->set_codec(m.at(csBitDepth));
@@ -491,7 +502,7 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
 static int
 decklink_help(bool full, const char *query_prop_fcc = nullptr)
 {
-	col() << "\nDecklink options:\n";
+	col() << "\nDeckLink options:\n";
         col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
               << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << "\n";
         col() << SBOLD(SRED("\t-t decklink")
@@ -764,7 +775,9 @@ settings_init(struct vidcap_decklink_state *s, char *fmt)
 
         // options are in format <device>:<mode>:<codec>[:other_opts]
         if (isdigit(tmp[0]) && strcasecmp(tmp, "3D") != 0) {
-                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Deprecated syntax used, please use options in format \"key=value\"\n";
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME "Deprecated syntax used, please use options in "
+                                "format \"key=value\"\n";
                 // choose device
                 parse_devices(s, tmp);
 
@@ -869,7 +882,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                                         c.c_str());
                         snprintf(cards[*card_count - 1].modes[i].name,
                                         sizeof cards[*card_count - 1].modes[i].name,
-                                        "Decklink Auto (%s)", c.c_str());
+                                        "DeckLink Auto (%s)", c.c_str());
                         if (++i >= mode_count) {
                                 break;
                         }
@@ -1054,8 +1067,11 @@ static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsign
         }
         s->audio.bps = audio_capture_bps == 0 ? DEFAULT_AUDIO_BPS : audio_capture_bps;
         if (s->audio.bps != 2 && s->audio.bps != 4) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "[Decklink] Unsupported audio Bps " << audio_capture_bps << "! Supported is 2 or 4 bytes only!\n";
-                return false;
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "Unsupported audio Bps "
+                            << audio_capture_bps
+                            << "! Supported is 2 or 4 bytes only!\n";
+                        return false;
         }
         if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != bmdAudioSampleRate48kHz) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported sample rate " << audio_capture_sample_rate << "! Only " << bmdAudioSampleRate48kHz << " is supported.\n";
@@ -1240,11 +1256,16 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 }
         } else {
                 if (mode_idx == MODE_SPEC_FOURCC) {
-                        log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
+                        MSG(ERROR,
+                            "Desired mode \"%s\" is invalid or not "
+                            "supported.\n",
+                            s->mode.c_str());
                 } else if (mode_idx >= 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
+                        MSG(ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
                 } else if (mode_idx == MODE_SPEC_AUTODETECT) {
-                        log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set initial format for autodetection - perhaps imposible combinations of parameters were set.\n");
+                        MSG(ERROR, "Cannot set initial format for "
+                                   "autodetection - perhaps imposible "
+                                   "combinations of parameters were set.\n");
                 } else {
                         assert("Invalid mode spec." && 0);
                 }
@@ -1317,7 +1338,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                     !is_power_of_two(s->audio.ch_count)) {
                         log_msg(LOG_LEVEL_WARNING,
                                 MOD_NAME
-                                "Decklink may not be able to grab %d audio "
+                                "DeckLink may not be able to grab %d audio "
                                 "channels. "
                                 "1, 2, 8, 16, 32 or 64 may work.\n",
                                 s->audio.ch_count);
@@ -1462,18 +1483,24 @@ vidcap_decklink_done(void *state)
         {
 		result = s->state[i].deckLinkInput->StopStreams();
 		if (result != S_OK) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could not stop stream: " << bmd_hresult_to_string(result) << "\n";
-		}
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME "Could not stop stream: "
+                            << bmd_hresult_to_string(result) << "\n";
+                }
 
                 if (s->state[i].audio) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
                         if (result != S_OK) {
-                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could disable audio input: " << bmd_hresult_to_string(result) << "\n";
+                                LOG(LOG_LEVEL_ERROR)
+                                    << MOD_NAME "Could disable audio input: "
+                                    << bmd_hresult_to_string(result) << "\n";
                         }
                 }
 		result = s->state[i].deckLinkInput->DisableVideoInput();
                 if (result != S_OK) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could disable video input: " << bmd_hresult_to_string(result) << "\n";
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME "Could disable video input: "
+                            << bmd_hresult_to_string(result) << "\n";
                 }
         }
 
@@ -1784,7 +1811,8 @@ static void print_input_modes (IDeckLink* deckLink)
 
 void vidcap_decklink_state::set_codec(codec_t c) {
         codec = c;
-        LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(codec) << "\n";
+        LOG(LOG_LEVEL_INFO)
+            << MOD_NAME "Using codec: " << get_codec_name(codec) << "\n";
         if (c == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Using limited range R10k as specified by BMD, use '--param "
                                 R10K_FULL_OPT "' to override.\n");

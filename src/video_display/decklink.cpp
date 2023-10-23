@@ -512,7 +512,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         IDeckLink*                      deckLink;
         int                             numDevices = 0;
 
-        col() << "Decklink display options:\n";
+        col() << "DeckLink display options:\n";
         col() << SBOLD(SRED("\t-d decklink")
                        << "[:d[evice]=<device>][:Level{A|B}][:3D][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
@@ -529,7 +529,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\thalf-duplex | full-duplex")
                 << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
-        col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the Decklink cards with resampler (experimental)\n";
+        col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the DeckLink cards with resampler (experimental)\n";
         if (!full) {
                 col() << SBOLD("\tconversion") << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
                 col() << "\n\t(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n";
