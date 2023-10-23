@@ -768,8 +768,7 @@ settings_init(struct vidcap_decklink_state *s, char *fmt)
         char *save_ptr = NULL;
 
         if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
-                printf("[DeckLink] Auto-choosen device 0.\n");
-
+                MSG(INFO, "Auto-choosen device 0.\n");
                 return true;
         }
 
@@ -970,7 +969,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         s->frame->interlacing = PROGRESSIVE;
                         break;
                 case bmdUnknownFieldDominance:
-                        LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown field dominance!\n";
                         s->frame->interlacing = PROGRESSIVE;
                         break;
         }
@@ -1280,11 +1279,14 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         deckLinkInput->StopStreams();
 
         if (mode_idx == MODE_SPEC_AUTODETECT) {
-                log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
+                MSG(INFO, "Trying to autodetect format.\n");
                 BMD_BOOL autodetection;
                 BMD_CHECK(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection", INIT_ERR());
                 if (autodetection == BMD_FALSE) {
-                        log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
+                        MSG(ERROR,
+                            "Device doesn't support format autodetection, you "
+                            "must set it manually or try \"-t "
+                            "decklink:detect-format[:connection=<in>]\"\n");
                         INIT_ERR();
                 }
                 s->enable_flags |=  bmdVideoInputEnableFormatDetection;
@@ -1580,14 +1582,14 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                                 demux_channel(s->audio.data + s->audio.data_len, static_cast<char *>(audioFrame), s->audio.bps, min<int64_t>(audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, INT_MAX), 2 /* channels (originally) */, 0 /* we want first channel */);
                                 s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * 1 * s->audio.bps, INT_MAX);
                         } else {
-                                LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                                MSG(WARNING, "Audio frame too small!\n");
                         }
                 } else {
                         if (s->audio.data_len + audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps <= s->audio.max_size) {
                                 memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps);
                                 s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps, INT_MAX);
                         } else {
-                                LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                                MSG(WARNING, "Audio frame too small!\n");
                         }
                 }
                 audioPacket->Release();
