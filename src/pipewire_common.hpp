@@ -126,7 +126,7 @@ struct Pipewire_device{
         std::string media_class; //"Audio/Sink", "Audio/Source"...
 };
 
-bool initialize_pw_common(pipewire_state_common& s);
+bool initialize_pw_common(pipewire_state_common& s, int fd = -1);
 
 std::vector<Pipewire_device> get_pw_device_list();
 void print_devices(std::string_view media_class);

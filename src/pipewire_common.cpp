@@ -33,11 +33,15 @@ static const struct pw_core_events core_events = {
         .remove_mem = nullptr,
 };
 
-bool initialize_pw_common(pipewire_state_common& s){
+bool initialize_pw_common(pipewire_state_common& s, int fd){
         s.init_guard.init();
         s.pipewire_loop.reset(pw_thread_loop_new("Playback", nullptr));
         s.pipewire_context.reset(pw_context_new(pw_thread_loop_get_loop(s.pipewire_loop.get()), nullptr, 0)); //TODO check return
-        s.pipewire_core.reset(pw_context_connect(s.pipewire_context.get(), nullptr, 0));
+                                                                                                
+        if(fd != -1)
+                s.pipewire_core.reset(pw_context_connect_fd(s.pipewire_context.get(), fd, nullptr, 0));
+        else
+                s.pipewire_core.reset(pw_context_connect(s.pipewire_context.get(), nullptr, 0));
 
         pw_core_add_listener(s.pipewire_core.get(), &s.core_listener.get(), &core_events, &s);
 
