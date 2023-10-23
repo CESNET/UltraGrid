@@ -202,15 +202,15 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 			if (completedFrame->GetTimecode ((BMDTimecodeFormat) 0, &timecode) == S_OK) {
 				BMD_STR timecode_str;
 				if (timecode && timecode->GetString(&timecode_str) == S_OK) {
-                                        char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
                                         LOG(LOG_LEVEL_DEBUG)
-                                            << "Frame " << timecode_cstr
+                                            << "Frame "
+                                            << get_str_from_bmd_api_str(
+                                                   timecode_str)
                                             << " output at "
                                             << (double) get_time_in_ns() /
                                                    NS_IN_SEC_DBL
                                             << '\n';
                                         release_bmd_api_str(timecode_str);
-                                        free(timecode_cstr);
 				}
 			}
 		}
@@ -805,7 +805,6 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                 BMD_STR modeNameString;
                 if (deckLinkDisplayMode->GetName(&modeNameString) == S_OK)
                 {
-                        char *modeNameCString = get_cstr_from_bmd_api_str(modeNameString);
                         if (deckLinkDisplayMode->GetWidth() == (long) desc.width &&
                                         deckLinkDisplayMode->GetHeight() == (long) desc.height)
                         {
@@ -828,17 +827,18 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                                 frameRateScale);
                                 displayFPS = (double) *frameRateScale / *frameRateDuration;
                                 if (fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED) == interlaced) {
-                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s%s\n", modeNameCString,
-                                                        stereo ? " (3D)" : "");
+                                        MSG(INFO, "Selected mode: %s%s\n",
+                                            get_str_from_bmd_api_str(
+                                                modeNameString)
+                                                .c_str(),
+                                            stereo ? " (3D)" : "");
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         release_bmd_api_str(modeNameString);
-                                        free(modeNameCString);
                                         deckLinkDisplayMode->Release();
                                         break;
                                 }
                         }
                         release_bmd_api_str(modeNameString);
-                        free((void *) modeNameCString);
                 }
                 deckLinkDisplayMode->Release();
         }
@@ -2093,7 +2093,6 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
 
                 if (result == S_OK)
                 {
-                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
                         BMDTimeValue    frameRateDuration;
                         BMDTimeScale    frameRateScale;
 
@@ -2103,11 +2102,16 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
                         int modeHeight = displayMode->GetHeight();
                         uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
                         displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                        printf("\t\t%2d) %-20s  %d x %d \t %2.2f FPS %.4s, flags: %s\n",displayModeNumber, displayModeCString,
-                                        modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
-                                        (char *) &field_dominance_n, flags_str.c_str());
+                        printf(
+                            "\t\t%2d) %-20s  %d x %d \t %2.2f FPS %.4s, "
+                            "flags: %s\n",
+                            displayModeNumber,
+                            get_str_from_bmd_api_str(displayModeString).c_str(),
+                            modeWidth, modeHeight,
+                            (float) ((double) frameRateScale /
+                                     (double) frameRateDuration),
+                            (char *) &field_dominance_n, flags_str.c_str());
                         release_bmd_api_str(displayModeString);
-                        free(displayModeCString);
                 }
 
                 // Release the IDeckLinkDisplayMode object to prevent a leak

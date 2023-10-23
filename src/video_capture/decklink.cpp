@@ -1249,10 +1249,11 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         if (displayMode) {
                 BMD_STR displayModeString = NULL;
                 if (HRESULT result = displayMode->GetName(&displayModeString); result == S_OK) {
-                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
-                        LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
+                        LOG(LOG_LEVEL_INFO)
+                            << "The desired display mode is supported: "
+                            << get_str_from_bmd_api_str(displayModeString)
+                            << "\n";
                         release_bmd_api_str(displayModeString);
-                        free(displayModeCString);
                 }
         } else {
                 if (mode_idx == MODE_SPEC_FOURCC) {
@@ -1763,7 +1764,6 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 			BMDTimeValue	frameRateDuration;
 			BMDTimeScale	frameRateScale;
 
-                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 			// Obtain the display mode's properties
                         string flags_str = bmd_get_flags_str(displayMode->GetFlags());
                         int modeWidth = displayMode->GetWidth();
@@ -1772,7 +1772,7 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
                         uint32_t mode = ntohl(displayMode->GetDisplayMode());
                         uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
                         string fcc{(char *) &mode, 4};
-                        string name{displayModeCString};
+                        string name{get_str_from_bmd_api_str(displayModeString)};
                         char buf[1024];
                         snprintf(buf, sizeof buf, "%d x %d \t %6.2f FPS \t flags: %.4s, %s", modeWidth, modeHeight,
                                         (float) ((double)frameRateScale / (double)frameRateDuration),
@@ -1781,7 +1781,6 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
                         ret.push_back(tuple<int, string, string, string> {displayModeNumber, fcc, name, details});
 
                         release_bmd_api_str(displayModeString);
-			free(displayModeCString);
 		}
 
 		// Release the IDeckLinkDisplayMode object to prevent a leak
