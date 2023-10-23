@@ -380,7 +380,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                                           s->frameRateScale);
         }
 
-        if (audioPacket) {
+        if (audioPacket && !nosig) {
                 if (s->audioPackets.size() < MAX_AUDIO_PACKETS) {
                         audioPacket->AddRef();
                         s->audioPackets.push(audioPacket);
