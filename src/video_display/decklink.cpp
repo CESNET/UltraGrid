@@ -50,7 +50,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#define MOD_NAME "[Decklink display] "
+#define MOD_NAME "[DeckLink display] "
 
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
