@@ -389,7 +389,8 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
         s->av_frame->sample_rate    = s->codec_ctx->sample_rate;
-        MSG(VERBOSE, "Setting AV frame: %d samples, format %d, sample rate %d",
+        MSG(VERBOSE,
+            "Setting AV frame: %d samples, format %d, sample rate %d\n",
             s->av_frame->nb_samples, s->av_frame->format,
             s->av_frame->sample_rate);
 
