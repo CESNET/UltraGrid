@@ -152,8 +152,8 @@ void list_audio_codecs(void) {
                 col() << SBOLD("\t" << get<0>(it).name)
                       << (notes.empty() ? "" : " - ") << notes << "\n";
         }
-        col()
-            << "\nCodecs marked as \"deprecated\" may be removed in future.\n";
+        col() << "\nCodecs marked as \"deprecated\" may be removed in future.\n"
+                 "Codec coder marked with '*' is default.\n";
 }
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,

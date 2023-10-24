@@ -57,6 +57,7 @@
 #include "audio/utils.h"
 #include "libavcodec/lavc_common.h"
 #include "utils/color_out.h"
+#include "utils/string.h"
 #include "utils/text.h"
 
 #define MAGIC 0xb135ca11
@@ -726,15 +727,77 @@ static void libavcodec_done(void *state)
 
 static const audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
 
+static void
+append(char *dst, size_t dst_len, const char *name, bool prefered)
+{
+        const char *const end = dst + dst_len;
+        dst += strlen(dst);
+        strappend(&dst, end, " ");
+        if (prefered) {
+                strappend(&dst, end, "*");
+        }
+        strappend(&dst, end, TERM_BOLD);
+        strappend(&dst, end, name);
+        strappend(&dst, end, TERM_RESET);
+}
+
+static void
+get_encoders_decoders(enum AVCodecID id, const char *prefenc, char *buf,
+                      size_t buflen)
+{
+        char encoders[STR_LEN] = "";
+        char decoders[STR_LEN] = "";
+        const AVCodec *codec   = NULL;
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 9, 100)
+        void *i = NULL;
+        while ((codec = av_codec_iterate(&i)) != NULL) {
+                if (codec->id != id) {
+                        continue;
+                }
+                char *dst = av_codec_is_encoder(codec) ? encoders : decoders;
+                const bool prefered = av_codec_is_encoder(codec) &&
+                                      strcmp(codec->name, prefenc) == 0;
+                append(dst, sizeof encoders, codec->name, prefered);
+        }
+#else
+        codec = avcodec_find_encoder(id);
+        while (codec != NULL) {
+                if (codec->id == id && av_codec_is_encoder(codec)) {
+                        const bool prefered = strcmp(codec->name, prefenc) == 0;
+                        append(encoders, sizeof encoders, codec->name,
+                               prefered);
+                }
+                codec = av_codec_next(codec);
+        }
+        codec = avcodec_find_decoder(id);
+        while (codec != NULL) {
+                if (codec->id == id && av_codec_is_decoder(codec)) {
+                        append(decoders, sizeof decoders, codec->name, false);
+                }
+                codec = av_codec_next(codec);
+        }
+#endif
+        snprintf(buf, buflen, "encoders:%s decoders:%s", encoders, decoders);
+}
+
 static const char *
 libavcodec_get_codec_desc(void *state, size_t buflen, char *buffer)
 {
-        (void) buflen, (void) buffer;
         struct libavcodec_codec_state *s = state;
+        assert(buflen >= 1);
+        char             *tmp = buffer;
+        const char *const end = buffer + buflen;
         if (s->output_channel.codec == AC_SPEEX) {
-                return TYELLOW("deprecated");
+                strappend(&tmp, end, TYELLOW("deprecated") "; ");
         }
-        return NULL;
+        const char *prefenc =
+            mapping[s->output_channel.codec].preferred_encoder;
+        if (prefenc == NULL) {
+                prefenc = "";
+        }
+        get_encoders_decoders(mapping[s->output_channel.codec].id, prefenc,
+                              tmp, end - tmp);
+        return buffer;
 }
 
 static const struct audio_compress_info libavcodec_audio_codec = {
