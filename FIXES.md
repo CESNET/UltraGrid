@@ -27,20 +27,20 @@
 * fixed reflector address overflow + conference participant removal
 * fixed DeckLink incorrectly displaying interlaced video
 
-### 1.8.4
+#### 1.8.4
 
 * build fixes
 * fixed frame drop during RTP wrap-around
 * file video capture - detect interlacing
 
-## 1.8.5
+#### 1.8.5
 
 * fixed audio mixer segfault
 * fixed file capture initialized from switcher
 * fixed switcher with excl_init
 * fixed holepunch
 
-## 1.8.6
+#### 1.8.6
 
 * fixed zfec (Reed-Solomon) crash due to upstream changes
 * build fixes
