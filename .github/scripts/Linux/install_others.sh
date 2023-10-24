@@ -7,8 +7,13 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 install_ximea() {
-        curl -LO https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
-        tar xzf XIMEA_Linux_SP.tgz
+        if [ "$(dpkg --print-architecture | cut -b1-3)" = arm ]; then
+                filename=XIMEA_Linux_ARM_SP.tgz
+        else
+                filename=XIMEA_Linux_SP.tgz
+        fi
+        curl -LO https://www.ximea.com/downloads/recent/$filename
+        tar xzf $filename
         cd package
         touch bin/streamViewer.64 # TOREMOVE
         sudo ./install -noudev
