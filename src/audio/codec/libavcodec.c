@@ -56,6 +56,7 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "libavcodec/lavc_common.h"
+#include "utils/color_out.h"
 #include "utils/text.h"
 
 #define MAGIC 0xb135ca11
@@ -725,12 +726,24 @@ static void libavcodec_done(void *state)
 
 static const audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
 
+static const char *
+libavcodec_get_codec_desc(void *state, size_t buflen, char *buffer)
+{
+        (void) buflen, (void) buffer;
+        struct libavcodec_codec_state *s = state;
+        if (s->output_channel.codec == AC_SPEEX) {
+                return TYELLOW("deprecated");
+        }
+        return NULL;
+}
+
 static const struct audio_compress_info libavcodec_audio_codec = {
         supported_codecs,
         libavcodec_init,
         libavcodec_compress,
         libavcodec_decompress,
         libavcodec_get_sample_rates,
+        libavcodec_get_codec_desc,
         libavcodec_done
 };
 

@@ -110,7 +110,24 @@ extern "C" {
 #include <mcheck.h>
 #endif
 
-using namespace std;
+using std::array;
+using std::cout;
+using std::endl;
+using std::get;
+using std::ifstream;
+using std::left;
+using std::list;
+using std::make_tuple;
+using std::max;
+using std::mutex;
+using std::pair;
+using std::setw;
+using std::string;
+using std::thread;
+using std::to_string;
+using std::tuple;
+using std::unordered_map;
+using std::unique_lock;
 
 unsigned int audio_capture_channels = 0;
 unsigned int audio_capture_bps = 0;
@@ -727,7 +744,7 @@ void print_capabilities(const char *cfg)
         }
         auto codecs = get_audio_codec_list();
         for(const auto& codec : codecs){
-                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(codec.first.name, nullptr);
+                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(get<0>(codec).name, nullptr);
         }
 
         if(conf == "noprobe"){

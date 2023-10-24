@@ -40,7 +40,7 @@
 
 #include "audio/types.h"
 
-#define AUDIO_COMPRESS_ABI_VERSION 3
+#define AUDIO_COMPRESS_ABI_VERSION 4
 
 typedef enum {
         AUDIO_CODER,
@@ -53,11 +53,9 @@ struct audio_compress_info {
         audio_channel *(*compress)(void *, audio_channel *);
         audio_channel *(*decompress)(void *, audio_channel *);
         const int *(*get_samplerates)(void *);
+        /// returns additional text data to be printed in help
+        const char *(*get_codec_info)(void *, size_t buflen, char *buffer);
         void (*done)(void *);
-};
-
-enum audio_codec_flag {
-        AC_FLAG_DEPRECATED = 1 << 0,
 };
 
 typedef struct {
@@ -66,10 +64,11 @@ typedef struct {
          *  @brief TwoCC if defined, otherwise we define our tag
          */
         uint32_t    tag;
-        int         flags; ///< enum audio_codec_flag
 } audio_codec_info_t;
 
 #ifdef __cplusplus
+#include <string>
+#include <tuple>
 struct audio_codec_state;
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec, audio_codec_direction_t);
@@ -81,7 +80,8 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
 const int   *audio_codec_get_supported_samplerates(struct audio_codec_state *);
 void audio_codec_done(struct audio_codec_state *);
 
-std::vector<std::pair<audio_codec_info_t, bool>> get_audio_codec_list();
+std::vector<std::tuple<audio_codec_info_t, bool, std::string>>
+get_audio_codec_list();
 #endif
 
 #ifdef __cplusplus
