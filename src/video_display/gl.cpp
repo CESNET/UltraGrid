@@ -405,7 +405,7 @@ struct state_gl {
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
-        bool         vdp_interop;
+        bool         vdp_interop = false;
         vector<char> scratchpad; ///< scratchpad sized WxHx8
 
         state_gl(struct module *parent) {
