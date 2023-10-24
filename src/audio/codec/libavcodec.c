@@ -80,17 +80,18 @@ static void cleanup_common(struct libavcodec_codec_state *s);
 struct codec_param {
         enum AVCodecID id;
         const char *preferred_encoder;
+        int default_bitrate;
 };
 
 static const struct codec_param mapping[AC_COUNT] = {
-        [AC_ALAW]  = {AV_CODEC_ID_PCM_ALAW,    NULL        },
-        [AC_MULAW] = { AV_CODEC_ID_PCM_MULAW,  NULL        },
-        [AC_SPEEX] = { AV_CODEC_ID_SPEEX,      NULL        },
-        [AC_OPUS]  = { AV_CODEC_ID_OPUS,       "libopus"   },
-        [AC_G722]  = { AV_CODEC_ID_ADPCM_G722, NULL        },
-        [AC_FLAC]  = { AV_CODEC_ID_FLAC,       NULL        },
-        [AC_MP3]   = { AV_CODEC_ID_MP3,        NULL        },
-        [AC_AAC]   = { AV_CODEC_ID_AAC,        "libfdk_aac"},
+        [AC_ALAW]  = {AV_CODEC_ID_PCM_ALAW,    NULL,         0    },
+        [AC_MULAW] = { AV_CODEC_ID_PCM_MULAW,  NULL,         0    },
+        [AC_SPEEX] = { AV_CODEC_ID_SPEEX,      NULL,         0    },
+        [AC_OPUS]  = { AV_CODEC_ID_OPUS,       "libopus",    96000},
+        [AC_G722]  = { AV_CODEC_ID_ADPCM_G722, NULL,         0    },
+        [AC_FLAC]  = { AV_CODEC_ID_FLAC,       NULL,         0    },
+        [AC_MP3]   = { AV_CODEC_ID_MP3,        NULL,         0    },
+        [AC_AAC]   = { AV_CODEC_ID_AAC,        "libfdk_aac", 0    },
 };
 
 struct libavcodec_codec_state {
@@ -269,6 +270,23 @@ static int check_sample_fmt(const AVCodec *codec, enum AVSampleFormat sample_fmt
     return 0;
 }
 
+
+static int
+get_bitrate(struct libavcodec_codec_state *s)
+{
+        if (s->bitrate > 0) {
+                MSG(INFO, "Setting bia trate to: %d bps\n", s->bitrate);
+                return s->bitrate;
+        }
+        const int default_rate =
+            mapping[s->output_channel.codec].default_bitrate;
+        if (default_rate > 0) {
+                MSG(INFO, "Setting defaulat bit rate: %d bps\n", default_rate);
+                return default_rate;
+        }
+        return 0;
+}
+
 static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_desc desc)
 {
         cleanup_common(s);
@@ -281,9 +299,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         s->codec_ctx->strict_std_compliance = -2;
 
         /*  put sample parameters */
-        if (s->bitrate > 0) {
-                s->codec_ctx->bit_rate = s->bitrate;
-        }
+        s->codec_ctx->bit_rate = get_bitrate(s);
         s->codec_ctx->sample_rate = desc.sample_rate;
 
         enum AVSampleFormat sample_fmts[AV_SAMPLE_FMT_NB];
