@@ -78,6 +78,8 @@ struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
 using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 
 struct vcap_pw_state { 
+        pipewire_state_common pw;
+
         // used exlusively by ultragrid thread
         unique_frame in_flight_frame;
 
@@ -90,6 +92,12 @@ struct vcap_pw_state {
 #ifdef HAVE_DBUS_SCREENCAST
         ScreenCastPortal portal;
 #endif
+        int fd = -1;
+        uint32_t node = PW_ID_ANY;
+
+        pw_stream_uniq stream;
+        spa_hook_uniq stream_listener;
+        struct spa_video_info format = {};
 
         enum class Mode {
                 Generic,
@@ -104,40 +112,6 @@ struct vcap_pw_state {
                 std::string target = "";
         } user_options;
 
-        struct pw_{
-                pw_() {
-                        pw_init(&uv_argc, &uv_argv);
-                }
-                
-                int fd = -1;
-                uint32_t node = PW_ID_ANY;
-                
-                struct pw_thread_loop *loop = nullptr;
-                struct pw_context *context = nullptr;
-
-                struct pw_stream *stream = nullptr;
-                struct spa_hook stream_listener = {};
-
-                struct spa_video_info format = {};
-
-                spa_video_format video_format() {
-                        return format.info.raw.format;
-                }
-
-                ~pw_() {
-                        if(loop != nullptr){
-                                pw_thread_loop_stop(loop);
-                                if(stream != nullptr)
-                                        pw_stream_destroy(stream);
-                                if(context != nullptr)
-                                        pw_context_destroy(context);
-                                if(loop != nullptr)
-                                        pw_thread_loop_destroy(loop);
-                        }
-                        if( fd > 0)
-                                close(fd);
-                }
-        }pw;
 };
 
 static void on_stream_state_changed(void * /*state*/, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
@@ -157,17 +131,17 @@ static void on_stream_param_changed(void *state, uint32_t id, const struct spa_p
         if (param == nullptr || id != SPA_PARAM_Format)
                 return;
 
-        int parse_format_ret = spa_format_parse(param, &s->pw.format.media_type, &s->pw.format.media_subtype);
+        int parse_format_ret = spa_format_parse(param, &s->format.media_type, &s->format.media_subtype);
         assert(parse_format_ret > 0);
 
-        if(s->pw.format.media_type != SPA_MEDIA_TYPE_video
-                        || s->pw.format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+        if(s->format.media_type != SPA_MEDIA_TYPE_video
+                        || s->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Format not video/raw!\n");
                 return;
         }
 
-        auto& raw_format = s->pw.format.info.raw;
+        auto& raw_format = s->format.info.raw;
         spa_format_video_raw_parse(param, &raw_format);
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got format: %s\n", spa_debug_type_find_name(spa_type_video_format, raw_format.format));
@@ -222,7 +196,7 @@ static void on_stream_param_changed(void *state, uint32_t id, const struct spa_p
                 );
         }
         
-        pw_stream_update_params(s->pw.stream, params, n_params);
+        pw_stream_update_params(s->stream.get(), params, n_params);
 }
 
 static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_video_format fmt, spa_rectangle size, const spa_region *crop){
@@ -272,7 +246,7 @@ static void on_process(void *state) {
         auto s= static_cast<vcap_pw_state *>(state);
         pw_buffer *buffer;
         [[maybe_unused]] int n_buffers_from_pw = 0;
-        while((buffer = pw_stream_dequeue_buffer(s->pw.stream)) != nullptr){    
+        while((buffer = pw_stream_dequeue_buffer(s->stream.get())) != nullptr){
                 ++n_buffers_from_pw;
 
                 unique_frame next_frame;
@@ -284,7 +258,7 @@ static void on_process(void *state) {
 
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping - empty pw frame " << "\n";
-                        pw_stream_queue_buffer(s->pw.stream, buffer);
+                        pw_stream_queue_buffer(s->stream.get(), buffer);
                         continue;
                 }
 
@@ -298,7 +272,7 @@ static void on_process(void *state) {
 
                 if(!next_frame) {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "dropping frame (no blank frames)\n";
-                        pw_stream_queue_buffer(s->pw.stream, buffer);
+                        pw_stream_queue_buffer(s->stream.get(), buffer);
                         continue;
                 }
 
@@ -322,13 +296,13 @@ static void on_process(void *state) {
                 }
 
 
-                auto& raw_format = s->pw.format.info.raw;
+                auto& raw_format = s->format.info.raw;
 
                 //copy_frame(s->pw.video_format(), buffer->buffer, next_frame.get(), s->desc.width, s->desc.height, crop_region);
                 pw_frame_to_uv_frame_memcpy(next_frame.get(), buffer->buffer, raw_format.format, raw_format.size, crop_region);
 
                 s->sending_frames.push(std::move(next_frame));
-                pw_stream_queue_buffer(s->pw.stream, buffer);
+                pw_stream_queue_buffer(s->stream.get(), buffer);
         }
         
         //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<s->sending_frames.size_approx() << "\t blank: " << s->blank_frames.size_approx() << "\n";
@@ -373,24 +347,7 @@ static int start_pipewire(vcap_pw_state *s)
         uint8_t params_buffer[1024];
         struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 
-        s->pw.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
-        assert(s->pw.loop != nullptr);
-        pw_thread_loop_lock(s->pw.loop);
-        s->pw.context = pw_context_new(pw_thread_loop_get_loop(s->pw.loop), nullptr, 0);
-        assert(s->pw.context != nullptr);
-
-        if (pw_thread_loop_start(s->pw.loop) != 0) {
-                assert(false && "error starting pipewire thread loop");
-        }
-
-        pw_core *core = nullptr;
-
-        if(s->pw.fd != -1)
-                core = pw_context_connect_fd(s->pw.context, s->pw.fd, nullptr, 0); 
-        else
-                core = pw_context_connect(s->pw.context, nullptr, 0); 
-
-        assert(core != nullptr);
+        initialize_pw_common(s->pw, s->fd);
 
         std::string node_name = "ultragrid_in_";
         {
@@ -413,12 +370,19 @@ static int start_pipewire(vcap_pw_state *s)
                 pw_properties_set(props, STREAM_TARGET_PROPERTY_KEY, s->user_options.target.c_str());
         }
 
-        s->pw.stream = pw_stream_new(core,
-                        s->mode == vcap_pw_state::Mode::Screen_capture ? "ug_screencapture" : "ug_videocap",
-                        props);
+        pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
-        assert(s->pw.stream != nullptr);
-        pw_stream_add_listener(s->pw.stream, &s->pw.stream_listener, &stream_events, s);
+        s->stream.reset(pw_stream_new(s->pw.pipewire_core.get(),
+                        s->mode == vcap_pw_state::Mode::Screen_capture ? "ug_screencapture" : "ug_videocap",
+                        props));
+
+        assert(s->stream != nullptr);
+
+        pw_stream_add_listener(
+                        s->stream.get(),
+                        &s->stream_listener.get(),
+                        &stream_events,
+                        s);
 
         auto size_rect_def = SPA_RECTANGLE(1920, 1080);
         auto size_rect_min = SPA_RECTANGLE(1, 1);
@@ -463,9 +427,9 @@ static int start_pipewire(vcap_pw_state *s)
                 flags |= PW_STREAM_FLAG_AUTOCONNECT;
         }
 
-        int res = pw_stream_connect(s->pw.stream,
+        int res = pw_stream_connect(s->stream.get(),
                                         PW_DIRECTION_INPUT,
-                                        s->pw.node,
+                                        s->node,
                                         static_cast<pw_stream_flags>(flags),
                                         params, n_params);
         if (res < 0) {
@@ -473,8 +437,7 @@ static int start_pipewire(vcap_pw_state *s)
                 return -1;
         }
 
-        pw_stream_set_active(s->pw.stream, true);
-        pw_thread_loop_unlock(s->pw.loop);
+        pw_stream_set_active(s->stream.get(), true);
         return 0;
 }
 
@@ -590,13 +553,13 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        s->pw.fd = portalResult.pipewire_fd;
+        s->fd = portalResult.pipewire_fd;
         /* TODO: The node target_id param when calling stream_connect should be
          * always set to PW_ID_ANY as using object ids is now deprecated.
          * However, the dbus ScreenCast portal doesn't yet expose the object
          * serial which shoud be used instead.
          */
-        s->pw.node = portalResult.pipewire_node;
+        s->node = portalResult.pipewire_node;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
         start_pipewire(s.get());
@@ -624,7 +587,7 @@ static int vidcap_pw_init(struct vidcap_params *params, void **state)
         for(int i = 0; i < QUEUE_SIZE; i++)
                 s->blank_frames.emplace_back(vf_alloc(1));
 
-        s->pw.fd = -1;
+        s->fd = -1;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "init ok\n";
         start_pipewire(s.get());
@@ -636,8 +599,16 @@ static int vidcap_pw_init(struct vidcap_params *params, void **state)
 
 static void vidcap_screen_pw_done(void *state)
 {
+        auto s = static_cast<vcap_pw_state *>(state);
+
+        {
+                pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
+                pw_stream_disconnect(s->stream.get());
+        }
+
+        pw_thread_loop_stop(s->pw.pipewire_loop.get());
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "done\n";   
-        delete static_cast<vcap_pw_state *>(state);
+        delete s;
 }
 
 static struct video_frame *vidcap_screen_pw_grab(void *state, struct audio_frame **audio)
