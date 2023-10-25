@@ -64,7 +64,7 @@
 #include "lib_common.h"
 #include "debug.h"
 
-static constexpr const char *MOD_NAME = "[vcompress] ";
+#define MOD_NAME "[vcompress] "
 
 using namespace std;
 
@@ -249,7 +249,9 @@ compress_state_real::compress_state_real(struct module *parent, const char *conf
 
         auto vci = static_cast<const struct video_compress_info *>(load_library(compress_name.c_str(), LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION));
         if(!vci) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown or unavailable compression: " << config_string << "\n";
+                LOG(LOG_LEVEL_ERROR)
+                    << MOD_NAME "Unknown or unavailable compression: "
+                    << config_string << "\n";
                 throw -1;
         }
 
@@ -259,7 +261,9 @@ compress_state_real::compress_state_real(struct module *parent, const char *conf
                 state.resize(1);
                 state[0] = funcs->init_func(parent, compress_options.c_str());
                 if(!state[0]) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Compression initialization failed: " << config_string << "\n";
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME "Compression initialization failed: "
+                            << config_string << "\n";
                         throw -1;
                 }
                 if(state[0] == INIT_NOERR) {
@@ -297,7 +301,8 @@ static bool check_state_count(unsigned tile_count, struct compress_state *proxy)
                 for (unsigned int i = old_size; i < s->state.size(); ++i) {
                         s->state[i] = s->funcs->init_func(&proxy->mod, s->compress_options.c_str());
                         if(!s->state[i]) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Compression initialization failed\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME
+                                    "Compression initialization failed\n";
                                 return false;
                         }
                 }
@@ -590,10 +595,9 @@ shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
 
         auto f = proxy->queue.pop();
         if (f) {
-                log_msg(LOG_LEVEL_DEBUG,
-                        "Compressed frame size: %8u; duration: %7.3f ms\n",
-                        vf_get_data_len(f.get()),
-                        (f->compress_end - f->compress_start) / MS_IN_NS_DBL);
+                MSG(DEBUG, "Compressed frame size: %8u; duration: %7.3f ms\n",
+                    vf_get_data_len(f.get()),
+                    (f->compress_end - f->compress_start) / MS_IN_NS_DBL);
         }
         return f;
 }
