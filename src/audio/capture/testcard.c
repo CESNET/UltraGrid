@@ -370,7 +370,7 @@ generate_signal(struct state_audio_capture_testcard *s, enum pattern pattern,
 
         log_msg(LOG_LEVEL_NOTICE,
                 MOD_NAME "Generating %d Hz (%.2f  RMS dBFS) %s (%s, "
-                         "frames per packet: %llu).\n",
+                         "samples per frame: %llu).\n",
                 frequency, volume, pattern_name,
                 audio_desc_to_cstring(audio_desc_from_frame(&s->audio)),
                 s->chunk_size);
