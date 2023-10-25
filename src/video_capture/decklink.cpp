@@ -430,8 +430,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 
-	debug_msg("VideoInputFrameArrived - END\n"); /* TOREMOVE */
-
 	return S_OK;
 }
 
@@ -1606,8 +1604,6 @@ static void postprocess_frame(struct vidcap_decklink_state *s) {
 static struct video_frame *
 vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
-	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
-
 	struct vidcap_decklink_state 	*s = (struct vidcap_decklink_state *) state;
         int                             tiles_total = 0;
         int                             i;
@@ -1618,14 +1614,11 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 	unique_lock<mutex> lk(s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
-	debug_msg("vidcap_decklink_grab - before while\n"); /* TOREMOVE */
-
         tiles_total = nr_frames(s);
 
         while(tiles_total != s->devices_cnt) {
 	//while (!s->state[0].delegate->newFrameReady) {
                 cv_status rc = cv_status::no_timeout;
-		debug_msg("vidcap_decklink_grab - pthread_cond_timedwait\n"); /* TOREMOVE */
                 steady_clock::time_point t0(steady_clock::now());
 
                 while(rc == cv_status::no_timeout
@@ -1644,7 +1637,6 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                                 timeout = 1;
 
                 }
-                debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
                 if (rc != cv_status::no_timeout || timeout || tiles_total == -1) { //(rc == ETIMEDOUT) {
                         log_msg(LOG_LEVEL_VERBOSE, "Waiting for new frame timed out!\n");
