@@ -57,6 +57,7 @@
 #include "audio/utils.h"
 #include "libavcodec/lavc_common.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/string.h"
 #include "utils/text.h"
 
@@ -140,10 +141,11 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
         log_msg(verbosity, "%s: %s\n", msg, errbuf);
 }
 
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
-                "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_AUDIOENC_FRAME_DURATION) " ms for low-latency-audio\n");
+ADD_TO_PARAM(
+    "audioenc-frame-duration",
+    "* audioenc-frame-duration=<ms>\n"
+    "  Sets audio encoder frame duration (in ms), default is " TOSTRING(
+        LOW_LATENCY_AUDIOENC_FRAME_DURATION) " ms for low-latency-audio\n");
 ADD_TO_PARAM("audio-lavc-decoder", "* audio-lavc-decoder=<decoder_name>\n"
                 "  Use selected audio lavc decoder\n");
 ADD_TO_PARAM("audio-lavc-encoder", "* audio-lavc-encoder=<encoder_name>\n"
