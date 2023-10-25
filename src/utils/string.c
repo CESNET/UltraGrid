@@ -114,10 +114,22 @@ bool ends_with(const char *haystick, const char *needle) {
 
 /**
  * Copies string at src to pointer *ptr and increases the pointner.
+ * Typical use case:
+ * ````
+ * consexpr bool nul_terminate = true; // false if not needed
+ * char buf[STR_LEN];
+ * char *ptr = buf;
+ * const char *const end = buf + sizeof buf - null_terminate;
+ * strappend(&ptr, end, "this");
+ * strappend(&ptr, end, " and that");
+ * if (null_terminate) {
+ *         *ptr = '\0';
+ * }
+ *
  * @todo
  * Functions defined in string.h should signal safe in POSIX.1-2008 - check if in glibc, if so, use strcat.
  * @note
- * Strings are not NULL-terminated.
+ * Output string is not NULL-terminated but src must be!
  */
 void strappend(char **ptr, const char *ptr_end, const char *src) {
         while (*src != '\0') {
