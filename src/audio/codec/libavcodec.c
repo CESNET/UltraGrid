@@ -141,6 +141,49 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
         log_msg(verbosity, "%s: %s\n", msg, errbuf);
 }
 
+static const struct AVCodec *
+init_encoder(enum AVCodecID codec_id, const char *preferred_encoder)
+{
+        if (get_commandline_param("audio-lavc-encoder") != NULL) {
+                preferred_encoder = get_commandline_param("audio-lavc-encoder");
+        }
+        const struct AVCodec *ret = NULL;
+        if (preferred_encoder) {
+                ret = avcodec_find_encoder_by_name(preferred_encoder);
+                if (ret != NULL && ret->id != codec_id) {
+                        MSG(ERROR,
+                            "Requested encoder %s cannot handle "
+                            "specified codec!\n",
+                            preferred_encoder);
+                        return NULL;
+                }
+        }
+        if (ret == NULL) {
+                ret = avcodec_find_encoder(codec_id);
+        }
+
+        return ret;
+}
+
+static const struct AVCodec *
+init_decoder(enum AVCodecID codec_id)
+{
+        const char *pref_dec      = get_commandline_param("audio-lavc-decoder");
+        if (pref_dec != NULL) {
+                const struct AVCodec *ret =
+                    avcodec_find_decoder_by_name(pref_dec);
+                if (ret && ret->id == codec_id) {
+                        return ret;
+                }
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested decoder '%s' %s\n",
+                        pref_dec,
+                        ret ? "cannot handle received codec"
+                                 : "not found");
+                handle_error(EXIT_FAIL_USAGE);
+        }
+        return avcodec_find_decoder(codec_id);
+}
+
 ADD_TO_PARAM(
     "audioenc-frame-duration",
     "* audioenc-frame-duration=<ms>\n"
@@ -167,7 +210,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
 
         const struct codec_param *it = &mapping[audio_codec];
-        const char *preferred_encoder = NULL;
         
         if (!it->id) {
                 if (!silent) {
@@ -177,11 +219,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 return NULL;
         } else {
                 codec_id = it->id;
-                preferred_encoder = it->preferred_encoder;
-        }
-
-        if (get_commandline_param("audio-lavc-encoder") != NULL) {
-                preferred_encoder = get_commandline_param("audio-lavc-encoder");
         }
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
@@ -191,35 +228,14 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         struct libavcodec_codec_state *s = calloc(1, sizeof *s);
         s->magic = MAGIC;
         s->direction = direction;
-        if(direction == AUDIO_CODER) {
-                if (preferred_encoder) {
-                        s->codec = avcodec_find_encoder_by_name(preferred_encoder);
-                        if (s->codec && s->codec->id != codec_id) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested encoder cannot handle specified codec!\n");
-                                free(s);
-                                return NULL;
-                        }
-                }
-                if (!s->codec) {
-                        s->codec = avcodec_find_encoder(codec_id);
-                }
-        } else {
-                const char *pref_dec = get_commandline_param("audio-lavc-decoder");
-                if (pref_dec != NULL) {
-                        s->codec = avcodec_find_decoder_by_name(pref_dec);
-                        if (!s->codec || s->codec->id != codec_id) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested decoder '%s' %s\n", pref_dec,
-                                                s->codec ? "cannot handle received codec" : "not found");
-                                handle_error(EXIT_FAIL_USAGE);
-                                s->codec = NULL;
-                        }
-                }
-                if (!s->codec) {
-                        s->codec = avcodec_find_decoder(codec_id);
-                }
-        }
+
+        s->codec = direction == AUDIO_CODER
+                       ? init_encoder(codec_id, it->preferred_encoder)
+                       : init_decoder(codec_id);
         if(!s->codec) {
-                if (!silent) {
+                if (!silent &&
+                    (direction != AUDIO_CODER ||
+                     get_commandline_param("audio-lavc-encoder") == NULL)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Your Libavcodec build doesn't contain codec \"%s\".\n",
                                 get_name_to_audio_codec(audio_codec));
                 }
