@@ -106,6 +106,8 @@ private:
 };
 
 struct pipewire_state_common{
+        ~pipewire_state_common();
+
         pipewire_init_guard init_guard;
 
         pw_thread_loop_uniq pipewire_loop;

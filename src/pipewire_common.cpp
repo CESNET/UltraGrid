@@ -88,33 +88,33 @@ std::vector<Pipewire_device> get_pw_device_list(){
 
         std::vector<Pipewire_device> result;
 
-        {
+        pipewire_thread_loop_lock_guard lock(s.pipewire_loop.get());
 
-                pipewire_thread_loop_lock_guard lock(s.pipewire_loop.get());
+        pw_registry_uniq registry(pw_core_get_registry(s.pipewire_core.get(), PW_VERSION_REGISTRY, 0));
 
-                pw_registry_uniq registry(pw_core_get_registry(s.pipewire_core.get(), PW_VERSION_REGISTRY, 0));
+        const static pw_registry_events registry_events = {
+                PW_VERSION_REGISTRY_EVENTS,
+                .global = on_registry_event_global,
+                .global_remove = nullptr
+        };
 
-                const static pw_registry_events registry_events = {
-                        PW_VERSION_REGISTRY_EVENTS,
-                        .global = on_registry_event_global,
-                        .global_remove = nullptr
-                };
+        spa_hook_uniq registry_listener;
+        pw_registry_add_listener(registry.get(), &registry_listener.get(), &registry_events, &result);
 
-                spa_hook_uniq registry_listener;
-                pw_registry_add_listener(registry.get(), &registry_listener.get(), &registry_events, &result);
+        s.pw_pending_seq = pw_core_sync(s.pipewire_core.get(), PW_ID_CORE, s.pw_pending_seq);
+        int wait_seq = s.pw_pending_seq;
 
-                s.pw_pending_seq = pw_core_sync(s.pipewire_core.get(), PW_ID_CORE, s.pw_pending_seq);
-                int wait_seq = s.pw_pending_seq;
-
-                do{
-                        pw_thread_loop_wait(s.pipewire_loop.get());
-                } while(s.pw_last_seq < wait_seq);
-
-        }
-
-        pw_thread_loop_stop(s.pipewire_loop.get());
+        do{
+                pw_thread_loop_wait(s.pipewire_loop.get());
+        } while(s.pw_last_seq < wait_seq);
 
         return result;
+}
+
+
+pipewire_state_common::~pipewire_state_common(){
+        if(pipewire_loop)
+                pw_thread_loop_stop(pipewire_loop.get());
 }
 
 void print_devices(std::string_view media_class){
