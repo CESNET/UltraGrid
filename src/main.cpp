@@ -190,6 +190,7 @@ static void signal_handler(int signum)
                         *ptr++ = (char) ('0' + signum / 10);
                 }
                 *ptr++ = (char) ('0' + signum % 10);
+                append_sig_desc(&ptr, ptr_end - 1, signum);
                 *ptr++ = '\n';
                 write_all(ptr - buf, buf);
         }

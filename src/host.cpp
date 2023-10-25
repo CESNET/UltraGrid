@@ -1048,18 +1048,10 @@ void crash_signal_handler(int sig)
         array<void *, 256> addresses{};
         int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+#endif // defined WIN32
 
-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
-        const char *sig_desc = sigdescr_np(sig);
-#else
-        const char *sig_desc = sys_siglist[sig];
-#endif
-        if (sig_desc != NULL) {
-                strappend(&ptr, ptr_end, " (");
-                strappend(&ptr, ptr_end, sig_desc);
-                strappend(&ptr, ptr_end, ")");
-        }
-#endif
+        append_sig_desc(&ptr, ptr_end, sig);
+
         strappend(&ptr, ptr_end, ".\n\nPlease send a bug report to address " PACKAGE_BUGREPORT ".\n");
         strappend(&ptr, ptr_end, "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with " PACKAGE_NAME "\n");
         strappend(&ptr, ptr_end, "(or available online at https://github.com/CESNET/UltraGrid/blob/master/doc/REPORTING-BUGS.md).\n");

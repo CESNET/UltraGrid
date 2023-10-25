@@ -41,6 +41,9 @@
 #include "config_win32.h"
 #endif
 
+#ifndef __APPLE__
+#include <signal.h>
+#endif
 #include <string.h>
 
 #include "debug.h"
@@ -137,3 +140,26 @@ void write_all(size_t len, const char *msg) {
         } while (len > 0);
 }
 
+/**
+ * Appends signal number description to ptr and moves ptr to end of the
+ * appended string. The string is not NULL-terminated.
+ *
+ * This function is async-signal-safe.
+ */
+void
+append_sig_desc(char **ptr, const char *ptr_end, int signum)
+{
+#ifdef _WIN32
+        (void) ptr, (void) ptr_end, (void) signum;
+#else
+        strappend(ptr, ptr_end, " (");
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
+        strappend(ptr, ptr_end, sigabbrev_np(signum));
+        strappend(ptr, ptr_end, " - ");
+        strappend(ptr, ptr_end, sigdescr_np(signum));
+#else
+        strappend(ptr, ptr_end, sys_siglist[signum]);
+#endif
+        strappend(ptr, ptr_end, ")");
+#endif // !defined _WIN32
+}
