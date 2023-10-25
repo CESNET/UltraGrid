@@ -787,7 +787,7 @@ static const audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, A
 static void
 append(char *dst, size_t dst_len, const char *name, bool prefered)
 {
-        const char *const end = dst + dst_len;
+        const char *const end = dst + dst_len - 1;
         dst += strlen(dst);
         strappend(&dst, end, " ");
         if (prefered) {
@@ -796,6 +796,7 @@ append(char *dst, size_t dst_len, const char *name, bool prefered)
         strappend(&dst, end, TERM_BOLD);
         strappend(&dst, end, name);
         strappend(&dst, end, TERM_RESET);
+        *dst = '\0';
 }
 
 static void
@@ -843,7 +844,7 @@ libavcodec_get_codec_desc(void *state, size_t buflen, char *buffer)
         struct libavcodec_codec_state *s = state;
         assert(buflen >= 1);
         char             *tmp = buffer;
-        const char *const end = buffer + buflen;
+        const char *const end = buffer + buflen - 1;
         if (s->output_channel.codec == AC_SPEEX) {
                 strappend(&tmp, end, TYELLOW("deprecated") "; ");
         }
