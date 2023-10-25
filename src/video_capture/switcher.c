@@ -270,7 +270,10 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 struct response *r;
 
                 if (new_selected_device < s->devices_cnt){
-                        log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %d (%s).\n", new_selected_device + 1, s->device_names[new_selected_device]);
+                        MSG(NOTICE,
+                            "Switched from device %d to device %d (%s).\n",
+                            s->selected_device + 1, new_selected_device + 1,
+                            s->device_names[new_selected_device]);
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 s->devices[s->selected_device] = NULL;
