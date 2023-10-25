@@ -144,8 +144,10 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
 static const struct AVCodec *
 init_encoder(enum AVCodecID codec_id, const char *preferred_encoder)
 {
-        if (get_commandline_param("audio-lavc-encoder") != NULL) {
-                preferred_encoder = get_commandline_param("audio-lavc-encoder");
+        const char *const requested_encoder =
+            get_commandline_param("audio-lavc-encoder");
+        if (requested_encoder != NULL) {
+                preferred_encoder = requested_encoder;
         }
         const struct AVCodec *ret = NULL;
         if (preferred_encoder) {
@@ -155,6 +157,12 @@ init_encoder(enum AVCodecID codec_id, const char *preferred_encoder)
                             "Requested encoder %s cannot handle "
                             "specified codec!\n",
                             preferred_encoder);
+                        assert(preferred_encoder == requested_encoder);
+                        return NULL;
+                }
+                if (ret == NULL && requested_encoder != NULL) {
+                        MSG(ERROR, "Requested encoder %s was not found!\n",
+                            requested_encoder);
                         return NULL;
                 }
         }
