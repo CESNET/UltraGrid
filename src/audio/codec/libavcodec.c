@@ -142,7 +142,8 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
 }
 
 static const struct AVCodec *
-init_encoder(enum AVCodecID codec_id, const char *preferred_encoder)
+init_encoder(enum AVCodecID codec_id, const char *preferred_encoder,
+             bool silent)
 {
         const char *const requested_encoder =
             get_commandline_param("audio-lavc-encoder");
@@ -169,6 +170,20 @@ init_encoder(enum AVCodecID codec_id, const char *preferred_encoder)
         if (ret == NULL) {
                 ret = avcodec_find_encoder(codec_id);
         }
+        if (ret == NULL || silent ||
+            (ret->id != AV_CODEC_ID_MP3 && ret->id != AV_CODEC_ID_AAC)) {
+                return ret;
+        }
+        // using MP3 or AAC - suggest Opus instead
+        const int level = strcmp(ret->name, "aac") == 0 /* FF native AAC */
+                              ? LOG_LEVEL_WARNING
+                              : LOG_LEVEL_INFO;
+        log_msg(
+            level,
+            MOD_NAME
+            "Consider using Opus instead of encoder %s,\nsee also: "
+            "https://github.com/CESNET/UltraGrid/wiki/Audio-Settings#codecs\n",
+            ret->name);
 
         return ret;
 }
@@ -238,7 +253,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         s->direction = direction;
 
         s->codec = direction == AUDIO_CODER
-                       ? init_encoder(codec_id, it->preferred_encoder)
+                       ? init_encoder(codec_id, it->preferred_encoder, silent)
                        : init_decoder(codec_id);
         if(!s->codec) {
                 if (!silent &&
