@@ -144,6 +144,7 @@ void print_configuration(void);
 const char *get_commandline_param(const char *key);
 void set_commandline_param(const char *key, const char *val);
 
+bool tok_in_argv(char **argv, const char *tok);
 int set_audio_capture_format(const char *optarg);
 int set_pixfmt_conv_policy(const char *optarg);
 bool parse_params(const char *optarg, bool preinit);

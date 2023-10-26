@@ -1287,16 +1287,6 @@ static int adjust_params(struct ug_options *opt) {
         return 0;
 }
 
-static bool help_in_argv(char **argv) {
-        while (*argv) {
-                if (strstr(*argv, "help")) {
-                        return true;
-                }
-                argv++;
-        }
-        return false;
-}
-
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
@@ -1336,7 +1326,7 @@ int main(int argc, char *argv[])
 
         struct state_uv uv{};
         keyboard_control kc{&uv.root_module};
-        bool show_help = help_in_argv(uv_argv);
+        const bool show_help = tok_in_argv(uv_argv, "help");
 
         print_version();
         printf("\n");

@@ -372,6 +372,18 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         return true;
 }
 
+bool
+tok_in_argv(char **argv, const char *tok)
+{
+        while (*argv != nullptr) {
+                if (strstr(*argv, tok) != nullptr) {
+                        return true;
+                }
+                argv++;
+        }
+        return false;
+}
+
 struct init_data *common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -436,7 +448,10 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         // Initialize COM on main thread - otherwise Portaudio would initialize it as COINIT_APARTMENTTHREADED but MULTITHREADED
         // is perhaps better variant (Portaudio would accept that).
-        com_initialize(&init.com_initialized, nullptr);
+        const bool init_com = !tok_in_argv(argv, "screen:unregister_elevated");
+        if (init_com) {
+                com_initialize(&init.com_initialized, nullptr);
+        }
 #endif
 
         if (strstr(argv[0], "run_tests") == nullptr) {
