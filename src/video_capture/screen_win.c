@@ -151,6 +151,23 @@ set_key(const char *key, int val)
         return RegSetValueExA(hKey, key, 0L, REG_DWORD, (BYTE *) &val_dword, sizeof val_dword);
 }
 
+static bool
+set_key_from_str(const char *key, const char *val_c)
+{
+        char *endptr;
+        long  val = strtol(val_c, &endptr, 0);
+        if (*endptr != '\0') {
+                log_msg(LOG_LEVEL_ERROR, "Wrong val: %s\n", val_c);
+                return false;
+        }
+        LRESULT res = set_key(key, val);
+        if (res == ERROR_SUCCESS) {
+                return true;
+        }
+        MSG(ERROR, "Cannot set %s=%ld: %s\n", key, val, get_win_error(res));
+        return false;
+}
+
 static bool vidcap_screen_win_process_params(const char *fmt)
 {
         if (!fmt || fmt[0] == '\0') {
@@ -180,17 +197,7 @@ static bool vidcap_screen_win_process_params(const char *fmt)
                         free(fmt_c);
                         return false;
                 }
-                char *endptr;
-                long val = strtol(val_c, &endptr, 0);
-                if (*endptr != '\0') {
-                        log_msg(LOG_LEVEL_ERROR, "Wrong val: %s\n", val_c);
-                        free(fmt_c);
-                        return false;
-                }
-                LRESULT res = set_key(key, val);
-                if (res != ERROR_SUCCESS) {
-                        MSG(ERROR, "Cannot set %s=%ld: %s\n", key, val,
-                            get_win_error(res));
+                if (!set_key_from_str(key, val_c)) {
                         free(fmt_c);
                         return false;
                 }
