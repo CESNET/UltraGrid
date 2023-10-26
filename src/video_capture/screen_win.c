@@ -298,7 +298,12 @@ static int run_child_process() {
         STARTUPINFO si = { 0 };
         PROCESS_INFORMATION pi = { 0 };
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Starting child process:\n%s\n", cmd);
-        return CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+        const bool ret = CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL,
+                                       NULL, &si, &pi);
+        if (ret) {
+                WaitForSingleObject(pi.hProcess, INFINITE);
+        }
+        return ret;
 }
 
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
