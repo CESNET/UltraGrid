@@ -259,7 +259,8 @@ unregister_filter()
                 MSG(NOTICE, "Filter unregistered successfully\n");
                 return true;
         }
-        MSG(ERROR, "Cannot unregister filter, ret = %ld\n", res);
+        MSG(ERROR, "Cannot unregister filter, ret = %ld (%s)\n",
+            res, hresult_to_str(res));
         return false;
 }
 
@@ -322,7 +323,8 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 if (ret > 32) {
                         return VIDCAP_INIT_NOERR;
                 }
-                MSG(ERROR, "Elevated subshell exec failed, res = %lld\n", ret);
+                MSG(ERROR, "Elevated subshell exec failed, res = %lld (%s)\n",
+                    ret, get_win_error(ret));
                 return VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister_elevated") == 0) {
