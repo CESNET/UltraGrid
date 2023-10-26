@@ -125,7 +125,8 @@ delete_tree()
         return false;
 }
 
-static bool set_key(const char *key, int val)
+static LRESULT
+set_key(const char *key, int val)
 {
         static bool printed;
         if (!printed) {
@@ -134,18 +135,19 @@ static bool set_key(const char *key, int val)
                 printed = true;
         }
         HKEY hKey = NULL;
-        if (RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\screen-capture-recorder", 0L, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, NULL ) != ERROR_SUCCESS) {
+        LRESULT res = RegCreateKeyEx(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE, 0L,
+                                     NULL, REG_OPTION_NON_VOLATILE,
+                                     KEY_ALL_ACCESS, NULL, &hKey, NULL);
+        if (res != ERROR_SUCCESS) {
                 // may already exist - try to open it
-                if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\screen-capture-recorder", 0L, KEY_ALL_ACCESS, &hKey ) != ERROR_SUCCESS) {
-                        return false;
+                res = RegOpenKeyEx(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE, 0L,
+                                   KEY_ALL_ACCESS, &hKey);
+                if (res != ERROR_SUCCESS) {
+                        return res;
                 }
         }
         DWORD val_dword = val;
-        if (RegSetValueExA(hKey, key, 0L, REG_DWORD, (BYTE *) &val_dword, sizeof val_dword) != ERROR_SUCCESS) {
-                return false;
-        }
-
-        return true;
+        return RegSetValueExA(hKey, key, 0L, REG_DWORD, (BYTE *) &val_dword, sizeof val_dword);
 }
 
 static bool vidcap_screen_win_process_params(const char *fmt)
@@ -184,8 +186,10 @@ static bool vidcap_screen_win_process_params(const char *fmt)
                         free(fmt_c);
                         return false;
                 }
-                if (!set_key(key, val)) {
-                        log_msg(LOG_LEVEL_ERROR, "Cannot set %s=%ld\n", key, val);
+                LRESULT res = set_key(key, val);
+                if (res != ERROR_SUCCESS) {
+                        MSG(ERROR, "Cannot set %s=%ld: %s\n", key, val,
+                            get_win_error(res));
                         free(fmt_c);
                         return false;
                 }
