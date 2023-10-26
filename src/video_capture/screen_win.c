@@ -86,8 +86,8 @@ static void show_help()
                 "version.\n\n";
         color_printf("%s", wrap_paragraph(desc));
         color_printf("Usage\n");
-        color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps="
-                                               "<f>]") "\n");
+        color_printf(
+            TBOLD(TRED("\t-t screen") "[:size=<w>x<h>][:fps=<f>]") "\n");
         color_printf(TBOLD("\t-t screen:help") " | " TBOLD(
             "-t screen:unregister") " | " TBOLD("-t screen:clear_prefs") "\n");
         color_printf("where:\n");
@@ -181,12 +181,25 @@ static bool vidcap_screen_win_process_params(const char *fmt)
         char *tok;
 
         while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                tmp = NULL;
                 const char *key;
                 char *val_c;
-                if (strstr(tok, "width=") != NULL) {
+                if (IS_KEY_PREFIX(tok, "size") && strchr(tok, 'x') != NULL) {
+                        char *width = strchr(tok, '=') + 1;
+                        char *height = strchr(tok, 'x') + 1;
+                        *strchr(tok, 'x') = '\0';
+                        if (!set_key_from_str("capture_width", width) ||
+                            !set_key_from_str("capture_height", height)) {
+                                free(fmt_c);
+                                return false;
+                        }
+                        continue;
+                } else if (strstr(tok, "width=") != NULL) {
+                        MSG(WARNING, "Deprecated width=, use size=\n");
                         key ="capture_width";
                         val_c = tok + strlen("width=");
                 } else if (strstr(tok, "height=") != NULL) {
+                        MSG(WARNING, "Deprecated height=, use size=\n");
                         key ="capture_height";
                         val_c = tok + strlen("height=");
                 } else if (strstr(tok, "fps=") != NULL) {
@@ -201,8 +214,6 @@ static bool vidcap_screen_win_process_params(const char *fmt)
                         free(fmt_c);
                         return false;
                 }
-
-                tmp = NULL;
         }
 
         free(fmt_c);
