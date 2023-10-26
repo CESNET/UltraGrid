@@ -310,6 +310,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         }
         if (strcmp(cfg, "register_elevated") == 0) {
                 int rc = register_screen_cap_rec_library(true);
+                system("pause");
                 return rc >= 0 ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister") == 0) {
@@ -325,8 +326,9 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister_elevated") == 0) {
-                return unregister_filter() ? VIDCAP_INIT_NOERR
-                                           : VIDCAP_INIT_FAIL;
+                bool res = unregister_filter();
+                system("pause");
+                return res ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strstr(cfg, "child") == cfg) {
                 child = true;
