@@ -88,10 +88,11 @@ static void show_help()
         color_printf("Usage\n");
         color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps="
                                                "<f>]") "\n");
-        color_printf(
-            TBOLD("\t-t screen:help") " | " TBOLD("-t screen:unregister") "\n");
+        color_printf(TBOLD("\t-t screen:help") " | " TBOLD(
+            "-t screen:unregister") " | " TBOLD("-t screen:clear_prefs") "\n");
         color_printf("where:\n");
         color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
+        color_printf(TBOLD("\tclear_prefs") " - clear screen capture preferences from registry\n");
         color_printf("\n");
         color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
@@ -104,6 +105,23 @@ static void vidcap_screen_win_probe(struct device_info **available_cards, int *c
         // cards[0].dev can be "" since screen cap. doesn't require parameters
         snprintf(cards[0].name, sizeof cards[0].name, "Screen capture");
         *available_cards = cards;
+}
+
+#define SCREEN_CAP_REG_TREE "Software\\screen-capture-recorder"
+
+static bool
+delete_tree()
+{
+        const LSTATUS err =
+            RegDeleteTree(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE);
+        if (err == ERROR_SUCCESS) {
+                MSG(NOTICE,
+                    "Register tree " SCREEN_CAP_REG_TREE " delete succesfully.\n");
+                return true;
+        }
+        MSG(ERROR, "Cannot delete " SCREEN_CAP_REG_TREE " from registry: %s\n",
+            get_win_error(err));
+        return false;
 }
 
 static bool set_key(const char *key, int val)
@@ -337,6 +355,9 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 bool res = unregister_filter();
                 system("pause");
                 return res ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+        }
+        if (strcmp(cfg, "clear_prefs") == 0) {
+                return delete_tree() ?  VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strstr(cfg, "child") == cfg) {
                 child = true;
