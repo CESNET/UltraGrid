@@ -161,11 +161,22 @@ void write_all(size_t len, const char *msg) {
 void
 append_sig_desc(char **ptr, const char *ptr_end, int signum)
 {
-#ifdef _WIN32
-        (void) ptr, (void) ptr_end, (void) signum;
-#else
         strappend(ptr, ptr_end, " (");
-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
+#ifdef _WIN32
+#define SIGERR(x) [x] = #x
+        // from MinGW signal.h, unsure if other signals occur natively in MSW
+        const char *signames[NSIG] = {
+                SIGERR(SIGINT),   SIGERR(SIGILL),  SIGERR(SIGABRT_COMPAT),
+                SIGERR(SIGFPE),   SIGERR(SIGSEGV), SIGERR(SIGTERM),
+                SIGERR(SIGBREAK), SIGERR(SIGABRT), // SIGERR(SIGABRT2),
+        };
+#undef SIGERR
+        if (signames[signum] == NULL) {
+                strappend(ptr, ptr_end, "UNKNOWN");
+        } else {
+                strappend(ptr, ptr_end, signames[signum]);
+        }
+#elif __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
         strappend(ptr, ptr_end, sigabbrev_np(signum));
         strappend(ptr, ptr_end, " - ");
         strappend(ptr, ptr_end, sigdescr_np(signum));
@@ -173,5 +184,4 @@ append_sig_desc(char **ptr, const char *ptr_end, int signum)
         strappend(ptr, ptr_end, sys_siglist[signum]);
 #endif
         strappend(ptr, ptr_end, ")");
-#endif // !defined _WIN32
 }
