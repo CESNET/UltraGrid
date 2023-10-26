@@ -86,9 +86,13 @@ static void show_help()
                 "version.\n\n";
         color_printf("%s", wrap_paragraph(desc));
         color_printf("Usage\n");
-        color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps=<f>]") " | " TBOLD("-t screen:help") " | " TBOLD("-t screen:unregister") "\n");
+        color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps="
+                                               "<f>]") "\n");
+        color_printf(
+            TBOLD("\t-t screen:help") " | " TBOLD("-t screen:unregister") "\n");
         color_printf("where:\n");
-        color_printf(TBOLD("\tunregister") " - unregister DShow filter\n\n");
+        color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
+        color_printf("\n");
         color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
 
@@ -144,6 +148,7 @@ static bool vidcap_screen_win_process_params(const char *fmt)
                         key ="default_max_fps";
                         val_c = tok + strlen("fps=");
                 } else {
+                        MSG(ERROR, "Unknown parameter: %s\n", tok);
                         free(fmt_c);
                         return false;
                 }
