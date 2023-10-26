@@ -69,7 +69,7 @@
 
 extern const struct video_capture_info vidcap_dshow_info;
 static bool is_library_registered();
-static void unregister_filter();
+static bool unregister_filter();
 
 struct vidcap_screen_win_state {
         bool filter_registered_here; ///< we were able to register filter as a normal user -> cleanup at end
@@ -237,12 +237,25 @@ static int register_screen_cap_rec_library(bool is_elevated) {
         return -1;
 }
 
-static void unregister_filter() {
+static bool
+unregister_filter()
+{
         HMODULE screen_cap_lib = NULL;
-        CHECK_NOT_NULL(screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return);
+        CHECK_NOT_NULL(screen_cap_lib =
+                           LoadLibraryA("screen-capture-recorder-x64.dll"),
+                       return false);
         func unregister_filter;
-        CHECK_NOT_NULL(unregister_filter = (func)(void *) GetProcAddress(screen_cap_lib, "DllUnregisterServer"), FreeLibrary(screen_cap_lib); return);
-        unregister_filter();
+        CHECK_NOT_NULL(unregister_filter = (func) (void *) GetProcAddress(
+                           screen_cap_lib, "DllUnregisterServer"),
+                       FreeLibrary(screen_cap_lib);
+                       return false);
+        HRESULT res = unregister_filter();
+        if (SUCCEEDED(res)) {
+                MSG(NOTICE, "Filter unregistered successfully\n");
+                return true;
+        }
+        MSG(ERROR, "Cannot unregister filter, ret = %ld\n", res);
+        return false;
 }
 
 static int load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
@@ -304,8 +317,8 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
         if (strcmp(cfg, "unregister_elevated") == 0) {
-                unregister_filter();
-                return VIDCAP_INIT_NOERR;
+                return unregister_filter() ? VIDCAP_INIT_NOERR
+                                           : VIDCAP_INIT_FAIL;
         }
         if (strstr(cfg, "child") == cfg) {
                 child = true;
