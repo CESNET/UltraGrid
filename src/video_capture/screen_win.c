@@ -126,6 +126,12 @@ delete_tree()
 
 static bool set_key(const char *key, int val)
 {
+        static bool printed;
+        if (!printed) {
+                MSG(NOTICE, "Options are written permanently to system registry (" SCREEN_CAP_REG_TREE  ").\n"
+                        "Use `-t screen:clear_prefs` to erase.\n");
+                printed = true;
+        }
         HKEY hKey = NULL;
         if (RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\screen-capture-recorder", 0L, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, NULL ) != ERROR_SUCCESS) {
                 // may already exist - try to open it
