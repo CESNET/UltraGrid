@@ -231,6 +231,7 @@ static int register_screen_cap_rec_library(bool is_elevated) {
                         if ((INT_PTR) ret > 32) {
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module installation successful.\n");
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "If you want to unregister the module, run 'uv -t screen:unregister'.\n");
+                                sleep(2);
                                 return 1;
                         }
                 }
