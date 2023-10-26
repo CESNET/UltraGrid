@@ -93,6 +93,7 @@ static void show_help()
         color_printf("where:\n");
         color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
         color_printf(TBOLD("\tclear_prefs") " - clear screen capture preferences from registry\n");
+        color_printf("\t\tIf an option follow, UG will run using new parameters.\n");
         color_printf("\n");
         color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
@@ -367,8 +368,12 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 system("pause");
                 return res ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
-        if (strcmp(cfg, "clear_prefs") == 0) {
-                return delete_tree() ?  VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+        if (strstr(cfg, "clear_prefs") == cfg) {
+                const bool ret = delete_tree();
+                cfg += strlen("clear_prefs");
+                if (strlen(cfg) == 0) {
+                        return ret ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+                }
         }
         if (strstr(cfg, "child") == cfg) {
                 child = true;
