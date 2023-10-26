@@ -308,13 +308,16 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return rc >= 0 ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister") == 0) {
-                ShellExecute( NULL,
-                                "runas",
-                                uv_argv[0], " -t screen:unregister_elevated",
-                                NULL,                        // default dir
-                                SW_SHOWNORMAL
-                            );
-                return VIDCAP_INIT_NOERR;
+                HINSTANCE inst = ShellExecute(NULL, "runas", uv_argv[0],
+                                              " -t screen:unregister_elevated",
+                                              NULL, // default dir
+                                              SW_SHOWNORMAL);
+                INT_PTR ret = (INT_PTR) inst;
+                if (ret > 32) {
+                        return VIDCAP_INIT_NOERR;
+                }
+                MSG(ERROR, "Elevated subshell exec failed, res = %lld\n", ret);
+                return VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister_elevated") == 0) {
                 return unregister_filter() ? VIDCAP_INIT_NOERR
