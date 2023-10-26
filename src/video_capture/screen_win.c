@@ -108,6 +108,7 @@ static void vidcap_screen_win_probe(struct device_info **available_cards, int *c
 }
 
 #define SCREEN_CAP_REG_TREE "Software\\screen-capture-recorder"
+#define REG_FRIENDLY_NAME   "\\HKEY_CURRENT_USER\\" SCREEN_CAP_REG_TREE
 
 static bool
 delete_tree()
@@ -116,10 +117,10 @@ delete_tree()
             RegDeleteTree(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE);
         if (err == ERROR_SUCCESS) {
                 MSG(NOTICE,
-                    "Register tree " SCREEN_CAP_REG_TREE " delete succesfully.\n");
+                    "Register tree " REG_FRIENDLY_NAME " deleted succesfully.\n");
                 return true;
         }
-        MSG(ERROR, "Cannot delete " SCREEN_CAP_REG_TREE " from registry: %s\n",
+        MSG(ERROR, "Cannot delete " REG_FRIENDLY_NAME " from registry: %s\n",
             get_win_error(err));
         return false;
 }
@@ -128,7 +129,7 @@ static bool set_key(const char *key, int val)
 {
         static bool printed;
         if (!printed) {
-                MSG(NOTICE, "Options are written permanently to system registry (" SCREEN_CAP_REG_TREE  ").\n"
+                MSG(NOTICE, "Options are written permanently to system registry (" REG_FRIENDLY_NAME ").\n"
                         "Use `-t screen:clear_prefs` to erase.\n");
                 printed = true;
         }
