@@ -97,7 +97,8 @@ static const char *const screen_cap_rec_opts[] = {
         "capture_particular_display_number_starting_at_zero"
 };
 
-static void show_help()
+static void
+show_help(bool full)
 {
         char desc[] = "Windows " TBOLD("screen capture") " can be used to capture the whole desktop in Windows.\n\n"
                 "It uses dynamically loaded DShow filter to get the screen data. Depending on the system configuration, "
@@ -109,7 +110,7 @@ static void show_help()
         color_printf("Usage\n");
         color_printf(
             TBOLD(TRED("\t-t screen") "[:clear_prefs][:size=<w>x<h>][:fps=<f>][other-opts]") "\n");
-        color_printf(TBOLD("\t-t screen:help") " | " TBOLD(
+        color_printf(TBOLD("\t-t screen:[full]help") " | " TBOLD(
             "-t screen:unregister") "\n");
         color_printf("where:\n");
         color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
@@ -120,8 +121,23 @@ static void show_help()
              i++) {
                 color_printf(" %d) " TBOLD("%s"), i + 1, screen_cap_rec_opts[i]);
         }
-        color_printf("\n");
-        color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
+        color_printf("\n\n");
+        if (full) {
+                color_printf("Examples:\n");
+                color_printf("\t" TBOLD("%s -t screen") " - capture with "
+                        "default/registry values\n", uv_argv[0]);
+                color_printf("\t" TBOLD("%s -t screen:clear_prefs") " - erase "
+                        "prefs and capture with default values\n", uv_argv[0]);
+                color_printf("\t" TBOLD("%s -t screen:clear_prefs:size=640x480")
+                        " - capture VGA-sized video and dropping previous "
+                        "values\n", uv_argv[0]);
+                color_printf("\t" TBOLD("%s -t screen:size_x=200:size_y=200")
+                        " - capture using saved values with x/y offset 200\n\n",
+                        uv_argv[0]);
+        }
+
+        color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n",
+                     is_library_registered() ? "is" : "is not");
 }
 
 static void vidcap_screen_win_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -445,8 +461,8 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
         bool child = false; // to prevent fork bombs if error
-        if (strcmp(cfg, "help") == 0) {
-                show_help();
+        if (strcmp(cfg, "help") == 0 || strcmp(cfg, "fullhelp") == 0) {
+                show_help(strcmp(cfg, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
         if (strcmp(cfg, "register_elevated") == 0) {
