@@ -108,13 +108,12 @@ static void show_help()
         color_printf("%s", wrap_paragraph(desc));
         color_printf("Usage\n");
         color_printf(
-            TBOLD(TRED("\t-t screen") "[:size=<w>x<h>][:fps=<f>][other-opts]") "\n");
+            TBOLD(TRED("\t-t screen") "[:clear_prefs][:size=<w>x<h>][:fps=<f>][other-opts]") "\n");
         color_printf(TBOLD("\t-t screen:help") " | " TBOLD(
-            "-t screen:unregister") " | " TBOLD("-t screen:clear_prefs") "\n");
+            "-t screen:unregister") "\n");
         color_printf("where:\n");
         color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
-        color_printf(TBOLD("\tclear_prefs") " - clear screen capture preferences from registry\n");
-        color_printf("\t\tIf an option follow, UG will run using new parameters.\n");
+        color_printf(TBOLD("\tclear_prefs") " - clear screen capture preferences from registry (must be first opt)\n");
         color_printf(TBOLD("\tother-opts") " - one of screen-capture-recorder opts (with value):");
         for (unsigned i = 0;
              i < sizeof screen_cap_rec_opts / sizeof screen_cap_rec_opts[0];
@@ -474,11 +473,8 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return res ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strstr(cfg, "clear_prefs") == cfg) {
-                const bool ret = delete_winreg_tree();
                 cfg += strlen("clear_prefs");
-                if (strlen(cfg) == 0) {
-                        return ret ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
-                }
+                delete_winreg_tree();
         }
         if (strstr(cfg, "child") == cfg) {
                 child = true;
