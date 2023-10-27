@@ -92,8 +92,8 @@ const char *hresult_to_str(HRESULT res) {
         _Thread_local static char unknown[128];
         const char *errptr = NULL;
 
-        if ((res >> 16) == FACILITY_WIN32) { // see HRESULT_FROM_WIN32
-                return get_win_error(HRESULT_CODE(res));
+        if (HRESULT_FACILITY(res) == FACILITY_WIN32) {
+                return get_win32_error(HRESULT_CODE(res));
         }
 
         HRESULT_GET_ERROR_COMMON(res, errptr)
