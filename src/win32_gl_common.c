@@ -192,8 +192,9 @@ failed:
 
 static void PrintError(DWORD err)
 {
-    // Display the error message and exit the process
-    log_msg(LOG_LEVEL_FATAL, "win32_gl_common %ld: %s\n", err, get_win_error(err));
+        // Display the error message and exit the process
+        log_msg(LOG_LEVEL_FATAL, "win32_gl_common %ld: %s\n", err,
+                get_win32_error(err));
 }
 
 static BOOL SetGLFormat(HDC hdc)

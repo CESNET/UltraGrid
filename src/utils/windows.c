@@ -124,6 +124,8 @@ const char *hresult_to_str(HRESULT res) {
 }
 
 /**
+ * formats Win32 return codes to string
+ *
  * @param error   error code (typically GetLastError())
  *
  * @note returned error string is _not_ <NL>-terminated (stripped from FormatMessage)
@@ -131,7 +133,9 @@ const char *hresult_to_str(HRESULT res) {
  * To achieve localized output, use languageid `MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL)` and
  * FormatMessageW (with wchar_t), converted to UTF-8 by win_wstr_to_str.
 */
-const char *get_win_error(DWORD error) {
+const char *
+get_win32_error(DWORD error)
+{
         _Thread_local static char buf[1024] = "(unknown)";
         if (FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
                                 NULL,                // lpsource
@@ -167,7 +171,7 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
                 if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
                         log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: Insufficient buffer length %zd, please report to %s!\n", sizeof res, PACKAGE_BUGREPORT);
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s\n", get_win_error(GetLastError()));
+                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s\n", get_win32_error(GetLastError()));
                 }
         }
         return res;

@@ -189,7 +189,7 @@ delete_winreg_tree()
                 return true;
         }
         MSG(ERROR, "Cannot delete " REG_FRIENDLY_NAME " from registry: %s\n",
-            get_win_error(err));
+            get_win32_error(err));
         return false;
 }
 
@@ -231,7 +231,7 @@ set_key_from_str(const char *key, const char *val_c)
         if (res == ERROR_SUCCESS) {
                 return true;
         }
-        MSG(ERROR, "Cannot set %s=%ld: %s\n", key, val, get_win_error(res));
+        MSG(ERROR, "Cannot set %s=%ld: %s\n", key, val, get_win32_error(res));
         return false;
 }
 
@@ -465,7 +465,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                         return VIDCAP_INIT_NOERR;
                 }
                 MSG(ERROR, "Elevated subshell exec failed, res = %lld (%s)\n",
-                    ret, get_win_error(ret));
+                    ret, get_win32_error(ret));
                 return VIDCAP_INIT_FAIL;
         }
         if (strcmp(cfg, "unregister_elevated") == 0) {

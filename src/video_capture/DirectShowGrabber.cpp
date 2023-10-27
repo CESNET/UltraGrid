@@ -50,7 +50,7 @@ static void ErrorDescription(HRESULT hr)
         if(FACILITY_WINDOWS == HRESULT_FACILITY(hr)) 
                 hr = HRESULT_CODE(hr); 
 
-        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: %s\n", get_win_error(hr));
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: %s\n", get_win32_error(hr));
 }
 
 #define DEFAULT_DEVNUM 1

@@ -237,7 +237,8 @@ void socket_error(const char *msg, ...)
         _vsnprintf(buffer, sizeof buffer, msg, ap);
         va_end(ap);
 
-        const char *errname = ws_errs[i].errno_code == 0 ? get_win_error(e) : ws_errs[i].errname;
+        const char *errname = ws_errs[i].errno_code == 0 ? get_win32_error(e)
+                                                         : ws_errs[i].errname;
         log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", buffer, e, errname);
 #else
         char strerror_buf[ERRBUF_SIZE] = "unknown";

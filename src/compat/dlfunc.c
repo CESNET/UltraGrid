@@ -46,7 +46,7 @@
 
 #ifdef _WIN32
 const char *dlerror() {
-        return get_win_error(GetLastError());
+        return get_win32_error(GetLastError());
 }
 #endif
 

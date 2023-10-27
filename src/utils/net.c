@@ -282,7 +282,8 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 		if (dwRetVal == ERROR_NO_DATA)
 			printf("\tNo addresses were found for the requested parameters\n");
 		else {
-                        log_msg(LOG_LEVEL_ERROR, "Error: %s\n", get_win_error(dwRetVal));
+                        log_msg(LOG_LEVEL_ERROR, "Error: %s\n",
+                                get_win32_error(dwRetVal));
                         if (pAddresses)
                                 free(pAddresses);
                         return false;
@@ -444,7 +445,7 @@ const char *ug_gai_strerror(int errcode)
 #ifdef _WIN32
         UNUSED(errcode);
         // also `win_wstr_to_str(gai_strerrorW(errcode);` would work; it is localized, but with correct diacritics
-        return get_win_error(WSAGetLastError());
+        return get_win32_error(WSAGetLastError());
 #else
         return gai_strerror(errcode);
 #endif // ! defined _WIN32

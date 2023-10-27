@@ -83,7 +83,7 @@ void com_uninitialize(bool *com_initialized);
 #ifdef _WIN32
 #include <winerror.h>
 const char *hresult_to_str(HRESULT res);
-const char *get_win_error(DWORD error);
+const char *get_win32_error(DWORD error);
 const char *win_wstr_to_str(const wchar_t *wstr);
 #endif // defined _WIN32
 
