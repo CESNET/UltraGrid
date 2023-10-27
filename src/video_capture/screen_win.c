@@ -76,6 +76,27 @@ struct vidcap_screen_win_state {
         void *dshow_state;
 };
 
+static const char *const screen_cap_rec_opts[] = {
+        "capture_height",
+        "capture_width",
+        "start_x",
+        "start_y",
+        "default_max_fps",
+        "stretch_to_width",
+        "stretch_to_height",
+        "stretch_mode_high_quality_if_1",
+        "hwnd_to_track",
+        "disable_aero_for_vista_plus_if_1",
+        "track_new_x_y_coords_each_frame_if_1",
+        "capture_mouse_default_1",
+        "capture_foreground_window_if_1",
+        "dedup_if_1",
+        "millis_to_sleep_between_poll_for_dedupe_changes",
+        "capture_transparent_windows_including_mouse_in_non_aero_if_1_causes_annoying_mouse_flicker",
+        "hwnd_to_track_with_window_decoration",
+        "capture_particular_display_number_starting_at_zero"
+};
+
 static void show_help()
 {
         char desc[] = "Windows " TBOLD("screen capture") " can be used to capture the whole desktop in Windows.\n\n"
@@ -87,13 +108,19 @@ static void show_help()
         color_printf("%s", wrap_paragraph(desc));
         color_printf("Usage\n");
         color_printf(
-            TBOLD(TRED("\t-t screen") "[:size=<w>x<h>][:fps=<f>]") "\n");
+            TBOLD(TRED("\t-t screen") "[:size=<w>x<h>][:fps=<f>][other-opts]") "\n");
         color_printf(TBOLD("\t-t screen:help") " | " TBOLD(
             "-t screen:unregister") " | " TBOLD("-t screen:clear_prefs") "\n");
         color_printf("where:\n");
         color_printf(TBOLD("\tunregister") " - unregister DShow filter\n");
         color_printf(TBOLD("\tclear_prefs") " - clear screen capture preferences from registry\n");
         color_printf("\t\tIf an option follow, UG will run using new parameters.\n");
+        color_printf(TBOLD("\tother-opts") " - one of screen-capture-recorder opts (with value):");
+        for (unsigned i = 0;
+             i < sizeof screen_cap_rec_opts / sizeof screen_cap_rec_opts[0];
+             i++) {
+                color_printf(" %d) " TBOLD("%s"), i + 1, screen_cap_rec_opts[i]);
+        }
         color_printf("\n");
         color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
@@ -168,6 +195,27 @@ set_key_from_str(const char *key, const char *val_c)
         return false;
 }
 
+static bool
+get_if_supported_key_val(char *fmt, const char **key, const char **val_c)
+{
+        if (strchr(fmt, '=') == NULL) {
+                MSG(ERROR, "No value for key %s\n", fmt);
+                return false;
+        }
+        *key = fmt;
+        *val_c = strchr(fmt, '=') + 1;
+        *strchr(fmt, '=') = '\0';
+        for (unsigned i = 0;
+             i < sizeof screen_cap_rec_opts / sizeof screen_cap_rec_opts[0];
+             i++) {
+                if (strcmp(*key, screen_cap_rec_opts[i]) == 0) {
+                        return true;
+                }
+        }
+        MSG(ERROR, "Unknown parameter: %s\n", tok);
+        return false;
+}
+
 static bool vidcap_screen_win_process_params(const char *fmt)
 {
         if (!fmt || fmt[0] == '\0') {
@@ -183,7 +231,7 @@ static bool vidcap_screen_win_process_params(const char *fmt)
         while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 tmp = NULL;
                 const char *key;
-                char *val_c;
+                const char *val_c;
                 if (IS_KEY_PREFIX(tok, "size") && strchr(tok, 'x') != NULL) {
                         char *width = strchr(tok, '=') + 1;
                         char *height = strchr(tok, 'x') + 1;
@@ -205,8 +253,7 @@ static bool vidcap_screen_win_process_params(const char *fmt)
                 } else if (strstr(tok, "fps=") != NULL) {
                         key ="default_max_fps";
                         val_c = tok + strlen("fps=");
-                } else {
-                        MSG(ERROR, "Unknown parameter: %s\n", tok);
+                } else if (!get_if_supported_key_val(tok, &key, &val_c)) {
                         free(fmt_c);
                         return false;
                 }
