@@ -139,7 +139,7 @@ static void vidcap_screen_win_probe(struct device_info **available_cards, int *c
 #define REG_FRIENDLY_NAME   "\\HKEY_CURRENT_USER\\" SCREEN_CAP_REG_TREE
 
 static bool
-delete_tree()
+delete_winreg_tree()
 {
         const LSTATUS err =
             RegDeleteTree(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE);
@@ -154,7 +154,7 @@ delete_tree()
 }
 
 static LRESULT
-set_key(const char *key, int val)
+set_winreg_key(const char *key, int val)
 {
         static bool printed;
         if (!printed) {
@@ -187,7 +187,7 @@ set_key_from_str(const char *key, const char *val_c)
                 log_msg(LOG_LEVEL_ERROR, "Wrong val: %s\n", val_c);
                 return false;
         }
-        LRESULT res = set_key(key, val);
+        LRESULT res = set_winreg_key(key, val);
         if (res == ERROR_SUCCESS) {
                 return true;
         }
@@ -212,7 +212,7 @@ get_if_supported_key_val(char *fmt, const char **key, const char **val_c)
                         return true;
                 }
         }
-        MSG(ERROR, "Unknown parameter: %s\n", tok);
+        MSG(ERROR, "Unknown parameter: %s\n", fmt);
         return false;
 }
 
@@ -434,7 +434,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return res ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
         if (strstr(cfg, "clear_prefs") == cfg) {
-                const bool ret = delete_tree();
+                const bool ret = delete_winreg_tree();
                 cfg += strlen("clear_prefs");
                 if (strlen(cfg) == 0) {
                         return ret ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
@@ -446,7 +446,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         }
 
         if (!vidcap_screen_win_process_params(cfg)) {
-                show_help();
+                MSG(INFO, "See \"-t screen:help\" for usage.\n");
                 return VIDCAP_INIT_FAIL;
         }
 
