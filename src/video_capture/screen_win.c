@@ -138,6 +138,46 @@ static void vidcap_screen_win_probe(struct device_info **available_cards, int *c
 #define SCREEN_CAP_REG_TREE "Software\\screen-capture-recorder"
 #define REG_FRIENDLY_NAME   "\\HKEY_CURRENT_USER\\" SCREEN_CAP_REG_TREE
 
+static void
+print_winreg_values()
+{
+        HKEY hKey;
+        LONG regOpenResult = RegOpenKeyEx(
+            HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE, 0, KEY_READ, &hKey);
+        if (regOpenResult != ERROR_SUCCESS) {
+                return;
+        }
+
+        log_msg(LOG_LEVEL_INFO, "\n");
+        MSG(INFO, "Using following configuration from Windows Registry:\n");
+
+        DWORD index      = 0;
+        DWORD bufferSize = MAX_PATH;
+        TCHAR valueName[MAX_PATH];
+        BYTE  data[MAX_PATH];
+        DWORD valueSize = MAX_PATH;
+        DWORD valueType;
+        while (RegEnumValue(hKey, index, valueName, &bufferSize, NULL,
+                            &valueType, data, &valueSize) == ERROR_SUCCESS) {
+                if (valueType == REG_DWORD) {
+                        MSG(INFO, "Option: %s (REG_DWORD), Value: %lu\n",
+                            valueName, *(DWORD *) data);
+                } else if (valueType == REG_SZ) {
+                        MSG(INFO, "Option: %s (REG_SZ), Value: %s\n", valueName,
+                            (char *) data);
+                } else {
+                        MSG(INFO, "Option: %s (unknown type), Data Size: %lu\n",
+                            valueName, valueSize);
+                }
+
+                index++;
+                bufferSize = MAX_PATH;
+                valueSize  = MAX_PATH;
+        }
+
+        RegCloseKey(hKey);
+}
+
 static bool
 delete_winreg_tree()
 {
@@ -470,6 +510,8 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         vidcap_params_free_struct(params_dshow);
+
+        print_winreg_values();
 
         *state = s;
         return ret;
