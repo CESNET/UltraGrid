@@ -941,11 +941,6 @@ int main(int argc, char **argv)
     print_version();
     printf("\n");
 
-    if (argc == 1) {
-        usage(argv[0]);
-        EXIT(EXIT_FAILURE);
-    }
-
 #ifndef WIN32
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
