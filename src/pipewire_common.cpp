@@ -31,6 +31,9 @@ static const struct pw_core_events core_events = {
         .bound_id = nullptr,
         .add_mem = nullptr,
         .remove_mem = nullptr,
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 67)
+        .bound_props = nullptr,
+#endif
 };
 
 bool initialize_pw_common(pipewire_state_common& s, int fd){
