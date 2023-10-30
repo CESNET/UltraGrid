@@ -72,6 +72,7 @@
 #include "utils/net.h"
 
 #include <cinttypes>
+#include <climits>
 #include <string>
 #include <vector>
 #include <thread>
@@ -79,6 +80,7 @@
 using std::invalid_argument;
 using std::stoi;
 using std::string;
+using std::to_string;
 using std::vector;
 
 #define MOD_NAME "[hd-rum-trans] "
@@ -585,7 +587,7 @@ struct host_opts {
 
 struct cmdline_parameters {
     int bufsize;
-    unsigned short port;
+    int port;
     vector<struct host_opts> hosts;
     int host_count;
     int control_port = -1;
@@ -706,9 +708,14 @@ parse_fmt(int argc, char **argv,
         throw ug_runtime_error(string("invalid port number: ") +
                                argv[start_index + 1]);
     }
-    if (parsed->port <= 0) {
-        throw ug_runtime_error(string("port must be positive: ") +
-                               argv[start_index + 1]);
+    if (parsed->port < 0 || parsed->port >= USHRT_MAX) {
+        throw ug_runtime_error(string("port must be in range [0..") +
+                               to_string(USHRT_MAX) +
+                               "], given: " + argv[start_index + 1]);
+    }
+    if (parsed->port == 0) {
+        MSG(WARNING,
+            "Given RX port 0, reflector will listen on a random port.\n");
     }
 
     argv += start_index + 1;
