@@ -35,9 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include <cassert>
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <thread>
 
 #include "audio/audio.h"
 #include "audio/types.h"
@@ -52,17 +56,21 @@
 #include "video_rxtx.hpp"
 #include "video_rxtx/ultragrid_rtp.hpp"
 
-#include <chrono>
-#include <iostream>
-#include <mutex>
-#include <memory>
-#include <queue>
-#include <thread>
-
+#define MOD_NAME "[ug_input] "
 static constexpr int MAX_QUEUE_SIZE = 2;
 
-using namespace std;
-using namespace std::chrono;
+using std::lock_guard;
+using std::map;
+using std::mutex;
+using std::pair;
+using std::queue;
+using std::stoi;
+using std::string;
+using std::thread;
+using std::unique_ptr;
+using std::chrono::duration;
+using std::chrono::duration_cast;
+using std::chrono::steady_clock;
 
 struct ug_input_state  : public frame_recv_delegate {
         mutex lock;
@@ -86,7 +94,7 @@ void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
         if (frame_queue.size() < MAX_QUEUE_SIZE) {
                 frame_queue.push({f, a});
         } else {
-                cerr << "[ug_input] Dropping frame!" << endl;
+                MSG(WARNING, "Dropping frame!\n");
                 AUDIO_FRAME_DISPOSE(a);
                 VIDEO_FRAME_DISPOSE(f);
         }
