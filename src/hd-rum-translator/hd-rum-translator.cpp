@@ -79,7 +79,7 @@ using std::stoi;
 using std::string;
 using std::vector;
 
-constexpr const char *MOD_NAME = "[hd-rum-trans] ";
+#define MOD_NAME "[hd-rum-trans] "
 
 struct item;
 
@@ -658,7 +658,8 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     }
 
     if (argc < start_index + 2) {
-        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Missing mandatory parameters!\n\n";
+        MSG(FATAL, "Missing parameter%s port!\n\n",
+            argc < start_index + 1 ? " buffer_size and" : "");
         usage(argv[0]);
         return -1;
     }
