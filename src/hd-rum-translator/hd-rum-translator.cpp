@@ -44,20 +44,19 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
 
-#include "debug.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cinttypes>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <pthread.h>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "control_socket.h"
+#include "debug.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "host.h"
@@ -70,12 +69,6 @@
 #include "utils/color_out.h" // format_in_si_units, unit_evaluate
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
-
-#include <cinttypes>
-#include <climits>
-#include <string>
-#include <vector>
-#include <thread>
 
 using std::invalid_argument;
 using std::stoi;
