@@ -96,5 +96,5 @@ static const struct video_capture_info vidcap_null_info = {
         VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
-REGISTER_MODULE(none, &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(none, &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
