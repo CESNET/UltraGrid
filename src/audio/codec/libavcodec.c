@@ -316,7 +316,7 @@ static int
 get_bitrate(struct libavcodec_codec_state *s)
 {
         if (s->bitrate > 0) {
-                MSG(INFO, "Setting bia trate to: %d bps\n", s->bitrate);
+                MSG(INFO, "Setting bit rate to: %d bps\n", s->bitrate);
                 return s->bitrate;
         }
         const int default_rate =
