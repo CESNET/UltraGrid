@@ -75,6 +75,7 @@
 #include <vector>
 #include <thread>
 
+using std::invalid_argument;
 using std::stoi;
 using std::string;
 using std::vector;
@@ -582,7 +583,7 @@ struct host_opts {
 };
 
 struct cmdline_parameters {
-    const char *bufsize;
+    int bufsize;
     unsigned short port;
     vector<struct host_opts> hosts;
     int host_count;
@@ -597,6 +598,35 @@ struct cmdline_parameters {
 
 static bool needs_argument(const char *opt) {
     return strcmp(opt, "-4") != 0 && strcmp(opt, "-6") != 0;
+}
+
+/// unit_evaluate() is similar but uses SI prefixes
+static int
+parse_size(const char *sz_str)
+{
+    int ret = 0;
+    size_t end = 0;
+
+    try {
+        ret = stoi(sz_str, &end);
+    } catch (invalid_argument &e) {
+        MSG(FATAL, "invalid buffer size: %s\n", sz_str);
+        return -1;
+    }
+
+    switch (sz_str[end]) {
+    case 'K':
+    case 'k':
+        ret *= 1024;
+        break;
+
+    case 'M':
+    case 'm':
+        ret *= 1024 * 1024;
+        break;
+    }
+
+    return ret;
 }
 
 /**
@@ -664,8 +694,11 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         return -1;
     }
 
-    parsed->bufsize = argv[start_index];
+    parsed->bufsize = parse_size(argv[start_index]);
     parsed->port = stoi(argv[start_index + 1]);
+    if (parsed->bufsize == -1) {
+        return -1;
+    }
 
     argv += start_index + 1;
     argc -= start_index + 1;
@@ -973,21 +1006,11 @@ int main(int argc, char **argv)
         log_level = params.log_level;
     }
 
-    if ((state.bufsize = stoi(params.bufsize)) <= 0) {
-        fprintf(stderr, "invalid buffer size: %s\n", params.bufsize);
+    if (params.bufsize <= 0) {
+        MSG(FATAL, "size must be positive: %d\n", params.bufsize);
         EXIT(1);
     }
-    switch (params.bufsize[strlen(params.bufsize) - 1]) {
-    case 'K':
-    case 'k':
-        state.bufsize *= 1024;
-        break;
-
-    case 'M':
-    case 'm':
-        state.bufsize *= 1024*1024;
-        break;
-    }
+    state.bufsize = params.bufsize;
 
     qsize = state.bufsize / 8000;
 
