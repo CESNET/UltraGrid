@@ -77,7 +77,10 @@
 #include <vector>
 #include <thread>
 
-using namespace std;
+using std::stoi;
+using std::string;
+using std::vector;
+
 constexpr const char *MOD_NAME = "[hd-rum-trans] ";
 
 struct item;
@@ -370,7 +373,7 @@ static void *writer(void *arg)
                 char *port_spec = msg->text + strlen("delete-port ");
                 int index = -1;
                 if (isdigit(port_spec[0])) {
-                    int i = atoi(port_spec);
+                    int i = stoi(port_spec);
                     if (i >= 0 && i < (int) s->replicas.size()) {
                         index = i;
                     } else {
@@ -408,9 +411,9 @@ static void *writer(void *arg)
                 if (host_port && (strchr(host_port, ':') != NULL || (port_str = strtok_r(NULL, " ", &save_ptr)) != NULL)) {
                     if (port_str) {
                         host = host_port;
-                        tx_port = atoi(port_str);
+                        tx_port = stoi(port_str);
                     } else {
-                        tx_port = atoi(strrchr(host_port, ':') + 1);
+                        tx_port = stoi(strrchr(host_port, ':') + 1);
                         host = host_port;
                         *strrchr(host_port, ':') = '\0';
                     }
@@ -612,10 +615,10 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     while(start_index < argc && argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
             char *item = argv[++start_index];
-            parsed->control_port = atoi(item);
+            parsed->control_port = stoi(item);
             parsed->control_connection_type = 0;
             if (strchr(item, ':')) {
-                parsed->control_connection_type = atoi(strchr(item, ':') + 1);
+                parsed->control_connection_type = stoi(strchr(item, ':') + 1);
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
             print_capabilities("");
@@ -631,7 +634,7 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->conference_compression = item;
         } else if(strcmp(argv[start_index], "--server") == 0) {
             char *item = argv[++start_index];
-            parsed->server_port = atoi(item);
+            parsed->server_port = stoi(item);
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
@@ -641,7 +644,7 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             return 1;
         } else if (strstr(argv[start_index], "--verbose") == argv[start_index]) {
             parsed->log_level = strchr(argv[start_index], '=')
-                ? atoi(strchr(argv[start_index], '=') + 1)
+                ? stoi(strchr(argv[start_index], '=') + 1)
                 : LOG_LEVEL_VERBOSE;
         } else if(strcmp(argv[start_index], "--param") == 0 && start_index < argc - 1) {
             // already handled in common_preinit()
@@ -663,7 +666,7 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     }
 
     parsed->bufsize = argv[start_index];
-    parsed->port = atoi(argv[start_index + 1]);
+    parsed->port = stoi(argv[start_index + 1]);
 
     argv += start_index + 1;
     argc -= start_index + 1;
@@ -709,14 +712,14 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             switch(argv[i][1]) {
                 case 'P':
                     if (strchr(argv[i + 1], ':')) {
-                        parsed->hosts[host_idx].rx_port = atoi(argv[i + 1]);
-                        parsed->hosts[host_idx].tx_port = atoi(strchr(argv[i + 1], ':') + 1);
+                        parsed->hosts[host_idx].rx_port = stoi(argv[i + 1]);
+                        parsed->hosts[host_idx].tx_port = stoi(strchr(argv[i + 1], ':') + 1);
                     } else {
-                        parsed->hosts[host_idx].tx_port = atoi(argv[i + 1]);
+                        parsed->hosts[host_idx].tx_port = stoi(argv[i + 1]);
                     }
                     break;
                 case 'm':
-                    parsed->hosts[host_idx].mtu = atoi(argv[i + 1]);
+                    parsed->hosts[host_idx].mtu = stoi(argv[i + 1]);
                     break;
                 case 'c':
                     parsed->hosts[host_idx].compression = argv[i + 1];
@@ -976,7 +979,7 @@ int main(int argc, char **argv)
         log_level = params.log_level;
     }
 
-    if ((state.bufsize = atoi(params.bufsize)) <= 0) {
+    if ((state.bufsize = stoi(params.bufsize)) <= 0) {
         fprintf(stderr, "invalid buffer size: %s\n", params.bufsize);
         EXIT(1);
     }
