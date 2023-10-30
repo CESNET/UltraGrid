@@ -58,16 +58,17 @@
 #include <pthread.h>
 
 #include "control_socket.h"
-#include "host.h"
-#include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
+#include "hd-rum-translator/hd-rum-recompress.h"
+#include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "rtp/net_udp.h"
+#include "tv.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h" // format_in_si_units, unit_evaluate
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
-#include "tv.h"
 #include "utils/net.h"
 
 #include <cinttypes>
@@ -602,7 +603,7 @@ static bool needs_argument(const char *opt) {
 
 /// unit_evaluate() is similar but uses SI prefixes
 static int
-parse_size(const char *sz_str)
+parse_size(const char *sz_str) noexcept(false)
 {
     int ret = 0;
     size_t end = 0;
@@ -610,8 +611,7 @@ parse_size(const char *sz_str)
     try {
         ret = stoi(sz_str, &end);
     } catch (invalid_argument &e) {
-        MSG(FATAL, "invalid buffer size: %s\n", sz_str);
-        return -1;
+        throw ug_runtime_error(string("invalid buffer size: ") + sz_str);
     }
 
     switch (sz_str[end]) {
@@ -636,7 +636,9 @@ parse_size(const char *sz_str)
  * @retval 0 success
  * @retval 1 help shown
  */
-static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
+static int
+parse_fmt(int argc, char **argv,
+          struct cmdline_parameters *parsed) noexcept(false)
 {
     int start_index = 1;
 
@@ -695,9 +697,11 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     }
 
     parsed->bufsize = parse_size(argv[start_index]);
-    parsed->port = stoi(argv[start_index + 1]);
-    if (parsed->bufsize == -1) {
-        return -1;
+    try {
+        parsed->port = stoi(argv[start_index + 1]);
+    } catch (invalid_argument &) {
+        throw ug_runtime_error(string("invalid port number: ") +
+                               argv[start_index + 1]);
     }
 
     argv += start_index + 1;
@@ -996,8 +1000,12 @@ int main(int argc, char **argv)
     signal(SIGILL, crash_signal_handler);
     signal(SIGSEGV, crash_signal_handler);
 
-    int ret = parse_fmt(argc, argv, &params);
-
+    int ret = -1;
+    try {
+        ret = parse_fmt(argc, argv, &params);
+    } catch (ug_runtime_error &e) {
+        MSG(FATAL, "%s\n", e.what());
+    }
     if (ret != 0) {
         EXIT(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
     }
