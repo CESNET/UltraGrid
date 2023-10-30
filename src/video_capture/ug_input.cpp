@@ -100,6 +100,20 @@ void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
         }
 }
 
+static bool
+parse_fmt(const char *fmt, uint16_t *port)
+{
+        if (fmt[0] == '\0') {
+                return true;
+        }
+        if (!isdigit(fmt[0])) {
+                MSG(ERROR, "Invalid option: %s\n", fmt);
+                return false;
+        }
+        *port = stoi(fmt);
+        return true;
+}
+
 static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 {
         uint16_t port = 5004;
@@ -109,11 +123,11 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                 printf("\t-t ug_input[:<port>] [-s embedded]\n");
                 return VIDCAP_INIT_NOERR;
         }
-        ug_input_state *s = new ug_input_state();
-
-        if (isdigit(vidcap_params_get_fmt(cap_params)[0])) {
-                port = atoi(vidcap_params_get_fmt(cap_params));
+        if (!parse_fmt(vidcap_params_get_fmt(cap_params), &port)) {
+                return VIDCAP_INIT_FAIL;
         }
+
+        auto *s = new ug_input_state();
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "%p", s);
