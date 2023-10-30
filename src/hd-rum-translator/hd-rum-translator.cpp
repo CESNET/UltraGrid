@@ -613,6 +613,9 @@ parse_size(const char *sz_str) noexcept(false)
     } catch (invalid_argument &e) {
         throw ug_runtime_error(string("invalid buffer size: ") + sz_str);
     }
+    if (ret <= 0) {
+        throw ug_runtime_error(string("size must be positive: ") + sz_str);
+    }
 
     switch (sz_str[end]) {
     case 'K':
@@ -701,6 +704,10 @@ parse_fmt(int argc, char **argv,
         parsed->port = stoi(argv[start_index + 1]);
     } catch (invalid_argument &) {
         throw ug_runtime_error(string("invalid port number: ") +
+                               argv[start_index + 1]);
+    }
+    if (parsed->port <= 0) {
+        throw ug_runtime_error(string("port must be positive: ") +
                                argv[start_index + 1]);
     }
 
@@ -1014,20 +1021,11 @@ int main(int argc, char **argv)
         log_level = params.log_level;
     }
 
-    if (params.bufsize <= 0) {
-        MSG(FATAL, "size must be positive: %d\n", params.bufsize);
-        EXIT(1);
-    }
     state.bufsize = params.bufsize;
 
     qsize = state.bufsize / 8000;
 
     printf("using UDP send and receive buffer size of %d bytes\n", state.bufsize);
-
-    if (params.port <= 0) {
-        fprintf(stderr, "invalid port: %d\n", params.port);
-        EXIT(EXIT_FAIL_USAGE);
-    }
 
     state.qhead = state.qtail = state.queue = qinit(qsize);
     if (!state.qhead) {
