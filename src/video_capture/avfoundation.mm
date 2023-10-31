@@ -68,6 +68,10 @@
 #define DESK_VIEW_IF_DEFINED
 #endif
 
+#if ! defined __MAC_14_0
+#define AVCaptureDeviceTypeExternal AVCaptureDeviceTypeExternalUnknown
+#endif
+
 using std::string;
 
 namespace vidcap_avfoundation {
@@ -131,9 +135,15 @@ fromConnection:(AVCaptureConnection *)connection;
 +(NSArray *) devices
 {
 #if defined __MAC_10_15 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_15
-        AVCaptureDeviceDiscoverySession* discoverySession = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera, AVCaptureDeviceTypeExternalUnknown DESK_VIEW_IF_DEFINED]
-                mediaType:AVMediaTypeVideo
-                position:AVCaptureDevicePositionUnspecified];
+        AVCaptureDeviceDiscoverySession *discoverySession =
+            [AVCaptureDeviceDiscoverySession
+                discoverySessionWithDeviceTypes:@[
+                        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+                        AVCaptureDeviceTypeExternal DESK_VIEW_IF_DEFINED
+                ]
+                                      mediaType:AVMediaTypeVideo
+                                       position:
+                                           AVCaptureDevicePositionUnspecified];
         return [discoverySession.devices sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
 #else
         return [[AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo] sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
