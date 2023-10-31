@@ -1618,6 +1618,11 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
         s->tmp_frame->width = s->out_frame->width = width;
         s->tmp_frame->height =s->out_frame->height = height;
 
+        get_av_pixfmt_details(out_pixfmt, &s->out_frame->colorspace,
+                              &s->out_frame->color_range);
+        get_av_pixfmt_details(out_pixfmt, &s->tmp_frame->colorspace,
+                              &s->tmp_frame->color_range);
+
         ret = av_frame_get_buffer(s->out_frame, 0);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
