@@ -50,6 +50,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "video.h"
+#include "utils/color_out.h"
 #include "video_capture.h"
 #include "video_display.h"
 #include "video_display/pipe.hpp" // frame_recv_delegate
@@ -100,30 +101,54 @@ void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
         }
 }
 
-static bool
-parse_fmt(const char *fmt, uint16_t *port)
+static void
+usage()
 {
-        if (fmt[0] == '\0') {
-                return true;
+        printf("Usage:\n");
+        color_printf("\t" TBOLD(
+            TRED("-t ug_input") "[:<port>[:codec=<c>]] [-s embedded]") "\n");
+        printf("where:\n");
+        color_printf("\t" TBOLD("<port>") " - UG port to listen to\n");
+        color_printf("\t" TBOLD("<c>") " - enforce pixfmt to decode to\n");
+}
+
+static bool
+parse_fmt(char *fmt, uint16_t *port, codec_t *decode_to)
+{
+        char *tok     = nullptr;
+        char *saveptr = nullptr;
+        while ((tok = strtok_r(fmt, ":", &saveptr)) != nullptr) {
+                fmt             = nullptr;
+                const char *val = strchr(tok, '=') + 1;
+                if (isdigit(tok[0])) {
+                        *port = stoi(tok);
+                } else if (IS_KEY_PREFIX(tok, "codec")) {
+                        *decode_to = get_codec_from_name(val);
+                        if (*decode_to == VIDEO_CODEC_NONE) {
+                                MSG(ERROR, "Invalid codec: %s\n", val);
+                                return false;
+                        }
+                } else {
+                        MSG(ERROR, "Invalid option: %s\n", tok);
+                        return false;
+                }
         }
-        if (!isdigit(fmt[0])) {
-                MSG(ERROR, "Invalid option: %s\n", fmt);
-                return false;
-        }
-        *port = stoi(fmt);
         return true;
 }
 
 static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 {
         uint16_t port = 5004;
+        codec_t  decode_to = VIDEO_CODEC_NONE;
 
         if (strcmp("help", vidcap_params_get_fmt(cap_params)) == 0) {
-                printf("Usage:\n");
-                printf("\t-t ug_input[:<port>] [-s embedded]\n");
+                usage();
                 return VIDCAP_INIT_NOERR;
         }
-        if (!parse_fmt(vidcap_params_get_fmt(cap_params), &port)) {
+        char      *fmt_cpy   = strdup(vidcap_params_get_fmt(cap_params));
+        const bool parse_ret = parse_fmt(fmt_cpy, &port, &decode_to);
+        free(fmt_cpy);
+        if (!parse_ret) {
                 return VIDCAP_INIT_FAIL;
         }
 
@@ -131,6 +156,10 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "%p", s);
+        if (decode_to != VIDEO_CODEC_NONE) {
+                snprintf(cfg + strlen(cfg), sizeof cfg - strlen(cfg),
+                         ":codec=%s", get_codec_name(decode_to));
+        }
         int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "pipe", cfg, 0, NULL, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
