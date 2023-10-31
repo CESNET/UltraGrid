@@ -1604,24 +1604,20 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                 s->out_frame_parts[i] = av_frame_alloc();
         }
         s->out_frame = av_frame_alloc();
-        if (!s->out_frame) {
+        s->tmp_frame = av_frame_alloc();
+        if (!s->out_frame || !s->tmp_frame) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
                 to_lavc_vid_conv_destroy(&s);
                 return NULL;
         }
-        s->tmp_frame = av_frame_alloc();
-        s->out_frame->opaque = s;
         s->out_frame->pts = -1;
-        s->tmp_frame->pts = -1;
-
-        s->tmp_frame->format = s->out_frame->format = out_pixfmt;
-        s->tmp_frame->width = s->out_frame->width = width;
-        s->tmp_frame->height =s->out_frame->height = height;
-
+        s->out_frame->format = out_pixfmt;
+        s->out_frame->width = width;
+        s->out_frame->height = height;
         get_av_pixfmt_details(out_pixfmt, &s->out_frame->colorspace,
                               &s->out_frame->color_range);
-        get_av_pixfmt_details(out_pixfmt, &s->tmp_frame->colorspace,
-                              &s->tmp_frame->color_range);
+        av_frame_copy_props(s->tmp_frame, s->out_frame);
+        s->out_frame->opaque = s;
 
         ret = av_frame_get_buffer(s->out_frame, 0);
         if (ret < 0) {
