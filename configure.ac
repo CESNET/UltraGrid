@@ -24,7 +24,10 @@ AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
 AC_C_CHAR_UNSIGNED
 PKG_PROG_PKG_CONFIG
-
+if test -z "$PKG_CONFIG"; then
+        PKG_CONFIG=$(command -v pkgconf)
+        PKG_PROG_PKG_CONFIG
+fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
