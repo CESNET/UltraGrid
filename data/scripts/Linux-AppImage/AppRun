@@ -189,6 +189,24 @@ add_whitelist() {
         separator=' '
 }
 
+whitelist_file_path() {
+        abs_path=$(realpath "$1")
+        add_whitelist "$abs_path"
+        if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null
+        then
+                printf -- "$separator--mkdir=\"%s\"" "$abs_path" # may not exist
+        fi
+        if expr "$n" : '.*file[:=]' >/dev/null || expr "$n" : '.*filename' \
+                        >/dev/null; then
+                parent_dir=$(dirname "$abs_path")
+                if [ "$parent_dir" = /dev ]; then
+                        return
+                fi
+                # whitelist the parent folder to allow file creation
+                printf -- "$separator--whitelist=\"%s\"" "$parent_dir"
+        fi
+}
+
 ## Parse params to get custom rules like whitelists that may be needed to add
 ## @todo spaces inside paths doesn't work
 get_custom_firejail_rules() {
@@ -206,15 +224,7 @@ get_custom_firejail_rules() {
                         -e 's/dump:\([^:]*\).*/\1/p' \
                         -e 's/^--record=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
-                        abs_path=$(realpath "$file_path")
-                        add_whitelist "$abs_path"
-                        if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null; then
-                                printf -- "$separator--mkdir=\"%s\"" "$abs_path" # dir may not exist
-                        fi
-                        if expr "$n" : '.*file[:=]' >/dev/null || expr "$n" : '.*filename' >/dev/null; then
-                                parent_dir=$(dirname "$abs_path")
-                                printf -- "$separator--whitelist=\"%s\"" "$parent_dir" # to create the file
-                        fi
+                        whitelist_file_path "$file_path"
                 fi
         done
         # -d dump or -d dummy:dump_to_file
