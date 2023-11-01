@@ -180,10 +180,14 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
                 snprintf(buf + strlen(buf), sizeof buf - strlen(buf), "] ");
         }
         vsnprintf(buf + strlen(buf), sizeof buf - strlen(buf), fmt, vl);
-        if (buf[strlen(buf) - 1] == '\n') {
-                log_msg(level, "%s", buf);
-                buf[0] = '\0';
+        if (buf[strlen(buf) - 1] != '\n' && strlen(buf) < sizeof buf - 1) {
+                return;
         }
+        if (strlen(buf) == sizeof buf - 1 && buf[strlen(buf) - 1] != '\n') {
+                MSG(WARNING, "logger buffer full! flushing output:\n");
+        }
+        log_msg(level, "%s", buf);
+        buf[0] = '\0';
 }
 
 ADD_TO_PARAM("lavcd-log-level",
