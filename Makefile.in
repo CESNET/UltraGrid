@@ -643,9 +643,7 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 bundle: $(BUNDLE)
 gui-bundle: $(GUI_BUNDLE)
 
-## @todo Add correct dependencies (using $(GUI_BUNDLE)/Contents/libs causes
-## uv-qt rebuild which breaks fixed links by macdeployqt)
-osx-gui-dmg:
+osx-gui-dmg: $(GUI_BUNDLE)
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
 	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
