@@ -199,7 +199,12 @@ get_custom_firejail_rules() {
         fi
         # print every argument of "filename=", "file[:=]", "dump:" or "--record=" pattern
         for n in "$@"; do
-                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file[:=]\([^:]*\).*/\1/p' -e 's/dump:\([^:]*\).*/\1/p' -e 's/^--record=\([^:]*\).*/\1/p')
+                file_path=$(echo "$n" | sed -n \
+                        -e 's/.*filename=\([^:]*\).*/\1/p' \
+                        -e 's/.*\(n\|name\)=\([^:]*\).*/\2/p' \
+                        -e 's/.*file[:=]\([^:]*\).*/\1/p' \
+                        -e 's/dump:\([^:]*\).*/\1/p' \
+                        -e 's/^--record=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
                         abs_path=$(realpath "$file_path")
                         add_whitelist "$abs_path"
