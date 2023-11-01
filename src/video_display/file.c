@@ -66,9 +66,12 @@
 #include "video_display.h"
 
 #define DEFAULT_FILENAME     "out.mp4"
-#define DEFAULT_MAX_AV_DIFF  1.0
 #define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P
 #define MOD_NAME             "[File disp.] "
+
+enum {
+        DEFAULT_MAX_AV_DIFF_NS = 84 * MS_IN_NS, // 2 24p frames
+};
 
 struct output_stream {
         AVStream           *st;
@@ -89,7 +92,7 @@ struct state_file {
         struct video_desc    video_desc;
         struct to_lavc_vid_conv *video_conv;
         char                 filename[MAX_PATH_SIZE];
-        double               max_av_diff; ///< max A/V diff in vf time
+        time_ns_t            max_av_diff_ns; ///< max A/V diff in ns
         pthread_t            thread_id;
         pthread_mutex_t      lock;
         pthread_cond_t       cv;
@@ -144,7 +147,8 @@ usage(bool full)
         if (full) {
                 color_printf(
                     "\t" TBOLD("max_av_diff") " - allowed A/V descync length "
-                                              "(video frame duration)\n");
+                                              "(in seconds; default %.3f)\n",
+                    DEFAULT_MAX_AV_DIFF_NS / NS_IN_SEC_DBL);
         }
         color_printf("\n");
         char codec_note[] = TBOLD(
@@ -167,8 +171,9 @@ parse_fmt(struct state_file *s, char *fmt)
                 if (IS_KEY_PREFIX(item, "file") || IS_KEY_PREFIX(item, "name")) {
                         snprintf(s->filename, sizeof s->filename, "%s", val);
                 } else if (IS_KEY_PREFIX(item, "max_av_diff")) {
-                        s->max_av_diff = strtod(val, NULL);
-                        assert(s->max_av_diff >= 0.0);
+                        s->max_av_diff_ns =
+                            (time_ns_t) (strtod(val, NULL) * NS_IN_SEC_DBL);
+                        assert(s->max_av_diff_ns >= 0.0);
                 } else {
                         log_msg(LOG_LEVEL_ERROR,
                                 MOD_NAME "Unknown option: %s\n", item);
@@ -189,7 +194,7 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
 
         struct state_file *s = calloc(1, sizeof *s);
         snprintf(s->filename, sizeof s->filename, "%s", DEFAULT_FILENAME);
-        s->max_av_diff  = DEFAULT_MAX_AV_DIFF;
+        s->max_av_diff_ns = DEFAULT_MAX_AV_DIFF_NS;
         char *fmt_c     = strdup(fmt);
         bool  parse_ret = parse_fmt(s, fmt_c);
         free(fmt_c);
@@ -766,9 +771,7 @@ write_video_frame(struct state_file *s, struct video_frame *vid_frm,
                     (long long) ((double) (s->video.next_pts * NS_IN_SEC) /
                                  s->video_desc.fps);
                 if (s->video.next_frm_time != 0 &&
-                    llabs(audio_start - video_start) >
-                        (long long) (s->max_av_diff *
-                                     (double) vid_frm_time_ns)) {
+                    llabs(audio_start - video_start) > s->max_av_diff_ns) {
                         log_msg(
                             LOG_LEVEL_WARNING,
                             MOD_NAME "A-V desync %f sec, video frame %s...\n",

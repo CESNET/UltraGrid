@@ -75,6 +75,7 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
+#define MS_IN_NS 1000000
 #define MS_IN_NS_DBL 1000000.0
 #define MS_IN_SEC 1000
 #define MS_IN_SEC_DBL 1000.0
