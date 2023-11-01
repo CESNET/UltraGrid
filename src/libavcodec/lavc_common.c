@@ -170,21 +170,20 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         if (av_log_filter(ff_module_name, fmt)) {
                 return;
         }
-        static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-        static _Bool nl_presented = 1;
-        char new_fmt[1024];
-        pthread_mutex_lock(&lock);
-        if (nl_presented) {
+        static _Thread_local char buf[STR_LEN];
+        if (strlen(buf) == 0) {
+                snprintf(buf + strlen(buf), sizeof buf - strlen(buf), "[lavc");
                 if (ff_module_name) {
-                        snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", ff_module_name, avcl, fmt);
-                } else {
-                        snprintf(new_fmt, sizeof new_fmt, "[lavc] %s", fmt);
+                        snprintf(buf + strlen(buf), sizeof buf - strlen(buf),
+                                 " %s @ %p", ff_module_name, avcl);
                 }
-                fmt = new_fmt;
+                snprintf(buf + strlen(buf), sizeof buf - strlen(buf), "] ");
         }
-        nl_presented = fmt[strlen(fmt) - 1] == '\n';
-        log_vprintf(level, fmt, vl);
-        pthread_mutex_unlock(&lock);
+        vsnprintf(buf + strlen(buf), sizeof buf - strlen(buf), fmt, vl);
+        if (buf[strlen(buf) - 1] == '\n') {
+                log_msg(level, "%s", buf);
+                buf[0] = '\0';
+        }
 }
 
 ADD_TO_PARAM("lavcd-log-level",

@@ -87,7 +87,8 @@ static void _dprintf(const char *format, ...)
 #endif                          /* WIN32 */
 }
 
-void log_vprintf(int level, const char *format, va_list ap)
+static void
+log_vprintf(int level, const char *format, va_list ap)
 {
         va_list aq;
 
