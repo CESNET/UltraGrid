@@ -203,6 +203,7 @@ display_file_init(struct module *parent, const char *fmt, unsigned int flags)
                 return NULL;
         }
 
+        ug_set_av_logging();
         avformat_alloc_output_context2(&s->format_ctx, NULL, NULL, s->filename);
         if (s->format_ctx == NULL) {
                 log_msg(LOG_LEVEL_WARNING, "Could not deduce output format "
