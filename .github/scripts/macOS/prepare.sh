@@ -31,8 +31,6 @@ brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt
 brew install glm
-sudo curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/\
-natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
 # TOREMOVE - missing header in Vulkan v1.3.264
 if [ "$(brew info vulkan-headers | awk 'NR==1{print $4}')" = 1.3.264 ]; then
         sudo curl -L https://raw.githubusercontent.com/KhronosGroup/Vulkan-Headers/main/\
