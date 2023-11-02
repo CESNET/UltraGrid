@@ -27,7 +27,7 @@ KEY_CHAIN_PASS=build
 KEY_FILE=/tmp/signing_key.p12
 KEY_FILE_PASS=dummy
 echo "$apple_key_p12_b64" | base64 -d > $KEY_FILE
-security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
+security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN || true
 security default-keychain -s $KEY_CHAIN
 security unlock-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
 security import "$KEY_FILE" -A -P "$KEY_FILE_PASS"
