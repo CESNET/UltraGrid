@@ -1298,6 +1298,8 @@ set_audio_props(state_decklink         *s,
                           "Switched to correct format.\n");
         } else if (result == E_NOTIMPL) {
                 // normal case - without switchable channels
+                MSG(VERBOSE,
+                    "Not setting switchable AESEBU/analog - not supported.\n");
         } else {
                 MSG(WARNING, "Unable to switch audio output for channels 3 or "
                              "above although \ncard shall support it. Check if "
