@@ -1309,9 +1309,11 @@ set_audio_props(state_decklink         *s,
                 MSG(VERBOSE,
                     "Not setting switchable AESEBU/analog - not supported.\n");
         } else {
-                MSG(WARNING, "Unable to switch audio output for channels 3 or "
-                             "above although \ncard shall support it. Check if "
-                             "it is ok. Continuing anyway.\n");
+                MSG(WARNING,
+                    "Unable to switch audio output for channels 3 or "
+                    "above although \ncard shall support it: %s\nCheck if "
+                    "it is ok. Continuing anyway.\n",
+                    bmd_hresult_to_string(result).c_str());
         }
 }
 
