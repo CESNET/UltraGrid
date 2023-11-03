@@ -66,8 +66,9 @@
 #include "lib_common.h"
 #include "module.h"
 #include "tv.h"
-#include "utils/thread.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
+#include "utils/thread.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -609,6 +610,23 @@ struct video_frame *get_splashscreen()
                 }
         }
         return frame;
+}
+
+const char *
+get_audio_conn_flag_name(int audio_init_flag)
+{
+        switch (audio_init_flag) {
+        case 0:
+                return "(none)";
+        case DISPLAY_FLAG_AUDIO_EMBEDDED:
+                return "embedeed";
+        case DISPLAY_FLAG_AUDIO_AESEBU:
+                return "AES/EBU";
+        case DISPLAY_FLAG_AUDIO_ANALOG:
+                return "analog";
+        default:
+                UG_ASSERT(0 && "Wrong audio flag!");
+        }
 }
 
 void dev_add_option(struct device_info *dev, const char *name, const char *desc, const char *key, const char *opt_str, bool is_boolean){

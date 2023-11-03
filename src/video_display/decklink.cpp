@@ -1265,11 +1265,15 @@ set_audio_props(state_decklink         *s,
                 MSG(WARNING, "Cannot get maximum auudio channels!\n");
         }
 
-        auto audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
+        MSG(INFO, "Using audio output: %s\n",
+            get_audio_conn_flag_name(audio_output));
+
+        /* Actually no action is required to set audio connection because BMD
+         * card plays audio through all its outputs (AES/SDI/analog) .... */
+        BMDAudioOutputAnalogAESSwitch audioConnection{};
         switch (audio_output) {
         case DISPLAY_FLAG_AUDIO_EMBEDDED:
-                audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
-                break;
+                return;
         case DISPLAY_FLAG_AUDIO_AESEBU:
                 audioConnection = bmdAudioOutputSwitchAESEBU;
                 break;
@@ -1279,14 +1283,6 @@ set_audio_props(state_decklink         *s,
         default:
                 MSG(ERROR, "Unsupporetd audio connection: %d.\n", audio_output);
                 abort();
-        }
-        LOG(LOG_LEVEL_INFO)
-            << MOD_NAME "Audio output set to: "
-            << bmd_get_audio_connection_name(audioConnection) << "\n";
-        /* Actually no action is required to set audio connection because BMD
-         * card plays audio through all its outputs (AES/SDI/analog) .... */
-        if (audioConnection == 0) {
-                return;
         }
         /* .... one exception is a card that has switchable cables between
          * AES/EBU and analog. (But this applies only for channels 3 and above.)

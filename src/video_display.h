@@ -205,7 +205,8 @@ void                     display_put_audio_frame(struct display *d, const struct
 bool                     display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 /** @} */ // end of display_audio
 
-struct video_frame      *get_splashscreen(void);
+struct video_frame *get_splashscreen(void);
+const char         *get_audio_conn_flag_name(int audio_init_flag);
 
 #ifdef __cplusplus
 }
