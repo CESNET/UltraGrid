@@ -1246,6 +1246,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         return true;
 }
 
+/// only 2, 8, 16, 32 and 64 are supported according to BMD SDK doc
+#define CHECK_CH_COUNT(channels) \
+        assert((channels) >= 2 && (channels) != 4 && (channels) <= 64 && \
+               is_power_of_two((channels)))
+
 static void
 set_audio_props(state_decklink         *s,
                 IDeckLinkConfiguration *deckLinkConfiguration,
@@ -1268,6 +1273,7 @@ set_audio_props(state_decklink         *s,
                     bmd_hresult_to_string(result).c_str());
         } else {
                 s->max_aud_chans = (int) max_aud_chans;
+                CHECK_CH_COUNT(s->max_aud_chans);
         }
         MSG(VERBOSE, "Using maximum audio channels: %d\n", s->max_aud_chans);
 
@@ -1681,8 +1687,7 @@ static bool display_decklink_reconfigure_audio(void *state, int quant_samples, i
         struct state_decklink *s = (struct state_decklink *)state;
 
         assert(s->play_audio);
-        assert(channels >= 2 && channels != 4 && channels <= 64 &&
-               is_power_of_two(channels));
+        CHECK_CH_COUNT(channels);
         assert(quant_samples == 16 || quant_samples == 32);
         
         const int bps = quant_samples / 8;
