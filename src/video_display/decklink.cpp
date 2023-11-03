@@ -1246,6 +1246,65 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         return true;
 }
 
+static void
+set_audio_props(state_decklink         *s,
+                IDeckLinkConfiguration *deckLinkConfiguration,
+                unsigned int            audio_output)
+{
+        if (audio_output == 0U) {
+                s->play_audio = false;
+                return;
+        }
+        s->play_audio = true;
+
+        if (s->deckLinkAttributes->GetInt(
+                audio_output == DISPLAY_FLAG_AUDIO_EMBEDDED
+                    ? BMDDeckLinkMaximumAudioChannels
+                    : BMDDeckLinkMaximumAnalogAudioOutputChannels,
+                &s->max_aud_chans) != S_OK) {
+                MSG(WARNING, "Cannot get maximum auudio channels!\n");
+        }
+
+        auto audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
+        switch (audio_output) {
+        case DISPLAY_FLAG_AUDIO_EMBEDDED:
+                audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
+                break;
+        case DISPLAY_FLAG_AUDIO_AESEBU:
+                audioConnection = bmdAudioOutputSwitchAESEBU;
+                break;
+        case DISPLAY_FLAG_AUDIO_ANALOG:
+                audioConnection = bmdAudioOutputSwitchAnalog;
+                break;
+        default:
+                MSG(ERROR, "Unsupporetd audio connection: %d.\n", audio_output);
+                abort();
+        }
+        LOG(LOG_LEVEL_INFO)
+            << MOD_NAME "Audio output set to: "
+            << bmd_get_audio_connection_name(audioConnection) << "\n";
+        /* Actually no action is required to set audio connection because BMD
+         * card plays audio through all its outputs (AES/SDI/analog) .... */
+        if (audioConnection == 0) {
+                return;
+        }
+        /* .... one exception is a card that has switchable cables between
+         * AES/EBU and analog. (But this applies only for channels 3 and above.)
+         */
+        HRESULT result = deckLinkConfiguration->SetInt(
+            bmdDeckLinkConfigAudioOutputAESAnalogSwitch, audioConnection);
+        if (result == S_OK) { // has switchable channels
+                MSG(INFO, "Card with switchable audio channels detected. "
+                          "Switched to correct format.\n");
+        } else if (result == E_NOTIMPL) {
+                // normal case - without switchable channels
+        } else {
+                MSG(WARNING, "Unable to switch audio output for channels 3 or "
+                             "above although \ncard shall support it. Check if "
+                             "it is ok. Continuing anyway.\n");
+        }
+}
+
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         IDeckLinkIterator*                              deckLinkIterator;
@@ -1254,7 +1313,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
-        BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
@@ -1338,33 +1396,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return nullptr;
         }
 
-        if(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
-                s->play_audio = true;
-                switch(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
-                        case DISPLAY_FLAG_AUDIO_EMBEDDED:
-                                audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
-                                break;
-                        case DISPLAY_FLAG_AUDIO_AESEBU:
-                                audioConnection = bmdAudioOutputSwitchAESEBU;
-                                break;
-                        case DISPLAY_FLAG_AUDIO_ANALOG:
-                                audioConnection = bmdAudioOutputSwitchAnalog;
-                                break;
-                        default:
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupporetd audio connection.\n");
-                                abort();
-                }
-                if (s->deckLinkAttributes->GetInt(
-                        audioConnection == 0
-                            ? BMDDeckLinkMaximumAudioChannels
-                            : BMDDeckLinkMaximumAnalogAudioOutputChannels,
-                        &s->max_aud_chans) != S_OK) {
-                                LOG(LOG_LEVEL_WARNING) << "Cannot get maximum auudio channels!\n";
-                }
-        } else {
-                s->play_audio = false;
-        }
-
         if(s->emit_timecode) {
                 s->timecode = new DeckLinkTimecode;
         } else {
@@ -1440,34 +1471,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
 
-        if (s->play_audio) {
-                /* Actually no action is required to set audio connection because Blackmagic card
-                 * plays audio through all its outputs (AES/SDI/analog) ....
-                 */
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "Audio output set to: "
-                                    << bmd_get_audio_connection_name(audioConnection) << "\n";
-                /*
-                 * .... one exception is a card that has switchable cables between AES/EBU and
-                 * analog. (But this applies only for channels 3 and above.)
-                 */
-                if (audioConnection != 0) { // we will set switchable AESEBU or analog
-                        result = deckLinkConfiguration->SetInt(
-                            bmdDeckLinkConfigAudioOutputAESAnalogSwitch, audioConnection);
-                        if (result == S_OK) { // has switchable channels
-                                log_msg(LOG_LEVEL_INFO,
-                                        MOD_NAME "Card with switchable audio channels detected. "
-                                                 "Switched to correct format.\n");
-                        } else if (result == E_NOTIMPL) {
-                                // normal case - without switchable channels
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING,
-                                        MOD_NAME "Unable to switch audio output for channels 3 or "
-                                                 "above although \n"
-                                                 "card shall support it. Check if it is ok. "
-                                                 "Continuing anyway.\n");
-                        }
-                }
-        }
+        set_audio_props(s, deckLinkConfiguration,
+                        flags & DISPLAY_FLAG_AUDIO_ANY);
 
         if (!s->low_latency) {
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
