@@ -13,9 +13,8 @@ red=$(tput setaf 1 || true)
 reset=$(tput sgr0 || true)
 
 DIR=$(dirname "$0")
-AI_LIB_PATH=$DIR/usr/lib
-orig_ld_library_path=${LD_LIBRARY_PATH-}
-export LD_LIBRARY_PATH="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+readonly AI_LIB_PATH="$DIR"/usr/lib
+n_ld_library_path="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
@@ -27,7 +26,6 @@ export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
 get_tools() {(
-        LD_LIBRARY_PATH=$orig_ld_library_path
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
 )}
 
@@ -79,8 +77,6 @@ handle_updates() {(
         if [ "${ULTRAGRID_AUTOUPDATE-0}" -eq -1 ]; then
                 return
         fi
-        # shellcheck disable=SC2030 # intentional
-        LD_LIBRARY_PATH=$orig_ld_library_path
         if [ "$APPIMAGE" = none ]; then
                 return
         fi
@@ -126,16 +122,15 @@ set_libva_ld_preload() {
         if [ ! -x "$LOADER" ]; then
                 return 1
         fi
-        AI_LIBAVCODEC_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" | grep libavcodec.so | grep -v 'not found' | awk '{print $3}')
+        AI_LIBAVCODEC_LIB=$(LD_LIBRARY_PATH=$n_ld_library_path \
+                LD_TRACE_LOADED_OBJECTS=1 "$LOADER" \
+                "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" |
+                grep libavcodec.so | grep -v 'not found' | awk '{print $3}')
         if [ -z "$AI_LIBAVCODEC_LIB" ]; then
                 return 1
         fi
-        # shellcheck disable=SC2031 # invalid?
-        S_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-        LD_LIBRARY_PATH=$orig_ld_library_path
         LIBVA_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB" | grep libva.so | grep -v 'not found' | awk '{print $3}')
         if [ -z "$LIBVA_LIB" ]; then
-                LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
                 return 1
         fi
         libva_libs=$LIBVA_LIB
@@ -153,7 +148,6 @@ set_libva_ld_preload() {
                 libva_libs=$libva_libs:$libvdpau_lib
         fi
 
-        LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
         export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
 }
 
@@ -176,7 +170,7 @@ setup_vaapi() {
 setup_wayland() {
         # use bundled Wayland libs only when not running on Wayland, otherwise system ones
         if [ -z "${WAYLAND_DISPLAY-}" ]; then
-                LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$AI_LIB_PATH/wayland"
+                n_ld_library_path="$n_ld_library_path:$AI_LIB_PATH/wayland"
         fi
 }
 
@@ -282,7 +276,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        echo "firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} $FIREJAIL_OPTS " > "$fj_opt_file"
+        echo "firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${n_ld_library_path}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} $FIREJAIL_OPTS " > "$fj_opt_file"
         if [ "${FIREJAIL_DEBUG:-}" ]; then
                 opts=$(cat "$fj_opt_file")
                 printf "Firejail arguments:\n\t%s\n\n" "$opts"
@@ -292,7 +286,8 @@ fi
 run() {
         tool=$1
         shift
-        if [ -n "${fj_opt_file-}" ]; then
+        export LD_LIBRARY_PATH="$n_ld_library_path"
+        if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
                 # shellcheck disable=SC2046 # intentional
                 eval $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
         else
@@ -304,7 +299,7 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
         handle_updates "$@"
         if [ $# -eq 0 ]; then usage; else shift; fi
         if [ -x "$DIR/usr/bin/uv-qt" ]; then
-                "$DIR/usr/bin/uv-qt" --with-uv "$DIR/usr/bin/uv" "$@"
+                run uv-qt --with-uv "$DIR/usr/bin/uv" "$@"
         else
                 echo "GUI was not compiled in!" >&2
                 exit 1
@@ -331,7 +326,6 @@ elif { [ $# -eq 1 ] || [ $# -eq 2 ]; } && { [ "$1" = "-m" ] || [ "$1" = "--man" 
         man -l "$DIR/usr/share/man/man1/$PAGE.1"
 elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         shift
-        unset LD_LIBRARY_PATH
         if [ -d "$DIR/appimageupdatetool-lib" ]; then
                 export LD_LIBRARY_PATH="$DIR/appimageupdatetool-lib"
         fi
