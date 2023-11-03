@@ -480,7 +480,7 @@ struct state_decklink {
         bool                initialized       = false;
         bool                emit_timecode     = false;
         bool                play_audio        = false; ///< the BMD device will be used also for output audio
-        int64_t             max_aud_chans     = BMD_MAX_AUD_CH;
+        int                 max_aud_chans     = BMD_MAX_AUD_CH;
 
         BMDPixelFormat      pixelFormat{};
 
@@ -1257,13 +1257,19 @@ set_audio_props(state_decklink         *s,
         }
         s->play_audio = true;
 
-        if (s->deckLinkAttributes->GetInt(
-                audio_output == DISPLAY_FLAG_AUDIO_EMBEDDED
-                    ? BMDDeckLinkMaximumAudioChannels
-                    : BMDDeckLinkMaximumAnalogAudioOutputChannels,
-                &s->max_aud_chans) != S_OK) {
-                MSG(WARNING, "Cannot get maximum audio channels!\n");
+        int64_t max_aud_chans = 0;
+        HRESULT result        = s->deckLinkAttributes->GetInt(
+            audio_output == DISPLAY_FLAG_AUDIO_EMBEDDED
+                ? BMDDeckLinkMaximumAudioChannels
+                : BMDDeckLinkMaximumAnalogAudioOutputChannels,
+            &max_aud_chans);
+        if (result != S_OK) {
+                MSG(WARNING, "Cannot get maximum audio channels: %s\n",
+                    bmd_hresult_to_string(result).c_str());
+        } else {
+                s->max_aud_chans = (int) max_aud_chans;
         }
+        MSG(VERBOSE, "Using maximum audio channels: %d\n", s->max_aud_chans);
 
         MSG(INFO, "Using audio output: %s\n",
             get_audio_conn_flag_name(audio_output));
@@ -1287,7 +1293,7 @@ set_audio_props(state_decklink         *s,
         /* .... one exception is a card that has switchable cables between
          * AES/EBU and analog. (But this applies only for channels 3 and above.)
          */
-        HRESULT result = deckLinkConfiguration->SetInt(
+        result = deckLinkConfiguration->SetInt(
             bmdDeckLinkConfigAudioOutputAESAnalogSwitch, audioConnection);
         if (result == S_OK) { // has switchable channels
                 MSG(INFO, "Card with switchable audio channels detected. "
