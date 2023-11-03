@@ -390,8 +390,6 @@ void dev_add_option(struct device_info *dev, const char *name, const char *desc,
 
 typedef void (*device_probe_func)(struct device_info **available_cards, int *count, void (**deleter)(void *));
 
-struct vidcap_params;
-
 #ifdef __cplusplus
 }
 #endif
