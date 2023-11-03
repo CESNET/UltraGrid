@@ -1262,7 +1262,7 @@ set_audio_props(state_decklink         *s,
                     ? BMDDeckLinkMaximumAudioChannels
                     : BMDDeckLinkMaximumAnalogAudioOutputChannels,
                 &s->max_aud_chans) != S_OK) {
-                MSG(WARNING, "Cannot get maximum auudio channels!\n");
+                MSG(WARNING, "Cannot get maximum audio channels!\n");
         }
 
         MSG(INFO, "Using audio output: %s\n",
