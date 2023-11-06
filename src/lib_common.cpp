@@ -55,6 +55,8 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 
+#define MOD_NAME "[lib] "
+
 using namespace std;
 
 struct library_class_info_t {
@@ -192,8 +194,8 @@ void open_all(const char *pattern, list<void *> &libs) {
                 void *handle = dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL);
                 if (!handle) {
                         char *error = dlerror();
-                        verbose_msg("Library %s opening warning: %s \n", glob_buf.gl_pathv[i],
-                                        error);
+                        MSG(WARNING, "Library %s opening warning: %s \n",
+                            glob_buf.gl_pathv[i], error);
                         char *filename = basename(glob_buf.gl_pathv[i]);
                         if (filename && error) {
                                 lib_errors.emplace(filename, error);
