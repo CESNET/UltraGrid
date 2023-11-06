@@ -124,7 +124,6 @@ static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
-#define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 #define OPT_AUDIO_HOST (('A' << 8) | 'H')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
@@ -755,8 +754,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"port",                   required_argument, nullptr, 'P'},
                 {"server",                 no_argument,       nullptr, 'S'},
                 {"ttl",                    required_argument, nullptr, 'T'},
+                {"audio-channel-map",      required_argument, nullptr, 'U'},
                 {"verbose",                optional_argument, nullptr, 'V'},
-                {"audio-channel-map",      required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
                 {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
                 {"audio-delay",            required_argument, 0, OPT_AUDIO_DELAY},
                 {"audio-host",             required_argument, 0, OPT_AUDIO_HOST},
@@ -777,7 +776,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CD:E::F:HI:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:vx:";
+        const char *optstring = "46A:CD:E::F:HI:M:N::P:ST:U:Va:c:e:f:d:hl:m:p:r:s:t:vx:";
 
         int ch = 0;
         while ((ch =
@@ -896,7 +895,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 case '6':
                         opt->force_ip_version = ch - '0';
                         break;
-                case OPT_AUDIO_CHANNEL_MAP:
+                case 'U':
                         opt->audio.channel_map = optarg;
                         break;
                 case OPT_AUDIO_SCALE:
