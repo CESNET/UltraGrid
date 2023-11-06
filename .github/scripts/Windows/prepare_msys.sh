@@ -110,7 +110,6 @@ install_soundfont() {
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
 "$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh"
-"$GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh"
 
 # Install GPUJPEG
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
