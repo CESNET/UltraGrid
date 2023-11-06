@@ -62,6 +62,8 @@ without using tabs.
 
 ### Naming conventions
 
+Logged module name (`MOD_NAME`) should be lower-case.
+
 ## Conclusion
 Aside of what is enumerated above, we will be glad if you share with us your
 setup, photos or just ideas.
