@@ -31,6 +31,12 @@ brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt
 brew install glm
+# TOREMOVE - missing header in Vulkan v1.3.264
+if [ "$(brew info vulkan-headers | awk 'NR==1{print $4}')" = 1.3.264 ]; then
+        sudo curl -L https://raw.githubusercontent.com/KhronosGroup/Vulkan-Headers/main/\
+include/vulkan/vulkan_hpp_macros.hpp -o /usr/local/include/vulkan/\
+vulkan_hpp_macros.hpp
+fi
 
 .github/scripts/macOS/install_dylibbundler_v2.sh
 
