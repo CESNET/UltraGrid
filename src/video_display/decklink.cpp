@@ -1311,7 +1311,7 @@ set_audio_props(state_decklink         *s,
         } else {
                 MSG(WARNING,
                     "Unable to switch audio output for channels 3 or "
-                    "above although \ncard shall support it: %s\nCheck if "
+                    "above although the card shall support it: %s\nCheck if "
                     "it is ok. Continuing anyway.\n",
                     bmd_hresult_to_string(result).c_str());
         }
