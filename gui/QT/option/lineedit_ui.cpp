@@ -13,7 +13,8 @@ void LineEditUi::connectSignals(){
 }
 
 void LineEditUi::updateUiState(const std::string &text){
-	line->setText(QString::fromStdString(text));
+	if(!line->hasFocus())
+		line->setText(QString::fromStdString(text));
 }
 
 void LineEditUi::updateUiState(){
