@@ -355,6 +355,7 @@ get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
                 snprintf(buf, sizeof buf, "(none)");
                 return buf;
         }
+        buf[0] = '\0';
         const enum AVPixelFormat *it = pixfmts;
         while (*it != AV_PIX_FMT_NONE) {
                 snprintf(buf + strlen(buf), sizeof buf - strlen(buf), "%s%s",
