@@ -62,7 +62,7 @@
 #define DEFAULT_FPS 60.0
 #define DEFAULT_CODEC RGB
 
-static constexpr const char *MOD_NAME = "[Spout] ";
+#define MOD_NAME "[spout cap.] "
 
 using std::array;
 using std::cout;
@@ -195,8 +195,8 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         gl_context_make_current(NULL);
         s->desc = video_desc{0, 0, codec, fps, PROGRESSIVE, 1};
 
+        MSG(INFO, "initialized successfully, waiting for input...\n");
         *state = s;
-
         return VIDCAP_INIT_OK;
 }
 
