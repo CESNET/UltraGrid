@@ -2561,13 +2561,16 @@ if test $cross_compile = no && test "$zfec_req" != no; then
                 AC_CHECK_FILES([$ZFEC_PREFIX/fec.c $ZFEC_PREFIX/fec.h], [found_zfec=yes])
         fi
         if test "$found_zfec" = yes; then
-                AC_MSG_CHECKING([fec_init declaration in $ZFEC_PREFIX/fec.h])
+                S_CFLAGS=$CFLAGS
+                CFLAGS="$CFLAGS -I$ZFEC_PREFIX"
+                AC_MSG_CHECKING([fec_init declaration in fec.h])
                 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                                   #include "$ZFEC_PREFIX/fec.h"
+                                   #include "fec.h"
                                    ]],
                                    [[
                                     #pragma GCC diagnostic error "-Wimplicit-function-declaration"
                                     fec_init();]])], fec_init=yes, fec_init=no)
+                CFLAGS=$S_CFLAGS
                 if test "$fec_init" = yes; then
                         AC_DEFINE([HAVE_FEC_INIT], [1], [fec_init must be called before fec_new])
                 fi
