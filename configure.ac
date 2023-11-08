@@ -235,7 +235,7 @@ AC_CHECK_HEADERS([termios.h])
 # @param $3 libraries
 add_module() {
         TARGET=lib/ultragrid/ultragrid_"$1".so
-        if `echo "$1" | grep -q 'vcompress\|display_video_mix'`; then
+        if `echo "$1" | grep -q 'vcompress\|vdecompress\|display_video_mix'`; then
                 LIB_OBJS="$LIB_OBJS $2"
                 LIB_MODULES="$LIB_MODULES $3"
         else
