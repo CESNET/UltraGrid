@@ -194,8 +194,10 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
         if(!worker.compress){
                 worker.compress_cfg = compress;
                 int ret = compress_init(s->parent, compress, out_ptr(worker.compress));
-                if(ret != 0)
+                if (ret != 0) {
+                        s->workers.erase(compress);
                         return -1;
+                }
 
                 worker.thread = std::thread(recompress_worker, &worker);
         }
