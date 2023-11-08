@@ -67,7 +67,7 @@
 #include "video_capture.h"
 
 #define FPS 60.0
-#define MOD_NAME "[Syphon capture] "
+#define MOD_NAME "[syphon cap.] "
 #define DEFAULT_MAX_QUEUE_SIZE 1
 
 static void usage(bool full);

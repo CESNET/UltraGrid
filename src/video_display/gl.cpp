@@ -745,7 +745,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 #else
 #define NAME_SPOUT_SYPHON_RAW syphon
 #endif
-#define NAME_SPOUT_SYPHON TOSTRING(NAME_SPOUT_SYPHON_RAW)
+#define NAME_SPOUT_SYPHON TOSTRING(NAME_SPOUT_SYPHON_RAW) " disp."
 static void * display_spout_syphon_init(struct module *parent, const char *fmt, unsigned int flags) {
         char config_str[1024] = "hide-window:" NAME_SPOUT_SYPHON;
         if (strcmp(fmt, "help") == 0) {
