@@ -271,16 +271,20 @@ public:
         }
 
         inline ~Logger() {
-                if (get_log_output().is_interactive()) {
-                        oss << TERM_RESET;
-                }
-
                 std::string msg = oss.str();
-                if (get_log_output().is_interactive() && msg.at(msg.size() - sizeof TERM_RESET) == '\n') { // switch TERM_RESET and '\n'
-                        msg.replace(msg.size() - sizeof TERM_RESET, sizeof TERM_RESET + 1, TERM_RESET "\n");
-                }
 
-                if (!get_log_output().is_interactive()) {
+                if (get_log_output().is_interactive()) {
+                        // add TERM_RESET (before NL if present at the end)
+                        const bool eol_nl =
+                            msg.size() > 0 && msg.at(msg.size() - 1) == '\n';
+                        if (eol_nl) {
+                                msg.resize(msg.size() - 1);
+                        }
+                        msg += TERM_RESET;
+                        if (eol_nl) {
+                                msg += "\n";
+                        }
+                } else {
                         msg = prune_ansi_sequences_str(msg.c_str());
                 }
 
