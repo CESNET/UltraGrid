@@ -233,7 +233,12 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         if (s->spout_state->IsUpdated()) {
                 s->desc.width = s->spout_state->GetSenderWidth();
                 s->desc.height = s->spout_state->GetSenderHeight();
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Connection updated - server name: " << s->spout_state->GetSenderName() << ", width: " << s->desc.width << ", height: " << s->desc.height << ", fps: " << s->desc.fps << ", codec: " << get_codec_name_long(s->desc.color_spec) << "\n";
+                MSG(NOTICE,
+                    "Server updated - name: %s, size: %dx%d, fps: "
+                    "%g, codec: %s\n",
+                    s->spout_state->GetSenderName(), s->desc.width,
+                    s->desc.height, s->desc.fps,
+                    get_codec_name(s->desc.color_spec));
                 vf_free(out);
                 gl_context_make_current(NULL);
                 return NULL;
