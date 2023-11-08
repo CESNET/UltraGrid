@@ -286,54 +286,61 @@ int get_bits_per_component(codec_t codec)
 /// @returns subsampling in format (int) JabA (A is alpha), eg 4440
 int get_subsampling(codec_t codec)
 {
+        int subsampling = 0;
         if (codec < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[codec].subsampling;
+                subsampling = codec_info[codec].subsampling;
         }
-        return 0;
+        assert(subsampling != 0);
+        return subsampling;
 }
 
 double get_bpp(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
+        double bpp = 0;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return (double) codec_info[i].block_size_bytes / codec_info[i].block_size_pixels;
-        } else {
-                return 0;
+                bpp = (double) codec_info[i].block_size_bytes /
+                      codec_info[i].block_size_pixels;
         }
+        assert(bpp != 0);
+        return bpp;
 }
 
 uint32_t get_fourcc(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
+        uint32_t fourcc = 0;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].fcc;
-        } else {
-                return 0;
+                fourcc = codec_info[i].fcc;
         }
+        assert(fourcc != 0);
+        return fourcc;
 }
 
 const char * get_codec_name(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
+        const char *name = NULL;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].name;
-        } else {
-                return 0;
+                name = codec_info[i].name;
         }
+        assert(name != NULL);
+        return name;
 }
 
 const char * get_codec_name_long(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
+        const char *name_long = NULL;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].name_long;
-        } else {
-                return 0;
+                name_long = codec_info[i].name_long;
         }
+        assert(name_long != NULL);
+        return name_long;
 }
 
 codec_t get_codec_from_fcc(uint32_t fourcc)
