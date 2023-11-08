@@ -88,7 +88,7 @@ struct state_vidcap_spout {
 static void usage()
 {
         col() << "Usage:\n";
-        col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>>][:fps=<fps>][:codec=<codec>]") << "\n";
+        col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>][:fps=<fps>][:codec=<codec>]") << "\n";
         col() << "where\n";
         col() << "\t" << TBOLD("name") << "\n\t\tSpout server name\n";
         col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
@@ -213,6 +213,9 @@ static void vidcap_spout_done(void *state)
 
 static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **audio)
 {
+        enum {
+                MS100_IN_US = 100 * 1000,
+        };
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
         gl_context_make_current(&s->glc);
@@ -223,6 +226,8 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         if (!ret) {
                 vf_free(out);
                 gl_context_make_current(NULL);
+                MSG(WARNING, "No signal detected...\n");
+                usleep(MS100_IN_US);
                 return NULL;
         }
         if (s->spout_state->IsUpdated()) {
