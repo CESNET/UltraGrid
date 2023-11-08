@@ -44,8 +44,6 @@
 #include <libgen.h>
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
-// TODO: not yet present in MinGW headers - remove when available
-HRESULT SetThreadDescription( HANDLE hThread, PCWSTR lpThreadDescription);
 #endif
 
 #include "debug.h"
