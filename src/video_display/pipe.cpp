@@ -51,10 +51,12 @@
 #include "video_display.h"
 #include "video_display/pipe.hpp"
 
+#define MOD_NAME "[pipe] "
+
 using std::cout;
 using std::list;
-using std::mutex;
 using std::lock_guard;
+using std::mutex;
 
 struct state_pipe {
         struct module *parent;
@@ -89,7 +91,7 @@ static void display_pipe_usage() {
 static void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
-        codec_t decode_to = UYVY;
+        codec_t decode_to = VIDEO_CODEC_NONE;
         frame_recv_delegate *delegate;
 
         if (!fmt || strlen(fmt) == 0 || strcmp(fmt, "help") == 0) {
@@ -199,6 +201,35 @@ static bool display_pipe_putf(void *state, struct video_frame *frame, long long 
         return true;
 }
 
+static bool
+get_codecs(struct state_pipe *s, void *val, size_t *len)
+{
+        if (s->decode_to != VIDEO_CODEC_NONE) {
+                if (sizeof(codec_t) > *len) {
+                        MSG(ERROR, "Insufficient prop length %zu B!\n", *len);
+                        return false;
+                }
+                memcpy(val, &s->decode_to, sizeof(s->decode_to));
+                *len = sizeof s->decode_to;
+                return true;
+        }
+        auto       *out = (codec_t *) val;
+        const void *end = (char *) val + *len;
+        for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+                const auto c = (codec_t) i;
+                if (is_codec_opaque(c)) {
+                        continue;
+                }
+                if (out + 1 > end) {
+                        MSG(ERROR, "Insufficient prop length %zu B!\n", *len);
+                        return false;
+                }
+                memcpy(out++, &c, sizeof c);
+        }
+        *len = (char *) out - (char *) val;
+        return true;
+}
+
 static bool display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = static_cast<struct state_pipe *>(state);
@@ -207,11 +238,7 @@ static bool display_pipe_get_property(void *state, int property, void *val, size
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codec_t) > *len) {
-                                return false;
-                        }
-                        memcpy(val, &s->decode_to, sizeof(s->decode_to));
-                        *len = sizeof s->decode_to;
+                        return get_codecs(s, val, len);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
