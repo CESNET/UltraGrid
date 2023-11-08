@@ -73,5 +73,5 @@ void spout_set_log_level(void *s, int ug_level) {
                 default: l = SPOUT_LOG_VERBOSE;
         }
 
-        // spout->SetSpoutLogLevel(l);
+        spout->SetSpoutLogLevel(l);
 }
