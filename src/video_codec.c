@@ -112,6 +112,12 @@ struct codec_info_t {
         const char *file_extension;      ///< Extension that should be added to name if frame is saved to file.
 };
 
+#ifdef HWACC_VDPAU
+#define HW_VDPAU_FRAME_SZ sizeof(hw_vdpau_frame)
+#else
+#define HW_VDPAU_FRAME_SZ 0
+#endif
+
 static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
                 0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, FALSE, 0, NULL},
@@ -157,10 +163,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('M','J','2','C'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",
                 to_fourcc('M','J','2','R'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
-#ifdef HWACC_VDPAU
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
-                to_fourcc('V', 'D', 'P', 'S'), sizeof(hw_vdpau_frame), 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4440, "vdpau"},
-#endif
+                to_fourcc('V', 'D', 'P', 'S'), HW_VDPAU_FRAME_SZ, 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4440, "vdpau"},
         [RPI4_8] = {"RPI4_8", "Raspberry pi 4 hw. decoded (SAND)",
                 to_fourcc('S', 'A', 'N', 'D'), sizeof(av_frame_wrapper), 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4200, "sand"},
         [HFYU] = {"HFYU", "HuffYUV",
