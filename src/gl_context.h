@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,19 +38,13 @@
 #ifndef _GL_CONTEXT_H_
 #define _GL_CONTEXT_H_
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_win32.h"
-#include "config_unix.h"
-#endif // HAVE_CONFIG_H
-
-#if defined HAVE_LINUX || defined WIN32
+#if defined __linux__ || defined _WIN32
 #include <GL/glew.h>
 #else
 #include <OpenGL/GL.h>
 #endif /*  HAVE_LINUX */
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <Availability.h>
 #endif
 
@@ -58,7 +52,7 @@
 extern "C" {
 #endif // __cplusplus
 
-#if defined HAVE_MACOSX && ! defined __MAC_10_8
+#if defined __APPLE__ && ! defined __MAC_10_8
 #define glGenFramebuffers glGenFramebuffersEXT
 #define glBindFramebuffer glBindFramebufferEXT
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT

@@ -35,22 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "gl_context.h" // it looks like it needs to be included prior to Spout.h
 
 #include <array>
 #include <cctype>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <SpoutLibrary.h>
+#include <synchapi.h>
 #include <string>
 
 #include "debug.h"
+#include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
 #include "spout_sender.h" // spout_set_log_level
@@ -214,7 +210,7 @@ static void vidcap_spout_done(void *state)
 static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **audio)
 {
         enum {
-                MS100_IN_US = 100 * 1000,
+                MS100 = 100,
         };
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
@@ -227,7 +223,7 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
                 vf_free(out);
                 gl_context_make_current(NULL);
                 MSG(WARNING, "No signal detected...\n");
-                usleep(MS100_IN_US);
+                Sleep(MS100);
                 return NULL;
         }
         if (s->spout_state->IsUpdated()) {
