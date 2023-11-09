@@ -58,6 +58,8 @@
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
 
+#define MOD_NAME "[resize filter] "
+
 struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -189,29 +191,37 @@ static void done(void *state)
     free(state);
 }
 
+static void
+reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
+{
+    if (video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
+        return;
+    }
+    struct video_desc desc = video_desc_from_frame(in);
+    s->saved_desc          = desc;
+    if (s->param.mode == USE_DIMENSIONS) {
+        desc.width  = s->param.target_width;
+        desc.height = s->param.target_height;
+    } else {
+        desc.width  = in->tiles[0].width * s->param.num / s->param.denom;
+        desc.height = in->tiles[0].height * s->param.num / s->param.denom;
+    }
+    desc.color_spec = RGB;
+    if (s->param.force_interlaced) {
+        desc.interlacing = INTERLACED_MERGED;
+    } else if (s->param.force_progressive) {
+        desc.interlacing = PROGRESSIVE;
+    }
+    s->out_desc = desc;
+    MSG(NOTICE, "resizing from %dx%d to %dx%d\n", s->saved_desc.width,
+        s->saved_desc.height, s->out_desc.width, s->out_desc.height);
+}
+
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = state;
 
-    if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
-    	struct video_desc desc = video_desc_from_frame(in);
-        s->saved_desc = desc;
-        if (s->param.mode == USE_DIMENSIONS) {
-            desc.width = s->param.target_width;
-            desc.height = s->param.target_height;
-        } else {
-            desc.width = in->tiles[0].width * s->param.num / s->param.denom;
-            desc.height = in->tiles[0].height * s->param.num / s->param.denom;
-        }
-        desc.color_spec = RGB;
-        if (s->param.force_interlaced) {
-                desc.interlacing = INTERLACED_MERGED;
-        } else if (s->param.force_progressive) {
-                desc.interlacing = PROGRESSIVE;
-        }
-        s->out_desc = desc;
-        printf("[resize filter] resizing from %dx%d to %dx%d\n", s->saved_desc.width, s->saved_desc.height, s->out_desc.width, s->out_desc.height);
-    }
+    reconfigure_if_needed(s, in);
 
     struct video_frame *frame = vf_alloc_desc(s->out_desc);
     if (s->vo_pp_out_buffer) {
