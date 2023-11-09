@@ -100,7 +100,7 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
         break;
     default:
         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported codec: " << codec << "\n";
-        return {};
+        abort();
     }
     yuv.create(height * num / den, width, pix_fmt);
     yuv.data = (uchar*)indata;
