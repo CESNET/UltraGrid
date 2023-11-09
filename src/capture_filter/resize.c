@@ -191,37 +191,49 @@ static void done(void *state)
     free(state);
 }
 
-static void
+static bool
 reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
 {
     if (video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
-        return;
+        return true;
     }
-    struct video_desc desc = video_desc_from_frame(in);
-    s->saved_desc          = desc;
+    s->out_desc                        = video_desc_from_frame(in);
+    const codec_t supp_rgb_in_codecs[] = { SUPPORTED_RGB_IN_INIT,
+                                           VIDEO_CODEC_NONE };
+    if (!codec_is_in_set(in->color_spec, supp_rgb_in_codecs)) {
+        MSG(ERROR, "Codec %s is currently not supported!\n",
+            get_codec_name(in->color_spec));
+        return false;
+    }
+    s->out_desc.color_spec = RGB;
     if (s->param.mode == USE_DIMENSIONS) {
-        desc.width  = s->param.target_width;
-        desc.height = s->param.target_height;
+        s->out_desc.width  = s->param.target_width;
+        s->out_desc.height = s->param.target_height;
     } else {
-        desc.width  = in->tiles[0].width * s->param.num / s->param.denom;
-        desc.height = in->tiles[0].height * s->param.num / s->param.denom;
+        s->out_desc.width = in->tiles[0].width * s->param.num / s->param.denom;
+        s->out_desc.height =
+            in->tiles[0].height * s->param.num / s->param.denom;
     }
-    desc.color_spec = RGB;
     if (s->param.force_interlaced) {
-        desc.interlacing = INTERLACED_MERGED;
+        s->out_desc.interlacing = INTERLACED_MERGED;
     } else if (s->param.force_progressive) {
-        desc.interlacing = PROGRESSIVE;
+        s->out_desc.interlacing = PROGRESSIVE;
     }
-    s->out_desc = desc;
+
+    s->saved_desc = video_desc_from_frame(in);
     MSG(NOTICE, "resizing from %dx%d to %dx%d\n", s->saved_desc.width,
         s->saved_desc.height, s->out_desc.width, s->out_desc.height);
+    return true;
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = state;
 
-    reconfigure_if_needed(s, in);
+    if (!reconfigure_if_needed(s, in)) {
+        VIDEO_FRAME_DISPOSE(in);
+        return NULL;
+    }
 
     struct video_frame *frame = vf_alloc_desc(s->out_desc);
     if (s->vo_pp_out_buffer) {
