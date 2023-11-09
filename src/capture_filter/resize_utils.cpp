@@ -45,12 +45,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cstdlib>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -68,7 +63,10 @@
 
 #define MOD_NAME "[resize] "
 
-using namespace cv;
+using cv::INTER_LINEAR;
+using cv::Mat;
+using cv::Rect;
+using cv::Size;
 
 static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     Mat yuv;
@@ -78,6 +76,10 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     int num = 1, den = 1;
 
     switch (codec) {
+    case RG48:
+        rgb.create(height, width, CV_16UC3);
+        rgb.data = (uchar*)indata;
+        return rgb;
     case RGB:
         rgb.create(height, width, CV_8UC3);
         rgb.data = (uchar*)indata;
@@ -109,6 +111,12 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     return rgb;
 }
 
+static int
+get_out_cv_data_type(codec_t pixfmt)
+{
+    return pixfmt == RG48 ? CV_16UC3 : CV_8UC3;
+}
+
 void
 resize_frame_factor(char *indata, codec_t in_color, char *outdata,
                     unsigned int width, unsigned int height,
@@ -116,7 +124,7 @@ resize_frame_factor(char *indata, codec_t in_color, char *outdata,
 {
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
     Mat out((int) (height * scale_factor), (int) (width * scale_factor),
-            CV_8UC3, outdata);
+            get_out_cv_data_type(in_color), outdata);
     resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 }
 
@@ -125,8 +133,7 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
              unsigned int height, unsigned int target_width,
              unsigned int target_height)
 {
-    codec_t out_color = RGB;
-
+    const codec_t out_color = in_color == RG48 ? RG48 : RGB;
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
 
     double in_aspect = (double) width / height;
@@ -163,7 +170,8 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
         }
     }
 
-    Mat out((int) target_height, (int) target_width, CV_8UC3, outdata);
+    Mat out((int) target_height, (int) target_width,
+            get_out_cv_data_type(in_color), outdata);
     resize(rgb, out(r), r.size());
 }
 

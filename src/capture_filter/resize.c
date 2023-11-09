@@ -200,12 +200,13 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
     s->out_desc                        = video_desc_from_frame(in);
     const codec_t supp_rgb_in_codecs[] = { SUPPORTED_RGB_IN_INIT,
                                            VIDEO_CODEC_NONE };
-    if (!codec_is_in_set(in->color_spec, supp_rgb_in_codecs)) {
+    if (codec_is_in_set(in->color_spec, supp_rgb_in_codecs)) {
+        s->out_desc.color_spec = RGB;
+    } else if (in->color_spec != RG48) {
         MSG(ERROR, "Codec %s is currently not supported!\n",
             get_codec_name(in->color_spec));
         return false;
     }
-    s->out_desc.color_spec = RGB;
     if (s->param.mode == USE_DIMENSIONS) {
         s->out_desc.width  = s->param.target_width;
         s->out_desc.height = s->param.target_height;
