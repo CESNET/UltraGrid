@@ -109,26 +109,24 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     return rgb;
 }
 
-int resize_frame_factor(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
+void
+resize_frame_factor(char *indata, codec_t in_color, char *outdata,
+                    unsigned int width, unsigned int height,
+                    double scale_factor)
+{
     Mat rgb, out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
-
-    if (indata == NULL || outdata == NULL) {
-        return 1;
-    }
 
     rgb = ug_to_rgb_mat(in_color, width, height, indata);
     resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
-
-    return 0;
 }
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height) {
+void
+resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
+             unsigned int height, unsigned int target_width,
+             unsigned int target_height)
+{
     Mat rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
     codec_t out_color = RGB;
-
-    if (indata == NULL || outdata == NULL) {
-        return 1;
-    }
 
     rgb = ug_to_rgb_mat(in_color, width, height, indata);
 
@@ -168,8 +166,6 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
 
     out.data = (uchar *) outdata;
     resize(rgb, out(r), r.size());
-
-    return 0;
 }
 
 /* vim: set expandtab sw=4: */

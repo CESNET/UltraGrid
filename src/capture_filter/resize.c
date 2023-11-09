@@ -222,18 +222,16 @@ static struct video_frame *filter(void *state, struct video_frame *in)
     }
 
     for (unsigned int i = 0; i < frame->tile_count; i++) {
-        int res;
         if (s->param.mode == USE_DIMENSIONS) {
-            res = resize_frame(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->param.target_width, s->param.target_height);
+                resize_frame(in->tiles[i].data, in->color_spec,
+                             frame->tiles[i].data, in->tiles[i].width,
+                             in->tiles[i].height, s->param.target_width,
+                             s->param.target_height);
         } else {
-            res = resize_frame_factor(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
-        }
-
-        if(res!=0){
-            error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->param.num, s->param.denom, i);
-            error_msg("\t\t No scale factor applied at all. No frame returns...\n");
-            vf_free(frame);
-            return NULL;
+                resize_frame_factor(in->tiles[i].data, in->color_spec,
+                                    frame->tiles[i].data, in->tiles[i].width,
+                                    in->tiles[i].height,
+                                    (double) s->param.num / s->param.denom);
         }
     }
 

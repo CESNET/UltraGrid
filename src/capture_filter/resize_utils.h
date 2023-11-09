@@ -1,9 +1,11 @@
 /*
- * FILE:    capture_filter/resize_utils.c
+ * FILE:    capture_filter/resize_utils.h
  * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
  *          Marc Palau          <marc.palau@i2cat.net>
+ *          Martin Pulec        <martin.pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2015-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -51,8 +53,12 @@
 extern "C" {
 #endif
 
-int resize_frame_factor(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor);
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height);
+void resize_frame_factor(char *indata, codec_t in_color, char *outdata,
+                        unsigned int width, unsigned int height,
+                        double scale_factor);
+void resize_frame(char *indata, codec_t in_color, char *outdata,
+                 unsigned int width, unsigned int height,
+                 unsigned int target_width, unsigned int target_height);
 
 #ifdef __cplusplus
 }
