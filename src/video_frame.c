@@ -49,20 +49,26 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-#include "debug.h"
-
+#include <assert.h>
+#include <errno.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#ifdef __linux__
+#include <sys/mman.h>
+#endif
+
+#include "config_unix.h"
+#include "config_win32.h"
+#include "debug.h"
 #include "utils/pam.h"
 #include "utils/y4m.h"
 #include "video_codec.h"
 #include "video_frame.h"
+
+#define MOD_NAME "[video frame] "
 
 struct video_frame * vf_alloc(int count)
 {
@@ -561,6 +567,27 @@ const char *save_video_frame(struct video_frame *frame, const char *name, bool r
         }
         fclose(out);
         return filename;
+}
+
+struct video_frame *
+load_video_frame(const char *name, codec_t codec, int width, int height)
+{
+        FILE *in = fopen(name, "rb");
+        if (!in) {
+                perror("fopen");
+                return NULL;
+        }
+        struct video_frame *out = vf_alloc_desc_data(
+            (struct video_desc){ width, height, codec, 1.0, PROGRESSIVE, 1 });
+        size_t bytes = fread(out->tiles[0].data, 1, out->tiles[0].data_len, in);
+        fclose(in);
+        if (bytes == out->tiles[0].data_len) {
+                return out;
+        }
+        MSG(ERROR, "Cannot read %u B from %s, got only %zu B!\n",
+                out->tiles[0].data_len, name, bytes);
+        vf_free(out);
+        return NULL;
 }
 
 void

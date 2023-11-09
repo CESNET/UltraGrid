@@ -8,6 +8,7 @@
 
 #include "../src/config_unix.h"
 #include "../src/video_codec.h"
+#include "../src/video_frame.h"
 
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
@@ -59,6 +60,28 @@ static void print_conversions() {
         }
 }
 
+static int
+write_to_container(int width, int height, const char *in_f,
+                   const char *out_fname)
+{
+        const char *ext = strrchr(in_f, '.');
+        if (ext == nullptr) {
+                fprintf(stderr, "File with no extension!\n");
+                return 1;
+        }
+        codec_t c = get_codec_from_file_extension(ext + 1);
+        if (c == VIDEO_CODEC_NONE) {
+                fprintf(stderr, "wrong extension: %s!\n", ext);
+                return 1;
+        }
+        struct video_frame *f = load_video_frame(in_f, c, width, height);
+        if (f == nullptr) {
+                return 1;
+        }
+        save_video_frame(f, out_fname, false);
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         if (argc == 2 && string("list-conversions") == argv[1]) {
                 print_conversions();
@@ -68,10 +91,15 @@ int main(int argc, char *argv[]) {
                 benchmark();
                 return 0;
         }
-        if (argc < 7) {
+        if (argc != 5 && argc != 7) {
                 cout << "Tool to convert between UltraGrid raw pixel format with supported conversions.\n\n"
                         "Usage:\n"
-                        "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | benchmark | help | list-conversions\n"
+                        "\t" << argv[0] << " benchmark | help | list-conversions\n\n"
+                        "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file>\n"
+                        "\t\t" << "Eg.: " << argv[0] << " 1920 1080 UYVY RGB 00000001.yuv out.rgb\n\n"
+                        "\t" << argv[0] << " <width> <height> <in_file> <oname_wo_ext>\n"
+                        "\t\t- converts to output Y4M or PNM file (depending on in_file extension color space)\n"
+                        "\t\t" << "Eg.: " << argv[0] << " 1920 1080 00000001.yuv out  # creates out.y4m\n\n"
                         "\n"
                         "where\n"
                         "\t" << "benchmark        - benchmark conversions\n"
@@ -81,6 +109,9 @@ int main(int argc, char *argv[]) {
         }
         int width = stoi(argv[1]);
         int height = stoi(argv[2]);
+        if (argc == 5) {
+                return write_to_container(width, height, argv[3], argv[4]);
+        }
         codec_t in_codec = get_codec_from_name(argv[3]);
         codec_t out_codec = get_codec_from_name(argv[4]);
         ifstream in(argv[5], ifstream::ate | ifstream::binary);
