@@ -1,12 +1,12 @@
 /**
- * @file    capture_filter/resize.cpp
+ * @file    capture_filter/resize.c
  * @author  Gerard Castillo     <gerard.castillo@i2cat.net>
  * @author  Marc Palau          <marc.palau@i2cat.net>
  * @author  Martin Pulec        <martin.pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2014      Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -45,16 +45,15 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "capture_filter.h"
 #include "capture_filter/resize_utils.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
@@ -92,15 +91,18 @@ struct state_resize {
 };
 
 static void usage() {
-    printf("\nScaling by scale factor:\n\n");
+    printf("Scaling by scale factor:\n\n");
     printf("resize usage:\n");
-    printf("\tresize:numerator[/denominator]\n");
-    printf("\tor\n");
-    printf("\tresize:<width>x<height>\n\n");
-    printf("Scaling examples:\n"
-                    "\tresize:1/2 - downscale input frame size by scale factor of 2\n"
-                    "\tresize:1280x720 - scales input to 1280x720\n"
-                    "\tresize:720x576i - scales input to PAL (overrides interlacing setting)\n");
+    color_printf("\t" TBOLD(TRED("resize") ":numerator[/denominator]") "\n");
+    printf("or\n");
+    printf("\t" TBOLD(TRED("resize") ":<width>x<height>") "\n\n");
+    color_printf("Scaling examples:\n"
+                 "\t" TBOLD("resize:1/2")
+                 " - downscale input frame size by scale factor of 2\n"
+                 "\t" TBOLD("resize:1280x720")
+                 " - scales input to 1280x720\n"
+                 "\t" TBOLD("resize:720x576i")
+                 " - scales input to PAL (overrides interlacing setting)\n");
 }
 
 static int init(struct module * parent, const char *cfg, void **state)
