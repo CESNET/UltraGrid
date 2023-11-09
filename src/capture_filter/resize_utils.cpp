@@ -114,9 +114,9 @@ resize_frame_factor(char *indata, codec_t in_color, char *outdata,
                     unsigned int width, unsigned int height,
                     double scale_factor)
 {
-    Mat rgb, out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
-
-    rgb = ug_to_rgb_mat(in_color, width, height, indata);
+    Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
+    Mat out((int) (height * scale_factor), (int) (width * scale_factor),
+            CV_8UC3, outdata);
     resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 }
 
@@ -125,10 +125,9 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
              unsigned int height, unsigned int target_width,
              unsigned int target_height)
 {
-    Mat rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
     codec_t out_color = RGB;
 
-    rgb = ug_to_rgb_mat(in_color, width, height, indata);
+    Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
 
     double in_aspect = (double) width / height;
     double out_aspect = (double) target_width / target_height;
@@ -164,7 +163,7 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
         }
     }
 
-    out.data = (uchar *) outdata;
+    Mat out((int) target_height, (int) target_width, CV_8UC3, outdata);
     resize(rgb, out(r), r.size());
 }
 
