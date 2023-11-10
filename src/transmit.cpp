@@ -259,7 +259,8 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 
         tx->bitrate = bitrate;
 
-        tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
+        if(parent)
+                tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         return tx;
 }
@@ -727,7 +728,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data = encrypted_data;
                         }
 
-                        if (control_stats_enabled(tx->control)) {
+                        if (tx->control && control_stats_enabled(tx->control)) {
                                 auto current_time_ms = time_since_epoch_in_ms();
                                 if(current_time_ms - tx->last_stat_report >= CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_MS){
                                         std::ostringstream oss;
@@ -900,7 +901,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                         data = encrypted_data;
                                 }
 
-                                if (control_stats_enabled(tx->control)) {
+                                if (tx->control && control_stats_enabled(tx->control)) {
                                         auto current_time_ms = time_since_epoch_in_ms();
                                         if(current_time_ms - tx->last_stat_report >= CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_MS){
                                                 std::ostringstream oss;
