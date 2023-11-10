@@ -28,8 +28,8 @@ while read n; do
 	if ! expr "$n" : ".*(.*\+.*)" > /dev/null; then
 		continue
 	fi
-	EXE=$(expr $n : "\([^(]*\)")
-	addr=$(expr $n : ".*(\(.*\))")
+	EXE=$(expr "$n" : "\([^(]*\)")
+	addr=$(expr "$n" : ".*(\(.*\))")
 	# addr in format "func+addr"
 	if expr $addr : "[^\+]" >/dev/null; then
 		FUNC=$(expr $addr : "\([^\+]*\)")
