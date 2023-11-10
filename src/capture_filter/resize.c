@@ -82,7 +82,6 @@ struct resize_param {
             int target_height;
         };
     };
-    bool force_interlaced, force_progressive;
 };
 
 struct state_resize {
@@ -103,8 +102,8 @@ static void usage() {
                  " - downscale input frame size by scale factor of 2\n"
                  "\t" TBOLD("resize:1280x720")
                  " - scales input to 1280x720\n"
-                 "\t" TBOLD("resize:720x576i")
-                 " - scales input to PAL (overrides interlacing setting)\n");
+                 "\t" TBOLD("resize:720x576")
+                 " - scales input to PAL\n");
 }
 
 static int init(struct module * parent, const char *cfg, void **state)
@@ -141,15 +140,6 @@ static int init(struct module * parent, const char *cfg, void **state)
         } else {
             param.denom = 1;
         }
-    }
-
-    if (*endptr == 'i' || *endptr == 'p') {
-        if (*endptr == 'i') {
-            param.force_interlaced = true;
-        } else {
-            param.force_progressive = true;
-        }
-        endptr += 1;
     }
 
     if (*endptr != '\0') {
@@ -215,12 +205,6 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
         s->out_desc.height =
             in->tiles[0].height * s->param.num / s->param.denom;
     }
-    if (s->param.force_interlaced) {
-        s->out_desc.interlacing = INTERLACED_MERGED;
-    } else if (s->param.force_progressive) {
-        s->out_desc.interlacing = PROGRESSIVE;
-    }
-
     s->saved_desc = video_desc_from_frame(in);
     MSG(NOTICE, "resizing from %dx%d to %dx%d\n", s->saved_desc.width,
         s->saved_desc.height, s->out_desc.width, s->out_desc.height);
