@@ -1191,7 +1191,7 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
         session->send_rtcp_to_origin = true;
 
         session->rtp_socket = udp_init_with_local(l, sa, len);
-        session->rtcp_socket = udp_init_if("localhost", NULL, 0, 0, ttl, true, false);
+        session->rtcp_socket = udp_init_if("localhost", NULL, 0, 0, ttl, 6, false);
 
         init_opt(session);
 
