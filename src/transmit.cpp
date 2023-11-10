@@ -259,7 +259,8 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 
         tx->bitrate = bitrate;
 
-        tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
+        if(parent)
+                tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         return tx;
 }
@@ -550,7 +551,7 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
 static void
 report_stats(struct tx *tx, struct rtp *rtp_session, long data_sent)
 {
-        if (!control_stats_enabled(tx->control)) {
+        if (!tx->control || !control_stats_enabled(tx->control)) {
                 return;
         }
 
