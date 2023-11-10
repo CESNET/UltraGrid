@@ -35,17 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include "utils/misc.h" // get_cpu_core_count
 #include "utils/thread.h"
 #include "utils/worker.h"
 
+#include <cassert>
 #include <algorithm>
+#include <pthread.h>
 #include <queue>
 #include <set>
 #include <vector>

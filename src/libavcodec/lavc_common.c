@@ -190,15 +190,20 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         buf[0] = '\0';
 }
 
+#ifdef HAVE_CONFIG_H // built inside UG
 ADD_TO_PARAM("lavcd-log-level",
                 "* lavcd-log-level=<num>[U][D]\n"
                 "  Set libavcodec log level (FFmpeg range semantics, unless 'U' suffix, then UltraGrid)\n"
                 " - 'D' - use FFmpeg default log handler\n");
+#endif
 /// Sets specified log level either given explicitly or from UG-wide log_level
 void ug_set_av_logging() {
         av_log_set_level(uv_to_av_log(log_level));
         av_log_set_callback(av_log_ug_callback);
-        const char *param = get_commandline_param("lavcd-log-level");
+        const char *param = NULL;
+#ifdef HAVE_CONFIG_H // built inside UG
+        param = get_commandline_param("lavcd-log-level");
+#endif
         if (param == NULL) {
                 return;
         }

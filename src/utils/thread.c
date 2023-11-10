@@ -37,14 +37,14 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif
 
 #include <libgen.h>
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
 #endif
+#include <stdlib.h>
+#include <string.h>
 
 #include "debug.h"
 #include "host.h"
