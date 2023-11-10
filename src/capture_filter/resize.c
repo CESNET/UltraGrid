@@ -54,6 +54,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/parallel_conv.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
@@ -89,6 +90,8 @@ struct state_resize {
     struct video_desc saved_desc;
     struct video_desc out_desc;
     char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
+    decoder_t decoder;
+    struct video_frame *dec_frame;
 };
 
 static void usage() {
@@ -176,8 +179,17 @@ static int init(struct module * parent, const char *cfg, void **state)
     return 0;
 }
 
-static void done(void *state)
+static void
+cleanup_common(struct state_resize *s)
 {
+    vf_free(s->dec_frame);
+    s->dec_frame = NULL;
+}
+
+static void
+done(void *state)
+{
+    cleanup_common((struct state_resize *) state);
     free(state);
 }
 
@@ -187,16 +199,30 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
     if (video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
         return true;
     }
+    struct video_desc dec_desc         = video_desc_from_frame(in);
     s->out_desc                        = video_desc_from_frame(in);
     const codec_t supp_rgb_in_codecs[] = { SUPPORTED_RGB_IN_INIT,
                                            VIDEO_CODEC_NONE };
     if (codec_is_in_set(in->color_spec, supp_rgb_in_codecs)) {
         s->out_desc.color_spec = RGB;
-    } else if (in->color_spec != RG48) {
-        MSG(ERROR, "Codec %s is currently not supported!\n",
-            get_codec_name(in->color_spec));
-        return false;
+        s->decoder = vc_memcpy;
+    } else {
+        const codec_t out_cand[] = { SUPPORTED_RGB_IN_INIT, RG48,
+                                     VIDEO_CODEC_NONE };
+        s->decoder = get_best_decoder_from(in->color_spec, out_cand,
+                                           &dec_desc.color_spec);
+        if (s->decoder == NULL) {
+            MSG(ERROR,
+                "Cannot decode %s to neither of supported input formats!\n",
+                get_codec_name(in->color_spec));
+            return false;
+        }
+        s->out_desc.color_spec = dec_desc.color_spec == RG48 ? RG48 : RGB;
     }
+    MSG(INFO, "Decoding through %s to output pixfmt %s.\n",
+        get_codec_name(dec_desc.color_spec),
+        get_codec_name(s->out_desc.color_spec));
+
     if (s->param.mode == USE_DIMENSIONS) {
         s->out_desc.width  = s->param.target_width;
         s->out_desc.height = s->param.target_height;
@@ -206,6 +232,10 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
             in->tiles[0].height * s->param.num / s->param.denom;
     }
     s->saved_desc = video_desc_from_frame(in);
+    cleanup_common(s);
+    if (s->decoder != vc_memcpy) {
+        s->dec_frame               = vf_alloc_desc_data(dec_desc);
+    }
     MSG(NOTICE, "resizing from %dx%d to %dx%d\n", s->saved_desc.width,
         s->saved_desc.height, s->out_desc.width, s->out_desc.height);
     return true;
@@ -220,33 +250,45 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return NULL;
     }
 
-    struct video_frame *frame = vf_alloc_desc(s->out_desc);
+    struct video_frame *out_frame = vf_alloc_desc(s->out_desc);
     if (s->vo_pp_out_buffer) {
-        frame->tiles[0].data = s->vo_pp_out_buffer;
+        out_frame->tiles[0].data = s->vo_pp_out_buffer;
     } else {
-        frame->tiles[0].data = (char *) malloc(frame->tiles[0].data_len);
-        frame->callbacks.data_deleter = vf_data_deleter;
+        out_frame->tiles[0].data = (char *) malloc(out_frame->tiles[0].data_len);
+        out_frame->callbacks.data_deleter = vf_data_deleter;
     }
 
-    for (unsigned int i = 0; i < frame->tile_count; i++) {
+    for (unsigned int i = 0; i < out_frame->tile_count; i++) {
+        if (s->decoder != vc_memcpy) {
+            parallel_pix_conv(
+                (int) in->tiles[i].height, s->dec_frame->tiles[i].data,
+                vc_get_linesize(in->tiles[i].width, s->dec_frame->color_spec),
+                in->tiles[i].data,
+                vc_get_linesize(in->tiles[i].width, in->color_spec), s->decoder,
+                0);
+        }
+        struct video_frame *const in_frame =
+            s->decoder == vc_memcpy ? in : s->dec_frame;
+
         if (s->param.mode == USE_DIMENSIONS) {
-                resize_frame(in->tiles[i].data, in->color_spec,
-                             frame->tiles[i].data, in->tiles[i].width,
-                             in->tiles[i].height, s->param.target_width,
-                             s->param.target_height);
+            resize_frame(in_frame->tiles[i].data, in_frame->color_spec,
+                         out_frame->tiles[i].data, in_frame->tiles[i].width,
+                         in_frame->tiles[i].height, s->param.target_width,
+                         s->param.target_height);
         } else {
-                resize_frame_factor(in->tiles[i].data, in->color_spec,
-                                    frame->tiles[i].data, in->tiles[i].width,
-                                    in->tiles[i].height,
-                                    (double) s->param.num / s->param.denom);
+            resize_frame_factor(in_frame->tiles[i].data, in_frame->color_spec,
+                                out_frame->tiles[i].data,
+                                in_frame->tiles[i].width,
+                                in_frame->tiles[i].height,
+                                (double) s->param.num / s->param.denom);
         }
     }
 
     VIDEO_FRAME_DISPOSE(in);
 
-    frame->callbacks.dispose = vf_free;
+    out_frame->callbacks.dispose = vf_free;
 
-    return frame;
+    return out_frame;
 }
 
 static void vo_pp_set_out_buffer(void *state, char *buffer)
@@ -255,7 +297,7 @@ static void vo_pp_set_out_buffer(void *state, char *buffer)
         s->vo_pp_out_buffer = buffer;
 }
 
-static struct capture_filter_info capture_filter_resize = {
+static const struct capture_filter_info capture_filter_resize = {
     init,
     done,
     filter,
