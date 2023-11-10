@@ -78,6 +78,7 @@
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"
+#include "pixfmt_conv.h"
 #include "playback.h"
 #include "types.h"
 #include "utils/color_out.h"

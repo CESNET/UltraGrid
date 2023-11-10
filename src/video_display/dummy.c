@@ -46,6 +46,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"

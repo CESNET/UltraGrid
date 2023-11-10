@@ -11,6 +11,7 @@
 
 #include "ipc_frame_ug.h"
 #include "ipc_frame.h"
+#include "pixfmt_conv.h"
 #include "types.h"
 #include "video_codec.h"
 

@@ -100,6 +100,7 @@ decoder_func_t vc_copylineRGBtoUYVY_SSE;
 decoder_func_t vc_copylineRGBtoGrayscale_SSE;
 decoder_func_t vc_copylineUYVYtoRGB_SSE;
 decoder_func_t vc_copylineUYVYtoGrayscale;
+/// dummy conversion - ptr to it returned if no conversion needed
 decoder_func_t vc_memcpy;
 
 #ifdef __cplusplus

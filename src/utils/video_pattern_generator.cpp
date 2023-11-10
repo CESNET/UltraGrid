@@ -66,6 +66,7 @@
 
 #include "color.h"
 #include "debug.h"
+#include "pixfmt_conv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"

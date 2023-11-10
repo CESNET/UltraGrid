@@ -63,6 +63,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "pixfmt_conv.h"
 #include "utils/pam.h"
 #include "utils/y4m.h"
 #include "video_codec.h"

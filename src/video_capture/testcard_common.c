@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "pixfmt_conv.h"
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"

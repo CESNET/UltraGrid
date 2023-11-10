@@ -61,6 +61,7 @@
 #include "hwaccel_vdpau.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/lavc_common.h"
+#include "pixfmt_conv.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 

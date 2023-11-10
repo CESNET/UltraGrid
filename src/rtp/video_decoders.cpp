@@ -106,6 +106,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "pixfmt_conv.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"

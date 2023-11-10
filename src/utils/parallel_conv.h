@@ -38,7 +38,7 @@
 #ifndef UTILS_PARALLEL_CONV_H_8871B46B_0006_4854_9578_5B72B691C500
 #define UTILS_PARALLEL_CONV_H_8871B46B_0006_4854_9578_5B72B691C500
 
-#include "video_codec.h"
+#include "pixfmt_conv.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -2740,6 +2740,8 @@ static QSORT_S_COMP_DEFINE(best_decoder_cmp, a, b, desc_src) {
 
 /**
  * Returns best decoder for input codec.
+ *
+ * If in == out, vc_memcpy is returned.
  */
 decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out)
 {

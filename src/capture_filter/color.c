@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "pixfmt_conv.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
