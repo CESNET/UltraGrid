@@ -39,8 +39,8 @@
 #include "utils/thread.h"
 #include "utils/worker.h"
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <pthread.h>
 #include <queue>
 #include <set>

@@ -40,6 +40,9 @@
 #endif
 
 #include <libgen.h>
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
 #endif
@@ -65,7 +68,7 @@ static inline char *get_argv_program_name(void) {
 #endif
 
 void set_thread_name(const char *name) {
-#ifdef HAVE_LINUX
+#ifdef __linux__
 // thread name can have at most 16 chars (including terminating null char)
         char *prog_name = get_argv_program_name();
         char tmp[16];
@@ -74,14 +77,14 @@ void set_thread_name(const char *name) {
         free(prog_name);
         strncat(tmp, name,  sizeof tmp - strlen(tmp) - 1);
         pthread_setname_np(pthread_self(), tmp);
-#elif defined HAVE_MACOSX
+#elif defined __APPLE__
         char *prog_name = get_argv_program_name();
         char *tmp = (char *) alloca(strlen(prog_name) + strlen(name) + 1);
         strcpy(tmp, prog_name);
         free(prog_name);
         strcat(tmp, name);
         pthread_setname_np(tmp);
-#elif defined  WIN32
+#elif defined _WIN32
 // supported from Windows 10, not yet in headers
 #ifdef HAVE_SETTHREADDESCRIPTION
         const char *prog_name = get_argv_program_name();
