@@ -118,6 +118,13 @@ enum hw_accel_type {
         HWACCEL_COUNT
 };
 
+enum depth {
+        DEPTH8  = 8,
+        DEPTH10 = 10,
+        DEPTH12 = 12,
+        DEPTH16 = 16,
+};
+
 enum subsampling {
         SUBS_420  = 4200,
         SUBS_422  = 4220,

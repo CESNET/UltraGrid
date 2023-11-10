@@ -201,15 +201,13 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
     }
     struct video_desc dec_desc         = video_desc_from_frame(in);
     s->out_desc                        = video_desc_from_frame(in);
-    const codec_t supp_rgb_in_codecs[] = { SUPPORTED_RGB_IN_INIT,
+    const codec_t supp_in_codecs[] = { RESIZE_SUPPORTED_PIXFMT_INIT,
                                            VIDEO_CODEC_NONE };
-    if (codec_is_in_set(in->color_spec, supp_rgb_in_codecs)) {
-        s->out_desc.color_spec = RGB;
+    if (codec_is_in_set(in->color_spec, supp_in_codecs)) {
+        dec_desc.color_spec = in->color_spec;
         s->decoder = vc_memcpy;
     } else {
-        const codec_t out_cand[] = { SUPPORTED_RGB_IN_INIT, RG48,
-                                     VIDEO_CODEC_NONE };
-        s->decoder = get_best_decoder_from(in->color_spec, out_cand,
+        s->decoder = get_best_decoder_from(in->color_spec, supp_in_codecs,
                                            &dec_desc.color_spec);
         if (s->decoder == NULL) {
             MSG(ERROR,
@@ -217,8 +215,9 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
                 get_codec_name(in->color_spec));
             return false;
         }
-        s->out_desc.color_spec = dec_desc.color_spec == RG48 ? RG48 : RGB;
     }
+    s->out_desc.color_spec =
+        get_bits_per_component(dec_desc.color_spec) == DEPTH8 ? RGB : RG48;
     MSG(INFO, "Decoding through %s to output pixfmt %s.\n",
         get_codec_name(dec_desc.color_spec),
         get_codec_name(s->out_desc.color_spec));

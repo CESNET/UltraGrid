@@ -114,7 +114,7 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
 static int
 get_out_cv_data_type(codec_t pixfmt)
 {
-    return pixfmt == RG48 ? CV_16UC3 : CV_8UC3;
+    return get_bits_per_component(pixfmt) == DEPTH16 ? CV_16UC3 : CV_8UC3;
 }
 
 void
@@ -133,7 +133,8 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
              unsigned int height, unsigned int target_width,
              unsigned int target_height)
 {
-    const codec_t out_color = in_color == RG48 ? RG48 : RGB;
+    const codec_t out_color =
+        get_bits_per_component(in_color) == 16 ? RG48 : RGB;
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
 
     double in_aspect = (double) width / height;

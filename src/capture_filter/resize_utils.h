@@ -53,7 +53,7 @@
 extern "C" {
 #endif
 
-#define SUPPORTED_RGB_IN_INIT RGB, RGBA, I420, UYVY, YUYV
+#define RESIZE_SUPPORTED_PIXFMT_INIT RGB, RGBA, I420, UYVY, YUYV, RG48
 
 void resize_frame_factor(char *indata, codec_t in_color, char *outdata,
                         unsigned int width, unsigned int height,
