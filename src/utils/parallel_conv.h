@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET z.s.p.o.
+ * Copyright (c) 2021-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,10 @@
 extern "C" {
 #endif
 
+/**
+ * Runs specified decoder in parallel
+ * @param threads number of threads; use 0 to use all logical threads
+ */
 void parallel_pix_conv(int height, char *out, int out_linesize, const char *in, int in_linesize, decoder_t decode, int threads);
 
 #ifdef __cplusplus

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,12 +35,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <assert.h>
 
+#include "utils/misc.h"
 #include "utils/parallel_conv.h"
 #include "utils/worker.h"
 
@@ -66,9 +63,13 @@ static void *parallel_pix_conv_task(void *arg) {
 /// @todo utilize respawn_parallel
 void parallel_pix_conv(int height, char *out, int out_linesize, const char *in, int in_linesize, decoder_t decode, int threads)
 {
+        if (threads == 0) {
+                threads = get_cpu_core_count();
+        }
+        assert(threads > 0);
         struct parallel_pix_conv_data data[threads];
 
-        for (int i = 0; i < threads; ++i) {
+        for (ptrdiff_t i = 0; i < threads; ++i) {
                 data[i].decode = decode;
                 data[i].height = height / threads;
                 data[i].out_data = (unsigned char *) out + i * data[i].height * out_linesize;

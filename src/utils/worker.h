@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
  
-#ifndef WORKER_H_
+#ifndef WORKER_H
 #define WORKER_H
 
-#ifdef __cplusplus
+#ifndef __cplusplus
+#include <stddef.h>
+#else
+#include <cstddef>
 extern "C" {
 #endif
 
@@ -67,5 +65,5 @@ void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_pa
 }
 #endif
 
-#endif /* WORKER_H_ */
+#endif // defined WORKER_H
 

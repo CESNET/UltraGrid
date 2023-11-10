@@ -10,7 +10,9 @@
  *
  * This file contains conversions between UltraGrid pixel formats (uncompressed
  * codec_t).
- * @sa video_codec.h from_lavc_vid_conv.h to_lavc_vid_conv.h
+ * @sa video_codec.h
+ * @sa from_lavc_vid_conv.h to_lavc_vid_conv.h
+ * @sa utils/parallel_conv.h
  */
 /* Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
