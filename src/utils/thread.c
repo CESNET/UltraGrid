@@ -55,6 +55,7 @@
 
 #if ! defined  WIN32 || defined HAVE_SETTHREADDESCRIPTION
 static inline char *get_argv_program_name(void) {
+#ifdef HAVE_CONFIG_H
         if (uv_argv != NULL && uv_argv[0] != NULL) {
                 char *prog_name = (char *) malloc(strlen(uv_argv[0]) + 2);
                 strcpy(prog_name, uv_argv[0]);
@@ -63,6 +64,7 @@ static inline char *get_argv_program_name(void) {
                 strcat(prog_name, "-");
                 return prog_name;
         }
+#endif // defined HAVE_CONFIG_H
         return strdup("uv-");
 }
 #endif
