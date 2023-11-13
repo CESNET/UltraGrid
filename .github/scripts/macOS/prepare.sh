@@ -23,7 +23,8 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-brew install autoconf automake libtool pkg-config
+brew install autoconf automake libtool pkg-config \
+        asciidoc
 brew install libsoxr speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install molten-vk vulkan-headers
