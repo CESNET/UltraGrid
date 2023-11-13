@@ -140,10 +140,10 @@ void strappend(char **ptr, const char *ptr_end, const char *src) {
         }
 }
 
-void write_all(size_t len, const char *msg) {
+void write_all(int fd, size_t len, const char *msg) {
         const char *ptr = msg;
         do {
-                ssize_t written = write(STDERR_FILENO, ptr, len);
+                ssize_t written = write(fd, ptr, len);
                 if (written < 0) {
                         break;
                 }

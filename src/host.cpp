@@ -1059,7 +1059,7 @@ void crash_signal_handler(int sig)
         strappend(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
 #ifndef WIN32
         char backtrace_msg[] = "Backtrace:\n";
-        write_all(sizeof backtrace_msg, backtrace_msg);
+        write_all(STDERR_FILENO, sizeof backtrace_msg, backtrace_msg);
         array<void *, 256> addresses{};
         int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, 2);
@@ -1071,7 +1071,7 @@ void crash_signal_handler(int sig)
         strappend(&ptr, ptr_end, "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with " PACKAGE_NAME "\n");
         strappend(&ptr, ptr_end, "(or available online at https://github.com/CESNET/UltraGrid/blob/master/doc/REPORTING-BUGS.md).\n");
 
-        write_all(ptr - buf, buf);
+        write_all(STDERR_FILENO, ptr - buf, buf);
 
         restore_old_tio();
 
@@ -1085,7 +1085,7 @@ void hang_signal_handler(int sig)
 #ifndef WIN32
         assert(sig == SIGALRM);
         char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
-        write_all(sizeof msg - 1, msg);
+        write_all(STDERR_FILENO, sizeof msg - 1, msg);
         signal(SIGALRM, SIG_DFL);
 #endif // ! defined WIN32
 }

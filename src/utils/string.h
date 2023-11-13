@@ -56,7 +56,7 @@ bool is_prefix_of(const char *haystack, const char *needle);
 char *strrpbrk(char *s, const char *accept);
 void strappend(char **ptr, const char *ptr_end, const char *src);
 void append_sig_desc(char **ptr, const char *ptr_end, int signum);
-void write_all(size_t len, const char *msg);
+void write_all(int fd, size_t len, const char *msg);
 
 #ifdef __cplusplus
 }
