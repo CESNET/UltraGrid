@@ -1213,10 +1213,15 @@ static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned 
 static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
+        enum {
+                PIX_COUNT = 8,
+                RG48_BPP  = 6,
+                OUT_BL_SZ = PIX_COUNT * RG48_BPP,
+        };
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 48; x += 48) {
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += OUT_BL_SZ) {
                 //0
                 //R
                 *dst++ = src[BYTE_SWAP(0)] << 4;
