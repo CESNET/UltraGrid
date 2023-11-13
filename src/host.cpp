@@ -46,6 +46,7 @@
 
 #ifndef _WIN32
 #include <execinfo.h>
+#include <fcntl.h>
 #endif // defined WIN32
 
 #include "host.h"
@@ -64,6 +65,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
 #include "utils/string.h"
@@ -1051,19 +1053,57 @@ bool running_in_debugger(){
         return false;
 }
 
+static void
+print_backtrace()
+{
+#ifndef _WIN32
+        // print to a temporary file to avoid interleaving from multiple
+        // threads
+#ifdef __APPLE__
+        char path[MAX_PATH_SIZE];
+        snprintf(path, sizeof path, "%s/ug-%u", get_temp_dir(),
+                 pthread_mach_thread_np(pthread_self()));
+        int fd = open(path, O_CLOEXEC | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        unlink(path);
+#else
+        int fd = memfd_create("ultragrid_backtrace", MFD_CLOEXEC);
+#endif
+        if (fd == -1) {
+                fd = STDERR_FILENO;
+        }
+        char backtrace_msg[] = "Backtrace:\n";
+        write_all(fd, sizeof backtrace_msg, backtrace_msg);
+        array<void *, 256> addresses{};
+        const int num_symbols = backtrace(addresses.data(), addresses.size());
+        backtrace_symbols_fd(addresses.data(), num_symbols, fd);
+        if (fd == STDERR_FILENO) {
+                return;
+        }
+
+        lseek(fd, 0, SEEK_SET);
+        char buf[STR_LEN];
+        ssize_t rbytes = 0;
+        while ((rbytes = read(fd, buf, sizeof buf)) > 0) {
+                ssize_t written = 0;
+                ssize_t wbytes  = 0;
+                while (written < rbytes &&
+                       (wbytes = write(STDERR_FILENO, buf + written,
+                                       rbytes - written)) > 0) {
+                        written += wbytes;
+                }
+        }
+        close(fd);
+#endif // defined WIN32
+}
+
 void crash_signal_handler(int sig)
 {
+        print_backtrace();
+
         char buf[1024];
         char *ptr = buf;
         char *ptr_end = buf + sizeof buf;
         strappend(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
-#ifndef WIN32
-        char backtrace_msg[] = "Backtrace:\n";
-        write_all(STDERR_FILENO, sizeof backtrace_msg, backtrace_msg);
-        array<void *, 256> addresses{};
-        int num_symbols = backtrace(addresses.data(), addresses.size());
-        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
-#endif // defined WIN32
 
         append_sig_desc(&ptr, ptr_end, sig);
 
