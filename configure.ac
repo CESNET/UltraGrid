@@ -264,6 +264,17 @@ fi
 
 AC_SUBST(DYLIBBUNDLER)
 
+# ---------------------------------------------------------------------
+# AsciiDoc
+# ---------------------------------------------------------------------
+AC_PATH_PROG(A2X, [a2x], [:])
+AC_SUBST(A2X)
+AC_SUBST(MANPAGES)
+
+if test "$A2X" != :; then
+        MANPAGES=uv.1
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Additional macros
 # -------------------------------------------------------------------------------------------------
@@ -3276,6 +3287,7 @@ AC_ARG_ENABLE(reflector,
               [reflector_req=$build_default])
 if test "$reflector_req" != no; then
         REFLECTOR_REQ=yes
+        MANPAGES="$MANPAGES hd-rum-transcode.1"
 fi
 AC_SUBST(REFLECTOR_REQ)
 

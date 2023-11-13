@@ -1,3 +1,4 @@
+A2X           = @A2X@
 AR            = ar
 RANLIB        = ranlib
 BIN_DEPS      = @BIN_DEPS@
@@ -229,7 +230,7 @@ DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .li
 # -------------------------------------------------------------------------------------------------
 .PHONY: doc
 
-all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MODULES@ configure-messages
+all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MANPAGES@ @MODULES@ configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
@@ -569,8 +570,15 @@ cscope:
 doc:
 	cd $(srcdir) && doxygen Doxyfile
 
-man:
-	cd $(srcdir)/data && ./make_man.sh all
+uv.1: $(TARGET)
+	$(MKDIR_P) $(dir $@)
+	A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh uv
+
+hd-rum-transcode.1: $(REFLECTOR_TARGET)
+	$(MKDIR_P) $(dir $@)
+	A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh hd-rum-transcode
+
+man: uv.1 hd-rum-transcode.1
 
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
@@ -651,8 +659,7 @@ osx-gui-dmg:
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
-	$(INSTALL) -m 755 bin/uv $(DESTDIR)$(bindir)
-	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 bin/uv $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/applications;\
@@ -671,7 +678,7 @@ install: all
 	$(INSTALL) -m 644 $(srcdir)/CONTRIBUTING.md $(srcdir)/COPYRIGHT $(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README.md $(DESTDIR)$(docdir)
 	$(INSTALL) -m 755 $(srcdir)/data/ultragrid-bugreport-collect.sh $(DESTDIR)$(docdir)
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
-	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
+	if [ -n '@MANPAGES@' ]; then $(INSTALL) -m 644 @MANPAGES@ $(DESTDIR)$(man1dir); fi
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 	if [ -n "@VULKAN@" ]; then\
 		$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/"* -t "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders"; \

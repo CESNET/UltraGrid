@@ -25,11 +25,11 @@ bugreport_and_resources() {
 }
 
 print_gen() {
-	test -n "$DRY_RUN" || echo Generated $(echo $1 | sed 's/\.txt$//')
+	test -n "$DRY_RUN" || echo Generated "$(echo "$1" | sed 's/\.txt$//')"
 }
 
 uv_man() {
-	local ASCIIDOC=uv.1.txt
+	ASCIIDOC=uv.1.txt
 
 	cat <<-'EOF' > $ASCIIDOC
 	= UV(1) =
@@ -53,7 +53,7 @@ uv_man() {
 
 	EOF
 
-	test -n "$DRY_RUN" || a2x -f manpage $VERBOSE $ASCIIDOC -D .
+	test -n "$DRY_RUN" || ${A2X-a2x} -f manpage $VERBOSE $ASCIIDOC -D .
 
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
 	print_gen $ASCIIDOC
@@ -71,7 +71,7 @@ escape_apostrophe() {
 }
 
 hd_rum_transcode_man() {
-	local ASCIIDOC=hd-rum-transcode.1.txt
+	ASCIIDOC=hd-rum-transcode.1.txt
 
 	cat <<-'EOF' > $ASCIIDOC
 	= HD-RUM-TRANSCODE(1) =
@@ -194,6 +194,10 @@ while [ $# -gt 0 ]; do
 			;;
 		hd-rum-transcode)
 			hd_rum_transcode_man
+			;;
+		*)
+			usage
+			exit 2
 			;;
 	esac
 	shift
