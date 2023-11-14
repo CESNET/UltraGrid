@@ -350,6 +350,7 @@ struct video_desc get_video_desc_from_string(const char *string)
                 ret.height = 2160;
         }
         if (ret.width == 0) {
+                MSG(ERROR, "Unrecognized video mode: %s\n", string);
                 return {};
         }
         ret.fps = parse_fps(string, ret.interlacing == INTERLACED_MERGED);
