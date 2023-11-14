@@ -1450,17 +1450,19 @@ udp_get_recv_buf(socket_udp *s)
 static bool
 udp_set_buf(socket_udp *s, int sockopt, int size)
 {
-        int opt = 0;
-        socklen_t opt_size;
-        if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, sockopt, (sockopt_t) &size,
-                        sizeof(size)) != 0) {
+        assert(sockopt == SO_RCVBUF || sockopt == SO_SNDBUF);
+        const fd_t fd =
+            sockopt == SO_RCVBUF ? s->local->rx_fd : s->local->tx_fd;
+        if (SETSOCKOPT(fd, SOL_SOCKET, sockopt, (sockopt_t) &size,
+                       sizeof(size)) != 0) {
                 socket_error("Unable to set socket buffer size");
                 return false;
         }
 
-        opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, sockopt, (sockopt_t)&opt,
-                        &opt_size) != 0) {
+        int       opt      = 0;
+        socklen_t opt_size = sizeof opt;
+        if (GETSOCKOPT(fd, SOL_SOCKET, sockopt, (sockopt_t) &opt, &opt_size) !=
+            0) {
                 socket_error("Unable to get socket buffer size");
                 return false;
         }
