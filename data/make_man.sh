@@ -86,10 +86,12 @@ hd_rum_transcode_man() {
 	== OPTIONS ==
 	EOF
 
-	"${UV_PATH}hd-rum-transcode" -h | sed '0,/where/{/where/!d};/Please/,$d' >> $ASCIIDOC
+	"${UV_PATH}hd-rum-transcode" -h |
+		awk '/where/{flag=1; next} flag{print}' | sed '/Please/,$d' >> $ASCIIDOC
 
 	printf '\n== NOTES ==\n' >> $ASCIIDOC
-	"${UV_PATH}hd-rum-transcode" -h | outdent_output | escape_apostrophe | sed '0,/Please/{/Please/!d}' >> $ASCIIDOC
+	"${UV_PATH}hd-rum-transcode" -h | outdent_output | escape_apostrophe |
+		sed -n '/Please/,$p' >> $ASCIIDOC
 
 	# below heredoc contains contiunation of NOTES section
 	cat <<-'EOF' >> $ASCIIDOC
