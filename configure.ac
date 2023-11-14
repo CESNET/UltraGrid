@@ -3288,7 +3288,9 @@ AC_ARG_ENABLE(reflector,
               [reflector_req=$build_default])
 if test "$reflector_req" != no; then
         REFLECTOR_REQ=yes
-        MANPAGES="$MANPAGES hd-rum-transcode.1"
+        if test -n "$MANPAGES"; then
+                MANPAGES="$MANPAGES hd-rum-transcode.1"
+        fi
 fi
 AC_SUBST(REFLECTOR_REQ)
 
