@@ -486,6 +486,58 @@ class image_pattern_text : public image_pattern {
                 uint32_t fg = 0xFFFFFFFFU;
 };
 
+class image_pattern_diagonal : public image_pattern{
+        public:
+                explicit image_pattern_diagonal(const string & config) {
+                        if (config == "help"s) {
+                                col() << "Testcard diagonal usage:\n\t" << SBOLD(SRED("-t testcard:pattern=diagonal") << "[,bg=0x<AABBGGRR<][,fg=0x<AABBGGRR>][,stride=<stride>][,line_width=<width>]") << "\n";
+                                throw 1;
+                        }
+                        if (!config.empty()) {
+                                string_view sv = config;
+                                while (!sv.empty()) {
+                                        auto tok = tokenize(sv, ',');
+                                        auto key = tokenize(tok, '=');
+                                        auto val = tokenize(tok, '=');
+                                        if (key == "bg") {
+                                                bg = stol((string) val, nullptr, 0);
+                                        } else if (key == "fg") {
+                                                fg = stol((string) val, nullptr, 0);
+                                        } else if (key == "stride") {
+                                                stride = stol((string) val, nullptr, 0);
+                                        } else if (key == "line_width") {
+                                                line_width = stol((string) val, nullptr, 0);
+                                        } else {
+                                                throw ug_runtime_error("Testcard diagonal - wrong option: " + string(tok));
+                                        }
+                                }
+                        }
+                }
+
+        private:
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
+                        std::fill((uint32_t *)(void *) data, (uint32_t *)(void *) (data + width * height * 4), bg);
+                        for(int y = 0; y < height; y++){
+                                for(int x = y % stride; x < width; x += stride){
+                                        for(int i = 0; i < line_width; i++){
+                                                *((uint32_t *) (void *) (data + (y*width + x + i) * 4)) = fg;
+                                        }
+                                }
+                                for(int x = stride - (y % stride); x < width; x += stride){
+                                        for(int i = 0; i < line_width; i++){
+                                                *((uint32_t *) (void *) (data + (y*width + x + i) * 4)) = fg;
+                                        }
+                                }
+                        }
+
+                        return generator_depth::bits8;
+                }
+                uint32_t bg = 0xFF000000U;
+                uint32_t fg = 0xFFFFFFFFU;
+                int stride = 80;
+                int line_width = 4;
+};
+
 unique_ptr<image_pattern> image_pattern::create(string const &pattern, string const &params) {
         if (pattern == "bars") {
                 return make_unique<image_pattern_bars>(params);
@@ -516,6 +568,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         }
         if (pattern == "uv_plane") {
                 return make_unique<image_pattern_uv_plane>(params);
+        }
+        if (pattern == "diagonal") {
+                return make_unique<image_pattern_diagonal>(params);
         }
         throw ug_runtime_error("Unknown pattern: "s +  pattern + "!"s);
 }
@@ -686,7 +741,7 @@ video_pattern_generator_t
 video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
 {
         if (string(config) == "help") {
-                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
+                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>], diagonal*\n");
                 col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
