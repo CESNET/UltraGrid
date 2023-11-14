@@ -124,9 +124,9 @@ hd_rum_transcode_man() {
 }
 
 usage() {
-	printf "Usage:\n\t$0 [-d|--debug|-h|--help|-k|--keep|-n] [uv|hd-rum-trancode|all]\nwhere\n"
-	printf "\t-d|--debug - print debug info\n"
-	printf "\t-k|--keep - keep generated AsciiDoc sources\n"
+	printf "Usage:\n\t%s [-d|-h|-k||-n] [uv|hd-rum-trancode|all]\nwhere\n" "$0"
+	printf "\t-d - print debug info\n"
+	printf "\t-k - keep generated AsciiDoc sources\n"
 	printf "\t-n - do not generate manpages (can be useful with -k)\n"
 	printf "\n"
 	printf "\tname of man page - specify 'all' generate all manual pages\n"
@@ -139,43 +139,27 @@ DRY_RUN=
 KEEP_FILES=
 VERBOSE=
 
-TEMP=$(getopt -o 'dhkn' --long 'debug,help,keep' -n "$0" -- "$@")
-
-if [ $? -ne 0 ]; then
-        echo 'Terminating...' >&2
-        exit 1
-fi
-
-# Note the quotes around "$TEMP": they are essential!
-eval set -- "$TEMP"
-unset TEMP
-
-while true; do
-	case "$1" in
-		'-d'|'--debug')
-			VERBOSE="-v"
-			set -x
-			;;
-		'-h'|'--help')
-			usage
-			exit 0
-			;;
-		'-k'|'--keep')
-			KEEP_FILES=1
-			;;
-		'-n')
-			DRY_RUN=1
-			;;
-		'--')
-			shift
-			break
-			;;
-		*)
-			echo 'Internal error!' >&2
-			exit 1
-			;;
+while getopts dhkn name; do
+	case $name in
+	d)
+		VERBOSE="-v"
+		set -x
+		;;
+	h)
+		usage
+		exit 0
+		;;
+	k)
+		KEEP_FILES=1
+		;;
+	n)
+		DRY_RUN=1
+		;;
+	?)
+		usage
+		exit 1
+		;;
 	esac
-	shift
 done
 
 if [ $# -eq 0 ]; then
