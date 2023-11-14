@@ -1697,7 +1697,8 @@ if test "$libavcodec_req" != no; then
         fi
 fi
 
-if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
+if test $libavcodec_req != no && test $found_libavcodec = yes &&
+        test $found_libavutil = yes
 then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
