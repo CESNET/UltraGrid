@@ -196,7 +196,7 @@ while [ $# -gt 0 ]; do
 			hd_rum_transcode_man
 			;;
 		*)
-			usage
+			printf "Don't know how to make manual page for %s!\n" "$1"
 			exit 2
 			;;
 	esac
