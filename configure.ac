@@ -270,9 +270,23 @@ AC_SUBST(DYLIBBUNDLER)
 AC_PATH_PROGS(A2X, [asciidoctor a2x], [:])
 AC_SUBST(A2X)
 AC_SUBST(MANPAGES)
+man=no
 
-if test "$A2X" != :; then
-        MANPAGES=uv.1
+AC_ARG_ENABLE(man, AS_HELP_STRING([--enable-man], [build (default is auto)]
+        [requires: AsciiDoc/Asciidoctor]),
+        [req_man=$enableval],
+        [req_man=$build_default])
+
+if test "$req_man" != no; then
+        if test "$A2X" != :; then
+                man=yes
+                MANPAGES=uv.1
+        fi
+fi
+
+if test "$req_man" = yes && test "$A2X" = :; then
+        AC_MSG_ERROR([Manual pages generate required, but]
+[AsciiDoc/Asciidoctor was not found!])
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3288,7 +3302,7 @@ AC_ARG_ENABLE(reflector,
               [reflector_req=$build_default])
 if test "$reflector_req" != no; then
         REFLECTOR_REQ=yes
-        if test -n "$MANPAGES"; then
+        if test "$man" = yes; then
                 MANPAGES="$MANPAGES hd-rum-transcode.1"
         fi
 fi
@@ -3429,6 +3443,7 @@ RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
 RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
+RESULT=`add_column "$RESULT" "Manual pages" $man $?`
 RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
