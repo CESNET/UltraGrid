@@ -518,12 +518,12 @@ class image_pattern_diagonal : public image_pattern{
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
                         std::fill((uint32_t *)(void *) data, (uint32_t *)(void *) (data + width * height * 4), bg);
                         for(int y = 0; y < height; y++){
-                                for(int x = y % stride; x < width; x += stride){
+                                for(int x = y % stride; x < width - line_width; x += stride){
                                         for(int i = 0; i < line_width; i++){
                                                 *((uint32_t *) (void *) (data + (y*width + x + i) * 4)) = fg;
                                         }
                                 }
-                                for(int x = stride - (y % stride); x < width; x += stride){
+                                for(int x = stride - (y % stride); x < width - line_width; x += stride){
                                         for(int i = 0; i < line_width; i++){
                                                 *((uint32_t *) (void *) (data + (y*width + x + i) * 4)) = fg;
                                         }
