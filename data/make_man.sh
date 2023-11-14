@@ -28,6 +28,16 @@ print_gen() {
 	test -n "$DRY_RUN" || echo Generated "$(echo "$1" | sed 's/\.txt$//')"
 }
 
+run_asciidoc() {
+	exe=${A2X-a2x}
+	if [ "$(basename "$exe")" = asciidoctor ]; then
+		opt=-b
+	else
+		opt=-f
+	fi
+	"$exe" $opt manpage $VERBOSE "$1"
+}
+
 uv_man() {
 	ASCIIDOC=uv.1.txt
 
@@ -53,7 +63,7 @@ uv_man() {
 
 	EOF
 
-	test -n "$DRY_RUN" || ${A2X-a2x} -f manpage $VERBOSE $ASCIIDOC -D .
+	test -n "$DRY_RUN" || run_asciidoc $ASCIIDOC
 
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
 	print_gen $ASCIIDOC
@@ -120,7 +130,7 @@ hd_rum_transcode_man() {
 
 	EOF
 
-	test -n "$DRY_RUN" || a2x -f manpage $VERBOSE $ASCIIDOC -D .
+	test -n "$DRY_RUN" || run_asciidoc $ASCIIDOC
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
 	print_gen $ASCIIDOC
 }

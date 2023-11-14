@@ -267,7 +267,7 @@ AC_SUBST(DYLIBBUNDLER)
 # ---------------------------------------------------------------------
 # AsciiDoc
 # ---------------------------------------------------------------------
-AC_PATH_PROG(A2X, [a2x], [:])
+AC_PATH_PROGS(A2X, [asciidoctor a2x], [:])
 AC_SUBST(A2X)
 AC_SUBST(MANPAGES)
 
