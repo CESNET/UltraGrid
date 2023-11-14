@@ -587,7 +587,7 @@ hd-rum-multi/hd-rum:
 	make -C hd-rum-multi
 
 # Makes dummy bundle (almost empty). May not be portable due to missing libs.
-$(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
+$(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	rm -rf $(BUNDLE)
 	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs $(BUNDLE)/Contents/Frameworks
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
@@ -600,6 +600,8 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 				-d $(BUNDLE)/Contents/libs/ -p @executable_path/../libs/ -x $$n; \
 	done
 	if [ -d Frameworks ]; then cp -R Frameworks/* $(BUNDLE)/Contents/Frameworks; fi
+	if [ -n '@MANPAGES@' ]; then mkdir -p $(BUNDLE)/Contents/man/man1; \
+		cp @MANPAGES@ $(BUNDLE)/Contents/man/man1; fi
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 # ships UltraGrid itself to GUI bundle which is copied from
