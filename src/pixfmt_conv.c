@@ -2570,36 +2570,49 @@ static void vc_copylineV210toY416(unsigned char * __restrict dst, const unsigned
 static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
+        enum {
+                IDEPTH    = 8,
+                Y_SHIFT   = 1 << (IDEPTH - 4),
+                C_SHIFT   = 1 << (IDEPTH - 1),
+                ODEPTH    = 8,
+                PIX_COUNT = 6,
+                RGB_BPP   = 3,
+                OUT_BL_SZ = PIX_COUNT * RGB_BPP,
+        };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
 #define WRITE_YUV_AS_RGB(y, u, v) \
-        val = 1.164 * (y - 16) + 1.793 * (v - 128);\
-        *(dst++) = CLAMP(val, 0, 255);\
-        val = 1.164 * (y - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
-        *(dst++) = CLAMP(val, 0, 255);\
-        val = 1.164 * (y - 16) + 2.115 * (u - 128);\
-        *(dst++) = CLAMP(val, 0, 255);
+        (y) = Y_SCALE * ((y) - Y_SHIFT); \
+        val = (YCBCR_TO_R_709_SCALED((y), (u), (v)) >> (COMP_BASE)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH); \
+        val = (YCBCR_TO_G_709_SCALED((y), (u), (v)) >> (COMP_BASE)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH); \
+        val = (YCBCR_TO_B_709_SCALED((y), (u), (v)) >> (COMP_BASE)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH);
 
+        // read 8 bits from v210 directly
 #define DECLARE_LOAD_V210_COMPONENTS(a, b, c) \
-        unsigned char a = src[1] << 6 | src[0] >> 2;\
-        unsigned char b = src[2] << 4 | src[1] >> 4;\
-        unsigned char c = src[3] << 2 | src[2] >> 6;\
+        comp_type_t a = (src[1] & 0x3) << 6 | src[0] >> 2;\
+        comp_type_t b = (src[2] & 0xF) << 4 | src[1] >> 4;\
+        comp_type_t c = (src[3] & 0x3F) << 2 | src[2] >> 6;\
 
-
-        OPTIMIZED_FOR (int x = 0; x + 6 * 3 <= dst_len; x += 6 * 3){
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += OUT_BL_SZ){
                 DECLARE_LOAD_V210_COMPONENTS(u01, y0, v01);
                 src += 4;
-
                 DECLARE_LOAD_V210_COMPONENTS(y1, u23, y2);
                 src += 4;
-
                 DECLARE_LOAD_V210_COMPONENTS(v23, y3, u45);
                 src += 4;
-
                 DECLARE_LOAD_V210_COMPONENTS(y4, v45, y5);
                 src += 4;
 
-                int val;
+                comp_type_t val = 0;
 
+                u01 -= C_SHIFT;
+                v01 -= C_SHIFT;
+                u23 -= C_SHIFT;
+                v23 -= C_SHIFT;
+                u45 -= C_SHIFT;
+                v45 -= C_SHIFT;
                 WRITE_YUV_AS_RGB(y0, u01, v01);
                 WRITE_YUV_AS_RGB(y1, u01, v01);
                 WRITE_YUV_AS_RGB(y2, u23, v23);
