@@ -38,6 +38,16 @@ run_asciidoc() {
 	"$exe" $opt manpage $VERBOSE "$1"
 }
 
+check_append_rm() {
+	if [ ! -s "$1" ]; then
+		echo "Could not obtain data from UG/reflector output!" >&2
+		rm "$1"
+		exit 3
+	fi
+	cat "$1" >> "$2"
+	rm "$1"
+}
+
 uv_man() {
 	ASCIIDOC=uv.1.txt
 
@@ -54,7 +64,9 @@ uv_man() {
 	== OPTIONS ==
 	EOF
 
-	"${UV_PATH}uv" --fullhelp | sed '0,/Options:/d' >> $ASCIIDOC
+	tmpfile=$(mktemp)
+	"${UV_PATH}uv" --fullhelp | sed '0,/Options:/d' > "$tmpfile"
+	check_append_rm "$tmpfile" $ASCIIDOC
 
 	bugreport_and_resources >> $ASCIIDOC
 	cat <<-'EOF' >> $ASCIIDOC
@@ -96,12 +108,16 @@ hd_rum_transcode_man() {
 	== OPTIONS ==
 	EOF
 
+	tmpfile=$(mktemp)
 	"${UV_PATH}hd-rum-transcode" -h |
-		awk '/where/{flag=1; next} flag{print}' | sed '/Please/,$d' >> $ASCIIDOC
+		awk '/where/{flag=1; next} flag{print}' | sed '/Please/,$d' > "$tmpfile"
+	check_append_rm "$tmpfile" $ASCIIDOC
 
 	printf '\n== NOTES ==\n' >> $ASCIIDOC
+	tmpfile=$(mktemp)
 	"${UV_PATH}hd-rum-transcode" -h | outdent_output | escape_apostrophe |
-		sed -n '/Please/,$p' >> $ASCIIDOC
+		sed -n '/Please/,$p' > "$tmpfile"
+	check_append_rm "$tmpfile" $ASCIIDOC
 
 	# below heredoc contains contiunation of NOTES section
 	cat <<-'EOF' >> $ASCIIDOC
