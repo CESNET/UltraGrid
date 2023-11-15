@@ -196,7 +196,7 @@ void main(void) {
 
   // interpolate (0,1) texcoords to [0,719]
   int texcoordDenormX;
-  texcoordDenormX = int(round(gl_TexCoord[0].x * imageWidth - .4999));
+  texcoordDenormX = int(round(gl_TexCoord[0].x * imageWidth - .5));
 
   // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
   int yOffset;
