@@ -199,8 +199,4 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-if [ -t 1 ]; then
-	printf "$(tput bold)Note:$(tput sgr0) Do not forget to check the generated manpages!\n"
-fi
-
 # vim: set noexpandtab tw=0:
