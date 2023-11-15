@@ -2624,6 +2624,67 @@ static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned 
 #undef DECLARE_LOAD_V210_COMPONENTS
 }
 
+static void
+vc_copylineV210toRG48(unsigned char *__restrict d,
+                      const unsigned char *__restrict src, int dst_len,
+                      int rshift, int gshift, int bshift)
+{
+        uint16_t *dst = (void *) d;
+        enum {
+                IDEPTH    = 10,
+                Y_SHIFT   = 1 << (IDEPTH - 4),
+                C_SHIFT   = 1 << (IDEPTH - 1),
+                ODEPTH    = 16,
+                DIFF_BPP  = ODEPTH - IDEPTH,
+                PIX_COUNT = 6,
+                RG48_BPP  = 6,
+                OUT_BL_SZ = PIX_COUNT * RG48_BPP,
+        };
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+#define WRITE_YUV_AS_RGB(y, u, v) \
+        (y) = Y_SCALE * ((y) - Y_SHIFT); \
+        val = (YCBCR_TO_R_709_SCALED((y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH); \
+        val = (YCBCR_TO_G_709_SCALED((y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH); \
+        val = (YCBCR_TO_B_709_SCALED((y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        *(dst++) = CLAMP_FULL(val, ODEPTH);
+
+        // read 8 bits from v210 directly
+#define DECLARE_LOAD_V210_COMPONENTS(a, b, c) \
+        comp_type_t a = (src[1] & 0x3) << 8 | src[0];\
+        comp_type_t b = (src[2] & 0xF) << 6 | src[1] >> 2;\
+        comp_type_t c = (src[3] & 0x3F) << 4 | src[2] >> 4;\
+
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += OUT_BL_SZ){
+                DECLARE_LOAD_V210_COMPONENTS(u01, y0, v01);
+                src += 4;
+                DECLARE_LOAD_V210_COMPONENTS(y1, u23, y2);
+                src += 4;
+                DECLARE_LOAD_V210_COMPONENTS(v23, y3, u45);
+                src += 4;
+                DECLARE_LOAD_V210_COMPONENTS(y4, v45, y5);
+                src += 4;
+
+                comp_type_t val = 0;
+
+                u01 -= C_SHIFT;
+                v01 -= C_SHIFT;
+                u23 -= C_SHIFT;
+                v23 -= C_SHIFT;
+                u45 -= C_SHIFT;
+                v45 -= C_SHIFT;
+                WRITE_YUV_AS_RGB(y0, u01, v01);
+                WRITE_YUV_AS_RGB(y1, u01, v01);
+                WRITE_YUV_AS_RGB(y2, u23, v23);
+                WRITE_YUV_AS_RGB(y3, u23, v23);
+                WRITE_YUV_AS_RGB(y4, u45, v45);
+                WRITE_YUV_AS_RGB(y5, u45, v45);
+        }
+#undef WRITE_YUV_AS_RGB
+#undef DECLARE_LOAD_V210_COMPONENTS
+}
+
 static void vc_copylineY416toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2718,6 +2779,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineV210toY216,  v210,  Y216 },
         { vc_copylineV210toY416,  v210,  Y416 },
         { vc_copylineV210toRGB,   v210,  RGB  },
+        { vc_copylineV210toRG48,  v210,  RG48 },
 };
 
 /**
