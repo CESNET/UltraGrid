@@ -572,11 +572,11 @@ doc:
 
 uv.1: $(TARGET)
 	$(MKDIR_P) $(dir $@)
-	A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh uv
+	@A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh uv
 
 hd-rum-transcode.1: $(REFLECTOR_TARGET)
 	$(MKDIR_P) $(dir $@)
-	A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh hd-rum-transcode
+	@A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh hd-rum-transcode
 
 man: uv.1 hd-rum-transcode.1
 
