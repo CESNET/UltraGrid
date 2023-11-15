@@ -189,6 +189,7 @@ while getopts dhkn name; do
 		;;
 	esac
 done
+shift $((OPTIND - 1))
 
 if [ $# -eq 0 ]; then
 	usage
