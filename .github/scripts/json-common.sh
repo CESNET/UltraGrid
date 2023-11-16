@@ -35,6 +35,8 @@ fetch_json() {
         req_type=${3-}
         if [ -n "$github_token" ]; then
                 set -- -H "Authorization: token $github_token"
+        else
+                set --
         fi
         status=$(curl -sS "$@" -X GET "$url" -w "%{http_code}" -o "$json")
         if ! is_int "$status" || [ "$status" -ne 200 ]; then
