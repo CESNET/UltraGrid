@@ -451,7 +451,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 s->sender = NET_JACK;
                 s->receiver = NET_JACK;
 #endif
-        } else {
+        } else if (s->audio_tx_mode != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", opt->proto);
                 goto error;
         }
