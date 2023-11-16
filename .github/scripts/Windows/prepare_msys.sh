@@ -46,7 +46,8 @@ MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
 m=$MINGW_PACKAGE_PREFIX
 $PACMAN_INSTALL automake autoconf git make pkgconf $m-toolchain unzip zip
 $PACMAN_INSTALL $m-asciidoc \
-        $m-ffmpeg
+        $m-ffmpeg \
+        $m-libnatpmp
 $PACMAN_INSTALL $m-libsoxr $m-speexdsp
 $PACMAN_INSTALL $m-glew $m-libcaca $m-SDL2 $m-SDL2_mixer $m-SDL2_ttf $m-glfw
 $PACMAN_INSTALL $m-glm
@@ -107,9 +108,6 @@ install_soundfont() {
 
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
-
-"$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh"
-
 
 install_aja
 install_deltacast
