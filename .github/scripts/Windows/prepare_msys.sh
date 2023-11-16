@@ -73,8 +73,10 @@ install_aja() {(
         data/scripts/build_aja_lib_win64.sh
 )}
 
-# DELTACAST
-if [ -n "$SDK_URL" ]; then
+install_deltacast() {(
+        if [ -z "$SDK_URL" ]; then
+                        return
+        fi
         mkdir VideoMaster
         cd VideoMaster
         if curl -f -S "$SDK_URL/VideoMaster_SDK_Windows.zip" -O; then
@@ -87,7 +89,7 @@ if [ -n "$SDK_URL" ]; then
         fi
         cd ..
         rm -rf VideoMaster
-fi
+)}
 
 build_cineform() {
         (
@@ -98,6 +100,12 @@ build_cineform() {
         cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp ../Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
         )
 }
+install_gpujpeg() {(
+        wget --no-verbose \
+https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
+        unzip GPUJPEG.zip
+        cp -r GPUJPEG/* /usr/local
+)}
 
 install_soundfont() {
         . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
@@ -111,10 +119,10 @@ install_soundfont() {
 
 "$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh"
 
-# Install GPUJPEG
-( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
 
 build_cineform
 install_aja
+install_deltacast
+install_gpujpeg
 install_soundfont
 
