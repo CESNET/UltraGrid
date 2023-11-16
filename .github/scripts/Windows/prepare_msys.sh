@@ -91,15 +91,6 @@ install_deltacast() {(
         rm -rf VideoMaster
 )}
 
-build_cineform() {
-        (
-        cd "$GITHUB_WORKSPACE/cineform-sdk/build"
-        sed -i 's/GetProcessorCount/_&/'  ../ConvertLib/ImageScaler.cpp # workaround for needless Win GetProcessorCount definition
-        cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 .. # assume "-G 'Visual Studio 16 2019'"
-        cmake --build . --config Release --parallel
-        cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp ../Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
-        )
-}
 install_gpujpeg() {(
         wget --no-verbose \
 https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
@@ -120,7 +111,6 @@ install_soundfont() {
 "$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh"
 
 
-build_cineform
 install_aja
 install_deltacast
 install_gpujpeg

@@ -21,18 +21,16 @@ if ! command -v nproc >/dev/null; then
 fi
 
 is_arm() { expr "$(dpkg --print-architecture)" : arm >/dev/null; }
+is_win() { [ "$win" = yes ]; }
 
-# for Win only download here, compilation is handled differently
 download_install_cineform() {(
         git clone --depth 1 https://github.com/gopro/cineform-sdk
         cd cineform-sdk
         git apply "$curdir/0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch"
         mkdir build && cd build
-        if [ "$win" = no ]; then
-                cmake -DBUILD_TOOLS=OFF ..
-                cmake --build . --parallel
-                sudo cmake --install .
-        fi
+        cmake -DBUILD_TOOLS=OFF ..
+        cmake --build . --parallel
+        sudo cmake --install .
 )}
 
 install_ews() {
@@ -68,7 +66,7 @@ install_zfec() {(
         ${sudo:+"$sudo" }mv zfec/zfec /usr/local/src
 )}
 
-if ! is_arm; then
+if ! is_arm && ! is_win; then
         download_install_cineform
 fi
 install_ews
