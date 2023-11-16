@@ -62,9 +62,8 @@ pacman -Scc --noconfirm
 install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2 AJA
         cd AJA
-        # shellcheck source=/dev/null
-        . "$github_workspace_cp/.github/scripts/aja-common.sh"
-        download_aja_release_asset libs_windows_ aja_build.zip
+        "$github_workspace_cp/.github/scripts/download-gh-asset.sh" \
+                aja-video/ntv2 libs_windows_ aja_build.zip
         rm README.md # would be overriden from zip below
         unzip aja_build.zip
         mkdir -p lib
