@@ -28,12 +28,12 @@ build() {(
 )}
 
 install() {(
-        mkdir -p /usr/local/bin /usr/local/include /usr/local/lib/pkgconfig
+        mkdir -p /usr/local/bin /usr/local/include /usr/local/lib
         cd /c/cineform-sdk/build
         cp Release/CFHDCodec.dll /usr/local/bin/
         cp Release/CFHDCodec.lib /usr/local/lib/
         cp ../Common/* /usr/local/include/
-        cp libcineformsdk.pc /usr/local/lib/pkgconfig/
+        # mkdir /usr/local/lib/pkgconfig; cp libcineformsdk.pc /usr/local/lib/pkgconfig/
 )}
 
 $1
