@@ -255,12 +255,9 @@ static void usage() {
         color_printf(TBOLD("LDGM") " usage:\n");
         color_printf("\t" TBOLD("-f ldgm:<expected_loss>%% | ldgm[:<k>:<m>[:c]]") "\n");
         printf("\nwhere:\n");
-        color_printf("\t" TBOLD("<expected_loss>") " - expected maximal loss in percent "
-               "(including '%%'-sign)\n"
-               "\tPlease note that there are only a few presets for FullHD "
-               "video\n"
-               "\tthat will work correctly (JPEG and uncompressed, see "
-               "wiki).\n\n"
+        color_printf("\t" TBOLD("<expected_loss>") " - expected maximal loss "
+               TBOLD("per frame")  " in percent\n"
+               "\t\t(including '%%'-sign)¹\n"
                "\t" TBOLD("<k>") " - matrix width\n"
                "\t" TBOLD("<m>") " - matrix height\n"
                "\t" TBOLD("<c>") " - number of ones per column\n"
@@ -271,6 +268,11 @@ static void usage() {
                "\n",
                MINIMAL_VALUE, MAX_K, MIN_C, MAX_C, DEFAULT_K, DEFAULT_M,
                DEFAULT_C);
+        color_printf(
+            "¹ Please note that there are only a few presets for FullHD "
+            "video\n"
+            "that will work correctly for JPEG and uncompressed, see wiki:\n"
+            "<https://github.com/CESNET/UltraGrid/wiki/FEC-Settings#ldgm>\n\n");
 }
 ldgm::ldgm(const char *cfg)
 {
