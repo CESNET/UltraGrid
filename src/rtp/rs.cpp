@@ -45,6 +45,7 @@
 #include "rtp/rs.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/text.h"
 
 #define DEFAULT_K 200
 #define DEFAULT_N 240
@@ -416,5 +417,11 @@ static void usage() {
                 "(default " TBOLD("%d") ", max %d),\n"
                 "\t\t\tmust be > <k>\n\n",
                 DEFAULT_K, MAX_K, DEFAULT_N, MAX_N);
-}
 
+        char desc[] =
+            "The n/k ratio determines the redundancy that the FEC provides. "
+            "But please note that the " TUNDERLINE("strength")
+            " of the FEC applies " TBOLD ("per frame") " basis, so 20%"
+            " redundancy will cover 20% loss in a signle frame only.\n";
+        color_printf("%s\n", wrap_paragraph(desc));
+}
