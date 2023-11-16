@@ -253,11 +253,9 @@ bool ldgm::decode(char *frame, int size, char **out, int *out_size, const map<in
 //////////////////////////////////
 static void usage() {
         color_printf(TBOLD("LDGM") " usage:\n");
-        color_printf("\t" TBOLD("-f ldgm:<expected_loss>%% | ldgm[:<k>:<m>[:c]]") "\n");
+        color_printf("\t" TBOLD(TRED("-f ldgm") "[:<k>:<m>[:c]]" " | " TRED("-f ldgm:<expected_loss>%%")) "\n");
         printf("\nwhere:\n");
-        color_printf("\t" TBOLD("<expected_loss>") " - expected maximal loss "
-               TBOLD("per frame")  " in percent\n"
-               "\t\t(including '%%'-sign)¹\n"
+        color_printf(
                "\t" TBOLD("<k>") " - matrix width\n"
                "\t" TBOLD("<m>") " - matrix height\n"
                "\t" TBOLD("<c>") " - number of ones per column\n"
@@ -265,6 +263,9 @@ static void usage() {
                "needed bandwidth)\n"
                "\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
                "\t\tdefault: k = %d, m = %d, c = %d\n"
+                "\t" TBOLD("<expected_loss>") " - expected maximal loss "
+               TBOLD("per frame")  " in percent\n"
+               "\t\t(including '%%'-sign)¹\n"
                "\n",
                MINIMAL_VALUE, MAX_K, MIN_C, MAX_C, DEFAULT_K, DEFAULT_M,
                DEFAULT_C);
