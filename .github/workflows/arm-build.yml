@@ -63,8 +63,8 @@ jobs:
         sudo mv /var/tmp/*NDI* ~/chroot/var/tmp
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
         sudo debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} ${{ matrix.deb_release }} ~/chroot ${{ matrix.repo }}
-        sudo cp -r $GITHUB_WORKSPACE/.github ~/chroot
-        sudo cp /usr/bin/qemu-${{ matrix.qemu_bin_arch }}-static ~/chroot/usr/bin
+        sudo cp -r $GITHUB_WORKSPACE/.github ~/chroot/
+        sudo cp /usr/bin/qemu-${{ matrix.qemu_bin_arch }}-static ~/chroot/usr/bin/
         sudo chroot ~/chroot /.github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }}
         cd ~ && sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
     - name: Extract Cached Environment

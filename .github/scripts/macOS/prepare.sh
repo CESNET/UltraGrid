@@ -47,8 +47,8 @@ cd $TEMP_INST
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {
         hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
-        sudo cp -a /Volumes/XIMEA/m3api.framework "$(xcrun --show-sdk-path)/System/Library/Frameworks"
-        sudo xattr -dr com.apple.quarantine "$(xcrun --show-sdk-path)/System/Library/Frameworks"
+        sudo cp -a /Volumes/XIMEA/m3api.framework "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
+        sudo xattr -dr com.apple.quarantine "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
         umount /Volumes/XIMEA
 }
 
@@ -60,7 +60,7 @@ install_aja() {
         "$srcroot/.github/scripts/download-gh-asset.sh" aja-video/ntv2 \
                 libs_mac_ aja_build.tar.gz
         tar xzf aja_build.tar.gz
-        sudo cp Release/x64/* /usr/local/lib
+        sudo cp Release/x64/* /usr/local/lib/
         cd $TEMP_INST
 }
 
@@ -71,7 +71,7 @@ install_deltacast() {
         fi
         FEATURES="$FEATURES --enable-deltacast"
         echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
-        sudo cp -a "$DELTA_CACHE_INST"/* "$(xcrun --show-sdk-path)/System/Library/Frameworks"
+        sudo cp -a "$DELTA_CACHE_INST"/* "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
 }
 
 install_glfw() {(
@@ -123,7 +123,7 @@ install_soundfont() {
 install_syphon() {
         curl -LO https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
         unzip Syphon.SDK.5.zip
-        sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
+        sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks/
 }
 
 # Install cross-platform deps

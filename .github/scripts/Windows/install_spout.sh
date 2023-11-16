@@ -12,9 +12,9 @@ build() {(
 
 install() {(
         mkdir -p /usr/local/bin /usr/local/include /usr/local/lib
-        cp /c/Spout2/build2/Binaries/x64/SpoutLibrary.dll /usr/local/bin
-        cp /c/Spout2/build2/Binaries/x64/SpoutLibrary.lib /usr/local/lib
-        cp /c/Spout2/SPOUTSDK/SpoutLibrary/SpoutLibrary.h /usr/local/include
+        cp /c/Spout2/build2/Binaries/x64/SpoutLibrary.dll /usr/local/bin/
+        cp /c/Spout2/build2/Binaries/x64/SpoutLibrary.lib /usr/local/lib/
+        cp /c/Spout2/SPOUTSDK/SpoutLibrary/SpoutLibrary.h /usr/local/include/
 )}
 
 $1

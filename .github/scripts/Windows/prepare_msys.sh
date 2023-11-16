@@ -68,8 +68,8 @@ install_aja() {(
         rm README.md # would be overriden from zip below
         unzip aja_build.zip
         mkdir -p lib
-        cp Release/*.lib lib
-        cp Release/*.dll /usr/local/bin
+        cp Release/*.lib lib/
+        cp Release/*.dll /usr/local/bin/
         cd ..
         data/scripts/build_aja_lib_win64.sh
 )}
@@ -84,9 +84,9 @@ install_deltacast() {(
                 FEATURES="$FEATURES --enable-deltacast"
                 echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
                 unzip VideoMaster_SDK_Windows.zip
-                cp Binaries/Resources/Lib64/*dll /usr/local/bin
-                cp -r Include/* /usr/local/include
-                cp Library/x64/* /usr/local/lib
+                cp Binaries/Resources/Lib64/*dll /usr/local/bin/
+                cp -r Include/* /usr/local/include/
+                cp Library/x64/* /usr/local/lib/
         fi
         cd ..
         rm -rf VideoMaster
@@ -96,7 +96,7 @@ install_gpujpeg() {(
         wget --no-verbose \
 https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
         unzip GPUJPEG.zip
-        cp -r GPUJPEG/* /usr/local
+        cp -r GPUJPEG/* /usr/local/
 )}
 
 install_soundfont() {

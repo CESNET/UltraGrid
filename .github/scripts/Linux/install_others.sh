@@ -57,7 +57,7 @@ install_ndi() {(
         # shellcheck disable=SC2125
         installer=./Install*NDI*sh
         yes | PAGER="cat" $installer
-        sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
+        sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
 )}
 
