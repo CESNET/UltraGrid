@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
 
 #include <bitset>
-#include <stdlib.h>
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
 
 #include "debug.h"
 #include "rtp/rs.h"
-#include "rtp/rtp_callback.h"
-#include "transmit.h"
 #include "ug_runtime_error.hpp"
-#include "video.h"
+#include "utils/color_out.h"
 
 #define DEFAULT_K 200
 #define DEFAULT_N 240
@@ -68,7 +63,7 @@ extern "C" {
 
 static void usage();
 
-using namespace std;
+using std::shared_ptr;
 
 /**
  * Constructs RS state. Since this constructor is currently used only for the decoder,
@@ -412,12 +407,14 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
 }
 
 static void usage() {
-        printf("RS usage:\n"
-                        "\t-f rs[:<k>:<n>]\n"
-                        "\n"
-                        "\t\t<k> - block length (default %d, max %d)\n"
-                        "\t\t<n> - length of block + parity (default %d, max %d)\n\t\t\tmust be > <k>\n"
-                        "\n",
-                        DEFAULT_K, MAX_K, DEFAULT_N, MAX_N);
+        color_printf(TBOLD("Reed-Solomon") " usage:\n");
+        color_printf("\t" TBOLD(TRED("-f rs") "[:<k>:<n>]") "\n");
+        color_printf("\nwhere:\n");
+        color_printf("\t" TBOLD("<k>") " - block length (default "
+                TBOLD("%d") ", max %d)\n"
+                "\t" TBOLD("<n>") " - length of block + parity "
+                "(default " TBOLD("%d") ", max %d),\n"
+                "\t\t\tmust be > <k>\n\n",
+                DEFAULT_K, MAX_K, DEFAULT_N, MAX_N);
 }
 
