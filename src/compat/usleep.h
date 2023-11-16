@@ -35,14 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_USLEEP
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 
+#endif
+
+#if ! defined HAVE_CONFIG_H || defined HAVE_USLEEP
 #include <unistd.h>
-
 #else
-
 #include "utils/macros.h"
-
 EXTERN_C int usleep(unsigned int usec);
-
-#endif /* !defined HAVE_USLEEP */
+#endif /* defined HAVE_USLEEP */
