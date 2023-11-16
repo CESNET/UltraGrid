@@ -36,25 +36,20 @@
  */
 
 #define WANT_MKDIR
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <cerrno>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <sys/types.h>
-
-#include <limits>
+#include <unistd.h>
 
 #include "debug.h"
 #include "host.h"
@@ -70,9 +65,16 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
+#include "utils/color_out.h"
 #include "video.h"
 
-using namespace std;
+using std::endl;
+using std::map;
+using std::ostringstream;
+using std::setprecision;
+using std::shared_ptr;
+using std::string;
+using std::unique_ptr;
 
 typedef enum {
         STD1500 = 1500,
@@ -250,23 +252,25 @@ bool ldgm::decode(char *frame, int size, char **out, int *out_size, const map<in
 // ENCODER
 //////////////////////////////////
 static void usage() {
-        printf("LDGM usage:\n"
-                        "\t-f ldgm:<expected_loss>%% | ldgm[:<k>:<m>[:c]]\n"
-                        "\n"
-                        "\t\t<expected_loss> - expected maximal loss in percent (including '%%'-sign)\n"
-                        "\t\tPlease note that there are only a few presets for FullHD video\n"
-                        "\t\tthat will work correctly (JPEG and uncompressed, see wiki).\n\n"
-                        "\t\t<k> - matrix width\n"
-                        "\t\t<m> - matrix height\n"
-                        "\t\t<c> - number of ones per column\n"
-                        "\t\t\tthe bigger ratio m/k, the better correction (but also needed bandwidth)\n"
-                        "\t\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
-                        "\t\t\tdefault: k = %d, m = %d, c = %d\n"
-                        "\n",
-                        MINIMAL_VALUE, MAX_K,
-                        MIN_C, MAX_C,
-                        DEFAULT_K, DEFAULT_M, DEFAULT_C
-                        );
+        color_printf(TBOLD("LDGM") " usage:\n");
+        color_printf("\t" TBOLD("-f ldgm:<expected_loss>%% | ldgm[:<k>:<m>[:c]]") "\n");
+        printf("\nwhere:\n");
+        color_printf("\t" TBOLD("<expected_loss>") " - expected maximal loss in percent "
+               "(including '%%'-sign)\n"
+               "\tPlease note that there are only a few presets for FullHD "
+               "video\n"
+               "\tthat will work correctly (JPEG and uncompressed, see "
+               "wiki).\n\n"
+               "\t" TBOLD("<k>") " - matrix width\n"
+               "\t" TBOLD("<m>") " - matrix height\n"
+               "\t" TBOLD("<c>") " - number of ones per column\n"
+               "\t\tthe bigger ratio m/k, the better correction (but also "
+               "needed bandwidth)\n"
+               "\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
+               "\t\tdefault: k = %d, m = %d, c = %d\n"
+               "\n",
+               MINIMAL_VALUE, MAX_K, MIN_C, MAX_C, DEFAULT_K, DEFAULT_M,
+               DEFAULT_C);
 }
 ldgm::ldgm(const char *cfg)
 {
