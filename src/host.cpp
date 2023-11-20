@@ -49,6 +49,10 @@
 #include <fcntl.h>
 #endif // defined WIN32
 
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ < 27
+#include <sys/syscall.h>
+#endif
+
 #include "host.h"
 
 #include "audio/audio_capture.h"
@@ -1059,14 +1063,18 @@ print_backtrace()
 #ifndef _WIN32
         // print to a temporary file to avoid interleaving from multiple
         // threads
-#ifdef __APPLE__
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 27)
+        int fd = memfd_create("ultragrid_backtrace", MFD_CLOEXEC);
+#else
         char path[MAX_PATH_SIZE];
-        snprintf(path, sizeof path, "%s/ug-%u", get_temp_dir(),
-                 pthread_mach_thread_np(pthread_self()));
+#ifdef __APPLE__
+        const unsigned long tid = pthread_mach_thread_np(pthread_self());
+#else
+        const unsigned long tid = syscall(__NR_gettid);
+#endif
+        snprintf(path, sizeof path, "%s/ug-%lu", get_temp_dir(), tid);
         int fd = open(path, O_CLOEXEC | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
         unlink(path);
-#else
-        int fd = memfd_create("ultragrid_backtrace", MFD_CLOEXEC);
 #endif
         if (fd == -1) {
                 fd = STDERR_FILENO;
