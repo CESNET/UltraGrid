@@ -46,9 +46,16 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
+#include <cassert>
+#include <climits>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <utility>
+
+#include <cmpto_j2k_enc.h>
 
 #include "debug.h"
 #include "host.h"
@@ -60,13 +67,6 @@
 #include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_compress.h"
-
-#include <cmpto_j2k_enc.h>
-
-#include <condition_variable>
-#include <mutex>
-#include <queue>
-#include <utility>
 
 constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
 
@@ -88,7 +88,11 @@ constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
 #define DEFAULT_TILE_LIMIT 1
 #define DEFAULT_MEM_LIMIT 1000000000LLU
 
-using namespace std;
+using std::condition_variable;
+using std::mutex;
+using std::stod;
+using std::shared_ptr;
+using std::unique_lock;
 
 struct state_video_compress_j2k {
         state_video_compress_j2k(long long int bitrate, unsigned int pool_size, int mct)
