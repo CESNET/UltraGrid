@@ -72,6 +72,7 @@ public:
          * @param vert_src vertex shader source
          * @param frag_src fragment shader source
          */
+        GlProgram() = default;
         GlProgram(const char *vert_src, const char *frag_src);
         ~GlProgram();
 
@@ -97,6 +98,7 @@ private:
  */
 class Model{
 public:
+        Model() = default;
         Model(const Model&) = delete;
         Model(Model&& o) { swap(o); }
         Model& operator=(const Model&) = delete;
@@ -124,7 +126,6 @@ public:
         static Model get_quad();
 
 private:
-        Model() = default;
         void swap(Model& o){
                 std::swap(vao, o.vao);
                 std::swap(vbo, o.vbo);
@@ -400,6 +401,7 @@ private:
  */
 struct Scene{
         Scene();
+        Scene(GlProgram program, Model model);
 
         /**
          * Renders the scene.
@@ -437,6 +439,8 @@ struct Scene{
          * @param dy vertical angle to rotate by
          */
         void rotate(float dx, float dy);
+
+        static Scene get_2D_scene();
 
         GlProgram program;// = GlProgram(persp_vert_src, persp_frag_src);
         Model model;// = Model::get_sphere();

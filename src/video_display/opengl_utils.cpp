@@ -424,8 +424,15 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         glUseProgram(0);
 }
 
-Scene::Scene(): program(persp_vert_src, persp_frag_src),
-        model(Model::get_sphere()) { }
+Scene Scene::get_2D_scene(){
+       return Scene(GlProgram(vert_src, frag_src), Model::get_quad()); 
+}
+
+Scene::Scene(): Scene(GlProgram(persp_vert_src, persp_frag_src),
+        Model::get_sphere()) { }
+
+Scene::Scene(GlProgram program, Model model): program(std::move(program)),
+        model(std::move(model)) {  }
 
 void Scene::render(int width, int height){
         float aspect_ratio = static_cast<float>(width) / height;
