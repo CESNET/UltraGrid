@@ -45,3 +45,10 @@
 * fixed zfec (Reed-Solomon) crash due to upstream changes
 * build fixes
 * show HW acceleration checkbox in GUI
+
+#### 1.8.7
+
+* target macOS build to macOS 12
+* fixed Reed-Solomon crashes due to upstream changes
+* fixed Spout crashes due to upstream changes
+* fixed incorrect v210 rendering with OpenGL in Win
