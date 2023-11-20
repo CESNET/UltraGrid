@@ -57,6 +57,9 @@
 
 #include <cmpto_j2k_enc.h>
 
+#ifdef HAVE_CUDA
+#include "cuda_wrapper.h"
+#endif
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -94,11 +97,37 @@ using std::stod;
 using std::shared_ptr;
 using std::unique_lock;
 
+#ifdef HAVE_CUDA
+struct cmpto_j2k_enc_cuda_host_buffer_data_allocator
+    : public video_frame_pool_allocator {
+        void *allocate(size_t size) override
+        {
+                void *ptr = nullptr;
+                if (CUDA_WRAPPER_SUCCESS !=
+                    cuda_wrapper_malloc_host(&ptr, size)) {
+                        return nullptr;
+                }
+                return ptr;
+        }
+        void deallocate(void *ptr) override { cuda_wrapper_free(ptr); }
+        [[nodiscard]] video_frame_pool_allocator *clone() const override
+        {
+                return new cmpto_j2k_enc_cuda_host_buffer_data_allocator(*this);
+        }
+};
+using allocator = cmpto_j2k_enc_cuda_host_buffer_data_allocator;
+#else
+using allocator = default_data_allocator;
+#endif
+
 struct state_video_compress_j2k {
         state_video_compress_j2k(long long int bitrate, unsigned int pool_size, int mct)
-                : rate{bitrate}, mct(mct), pool{pool_size}, max_in_frames{pool_size} {}
-        struct module module_data{};
+            : rate(bitrate), mct(mct), pool(pool_size, allocator()),
+              max_in_frames(pool_size)
+        {
+        }
 
+        struct module module_data{};
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate; ///< bitrate in bits per second
