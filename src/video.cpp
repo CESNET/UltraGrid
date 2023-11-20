@@ -248,8 +248,9 @@ const char *video_desc_to_string(struct video_desc d)
 static double
 parse_fps(const char *string, bool interlaced)
 {
-        const char *fps_str = strpbrk(string, "dikp") + 1;
+        const char *fps_str = strpbrk(string, "dikp");
         assert(fps_str != nullptr);
+        fps_str += 1;
         char      *endptr = nullptr;
         const long fps_l  = strtol(fps_str, &endptr, 10);
         if (fps_l <= 0 || fps_l > FPS_MAX || *endptr != '\0') {
