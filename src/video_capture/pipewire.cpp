@@ -511,10 +511,10 @@ static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
                                                 is >> s->user_options.fps;
                                                 continue;
                                         }else if(name == "restore"){
-                                                s->user_options.restore_file = value;
+                                                s->user_options.restore_file = std::move(value);
                                                 continue;
                                         } else if(name =="target"){
-                                                s->user_options.target = value;
+                                                s->user_options.target = std::move(value);
                                                 continue;
                                         }
                                 }
