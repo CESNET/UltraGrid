@@ -35,20 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
+#include "debug.h"
 #include "export.h"
 #include "host.h"
 #include "lib_common.h"
@@ -69,7 +61,9 @@
 #include "video_display.h"
 #include "video_rxtx.hpp"
 
-using namespace std;
+using std::map;
+using std::shared_ptr;
+using std::string;
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
                 m_rxtx_mode(params.at("rxtx_mode").i),
