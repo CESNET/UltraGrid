@@ -79,42 +79,31 @@ using namespace std::chrono;
 class sockaddr_storage_less {
 public:
         bool operator() (const sockaddr_storage & x, const sockaddr_storage & y) const {
-                if (x.ss_family < y.ss_family) {
-                        return true;
-                } else if (x.ss_family > y.ss_family) {
-                        return false;
+                if (x.ss_family != y.ss_family) {
+                        return x.ss_family < y.ss_family;
                 }
 
                 if (x.ss_family == AF_INET) {
                         auto sin_x = reinterpret_cast<const sockaddr_in &>(x);
                         auto sin_y = reinterpret_cast<const sockaddr_in &>(y);
-                        if (sin_x.sin_addr.s_addr < sin_y.sin_addr.s_addr) {
-                                return true;
-                        } else if (sin_x.sin_addr.s_addr > sin_y.sin_addr.s_addr) {
-                                return false;
+
+                        if (sin_x.sin_addr.s_addr != sin_y.sin_addr.s_addr) {
+                                return sin_x.sin_addr.s_addr < sin_y.sin_addr.s_addr;
                         }
-                        if (sin_x.sin_port < sin_y.sin_port) {
-                                return true;
-                        } else {
-                                return false;
-                        }
+                        return sin_x.sin_port < sin_y.sin_port;
                 } else if (x.ss_family == AF_INET6) {
                         auto sin_x = reinterpret_cast<const sockaddr_in6 &>(x);
                         auto sin_y = reinterpret_cast<const sockaddr_in6 &>(y);
+
                         for (int i = 0; i < 16; ++i) {
-                                if (sin_x.sin6_addr.s6_addr[i] < sin_y.sin6_addr.s6_addr[i]) {
-                                        return true;
-                                } else if (sin_x.sin6_addr.s6_addr[i] > sin_y.sin6_addr.s6_addr[i]) {
-                                        return false;
+                                if (sin_x.sin6_addr.s6_addr[i] != sin_y.sin6_addr.s6_addr[i]) {
+                                        return sin_x.sin6_addr.s6_addr[i] < sin_y.sin6_addr.s6_addr[i];
                                 }
                         }
 
-                        if (sin_x.sin6_port < sin_y.sin6_port) {
-                                return true;
-                        } else {
-                                return false;
-                        }
-                } else abort();
+                        return sin_x.sin6_port < sin_y.sin6_port;
+                }
+                abort();
         }
 };
 
