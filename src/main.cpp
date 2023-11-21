@@ -229,7 +229,10 @@ static void usage(const char *exec_path, bool full = false)
         print_help_item("-r <playback_device>", {"audio playback device (see '-r help')"});
         print_help_item("-s <capture_device>", {"audio capture device (see '-s help')"});
         if (full) {
-                print_help_item("--verbose[=<level>]", {"print verbose messages (optionally specify level [0-" + to_string(LOG_LEVEL_MAX) + "])"});
+                print_help_item(
+                    "-V, --verbose[=<level>]",
+                    { "print verbose messages (optionally specify level [0-" +
+                      to_string(LOG_LEVEL_MAX) + "])" });
                 print_help_item("--list-modules", {"prints list of modules"});
                 print_help_item("--control-port <port>[:0|1]", {"set control port (default port: " + to_string(DEFAULT_CONTROL_PORT) + ")",
                                 "connection types: 0- Server (default), 1- Client"});
@@ -256,7 +259,7 @@ static void usage(const char *exec_path, bool full = false)
                                 "You can also specify all two or four", "ports directly."});
                 print_help_item("-l <limit_bitrate> | unlimited | auto", {"limit sending bitrate",
                                 "to <limit_bitrate> (with optional k/M/G suffix)"});
-                print_help_item("-A <address>", {"audio destination address",
+                print_help_item("--audio-host <address>", {"audio destination address",
                                 "If not specified, will use same as for video"});
         }
         print_help_item("-a, --audio-capture-format <fmt> | help", {"format of captured audio"});
@@ -264,7 +267,9 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--audio-channel-map <mapping> | help", {});
                 print_help_item("--audio-filter <filter>[:<config>][#<filter>[:<config>]]...", {});
         }
-        print_help_item("--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help", {"audio codec"});
+        print_help_item("-A, --audio-codec "
+                        "<codec>[:sample_rate=<sr>][:bitrate=<br>] | help",
+                        { "audio codec" });
         if (full) {
                 print_help_item("--audio-delay <delay_ms>", {"amount of time audio should be delayed to video",
                                 "(may be also negative to delay video)"});
