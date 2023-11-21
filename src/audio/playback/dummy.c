@@ -55,6 +55,7 @@ enum {
 struct state_dummy_aplay {
         bool debug;
         int64_t first_ts;
+        int64_t last_ts;
 };
 
 static void audio_play_dummy_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
@@ -100,11 +101,14 @@ static void audio_play_dummy_put_frame(void *state, const struct audio_frame *f)
                 s->first_ts = f->timestamp;
         }
 
-        const long long offset = f->timestamp - s->first_ts;
+        const long long frm_beg_off = f->timestamp - s->first_ts;
+        const long long frm_last_off = f->timestamp - s->last_ts;
         printf(MOD_NAME "Received TS: %10" PRId64
-                        ", offset: %6lld, sample: %6lld, len: %d\n",
-               f->timestamp, offset, offset * f->sample_rate / kHz90,
+                        ", offset: %6lld, sample: %6lld (+%lld), len: %d\n",
+               f->timestamp, frm_beg_off, frm_beg_off * f->sample_rate / kHz90,
+               frm_last_off * f->sample_rate / kHz90,
                f->data_len / f->bps / f->ch_count);
+        s->last_ts = f->timestamp;
 }
 
 static void audio_play_dummy_done(void *state)
