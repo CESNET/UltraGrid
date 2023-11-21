@@ -49,6 +49,13 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <algorithm>
+#include <condition_variable>
+#include <chrono>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <utility>
 #ifdef _MSC_VER
 #include <winsock2.h>
 #endif
@@ -94,13 +101,6 @@
 #include "ntv2devicefeatures.h"
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
-
-#include <algorithm>
-#include <condition_variable>
-#include <chrono>
-#include <mutex>
-#include <string>
-#include <thread>
 
 #include "aja_common.h"
 
@@ -917,7 +917,7 @@ void vidcap_state_aja::CaptureFrames (void)
                 CHECK(mDevice.SetInputFrame   (mInputChannel,  currentInFrame));
 
                 unique_lock<mutex> lk(mOutputFrameLock);
-                mOutputFrame = out;
+                mOutputFrame = std::move(out);
 		mOutputAudioFrame = shared_ptr<uint32_t>(pHostAudioBuffer, aligned_free);
 		mOutputAudioFrameSize = audioBytesCaptured;
                 lk.unlock();
