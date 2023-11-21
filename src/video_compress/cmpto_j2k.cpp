@@ -71,7 +71,7 @@
 #include "video.h"
 #include "video_compress.h"
 
-constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
+#define MOD_NAME "[Cmpto J2K enc.] "
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
@@ -105,6 +105,8 @@ struct cmpto_j2k_enc_cuda_host_buffer_data_allocator
                 void *ptr = nullptr;
                 if (CUDA_WRAPPER_SUCCESS !=
                     cuda_wrapper_malloc_host(&ptr, size)) {
+                        MSG(ERROR, "Cannot allocate host buffer: %s\n",
+                            cuda_wrapper_last_error_string());
                         return nullptr;
                 }
                 return ptr;
