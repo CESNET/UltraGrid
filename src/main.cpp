@@ -128,7 +128,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_HOST (('A' << 8) | 'H')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
-#define OPT_AUDIO_FILTER (('a' << 8) | 'f')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
@@ -739,6 +738,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"encryption",             required_argument, nullptr, 'e'},
                 {"fec",                    required_argument, nullptr, 'f'},
                 {"help",                   no_argument,       nullptr, 'h'},
+                {"audio-filter",           required_argument, nullptr, 'i'},
                 {"limit-bitrate",          required_argument, nullptr, 'l'},
                 {"capture",                required_argument, nullptr, 't'},
                 {"mtu",                    required_argument, nullptr, 'm'},
@@ -767,7 +767,6 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"audio-protocol",         required_argument, 0, OPT_AUDIO_PROTOCOL},
                 {"capabilities",           optional_argument, 0, OPT_CAPABILITIES},
                 {"control-port",           required_argument, 0, OPT_CONTROL_PORT},
-                {"audio-filter",           required_argument, 0, OPT_AUDIO_FILTER},
                 {"audio-scale",            required_argument, 0, OPT_AUDIO_SCALE},
                 {"echo-cancellation",      no_argument,       0, OPT_ECHO_CANCELLATION},
                 {"list-modules",           no_argument,       0, OPT_LIST_MODULES},
@@ -781,7 +780,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CD:E::F:HI:M:N::P:ST:U:Va:c:e:f:d:hl:m:p:r:s:t:vx:";
+        const char *optstring =
+            "46A:CD:E::F:HI:M:N::P:ST:U:Va:c:e:f:d:hi:l:m:p:r:s:t:vx:";
 
         int ch = 0;
         while ((ch =
@@ -920,7 +920,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 return ret < 0 ? -EXIT_FAIL_USAGE : 1;
                         }
                         break;
-                case OPT_AUDIO_FILTER:
+                case 'i':
                         opt->audio.filter_cfg = optarg;
                         break;
                 case OPT_ECHO_CANCELLATION:
