@@ -35,18 +35,27 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"
+#include "utils/color_out.h"
 
-static int state;
+#define MOD_NAME "[dummy a.] "
+
+enum {
+        NDEF_TS = -1,
+};
+
+struct state_dummy_aplay {
+        bool debug;
+        int64_t first_ts;
+};
 
 static void audio_play_dummy_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
@@ -57,27 +66,50 @@ static void audio_play_dummy_probe(struct device_info **available_devices, int *
 
 static void audio_play_dummy_help(void)
 {
-        printf("\tdummy: dummy audio playback\n");
+        color_printf(TBOLD("dummy") " audio playback\n\n");
+        color_printf("Usage:\n\t" TBOLD(TRED("-r dummy") "[:debug]") "\n");
+        color_printf("\nwhere:\n");
+        color_printf("\t" TBOLD("debug") " - audio print frame TS + len\n");
 }
 
 static void * audio_play_dummy_init(const char *cfg)
 {
-        if (strlen(cfg) > 0) {
+        struct state_dummy_aplay *s = calloc(1, sizeof *s);
+        if (strcmp(cfg, "debug") == 0) {
+                s->debug = true;
+        } else if (strcmp(cfg, "help") == 0) {
                 audio_play_dummy_help();
-                return strcmp(cfg, "help") == 0 ? INIT_NOERR : NULL;
+                return INIT_NOERR;
+        } else if (strlen(cfg) > 0) {
+                MSG(ERROR, "Wrong option: %s\n", cfg);
+                free(s);
+                return NULL;
         }
 
-        return &state;
+        s->first_ts = NDEF_TS;
+        return s;
 }
 
 static void audio_play_dummy_put_frame(void *state, const struct audio_frame *f)
 {
-        UNUSED(state), UNUSED(f);
+        struct state_dummy_aplay *s = state;
+        if (!s->debug) {
+                return;
+        }
+        if (s->first_ts == NDEF_TS) {
+                s->first_ts = f->timestamp;
+        }
+
+        const long long offset = f->timestamp - s->first_ts;
+        printf(MOD_NAME "Received TS: %10" PRId64
+                        ", offset: %6lld, sample: %6lld, len: %d\n",
+               f->timestamp, offset, offset * f->sample_rate / kHz90,
+               f->data_len / f->bps / f->ch_count);
 }
 
 static void audio_play_dummy_done(void *state)
 {
-        UNUSED(state);
+        free(state);
 }
 
 static bool audio_play_dummy_ctl(void *state, int request, void *data, size_t *len)
