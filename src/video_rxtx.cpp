@@ -47,6 +47,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "export.h"
 #include "host.h"
@@ -195,7 +196,7 @@ void *video_rxtx::sender_loop() {
 
                 export_video(m_exporter, tx_frame.get());
 
-                send_frame(tx_frame);
+                send_frame(std::move(tx_frame));
                 m_frames_sent += 1;
         }
 
