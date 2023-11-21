@@ -35,17 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
 #include "config_msvc.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
 #include <cassert>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <utility>
+
 #include "video_frame_pool.h"
 
 void *default_data_allocator::allocate(size_t size) {
@@ -124,7 +121,8 @@ std::shared_ptr<video_frame> video_frame_pool::get_frame() {
 struct video_frame *video_frame_pool::get_disposable_frame() {
         auto && frame = get_frame();
         struct video_frame *out = frame.get();
-        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
+        out->callbacks.dispose_udata =
+            new std::shared_ptr<video_frame>(std::move(frame));
         static auto dispose = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
         out->callbacks.dispose = dispose;
         return out;
