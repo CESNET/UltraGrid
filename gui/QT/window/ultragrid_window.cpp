@@ -180,7 +180,7 @@ void UltragridWindow::launchQuery(){
 				if(extraPtr->safeMode && !extraPtr->safeModeQueue.empty()){
 					auto next_ctx = launchMngr.extractCurrentCtx();
 
-					auto modToQuery = extraPtr->safeModeQueue.back();
+					auto modToQuery = std::move(extraPtr->safeModeQueue.back());
 					extraPtr->safeModeQueue.pop_back();
 
 					extraPtr->currentQuery = "--capabilities=" + modToQuery;
