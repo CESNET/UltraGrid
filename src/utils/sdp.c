@@ -449,7 +449,9 @@ static bool sdp_run_http_server(struct sdp *sdp, int port)
 void sdp_stop_http_server(struct sdp *sdp)
 {
     ///@todo use "serverStop(&sdp->http_server);" instead
+    serverMutexLock(&sdp->http_server);
     sdp->http_server.shouldRun = false;
+    serverMutexUnlock(&sdp->http_server);
     pthread_cancel(sdp->http_server_thr);
 
     pthread_join(sdp->http_server_thr, NULL);
