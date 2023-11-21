@@ -3149,7 +3149,7 @@ ENSURE_FEATURE_PRESENT([$ndi_req], [$ndi], [NDI not found!])
 # ------------------------------------------------------------------------------
 # Cineform 
 # ------------------------------------------------------------------------------
-CINEFORM_PATH=ext-deps/cineform-sdk
+CINEFORM_PATH=$srcdir/ext-deps/cineform-sdk
 cineform=no
 
 AC_ARG_ENABLE(cineform,
