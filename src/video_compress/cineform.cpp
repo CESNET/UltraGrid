@@ -241,8 +241,6 @@ static struct {
 
 static bool configure_with(struct state_video_compress_cineform *s, struct video_desc desc)
 {
-        std::lock_guard<std::mutex> lock(s->mutex);
-
         CFHD_Error status = CFHD_ERROR_OKAY;
 
         if(s->started){
@@ -354,7 +352,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         struct state_video_compress_cineform *s = (struct state_video_compress_cineform *) state->priv_data;
 
         CFHD_Error status = CFHD_ERROR_OKAY;
-        std::unique_lock<std::mutex> lock(s->mutex, std::defer_lock);
+        std::unique_lock<std::mutex> lock(s->mutex);
 
         if(s->stop)
                 return;
@@ -367,7 +365,6 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->precompress_desc), vf_free);
                 video_frame *dummy_ptr = dummy.get();
 
-                lock.lock();
                 s->stop = true;
                 s->frame_queue.push(std::move(dummy));
                 lock.unlock();
@@ -386,7 +383,8 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         assert(tx->tile_count == 1); // TODO
 
         if(!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
-                                s->saved_desc, PARAM_TILE_COUNT)) {
+                                s->saved_desc, PARAM_TILE_COUNT))
+        {
                 //cleanup(s);
                 int ret = configure_with(s, video_desc_from_frame(tx.get()));
                 if(!ret) {
@@ -395,10 +393,8 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         }
 
         std::unique_ptr<video_frame, decltype(&vf_free)> frame_copy(get_copy(s, tx.get()), vf_free);
-
         video_frame *frame_ptr = frame_copy.get();
 
-        lock.lock();
         s->frame_queue.push(std::move(frame_copy));
 
 #ifdef MEASUREMENT
