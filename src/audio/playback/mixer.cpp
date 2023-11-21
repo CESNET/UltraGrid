@@ -84,16 +84,20 @@ public:
                 }
 
                 if (x.ss_family == AF_INET) {
-                        auto sin_x = reinterpret_cast<const sockaddr_in &>(x);
-                        auto sin_y = reinterpret_cast<const sockaddr_in &>(y);
+                        const auto &sin_x =
+                            reinterpret_cast<const sockaddr_in &>(x);
+                        const auto &sin_y =
+                            reinterpret_cast<const sockaddr_in &>(y);
 
                         if (sin_x.sin_addr.s_addr != sin_y.sin_addr.s_addr) {
                                 return sin_x.sin_addr.s_addr < sin_y.sin_addr.s_addr;
                         }
                         return sin_x.sin_port < sin_y.sin_port;
                 } else if (x.ss_family == AF_INET6) {
-                        auto sin_x = reinterpret_cast<const sockaddr_in6 &>(x);
-                        auto sin_y = reinterpret_cast<const sockaddr_in6 &>(y);
+                        const auto &sin_x =
+                            reinterpret_cast<const sockaddr_in6 &>(x);
+                        const auto &sin_y =
+                            reinterpret_cast<const sockaddr_in6 &>(y);
 
                         for (int i = 0; i < 16; ++i) {
                                 if (sin_x.sin6_addr.s6_addr[i] != sin_y.sin6_addr.s6_addr[i]) {
