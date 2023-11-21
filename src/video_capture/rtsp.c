@@ -47,17 +47,13 @@
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
+#include <pthread.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
-#include <pthread.h>
 
 #include "audio/types.h"
 #include "debug.h"
@@ -272,10 +268,11 @@ keep_alive_thread(void *arg){
         gettimeofday(&tp, NULL);
         struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
         pthread_mutex_lock(&s->lock);
-        pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
-        if (s->should_exit) {
-            pthread_mutex_unlock(&s->lock);
-            break;
+        while (!s->should_exit) {
+            if (pthread_cond_timedwait(&s->keepalive_cv, &s->lock,
+                                       &timeout) == ETIMEDOUT) {
+                break;
+            }
         }
         pthread_mutex_unlock(&s->lock);
 
