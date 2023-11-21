@@ -232,13 +232,14 @@ static void *worker(void *arg)
                         pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &ts);
                         handle_events(s, last_frame);
                 }
+                if (s->should_exit) {
+                        pthread_mutex_unlock(&s->lock);
+                        break;
+                }
                 f = s->f;
                 s->f = NULL;
                 pthread_mutex_unlock(&s->lock);
                 pthread_cond_signal(&s->frame_consumed_cv);
-                if (s->should_exit) {
-                        break;
-                }
                 if (!video_desc_eq(display_desc, video_desc_from_frame(f))) {
                         if (!reconfigure(s, video_desc_from_frame(f))) {
                                 vf_free(f);
