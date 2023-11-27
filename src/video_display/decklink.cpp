@@ -449,6 +449,10 @@ void PlaybackDelegate::ScheduleNextFrame()
                             (uint32_t) (f->timestamp - frameRateDuration * schedSeq *
                                                            90000 / frameRateScale);
                 }
+                LOG(LOG_LEVEL_DEBUG)
+                    << MOD_NAME
+                    << "video streamTime: " << schedSeq * frameRateDuration
+                    << "; scale: " << frameRateScale << "\n";
                 m_deckLinkOutput->ScheduleVideoFrame(
                     f, schedSeq * frameRateDuration, frameRateDuration,
                     frameRateScale);
@@ -1627,9 +1631,9 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
             ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
             bmdAudioSampleRate48kHz / 90000;
 
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "streamTime: " << streamTime
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "audio streamTime: " << streamTime
                              << "; samples: " << *samples
-                             << "; RTP timestamp: " << frame->timestamp
+                             << "; RTP TS: " << frame->timestamp
                              << "; sync TS: " << m_audio_sync_ts << "\n";
         const HRESULT res = m_deckLinkOutput->ScheduleAudioSamples(
             frame->data, *samples, streamTime, bmdAudioSampleRate48kHz,
