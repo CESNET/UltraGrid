@@ -41,11 +41,15 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "config.h"
 #include "debug.h"
 #include "rtp/rs.h"
+#include "rtp/rtp_types.h"
+#include "transmit.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/text.h"
+#include "video.h"
 
 #define DEFAULT_K 200
 #define DEFAULT_N 240
