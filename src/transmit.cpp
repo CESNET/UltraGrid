@@ -303,8 +303,11 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                 fec_cfg ? fec_cfg : "");
                 tx->fec_scheme = FEC_RS;
         } else if(strcasecmp(fec, "help") == 0) {
-                std::cout << "Usage:\n"
-                        "\t-f [A:|V:]{ mult:count | ldgm[:params] | rs[:params] }\n";
+                color_printf("Usage:\n");
+                color_printf("\t" TBOLD("-f [A:|V:]{mult:count|ldgm[:params]|"
+                             "rs[:params]}") "\n");
+                color_printf("\nIf neither A: or V: is speciefied, FEC is set "
+                             "to the video (backward compat).\n\n");
                 ret = false;
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
