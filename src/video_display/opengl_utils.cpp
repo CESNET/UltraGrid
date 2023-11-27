@@ -424,6 +424,25 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         glUseProgram(0);
 }
 
+void FrameTexture::put_frame(video_frame *f, bool pbo_frame){
+        glBindTexture(GL_TEXTURE_2D, tex.get());
+        tex.allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        if(f->color_spec == UYVY){
+                if(!conv){
+                        conv = std::unique_ptr<Yuv_convertor>(new Yuv_convertor());
+                }
+                conv->attach_texture(tex);
+                conv->put_frame(f, pbo_frame);
+        } else {
+                tex.upload_frame(f, pbo_frame);
+        }
+}
+
 Scene Scene::get_2D_scene(){
        return Scene(GlProgram(vert_src, frag_src), Model::get_quad()); 
 }

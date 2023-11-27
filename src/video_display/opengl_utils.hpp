@@ -349,6 +349,20 @@ private:
 };
 
 /**
+ * Class which takes an ultragrid video_frame and turns it into opengl texture
+ */
+class FrameTexture{
+public:
+        void put_frame(video_frame *f, bool pbo_frame = false);
+
+        GLuint get() { return tex.get(); }
+
+private:
+        std::unique_ptr<Yuv_convertor> conv;
+        Texture tex;
+};
+
+/**
  * Class containing 3 Texture objects to use as a triple buffer.
  */
 class TripleBufferTexture{
