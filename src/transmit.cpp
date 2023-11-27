@@ -56,38 +56,32 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "audio/codec.h"
-#include "audio/types.h"
-#include "audio/utils.h"
-#include "control_socket.h"
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "crypto/openssl_encrypt.h"
-#include "module.h"
-#include "rtp/fec.h"
-#include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
-#include "rtp/rtpenc_h264.h"
-#include "tv.h"
-#include "transmit.h"
-#include "utils/jpeg_reader.h"
-#include "utils/misc.h" // unit_evaluate
-#include "utils/random.h"
-#include "video.h"
-#include "video_codec.h"
-
 #include <algorithm>
 #include <array>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+#include "audio/codec.h"
+#include "audio/types.h"
+#include "audio/utils.h"
+#include "control_socket.h"
+#include "crypto/openssl_encrypt.h"
+#include "debug.h"
+#include "host.h"
+#include "lib_common.h"
+#include "module.h"
+#include "rtp/fec.h"
+#include "rtp/rtp.h"
+#include "rtp/rtp_callback.h"
+#include "rtp/rtpenc_h264.h"
+#include "transmit.h"
+#include "tv.h"
+#include "utils/jpeg_reader.h"
+#include "utils/misc.h" // unit_evaluate
+#include "utils/random.h"
+#include "video.h"
+#include "video_codec.h"
 
 #define MOD_NAME "[transmit] "
 #define TRANSMIT_MAGIC	0xe80ab15f
@@ -96,11 +90,11 @@
 
 #define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS NS_IN_SEC
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #define GET_STARTTIME gettimeofday(&start, NULL)
 #define GET_STOPTIME gettimeofday(&stop, NULL)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + (stop.tv_usec - start.tv_usec) * 1000L
-#elif defined HAVE_LINUX
+#elif defined __linux__
 #define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
 #define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
@@ -640,9 +634,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
         int pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);            /* A value specified in our packet format */
-#ifdef HAVE_LINUX
+#ifdef __linux__
         struct timespec start, stop;
-#elif defined HAVE_MACOSX
+#elif defined __APPLE__
         struct timeval start, stop;
 #else // Windows
 	LARGE_INTEGER start, stop, freq;

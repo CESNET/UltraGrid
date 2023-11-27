@@ -37,7 +37,6 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
-#include "config.h"
 #include "config_win32.h"
 #include "config_unix.h"
 
@@ -69,8 +68,10 @@ enum {
 
 };
 
-#if !defined(WORDS_BIGENDIAN) && !defined(WORDS_SMALLENDIAN)
-#error RTP library requires WORDS_BIGENDIAN or WORDS_SMALLENDIAN to be defined.
+#if !defined __BYTE_ORDER__ || __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__ && \
+                                   __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__
+#error RTP library requires __BYTE_ORDER__ to be either __ORDER_LITTLE_ENDIAN__\
+	or __ORDER_BIG_ENDIAN__
 #endif
 
 struct rtp;
@@ -100,7 +101,7 @@ typedef struct __attribute__((packed)) {
 	uint16_t	 extn_len;	/* Size of the extension in 32 bit words minus one */
 	uint16_t	 extn_type;	/* Extension type field in the RTP packet header   */
 	/* The following map directly onto the RTP packet header...   */
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	unsigned short   v:2;		/* packet type                */
 	unsigned short   p:1;		/* padding flag               */
 	unsigned short   x:1;		/* header extension flag      */
@@ -137,7 +138,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t	ssrc;		/* The ssrc to which this RR pertains */
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	uint32_t	fract_lost:8;
 	uint32_t	total_lost:24;
 #else
@@ -158,7 +159,7 @@ typedef struct {
 } rtcp_rx;
 
 typedef struct {
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	unsigned short  version:2;	/* RTP version            */
 	unsigned short  p:1;		/* padding flag           */
 	unsigned short  subtype:5;	/* application dependent  */

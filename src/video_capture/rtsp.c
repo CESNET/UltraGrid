@@ -56,6 +56,7 @@
 #include <unistd.h>
 
 #include "audio/types.h"
+#include "config.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
