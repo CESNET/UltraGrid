@@ -444,7 +444,10 @@ void PlaybackDelegate::ScheduleNextFrame()
                 schedSeq += 1;
         }
 
-        while (i++ < m_min_sched_frames && lastSchedFrame != nullptr) {
+        if (i >= m_min_sched_frames || lastSchedFrame == nullptr) {
+                return;
+        }
+        for (; i < (m_min_sched_frames + m_max_sched_frames + 1) / 2; ++i) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
                 m_audio_sync_ts = audio_sync_val::resync;
                 m_deckLinkOutput->ScheduleVideoFrame(
@@ -1036,7 +1039,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                     &s->delegate);
                 auto *f = allocate_new_decklink_frame(s);
                 for (unsigned i = 0; i < (s->delegate.m_min_sched_frames +
-                                          s->delegate.m_min_sched_frames) /
+                                          s->delegate.m_min_sched_frames + 1) /
                                              2;
                      ++i) {
                         f->AddRef();
