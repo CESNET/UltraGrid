@@ -1106,6 +1106,24 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize(&com_initialized);
 }
 
+static void
+set_synchronized(struct state_decklink *s, const char *cfg)
+{
+        s->low_latency = false;
+        if (cfg == nullptr) {
+                return;
+        }
+        cfg += 1;
+        s->delegate.m_min_sched_frames = stoi(cfg);
+        if (strchr(cfg, ',') != nullptr) {
+                s->delegate.m_max_sched_frames = stoi(strchr(cfg, ',') + 1);
+        } else {
+                s->delegate.m_max_sched_frames =
+                    s->delegate.m_min_sched_frames + SCHED_RANGE;
+        }
+        assert(s->delegate.m_max_sched_frames > s->delegate.m_min_sched_frames);
+}
+
 static bool settings_init(struct state_decklink *s, const char *fmt,
                 string &cardId) {
         if (strlen(fmt) == 0) {
@@ -1195,19 +1213,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                "see option \"synchroninzed\" instead.\n";
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (IS_PREFIX(ptr, "synchronized")) {
-                        s->low_latency = false;
-                        ptr = strchr(ptr, '=');
-                        if (ptr != nullptr) {
-                                ptr += 1;
-                                s->delegate.m_max_sched_frames =
-                                    SCHED_RANGE +
-                                    (s->delegate.m_min_sched_frames =
-                                         stoi(ptr));
-                                if (strchr(ptr, ',') != nullptr) {
-                                        s->delegate.m_max_sched_frames =
-                                            stoi(strchr(ptr, ',') + 1);
-                                }
-                        }
+                        set_synchronized(s, strchr(ptr, '='));
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split.set_flag(strcasecmp(ptr, "quad-square") == 0);
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
