@@ -648,14 +648,12 @@ display_decklink_getf(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         assert(s->magic == DECKLINK_MAGIC);
-
-        if (!s->initialized) {
-                return nullptr;
-        }
+        assert(s->initialized);
 
         if (s->audio_reconfigure) {
                 if (!display_decklink_reconfigure(s, s->vid_desc)) {
-                        return nullptr;
+                        MSG(FATAL, "Cannot reinit after audio reconf!\n");
+                        abort();
                 }
                 s->audio_reconfigure = false;
         }
