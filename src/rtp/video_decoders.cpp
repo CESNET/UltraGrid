@@ -704,6 +704,7 @@ static void *decompress_thread(void *args) {
                             decoder->display, decoder->frame, putf_timeout);
                         msg->is_displayed = ret;
                         decoder->frame = display_get_frame(decoder->display);
+                        assert(decoder->frame != nullptr);
                 }
 
 skip_frame:
@@ -1360,6 +1361,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
 
         if (out_codec != VIDEO_CODEC_END) {
                 decoder->frame = display_get_frame(decoder->display);
+                assert(decoder->frame != nullptr);
         }
 
         return true;
