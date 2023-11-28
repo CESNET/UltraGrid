@@ -281,21 +281,16 @@ Model Model::get_quad(){
         return model;
 }
 
-Texture::Texture(){
-        glGenTextures(1, &tex_id);
-        glBindTexture(GL_TEXTURE_2D, tex_id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glGenBuffers(1, &pbo);
-}
-
 Texture::~Texture(){
+        if(tex_id == 0)
+                return;
+
         glDeleteTextures(1, &tex_id);
         glDeleteBuffers(1, &pbo);
 }
 
 void Texture::allocate(int w, int h, GLenum fmt) {
+        init();
         if(w != width || h != height || fmt != format){
                 width = w;
                 height = h;
@@ -365,6 +360,8 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
                         break;
         }
 
+        init();
+
         if(pbo_frame){
                 GlBuffer *pbo = static_cast<GlBuffer *>(f->callbacks.dispose_udata);
 
@@ -384,6 +381,19 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
                                 f->tiles[0].data, f->tiles[0].data_len);
         }
 }
+
+void Texture::init(){
+        if(tex_id != 0)
+                return;
+
+        glGenTextures(1, &tex_id);
+        glBindTexture(GL_TEXTURE_2D, tex_id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glGenBuffers(1, &pbo);
+}
+
 
 void Framebuffer::attach_texture(GLuint tex){
         glBindTexture(GL_TEXTURE_2D, tex);

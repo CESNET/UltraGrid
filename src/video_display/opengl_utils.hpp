@@ -146,7 +146,7 @@ public:
         /**
          * Constructs an instance containing a new OpenGL texture object
          */
-        Texture();
+        Texture() = default;
         ~Texture();
 
         /**
@@ -164,6 +164,34 @@ public:
          * glTexSubImage2D())
          */
         void allocate(int w, int h, GLenum fmt);
+
+        /**
+         * Uploads video frame to the texture
+         *
+         * @param f video frame to upload
+         * @pbo_frame true if the video frame contains the image data
+         * in a PBO buffer
+         */
+        void upload_frame(video_frame *f, bool pbo_frame);
+
+        Texture(const Texture&) = delete;
+        Texture(Texture&& o) { swap(o); }
+        Texture& operator=(const Texture&) = delete;
+        Texture& operator=(Texture&& o) { swap(o); return *this; }
+
+
+        /**
+         * Swaps the contents of two Texture objects
+         */
+        void swap(Texture& o){
+                std::swap(tex_id, o.tex_id);
+                std::swap(width, o.width);
+                std::swap(height, o.height);
+                std::swap(format, o.format);
+                std::swap(pbo, o.pbo);
+        }
+private:
+        void init();
 
         /**
          * Uploads image data to the texture
@@ -196,38 +224,13 @@ public:
                         GLenum fmt, GLenum type,
                         const void *data, size_t data_len);
 
-        /**
-         * Uploads video frame to the texture
-         *
-         * @param f video frame to upload
-         * @pbo_frame true if the video frame contains the image data
-         * in a PBO buffer
-         */
-        void upload_frame(video_frame *f, bool pbo_frame);
 
-        Texture(const Texture&) = delete;
-        Texture(Texture&& o) { swap(o); }
-        Texture& operator=(const Texture&) = delete;
-        Texture& operator=(Texture&& o) { swap(o); return *this; }
-
-
-        /**
-         * Swaps the contents of two Texture objects
-         */
-        void swap(Texture& o){
-                std::swap(tex_id, o.tex_id);
-                std::swap(width, o.width);
-                std::swap(height, o.height);
-                std::swap(format, o.format);
-                std::swap(pbo, o.pbo);
-        }
-private:
         GLuint tex_id = 0;
         int width = 0;
         int height = 0;
         GLenum format = 0;
 
-        GLuint pbo;
+        GLuint pbo = 0;
 };
 
 /**
