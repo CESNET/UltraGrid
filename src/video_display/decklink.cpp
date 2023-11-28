@@ -414,24 +414,13 @@ void PlaybackDelegate::ScheduleNextFrame()
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << __func__ << " - " << i << " frames buffered\n";
 
         const unique_lock<mutex> lk(schedLock);
-        if (schedFrames.empty()) {
-                if (i >= m_min_sched_frames) {
-                        return;
-                }
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
-                m_audio_sync_ts = audio_sync_val::resync;
-                m_deckLinkOutput->ScheduleVideoFrame(
-                    lastSchedFrame, schedSeq * frameRateDuration,
-                    frameRateDuration, frameRateScale);
-                schedSeq += 1;
-                return;
-        }
         while (!schedFrames.empty()) {
                 DeckLinkFrame *f = schedFrames.front();
                 schedFrames.pop();
                 if (++i > m_max_sched_frames) {
+                        i -= 1;
                         LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME "Dismissed frame, buffered: " << i - 1
+                            << MOD_NAME "Dismissed frame, buffered: " << i
                             << "\n";
                         f->Release();
                         continue;
@@ -452,6 +441,15 @@ void PlaybackDelegate::ScheduleNextFrame()
                 m_deckLinkOutput->ScheduleVideoFrame(
                     f, schedSeq * frameRateDuration, frameRateDuration,
                     frameRateScale);
+                schedSeq += 1;
+        }
+
+        while (i++ < m_min_sched_frames && lastSchedFrame != nullptr) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
+                m_audio_sync_ts = audio_sync_val::resync;
+                m_deckLinkOutput->ScheduleVideoFrame(
+                    lastSchedFrame, schedSeq * frameRateDuration,
+                    frameRateDuration, frameRateScale);
                 schedSeq += 1;
         }
 }
