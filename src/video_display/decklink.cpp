@@ -57,6 +57,7 @@
 #include <string>
 #include <vector>
 
+#define DECKLINK_MAGIC to_fourcc('v', 'd', 'D', 'L')
 #define MOD_NAME "[DeckLink display] "
 
 #include "audio/types.h"
@@ -457,8 +458,6 @@ void PlaybackDelegate::ScheduleNextFrame()
         }
 }
 } // end of unnamed namespace
-
-#define DECKLINK_MAGIC 0x12de326b
 
 struct state_decklink {
         uint32_t            magic = DECKLINK_MAGIC;
