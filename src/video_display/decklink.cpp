@@ -177,7 +177,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 
         bool EnqueueFrame(DeckLinkFrame *deckLinkFrame);
         void ScheduleNextFrame();
-        void ScheduleAudio(const struct audio_frame *frame, uint32_t *samples);
+        void ScheduleAudio(const struct audio_frame *frame, uint32_t *samples,
+                           bool underflow);
 
         HRESULT STDMETHODCALLTYPE
         ScheduledFrameCompleted(IDeckLinkVideoFrame *completedFrame,
@@ -1612,7 +1613,7 @@ static bool display_decklink_get_property(void *state, int property, void *val, 
  * AUDIO
  */
 void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
-                                     uint32_t *const samples) {
+                                     uint32_t *const samples, bool underflow) {
         if (m_adata.saved_sync_ts == INT64_MIN &&
             m_audio_sync_ts == audio_sync_val::deinit) {
                         return;
@@ -1642,6 +1643,15 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "ScheduleAudioSamples: "
                                      << bmd_hresult_to_string(res) << "\n";
         }
+
+        if (underflow) {
+                static unsigned count;
+                if (count++ == 50) {
+                        MSG(WARNING, "Excessive underflow in sync mode! Try to "
+                            "increase sync frames (:sync=%d or so).\n",
+                             m_min_sched_frames + 2);
+                }
+        }
 }
 
 static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
@@ -1669,7 +1679,8 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                         return;
                 }
         } else {
-                s->delegate.ScheduleAudio(frame, &sampleFramesWritten);
+                s->delegate.ScheduleAudio(frame, &sampleFramesWritten,
+                                          buffered == 0);
         }
         const bool overflow = sampleFramesWritten != sampleFrameCount;
         if (overflow || log_level >= LOG_LEVEL_DEBUG) {
