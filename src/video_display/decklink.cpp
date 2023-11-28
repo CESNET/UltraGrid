@@ -44,16 +44,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <DeckLinkAPIVersion.h>
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cinttypes>
+#include <cstdint>
+#include <iomanip>
+#include <mutex>
+#include <queue>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #define MOD_NAME "[DeckLink display] "
 
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -67,20 +77,6 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_display/decklink_drift_fix.hpp"
-
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cinttypes>
-#include <cstdint>
-#include <iomanip>
-#include <mutex>
-#include <queue>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include "DeckLinkAPIVersion.h"
 
 #ifndef WIN32
 #define STDMETHODCALLTYPE
@@ -105,7 +101,7 @@ static bool display_decklink_reconfigure(void *state, struct video_desc desc);
                 const HRESULT result = cmd;\
                 if (FAILED(result)) {;\
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
-                        return FALSE;\
+                        return false;\
                 }\
         } while (0)
 
@@ -658,7 +654,7 @@ display_decklink_getf(void *state)
         }
 
         if (s->audio_reconfigure) {
-                if (display_decklink_reconfigure(s, s->vid_desc) != TRUE) {
+                if (!display_decklink_reconfigure(s, s->vid_desc)) {
                         return nullptr;
                 }
                 s->audio_reconfigure = false;
@@ -851,7 +847,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         return displayMode;
 }
 
-static int enable_audio(struct state_decklink *s, int bps, int channels)
+static bool enable_audio(struct state_decklink *s, int bps, int channels)
 {
         const BMDAudioSampleType sample_type =
             bps == 2 ? bmdAudioSampleType16bitInteger
@@ -863,7 +859,7 @@ static int enable_audio(struct state_decklink *s, int bps, int channels)
             s->deckLinkOutput->EnableAudioOutput(
                 bmdAudioSampleRate48kHz, sample_type, channels, stream_type),
             "EnableAudioOutput");
-        return TRUE;
+        return true;
 }
 
 static bool

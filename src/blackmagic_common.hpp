@@ -38,7 +38,7 @@
 #ifndef BLACKMAGIC_COMMON_HPP
 #define BLACKMAGIC_COMMON_HPP
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
 #else
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
@@ -113,9 +113,9 @@ public:
 
 std::ostream &operator<<(std::ostream &output, const bmd_option &b);
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #define BMD_STR CFStringRef
-#elif defined WIN32
+#elif defined _WIN32
 #define BMD_STR BSTR
 #else
 #define BMD_STR const char *
