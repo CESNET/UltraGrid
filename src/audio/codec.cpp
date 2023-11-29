@@ -35,11 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+
+#include <algorithm>
+#include <cassert>
+#include <climits>
+#include <string>
+#include <unordered_map>
 
 #include "audio/codec.h"
 #include "audio/utils.h"
@@ -48,11 +51,6 @@
 #include "lib_common.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
-
-#include <algorithm>
-#include <climits>
-#include <string>
-#include <unordered_map>
 
 #define MOD_NAME "[acodec] "
 
