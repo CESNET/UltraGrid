@@ -586,6 +586,7 @@ void FlatVideoScene::put_frame(video_frame *f){
 void FlatVideoScene::render(){
         glUseProgram(program.get());
 
+        glViewport(0, 0, screen_width, screen_height);
         glBindTexture(GL_TEXTURE_2D, tex.get());
         quad.render();
 }
@@ -596,8 +597,6 @@ void FlatVideoScene::resize(int width, int height){
 
         double x = 1.0;
         double y = -1.0;
-
-        glViewport( 0, 0, ( GLint )width, ( GLint )height );
 
         double screen_aspect = (double) width / height;
         double video_aspect = (double) current_desc.width / current_desc.height;
