@@ -471,4 +471,22 @@ struct Scene{
         float fov = 55;
 };
 
+class FlatVideoScene{
+public:
+        FlatVideoScene() = default;
+
+        void init();
+        void put_frame(video_frame *f);
+        void render();
+        void resize(int width, int height);
+private:
+        GlProgram program;
+        Model quad;
+        FrameTexture tex;
+
+        video_desc current_desc;
+        int screen_width;
+        int screen_height;
+};
+
 #endif

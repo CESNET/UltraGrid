@@ -41,6 +41,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "opengl_utils.hpp"
+#include "video_frame.h"
 
 #include "utils/profile_timer.hpp"
 
@@ -539,6 +540,78 @@ void Scene::rotate(float dx, float dy){
 
         if(rot_y > 90) rot_y = 90;
         if(rot_y < -90) rot_y = -90;
+}
+
+void FlatVideoScene::init(){
+        const char *vert_src = R"END(
+#version 330 core
+layout(location = 0) in vec2 vert_pos;
+layout(location = 1) in vec2 vert_uv;
+
+uniform vec2 scale_vec;
+
+out vec2 UV;
+
+void main(){
+        gl_Position = vec4(vert_pos * scale_vec, 0.0f, 1.0f);
+        UV = vert_uv;
+}
+)END";
+
+        const char *frag_src = R"END(
+#version 330 core
+in vec2 UV;
+out vec3 color;
+uniform sampler2D tex;
+void main(){
+        color = texture(tex, UV).rgb;
+}
+)END";
+
+        program = GlProgram(vert_src, frag_src);
+        quad = Model::get_quad();
+}
+
+void FlatVideoScene::put_frame(video_frame *f){
+        auto frame_desc = video_desc_from_frame(f);
+        if(!video_desc_eq(frame_desc, current_desc)){
+                current_desc = frame_desc;
+                resize(screen_width, screen_height);
+        }
+
+        glBindTexture(GL_TEXTURE_2D, tex.get());
+        tex.put_frame(f, false);
+}
+
+void FlatVideoScene::render(){
+        glUseProgram(program.get());
+
+        glBindTexture(GL_TEXTURE_2D, tex.get());
+        quad.render();
+}
+
+void FlatVideoScene::resize(int width, int height){
+        screen_width = width;
+        screen_height = height;
+
+        double x = 1.0;
+        double y = -1.0;
+
+        glViewport( 0, 0, ( GLint )width, ( GLint )height );
+
+        double screen_aspect = (double) width / height;
+        double video_aspect = (double) current_desc.width / current_desc.height;
+        if(screen_aspect > video_aspect) {
+                x = (double) height * video_aspect / width;
+        } else {
+                y = (double) -width / (height * video_aspect);
+        }
+
+        glUseProgram(program.get());
+
+        GLuint pvLoc;
+        pvLoc = glGetUniformLocation(program.get(), "scale_vec");
+        glUniform2f(pvLoc, x, y);
 }
 
 static std::vector<float> gen_sphere_vertices(int r, int latitude_n, int longtitude_n){
