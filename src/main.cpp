@@ -962,15 +962,6 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 return 1;
                         }
                         opt->audio.codec_cfg = optarg;
-                        if (!check_audio_codec(optarg)) {
-                                LOG(LOG_LEVEL_WARNING)
-                                    << MOD_NAME
-                                    << "The original semantics of '-A' "
-                                       "parameter has changed,\nplease use "
-                                       "'--audio-host' to specify audio "
-                                       "receiver address.\n";
-                                return -EXIT_FAIL_USAGE;
-                        }
                         break;
                 case 'F':
                         vidcap_params_set_capture_filter(opt->vidcap_params_tail, optarg);
@@ -1343,6 +1334,10 @@ int main(int argc, char *argv[])
                 EXIT(ret);
         }
 
+        const auto ac_params = parse_audio_codec_params(opt.audio.codec_cfg);
+        if (ac_params.codec == AC_NONE) {
+                EXIT(EXIT_FAILURE);
+        }
         if (!show_help) {
                 col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
                 col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
@@ -1351,9 +1346,7 @@ int main(int argc, char *argv[])
                 col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
                 col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
                 col() << TBOLD("Audio codec      : ")
-                    << get_name_to_audio_codec(
-                           parse_audio_codec_params(opt.audio.codec_cfg).codec)
-                    << "\n";
+                      << get_name_to_audio_codec(ac_params.codec) << "\n";
                 col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
                 col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
                 col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
@@ -1475,7 +1468,6 @@ int main(int argc, char *argv[])
                 params["opts"].str = opt.video_protocol_opts;
 
                 // RTSP
-                auto ac_params = parse_audio_codec_params(opt.audio.codec_cfg);
                 params["audio_codec"].l = ac_params.codec;
                 params["audio_sample_rate"].i =
                     IF_NOT_NULL_ELSE(ac_params.sample_rate, kHz48);

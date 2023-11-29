@@ -461,11 +461,3 @@ audio_codec_t get_audio_codec_to_tag(uint32_t tag)
         }
         return AC_NONE;
 }
-
-bool check_audio_codec(const char *audio_codec_cfg)
-{
-        const struct audio_codec_params params =
-            parse_audio_codec_params(audio_codec_cfg);
-        return params.codec != AC_NONE;
-}
-
