@@ -99,20 +99,19 @@ unit_evaluate(const char *str, const char **endptr)
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
 {
-        char *end_ptr;
-        char unit_prefix;
+        char *endptr_tmp = nullptr;
         errno = 0;
-        double ret = strtod(str, &end_ptr);
+        double ret = strtod(str, &endptr_tmp);
         if (errno != 0) {
                 perror("strtod");
                 return NAN;
         }
-        if (end_ptr == str) {
+        if (endptr_tmp == str) {
                 log_msg(LOG_LEVEL_ERROR, "'%s' is not a number\n", str);
                 return NAN;
         }
-        unit_prefix = case_sensitive ? *end_ptr : toupper(*end_ptr);
-        end_ptr += 1;
+        char unit_prefix = case_sensitive ? *endptr_tmp : toupper(*endptr_tmp);
+        endptr_tmp += 1;
         switch(unit_prefix) {
                 case 'n':
                 case 'N':
@@ -137,11 +136,11 @@ unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
                         ret *= 1000'000'000LL;
                         break;
                 default:
-                        end_ptr -= 1;
+                        endptr_tmp -= 1;
         }
 
         if (endptr != nullptr) {
-                *endptr = end_ptr;
+                *endptr = endptr_tmp;
         }
 
         return ret;
