@@ -351,13 +351,18 @@ static void usage() {
         col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
 
-#define ASSIGN_CHECK_VAL(var, str, minval) do { long long val = unit_evaluate(str); \
-                                                        if (val < minval || val > UINT_MAX) { \
-                                                                LOG(LOG_LEVEL_ERROR) << "[J2K] Wrong value " << str << " for " #var "! Value must be >= " << minval << ".\n"; \
-                                                                return NULL; \
-                                                        } \
-                                                        var = val; \
-                                                } while (0)
+#define ASSIGN_CHECK_VAL(var, str, minval) \
+        do { \
+                long long val = unit_evaluate(str, nullptr); \
+                if (val < (minval) || val > UINT_MAX) { \
+                        LOG(LOG_LEVEL_ERROR) \
+                            << "[J2K] Wrong value " << (str) \
+                            << " for " #var "! Value must be >= " << (minval) \
+                            << ".\n"; \
+                        return NULL; \
+                } \
+                (var) = val; \
+        } while (0)
 
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {

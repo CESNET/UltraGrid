@@ -53,8 +53,9 @@ extern "C" {
 #endif
 
 bool is_wine(void);
-long long unit_evaluate(const char *str);
-double unit_evaluate_dbl(const char *str, bool case_sensitive);
+long long   unit_evaluate(const char *str, const char **endptr);
+double      unit_evaluate_dbl(const char *str, bool case_sensitive,
+                              const char **endptr);
 const char *format_in_si_units(unsigned long long int val);
 int get_framerate_n(double framerate);
 int get_framerate_d(double framerate);

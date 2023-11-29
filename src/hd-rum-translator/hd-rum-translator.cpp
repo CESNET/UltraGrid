@@ -66,7 +66,7 @@
 #include "rtp/net_udp.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
-#include "utils/color_out.h" // format_in_si_units, unit_evaluate
+#include "utils/color_out.h"
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 
@@ -776,7 +776,8 @@ parse_fmt(int argc, char **argv,
                     } else if (strcmp(argv[i + 1], "auto") == 0) {
                         parsed->hosts[host_idx].bitrate = RATE_AUTO;
                     } else {
-                        parsed->hosts[host_idx].bitrate = unit_evaluate(argv[i + 1]);
+                        parsed->hosts[host_idx].bitrate =
+                            unit_evaluate(argv[i + 1], nullptr);
                         if (parsed->hosts[host_idx].bitrate <= 0) {
                             LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: wrong bitrate - " << argv[i + 1] << "\n";
                             exit(EXIT_FAIL_USAGE);

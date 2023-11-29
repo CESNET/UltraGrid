@@ -466,11 +466,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->backend = strchr(item, '=') + 1;
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         s->requested_bitrate =
-                            unit_evaluate(strchr(item, '=') + 1);
+                            unit_evaluate(strchr(item, '=') + 1, nullptr);
                         assert(s->requested_bitrate >= 0);
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
-                        s->requested_bpp = unit_evaluate_dbl(bpp_str, false);
+                        s->requested_bpp =
+                            unit_evaluate_dbl(bpp_str, false, nullptr);
                         if (std::isnan(s->requested_bpp)) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong bitrate: " << bpp_str << "\n";
                                 return -1;

@@ -613,7 +613,10 @@ static void *decompress_thread(void *args) {
                 if (drop_policy->second == "blocking") {
                         return PUTF_BLOCKING;
                 }
-                return static_cast<long long>(unit_evaluate_dbl(drop_policy->second.c_str(), true) * NS_IN_SEC);
+                return static_cast<long long>(
+                    unit_evaluate_dbl(drop_policy->second.c_str(), true,
+                                      nullptr) *
+                    NS_IN_SEC);
         }();
 
         while(1) {

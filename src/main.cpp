@@ -407,7 +407,7 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                         }
                 }
         }
-        *bitrate = unit_evaluate(optarg);
+        *bitrate = unit_evaluate(optarg, nullptr);
         if (*bitrate <= 0) {
                 log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
                 return false;

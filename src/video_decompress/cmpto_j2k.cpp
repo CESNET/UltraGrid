@@ -221,7 +221,8 @@ static void * j2k_decompress_init(void)
         int ret;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
-                mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
+                mem_limit = unit_evaluate(
+                    get_commandline_param("j2k-dec-mem-limit"), nullptr);
         }
 
         if (get_commandline_param("j2k-dec-tile-limit")) {

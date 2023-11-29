@@ -70,7 +70,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/fs.h"
-#include "utils/misc.h" // unit_evaluate
+#include "utils/misc.h" // ug_strerror
 #include "utils/random.h"
 #include "utils/string.h"
 #include "utils/string_view_utils.hpp"

@@ -350,7 +350,7 @@ static void fec_check_messages(struct tx *tx)
                         }
                 } else if (strstr(text, "rate ") == text) {
                         text += strlen("rate ");
-                        auto new_rate = unit_evaluate(text);
+                        auto new_rate = unit_evaluate(text, nullptr);
                         if (new_rate >= RATE_MIN) {
                                 tx->bitrate = new_rate;
                                 r = new_response(RESPONSE_OK, nullptr);

@@ -670,7 +670,7 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
                         }
                         ret->bps = bps / 8;
                 } else if (IS_KEY_PREFIX(item, "sample_rate")) {
-                        const long long rate = unit_evaluate(val);
+                        const long long rate = unit_evaluate(val, nullptr);
                         if (rate <= 0 || rate > MAX_AUD_SAMPLE_RATE) {
                                 LOG(LOG_LEVEL_ERROR)
                                     << "Invalid sample_rate " << rate

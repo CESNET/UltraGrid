@@ -70,12 +70,15 @@ using std::stoll;
 /**
  * Converts units in format <val>[.<val>][kMG] to integral representation.
  *
- * @param   str string to be parsed
+ * @param   str    string to be parsed
+ * @param   endptr if not NULL, point to suffix after parse
  * @returns     positive integral representation of the string
  * @returns     LLONG_MIN if error
  */
-long long unit_evaluate(const char *str) {
-        double ret = unit_evaluate_dbl(str, false);
+long long
+unit_evaluate(const char *str, const char **endptr)
+{
+        double ret = unit_evaluate_dbl(str, false, endptr);
 
         if (ret == NAN || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
                 return LLONG_MIN;
@@ -89,10 +92,13 @@ long long unit_evaluate(const char *str) {
  *
  * @param    str            string to be parsed, suffix following SI suffix is ignored (as in 1ms or 100MB)
  * @param    case_sensitive should 'm' be considered as mega
+ * @param    endptr         if not NULL, point to suffix after parse
  * @returns                 positive floating point representation of the string
  * @returns                 NAN if error
  */
-double unit_evaluate_dbl(const char *str, bool case_sensitive) {
+double
+unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
+{
         char *end_ptr;
         char unit_prefix;
         errno = 0;
@@ -106,6 +112,7 @@ double unit_evaluate_dbl(const char *str, bool case_sensitive) {
                 return NAN;
         }
         unit_prefix = case_sensitive ? *end_ptr : toupper(*end_ptr);
+        end_ptr += 1;
         switch(unit_prefix) {
                 case 'n':
                 case 'N':
@@ -129,6 +136,12 @@ double unit_evaluate_dbl(const char *str, bool case_sensitive) {
                 case 'G':
                         ret *= 1000'000'000LL;
                         break;
+                default:
+                        end_ptr -= 1;
+        }
+
+        if (endptr != nullptr) {
+                *endptr = end_ptr;
         }
 
         return ret;
