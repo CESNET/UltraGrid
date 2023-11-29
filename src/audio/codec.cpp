@@ -426,7 +426,7 @@ parse_audio_codec_params(const char *ccfg)
                 } else if (strstr(item, "bitrate=") == item) {
                         const char *val = strchr(item, '=') + 1;
                         long long   rate = unit_evaluate(val, nullptr);
-                        if (rate <= 0 && rate > INT_MAX) {
+                        if (rate <= 0 || rate > INT_MAX) {
                                 LOG(LOG_LEVEL_ERROR)
                                     << "Wrong bitrate: " << val << "\n";
                                 return {};
