@@ -179,11 +179,17 @@ GlProgram::GlProgram(const char *vert_src, const char *frag_src){
 }
 
 GlProgram::~GlProgram() {
+        if(program == 0)
+                return;
+
         glUseProgram(0);
         glDeleteProgram(program);
 }
 
 Model::~Model(){
+        if(vao == 0)
+                return;
+
         glDeleteBuffers(1, &vbo);
         glDeleteBuffers(1, &elem_buf);
         glDeleteVertexArrays(1, &vao);
