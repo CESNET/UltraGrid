@@ -88,6 +88,7 @@
 #include "rtp/pbuf.h"
 #include "tv.h"
 #include "transmit.h"
+#include "types.h"
 #include "pdb.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
@@ -305,7 +306,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_scale = opt->scale;
 
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
-        s->resample_to = get_audio_codec_sample_rate(opt->codec_cfg);
+        s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
         s->exporter = exporter;
 
@@ -417,8 +418,14 @@ int audio_init(struct state_audio **ret, struct module *parent,
         }
 
         if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
-                if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device), opt->send_port, IF_NOT_NULL_ELSE(get_audio_codec_sample_rate(opt->codec_cfg), 48000),
-                                        audio_capture_channels, get_audio_codec(opt->codec_cfg), sdp_change_address_callback, get_root_module(parent)) != 0) {
+                const audio_codec_params params =
+                    parse_audio_codec_params(opt->codec_cfg);
+                if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device),
+                                  opt->send_port,
+                                  IF_NOT_NULL_ELSE(params.sample_rate, kHz48),
+                                  audio_capture_channels, params.codec,
+                                  sdp_change_address_callback,
+                                  get_root_module(parent)) != 0) {
                         assert(0 && "[SDP] Cannot add audio");
                 }
         }

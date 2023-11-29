@@ -140,6 +140,7 @@ struct pixfmt_desc {
 };
 
 enum {
+        kHz48 = 48000,
         kHz90 = 90000, ///< timestamp time base
 };
 

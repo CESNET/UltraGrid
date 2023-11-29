@@ -1350,7 +1350,10 @@ int main(int argc, char *argv[])
                 col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
                 col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
                 col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
-                col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
+                col() << TBOLD("Audio codec      : ")
+                    << get_name_to_audio_codec(
+                           parse_audio_codec_params(opt.audio.codec_cfg).codec)
+                    << "\n";
                 col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
                 col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
                 col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
@@ -1472,8 +1475,10 @@ int main(int argc, char *argv[])
                 params["opts"].str = opt.video_protocol_opts;
 
                 // RTSP
-                params["audio_codec"].l = get_audio_codec(opt.audio.codec_cfg);
-                params["audio_sample_rate"].i = get_audio_codec_sample_rate(opt.audio.codec_cfg) ? get_audio_codec_sample_rate(opt.audio.codec_cfg) : 48000;
+                auto ac_params = parse_audio_codec_params(opt.audio.codec_cfg);
+                params["audio_codec"].l = ac_params.codec;
+                params["audio_sample_rate"].i =
+                    IF_NOT_NULL_ELSE(ac_params.sample_rate, kHz48);
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = opt.audio.recv_port;

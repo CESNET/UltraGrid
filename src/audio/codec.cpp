@@ -43,6 +43,7 @@
 
 #include "audio/codec.h"
 #include "audio/utils.h"
+#include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/macros.h"
@@ -169,9 +170,9 @@ struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg,
 
 static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_cfg,
                 audio_codec_direction_t direction, bool silent) {
-        audio_codec_t audio_codec = get_audio_codec(audio_codec_cfg);
-        int bitrate = get_audio_codec_bitrate(audio_codec_cfg);
-        if (bitrate < 0) {
+        const struct audio_codec_params params =
+            parse_audio_codec_params(audio_codec_cfg);
+        if (params.codec == AC_NONE) {
                 return nullptr;
         }
         void *state = NULL;
@@ -182,9 +183,10 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         for (auto const &it : audio_compressions) {
                 aci = static_cast<const struct audio_compress_info *>(it.second);
                 for (unsigned int j = 0; aci->supported_codecs[j] != AC_NONE; ++j) {
-                        if (aci->supported_codecs[j] == audio_codec) {
-                                state = aci->init(audio_codec, direction, silent, bitrate);
-                                if(state) {
+                        if (aci->supported_codecs[j] == params.codec) {
+                                state = aci->init(params.codec, direction,
+                                                  silent, params.bitrate);
+                                if (state) {
                                         break;
                                 }
                                 if (!silent) {
@@ -202,7 +204,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
                 if (!silent) {
                         log_msg(LOG_LEVEL_ERROR,
                                 "Unable to find encoder for audio codec '%s'\n",
-                                get_name_to_audio_codec(audio_codec));
+                                get_name_to_audio_codec(params.codec));
                 }
                 return NULL;
         }
@@ -213,9 +215,9 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         s->state[0] = state;
         s->state_count = 1;
         s->funcs = aci;
-        s->desc.codec = audio_codec;
+        s->desc.codec = params.codec;
         s->direction = direction;
-        s->bitrate = bitrate;
+        s->bitrate = params.bitrate;
 
         return s;
 }
@@ -379,71 +381,51 @@ void audio_codec_done(struct audio_codec_state *s)
         free(s);
 }
 
-audio_codec_t get_audio_codec(const char *codec_str) {
-        char *codec = strdup(codec_str);
-        if (strchr(codec, ':')) {
-                *strchr(codec, ':') = '\0';
-        }
+static audio_codec_t
+get_audio_codec(const char *codec)
+{
         for (auto const &it : audio_codec_info) {
-                if(strcasecmp(it.second.name, codec) == 0) {
-                        free(codec);
+                if (strcasecmp(it.second.name, codec) == 0) {
                         return it.first;
                 }
         }
-        free(codec);
         return AC_NONE;
 }
 
-/**
- * Caller must free() the returned buffer
- */
-static char *get_val_from_cfg(const char *audio_codec_cfg, const char *key)
+struct audio_codec_params
+parse_audio_codec_params(const char *ccfg)
 {
-        char *cfg = strdup(audio_codec_cfg);
-        char *tmp = cfg;
-        char *item, *save_ptr, *ret;
+        char *cfg      = strdupa(ccfg);
+        char *save_ptr = nullptr;
+        char *tmp      = cfg;
+        char *item     = nullptr;
 
-        while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
-                if (strncasecmp(key, item, strlen(key)) == 0) {
-                        ret = strdup(item + strlen(key));
-                        free(tmp);
-                        return ret;
+        struct audio_codec_params params {
+        };
+        while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
+                tmp = nullptr;
+                if (params.codec == AC_NONE) {
+                        params.codec = get_audio_codec(item);
+                        if (params.codec == AC_NONE) {
+                                return {};
+                        }
+                        continue;
                 }
-                cfg = NULL;
-        }
-        free(tmp);
-        return NULL;
-}
-
-/**
- * @returns user specified sample rate or 0 if unspecified
- */
-int get_audio_codec_sample_rate(const char *audio_codec_cfg)
-{
-        char *val = get_val_from_cfg(audio_codec_cfg, "sample_rate=");
-        if (val) {
-                int ret =  atoi(val);
-                free(val);
-                return ret;
-        } else {
-                return 0;
-        }
-}
-
-int get_audio_codec_bitrate(const char *audio_codec_cfg)
-{
-        char *val = get_val_from_cfg(audio_codec_cfg, "bitrate=");
-        if (val) {
-                long long ret =  unit_evaluate(val);
-                if (ret <= 0 && ret > INT_MAX) {
-                        LOG(LOG_LEVEL_ERROR) << "Wrong bitrate: " << val << "\n";
-                        return -1;
+                if (strstr(item, "sample_rate=") == item) {
+                        params.sample_rate = atoi(strchr(item, '=') + 1);
                 }
-                free(val);
-                return ret;
-        } else {
-                return 0;
+                if (strstr(item, "bitrate=") == item) {
+                        const char *val = strchr(item, '=') + 1;
+                        long long   rate = unit_evaluate(val);
+                        if (rate <= 0 && rate > INT_MAX) {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << "Wrong bitrate: " << val << "\n";
+                                return {};
+                        }
+                        params.bitrate = (int) rate;
+                }
         }
+        return params;
 }
 
 const char *get_name_to_audio_codec(audio_codec_t codec)
@@ -468,7 +450,9 @@ audio_codec_t get_audio_codec_to_tag(uint32_t tag)
 
 bool check_audio_codec(const char *audio_codec_cfg)
 {
-        if (get_audio_codec(audio_codec_cfg) == AC_NONE) {
+        const struct audio_codec_params params =
+            parse_audio_codec_params(audio_codec_cfg);
+        if (params.codec == AC_NONE) {
                 LOG(LOG_LEVEL_ERROR) << "Unknown audio codec given!\n";
                 return false;
         }
