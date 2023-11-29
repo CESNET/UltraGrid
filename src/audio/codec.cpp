@@ -414,7 +414,7 @@ parse_audio_codec_params(const char *ccfg)
                         }
                         continue;
                 }
-                if (strstr(item, "sample_rate=") == item) {
+                if (IS_KEY_PREFIX(item, "sample_rate")) {
                         params.sample_rate = stoi(strchr(item, '=') + 1);
                         if (params.sample_rate < 0) {
                                 MSG(ERROR,
@@ -423,7 +423,7 @@ parse_audio_codec_params(const char *ccfg)
                                     params.sample_rate);
                                 return {};
                         }
-                } else if (strstr(item, "bitrate=") == item) {
+                } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         const char *val = strchr(item, '=') + 1;
                         const char *endptr = nullptr;
                         long long   rate = unit_evaluate(val, &endptr);
