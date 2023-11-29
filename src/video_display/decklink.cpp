@@ -44,6 +44,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config_unix.h"
+#include "config_win32.h"
+
 #include <DeckLinkAPIVersion.h>
 #include <algorithm>
 #include <array>
@@ -63,8 +66,6 @@
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -82,13 +83,6 @@
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
-
-enum {
-        SCHED_RANGE              = 2,
-        DEFAULT_MIN_SCHED_FRAMES = 4,
-        DEFAULT_MAX_SCHED_FRAMES = DEFAULT_MIN_SCHED_FRAMES + SCHED_RANGE,
-        MAX_UNPROC_QUEUE_SIZE    = 10,
-};
 
 #define RELEASE_IF_NOT_NULL(x) if ((x) != nullptr) { (x)->Release(); (x) = nullptr; }
 
@@ -117,23 +111,25 @@ static bool display_decklink_reconfigure(void *state, struct video_desc desc);
 
 using namespace std;
 
+struct state_decklink;
+
 namespace {
 class DeckLinkFrame;
-
-struct audio_vals {
-        int64_t saved_sync_ts   = INT64_MIN;
-        int64_t last_sync_ts    = INT64_MIN;
-};
-
-enum audio_sync_val : int64_t {
-        deinit = INT64_MIN,
-        resync = INT64_MIN + 1,
-};
 
 /// Used for scheduled playback only
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
       private:
+        struct audio_vals {
+                int64_t saved_sync_ts = INT64_MIN;
+                int64_t last_sync_ts  = INT64_MIN;
+        };
+
+        enum audio_sync_val : int64_t {
+                deinit = INT64_MIN,
+                resync = INT64_MIN + 1,
+        };
+
         chrono::high_resolution_clock::time_point t0 =
             chrono::high_resolution_clock::now();
         uint64_t frames_dropped = 0;
@@ -148,16 +144,28 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         atomic<int64_t> m_audio_sync_ts = audio_sync_val::deinit;
         struct audio_vals m_adata;
 
-      public:
         unsigned m_min_sched_frames = DEFAULT_MIN_SCHED_FRAMES;
         unsigned m_max_sched_frames = DEFAULT_MAX_SCHED_FRAMES;
         BMDTimeValue frameRateDuration{};
         BMDTimeScale frameRateScale{};
 
-        void SetDecklinkOutput(IDeckLinkOutput *ido)
+      public:
+        enum {
+                SCHED_RANGE              = 2,
+                DEFAULT_MIN_SCHED_FRAMES = 4,
+                DEFAULT_MAX_SCHED_FRAMES =
+                    DEFAULT_MIN_SCHED_FRAMES + SCHED_RANGE,
+                MAX_UNPROC_QUEUE_SIZE = 10,
+        };
+
+        void SetDecklinkOutput(IDeckLinkOutput *ido) { m_deckLinkOutput = ido; }
+        void SetFrameTimes(BMDTimeValue fd, BMDTimeScale fs)
         {
-            m_deckLinkOutput = ido;
+                frameRateDuration = fd;
+                frameRateScale    = fs;
         }
+        void SetSynchronized(const char *cfg);
+        bool Preroll(struct state_decklink *s);
         void Reset();
         void ResetAudio() { m_audio_sync_ts = audio_sync_val::deinit; }
 
@@ -542,9 +550,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                       << " use regular scheduled mode for synchrized output"
                          "\n\t\t(m -  minimum "
                          "scheduled frames /default "
-                      << DEFAULT_MIN_SCHED_FRAMES
+                      << PlaybackDelegate::DEFAULT_MIN_SCHED_FRAMES
                       << "/, M - max sched\n\t\tframes /default "
-                      << DEFAULT_MAX_SCHED_FRAMES << "/), shortcut sync\n";
+                      << PlaybackDelegate::DEFAULT_MAX_SCHED_FRAMES << "/), shortcut sync\n";
                 col() << SBOLD("\tconversion") << "\toutput size conversion, can be:\n" <<
                                 SBOLD("\t\tnone") << " - no conversion\n" <<
                                 SBOLD("\t\tltbx") << " - down-converted letterbox SD\n" <<
@@ -932,13 +940,15 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         BMDVideoOutputFlags outputFlags = bmdVideoOutputFlagDefault;
         BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
-        displayMode =
-            get_mode(s->deckLinkOutput, desc, &s->delegate.frameRateDuration,
-                     &s->delegate.frameRateScale, s->stereo);
+        BMDTimeValue frameRateDuration{};
+        BMDTimeScale frameRateScale{};
+        displayMode = get_mode(s->deckLinkOutput, desc, &frameRateDuration,
+                               &frameRateScale, s->stereo);
         if (displayMode == bmdModeUnknown) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
                 return false;
         }
+        s->delegate.SetFrameTimes(frameRateDuration, frameRateScale);
 
         if (s->emit_timecode) {
                 outputFlags = (BMDVideoOutputFlags)(outputFlags | bmdVideoOutputRP188);
@@ -1035,30 +1045,37 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 // Provide this class as a delegate to a video output interface
                 s->deckLinkOutput->SetScheduledFrameCompletionCallback(
                     &s->delegate);
-                auto *f = allocate_new_decklink_frame(s);
-                for (unsigned i = 0; i < (s->delegate.m_min_sched_frames +
-                                          s->delegate.m_min_sched_frames + 1) /
-                                             2;
-                     ++i) {
-                        f->AddRef();
-                        const bool ret = s->delegate.EnqueueFrame(f);
-                        assert(ret);
-                        s->delegate.ScheduleNextFrame();
-                }
-                f->Release(); // release initial reference from alloc
-                result = s->deckLinkOutput->StartScheduledPlayback(
-                    0, s->delegate.frameRateScale, 1.0);
-                if (FAILED(result)) {
-                        LOG(LOG_LEVEL_ERROR)
-                            << MOD_NAME << "StartScheduledPlayback (video): "
-                            << bmd_hresult_to_string(result) << "\n";
-                        s->deckLinkOutput->DisableVideoOutput();
+                if (!s->delegate.Preroll(s)) {
                         return false;
                 }
         }
 
         s->initialized = true;
         s->audio_reconfigure = false;
+        return true;
+}
+
+bool
+PlaybackDelegate::Preroll(struct state_decklink *s)
+{
+        auto *f = allocate_new_decklink_frame(s);
+        for (unsigned i = 0;
+             i < (m_min_sched_frames + m_min_sched_frames + 1) / 2; ++i) {
+                f->AddRef();
+                const bool ret = EnqueueFrame(f);
+                assert(ret);
+                ScheduleNextFrame();
+        }
+        f->Release(); // release initial reference from alloc
+        HRESULT result =
+            m_deckLinkOutput->StartScheduledPlayback(0, frameRateScale, 1.0);
+        if (FAILED(result)) {
+                LOG(LOG_LEVEL_ERROR)
+                    << MOD_NAME << "StartScheduledPlayback (video): "
+                    << bmd_hresult_to_string(result) << "\n";
+                m_deckLinkOutput->DisableVideoOutput();
+                return false;
+        }
         return true;
 }
 
@@ -1107,22 +1124,21 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize(&com_initialized);
 }
 
-static void
-set_synchronized(struct state_decklink *s, const char *cfg)
+void
+PlaybackDelegate::SetSynchronized(const char *cfg)
 {
-        s->low_latency = false;
         if (cfg == nullptr) {
                 return;
         }
         cfg += 1;
-        s->delegate.m_min_sched_frames = stoi(cfg);
+        m_min_sched_frames = stoi(cfg);
         if (strchr(cfg, ',') != nullptr) {
-                s->delegate.m_max_sched_frames = stoi(strchr(cfg, ',') + 1);
+                m_max_sched_frames = stoi(strchr(cfg, ',') + 1);
         } else {
-                s->delegate.m_max_sched_frames =
-                    s->delegate.m_min_sched_frames + SCHED_RANGE;
+                m_max_sched_frames =
+                    m_min_sched_frames + SCHED_RANGE;
         }
-        assert(s->delegate.m_max_sched_frames > s->delegate.m_min_sched_frames);
+        assert(m_max_sched_frames > m_min_sched_frames);
 }
 
 static bool settings_init(struct state_decklink *s, const char *fmt,
@@ -1214,7 +1230,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                "see option \"synchroninzed\" instead.\n";
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (IS_PREFIX(ptr, "synchronized")) {
-                        set_synchronized(s, strchr(ptr, '='));
+                        s->low_latency = false;
+                        s->delegate.SetSynchronized(strchr(ptr, '='));
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split.set_flag(strcasecmp(ptr, "quad-square") == 0);
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
