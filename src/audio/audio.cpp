@@ -47,58 +47,57 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <array>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
 
-#include "audio/audio.h" 
-
-#include "audio/codec.h"
-#include "audio/echo.h" 
-#include "audio/audio_capture.h" 
-#include "audio/audio_playback.h" 
+#include "../export.h" // not audio/export.h
+#include "audio/audio.h"
+#include "audio/audio_capture.h"
+#include "audio/audio_filter.h"
+#include "audio/audio_playback.h"
 #include "audio/capture/sdi.h"
+#include "audio/codec.h"
+#include "audio/echo.h"
+#include "audio/filter_chain.hpp"
+#include "audio/jack.h"
 #include "audio/playback/sdi.h"
-#include "audio/jack.h" 
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
-#include "audio/audio_filter.h"
-#include "audio/filter_chain.hpp"
 #include "debug.h"
-#include "../export.h" // not audio/export.h
 #include "host.h"
 #include "module.h"
+#include "pdb.h"
 #include "rtp/audio_decoders.h"
 #include "rtp/fec.h"
+#include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
-#include "rtp/pbuf.h"
-#include "tv.h"
 #include "transmit.h"
+#include "tv.h"
 #include "types.h"
-#include "pdb.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/worker.h"
-#include "utils/string_view_utils.hpp"
 
-using namespace std;
+using std::array;
+using std::fixed;
+using std::ostringstream;
+using std::setprecision;
+using std::string;
+using std::to_string;
+using std::unique_ptr;
+using namespace std::string_literals;
 
 enum audio_transport_device {
         NET_NATIVE,
