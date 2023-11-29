@@ -51,16 +51,18 @@
 
 #include <algorithm>
 #include <climits>
+#include <string>
 #include <unordered_map>
 
-static constexpr const char *MOD_NAME = "[acodec] ";
+#define MOD_NAME "[acodec] "
 
 using std::get;
 using std::hash;
 using std::max;
-using std::unordered_map;
+using std::stoi;
 using std::string;
 using std::tuple;
+using std::unordered_map;
 using std::vector;
 
 static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>>
@@ -407,14 +409,23 @@ parse_audio_codec_params(const char *ccfg)
                 if (params.codec == AC_NONE) {
                         params.codec = get_audio_codec(item);
                         if (params.codec == AC_NONE) {
+                                MSG(ERROR,
+                                    "Unknown audio codec \"%s\" given!\n",
+                                    item);
                                 return {};
                         }
                         continue;
                 }
                 if (strstr(item, "sample_rate=") == item) {
-                        params.sample_rate = atoi(strchr(item, '=') + 1);
-                }
-                if (strstr(item, "bitrate=") == item) {
+                        params.sample_rate = stoi(strchr(item, '=') + 1);
+                        if (params.sample_rate < 0) {
+                                MSG(ERROR,
+                                    "Sample rate cannot be negative! given "
+                                    "%d\n",
+                                    params.sample_rate);
+                                return {};
+                        }
+                } else if (strstr(item, "bitrate=") == item) {
                         const char *val = strchr(item, '=') + 1;
                         long long   rate = unit_evaluate(val);
                         if (rate <= 0 && rate > INT_MAX) {
@@ -423,6 +434,9 @@ parse_audio_codec_params(const char *ccfg)
                                 return {};
                         }
                         params.bitrate = (int) rate;
+                } else {
+                        MSG(ERROR, "Unknown audio option: %s\n", item);
+                        return {};
                 }
         }
         return params;
@@ -452,28 +466,6 @@ bool check_audio_codec(const char *audio_codec_cfg)
 {
         const struct audio_codec_params params =
             parse_audio_codec_params(audio_codec_cfg);
-        if (params.codec == AC_NONE) {
-                LOG(LOG_LEVEL_ERROR) << "Unknown audio codec given!\n";
-                return false;
-        }
-
-        auto tmp = static_cast<char *>(alloca(strlen(audio_codec_cfg) + 1));
-        strcpy(tmp, audio_codec_cfg);
-        char *item, *save_ptr;
-        while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
-                if (tmp != nullptr) { // skip first && set tmp to nullptr
-                        tmp = nullptr;
-                        continue;
-                }
-                if (strstr(item, "bitrate=") == item) {
-                        continue;
-                }
-                if (strstr(item, "sample_rate=") == item) {
-                        continue;
-                }
-                LOG(LOG_LEVEL_ERROR) << "Unknown audio option: " << item << "\n";
-                return false;
-        }
-        return true;
+        return params.codec != AC_NONE;
 }
 
