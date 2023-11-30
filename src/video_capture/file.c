@@ -51,20 +51,14 @@
  * - audio-only input
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <assert.h>
+#include <inttypes.h>
 #include <libavcodec/avcodec.h>
 #include <libavcodec/version.h>
-#include <libavutil/avutil.h>
 #include <libavformat/avformat.h>
 #include <libavformat/version.h>
+#include <libavutil/avutil.h>
 #include <libswscale/swscale.h>
-#include <inttypes.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -74,8 +68,8 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "libavcodec/lavc_common.h"
 #include "libavcodec/from_lavc_vid_conv.h"
+#include "libavcodec/lavc_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "pixfmt_conv.h"
@@ -87,8 +81,8 @@
 #include "utils/macros.h"
 #include "utils/math.h"
 #include "utils/ring_buffer.h"
-#include "utils/time.h"
 #include "utils/thread.h"
+#include "utils/time.h"
 #include "video.h"
 #include "video_capture.h"
 
