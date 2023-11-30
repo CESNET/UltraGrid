@@ -472,7 +472,7 @@ static void *vidcap_file_worker(void *state) {
 
         pkt->size = 0;
         pkt->data = 0;
-        while (!s->should_exit) {
+        while (true) {
                 pthread_mutex_lock(&s->lock);
                 while (!s->should_exit && !s->new_msg &&
                        (simple_linked_list_size(s->video_frame_queue) >
