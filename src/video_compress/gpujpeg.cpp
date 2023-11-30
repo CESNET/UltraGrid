@@ -602,7 +602,7 @@ void state_video_compress_gpujpeg::push(std::shared_ptr<video_frame> in_frame)
         }
 
         if (!m_uses_worker_threads) {
-                m_workers[0]->compress(in_frame);
+                m_workers[0]->compress(std::move(in_frame));
                 return;
         }
         if (!in_frame) { // pass poison pill to all workers
@@ -683,7 +683,9 @@ static compress_module_info get_gpujpeg_module_info(){
                 std::string desc = opt.description;
                 desc.erase(std::remove(desc.begin(), desc.end(), '\t'), desc.end());
                 std::replace(desc.begin(), desc.end(), '\n', ' ');
-                module_info.opts.emplace_back(module_option{opt.label, desc, opt.key, opt.opt_str, opt.is_boolean});
+                module_info.opts.emplace_back(
+                    module_option{ opt.label, std::move(desc), opt.key,
+                                   opt.opt_str, opt.is_boolean });
         }
 
         codec codec_info;
