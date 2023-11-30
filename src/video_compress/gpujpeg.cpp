@@ -603,28 +603,30 @@ void state_video_compress_gpujpeg::push(std::shared_ptr<video_frame> in_frame)
 
         if (!m_uses_worker_threads) {
                 m_workers[0]->compress(in_frame);
-        } else {
-                if (!in_frame) {
-                        for (auto worker : m_workers) { // pass poison pill to all workers
-                                worker->m_in_queue.push({});
-                        }
-                } else {
-                        int index;
-                        unique_lock<mutex> lk(m_occupancy_lock);
-                        // wait for/select not occupied worker
-                        m_worker_finished.wait(lk, [this, &index]{
-                                        index = 0;
-                                        for (auto worker : m_workers) {
-                                        if (!worker->m_occupied) return true;
-                                        index++;
-                                        }
-                                        return false;
-                                        });
-                        m_workers[index]->m_occupied = true;
-                        lk.unlock();
-                        m_workers[index]->m_in_queue.push(in_frame);
-                }
+                return;
         }
+        if (!in_frame) { // pass poison pill to all workers
+                for (auto *worker : m_workers) {
+                        worker->m_in_queue.push({});
+                }
+                return;
+        }
+
+        int                index = 0;
+        unique_lock<mutex> lk(m_occupancy_lock);
+        // wait for/select not occupied worker
+        m_worker_finished.wait(lk, [this, &index] {
+                for (auto *worker : m_workers) {
+                        if (!worker->m_occupied) {
+                                return true;
+                        }
+                        index++;
+                }
+                return false;
+        });
+        m_workers[index]->m_occupied = true;
+        lk.unlock();
+        m_workers[index]->m_in_queue.push(in_frame);
 }
 
 /**
