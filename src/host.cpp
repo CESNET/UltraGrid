@@ -476,7 +476,7 @@ struct init_data *common_preinit(int argc, char *argv[])
         fec_init();
 #endif
 
-        return new init_data{init};
+        return new init_data{ std::move(init) };
 }
 
 struct state_root {
