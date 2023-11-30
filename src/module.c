@@ -325,6 +325,7 @@ void dump_tree(struct module *node, int indent) {
 
         printf("%s\n", module_class_name(node->cls));
 
+        module_mutex_lock(&node->lock);
         for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
