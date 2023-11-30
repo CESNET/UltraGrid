@@ -183,8 +183,18 @@ add_whitelist() {
         separator=' '
 }
 
+# realpath + expand tilde expansion (like ~/video.mp4; only single ~ now)
+expand_path() {
+        # shellcheck disable=SC2088 # intentional
+        if ! expr "$1" : '~/' >/dev/null; then
+                realpath "$1"
+        else
+                realpath "$HOME${1#\~}"
+        fi
+}
+
 whitelist_file_path() {
-        abs_path=$(realpath "$1")
+        abs_path=$(expand_path "$1")
         add_whitelist "$abs_path"
         if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null
         then
@@ -207,7 +217,7 @@ get_custom_firejail_rules() {
         separator=''
         playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
         if [ -n "$playback_path" ]; then
-                add_whitelist "$(realpath "$playback_path")"
+                add_whitelist "$(expand_path "$playback_path")"
         fi
         # print every argument of "filename=", "file[:=]", "dump:" or "--record=" pattern
         for n in "$@"; do
@@ -226,7 +236,7 @@ get_custom_firejail_rules() {
                 add_whitelist "$(pwd)"
         fi
         if ! expr "$DIR" : /tmp >/dev/null; then # add AppRun path if not in tmp (== extracted AppImage)
-                add_whitelist "$(realpath "$DIR")"
+                add_whitelist "$(expand_path "$DIR")"
         fi
         if [ -z "$separator" ]; then # no whitelist was set
                 printf -- "--private"
