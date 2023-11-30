@@ -357,7 +357,7 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
         switch(f->color_spec){
                 case UYVY:
                         //Two UYVY pixels get uploaded as one RGBA pixel
-                        width /= 2;
+                        width = (width + 1) / 2;
                         fmt = GL_RGBA;
                         break;
                 case RGB:
@@ -431,7 +431,7 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         glClear(GL_COLOR_BUFFER_BIT);
 
         glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
-        yuv_tex.allocate(f->tiles[0].width / 2, f->tiles[0].height, GL_RGBA);
+        yuv_tex.allocate((f->tiles[0].width + 1) / 2, f->tiles[0].height, GL_RGBA);
 
         yuv_tex.upload_frame(f, pbo_frame);
 
