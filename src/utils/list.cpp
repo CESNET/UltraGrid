@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,17 +35,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <list>
 
 #include "utils/list.h"
 
-#include <list>
-
-using namespace std;
+using std::list;
 
 struct simple_linked_list {
         list <void *> l;
@@ -146,15 +140,15 @@ void simple_linked_list_it_destroy(void *i)
         delete (sll_it *) i;
 }
 
-int simple_linked_list_remove(struct simple_linked_list *l, void *item)
+bool simple_linked_list_remove(struct simple_linked_list *l, void *item)
 {
         for (auto it = l->l.begin(); it != l->l.end(); ++it) {
                 if (*it == item) {
                         l->l.erase(it);
-                        return TRUE;
+                        return true;
                 }
         }
-        return FALSE;
+        return false;
 }
 
 void *simple_linked_list_remove_index(struct simple_linked_list *l, int index)

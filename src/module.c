@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2019 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,11 +89,9 @@ void module_done(struct module *module_data)
 
         if(module_data->parent) {
                 pthread_mutex_lock(&module_data->parent->lock);
-                int found;
-
-                found = simple_linked_list_remove(module_data->parent->childs, module_data);
-
-                assert(found == TRUE);
+                bool found = simple_linked_list_remove(
+                    module_data->parent->childs, module_data);
+                assert(found);
                 pthread_mutex_unlock(&module_data->parent->lock);
         }
 
