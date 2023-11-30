@@ -35,16 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "debug.h"
-
 #include "module.h"
 #include "utils/list.h"
+
+#define MOD_NAME "[module] "
 
 void module_init_default(struct module *module_data)
 {
@@ -66,14 +65,28 @@ void module_init_default(struct module *module_data)
         module_data->magic = MODULE_MAGIC;
 }
 
+static void
+module_mutex_lock(pthread_mutex_t *lock)
+{
+        MSG(DEBUG, "Locking lock %p\n", lock);
+        pthread_mutex_lock(lock);
+}
+
+static void
+module_mutex_unlock(pthread_mutex_t *lock)
+{
+        MSG(DEBUG, "Unlocking lock %p\n", lock);
+        pthread_mutex_unlock(lock);
+}
+
 void module_register(struct module *module_data, struct module *parent)
 {
         if(parent) {
                 module_data->parent = parent;
-                pthread_mutex_lock(&module_data->parent->lock);
+                module_mutex_lock(&module_data->parent->lock);
                 simple_linked_list_append(module_data->parent->childs, module_data);
                 module_check_undelivered_messages(module_data->parent);
-                pthread_mutex_unlock(&module_data->parent->lock);
+                module_mutex_unlock(&module_data->parent->lock);
         }
 }
 
@@ -88,18 +101,18 @@ void module_done(struct module *module_data)
         assert(module_data->magic == MODULE_MAGIC);
 
         if(module_data->parent) {
-                pthread_mutex_lock(&module_data->parent->lock);
+                module_mutex_lock(&module_data->parent->lock);
                 bool found = simple_linked_list_remove(
                     module_data->parent->childs, module_data);
                 assert(found);
-                pthread_mutex_unlock(&module_data->parent->lock);
+                module_mutex_unlock(&module_data->parent->lock);
         }
 
         // we assume that deleter may dealloc space where are structure stored
-        pthread_mutex_lock(&module_data->lock);
+        module_mutex_lock(&module_data->lock);
         struct module tmp;
         memcpy(&tmp, module_data, sizeof(struct module));
-        pthread_mutex_unlock(&module_data->lock);
+        module_mutex_unlock(&module_data->lock);
 
         module_data->cls = MODULE_CLASS_NONE;
 
@@ -109,14 +122,14 @@ void module_done(struct module *module_data)
         if(simple_linked_list_size(tmp.childs) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
                 dump_tree(&tmp, 0);
-                pthread_mutex_lock(&tmp.lock);
+                module_mutex_lock(&tmp.lock);
                 for(void *it = simple_linked_list_it_init(module_data->childs); it != NULL; ) {
                         struct module *child = simple_linked_list_it_next(&it);
-                        pthread_mutex_lock(&child->lock);
+                        module_mutex_lock(&child->lock);
                         child->parent = NULL;
-                        pthread_mutex_unlock(&child->lock);
+                        module_mutex_unlock(&child->lock);
                 }
-                pthread_mutex_unlock(&tmp.lock);
+                module_mutex_unlock(&tmp.lock);
         }
         simple_linked_list_destroy(tmp.childs);
 
@@ -252,7 +265,7 @@ struct module *get_module(struct module *root, const char *const_path)
         char *path, *tmp;
         char *item, *save_ptr;
 
-        pthread_mutex_lock(&root->lock);
+        module_mutex_lock(&root->lock);
 
         tmp = path = strdup(const_path);
         assert(path != NULL);
@@ -262,19 +275,19 @@ struct module *get_module(struct module *root, const char *const_path)
                 receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
-                        pthread_mutex_unlock(&old_receiver->lock);
+                        module_mutex_unlock(&old_receiver->lock);
                         free(tmp);
                         return NULL;
                 }
-                pthread_mutex_lock(&receiver->lock);
-                pthread_mutex_unlock(&old_receiver->lock);
+                module_mutex_lock(&receiver->lock);
+                module_mutex_unlock(&old_receiver->lock);
 
                 path = NULL;
 
         }
         free(tmp);
 
-        pthread_mutex_unlock(&receiver->lock);
+        module_mutex_unlock(&receiver->lock);
 
         return receiver;
 }
@@ -330,7 +343,7 @@ static const char *get_module_identifier(struct module *mod)
                 return cls_name;
         }
 
-        pthread_mutex_lock(&parent->lock);
+        module_mutex_lock(&parent->lock);
 
         int our_index = 0;
         for (void *it = simple_linked_list_it_init(parent->childs);
@@ -345,7 +358,7 @@ static const char *get_module_identifier(struct module *mod)
                 our_index += 1;
         }
         if (our_index == 0) {
-                pthread_mutex_unlock(&parent->lock);
+                module_mutex_unlock(&parent->lock);
                 return cls_name;
         }
         // append our index if >0
@@ -354,7 +367,7 @@ static const char *get_module_identifier(struct module *mod)
         int ret = snprintf(name, sizeof name, "%s[%d]", cls_name, our_index);
         assert((unsigned)ret < sizeof name);
 
-        pthread_mutex_unlock(&parent->lock);
+        module_mutex_unlock(&parent->lock);
 
         return name;
 }
