@@ -82,7 +82,7 @@ bool simple_linked_list_append_if_less(struct simple_linked_list *l, void *data,
 void *simple_linked_list_pop(struct simple_linked_list *l)
 {
         if (simple_linked_list_size(l) == 0) {
-                return NULL;
+                return nullptr;
         }
         void *ret = l->l.front();
         l->l.pop_front();
@@ -107,8 +107,9 @@ void *simple_linked_list_last(struct simple_linked_list *l)
 
 void *simple_linked_list_it_init(struct simple_linked_list *l)
 {
-        if (l->l.size() == 0)
-                return NULL;
+        if (l->l.size() == 0) {
+                return nullptr;
+        }
         auto ret = new sll_it();
         ret->it = l->l.begin();
         ret->end = l->l.end();
@@ -123,7 +124,7 @@ void *simple_linked_list_it_next(void **i)
         ++sit->it;
         if (sit->it == sit->end) {
                 delete sit;
-                *i = NULL;
+                *i = nullptr;
         }
         return ret;
 }
@@ -161,6 +162,6 @@ void *simple_linked_list_remove_index(struct simple_linked_list *l, int index)
                         return ret;
                 }
         }
-        return NULL;
+        return nullptr;
 }
 
