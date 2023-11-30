@@ -35,33 +35,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <algorithm>
+#include <cassert>
+#include <condition_variable>
+#include <initializer_list>
+#include <libgpujpeg/gpujpeg_encoder.h>
+#include <libgpujpeg/gpujpeg_version.h>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <thread>
+#include <vector>
 
 #include "debug.h"
 #include "host.h"
-#include "video_compress.h"
-#include "module.h"
 #include "lib_common.h"
+#include "module.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
-
-#include <algorithm>
-#include <initializer_list>
-#include <libgpujpeg/gpujpeg_encoder.h>
-#include <libgpujpeg/gpujpeg_version.h>
-#include <memory>
-#include <map>
-#include <mutex>
-#include <thread>
-#include <set>
-#include <vector>
+#include "video_compress.h"
 
 #ifndef GPUJPEG_VERSION_INT
 #error "Old GPUJPEG API detected!"
@@ -69,7 +65,16 @@
 
 #define MOD_NAME "[GPUJPEG enc.] "
 
-using namespace std;
+using std::condition_variable;
+using std::map;
+using std::max;
+using std::mutex;
+using std::set;
+using std::shared_ptr;
+using std::thread;
+using std::unique_lock;
+using std::unique_ptr;
+using std::vector;
 
 namespace {
 struct state_video_compress_gpujpeg;
@@ -467,9 +472,9 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
         struct state_video_compress_gpujpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
-                cout << "GPUJPEG comperssion usage:\n";
+                col() << "GPUJPEG comperssion usage:\n";
                 col() << "\t" << TBOLD(TRED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>][:alpha]\n");
-                cout << "where\n";
+                col() << "where\n";
 
                 for(const auto& i : usage_opts){
                     col() << "\t" << TBOLD(<< i.help_name <<) << "\n" << i.description;
@@ -515,8 +520,8 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
         // first run - initialize device
         if (!m_encoder) {
                 log_msg(LOG_LEVEL_INFO, "Initializing CUDA device %d...\n", m_device_id);
-                int ret = gpujpeg_init_device(m_device_id, TRUE);
-
+                const int ret =
+                    gpujpeg_init_device(m_device_id, GPUJPEG_VERBOSE);
                 if(ret != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", m_device_id);
                         exit_uv(EXIT_FAILURE);
