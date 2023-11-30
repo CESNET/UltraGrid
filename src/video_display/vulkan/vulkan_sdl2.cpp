@@ -828,7 +828,10 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 }
 #endif
                 s->vulkan = new vkd::VulkanDisplay{};
-                s->vulkan->init(std::move(instance), vk::SurfaceKHR(surface), initial_frame_count, *s->window_callback, args.gpu_idx, path_to_shaders, args.vsync, args.tearing_permitted);
+                s->vulkan->init(std::move(instance), vk::SurfaceKHR(surface),
+                                initial_frame_count, *s->window_callback,
+                                args.gpu_idx, std::move(path_to_shaders),
+                                args.vsync, args.tearing_permitted);
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Vulkan display initialised." << std::endl;
         }
         catch (std::exception& e) { log_and_exit_uv(e); return nullptr; }

@@ -134,7 +134,8 @@ struct video_frame *video_frame_pool::get_pod_frame() {
         for (unsigned int i = 0; i < frame->tile_count; ++i) {
                 out->tiles[i].data = frame->tiles[i].data;
         }
-        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
+        out->callbacks.dispose_udata =
+            new std::shared_ptr<video_frame>(std::move(frame));
         static auto deleter = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
         out->callbacks.data_deleter = deleter;
         return out;

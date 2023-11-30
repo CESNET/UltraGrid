@@ -154,7 +154,7 @@ void state_transcoder_decompress::worker()
                 if(!frame){
                         should_exit = true;
                 } else {
-                        recompress_process_async(recompress, frame);
+                        recompress_process_async(recompress, std::move(frame));
                 }
 
                 // we are removing from queue now because special messages are "accepted" when queue is empty

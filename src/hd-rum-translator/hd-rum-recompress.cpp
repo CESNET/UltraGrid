@@ -170,7 +170,7 @@ static void recompress_port_write(recompress_output_port& port, shared_ptr<video
                 port.frames = 0;
         }
 
-        port.video_rxtx->send(frame);
+        port.video_rxtx->send(std::move(frame));
 }
 
 static void recompress_worker(struct recompress_worker_ctx *ctx){

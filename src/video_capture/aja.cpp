@@ -891,7 +891,7 @@ void vidcap_state_aja::CaptureFrames (void)
                 if (out->color_spec == R12L) {
                         shared_ptr<video_frame> converted = mPool.get_frame();
                         vc_copylineR12AtoR12L((unsigned char *) converted->tiles[0].data, (unsigned char *) out->tiles[0].data, out->tiles[0].data_len, 0, 0, 0);
-                        out = converted;
+                        out = std::move(converted);
                 }
 
                 if (log_level >= LOG_LEVEL_DEBUG) {
