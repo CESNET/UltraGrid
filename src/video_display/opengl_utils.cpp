@@ -119,9 +119,15 @@ static const char *yuv_conv_frag_src = R"END(
 layout(location = 0) out vec4 color;
 in vec2 UV;
 uniform sampler2D tex;
-uniform float width;
+
+uniform float luma_scale = 1.1643f;
+uniform float r_cr = 1.7926f;
+uniform float g_cb = 0.2132f;
+uniform float g_cr = 0.5328f;
+uniform float b_cb = 2.1124f;
 
 void main(){
+        float width = textureSize(tex, 0).x;
         vec4 yuv;
         yuv.rgba  = texture2D(tex, UV).grba;
         if(UV.x * width / 2.0 - floor(UV.x * width / 2.0) > 0.5)
@@ -130,12 +136,10 @@ void main(){
         yuv.r = 1.1643 * (yuv.r - 0.0625);
         yuv.g = yuv.g - 0.5;
         yuv.b = yuv.b - 0.5;
-        float tmp; // this is a workaround over broken Gallium3D with Nouveau in U14.04 (and perhaps others)
-        tmp = -0.2664 * yuv.b;
-        tmp = 2.0 * tmp;
-        color.r = yuv.r + 1.7926 * yuv.b;
-        color.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
-        color.b = yuv.r + 2.1124 * yuv.g;
+
+        color.r = yuv.r + r_cr * yuv.b;
+        color.g = yuv.r - g_cb * yuv.g - g_cr * yuv.b;
+        color.b = yuv.r + b_cb * yuv.g;
         color.a = 1.0;
 }
 )END";
@@ -432,8 +436,6 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         yuv_tex.upload_frame(f, pbo_frame);
 
         PROFILE_DETAIL("YUV convert render");
-        GLuint w_loc = glGetUniformLocation(program.get(), "width");
-        glUniform1f(w_loc, f->tiles[0].width);
 
         quad.render();
 
