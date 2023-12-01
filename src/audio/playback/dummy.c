@@ -80,6 +80,7 @@ static void * audio_play_dummy_init(const char *cfg)
                 s->debug = true;
         } else if (strcmp(cfg, "help") == 0) {
                 audio_play_dummy_help();
+                free(s);
                 return INIT_NOERR;
         } else if (strlen(cfg) > 0) {
                 MSG(ERROR, "Wrong option: %s\n", cfg);
