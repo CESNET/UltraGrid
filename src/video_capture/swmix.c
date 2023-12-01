@@ -43,28 +43,25 @@
  * Refactor to use also different scalers than OpenGL (eg. libswscale)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <assert.h>
+#include <math.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "audio/types.h"
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/config_file.h"
+#include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
-
-#include "tv.h"
-
-#include "audio/types.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 
 #define MAX_AUDIO_LEN (1024*1024)
 
@@ -179,7 +176,7 @@ static void vidcap_swmix_done(void *state);
 static char *get_config_name()
 {
         const char *rc_suffix = "/.ug-swmix.rc";
-        static char buf[PATH_MAX];
+        static char buf[MAX_PATH_SIZE];
         if(!getenv("HOME")) {
                 return NULL;
         }
