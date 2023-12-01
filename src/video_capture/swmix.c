@@ -1309,6 +1309,10 @@ vidcap_swmix_grab(void *state, struct audio_frame **audio)
 	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
 
         *audio = NULL;
+        if (s->network_audio_buffer) {
+                free(s->network_audio_buffer);
+                s->network_audio_buffer = NULL;
+        }
 
         pthread_mutex_lock(&s->lock);
         while(s->completed_buffer == NULL) {
@@ -1318,19 +1322,13 @@ vidcap_swmix_grab(void *state, struct audio_frame **audio)
                 simple_linked_list_append(s->free_buffer_queue, s->network_buffer);
                 pthread_cond_signal(&s->free_buffer_queue_not_empty_cv);
         }
-        if(s->network_audio_buffer) {
-                free(s->network_audio_buffer);
-                s->network_audio_buffer = NULL;
-        }
-        s->network_buffer = s->completed_buffer;
+        s->frame->tiles[0].data = s->network_buffer = s->completed_buffer;
         s->completed_buffer = NULL;
         s->network_audio_buffer = s->completed_audio_buffer;
         s->completed_audio_buffer = NULL;
         s->audio.data_len = s->completed_audio_buffer_len;
         pthread_cond_signal(&s->frame_sent_cv);
         pthread_mutex_unlock(&s->lock);
-
-        s->frame->tiles[0].data = s->network_buffer;
 
         s->frames++;
         gettimeofday(&s->t, NULL);
