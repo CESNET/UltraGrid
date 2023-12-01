@@ -77,11 +77,15 @@ struct state_text {
         int req_x, req_y, req_h;
         int width;                 // pixels
         int text_base_y;
-        int margin_x, margin_y, text_h;
+        int margin_x, margin_y;
+        
+        // font size
+        int text_height_pt;   
 
-        // from the imagemagick font metrics
-        int text_width_px;
+        // actual px height (with descender)
+        int text_width_px;    
         int text_height_px;
+
         struct video_desc saved_desc;
 
         DrawingWand *dw;
@@ -193,9 +197,9 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->margin_x = s->req_x == -1 ? (int) desc.width / MARGIN_X_DIV : s->req_x;
         s->margin_y = s->req_y == -1 ? (int) desc.height / MARGIN_Y_DIV : s->req_y;
-        s->text_h = s->req_h == -1 ? (int) desc.height / TEXT_H_DIV : s->req_h;
-        s->width = MIN(s->margin_x + strlen(s->text) * s->text_h, desc.width);
-        s->text_base_y = MIN(s->margin_y + s->text_h, (int) desc.height);
+        s->text_height_pt = s->req_h == -1 ? (int) desc.height / TEXT_H_DIV : s->req_h;
+        s->width = MIN(s->margin_x + strlen(s->text) * s->text_height_pt, desc.width);
+        s->text_base_y = MIN(s->margin_y + s->text_height_pt, (int) desc.height);
 
 
         const char *color;
@@ -220,7 +224,7 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         }
 
         s->dw = NewDrawingWand();
-        DrawSetFontSize(s->dw, s->text_h);
+        DrawSetFontSize(s->dw, s->text_height_pt);
         MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
@@ -241,65 +245,48 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         status &= MagickSetFormat(s->wand_text, colorspace);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
-                assert(false);
                 return false;
         }
 
-        // TODO this is wrong not sure what to set
-        // status = MagickSetSize(s->wand_bg, s->, s->text_height_pt);
-
-        if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
-                assert(false);
-                return false;
-        }
 
         status = MagickSetDepth(s->wand_bg, 8);
         status &= MagickSetDepth(s->wand_text, 8);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetDepth failed!\n");
-                assert(false);
                 return false;
         }
         
-        
-        // MagickLabelImage doesn't create the canvas for you as CLI would
         PixelWand *transparent_bg = NewPixelWand();
-        PixelSetColor(transparent_bg, "#cccccc80");
-        // PixelSetColor(transparent, "#00000000");
+        // PixelSetColor(transparent_bg, "#cccccc80");
+        PixelSetColor(transparent_bg, "#00000000");
 
-        // still need a dummy canvas here unlike in CLI
+        // still need a dummy canvas to query font metrics
         MagickNewImage(s->wand_text, 1, 1, transparent_bg);
 
-        // char width, char height, ascender, descender, txt w, text h
-        double *ret = MagickQueryFontMetrics(s->wand_text, s->dw, s->text);
-        assert(ret != NULL);
-        s->text_width_px = ret[4];  // whole height, including the descender
-        s->text_height_px = ret[5];
-        double descender = ret[3];  // negative
-        double ascender = ret[2];
-
-        printf("font metrics: %d %d %f\n", s->text_width_px, s->text_height_px, descender);
-        // printf("width px, height pt??: %d %d\n", s->width, s->height);
-
+        // glyph w, glyph h, ascender, descender, txt w, txt h
+        double *metrics = MagickQueryFontMetrics(s->wand_text, s->dw, s->text);
+        if(!metrics) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickQueryFontMetrics failed!\n");
+                return false;
+        }
+        double descender =  metrics[3];  // has negative value
+        s->text_width_px =  metrics[4];
+        s->text_height_px = metrics[5];  // whole height, including the descender
+        free(metrics);
 
         MagickRemoveImage(s->wand_text);
-        assert(MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg));
+        status = MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg);
+        if (!status) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickNewImage failed!\n");
+                return false;
+        }
 
-        double x,y;
-        x = 0;
-        y = s->text_height_px + descender;
+        double x_off = 0;
+        double y_off_baseline = s->text_height_px - (-descender) + 1;
         double rot = 0;
-        assert(MagickAnnotateImage(s->wand_text, s->dw, x, y, rot, s->text));
-        assert(MagickDrawImage(s->wand_text, s->dw));  // does nothing...?
-
-        assert(MagickWriteImage(s->wand_text, "text.png"));
+        MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
 
         DestroyPixelWand(transparent_bg);
-
-        
-
-        printf("%d %d %d\n", s->width, s->text_base_y, s->text_height_px);
 
         return true;
 }
@@ -321,55 +308,56 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         MagickBooleanType status;
         struct state_text *s = (struct state_text *) state;
 
-        // --- load wand_bg from video frame somehow ---
+        int dst_linesize = vc_get_linesize(s->width, in->color_spec);
+        int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
 
-        int dstlinesize = vc_get_linesize(s->width, in->color_spec);
-        int srclinesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-
-        printf("sizes: %d %d %d\n", in->tiles[0].width, srclinesize, dstlinesize);
-        // assume it's 2, 3 or 4
-        int bytes_per_pixel = srclinesize / in->tiles[0].width;
-
+        int im_height_px = in->tiles[0].height;
 
         // copy over just the relevant "stripe"
-        // cannot copy just that rectangle because pixel formats
-        // are not necessarily byte aligned (obviously)
-
-        char *tmp = malloc((size_t) s->text_height_px * dstlinesize);
-
-        // printf("%d %d\n", srclinesize, dstlinesize);
-
+        // cannot copy just the rectangle because pixel formats
+        // are not necessarily byte aligned
+        char *stripe = malloc((size_t) s->text_height_px * dst_linesize);
         for (ptrdiff_t y = 0; y < s->text_height_px; y++) {
-                // oob skip
-                if (y + s->margin_y < 0) 
+                // skip what is out-of-bounds
+                if (y + s->margin_y < 0) {
+                        y += -s->margin_y - 1;
                         continue;
-                memcpy(tmp + (y) * dstlinesize,
-                       in->tiles[0].data + (y + s->margin_y) * srclinesize, 
-                       dstlinesize);
+                }
+                if (y + s->margin_y >= im_height_px)
+                        break;
+
+                // copy what isn't
+                memcpy(stripe + (y) * dst_linesize,
+                       in->tiles[0].data + (y + s->margin_y) * src_linesize, 
+                       dst_linesize);
         }
 
-        // printf("dstlsz: %d\n", dstlinesize);
-
+        // read image stripe into ImageMagick
         MagickRemoveImage(s->wand_bg);
-        assert(MagickSetSize(s->wand_bg, dstlinesize / bytes_per_pixel, 
-                             s->text_height_px));
-        status = MagickReadImageBlob(s->wand_bg, tmp, s->text_height_px * dstlinesize);
+
+        status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
+        if (status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
+                return false;
+        }
+
+        status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
                 return false;
         }
 
-        unsigned char *data, *datatx;
-        size_t data_len, datatx_len;
-
-        status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, 0, s->margin_x, 0);
+        // compose it with text
+        status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, true, s->margin_x, 0);
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickCompositeImage failed!\n");
                 return false;
         }
 
+        // extract the composed data
+        unsigned char *data;
+        size_t data_len;
         data = MagickGetImageBlob(s->wand_bg, &data_len);
-        datatx = MagickGetImageBlob(s->wand_text, &datatx_len);
         if (!data) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickGetImageBlob failed!\n");
                 return false;
@@ -378,20 +366,27 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         // send the input stream...
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
-        printf("%ld %ld\n", data_len, datatx_len);
-
         // ...and the text stripe on top of it
         // if ((int) data_len == s->text_height_pt * dstlinesize) {
                 for (int y = 0; y < s->text_height_px; y++) {
-                        // oob skip
-                        if (y + s->margin_y < 0) 
+                        // again, skip what is oob
+                        if (y + s->margin_y < 0) {
+                                y += - s->margin_y - 1; // 1 == don't y++ on continue
                                 continue;
+                        }
+                        if (y + s->margin_y >= im_height_px) {
+                                break;
+                        }
+
                         memcpy(out->tiles[0].data + (y + s->margin_y) * req_pitch,
-                               data + y * dstlinesize,
-                               dstlinesize);
+                               data + y * dst_linesize,
+                               dst_linesize);
                 }
         // }
 
+        free(data);
+
+        free(stripe);
         return true;
 }
 
