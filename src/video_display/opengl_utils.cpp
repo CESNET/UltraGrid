@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <vector>
+#include <string>
 #include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -42,8 +43,13 @@
 #include <glm/gtc/quaternion.hpp>
 #include "opengl_utils.hpp"
 #include "video_frame.h"
+#include "color.h"
+#include "debug.h"
+#include "host.h"
 
 #include "utils/profile_timer.hpp"
+
+#define MOD_NAME "[Opengl utils] "
 
 static const float PI_F=3.14159265358979f;
 
@@ -124,8 +130,8 @@ uniform float width;
 
 uniform float luma_scale = 1.1643f;
 uniform float r_cr = 1.7926f;
-uniform float g_cb = 0.2132f;
-uniform float g_cr = 0.5328f;
+uniform float g_cb = -0.2132f;
+uniform float g_cr = -0.5328f;
 uniform float b_cb = 2.1124f;
 
 void main(){
@@ -141,7 +147,7 @@ void main(){
         yuv.b = yuv.b - 0.5;
 
         color.r = yuv.r + r_cr * yuv.b;
-        color.g = yuv.r - g_cb * yuv.g - g_cr * yuv.b;
+        color.g = yuv.r + g_cb * yuv.g + g_cr * yuv.b;
         color.b = yuv.r + b_cb * yuv.g;
         color.a = 1.0;
 }
@@ -426,7 +432,34 @@ void Framebuffer::attach_texture(GLuint tex){
 
 Yuv_convertor::Yuv_convertor(): program(vert_src, yuv_conv_frag_src),
         quad(Model::get_quad())
-{ }
+{
+        const char *col = get_commandline_param("color");
+        if(!col)
+                return;
+
+        int color = std::stol(col, nullptr, 16) >> 4; // first nibble
+        if (color < 1 || color > 3){
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
+                return;
+        }
+
+        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+        double kr = cs_coeffs[2 * color];
+        double kb = cs_coeffs[2 * color + 1];
+
+        glUseProgram(program.get());
+        GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
+        glUniform1f(loc, Y_LIMIT_INV);
+        loc = glGetUniformLocation(program.get(), "r_cr");
+        glUniform1f(loc, R_CR(kr, kb));
+        loc = glGetUniformLocation(program.get(), "g_cr");
+        glUniform1f(loc, G_CR(kr, kb));
+        loc = glGetUniformLocation(program.get(), "g_cb");
+        glUniform1f(loc, G_CB(kr, kb));
+        loc = glGetUniformLocation(program.get(), "b_cb");
+        glUniform1f(loc, B_CB(kr, kb));
+}
+
 
 void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         PROFILE_FUNC;
