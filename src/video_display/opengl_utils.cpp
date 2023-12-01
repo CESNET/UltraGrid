@@ -120,6 +120,8 @@ layout(location = 0) out vec4 color;
 in vec2 UV;
 uniform sampler2D tex;
 
+uniform float width;
+
 uniform float luma_scale = 1.1643f;
 uniform float r_cr = 1.7926f;
 uniform float g_cb = 0.2132f;
@@ -127,9 +129,10 @@ uniform float g_cr = 0.5328f;
 uniform float b_cb = 2.1124f;
 
 void main(){
-        float width = textureSize(tex, 0).x;
+        //The width could be odd, but the width of texture is always even
+        float textureWidth = float((int(width) + 1) / 2 * 2);
         vec4 yuv;
-        yuv.rgba  = texture2D(tex, UV).grba;
+        yuv.rgba  = texture2D(tex, vec2(UV.x / textureWidth * width, UV.y)).grba;
         if(UV.x * width / 2.0 - floor(UV.x * width / 2.0) > 0.5)
                 yuv.r = yuv.a;
 
@@ -436,6 +439,8 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         yuv_tex.upload_frame(f, pbo_frame);
 
         PROFILE_DETAIL("YUV convert render");
+        GLuint w_loc = glGetUniformLocation(program.get(), "width");
+        glUniform1f(w_loc, f->tiles[0].width);
 
         quad.render();
 
