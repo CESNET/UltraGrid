@@ -44,16 +44,12 @@
  * 2. no other main event loop is run, in which case UG runs ours registered
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <AppKit/NSApplication.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #include <Syphon/Syphon.h>
+#include <pthread.h>
 
 #include "debug.h"
 #include "gl_context.h"
