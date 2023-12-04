@@ -155,7 +155,7 @@ if test $system = MacOSX; then
         if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
                 MACOS_LEGACY=yes
         fi
-        COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS:+$COMMON_OSX_FLAGS }-iframework data/redists -stdlib=libc++"
+        COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS:+$COMMON_OSX_FLAGS } -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"

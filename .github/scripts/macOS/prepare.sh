@@ -123,7 +123,8 @@ install_soundfont() {
 install_syphon() {
         curl -LO https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
         unzip Syphon.SDK.5.zip
-        sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks/
+        sudo cp -R 'Syphon SDK 5/Syphon.framework' \
+                "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
 }
 
 # Install cross-platform deps

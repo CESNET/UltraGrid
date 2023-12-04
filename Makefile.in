@@ -238,7 +238,7 @@ src/dir-stamp:
 
 Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
-	$(CP) -R $(srcdir)/data/redists/Syphon.framework Frameworks/
+	$(CP) -R $$(xcrun --show-sdk-path)/System/Library/Frameworks//Syphon.framework Frameworks/
 
 Frameworks/VideoMasterHD_Audio.framework:
 	$(MKDIR_P) Frameworks
