@@ -1549,6 +1549,11 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
         } else if ("h264_amf"s == codec_ctx->codec->name) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "header_spacing", 1);
+                if (param->header_inserter_req == -1) {
+                        MSG(INFO, "Auto-enabling header inserter for %s.\n",
+                            codec_ctx->codec->name);
+                        param->header_inserter_req = 1;
+                }
         }
 }
 
@@ -1879,8 +1884,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_nvenc(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "h264_omx") == 0)  {
                 if (param->header_inserter_req == -1) {
-                        MSG(INFO, "Enablling header inserter for h264_omx by "
-                                  "default.\n");
+                        MSG(INFO, "Auto-enabling header inserter for %s.\n",
+                            codec_ctx->codec->name);
                         param->header_inserter_req = 1; // (untested)
                 }
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
