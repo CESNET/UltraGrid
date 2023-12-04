@@ -57,6 +57,7 @@
 #include "video_display/splashscreen.h"
 
 #include "opengl_utils.hpp"
+#include "opengl_panorama.hpp"
 #include "sdl_window.hpp"
 #include "utils/profile_timer.hpp"
 
@@ -75,7 +76,7 @@ struct state_vr{
         video_desc current_desc;
         int buffered_frames_count;
 
-        Scene scene;
+        PanoramaScene scene;
 
         int threshold_fps = 60; //Target fps for redraws caused by interaction
 

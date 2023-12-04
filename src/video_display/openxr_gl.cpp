@@ -76,6 +76,7 @@
 #include "video_display/splashscreen.h"
 
 #include "opengl_utils.hpp"
+#include "opengl_panorama.hpp"
 #include "sdl_window.hpp"
 #include "utils/profile_timer.hpp"
 
@@ -394,7 +395,7 @@ struct state_xrgl{
         Sdl_window window;
         Openxr_state xr_state;
 
-        Scene scene;
+        PanoramaScene scene;
 
         std::chrono::steady_clock::time_point last_frame;
 

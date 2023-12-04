@@ -411,65 +411,6 @@ private:
         bool new_front_available = false;
 };
 
-/**
- * Class representing the scene to render. Contains the model and texture to
- * be rendered. Automatically performs pixel format coversions if needed.
- * It is possible to call put_frame() from another thread, but limitations apply
- */
-struct Scene{
-        Scene();
-        Scene(GlProgram program, Model model);
-
-        /**
-         * Renders the scene.
-         *
-         * @param width Width of result used for aspect ration correction
-         * @param height Height of result used for aspect ration correction
-         */
-        void render(int width, int height);
-
-        /**
-         * Renders the scene.
-         *
-         * @param width Width of result used for aspect ration correction
-         * @param height Height of result used for aspect ration correction
-         * @param pvMat custom perspective and view Matrix to be used
-         */
-        void render(int width, int height, const glm::mat4& pvMat);
-
-        /**
-         * Uploads a video frame to be rendered. Can be called from other
-         * thread, but must be always called from the thread that called it the
-         * first time.
-         *
-         * @param f video frame to upload
-         * @param pbo_frame true if video frame contains the image data
-         * in a PBO buffer
-         */
-        void put_frame(video_frame *f, bool pbo_frame = false);
-
-        /**
-         * Rotate the view. The vertical rotation is constrained to -90 to 90
-         * degrees.
-         *
-         * @param dx horizontal angle to rotate by
-         * @param dy vertical angle to rotate by
-         */
-        void rotate(float dx, float dy);
-
-        static Scene get_2D_scene();
-
-        GlProgram program;// = GlProgram(persp_vert_src, persp_frag_src);
-        Model model;// = Model::get_sphere();
-        TripleBufferTexture tex;
-        std::mutex tex_mut;
-
-        Framebuffer framebuffer;
-        std::unique_ptr<Yuv_convertor> conv;
-        float rot_x = 0;
-        float rot_y = 0;
-        float fov = 55;
-};
 
 class FlatVideoScene{
 public:
