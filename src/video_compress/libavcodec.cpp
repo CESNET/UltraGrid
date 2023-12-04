@@ -519,7 +519,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->requested_gop = atoi(gop);
                 } else if (strstr(item, "header_inserter") == item) {
                         s->params.header_inserter_req =
-                            strstr(item, "=no") ? 1 : 0;
+                            strstr(item, "=no") == nullptr ? 1 : 0;
                 } else if (strcmp(item, "safe") == 0) {
                         s->params.periodic_intra     = 0;
                         s->params.periodic_intra     = 0;
