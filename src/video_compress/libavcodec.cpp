@@ -37,12 +37,6 @@
 
 #define __STDC_CONSTANT_MACROS
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -56,6 +50,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "config.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
