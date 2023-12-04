@@ -2999,7 +2999,7 @@ AC_ARG_ENABLE(syphon,
 
 if test "$syphon_req" != no && test "$system" = MacOSX; then
         MY_CHECK_FRAMEWORK([Syphon])
-        if test $my_cv_framework_Syphon = yes -a $host_cpu = x86_64
+        if test $my_cv_framework_Syphon = yes
         then
                 AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
                 BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
