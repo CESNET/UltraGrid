@@ -55,7 +55,6 @@
 
 #include <SDL2/SDL.h>
 //#include <SDL2/SDL_opengl.h>
-#include <glm/glm.hpp>
 #include <mutex>
 #include <memory>
 
