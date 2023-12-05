@@ -37,6 +37,7 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include <cassert>
 #include "opengl_utils.hpp"
 #include "video_frame.h"
 #include "color.h"
