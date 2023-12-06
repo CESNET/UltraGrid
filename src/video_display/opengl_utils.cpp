@@ -110,7 +110,7 @@ void main(){
         //The width could be odd, but the width of texture is always even
         float textureWidth = float((int(width) + 1) / 2 * 2);
         vec4 yuv;
-        yuv.rgba  = texture2D(tex, vec2(UV.x / textureWidth * width, UV.y)).grba;
+        yuv.rgba  = texture(tex, vec2(UV.x / textureWidth * width, UV.y)).grba;
         if(UV.x * width / 2.0 - floor(UV.x * width / 2.0) > 0.5)
                 yuv.r = yuv.a;
 
