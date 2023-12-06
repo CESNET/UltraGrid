@@ -37,6 +37,7 @@
 #ifndef OPENGL_PANORAMA_HPP_248d1fff7721
 #define OPENGL_PANORAMA_HPP_248d1fff7721
 
+#include <glm/glm.hpp>
 #include "opengl_utils.hpp"
 
 /**
