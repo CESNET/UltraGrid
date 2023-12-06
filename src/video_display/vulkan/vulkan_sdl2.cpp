@@ -777,6 +777,19 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
         int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.x);
         int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.y);
+        if(s->width == -1 && s->height == -1){
+                SDL_DisplayMode mode;
+                int display_index = 0;
+                if(SDL_GetDesktopDisplayMode(display_index, &mode)){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get display size\n");
+                        mode.w = 0;
+                        mode.h = 0;
+                }
+                s->width = mode.w;
+                s->height = mode.h;
+
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Detected display size: %dx%d\n", mode.w, mode.h);
+        }
         if (s->width == 0) s->width = 960;
         if (s->height == 0) s->height = 540;
 
