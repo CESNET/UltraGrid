@@ -1,6 +1,7 @@
 /**
  * @file   video_display/opengl_utils.cpp
  * @author Martin Piatka    <piatka@cesnet.cz>
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2010-2023 CESNET, z. s. p. o.
@@ -495,8 +496,15 @@ void main(){
 in vec2 UV;
 out vec3 color;
 uniform sampler2D tex;
+uniform bool deinterlace = false;
 void main(){
         color = texture(tex, UV).rgb;
+
+        if(deinterlace){
+                float lineOff = 1.0f / textureSize(tex, 0).y;
+                vec3 pix_down = texture(tex, vec2(UV.x, UV.y + lineOff)).rgb;
+                color = (color + pix_down) / 2.0f;
+        }
 }
 )END";
 
