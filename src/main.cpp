@@ -1474,10 +1474,16 @@ int main(int argc, char *argv[])
                 params["audio_codec"].l = ac_params.codec;
                 params["audio_sample_rate"].i =
                     IF_NOT_NULL_ELSE(ac_params.sample_rate, kHz48);
-                params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = opt.audio.recv_port;
                 params["a_tx_port"].i = opt.audio.send_port;
+
+                // override number of channels for OPUS as OPUS does not support mono
+                if (ac_params.codec == AC_OPUS) {
+                        params["audio_channels"].i = 2;
+                } else {
+                        params["audio_channels"].i = audio_capture_channels;
+                }
 
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
                         rtsp_media_type_t media_type;
