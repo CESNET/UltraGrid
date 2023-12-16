@@ -1392,8 +1392,7 @@ livemedia=no
 livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
-[  --enable-rtsp-server    enables RTSP server support (default is auto)]
-[                          Requires: live555 (<= 2015)],
+[  --enable-rtsp-server    enables RTSP server support (default is auto)],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=$build_default]
     )
@@ -1411,13 +1410,8 @@ if test $rtsp_server_req != no; then
         CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
                            #include <liveMedia.hh>
-                           #include <liveMedia_version.hh>
-                           ]], [[
-                                #if LIVEMEDIA_LIBRARY_VERSION_INT > 1438905600
-                                #error "Unsuppored live555 version (too new)"
-                                #endif
-                                ]]
-                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found or wrong version (< 2015 needed)"; FOUND_LIVE_H=no])
+                           ]]
+                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found"; FOUND_LIVE_H=no])
         CPPFLAGS=$SAVED_CPPFLAGS
         AC_LANG_POP(C++)
         if test $FOUND_LIVE_H = yes
