@@ -1090,7 +1090,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         MOD_NAME "Probed output pixel format: %s (%s)\n",
                         av_get_pix_fmt_name(s->codec_ctx->pix_fmt),
                         av_get_pix_fmt_name(s->codec_ctx->sw_pix_fmt));
-                *internal_props = av_pixfmt_get_desc(s->codec_ctx->sw_pix_fmt);
+                enum AVPixelFormat sw_fmt = s->codec_ctx->sw_pix_fmt == AV_PIX_FMT_NONE ? s->codec_ctx->pix_fmt : s->codec_ctx->sw_pix_fmt;
+                *internal_props = av_pixfmt_get_desc(sw_fmt);
                 internal_props->accel_type =
                     hw_accel_from_pixfmt(s->codec_ctx->pix_fmt);
                 return DECODER_GOT_CODEC;
