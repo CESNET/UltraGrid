@@ -279,7 +279,7 @@ POSTPROCESS_DEPS = \
 
 %.o: %.m
 	$(MKDIR_P) $(dir $@)
-	$(CXX) $(CFLAGS) $(INC) -MD -c $< -o $@
+	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 %.o: %.mm
