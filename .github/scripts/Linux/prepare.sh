@@ -46,8 +46,6 @@ sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 # own x264 build
 sudo apt --no-install-recommends install asciidoc xmlto
-# openVPL
-sudo apt install libva-dev libdrm-dev libx11-dev libx11-xcb-dev libxcb-present-dev libxcb-dri3-dev wayland-protocols
 
 sudo apt install qtbase5-dev
 

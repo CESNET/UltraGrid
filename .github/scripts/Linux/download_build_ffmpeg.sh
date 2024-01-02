@@ -42,7 +42,7 @@ install_onevpl() {(
         git clone --depth 1 https://github.com/oneapi-src/oneVPL
         mkdir oneVPL/build
         cd oneVPL/build
-        cmake ..
+        cmake -DBUILD_TOOLS=OFF ..
         cmake --build . --config Release --parallel
         sudo cmake --build . --config Release --target install
 )}
