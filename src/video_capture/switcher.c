@@ -34,28 +34,24 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
+#include <assert.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "audio/types.h"
 #include "debug.h"
-#include "host.h"
 #include "lib_common.h"
+#include "module.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/text.h"
 #include "video.h"
 #include "video_capture.h"
-
-#include "tv.h"
-
-#include "audio/types.h"
-#include "module.h"
-
-#include <inttypes.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define MOD_NAME "[switcher] "
 
