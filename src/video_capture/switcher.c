@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET z.s.p.o.
+ * Copyright (c) 2014-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -117,60 +117,71 @@ static void vidcap_switcher_register_keyboard_ctl(struct vidcap_switcher_state *
 }
 
 static int
+parse_fmt(struct vidcap_switcher_state *s, char *cfg)
+{
+        assert(cfg != NULL);
+        char *save_ptr = NULL;
+        char *item = NULL;
+        while ((item = strtok_r(cfg, ":", &save_ptr))) {
+                if (strcmp(item, "help") == 0) {
+                        show_help();
+                        return VIDCAP_INIT_NOERR;
+                }
+                if (strcmp(item, "excl_init") == 0) {
+                        s->excl_init = true;
+                } else if (strcmp(item, "fallback") == 0) {
+                        s->fallback = true;
+                } else if (strncasecmp(item, "select=", strlen("select=")) ==
+                           0) {
+                        char *val_s  = item + strlen("select=");
+                        char *endptr = NULL;
+                        errno    = 0;
+                        long val = strtol(val_s, &endptr, 0);
+                        if (errno != 0 || *val_s == '\0' || *endptr != '\0' ||
+                            val < 0 || (uintmax_t) val > UINT_MAX) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        MOD_NAME "Wrong value: %s\n", val_s);
+                                return VIDCAP_INIT_FAIL;
+                        }
+                        s->selected_device = val;
+                } else {
+                        fprintf(stderr,
+                                "[switcher] Unknown initialization option!\n");
+                        show_help();
+                        return VIDCAP_INIT_FAIL;
+                }
+                cfg = NULL;
+        }
+        if (s->excl_init && s->fallback) {
+                fprintf(stderr,
+                        MOD_NAME "Options \"excl_init\" and \"fallback\" are "
+                                 "mutualy incompatible!\n");
+                return VIDCAP_INIT_FAIL;
+        }
+
+        return 0;
+}
+
+static int
 vidcap_switcher_init(struct vidcap_params *params, void **state)
 {
-	struct vidcap_switcher_state *s;
+        printf("vidcap_switcher_init\n");
 
-	printf("vidcap_switcher_init\n");
-
-        s = (struct vidcap_switcher_state *) calloc(1, sizeof(struct vidcap_switcher_state));
-	if(s == NULL) {
-		printf("Unable to allocate switcher capture state\n");
-		return VIDCAP_INIT_FAIL;
-	}
+        struct vidcap_switcher_state *s = calloc(1, sizeof *s);
+        if (s == NULL) {
+                printf("Unable to allocate switcher capture state\n");
+                return VIDCAP_INIT_FAIL;
+        }
 
         const char *cfg_c = vidcap_params_get_fmt(params);
         if (cfg_c && strcmp(cfg_c, "") != 0) {
-                char *cfg = strdup(cfg_c);
-                char *save_ptr, *item;
-                char *tmp = cfg;
-                assert(cfg != NULL);
-                while ((item = strtok_r(cfg, ":", &save_ptr))) {
-                        if (strcmp(item, "help") == 0) {
-                                show_help();
-                                free(tmp);
-                                free(s);
-                                return VIDCAP_INIT_NOERR;
-                        } else if (strcmp(item, "excl_init") == 0) {
-                                s->excl_init = true;
-                        } else if (strcmp(item, "fallback") == 0) {
-                                s->fallback = true;
-                        } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
-                                char *val_s = item + strlen("select=");
-                                char *endptr = NULL;;
-                                errno = 0;
-                                long val = strtol(val_s, &endptr, 0);
-                                if (errno != 0 || *val_s == '\0' || *endptr != '\0' || val < 0 || (uintmax_t) val > UINT_MAX) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value: %s\n", val_s);
-                                        free(tmp);
-                                        goto error;
-                                }
-                                s->selected_device = val;
-                        } else {
-                                fprintf(stderr, "[switcher] Unknown initialization option!\n");
-                                show_help();
-                                free(tmp);
-                                free(s);
-                                return VIDCAP_INIT_FAIL;
-                        }
-                        cfg = NULL;
+                char     *cfg = strdup(cfg_c);
+                const int rc  = parse_fmt(s, cfg);
+                free(cfg);
+                if (rc != 0) {
+                        free(s);
+                        return rc;
                 }
-                free(tmp);
-        }
-
-        if (s->excl_init && s->fallback) {
-                fprintf(stderr, MOD_NAME "Options \"excl_init\" and \"fallback\" are mutualy incompatible!\n");
-                goto error;
         }
 
         module_init_default(&s->mod);
