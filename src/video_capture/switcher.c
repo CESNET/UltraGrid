@@ -145,17 +145,15 @@ parse_fmt(struct vidcap_switcher_state *s, char *cfg)
                         }
                         s->selected_device = val;
                 } else {
-                        fprintf(stderr,
-                                "[switcher] Unknown initialization option!\n");
+                        MSG(ERROR, "Unknown initialization option: %s\n", item);
                         show_help();
                         return VIDCAP_INIT_FAIL;
                 }
                 cfg = NULL;
         }
         if (s->excl_init && s->fallback) {
-                fprintf(stderr,
-                        MOD_NAME "Options \"excl_init\" and \"fallback\" are "
-                                 "mutualy incompatible!\n");
+                MSG(ERROR, "Options \"excl_init\" and \"fallback\" are "
+                           "mutualy incompatible!\n");
                 return VIDCAP_INIT_FAIL;
         }
 
@@ -165,11 +163,11 @@ parse_fmt(struct vidcap_switcher_state *s, char *cfg)
 static int
 vidcap_switcher_init(struct vidcap_params *params, void **state)
 {
-        printf("vidcap_switcher_init\n");
+        verbose_msg("vidcap_switcher_init\n");
 
         struct vidcap_switcher_state *s = calloc(1, sizeof *s);
         if (s == NULL) {
-                printf("Unable to allocate switcher capture state\n");
+                MSG(ERROR, "Unable to allocate switcher capture state\n");
                 return VIDCAP_INIT_FAIL;
         }
 
@@ -197,7 +195,8 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
         }
 
         if (s->selected_device >= s->devices_cnt) {
-                fprintf(stderr, "[switcher] Error: device #%d not available!\n", s->selected_device);
+                MSG(ERROR, "Error: device #%d not available!\n",
+                    s->selected_device);
                 goto error;
         }
 
@@ -214,9 +213,10 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                 if (!s->excl_init || i == s->selected_device) {
                         int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
                         if(ret != 0) {
-                                fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
-                                                i, vidcap_params_get_driver(tmp),
-                                                vidcap_params_get_fmt(tmp));
+                                MSG(ERROR,
+                                    "Unable to initialize device %d (%s:%s).\n",
+                                    i, vidcap_params_get_driver(tmp),
+                                    vidcap_params_get_fmt(tmp));
                                 goto error;
                         }
                 }
