@@ -64,23 +64,38 @@ static void vidcap_switcher_done(void *state);
 
 static void show_help()
 {
-        color_printf(TBOLD("switcher") " capture\n\n");
-        printf("Usage:\n");
-        printf("\t" TBOLD(TRED("-t switcher")) "[opts] " TBOLD(
-            "-t <dev1_config> -t "
-            "<dev2_config> [-t ...]") "\n\n");
-        printf("options:\n");
-        printf("\t" TBOLD(
-            "<devn_config>") " - a configuration of device to be switched\n");
-        printf("\t" TBOLD(
+        color_printf(TBOLD("switcher") " capture allow switching between given "
+                                       "video devices optionally with audio "
+                                       "(see below or wiki for syntax)\n\n");
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD(TRED("-t switcher")) "[opts] " TBOLD(
+            "-t <dev1> -t "
+            "<dev2> [-t ...]") "\n\n");
+
+        color_printf("options:\n");
+        color_printf("\t" TBOLD(
+            "<devN>") " - a configuration of device to be switched\n");
+        color_printf("\t" TBOLD(
             "<port>") " - specifies port which should be used to control "
                       "switching\n");
-        printf("\t" TBOLD(
+        color_printf("\t" TBOLD(
             "excl_init") " - devices will be initialized after switching to "
                          "and\n\t\tdeinitialized after switching to another\n");
-        printf("\t" TBOLD(
+        color_printf("\t" TBOLD(
             "fallback") " - in case that capture doesn't return a frame (in "
-                        "time),\n\t\tcapture from next available device(s)\n");
+                        "time),\n\t\tcapture from next available "
+                        "device(s)\n\n");
+
+        color_printf(TBOLD("Audio") " and other " TBOLD(
+            "positional") " options should precede its respective device.\n");
+        color_printf("Eg. in:\n" TBOLD(
+            "   uv -t switcher -s embedded -F flip -t testcard -s "
+            "analog -t decklink") "\n");
+        color_printf("flip & embedded aplies to testcard, analog to decklink.\n");
+        color_printf(
+            "See "
+            "also: <" TUNDERLINE("https://github.com/CESNET/UltraGrid/wiki/"
+                                 "Video-Switcher#audio") ">\n\n");
 }
 
 struct vidcap_switcher_state {
