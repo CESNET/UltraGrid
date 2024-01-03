@@ -43,6 +43,7 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -64,9 +65,14 @@ static void vidcap_switcher_done(void *state);
 
 static void show_help()
 {
-        color_printf(TBOLD("switcher") " capture allow switching between given "
-                                       "video devices optionally with audio "
-                                       "(see below or wiki for syntax)\n\n");
+        char desc[] =
+            TBOLD("switcher") " capture allow switching between given "
+                              "video devices optionally with audio "
+                              "(see below or wiki for usage).\n\n"
+                              "Switching can be done by using keys 1-N or "
+                              "via a control socket.\n\n";
+        color_printf("%s", wrap_paragraph(desc));
+
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(TRED("-t switcher")) "[opts] " TBOLD(
             "-t <dev1> -t "
@@ -76,8 +82,7 @@ static void show_help()
         color_printf("\t" TBOLD(
             "<devN>") " - a configuration of device to be switched\n");
         color_printf("\t" TBOLD(
-            "<port>") " - specifies port which should be used to control "
-                      "switching\n");
+            "select=<N>") " - specifies initially selected device idx\n");
         color_printf("\t" TBOLD(
             "excl_init") " - devices will be initialized after switching to "
                          "and\n\t\tdeinitialized after switching to another\n");
