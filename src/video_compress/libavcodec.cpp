@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,7 +253,7 @@ struct state_video_compress_libav {
         struct module       module_data;
 
         struct video_desc   saved_desc{};
-        struct to_lavc_vid_conv *pixfmt_conversion = nullptr;;
+        struct to_lavc_vid_conv *pixfmt_conversion = nullptr;
         AVPacket           *pkt = av_packet_alloc();
         // for every core - parts of the above
         AVCodecContext     *codec_ctx = nullptr;
@@ -1057,6 +1057,7 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
 
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
+        s->saved_desc = {};
         codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
         AVPixelFormat pix_fmt = AV_PIX_FMT_NONE;
         const AVCodec *codec = nullptr;
