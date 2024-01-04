@@ -478,7 +478,7 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
 {
         thread_local static bool status_printed = false;
 
-        if (status_printed) {
+        if (status_printed && log_level < LOG_LEVEL_DEBUG2) {
                 return;
         }
 
@@ -486,9 +486,13 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
                 LOG(LOG_LEVEL_WARNING) << "Warning: FEC symbol size exceeds payload size! "
                                 "FEC symbol size: " << fec_symbol_size << "\n";
         } else {
-                LOG(LOG_LEVEL_INFO) << "FEC symbol size: " << fec_symbol_size << ", symbols per packet: " <<
-                                payload_len / fec_symbol_size << ", payload size: " <<
-                                payload_len / fec_symbol_size * fec_symbol_size << "\n";
+                const int ll =
+                    status_printed ?  LOG_LEVEL_DEBUG2 : LOG_LEVEL_INFO;
+                LOG(ll) << "FEC symbol size: " << fec_symbol_size
+                        << ", symbols per packet: "
+                        << payload_len / fec_symbol_size << ", payload size: "
+                        << payload_len / fec_symbol_size * fec_symbol_size
+                        << "\n";
         }
         status_printed = true;
 }
