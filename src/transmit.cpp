@@ -483,12 +483,14 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
         }
 
         if (fec_symbol_size > payload_len) {
-                LOG(LOG_LEVEL_WARNING) << "Warning: FEC symbol size exceeds payload size! "
-                                "FEC symbol size: " << fec_symbol_size << "\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME
+                    "Warning: FEC symbol size exceeds payload size! "
+                    "FEC symbol size: " << fec_symbol_size
+                                       << "\n";
         } else {
                 const int ll =
                     status_printed ?  LOG_LEVEL_DEBUG2 : LOG_LEVEL_INFO;
-                LOG(ll) << "FEC symbol size: " << fec_symbol_size
+                LOG(ll) << MOD_NAME "FEC symbol size: " << fec_symbol_size
                         << ", symbols per packet: "
                         << payload_len / fec_symbol_size << ", payload size: "
                         << payload_len / fec_symbol_size * fec_symbol_size
