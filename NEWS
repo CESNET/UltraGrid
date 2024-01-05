@@ -10,6 +10,19 @@ next
 * GUI: vuMeter: Added maximum recent peak indicator
 * swmix: Optionaly specify a custom config file path
 * holepunch: New 'bind_ip' option
+* improved deinterlacing quality and performance; support for higher than 8 bit
+  pixel formats
+* added new deinterlace filters (linear, bob)
+* added support for Vuikan on macOS (utilizing MoltenVK)
+* improved support for HW accelerated encoding with QuickSync for Intel GPUs
+  (mainly for higher bit-depth formats)
+* improved support for AMD GPUs (encoding with AMF, VDPAU decoding, VA-API)
+* improved Windows screen capture (automaticaly register filter)
+* Reed-Solomon: support for multiple tiles (notably 3D)
+* improved AV1 performance by tweaking parameters
+* video switcher: support for embedded audio switching
+* added file (libavformat-backed) output
+* supported >8 bit transcoding in hd-rum-transcode and resize filter
 
 1.8
 ====
