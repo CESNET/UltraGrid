@@ -57,6 +57,10 @@
 #define TERM_FG_RESET   "\033[39m"
 #define TERM_BG_BLACK   "\033[40m"
 #define TERM_BG_RESET   "\033[49m"
+// 256 color palette
+#define T_PEACH_FUZZ 209
+#define T256_FG(col, x) "\033[38;5;" #col "m" x TERM_FG_RESET
+#define S256_FG(col, x) T256_FG(col, << x <<)
 
 #define TBOLD(x) TERM_BOLD x TERM_RESET
 #define TUNDERLINE(x) TERM_UNDERLINE x TERM_RESET
