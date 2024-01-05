@@ -214,7 +214,11 @@ jobs:
       run: .github/scripts/macOS/sign.sh uv-qt.app
     - name: make dmg
       run: |
-        make osx-gui-dmg
+        for n in `seq 5`; do # do more attempts
+          if make osx-gui-dmg; then break; fi
+          if [ $n -eq 5 ]; then false; fi
+          sleep $((n * 10))
+        done
         mv UltraGrid.dmg UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
