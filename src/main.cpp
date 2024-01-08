@@ -1128,12 +1128,15 @@ static int adjust_params(struct ug_options *opt) {
                 }
         }
 
+        const bool tx_audio_std = strcasecmp(opt->audio.proto, "rtsp") == 0 ||
+                                  strcasecmp(opt->audio.proto, "sdp") == 0;
         if (opt->audio.codec_cfg == nullptr) {
-                if (strcasecmp(opt->audio.proto, "rtsp") == 0 || strcasecmp(opt->audio.proto, "sdp") == 0) {
-                        opt->audio.codec_cfg = "Opus:sample_rate=48000";
-                } else {
-                        opt->audio.codec_cfg = DEFAULT_AUDIO_CODEC;
-                }
+                opt->audio.codec_cfg = tx_audio_std ? "Opus:sample_rate=48000"
+                                                    : DEFAULT_AUDIO_CODEC;
+        }
+
+        if (tx_audio_std && audio_capture_channels == 0) {
+                audio_capture_channels = 1; // needed to be known early
         }
 
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
