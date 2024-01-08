@@ -161,7 +161,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				+ strlen(rtpmapLine) + strlen(trackId());
 		char* sdpLines = new char[sdpFmtSize];
 
-		snprintf(sdpLines, sizeof sdpFmtSize, sdpFmt,
+		snprintf(sdpLines, sdpFmtSize, sdpFmt,
 				mediaType, // m= <media>
 				rtp_port_audio,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
