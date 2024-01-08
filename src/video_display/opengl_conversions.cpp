@@ -172,6 +172,108 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         glUseProgram(0);
 }
 
+/// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
+/// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
+static const char * v210_to_rgb_fp = R"raw(
+#version 110
+#extension GL_EXT_gpu_shader4 : enable
+uniform sampler2D image;
+uniform float imageWidth;
+
+// YUV offset
+const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
+
+// RGB coefficients
+const vec3 Rcoeff = vec3(Y_SCALED_PLACEHOLDER, 0.0, R_CR_PLACEHOLDER);
+const vec3 Gcoeff = vec3(Y_SCALED_PLACEHOLDER, G_CB_PLACEHOLDER, G_CR_PLACEHOLDER);
+const vec3 Bcoeff = vec3(Y_SCALED_PLACEHOLDER, B_CB_PLACEHOLDER, 0.0);
+
+// U Y V A | Y U Y A | V Y U A | Y V Y A
+
+int GROUP_FOR_INDEX(int i) {
+  return i / 4;
+}
+
+int SUBINDEX_FOR_INDEX(int i) {
+  return i % 4;
+}
+
+int _y(int i) {
+  return 2 * i + 1;
+}
+
+int _u(int i) {
+  return 4 * (i/2);
+}
+
+int _v(int i) {
+  return 4 * (i / 2) + 2;
+}
+
+int offset(int i) {
+  return i + (i / 3);
+}
+
+vec3 ycbcr2rgb(vec3 yuvToConvert) {
+  vec3 pix;
+  yuvToConvert += yuvOffset;
+  pix.r = dot(yuvToConvert, Rcoeff);
+  pix.g = dot(yuvToConvert, Gcoeff);
+  pix.b = dot(yuvToConvert, Bcoeff);
+  return pix;
+}
+
+void main(void) {
+  float imageWidthRaw; // v210 texture size
+  imageWidthRaw = float((int(imageWidth) + 47) / 48 * 32); // 720->480
+
+  // interpolate (0,1) texcoords to [0,719]
+  int texcoordDenormX;
+  texcoordDenormX = int(round(gl_TexCoord[0].x * imageWidth - .5));
+
+  // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
+  int yOffset;
+  yOffset = offset(_y(texcoordDenormX));
+  int sourceColumnIndexY;
+  sourceColumnIndexY = GROUP_FOR_INDEX(yOffset);
+
+  // 0 0 1 1 2 2 4 4 5 5 6 6 etc.
+  int uOffset;
+  uOffset = offset(_u(texcoordDenormX));
+  int sourceColumnIndexU;
+  sourceColumnIndexU = GROUP_FOR_INDEX(uOffset);
+
+  // 0 0 2 2 3 3 4 4 6 6 7 7 etc.
+  int vOffset;
+  vOffset = offset(_v(texcoordDenormX));
+  int sourceColumnIndexV;
+  sourceColumnIndexV = GROUP_FOR_INDEX(vOffset);
+
+  // 1 0 2 1 0 2 1 0 2 etc.
+  int compY;
+  compY = SUBINDEX_FOR_INDEX(yOffset);
+
+  // 0 0 1 1 2 2 0 0 1 1 2 2 etc.
+  int compU;
+  compU = SUBINDEX_FOR_INDEX(uOffset);
+
+  // 2 2 0 0 1 1 2 2 0 0 1 1 etc.
+  int compV;
+  compV = SUBINDEX_FOR_INDEX(vOffset);
+
+  vec4 y;
+  vec4 u;
+  vec4 v;
+  y = texture2D(image, vec2((float(sourceColumnIndexY) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+  u = texture2D(image, vec2((float(sourceColumnIndexU) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+  v = texture2D(image, vec2((float(sourceColumnIndexV) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+
+  vec3 outColor = ycbcr2rgb(vec3(y[compY], u[compU], v[compV]));
+
+  gl_FragColor = vec4(outColor, 1.0);
+}
+)raw";
+
 
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
