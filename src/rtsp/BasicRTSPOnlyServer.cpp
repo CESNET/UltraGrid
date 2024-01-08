@@ -112,6 +112,7 @@ int BasicRTSPOnlyServer::init_server() {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
         exit(1);
     }
+    rtspServer->disableStreamingRTPOverTCP();
     ServerMediaSession* sms;
                sms = ServerMediaSession::createNew(*env, "ultragrid",
                    "UltraGrid RTSP server enabling standard transport",
