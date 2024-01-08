@@ -318,12 +318,9 @@ private:
         GLuint buf_id = 0;
 };
 
-/**
- * Class used to convert YUV textures to RGB textures
- */
-class Yuv_convertor{
+class Frame_convertor{
 public:
-        Yuv_convertor();
+        virtual ~Frame_convertor() {};
 
         /**
          * Renders the video frame containing YUV image data to attached texture
@@ -332,22 +329,14 @@ public:
          * @param pbo_frame true if video frame contains the image data
          * in a PBO buffer
          */
-        void put_frame(video_frame *f, bool pbo_frame = false);
+        virtual void put_frame(video_frame *f, bool pbo_frame = false) = 0;
 
         /**
          * Attach texture to be used as output
          *
          * @param tex texture to attach
          */
-        void attach_texture(const Texture& tex){
-                fbuf.attach_texture(tex);
-        }
-
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        Texture yuv_tex;
+        virtual void attach_texture(const Texture& tex) = 0;
 };
 
 /**
@@ -360,7 +349,7 @@ public:
         GLuint get() { return tex.get(); }
 
 private:
-        std::unique_ptr<Yuv_convertor> conv;
+        std::unique_ptr<Frame_convertor> conv;
         Texture tex;
 };
 

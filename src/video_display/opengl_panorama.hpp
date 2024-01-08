@@ -92,7 +92,7 @@ struct PanoramaScene{
         std::mutex tex_mut;
 
         Framebuffer framebuffer;
-        std::unique_ptr<Yuv_convertor> conv;
+        std::unique_ptr<Frame_convertor> conv;
         float rot_x = 0;
         float rot_y = 0;
         float fov = 55;

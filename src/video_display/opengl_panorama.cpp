@@ -40,6 +40,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "opengl_utils.hpp"
+#include "opengl_conversions.hpp"
 #include "video_frame.h"
 #include "debug.h"
 
@@ -126,7 +127,7 @@ void PanoramaScene::put_frame(video_frame *f, bool pbo_frame){
 
         if(f->color_spec == UYVY){
                 if(!conv){
-                        conv = std::unique_ptr<Yuv_convertor>(new Yuv_convertor());
+                        conv = get_convertor_for_codec(f->color_spec);
                 }
                 conv->attach_texture(back_texture);
                 conv->put_frame(f, pbo_frame);

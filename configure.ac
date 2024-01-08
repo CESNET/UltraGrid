@@ -1224,7 +1224,7 @@ fi
 
 if test $panogl_disp_req != no && test $sdl = yes && test $sdl_version = 2 && test $glm = yes
 then
-        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/opengl_panorama.o src/video_display/sdl_window.o"
+        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/opengl_conversions.o src/video_display/opengl_panorama.o src/video_display/sdl_window.o"
         PANOGL_LIBS=$SDL_LIBS
         add_module display_panogl "$PANOGL_OBJ" "$PANOGL_LIBS"
         INC="$INC $GLM_INC"
@@ -1246,7 +1246,7 @@ FOUND_XRGL_DEPS=no
 if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; then
         PKG_CHECK_MODULES([XRGLDISP], [openxr], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
         if test "$FOUND_XRGL_DEPS" = yes; then
-                XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/opengl_panorama.o src/video_display/sdl_window.o"
+                XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/opengl_conversions.o src/video_display/opengl_panorama.o src/video_display/sdl_window.o"
                 XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
                 add_module display_xrgl "$XRGLDISP_OBJ" "$XRGLDISP_LIBS"
                 INC="$INC $GLM_INC"
