@@ -674,8 +674,8 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                         set_video = false;
                         break;
                 case OPT_VIDEO_PROTOCOL:
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--video-protocol deprecated, use '-x A:proto'\n";
-                        set_video = false;
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--video-protocol deprecated, use '-x V:proto'\n";
+                        set_audio = false;
                         break;
         }
         if (strcmp(optarg, "help") == 0 ||
