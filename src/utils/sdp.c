@@ -251,7 +251,11 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
                 return -2;
 	}
 
-	snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
+        const int sdp_ch_count =
+            codec == AC_OPUS ? 2 : channels; // RFC 7587 enforces 2 for Opus
+        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH,
+                 "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec,
+                 ts_rate, sdp_ch_count);
     }
     sdp_state->audio_set = true;
     start();

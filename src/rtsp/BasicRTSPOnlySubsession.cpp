@@ -149,6 +149,8 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		char* rtpmapLine = strdup("a=rtpmap:97 PCMU/48000/2\n"); //only to alloc max possible size
 		//char const* auxSDPLine = "";
 
+		const int sdp_ch_count = audio_codec == AC_OPUS ? 2 :
+			audio_channels; // RFC 7587 enforces 2 for Opus
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
 				"b=AS:%u\r\n"
@@ -172,7 +174,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				rtpPayloadType,
 				audio_codec == AC_MULAW ? "PCMU" : audio_codec == AC_ALAW ? "PCMA" : "opus",
 				audio_sample_rate,
-				audio_channels,
+				sdp_ch_count,
 				trackId()); // a=control:<track-id>
 
 		fSDPLines = sdpLines;
