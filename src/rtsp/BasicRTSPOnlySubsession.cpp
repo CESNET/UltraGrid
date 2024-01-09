@@ -89,8 +89,6 @@ char const* BasicRTSPOnlySubsession::sdpLines() {
 	if (fSDPLines == NULL) {
 		setSDPLines();
 	}
-	if (Adestination != NULL || Vdestination != NULL)
-		return NULL;
 	return fSDPLines;
 }
 
@@ -189,7 +187,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		netAddressBits& destinationAddress, uint8_t& /*destinationTTL*/,
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
-	if (Vdestination == NULL && (avType == video || avType == av)) {
+	if (avType == video || avType == av) {
 		Port rtp(rtp_port);
 		serverRTPPort = rtp;
 		Port rtcp(rtp_port + 1);
@@ -203,10 +201,11 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		}
 		struct in_addr destinationAddr;
 		destinationAddr.s_addr = destinationAddress;
+		delete Vdestination;
 		Vdestination = new Destinations(destinationAddr, clientRTPPort,
 				clientRTCPPort);
 	}
-	if (Adestination == NULL && (avType == audio || avType == av)) {
+	if (avType == audio || avType == av) {
 		Port rtp(rtp_port_audio);
 		serverRTPPort = rtp;
 		Port rtcp(rtp_port_audio + 1);
@@ -220,6 +219,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		}
 		struct in_addr destinationAddr;
 		destinationAddr.s_addr = destinationAddress;
+		delete Adestination;
 		Adestination = new Destinations(destinationAddr, clientRTPPort,
 				clientRTCPPort);
 	}
