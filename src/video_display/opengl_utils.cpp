@@ -251,17 +251,21 @@ Texture::~Texture(){
         glDeleteBuffers(1, &pbo);
 }
 
-void Texture::allocate(int w, int h, GLenum fmt) {
+void Texture::allocate(int w, int h, GLint internal_fmt) {
         init();
-        if(w != width || h != height || fmt != format){
+        if(w != width || h != height || internal_fmt != internal_format){
                 width = w;
                 height = h;
-                format = fmt;
+                internal_format = internal_fmt;
 
                 glBindTexture(GL_TEXTURE_2D, tex_id);
-                glTexImage2D(GL_TEXTURE_2D, 0, format,
+                /* Only the internalformat parameter is relevant here, the
+                 * format and type parameters refer to the source data and we
+                 * are passing nullptr here
+                 */
+                glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
                                 width, height, 0,
-                                format, GL_UNSIGNED_BYTE,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
                                 nullptr);
         }
 }

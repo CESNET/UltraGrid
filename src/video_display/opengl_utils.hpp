@@ -159,10 +159,9 @@ public:
          *
          * @param w width of the image 
          * @param h height of the image 
-         * @param fmt format of the image (same as internalformat parameter of 
-         * glTexSubImage2D())
+         * @param internal_fmt same as internalformat parameter of glTexImage2D()
          */
-        void allocate(int w, int h, GLenum fmt);
+        void allocate(int w, int h, GLint internal_fmt);
 
         /**
          * Uploads video frame to the texture
@@ -186,7 +185,7 @@ public:
                 std::swap(tex_id, o.tex_id);
                 std::swap(width, o.width);
                 std::swap(height, o.height);
-                std::swap(format, o.format);
+                std::swap(internal_format, o.internal_format);
                 std::swap(pbo, o.pbo);
         }
 private:
@@ -227,7 +226,7 @@ private:
         GLuint tex_id = 0;
         int width = 0;
         int height = 0;
-        GLenum format = 0;
+        GLint internal_format = 0;
 
         GLuint pbo = 0;
 };

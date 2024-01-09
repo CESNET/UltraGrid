@@ -325,7 +325,7 @@ public:
                 //TODO
                 int w = vc_get_linesize(f->tiles[0].width, v210) / 4;
                 int h = f->tiles[0].height;
-                yuv_tex.allocate(w, h, GL_RGBA);
+                yuv_tex.allocate(w, h, GL_RGB10_A2);
                 glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
 
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
