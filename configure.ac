@@ -1387,8 +1387,9 @@ AC_ARG_ENABLE(rtsp_server,
 
 AC_ARG_WITH(live555,
             [  --with-live555=DIR      specify location of live555],
-            [livemedia_prefix=$withval
-            ])
+            [livemedia_prefix=$withval],
+            [livemedia_prefix=/usr/local],
+        )
 
 if test $rtsp_server_req != no; then
         AC_LANG_PUSH(C++)
