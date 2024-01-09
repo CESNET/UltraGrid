@@ -42,6 +42,7 @@
 #include "opengl_utils.hpp"
 #include "opengl_conversions.hpp"
 #include "video_frame.h"
+#include "video_codec.h"
 #include "color.h"
 #include "debug.h"
 #include "host.h"
@@ -310,6 +311,11 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
                         width = (width + 1) / 2;
                         fmt = GL_RGBA;
                         break;
+                case v210:
+                        //TODO
+                        width = vc_get_linesize(width, v210) / 4;
+                        fmt = GL_RGBA;
+                        break;
                 case RGB:
                         fmt = GL_RGB;
                         break;
@@ -379,7 +385,8 @@ void FrameTexture::put_frame(video_frame *f, bool pbo_frame){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        if(f->color_spec == UYVY){
+        if(f->color_spec == UYVY
+                        || f->color_spec == v210){
                 if(!conv){
                         conv = get_convertor_for_codec(f->color_spec);
                 }

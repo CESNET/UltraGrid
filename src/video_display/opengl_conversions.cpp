@@ -39,6 +39,7 @@
 #include "color.h"
 #include "debug.h"
 #include "host.h"
+#include "video_codec.h"
 #include "opengl_conversions.hpp"
 
 #define MOD_NAME "[GL conversions] "
@@ -175,18 +176,27 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
-#version 110
-#extension GL_EXT_gpu_shader4 : enable
-uniform sampler2D image;
-uniform float imageWidth;
+#version 330
+
+layout(location = 0) out vec4 color;
+in vec2 UV;
+uniform sampler2D tex;
+
+uniform float width;
+
+uniform float luma_scale = 1.1643f;
+uniform float r_cr = 1.7926f;
+uniform float g_cb = -0.2132f;
+uniform float g_cr = -0.5328f;
+uniform float b_cb = 2.1124f;
 
 // YUV offset
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
 
 // RGB coefficients
-const vec3 Rcoeff = vec3(Y_SCALED_PLACEHOLDER, 0.0, R_CR_PLACEHOLDER);
-const vec3 Gcoeff = vec3(Y_SCALED_PLACEHOLDER, G_CB_PLACEHOLDER, G_CR_PLACEHOLDER);
-const vec3 Bcoeff = vec3(Y_SCALED_PLACEHOLDER, B_CB_PLACEHOLDER, 0.0);
+vec3 Rcoeff = vec3(luma_scale, 0.0, r_cr);
+vec3 Gcoeff = vec3(luma_scale, g_cb, g_cr);
+vec3 Bcoeff = vec3(luma_scale, b_cb, 0.0);
 
 // U Y V A | Y U Y A | V Y U A | Y V Y A
 
@@ -225,11 +235,11 @@ vec3 ycbcr2rgb(vec3 yuvToConvert) {
 
 void main(void) {
   float imageWidthRaw; // v210 texture size
-  imageWidthRaw = float((int(imageWidth) + 47) / 48 * 32); // 720->480
+  imageWidthRaw = float((int(width) + 47) / 48 * 32); // 720->480
 
   // interpolate (0,1) texcoords to [0,719]
   int texcoordDenormX;
-  texcoordDenormX = int(round(gl_TexCoord[0].x * imageWidth - .5));
+  texcoordDenormX = int(round(UV.x * width - .5));
 
   // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
   int yOffset;
@@ -264,15 +274,84 @@ void main(void) {
   vec4 y;
   vec4 u;
   vec4 v;
-  y = texture2D(image, vec2((float(sourceColumnIndexY) + .5) / imageWidthRaw, gl_TexCoord[0].y));
-  u = texture2D(image, vec2((float(sourceColumnIndexU) + .5) / imageWidthRaw, gl_TexCoord[0].y));
-  v = texture2D(image, vec2((float(sourceColumnIndexV) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+  y = texture(tex, vec2((float(sourceColumnIndexY) + .5) / imageWidthRaw, UV.y));
+  u = texture(tex, vec2((float(sourceColumnIndexU) + .5) / imageWidthRaw, UV.y));
+  v = texture(tex, vec2((float(sourceColumnIndexV) + .5) / imageWidthRaw, UV.y));
 
   vec3 outColor = ycbcr2rgb(vec3(y[compY], u[compU], v[compV]));
 
-  gl_FragColor = vec4(outColor, 1.0);
+  color = vec4(outColor, 1.0);
 }
 )raw";
+
+class V210_convertor : public Frame_convertor{
+public:
+        V210_convertor(): program(vert_src, v210_to_rgb_fp),
+        quad(Model::get_quad())
+        {
+                const char *col = get_commandline_param("color");
+                if(!col)
+                        return;
+
+                int color = std::stol(col, nullptr, 16) >> 4; // first nibble
+                if (color < 1 || color > 3){
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
+                        return;
+                }
+
+                double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+                double kr = cs_coeffs[2 * color];
+                double kb = cs_coeffs[2 * color + 1];
+
+                glUseProgram(program.get());
+                GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
+                glUniform1f(loc, Y_LIMIT_INV);
+                loc = glGetUniformLocation(program.get(), "r_cr");
+                glUniform1f(loc, R_CR(kr, kb));
+                loc = glGetUniformLocation(program.get(), "g_cr");
+                glUniform1f(loc, G_CR(kr, kb));
+                loc = glGetUniformLocation(program.get(), "g_cb");
+                glUniform1f(loc, G_CB(kr, kb));
+                loc = glGetUniformLocation(program.get(), "b_cb");
+                glUniform1f(loc, B_CB(kr, kb));
+        }
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                glUseProgram(program.get());
+                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
+                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                //TODO
+                int w = vc_get_linesize(f->tiles[0].width, v210) / 4;
+                int h = f->tiles[0].height;
+                yuv_tex.allocate(w, h, GL_RGBA);
+                glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
+
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
+                                w, h, 0,
+                                GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
+                                f->tiles[0].data);
+
+                GLuint w_loc = glGetUniformLocation(program.get(), "width");
+                glUniform1f(w_loc, f->tiles[0].width);
+
+                quad.render();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glUseProgram(0);
+        }
+
+        void attach_texture(const Texture& tex) override {
+                fbuf.attach_texture(tex);
+        }
+
+private:
+        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
+        Model quad;// = Model::get_quad();
+        Framebuffer fbuf;
+        Texture yuv_tex;
+};
 
 
 
@@ -280,6 +359,8 @@ std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
         switch(codec){
         case UYVY:
                 return std::make_unique<Yuv_convertor>();
+        case v210:
+                return std::make_unique<V210_convertor>();
         default:
                 return nullptr;
         }
