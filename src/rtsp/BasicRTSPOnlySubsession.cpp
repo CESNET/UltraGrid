@@ -299,6 +299,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 	if (Vdestination != NULL) {
 		if (avType == video || avType == av) {
 			char pathV[1024];
+			delete Vdestination;
 			Vdestination = NULL;
 			memset(pathV, 0, sizeof(pathV));
 			enum module_class path_sender[] = { MODULE_CLASS_SENDER,
@@ -327,6 +328,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 	if (Adestination != NULL) {
 		if (avType == audio || avType == av) {
 			char pathA[1024];
+			delete Vdestination;
 			Adestination = NULL;
 			memset(pathA, 0, sizeof(pathA));
 			enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
