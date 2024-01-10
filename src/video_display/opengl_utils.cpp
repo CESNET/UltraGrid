@@ -391,7 +391,8 @@ void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         if(f->color_spec == UYVY
-                        || f->color_spec == v210){
+                        || f->color_spec == v210
+                        || f->color_spec == Y416){
                 if(!conv){
                         conv = get_convertor_for_codec(f->color_spec);
                 }
