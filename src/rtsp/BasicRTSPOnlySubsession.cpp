@@ -87,7 +87,8 @@ BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {
 	delete Vdestination;
 }
 
-char const* BasicRTSPOnlySubsession::sdpLines() {
+char const* BasicRTSPOnlySubsession::sdpLines(int addressFamily) {
+	(void) addressFamily;
 	if (fSDPLines == NULL) {
 		setSDPLines();
 	}
@@ -101,7 +102,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
 		uint8_t rtpPayloadType = 96;
-		AddressString ipAddressStr(fServerAddressForSDP);
+		AddressString ipAddressStr(0);
 		char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
 		//char const* auxSDPLine = "";
 
@@ -133,7 +134,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 	if (avType == audio || avType == av) {
 		unsigned estBitrate = 384;
 		char const* mediaType = "audio";
-		AddressString ipAddressStr(fServerAddressForSDP);
+		AddressString ipAddressStr(0);
 
                 char rtpmapLine[STR_LEN];
 		//char const* auxSDPLine = "";
@@ -167,10 +168,11 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 }
 
 void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */,
-		netAddressBits clientAddress, Port const& clientRTPPort,
+		struct sockaddr_storage const &clientAddress, Port const& clientRTPPort,
 		Port const& clientRTCPPort, int /* tcpSocketNum */,
 		unsigned char /* rtpChannelId */, unsigned char /* rtcpChannelId */,
-		netAddressBits& destinationAddress, uint8_t& /*destinationTTL*/,
+                TLSState * /* tlsState */,
+		struct sockaddr_storage& /*destinationAddress*/, uint8_t& /*destinationTTL*/,
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
 	if (avType == video || avType == av) {
@@ -182,11 +184,9 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
-		if (destinationAddress == 0) {
-			destinationAddress = clientAddress;
-		}
 		struct in_addr destinationAddr;
-		destinationAddr.s_addr = destinationAddress;
+                destinationAddr.s_addr =
+                    ((const sockaddr_in *) &clientAddress)->sin_addr.s_addr;
 		delete Vdestination;
 		Vdestination = new Destinations(destinationAddr, clientRTPPort,
 				clientRTCPPort);
@@ -200,11 +200,9 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
-		if (destinationAddress == 0) {
-			destinationAddress = clientAddress;
-		}
 		struct in_addr destinationAddr;
-		destinationAddr.s_addr = destinationAddress;
+                destinationAddr.s_addr =
+                    ((const sockaddr_in *) &clientAddress)->sin_addr.s_addr;
 		delete Adestination;
 		Adestination = new Destinations(destinationAddr, clientRTPPort,
 				clientRTCPPort);

@@ -48,6 +48,8 @@
 #include <ServerMediaSession.hh>
 #endif
 
+#include <liveMedia_version.hh>
+
 #include "rtsp/rtsp_utils.h"
 #include "audio/types.h"
 #include "module.h"
@@ -102,16 +104,17 @@ protected:
 
     virtual ~BasicRTSPOnlySubsession();
 
-    virtual char const* sdpLines();
+    virtual char const* sdpLines(int addressFamily);
 
     virtual void getStreamParameters(unsigned clientSessionId,
-        netAddressBits clientAddress,
+        struct sockaddr_storage const &clientAddress,
         Port const& clientRTPPort,
         Port const& clientRTCPPort,
         int tcpSocketNum,
         unsigned char rtpChannelId,
         unsigned char rtcpChannelId,
-        netAddressBits& destinationAddress,
+        TLSState *tlsState,
+        struct sockaddr_storage &destinationAddress,
         uint8_t& destinationTTL,
         Boolean& isMulticast,
         Port& serverRTPPort,
@@ -126,6 +129,15 @@ protected:
         void* serverRequestAlternativeByteHandlerClientData);
 
     virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+
+#if LIVEMEDIA_LIBRARY_VERSION_INT >= 1701302400 // 2023.11.30
+    void getRTPSinkandRTCP(void*, RTPSink*&, RTCPInstance*&) override {}
+#else
+    void getRTPSinkandRTCP(void *, const RTPSink *&,
+                           const RTCPInstance *&) override
+    {
+    }
+#endif
 
 protected:
 

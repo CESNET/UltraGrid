@@ -76,26 +76,22 @@ install_juice() {
 }
 
 download_build_live555() {(
+        git clone --depth 1 https://github.com/xanview/live555/
+        cd live555
+
         if is_win; then
-                target=mingw
+                ./genMakefiles mingw
                 PATH=/usr/bin:$PATH
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
-        elif [ "$(uname -s)" = Linux ]; then
-                export CXXFLAGS="-DXLOCALE_NOT_USED -fPIC"
-                target=linux
-        else
-                target=macosx
-        fi
-
-        git clone https://github.com/xanview/live555/
-        cd live555
-        git checkout 35c375
-        ./genMakefiles "$target"
-
-        make -j "$(nproc)"
-        if is_win; then
+                make -j "$(nproc)" CXX="c++ -DNO_GETIFADDRS -DNO_OPENSSL"
                 pacman -Rs --noconfirm binutils
+        elif [ "$(uname -s)" = Linux ]; then
+                ./genMakefiles linux-with-shared-libraries
+                make -j "$(nproc)"
+        else
+                ./genMakefiles macosx-no-openssl
+                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
         fi
 )}
 
