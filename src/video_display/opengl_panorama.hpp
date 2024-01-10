@@ -86,6 +86,8 @@ struct PanoramaScene{
          */
         void rotate(float dx, float dy);
 
+        std::vector<codec_t> get_codecs() { return uploader.get_supported_codecs(); }
+
         GlProgram program;// = GlProgram(persp_vert_src, persp_frag_src);
         Model model;// = Model::get_sphere();
         TripleBufferTexture tex;
