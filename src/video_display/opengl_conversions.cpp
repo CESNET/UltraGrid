@@ -92,6 +92,33 @@ void main(){
 }
 )END";
 
+static void load_yuv_coefficients(GlProgram& program){
+        const char *col = get_commandline_param("color");
+        if(!col)
+                return;
+
+        int color = std::stol(col, nullptr, 16) >> 4; // first nibble
+        if (color < 1 || color > 3){
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
+                return;
+        }
+
+        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+        double kr = cs_coeffs[2 * color];
+        double kb = cs_coeffs[2 * color + 1];
+
+        glUseProgram(program.get());
+        GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
+        glUniform1f(loc, Y_LIMIT_INV);
+        loc = glGetUniformLocation(program.get(), "r_cr");
+        glUniform1f(loc, R_CR(kr, kb));
+        loc = glGetUniformLocation(program.get(), "g_cr");
+        glUniform1f(loc, G_CR(kr, kb));
+        loc = glGetUniformLocation(program.get(), "g_cb");
+        glUniform1f(loc, G_CB(kr, kb));
+        loc = glGetUniformLocation(program.get(), "b_cb");
+        glUniform1f(loc, B_CB(kr, kb));
+}
 
 class Yuv_convertor : public Frame_convertor{
 public:
@@ -125,31 +152,7 @@ private:
 Yuv_convertor::Yuv_convertor(): program(vert_src, yuv_conv_frag_src),
         quad(Model::get_quad())
 {
-        const char *col = get_commandline_param("color");
-        if(!col)
-                return;
-
-        int color = std::stol(col, nullptr, 16) >> 4; // first nibble
-        if (color < 1 || color > 3){
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
-                return;
-        }
-
-        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
-        double kr = cs_coeffs[2 * color];
-        double kb = cs_coeffs[2 * color + 1];
-
-        glUseProgram(program.get());
-        GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
-        glUniform1f(loc, Y_LIMIT_INV);
-        loc = glGetUniformLocation(program.get(), "r_cr");
-        glUniform1f(loc, R_CR(kr, kb));
-        loc = glGetUniformLocation(program.get(), "g_cr");
-        glUniform1f(loc, G_CR(kr, kb));
-        loc = glGetUniformLocation(program.get(), "g_cb");
-        glUniform1f(loc, G_CB(kr, kb));
-        loc = glGetUniformLocation(program.get(), "b_cb");
-        glUniform1f(loc, B_CB(kr, kb));
+        load_yuv_coefficients(program);
 }
 
 
@@ -289,31 +292,7 @@ public:
         V210_convertor(): program(vert_src, v210_to_rgb_fp),
         quad(Model::get_quad())
         {
-                const char *col = get_commandline_param("color");
-                if(!col)
-                        return;
-
-                int color = std::stol(col, nullptr, 16) >> 4; // first nibble
-                if (color < 1 || color > 3){
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
-                        return;
-                }
-
-                double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
-                double kr = cs_coeffs[2 * color];
-                double kb = cs_coeffs[2 * color + 1];
-
-                glUseProgram(program.get());
-                GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
-                glUniform1f(loc, Y_LIMIT_INV);
-                loc = glGetUniformLocation(program.get(), "r_cr");
-                glUniform1f(loc, R_CR(kr, kb));
-                loc = glGetUniformLocation(program.get(), "g_cr");
-                glUniform1f(loc, G_CR(kr, kb));
-                loc = glGetUniformLocation(program.get(), "g_cb");
-                glUniform1f(loc, G_CB(kr, kb));
-                loc = glGetUniformLocation(program.get(), "b_cb");
-                glUniform1f(loc, B_CB(kr, kb));
+                load_yuv_coefficients(program);
         }
 
         void put_frame(video_frame *f, bool pbo_frame = false) override{
@@ -384,31 +363,7 @@ public:
         Y416_convertor(): program(vert_src, yuva_to_rgb_fp),
         quad(Model::get_quad())
         {
-                const char *col = get_commandline_param("color");
-                if(!col)
-                        return;
-
-                int color = std::stol(col, nullptr, 16) >> 4; // first nibble
-                if (color < 1 || color > 3){
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
-                        return;
-                }
-
-                double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
-                double kr = cs_coeffs[2 * color];
-                double kb = cs_coeffs[2 * color + 1];
-
-                glUseProgram(program.get());
-                GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
-                glUniform1f(loc, Y_LIMIT_INV);
-                loc = glGetUniformLocation(program.get(), "r_cr");
-                glUniform1f(loc, R_CR(kr, kb));
-                loc = glGetUniformLocation(program.get(), "g_cr");
-                glUniform1f(loc, G_CR(kr, kb));
-                loc = glGetUniformLocation(program.get(), "g_cb");
-                glUniform1f(loc, G_CB(kr, kb));
-                loc = glGetUniformLocation(program.get(), "b_cb");
-                glUniform1f(loc, B_CB(kr, kb));
+                load_yuv_coefficients(program);
         }
 
         void put_frame(video_frame *f, bool pbo_frame = false) override{
