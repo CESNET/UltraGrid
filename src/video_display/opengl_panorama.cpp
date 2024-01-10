@@ -77,7 +77,8 @@ PanoramaScene::PanoramaScene(): PanoramaScene(GlProgram(persp_vert_src, persp_fr
         Model::get_sphere()) { }
 
 PanoramaScene::PanoramaScene(GlProgram program, Model model): program(std::move(program)),
-        model(std::move(model)) {  }
+        model(std::move(model))
+{  }
 
 void PanoramaScene::render(int width, int height){
         float aspect_ratio = static_cast<float>(width) / height;
@@ -118,22 +119,11 @@ void PanoramaScene::put_frame(video_frame *f, bool pbo_frame){
 
         Texture& back_texture = tex.get_back();
 
-        glBindTexture(GL_TEXTURE_2D, back_texture.get());
-        back_texture.allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        uploader.attach_dst_texture(&back_texture);
+        uploader.put_frame(f, pbo_frame);
 
-        if(f->color_spec == UYVY){
-                if(!conv){
-                        conv = get_convertor_for_codec(f->color_spec);
-                }
-                conv->attach_texture(back_texture);
-                conv->put_frame(f, pbo_frame);
-        } else {
-                back_texture.upload_frame(f, pbo_frame);
-        }
+        glBindTexture(GL_TEXTURE_2D, back_texture.get());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
         glFinish();
 

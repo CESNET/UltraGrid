@@ -91,8 +91,7 @@ struct PanoramaScene{
         TripleBufferTexture tex;
         std::mutex tex_mut;
 
-        Framebuffer framebuffer;
-        std::unique_ptr<Frame_convertor> conv;
+        FrameUploader uploader;
         float rot_x = 0;
         float rot_y = 0;
         float fov = 55;
