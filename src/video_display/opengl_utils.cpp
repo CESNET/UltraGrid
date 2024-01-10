@@ -381,9 +381,10 @@ void Framebuffer::attach_texture(GLuint tex){
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void FrameTexture::put_frame(video_frame *f, bool pbo_frame){
-        glBindTexture(GL_TEXTURE_2D, tex.get());
-        tex.allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
+void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
+        assert(tex);
+        glBindTexture(GL_TEXTURE_2D, tex->get());
+        tex->allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -394,10 +395,10 @@ void FrameTexture::put_frame(video_frame *f, bool pbo_frame){
                 if(!conv){
                         conv = get_convertor_for_codec(f->color_spec);
                 }
-                conv->attach_texture(tex);
+                conv->attach_texture(*tex);
                 conv->put_frame(f, pbo_frame);
         } else {
-                tex.upload_frame(f, pbo_frame);
+                tex->upload_frame(f, pbo_frame);
         }
 }
 
@@ -436,6 +437,7 @@ void main(){
 
         program = GlProgram(vert_src, frag_src);
         quad = Model::get_quad();
+        uploader.attach_dst_texture(&texture);
 }
 
 void FlatVideoScene::put_frame(video_frame *f){
@@ -445,15 +447,14 @@ void FlatVideoScene::put_frame(video_frame *f){
                 resize(screen_width, screen_height);
         }
 
-        glBindTexture(GL_TEXTURE_2D, tex.get());
-        tex.put_frame(f, false);
+        uploader.put_frame(f, false);
 }
 
 void FlatVideoScene::render(){
         glUseProgram(program.get());
 
         glViewport(0, 0, screen_width, screen_height);
-        glBindTexture(GL_TEXTURE_2D, tex.get());
+        glBindTexture(GL_TEXTURE_2D, texture.get());
         quad.render();
 }
 

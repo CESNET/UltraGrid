@@ -341,15 +341,14 @@ public:
 /**
  * Class which takes an ultragrid video_frame and turns it into opengl texture
  */
-class FrameTexture{
+class FrameUploader{
 public:
         void put_frame(video_frame *f, bool pbo_frame = false);
-
-        GLuint get() { return tex.get(); }
+        void attach_dst_texture(Texture *tex){ this->tex = tex; }
 
 private:
         std::unique_ptr<Frame_convertor> conv;
-        Texture tex;
+        Texture *tex = nullptr;
 };
 
 /**
@@ -410,11 +409,12 @@ public:
 
         void enableDeinterlacing(bool enable);
 
-        GLuint get_texture() { return tex.get(); }
+        GLuint get_texture() { return texture.get(); }
 private:
         GlProgram program;
         Model quad;
-        FrameTexture tex;
+        Texture texture;
+        FrameUploader uploader;
 
         video_desc current_desc;
         int screen_width;
