@@ -76,6 +76,8 @@ using cv::Mat;
 using cv::Rect;
 using cv::Size;
 
+static const char *resize_algo_to_string(int algo);
+
 static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     Mat yuv;
     Mat rgb;
@@ -175,57 +177,73 @@ resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned 
 
 void
 resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
-             unsigned int height, struct resize_param resize_spec)
+             unsigned int height, struct resize_param *resize_spec)
 {
-    const int algo =
-        resize_spec.algo == RESIZE_ALGO_DFL ? DEFAULT_ALGO : resize_spec.algo;
+    if (resize_spec->algo == RESIZE_ALGO_DFL) {
+        resize_spec->algo = DEFAULT_ALGO;
+        MSG(NOTICE, "using resize algorithm: %s\n",
+          resize_algo_to_string(DEFAULT_ALGO));
+    }
 
     DEBUG_TIMER_START(resize);
-    if (resize_spec.mode == resize_param::USE_FRACTION) {
-        const double factor = resize_spec.factor;
+    if (resize_spec->mode == resize_param::USE_FRACTION) {
+        const double factor = resize_spec->factor;
         Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
         Mat out((int) (height * factor), (int) (width * factor),
                 get_out_cv_data_type(in_color), outdata);
-        resize(rgb, out, Size(0, 0), factor, factor, algo);
-    } else if (resize_spec.mode == resize_param::USE_DIMENSIONS) {
+        resize(rgb, out, Size(0, 0), factor, factor, resize_spec->algo);
+    } else if (resize_spec->mode == resize_param::USE_DIMENSIONS) {
         resize_frame_dimensions(indata, in_color, outdata, width, height,
-                                resize_spec.target_width,
-                                resize_spec.target_height, algo);
+                                resize_spec->target_width,
+                                resize_spec->target_height, resize_spec->algo);
     } else {
         abort();
     }
     DEBUG_TIMER_STOP(resize);
 }
 
+static const struct {
+    int         val;
+    const char *name;
+} interp_map[] = {
+        {INTER_NEAREST,        "nearest"      },
+        { INTER_LINEAR,        "linear"       },
+        { INTER_CUBIC,         "cubic"        },
+        { INTER_AREA,          "area"         },
+        { INTER_LANCZOS4,      "lanczos4"     },
+        { INTER_LINEAR_EXACT,  "linear_exact" },
+        { INTER_NEAREST_EXACT, "nearest_exact"},
+};
+
 int
 resize_algo_from_string(const char *str)
 {
-    struct map {
-        int         val;
-        const char *name;
-    } m[] = {
-            {INTER_NEAREST,       "nearest"      },
-            { INTER_LINEAR,       "linear"       },
-            { INTER_CUBIC,        "cubic"        },
-            { INTER_AREA,         "area"         },
-            { INTER_LANCZOS4,     "lanczos4"     },
-            { INTER_LINEAR_EXACT, "linear_exact" },
-            { INTER_NEAREST,      "nearest_exact"},
-    };
     if (strcmp(str, "help") == 0) {
         color_printf("Available resize algorithms:\n");
-        for (unsigned i = 0; i < sizeof m / sizeof m[0]; ++i) {
-            color_printf("\t" TBOLD("%s") "%s\n", m[i].name,
-                m[i].val == DEFAULT_ALGO ? " (default)" : "");
+        for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0];
+             ++i) {
+            color_printf("\t" TBOLD("%s") "%s\n", interp_map[i].name,
+                         interp_map[i].val == DEFAULT_ALGO ? " (default)" : "");
         }
         return RESIZE_ALGO_HELP_SHOWN;
     }
-    for (unsigned i = 0; i < sizeof m / sizeof m[0]; ++i) {
-        if (strcmp(m[i].name, str) == 0) {
-            return m[i].val;
+    for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0]; ++i) {
+        if (strcmp(interp_map[i].name, str) == 0) {
+            return interp_map[i].val;
         }
     }
     return RESIZE_ALGO_UNKN;
+}
+
+static const char *
+resize_algo_to_string(int algo)
+{
+    for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0]; ++i) {
+        if (interp_map[i].val == algo) {
+            return interp_map[i].name;
+        }
+    }
+    return "(unknown algo!)";
 }
 
 /* vim: set expandtab sw=4: */

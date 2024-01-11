@@ -259,7 +259,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
         resize_frame(in_frame->tiles[i].data, in_frame->color_spec,
                      out_frame->tiles[i].data, in_frame->tiles[i].width,
-                     in_frame->tiles[i].height, s->param);
+                     in_frame->tiles[i].height, &s->param);
     }
 
     VIDEO_FRAME_DISPOSE(in);

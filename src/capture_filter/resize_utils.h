@@ -77,7 +77,7 @@ struct resize_param {
 };
 void resize_frame(char *indata, codec_t in_color, char *outdata,
                   unsigned int width, unsigned int height,
-                  struct resize_param resize_spec);
+                  struct resize_param *resize_spec);
 
 #ifdef __cplusplus
 }
