@@ -47,6 +47,9 @@
 #include <stdio.h> // FILE
 #endif // defined __cplusplus
 
+#ifdef HAVE_CONFIG_H
+#include "config.h" // DEBUG
+#endif // defined HAVE_CONFIG_H
 #include "tv.h"
 
 #define UNUSED(x)	(x=x)
