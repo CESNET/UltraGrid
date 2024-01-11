@@ -45,10 +45,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
-
 #include <cstdlib>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
