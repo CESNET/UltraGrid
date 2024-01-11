@@ -60,13 +60,24 @@ extern "C" {
 #define RESIZE_ALGO_HELP_SHOWN (-3)
 int resize_algo_from_string(const char *str);
 
-void resize_frame_factor(char *indata, codec_t in_color, char *outdata,
-                         unsigned int width, unsigned int height,
-                         double scale_factor, int algo);
+struct resize_param {
+        enum resize_mode {
+                NONE,
+                USE_FRACTION,
+                USE_DIMENSIONS,
+        } mode;
+        union {
+                double factor;
+                struct {
+                        int target_width;
+                        int target_height;
+                };
+        };
+        int algo;
+};
 void resize_frame(char *indata, codec_t in_color, char *outdata,
                   unsigned int width, unsigned int height,
-                  unsigned int target_width, unsigned int target_height,
-                  int algo);
+                  struct resize_param resize_spec);
 
 #ifdef __cplusplus
 }

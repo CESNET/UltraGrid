@@ -125,28 +125,11 @@ get_out_cv_data_type(codec_t pixfmt)
     return get_bits_per_component(pixfmt) == DEPTH16 ? CV_16UC3 : CV_8UC3;
 }
 
-void
-resize_frame_factor(char *indata, codec_t in_color, char *outdata,
-                    unsigned int width, unsigned int height,
-                    double scale_factor, int algo)
-{
-    if (algo == RESIZE_ALGO_DFL) {
-        algo = DEFAULT_ALGO;
-    }
-    Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
-    Mat out((int) (height * scale_factor), (int) (width * scale_factor),
-            get_out_cv_data_type(in_color), outdata);
-    resize(rgb, out, Size(0,0), scale_factor, scale_factor, algo);
-}
-
-void
-resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
+static void
+resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned int width,
              unsigned int height, unsigned int target_width,
              unsigned int target_height, int algo)
 {
-    if (algo == RESIZE_ALGO_DFL) {
-        algo = DEFAULT_ALGO;
-    }
     const codec_t out_color =
         get_bits_per_component(in_color) == 16 ? RG48 : RGB;
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
@@ -187,9 +170,31 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
 
     Mat out((int) target_height, (int) target_width,
             get_out_cv_data_type(in_color), outdata);
-    DEBUG_TIMER_START(resize)
     resize(rgb, out(r), r.size(), 0, 0, algo);
-    DEBUG_TIMER_STOP(resize)
+}
+
+void
+resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
+             unsigned int height, struct resize_param resize_spec)
+{
+    const int algo =
+        resize_spec.algo == RESIZE_ALGO_DFL ? DEFAULT_ALGO : resize_spec.algo;
+
+    DEBUG_TIMER_START(resize);
+    if (resize_spec.mode == resize_param::USE_FRACTION) {
+        const double factor = resize_spec.factor;
+        Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
+        Mat out((int) (height * factor), (int) (width * factor),
+                get_out_cv_data_type(in_color), outdata);
+        resize(rgb, out, Size(0, 0), factor, factor, algo);
+    } else if (resize_spec.mode == resize_param::USE_DIMENSIONS) {
+        resize_frame_dimensions(indata, in_color, outdata, width, height,
+                                resize_spec.target_width,
+                                resize_spec.target_height, algo);
+    } else {
+        abort();
+    }
+    DEBUG_TIMER_STOP(resize);
 }
 
 int

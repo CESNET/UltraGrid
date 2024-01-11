@@ -68,25 +68,6 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-struct resize_param {
-    enum resize_mode {
-        NONE,
-        USE_FRACTION,
-        USE_DIMENSIONS,
-    } mode;
-    union {
-        struct {
-            int num;
-            int denom;
-        };
-        struct {
-            int target_width;
-            int target_height;
-        };
-    };
-    int algo;
-};
-
 struct state_resize {
     struct resize_param param;
     struct video_desc saved_desc;
@@ -119,9 +100,8 @@ static void usage() {
 static int
 parse_fmt(char *cfg, struct resize_param *param)
 {
-
     char *save_ptr = NULL;
-    char *item= NULL;
+    char *item     = NULL;
     while ((item = strtok_r(cfg, ":", &save_ptr))) {
         cfg = NULL;
         if (IS_KEY_PREFIX(item, "algo")) {
@@ -144,12 +124,10 @@ parse_fmt(char *cfg, struct resize_param *param)
             errno                = 0;
             param->target_height = strtol(strchr(item, 'x') + 1, NULL, 10);
         } else {
-            param->mode = USE_FRACTION;
-            param->num  = strtol(item, NULL, 10);
+            param->mode   = USE_FRACTION;
+            param->factor = strtol(item, NULL, 10);
             if (strchr(item, '/')) {
-                    param->denom = strtol(strchr(item, '/') + 1, NULL, 10);
-            } else {
-                    param->denom = 1;
+                    param->factor /= strtol(strchr(item, '/') + 1, NULL, 10);
             }
         }
     }
@@ -158,7 +136,7 @@ parse_fmt(char *cfg, struct resize_param *param)
         param->target_height > 0) {
         return 0;
     }
-    if (param->mode == USE_FRACTION && param->num > 0 && param->denom > 0) {
+    if (param->mode == USE_FRACTION && param->factor > 0) {
         return 0;
     }
 
@@ -181,27 +159,6 @@ static int init(struct module * parent, const char *cfg, void **state)
     free(fmt);
     if (rc != 0) {
         return rc;
-    }
-
-    // check validity of options
-    switch (param.mode) {
-    case USE_FRACTION:
-        if (param.num <= 0 || param.denom <= 0) {
-            log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] resize factors must be greater than zero!\n");
-            usage();
-            return -1;
-        }
-        break;
-    case USE_DIMENSIONS:
-        if (param.target_width <= 0 || param.target_height <= 0) {
-            log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] Targed widht and height must be greater than zero!\n");
-            usage();
-            return -1;
-        }
-        break;
-    default:
-        usage();
-        return -1;
     }
 
     struct state_resize *s = calloc(1, sizeof(struct state_resize));
@@ -258,9 +215,8 @@ reconfigure_if_needed(struct state_resize *s, const struct video_frame *in)
         s->out_desc.width  = s->param.target_width;
         s->out_desc.height = s->param.target_height;
     } else {
-        s->out_desc.width = in->tiles[0].width * s->param.num / s->param.denom;
-        s->out_desc.height =
-            in->tiles[0].height * s->param.num / s->param.denom;
+        s->out_desc.width = in->tiles[0].width * s->param.factor;
+        s->out_desc.height = in->tiles[0].height * s->param.factor;
     }
     s->saved_desc = video_desc_from_frame(in);
     cleanup_common(s);
@@ -301,18 +257,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct video_frame *const in_frame =
             s->decoder == vc_memcpy ? in : s->dec_frame;
 
-        if (s->param.mode == USE_DIMENSIONS) {
-            resize_frame(in_frame->tiles[i].data, in_frame->color_spec,
-                         out_frame->tiles[i].data, in_frame->tiles[i].width,
-                         in_frame->tiles[i].height, s->param.target_width,
-                         s->param.target_height, s->param.algo);
-        } else {
-            resize_frame_factor(
-                in_frame->tiles[i].data, in_frame->color_spec,
-                out_frame->tiles[i].data, in_frame->tiles[i].width,
-                in_frame->tiles[i].height,
-                (double) s->param.num / s->param.denom, s->param.algo);
-        }
+        resize_frame(in_frame->tiles[i].data, in_frame->color_spec,
+                     out_frame->tiles[i].data, in_frame->tiles[i].width,
+                     in_frame->tiles[i].height, s->param);
     }
 
     VIDEO_FRAME_DISPOSE(in);
