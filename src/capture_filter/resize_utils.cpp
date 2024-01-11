@@ -82,8 +82,9 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     Mat yuv;
     Mat rgb;
     int pix_fmt = CV_8UC2;
-    int cv_color;
-    int num = 1, den = 1;
+    int cv_color = 0;
+    int num = 1;
+    int den = 1;
 
     switch (codec) {
     case RG48:
@@ -128,9 +129,9 @@ get_out_cv_data_type(codec_t pixfmt)
 }
 
 static void
-resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned int width,
-             unsigned int height, unsigned int target_width,
-             unsigned int target_height, int algo)
+resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, int width,
+             int height, int target_width,
+             int target_height, int algo)
 {
     const codec_t out_color =
         get_bits_per_component(in_color) == 16 ? RG48 : RGB;
@@ -147,7 +148,7 @@ resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned 
     } else if (in_aspect > out_aspect) {
         r.x = 0;
         r.width = target_width;
-        r.height = target_width / in_aspect;
+        r.height = (int) (target_width / in_aspect);
         r.y = (target_height - r.height) / 2;
         // clear top and bottom margin
         size_t linesize = vc_get_linesize(target_width, out_color);
@@ -158,13 +159,13 @@ resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned 
     } else {
         r.y = 0;
         r.height = target_height;
-        r.width = target_height * in_aspect;
+        r.width = (int) (target_height * in_aspect);
         r.x = (target_width - r.width) / 2;
         // clear left and right margins
         size_t linesize = vc_get_linesize(target_width, out_color);
         size_t left_margin_size = vc_get_linesize(r.x, out_color);
         size_t right_margin_size = vc_get_linesize(target_width - r.x - r.width, out_color);
-        for (unsigned int i = 0; i < target_height; ++i) {
+        for (int i = 0; i < target_height; ++i) {
             memset(outdata + i * linesize, 0, left_margin_size);
             memset(outdata + (i + 1) * linesize - right_margin_size, 0, right_margin_size);
         }
@@ -176,8 +177,8 @@ resize_frame_dimensions(char *indata, codec_t in_color, char *outdata, unsigned 
 }
 
 void
-resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
-             unsigned int height, struct resize_param *resize_spec)
+resize_frame(char *indata, codec_t in_color, char *outdata, int width,
+             int height, struct resize_param *resize_spec)
 {
     if (resize_spec->algo == RESIZE_ALGO_DFL) {
         resize_spec->algo = DEFAULT_ALGO;
@@ -220,16 +221,15 @@ resize_algo_from_string(const char *str)
 {
     if (strcmp(str, "help") == 0) {
         color_printf("Available resize algorithms:\n");
-        for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0];
-             ++i) {
-            color_printf("\t" TBOLD("%s") "%s\n", interp_map[i].name,
-                         interp_map[i].val == DEFAULT_ALGO ? " (default)" : "");
+        for (auto const &i : interp_map) {
+            color_printf("\t" TBOLD("%s") "%s\n", i.name,
+                         i.val == DEFAULT_ALGO ? " (default)" : "");
         }
         return RESIZE_ALGO_HELP_SHOWN;
     }
-    for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0]; ++i) {
-        if (strcmp(interp_map[i].name, str) == 0) {
-            return interp_map[i].val;
+    for (auto const &i : interp_map) {
+        if (strcmp(i.name, str) == 0) {
+            return i.val;
         }
     }
     return RESIZE_ALGO_UNKN;
@@ -238,9 +238,9 @@ resize_algo_from_string(const char *str)
 static const char *
 resize_algo_to_string(int algo)
 {
-    for (unsigned i = 0; i < sizeof interp_map / sizeof interp_map[0]; ++i) {
-        if (interp_map[i].val == algo) {
-            return interp_map[i].name;
+    for (auto const &i : interp_map) {
+        if (i.val == algo) {
+            return i.name;
         }
     }
     return "(unknown algo!)";

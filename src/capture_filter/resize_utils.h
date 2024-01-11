@@ -75,9 +75,8 @@ struct resize_param {
         };
         int algo;
 };
-void resize_frame(char *indata, codec_t in_color, char *outdata,
-                  unsigned int width, unsigned int height,
-                  struct resize_param *resize_spec);
+void resize_frame(char *indata, codec_t in_color, char *outdata, int width,
+                  int height, struct resize_param *resize_spec);
 
 #ifdef __cplusplus
 }
