@@ -54,6 +54,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/parallel_conv.h"
 #include "video.h"
 #include "video_codec.h"
@@ -83,6 +84,7 @@ struct resize_param {
             int target_height;
         };
     };
+    int algo;
 };
 
 struct state_resize {
@@ -97,9 +99,9 @@ struct state_resize {
 static void usage() {
     printf("Scaling by scale factor:\n\n");
     printf("resize usage:\n");
-    color_printf("\t" TBOLD(TRED("resize") ":numerator[/denominator]") "\n");
+    color_printf("\t" TBOLD(TRED("resize") ":numerator[/denominator][algo=<a>]") "\n");
     printf("or\n");
-    printf("\t" TBOLD(TRED("resize") ":<width>x<height>") "\n\n");
+    printf("\t" TBOLD(TRED("resize") ":<width>x<height>[algo=<a>]") "\n\n");
     color_printf("Scaling examples:\n"
                  "\t" TBOLD("resize:1/2")
                  " - downscale input frame size by scale factor of 2\n"
@@ -107,61 +109,78 @@ static void usage() {
                  " - scales input to 1280x720\n"
                  "\t" TBOLD("resize:720x576")
                  " - scales input to PAL\n");
+    color_printf(
+        "\nOptions:\n"
+        "\t" TBOLD(
+            "algo") " - scaling algorithm to use (list with `algo:help`)\n");
+    color_printf("\n");
 }
 
 static int
-parse_fmt(const char *cfg, struct resize_param *param)
+parse_fmt(char *cfg, struct resize_param *param)
 {
-    if (strlen(cfg) == 0) {
-        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
-        usage();
-        return -1;
-    }
 
-    char *endptr = NULL;
-    if (strchr(cfg, 'x')) {
-        param->mode          = USE_DIMENSIONS;
-        param->target_width  = strtol(cfg, &endptr, 10);
-        errno                = 0;
-        param->target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
-        if (errno != 0) {
-            perror("strtol");
-            usage();
+    char *save_ptr = NULL;
+    char *item= NULL;
+    while ((item = strtok_r(cfg, ":", &save_ptr))) {
+        cfg = NULL;
+        if (IS_KEY_PREFIX(item, "algo")) {
+            param->algo = resize_algo_from_string(strchr(item, '=') + 1);
+            if (param->algo < 0) {
+                    return param->algo == RESIZE_ALGO_HELP_SHOWN ? 1 : -1;
+            }
+            continue;
+        }
+        if (!isdigit(item[0])) {
+            log_msg(LOG_LEVEL_ERROR,
+                    "[RESIZE ERROR] Unrecognized part of config "
+                    "string: %s\n",
+                    item);
             return -1;
         }
-    } else {
-        param->mode = USE_FRACTION;
-        param->num  = strtol(cfg, &endptr, 10);
-        if (strchr(cfg, '/')) {
-            param->denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
+        if (strchr(item, 'x')) {
+            param->mode          = USE_DIMENSIONS;
+            param->target_width  = strtol(item, NULL, 10);
+            errno                = 0;
+            param->target_height = strtol(strchr(item, 'x') + 1, NULL, 10);
         } else {
-            param->denom = 1;
+            param->mode = USE_FRACTION;
+            param->num  = strtol(item, NULL, 10);
+            if (strchr(item, '/')) {
+                    param->denom = strtol(strchr(item, '/') + 1, NULL, 10);
+            } else {
+                    param->denom = 1;
+            }
         }
     }
 
-    if (*endptr != '\0') {
-        log_msg(LOG_LEVEL_ERROR,
-                "[RESIZE ERROR] Unrecognized part of config string: %s\n",
-                endptr);
-        usage();
-        return -1;
+    if (param->mode == USE_DIMENSIONS && param->target_width > 0 &&
+        param->target_height > 0) {
+        return 0;
+    }
+    if (param->mode == USE_FRACTION && param->num > 0 && param->denom > 0) {
+        return 0;
     }
 
-    return 0;
+    MSG(ERROR, "No or incorrect resize size!\n");
+    return -1;
 }
 
 static int init(struct module * parent, const char *cfg, void **state)
 {
     UNUSED(parent);
-    struct resize_param param = { 0 };
+    struct resize_param param = { .algo = RESIZE_ALGO_DFL };
 
     if(strcasecmp(cfg, "help") == 0) {
         usage();
         return 1;
     }
 
-    if (!parse_fmt(cfg, &param)) {
-        return -1;
+    char *fmt = strdup(cfg);
+    const int rc = parse_fmt(fmt, &param);
+    free(fmt);
+    if (rc != 0) {
+        return rc;
     }
 
     // check validity of options
@@ -286,13 +305,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             resize_frame(in_frame->tiles[i].data, in_frame->color_spec,
                          out_frame->tiles[i].data, in_frame->tiles[i].width,
                          in_frame->tiles[i].height, s->param.target_width,
-                         s->param.target_height);
+                         s->param.target_height, s->param.algo);
         } else {
-            resize_frame_factor(in_frame->tiles[i].data, in_frame->color_spec,
-                                out_frame->tiles[i].data,
-                                in_frame->tiles[i].width,
-                                in_frame->tiles[i].height,
-                                (double) s->param.num / s->param.denom);
+            resize_frame_factor(
+                in_frame->tiles[i].data, in_frame->color_spec,
+                out_frame->tiles[i].data, in_frame->tiles[i].width,
+                in_frame->tiles[i].height,
+                (double) s->param.num / s->param.denom, s->param.algo);
         }
     }
 

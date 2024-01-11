@@ -55,12 +55,18 @@ extern "C" {
 
 #define RESIZE_SUPPORTED_PIXFMT_INIT RGB, RGBA, I420, UYVY, YUYV, RG48
 
+#define RESIZE_ALGO_DFL        (-1)
+#define RESIZE_ALGO_UNKN       (-2)
+#define RESIZE_ALGO_HELP_SHOWN (-3)
+int resize_algo_from_string(const char *str);
+
 void resize_frame_factor(char *indata, codec_t in_color, char *outdata,
-                        unsigned int width, unsigned int height,
-                        double scale_factor);
+                         unsigned int width, unsigned int height,
+                         double scale_factor, int algo);
 void resize_frame(char *indata, codec_t in_color, char *outdata,
-                 unsigned int width, unsigned int height,
-                 unsigned int target_width, unsigned int target_height);
+                  unsigned int width, unsigned int height,
+                  unsigned int target_width, unsigned int target_height,
+                  int algo);
 
 #ifdef __cplusplus
 }

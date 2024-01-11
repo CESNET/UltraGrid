@@ -59,11 +59,19 @@
 
 #include "capture_filter/resize_utils.h"
 #include "debug.h"
+#include "utils/color_out.h"
 #include "video.h"
 
+#define DEFAULT_ALGO INTER_LINEAR
 #define MOD_NAME "[resize] "
 
+using cv::INTER_AREA;
+using cv::INTER_CUBIC;
+using cv::INTER_LANCZOS4;
 using cv::INTER_LINEAR;
+using cv::INTER_LINEAR_EXACT;
+using cv::INTER_NEAREST;
+using cv::INTER_NEAREST_EXACT;
 using cv::Mat;
 using cv::Rect;
 using cv::Size;
@@ -120,19 +128,25 @@ get_out_cv_data_type(codec_t pixfmt)
 void
 resize_frame_factor(char *indata, codec_t in_color, char *outdata,
                     unsigned int width, unsigned int height,
-                    double scale_factor)
+                    double scale_factor, int algo)
 {
+    if (algo == RESIZE_ALGO_DFL) {
+        algo = DEFAULT_ALGO;
+    }
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
     Mat out((int) (height * scale_factor), (int) (width * scale_factor),
             get_out_cv_data_type(in_color), outdata);
-    resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
+    resize(rgb, out, Size(0,0), scale_factor, scale_factor, algo);
 }
 
 void
 resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
              unsigned int height, unsigned int target_width,
-             unsigned int target_height)
+             unsigned int target_height, int algo)
 {
+    if (algo == RESIZE_ALGO_DFL) {
+        algo = DEFAULT_ALGO;
+    }
     const codec_t out_color =
         get_bits_per_component(in_color) == 16 ? RG48 : RGB;
     Mat rgb = ug_to_rgb_mat(in_color, (int) width, (int) height, indata);
@@ -173,7 +187,40 @@ resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width,
 
     Mat out((int) target_height, (int) target_width,
             get_out_cv_data_type(in_color), outdata);
-    resize(rgb, out(r), r.size());
+    DEBUG_TIMER_START(resize)
+    resize(rgb, out(r), r.size(), 0, 0, algo);
+    DEBUG_TIMER_STOP(resize)
+}
+
+int
+resize_algo_from_string(const char *str)
+{
+    struct map {
+        int         val;
+        const char *name;
+    } m[] = {
+            {INTER_NEAREST,       "nearest"      },
+            { INTER_LINEAR,       "linear"       },
+            { INTER_CUBIC,        "cubic"        },
+            { INTER_AREA,         "area"         },
+            { INTER_LANCZOS4,     "lanczos4"     },
+            { INTER_LINEAR_EXACT, "linear_exact" },
+            { INTER_NEAREST,      "nearest_exact"},
+    };
+    if (strcmp(str, "help") == 0) {
+        color_printf("Available resize algorithms:\n");
+        for (unsigned i = 0; i < sizeof m / sizeof m[0]; ++i) {
+            color_printf("\t" TBOLD("%s") "%s\n", m[i].name,
+                m[i].val == DEFAULT_ALGO ? " (default)" : "");
+        }
+        return RESIZE_ALGO_HELP_SHOWN;
+    }
+    for (unsigned i = 0; i < sizeof m / sizeof m[0]; ++i) {
+        if (strcmp(m[i].name, str) == 0) {
+            return m[i].val;
+        }
+    }
+    return RESIZE_ALGO_UNKN;
 }
 
 /* vim: set expandtab sw=4: */
