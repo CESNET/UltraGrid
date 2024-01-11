@@ -109,45 +109,58 @@ static void usage() {
                  " - scales input to PAL\n");
 }
 
-static int init(struct module * parent, const char *cfg, void **state)
+static int
+parse_fmt(const char *cfg, struct resize_param *param)
 {
-    UNUSED(parent);
-    struct resize_param param = { 0 };
-
     if (strlen(cfg) == 0) {
         log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
         usage();
         return -1;
     }
 
-    if(strcasecmp(cfg, "help") == 0) {
-        usage();
-        return 1;
-    }
-    char *endptr;
+    char *endptr = NULL;
     if (strchr(cfg, 'x')) {
-        param.mode = USE_DIMENSIONS;
-        param.target_width = strtol(cfg, &endptr, 10);
-        errno = 0;
-        param.target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
+        param->mode          = USE_DIMENSIONS;
+        param->target_width  = strtol(cfg, &endptr, 10);
+        errno                = 0;
+        param->target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
         if (errno != 0) {
             perror("strtol");
             usage();
             return -1;
         }
     } else {
-        param.mode = USE_FRACTION;
-        param.num = strtol(cfg, &endptr, 10);
-        if(strchr(cfg, '/')) {
-            param.denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
+        param->mode = USE_FRACTION;
+        param->num  = strtol(cfg, &endptr, 10);
+        if (strchr(cfg, '/')) {
+            param->denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
         } else {
-            param.denom = 1;
+            param->denom = 1;
         }
     }
 
     if (*endptr != '\0') {
-        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] Unrecognized part of config string: %s\n", endptr);
+        log_msg(LOG_LEVEL_ERROR,
+                "[RESIZE ERROR] Unrecognized part of config string: %s\n",
+                endptr);
         usage();
+        return -1;
+    }
+
+    return 0;
+}
+
+static int init(struct module * parent, const char *cfg, void **state)
+{
+    UNUSED(parent);
+    struct resize_param param = { 0 };
+
+    if(strcasecmp(cfg, "help") == 0) {
+        usage();
+        return 1;
+    }
+
+    if (!parse_fmt(cfg, &param)) {
         return -1;
     }
 
