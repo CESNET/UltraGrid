@@ -71,7 +71,7 @@ using cv::INTER_LANCZOS4;
 using cv::INTER_LINEAR;
 using cv::INTER_LINEAR_EXACT;
 using cv::INTER_NEAREST;
-using cv::INTER_NEAREST_EXACT;
+// using cv::INTER_NEAREST_EXACT;
 using cv::Mat;
 using cv::Rect;
 using cv::Size;
@@ -213,7 +213,7 @@ static const struct {
         { INTER_AREA,          "area"         },
         { INTER_LANCZOS4,      "lanczos4"     },
         { INTER_LINEAR_EXACT,  "linear_exact" },
-        { INTER_NEAREST_EXACT, "nearest_exact"},
+        // { INTER_NEAREST_EXACT, "nearest_exact"},
 };
 
 int

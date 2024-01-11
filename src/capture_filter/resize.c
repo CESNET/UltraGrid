@@ -104,7 +104,7 @@ parse_fmt(char *cfg, struct resize_param *param)
     char *item     = NULL;
     while ((item = strtok_r(cfg, ":", &save_ptr))) {
         cfg = NULL;
-        if (IS_KEY_PREFIX(item, "algo")) {
+        if (IS_KEY_PREFIX(item, "algorithm")) {
             param->algo = resize_algo_from_string(strchr(item, '=') + 1);
             if (param->algo < 0) {
                     return param->algo == RESIZE_ALGO_HELP_SHOWN ? 1 : -1;
