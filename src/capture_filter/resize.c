@@ -84,7 +84,7 @@ static void usage() {
     printf("or\n");
     printf("\t" TBOLD(TRED("resize") ":<width>x<height>[algo=<a>]") "\n\n");
     color_printf("Scaling examples:\n"
-                 "\t" TBOLD("resize:1/2")
+                 "\t" TBOLD("resize:1/2") " | " TBOLD("resize:0.5")
                  " - downscale input frame size by scale factor of 2\n"
                  "\t" TBOLD("resize:1280x720")
                  " - scales input to 1280x720\n"
@@ -111,7 +111,7 @@ parse_fmt(char *cfg, struct resize_param *param)
             }
             continue;
         }
-        if (!isdigit(item[0])) {
+        if (!isdigit(item[0]) && item[0] != '.') {
             log_msg(LOG_LEVEL_ERROR,
                     "[RESIZE ERROR] Unrecognized part of config "
                     "string: %s\n",
@@ -125,7 +125,7 @@ parse_fmt(char *cfg, struct resize_param *param)
             param->target_height = strtol(strchr(item, 'x') + 1, NULL, 10);
         } else {
             param->mode   = USE_FRACTION;
-            param->factor = strtol(item, NULL, 10);
+            param->factor = strtod(item, NULL);
             if (strchr(item, '/')) {
                     param->factor /= strtol(strchr(item, '/') + 1, NULL, 10);
             }
