@@ -26,6 +26,7 @@
 #include <dvdmedia.h>
 #include <qedit.h>
 #include <oleauto.h>
+#include <string>
 //#include <Streams.h>
 
 #include <iostream>
@@ -383,6 +384,43 @@ static void show_help(struct vidcap_dshow_state *s) {
 	printf("C - codec is not supported in UG; F - video format is not supported\n\n");
 }
 
+static string
+get_friendly_name(IMoniker *moniker)
+{
+        IPropertyBag *properties = nullptr;
+        // Attach structure for reading basic device properties
+        HRESULT res = moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
+        if (res != S_OK) {
+                log_msg(
+                    LOG_LEVEL_WARNING, MOD_NAME
+                    "vidcap_dshow_init: Failed to read device properties.\n");
+                // continue to other device; we still may find the correct one
+                return {};
+        }
+
+        VARIANT var;
+        VariantInit(&var);
+        res = properties->Read(L"FriendlyName", &var, NULL);
+        if (res != S_OK) {
+                log_msg(
+                    LOG_LEVEL_WARNING, MOD_NAME
+                    "vidcap_dshow_init: Failed to read device properties.\n");
+                VariantClear(&var);
+                // continue to other device; we still may find the correct one
+                return {};
+        }
+
+        char buf[MAX_STRING_LEN];
+        // convert to standard C string
+        wcstombs(buf, var.bstrVal, sizeof buf);
+
+        // clean up structures
+        VariantClear(&var);
+        properties->Release();
+
+        return buf;
+}
+
 static void vidcap_dshow_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
         *deleter = free;
@@ -405,32 +443,15 @@ static void vidcap_dshow_probe(device_info **available_cards, int *count, void (
 		snprintf(cards[n-1].dev, sizeof cards[n-1].dev - 1, ":device=%d", n);
 		snprintf(cards[n-1].name, sizeof cards[n-1].name - 1, "_DSHOW_FAILED_TO_READ_NAME_%d_", n);
 
-		// Attach structure for reading basic device properties
-		IPropertyBag *properties;
-		res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Failed to read device %d properties.\n", n);
-			// Ignore the device
-			continue;
-		}
-
-		// Read name of the device
-		VARIANT var;
-		VariantInit(&var);
-		res = properties->Read(L"FriendlyName", &var, NULL);
-		if (res != S_OK) {
+		string friendly_name = get_friendly_name(s->moniker);
+		if (friendly_name.empty()) {
 			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Failed to get device %d name.\n", n);
-			VariantClear(&var);
 			// Ignore the device
 			continue;
 		}
-
-		wcstombs(cards[n-1].name, var.bstrVal, sizeof cards[n-1].name - 1);
-		const char *name = cards[n-1].name;
-
-		// clean up structures
-		VariantClear(&var);
-		properties->Release();
+		const char *name = friendly_name.c_str();;
+                snprintf(cards[n - 1].name, sizeof cards[n - 1].name, "%s",
+                         name);
 
                 // bind the selected device to the capture filter
                 IBaseFilter *captureFilter;
@@ -835,37 +856,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		}
 	} else { // device specified by name
 		while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
-			IPropertyBag *properties;
-			res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
-			if (res != S_OK) {
-				log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_init: Failed to read device properties.\n");
-				// continue to other device; we still may find the correct one
-				continue;
-			}
-
-			VARIANT var;
-			VariantInit(&var);
-			res = properties->Read(L"FriendlyName", &var, NULL);
-			if (res != S_OK) {
-				log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_init: Failed to read device properties.\n");
-				VariantClear(&var);
-				// continue to other device; we still may find the correct one
-				continue;
-			}
-
-			char *buf;
-			buf = (char *) malloc(sizeof(char) * MAX_STRING_LEN);
-			if (buf == NULL) {
-				log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: memory allocation error\n");
-				goto error;
-			}
-			// convert to standard C string
-			snprintf(buf, MAX_STRING_LEN, "%ls", var.bstrVal);
-
-			VariantClear(&var);
-			properties->Release();
-
-			if (strcasecmp(s->deviceName, buf) == 0) {
+			string friendly_name = get_friendly_name(s->moniker);
+			if (strcasecmp(s->deviceName, friendly_name.c_str()) == 0) {
 				break;
 			}
 			s->moniker->Release();
@@ -876,6 +868,9 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			goto error;
 		}
 	}
+
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Capturing from device: "
+                              << get_friendly_name(s->moniker) << "\n";
 
 	res = s->moniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &s->captureFilter);
 	if (res != S_OK) {
