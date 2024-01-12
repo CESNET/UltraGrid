@@ -367,6 +367,11 @@ void Texture::init(){
         glGenBuffers(1, &pbo);
 }
 
+void Texture::bind() {
+        init();
+        glBindTexture(GL_TEXTURE_2D, tex_id);
+}
+
 
 void Framebuffer::attach_texture(GLuint tex){
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -383,7 +388,7 @@ void Framebuffer::attach_texture(GLuint tex){
 
 void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
         assert(tex);
-        glBindTexture(GL_TEXTURE_2D, tex->get());
+        tex->bind();
         tex->allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -57,6 +57,7 @@
 //#include <SDL2/SDL_opengl.h>
 #include <mutex>
 #include <memory>
+#include <cassert>
 
 #include "types.h"
 
@@ -149,9 +150,9 @@ public:
         ~Texture();
 
         /**
-         * Returns the underlying OpenGL texture id
+         * Returns the underlying OpenGL texture id.
          */
-        GLuint get() const { return tex_id; }
+        GLuint get() const { assert(tex_id); return tex_id; }
 
         /**
          * Allocates the the storage for the texture according to requested
@@ -162,6 +163,13 @@ public:
          * @param internal_fmt same as internalformat parameter of glTexImage2D()
          */
         void allocate(int w, int h, GLint internal_fmt);
+
+        /**
+         * Creates the actual OpenGL texture objects if not yet created
+         */
+        void init();
+
+        void bind();
 
         /**
          * Uploads video frame to the texture
@@ -189,7 +197,6 @@ public:
                 std::swap(pbo, o.pbo);
         }
 private:
-        void init();
 
         /**
          * Uploads image data to the texture
