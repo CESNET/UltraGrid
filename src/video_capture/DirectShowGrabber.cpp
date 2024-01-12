@@ -614,7 +614,7 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 	} else {
 		while ((token = strtok_s(init_fmt, ":", &strtok_context)) != NULL) {
 			init_fmt = NULL;
-			if (strncmp(token, "device=", strlen("device=")) == 0) {
+			if (IS_KEY_PREFIX(token, "device")) {
 				token  = strchr(token, '=') + 1;
 				if (isdigit(token[0])) { // device specified by number
 					s->deviceNumber = atoi(token);
@@ -623,13 +623,14 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 					strcpy_s(s->deviceName, strlen(token) + 1, token);
 					s->deviceNumber = -1;
 				}
-			} else if (strncmp(token, "mode=", strlen("mode=")) == 0) {
+			} else if (IS_KEY_PREFIX(token, "mode")) {
 				token  = strchr(token, '=') + 1;
 				s->modeNumber = atoi(token);
 			} else if (strcmp(token, "RGB") == 0) {
 				s->desc.color_spec = BGR;
 			} else {
-				log_msg(LOG_LEVEL_WARNING, "[dshow] Unknown argument: %s, ignoring.\n", token);
+				MSG(ERROR, "Unknown argument: %s\n", token);
+				return false;
 			}
 		}
 	}
