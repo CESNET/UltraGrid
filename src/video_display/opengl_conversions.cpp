@@ -400,7 +400,144 @@ private:
         Texture yuv_tex;
 };
 
+class DXT1_convertor : public Frame_convertor{
+public:
+        DXT1_convertor() {}
 
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                int w = (f->tiles[0].width + 3) / 4 * 4;
+                int h = (f->tiles[0].height + 3) / 4 * 4;
+                glBindTexture(GL_TEXTURE_2D, tex->get());
+                glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                w, h, 0,
+                                w * h / 2,
+                                f->tiles[0].data);
+        }
+
+        void attach_texture(const Texture& tex) override {
+                this->tex = &tex;
+        }
+
+private:
+        const Texture *tex = nullptr;
+};
+
+static const char fp_display_dxt5ycocg[] = R"raw(
+#version 330
+
+layout(location = 0) out vec4 color;
+in vec2 UV;
+uniform sampler2D tex;
+
+void main()
+{
+        vec4 element = texture(tex, UV);
+        float scale = (element.z * ( 255.0 / 8.0 )) + 1.0;
+        float Co = (element.x - (0.5 * 256.0 / 255.0)) / scale;
+        float Cg = (element.y - (0.5 * 256.0 / 255.0)) / scale;
+        float Y = element.w;
+        color = vec4(Y + Co - Cg, Y + Cg, Y - Co - Cg, 1.0);
+}
+)raw";
+
+class DXT5_convertor : public Frame_convertor{
+public:
+        DXT5_convertor(): program(vert_src, fp_display_dxt5ycocg),
+        quad(Model::get_quad()) { }
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                glUseProgram(program.get());
+                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
+                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                int w = (f->tiles[0].width + 3) / 4 * 4;
+                int h = (f->tiles[0].height + 3) / 4 * 4;
+                dxt_tex.init();
+                glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
+                glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                                w, h, 0,
+                                w * h,
+                                f->tiles[0].data);
+
+                quad.render();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glUseProgram(0);
+        }
+
+        void attach_texture(const Texture& tex) override {
+                fbuf.attach_texture(tex);
+        }
+
+private:
+        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
+        Model quad;// = Model::get_quad();
+        Framebuffer fbuf;
+        Texture dxt_tex;
+};
+
+static const char *fp_display_dxt1_yuv = R"raw(
+#version 330
+
+layout(location = 0) out vec4 color;
+in vec2 UV;
+uniform sampler2D tex;
+
+void main(void) {
+        vec4 col = texture(tex, UV);
+
+        float Y = 1.1643 * (col[0] - 0.0625);
+        float U = (col[1] - 0.5);
+        float V = (col[2] - 0.5);
+
+        float R = Y + 1.7926 * V;
+        float G = Y - 0.2132 * U - 0.5328 * V;
+        float B = Y + 2.1124 * U;
+
+        color = vec4(R,G,B,1.0);
+}
+)raw";
+
+class DXT1_YUV_convertor : public Frame_convertor{
+public:
+        DXT1_YUV_convertor(): program(vert_src, fp_display_dxt1_yuv),
+        quad(Model::get_quad()) { }
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                glUseProgram(program.get());
+                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
+                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                int w = f->tiles[0].width;
+                int h = f->tiles[0].height;
+                dxt_tex.init();
+                glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
+                glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                w, h, 0,
+                                (w * h/16) * 8,
+                                f->tiles[0].data);
+
+                quad.render();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glUseProgram(0);
+        }
+
+        void attach_texture(const Texture& tex) override {
+                fbuf.attach_texture(tex);
+        }
+
+private:
+        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
+        Model quad;// = Model::get_quad();
+        Framebuffer fbuf;
+        Texture dxt_tex;
+};
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
         switch(codec){
@@ -410,6 +547,12 @@ std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
                 return std::make_unique<V210_convertor>();
         case Y416:
                 return std::make_unique<Y416_convertor>();
+        case DXT1:
+                return std::make_unique<DXT1_convertor>();
+        case DXT1_YUV:
+                return std::make_unique<DXT1_YUV_convertor>();
+        case DXT5:
+                return std::make_unique<DXT5_convertor>();
         default:
                 return nullptr;
         }
