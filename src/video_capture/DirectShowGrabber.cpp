@@ -385,16 +385,16 @@ static void show_help(struct vidcap_dshow_state *s) {
 }
 
 static string
-get_friendly_name(IMoniker *moniker)
+get_friendly_name(IMoniker *moniker, int idx = -1)
 {
         IPropertyBag *properties = nullptr;
+        const string device_id = idx == -1 ? "" : to_string(idx) + " ";
         // Attach structure for reading basic device properties
         HRESULT res = moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
         if (res != S_OK) {
-                log_msg(
-                    LOG_LEVEL_WARNING, MOD_NAME
-                    "vidcap_dshow_init: Failed to read device properties.\n");
-                // continue to other device; we still may find the correct one
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Failed to read device %sproperties.\n",
+                        device_id.c_str());
                 return {};
         }
 
@@ -402,11 +402,10 @@ get_friendly_name(IMoniker *moniker)
         VariantInit(&var);
         res = properties->Read(L"FriendlyName", &var, NULL);
         if (res != S_OK) {
-                log_msg(
-                    LOG_LEVEL_WARNING, MOD_NAME
-                    "vidcap_dshow_init: Failed to read device properties.\n");
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Failed to read device %sFriendlyName.\n",
+                        device_id.c_str());
                 VariantClear(&var);
-                // continue to other device; we still may find the correct one
                 return {};
         }
 
@@ -443,7 +442,7 @@ static void vidcap_dshow_probe(device_info **available_cards, int *count, void (
 		snprintf(cards[n-1].dev, sizeof cards[n-1].dev - 1, ":device=%d", n);
 		snprintf(cards[n-1].name, sizeof cards[n-1].name - 1, "_DSHOW_FAILED_TO_READ_NAME_%d_", n);
 
-		string friendly_name = get_friendly_name(s->moniker);
+		string friendly_name = get_friendly_name(s->moniker, n);
 		if (friendly_name.empty()) {
 			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Failed to get device %d name.\n", n);
 			// Ignore the device
