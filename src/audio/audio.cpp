@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -595,79 +595,81 @@ struct audio_decoder {
 
 static struct response * audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg)
 {
-
         switch (msg->type) {
-        case RECEIVER_MSG_CHANGE_RX_PORT:
-                {
-                        assert(s->audio_tx_mode == MODE_RECEIVER); // receiver only
-                        struct rtp *old_audio_network_device = s->audio_network_device;
-                        int old_rx_port = s->audio_network_parameters.recv_port;
-                        s->audio_network_parameters.recv_port = msg->new_rx_port;
-                        s->audio_network_device = initialize_audio_network(
-                                        &s->audio_network_parameters);
-                        if (!s->audio_network_device) {
-                                s->audio_network_parameters.recv_port = old_rx_port;
-                                s->audio_network_device = old_audio_network_device;
-                                string err = string("Changing audio RX port to ") +
-                                                to_string(msg->new_rx_port) + "  failed!";
-                                LOG(LOG_LEVEL_ERROR) << err << "\n";
-                                return new_response(RESPONSE_INT_SERV_ERR, err.c_str());
-                        } else {
-                                rtp_done(old_audio_network_device);
-                                LOG(LOG_LEVEL_INFO) << "Successfully changed audio "
-                                                "RX port to " << msg->new_rx_port << ".\n";
-                        }
-                        break;
+        case RECEIVER_MSG_CHANGE_RX_PORT: {
+                assert(s->audio_tx_mode == MODE_RECEIVER); // receiver only
+                struct rtp *old_audio_network_device = s->audio_network_device;
+                int         old_rx_port = s->audio_network_parameters.recv_port;
+                s->audio_network_parameters.recv_port = msg->new_rx_port;
+                s->audio_network_device =
+                    initialize_audio_network(&s->audio_network_parameters);
+                if (s->audio_network_device == nullptr) {
+                        s->audio_network_parameters.recv_port = old_rx_port;
+                        s->audio_network_device = old_audio_network_device;
+                        string err = string("Changing audio RX port to ") +
+                                     to_string(msg->new_rx_port) + "  failed!";
+                        LOG(LOG_LEVEL_ERROR) << err << "\n";
+                        return new_response(RESPONSE_INT_SERV_ERR, err.c_str());
                 }
-        case RECEIVER_MSG_GET_AUDIO_STATUS:
-                {
-                        double ret = s->muted_receiver ? 0.0 : s->volume;
-                        char volume_str[128] = "";
-                        snprintf(volume_str, sizeof volume_str, "%lf,%d", ret, s->muted_receiver);
-                        return new_response(RESPONSE_OK, volume_str);
-                        break;
-                }
+                rtp_done(old_audio_network_device);
+                LOG(LOG_LEVEL_INFO) << "Successfully changed audio "
+                                       "RX port to "
+                                    << msg->new_rx_port << ".\n";
+                break;
+        }
+        case RECEIVER_MSG_GET_AUDIO_STATUS: {
+                double ret             = s->muted_receiver ? 0.0 : s->volume;
+                char   volume_str[128] = "";
+                snprintf(volume_str, sizeof volume_str, "%lf,%d", ret,
+                         (int) s->muted_receiver);
+                return new_response(RESPONSE_OK, volume_str);
+                break;
+        }
         case RECEIVER_MSG_INCREASE_VOLUME:
         case RECEIVER_MSG_DECREASE_VOLUME:
         case RECEIVER_MSG_MUTE:
         case RECEIVER_MSG_UNMUTE:
-        case RECEIVER_MSG_MUTE_TOGGLE:
-                {
-                        if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
-                                s->volume *= 1.1;
-                        } else if (msg->type == RECEIVER_MSG_DECREASE_VOLUME) {
-                                s->volume /= 1.1;
-                        } else {
-                                s->muted_receiver =
-                                    msg->type == RECEIVER_MSG_MUTE_TOGGLE
-                                        ? !s->muted_receiver
-                                        : msg->type == RECEIVER_MSG_MUTE;
-                        }
-                        double new_volume = s->muted_receiver ? 0.0 : s->volume;
-                        double db = 20.0 * log10(new_volume);
-                        if (msg->type == RECEIVER_MSG_MUTE_TOGGLE) {
-                                LOG(LOG_LEVEL_NOTICE) << "Audio receiver " << (s->muted_receiver ? "" : "un") << "muted.\n";
-                        } else {
-                                log_msg(LOG_LEVEL_INFO, "Playback volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
-                        }
-                        struct pdb_e *cp;
-                        pdb_iter_t it;
-                        cp = pdb_iter_init(s->audio_participants, &it);
-                        while (cp != NULL) {
-                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                if (dec_state) {
-                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, new_volume);
-                                }
-                                cp = pdb_iter_next(&it);
-                        }
-                        pdb_iter_done(&it);
-                        break;
+        case RECEIVER_MSG_MUTE_TOGGLE: {
+                if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
+                        s->volume *= 1.1;
+                } else if (msg->type == RECEIVER_MSG_DECREASE_VOLUME) {
+                        s->volume /= 1.1;
+                } else {
+                        s->muted_receiver =
+                            msg->type == RECEIVER_MSG_MUTE_TOGGLE
+                                ? !s->muted_receiver
+                                : msg->type == RECEIVER_MSG_MUTE;
                 }
+                double new_volume = s->muted_receiver ? 0.0 : s->volume;
+                double db         = 20.0 * log10(new_volume);
+                if (msg->type == RECEIVER_MSG_MUTE_TOGGLE) {
+                        LOG(LOG_LEVEL_NOTICE)
+                            << "Audio receiver "
+                            << (s->muted_receiver ? "" : "un") << "muted.\n";
+                } else {
+                        log_msg(LOG_LEVEL_INFO,
+                                "Playback volume: %.2f%% (%+.2f dB)\n",
+                                new_volume * 100.0, db);
+                }
+                pdb_iter_t    it{};
+                struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
+                while (cp != nullptr) {
+                        auto *dec_state =
+                            (struct audio_decoder *) cp->decoder_state;
+                        if (dec_state != nullptr) {
+                                audio_decoder_set_volume(
+                                    dec_state->pbuf_data.decoder, new_volume);
+                        }
+                        cp = pdb_iter_next(&it);
+                }
+                pdb_iter_done(&it);
+                break;
+        }
         case RECEIVER_MSG_VIDEO_PROP_CHANGED:
                 abort();
         }
 
-        return new_response(RESPONSE_OK, NULL);
+        return new_response(RESPONSE_OK, nullptr);
 }
 
 static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
@@ -878,108 +880,108 @@ static void *audio_receiver_thread(void *arg)
 static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
 {
         switch (msg->type) {
-                case SENDER_MSG_CHANGE_FEC:
-                        {
-                                auto old_fec_state = s->fec_state;
-                                s->fec_state = NULL;
-                                if (strcmp(msg->fec_cfg, "flush") == 0) {
-                                        delete old_fec_state;
-                                        break;
-                                }
-                                s->fec_state = fec::create_from_config(msg->fec_cfg);
-                                if (!s->fec_state) {
-                                        s->fec_state = old_fec_state;
-                                        if (strstr(msg->fec_cfg, "help") != nullptr) { // -f LDGM:help or so + init
-                                                exit_uv(0);
-                                        } else {
-                                                LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
-                                        }
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                }
-                                delete old_fec_state;
-                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
-                        }
+        case SENDER_MSG_CHANGE_FEC: {
+                auto *old_fec_state = s->fec_state;
+                s->fec_state       = nullptr;
+                if (strcmp(msg->fec_cfg, "flush") == 0) {
+                        delete old_fec_state;
                         break;
-                case SENDER_MSG_CHANGE_RECEIVER:
-                        {
-                                assert(s->audio_tx_mode == MODE_SENDER);
-                                auto old_device = s->audio_network_device;
-                                auto old_receiver = s->audio_network_parameters.addr;
-
-                                s->audio_network_parameters.addr = strdup(msg->receiver);
-                                s->audio_network_device =
-                                        initialize_audio_network(&s->audio_network_parameters);
-                                if (!s->audio_network_device) {
-                                        s->audio_network_device = old_device;
-                                        free(s->audio_network_parameters.addr);
-                                        s->audio_network_parameters.addr = old_receiver;
-                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                }
-                                free(old_receiver);
-                                rtp_done(old_device);
-
-                                break;
+                }
+                s->fec_state = fec::create_from_config(msg->fec_cfg);
+                if (s->fec_state == nullptr) {
+                        s->fec_state = old_fec_state;
+                        if (strstr(msg->fec_cfg, "help") !=
+                            nullptr) { // -f LDGM:help or so + init
+                                exit_uv(0);
+                        } else {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << "[control] Unable to initalize FEC!\n";
                         }
-                case SENDER_MSG_CHANGE_PORT:
-                        {
-                                assert(s->audio_tx_mode == MODE_SENDER);
-                                auto old_device = s->audio_network_device;
-                                auto old_port = s->audio_network_parameters.send_port;
+                        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
+                }
+                delete old_fec_state;
+                log_msg(LOG_LEVEL_NOTICE,
+                        "[control] Fec changed successfully\n");
+        } break;
+        case SENDER_MSG_CHANGE_RECEIVER: {
+                assert(s->audio_tx_mode == MODE_SENDER);
+                auto *old_device   = s->audio_network_device;
+                auto *old_receiver = s->audio_network_parameters.addr;
 
-                                s->audio_network_parameters.send_port = msg->tx_port;
-                                if (msg->rx_port) {
-                                        s->audio_network_parameters.recv_port = msg->rx_port;
-                                }
-                                s->audio_network_device =
-                                        initialize_audio_network(&s->audio_network_parameters);
-                                if (!s->audio_network_device) {
-                                        s->audio_network_device = old_device;
-                                        s->audio_network_parameters.send_port = old_port;
-                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                }
-                                rtp_done(old_device);
+                s->audio_network_parameters.addr = strdup(msg->receiver);
+                s->audio_network_device =
+                    initialize_audio_network(&s->audio_network_parameters);
+                if (s->audio_network_device == nullptr) {
+                        s->audio_network_device = old_device;
+                        free(s->audio_network_parameters.addr);
+                        s->audio_network_parameters.addr = old_receiver;
+                        return new_response(RESPONSE_INT_SERV_ERR,
+                                            "Changing receiver failed!");
+                }
+                free(old_receiver);
+                rtp_done(old_device);
 
-                                break;
-                        }
-                        break;
-                case SENDER_MSG_GET_STATUS:
-                        {
-                                char status[128] = "";
-                                snprintf(status, sizeof status, "%d", (int) s->muted_sender);
-                                return new_response(RESPONSE_OK, status);
-                                break;
-                        }
-                case SENDER_MSG_MUTE:
-                case SENDER_MSG_UNMUTE:
-                case SENDER_MSG_MUTE_TOGGLE:
-                        s->muted_sender =
-                                    msg->type == SENDER_MSG_MUTE_TOGGLE
-                                        ? !s->muted_sender
-                                        : msg->type == SENDER_MSG_MUTE;
-                        log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n", s->muted_sender ? "" : "un");
-                        break;
-                case SENDER_MSG_QUERY_VIDEO_MODE:
-                        return new_response(RESPONSE_BAD_REQUEST, NULL);
-                case SENDER_MSG_RESET_SSRC:
-                        {
-                                assert(s->audio_tx_mode == MODE_SENDER);
-                                uint32_t old_ssrc = rtp_my_ssrc(s->audio_network_device);
-                                auto old_devices = s->audio_network_device;
-                                s->audio_network_device =
-                                        initialize_audio_network(&s->audio_network_parameters);
-                                if (!s->audio_network_device) {
-                                        s->audio_network_device = old_devices;
-                                        log_msg(LOG_LEVEL_ERROR, "[control] Audio: Unable to change SSRC!\n");
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                }
-
-                                rtp_done(old_devices);
-                                log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08" PRIx32 " to "
-                                                "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
-                        }
-                        break;
+                break;
         }
-        return new_response(RESPONSE_OK, NULL);
+        case SENDER_MSG_CHANGE_PORT: {
+                assert(s->audio_tx_mode == MODE_SENDER);
+                auto *old_device = s->audio_network_device;
+                auto old_port   = s->audio_network_parameters.send_port;
+
+                s->audio_network_parameters.send_port = msg->tx_port;
+                if (msg->rx_port != 0) {
+                        s->audio_network_parameters.recv_port = msg->rx_port;
+                }
+                s->audio_network_device =
+                    initialize_audio_network(&s->audio_network_parameters);
+                if (s->audio_network_device == nullptr) {
+                        s->audio_network_device               = old_device;
+                        s->audio_network_parameters.send_port = old_port;
+                        return new_response(RESPONSE_INT_SERV_ERR,
+                                            "Changing receiver failed!");
+                }
+                rtp_done(old_device);
+
+                break;
+        } break;
+        case SENDER_MSG_GET_STATUS: {
+                char status[128] = "";
+                snprintf(status, sizeof status, "%d", (int) s->muted_sender);
+                return new_response(RESPONSE_OK, status);
+                break;
+        }
+        case SENDER_MSG_MUTE:
+        case SENDER_MSG_UNMUTE:
+        case SENDER_MSG_MUTE_TOGGLE:
+                s->muted_sender = msg->type == SENDER_MSG_MUTE_TOGGLE
+                                      ? !s->muted_sender
+                                      : msg->type == SENDER_MSG_MUTE;
+                log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n",
+                        s->muted_sender ? "" : "un");
+                break;
+        case SENDER_MSG_QUERY_VIDEO_MODE:
+                return new_response(RESPONSE_BAD_REQUEST, nullptr);
+        case SENDER_MSG_RESET_SSRC: {
+                assert(s->audio_tx_mode == MODE_SENDER);
+                const uint32_t old_ssrc = rtp_my_ssrc(s->audio_network_device);
+                auto          *old_devices = s->audio_network_device;
+                s->audio_network_device =
+                    initialize_audio_network(&s->audio_network_parameters);
+                if (s->audio_network_device == nullptr) {
+                        s->audio_network_device = old_devices;
+                        log_msg(LOG_LEVEL_ERROR,
+                                "[control] Audio: Unable to change SSRC!\n");
+                        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
+                }
+
+                rtp_done(old_devices);
+                log_msg(LOG_LEVEL_NOTICE,
+                        "[control] Audio: changed SSRC from 0x%08" PRIx32 " to "
+                        "0x%08" PRIx32 ".\n",
+                        old_ssrc, rtp_my_ssrc(s->audio_network_device));
+        } break;
+        }
+        return new_response(RESPONSE_OK, nullptr);
 }
 
 struct asend_stats_processing_data {
