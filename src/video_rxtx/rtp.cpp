@@ -69,129 +69,120 @@ using std::mutex;
 using std::ostringstream;
 using std::string;
 
-struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
+struct response *
+rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 {
-        switch(msg->type) {
-                case SENDER_MSG_CHANGE_RECEIVER:
-                        {
-                                assert(m_rxtx_mode == MODE_SENDER); // sender only
-                                lock_guard<mutex> lock(m_network_devices_lock);
-                                auto *old_device = m_network_device;
-                                auto old_receiver = m_requested_receiver;
-                                m_requested_receiver = msg->receiver;
-                                m_network_device = initialize_network(m_requested_receiver.c_str(),
-                                                m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if, m_requested_ttl);
-                                if (m_network_device == nullptr) {
-                                        m_network_device = old_device;
-                                        m_requested_receiver = std::move(old_receiver);
-                                        MSG(ERROR, "Failed receiver to %s.\n",
-                                                        msg->receiver);
-                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
-                                }
-                                MSG(NOTICE, "Changed receiver to %s.\n",
-                                                msg->receiver);
-                                destroy_rtp_device(old_device);
-                        }
-                        break;
-                case SENDER_MSG_CHANGE_PORT:
-                        {
-                                assert(m_rxtx_mode == MODE_SENDER); // sender only
-                                lock_guard<mutex> lock(m_network_devices_lock);
-                                auto *old_device = m_network_device;
-                                auto old_port = m_send_port_number;
+        switch (msg->type) {
+        case SENDER_MSG_CHANGE_RECEIVER: {
+                assert(m_rxtx_mode == MODE_SENDER); // sender only
+                lock_guard<mutex> lock(m_network_devices_lock);
+                auto             *old_device   = m_network_device;
+                auto              old_receiver = m_requested_receiver;
+                m_requested_receiver           = msg->receiver;
+                m_network_device               = initialize_network(
+                    m_requested_receiver.c_str(), m_recv_port_number,
+                    m_send_port_number, m_participants, m_force_ip_version,
+                    m_requested_mcast_if, m_requested_ttl);
+                if (m_network_device == nullptr) {
+                        m_network_device     = old_device;
+                        m_requested_receiver = std::move(old_receiver);
+                        MSG(ERROR, "Failed receiver to %s.\n", msg->receiver);
+                        return new_response(RESPONSE_INT_SERV_ERR,
+                                            "Changing receiver failed!");
+                }
+                MSG(NOTICE, "Changed receiver to %s.\n", msg->receiver);
+                destroy_rtp_device(old_device);
+        } break;
+        case SENDER_MSG_CHANGE_PORT: {
+                assert(m_rxtx_mode == MODE_SENDER); // sender only
+                lock_guard<mutex> lock(m_network_devices_lock);
+                auto             *old_device = m_network_device;
+                auto              old_port   = m_send_port_number;
 
-                                m_send_port_number = msg->tx_port;
-                                if (msg->rx_port) {
-                                        m_recv_port_number = msg->rx_port;
-                                }
-                                m_network_device = initialize_network(
-                                    m_requested_receiver.c_str(),
-                                    m_recv_port_number, m_send_port_number,
-                                    m_participants, m_force_ip_version,
-                                    m_requested_mcast_if, m_requested_ttl);
+                m_send_port_number = msg->tx_port;
+                if (msg->rx_port != 0) {
+                        m_recv_port_number = msg->rx_port;
+                }
+                m_network_device = initialize_network(
+                    m_requested_receiver.c_str(), m_recv_port_number,
+                    m_send_port_number, m_participants, m_force_ip_version,
+                    m_requested_mcast_if, m_requested_ttl);
 
-                                if (m_network_device == nullptr) {
-                                        m_network_device = old_device;
-                                        m_send_port_number = old_port;
-                                        MSG(ERROR, "Failed to Change TX port to %d.\n",
-                                                        msg->tx_port);
-                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing TX port failed!");
-                                }
-                                MSG(NOTICE, "Changed TX port to %d.\n",
-                                                msg->tx_port);
-                                destroy_rtp_device(old_device);
-                        }
-                        break;
-                case SENDER_MSG_CHANGE_FEC:
-                        {
-                                lock_guard<mutex> lock(m_network_devices_lock);
-                                auto old_fec_state = m_fec_state;
-                                m_fec_state = NULL;
-                                if (strcmp(msg->fec_cfg, "flush") == 0) {
-                                        delete old_fec_state;
-                                        break;
-                                }
-                                m_fec_state = fec::create_from_config(msg->fec_cfg);
-                                if (!m_fec_state) {
-                                        int rc = 0;
-                                        if(strstr(msg->fec_cfg, "help") == nullptr){
-                                                MSG(ERROR, "Unable to initalize FEC!\n");
-                                                rc = 1;
-                                        }
-
-                                        //Exit only if we failed because of command line params, not control port msg
-                                        if (m_frames_sent == 0ULL) {
-                                                exit_uv(rc);
-                                        }
-
-                                        m_fec_state = old_fec_state;
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                }
-                                delete old_fec_state;
-                                MSG(NOTICE, "Fec changed successfully\n");
-                        }
-                        break;
-                case SENDER_MSG_QUERY_VIDEO_MODE: {
-                        if (!m_video_desc) {
-                                return new_response(RESPONSE_NO_CONTENT, NULL);
-                        }
-                        ostringstream oss;
-                        oss << m_video_desc;
-                        return new_response(RESPONSE_OK, oss.str().c_str());
+                if (m_network_device == nullptr) {
+                        m_network_device   = old_device;
+                        m_send_port_number = old_port;
+                        MSG(ERROR, "Failed to Change TX port to %d.\n",
+                            msg->tx_port);
+                        return new_response(RESPONSE_INT_SERV_ERR,
+                                            "Changing TX port failed!");
+                }
+                MSG(NOTICE, "Changed TX port to %d.\n", msg->tx_port);
+                destroy_rtp_device(old_device);
+        } break;
+        case SENDER_MSG_CHANGE_FEC: {
+                lock_guard<mutex> lock(m_network_devices_lock);
+                auto             *old_fec_state = m_fec_state;
+                m_fec_state                     = nullptr;
+                if (strcmp(msg->fec_cfg, "flush") == 0) {
+                        delete old_fec_state;
                         break;
                 }
-                case SENDER_MSG_RESET_SSRC:
-                        {
-                                lock_guard<mutex> lock(m_network_devices_lock);
-                                const uint32_t old_ssrc = rtp_my_ssrc(m_network_device);
-                                auto *old_device = m_network_device;
-                                m_network_device = initialize_network(m_requested_receiver.c_str(),
-                                                m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if, m_requested_ttl);
-                                if (m_network_device == nullptr) {
-                                        m_network_device = old_device;
-                                        MSG(ERROR, "Unable to change SSRC!\n");
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                }
-                                destroy_rtp_device(old_device);
-                                MSG(NOTICE,
-                                    "Changed SSRC from 0x%08" PRIx32 " to "
-                                    "0x%08" PRIx32 ".\n",
-                                    old_ssrc, rtp_my_ssrc(m_network_device));
+                m_fec_state = fec::create_from_config(msg->fec_cfg);
+                if (m_fec_state == nullptr) {
+                        int rc = 0;
+                        if (strstr(msg->fec_cfg, "help") == nullptr) {
+                                MSG(ERROR, "Unable to initalize FEC!\n");
+                                rc = 1;
                         }
-                        break;
-                case SENDER_MSG_GET_STATUS:
-                case SENDER_MSG_MUTE:
-                case SENDER_MSG_UNMUTE:
-                case SENDER_MSG_MUTE_TOGGLE:
-                        log_msg(LOG_LEVEL_ERROR, "Unexpected message!\n");
-                        break;
+
+                        // Exit only if we failed because of command line
+                        // params, not control port msg
+                        if (m_frames_sent == 0ULL) {
+                                exit_uv(rc);
+                        }
+
+                        m_fec_state = old_fec_state;
+                        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
+                }
+                delete old_fec_state;
+                MSG(NOTICE, "Fec changed successfully\n");
+        } break;
+        case SENDER_MSG_QUERY_VIDEO_MODE: {
+                if (!m_video_desc) {
+                        return new_response(RESPONSE_NO_CONTENT, nullptr);
+                }
+                ostringstream oss;
+                oss << m_video_desc;
+                return new_response(RESPONSE_OK, oss.str().c_str());
+        }
+        case SENDER_MSG_RESET_SSRC: {
+                lock_guard<mutex> lock(m_network_devices_lock);
+                const uint32_t    old_ssrc   = rtp_my_ssrc(m_network_device);
+                auto             *old_device = m_network_device;
+                m_network_device             = initialize_network(
+                    m_requested_receiver.c_str(), m_recv_port_number,
+                    m_send_port_number, m_participants, m_force_ip_version,
+                    m_requested_mcast_if, m_requested_ttl);
+                if (m_network_device == nullptr) {
+                        m_network_device = old_device;
+                        MSG(ERROR, "Unable to change SSRC!\n");
+                        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
+                }
+                destroy_rtp_device(old_device);
+                MSG(NOTICE,
+                    "Changed SSRC from 0x%08" PRIx32 " to "
+                    "0x%08" PRIx32 ".\n",
+                    old_ssrc, rtp_my_ssrc(m_network_device));
+        } break;
+        case SENDER_MSG_GET_STATUS:
+        case SENDER_MSG_MUTE:
+        case SENDER_MSG_UNMUTE:
+        case SENDER_MSG_MUTE_TOGGLE:
+                log_msg(LOG_LEVEL_ERROR, "Unexpected message!\n");
+                break;
         }
 
-        return new_response(RESPONSE_OK, NULL);
+        return new_response(RESPONSE_OK, nullptr);
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
