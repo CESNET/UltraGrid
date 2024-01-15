@@ -78,7 +78,9 @@ PanoramaScene::PanoramaScene(): PanoramaScene(GlProgram(persp_vert_src, persp_fr
 
 PanoramaScene::PanoramaScene(GlProgram program, Model model): program(std::move(program)),
         model(std::move(model))
-{  }
+{
+        tex.allocateTextures();
+}
 
 void PanoramaScene::render(int width, int height){
         float aspect_ratio = static_cast<float>(width) / height;
