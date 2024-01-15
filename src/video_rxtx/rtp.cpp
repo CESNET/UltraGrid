@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,45 +35,37 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "video_rxtx/rtp.hpp"
-
-#include "debug.h"
-
 #include <cinttypes>
+#include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
-#include <stdexcept>
-#include <utility>
 
+#include "debug.h"
 #include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
 #include "rtp/fec.h"
-#include "rtp/rtp.h"
-#include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
+#include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
-#include "tfrc.h"
+#include "rtp/video_decoders.h"
 #include "transmit.h"
-#include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/net.h" // IN6_BLACKHOLE_STR
-#include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
 #include "video_rxtx.hpp"
+#include "video_rxtx/rtp.hpp"
 
-using namespace std;
+using std::lock_guard;
+using std::map;
+using std::mutex;
+using std::ostringstream;
+using std::string;
 
 struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 {
