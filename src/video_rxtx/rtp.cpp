@@ -178,8 +178,11 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
         case SENDER_MSG_MUTE:
         case SENDER_MSG_UNMUTE:
         case SENDER_MSG_MUTE_TOGGLE:
-                log_msg(LOG_LEVEL_ERROR, "Unexpected message!\n");
-                break;
+                MSG(ERROR, "Unexpected audio message ID %d!\n", msg->type);
+                return new_response(RESPONSE_INT_SERV_ERR, nullptr);
+        default:
+                MSG(ERROR, "Unknown message ID %d!\n", msg->type);
+                return new_response(RESPONSE_INT_SERV_ERR, nullptr);
         }
 
         return new_response(RESPONSE_OK, nullptr);
