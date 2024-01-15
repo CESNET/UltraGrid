@@ -162,8 +162,8 @@ void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
         glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
         yuv_tex.allocate((f->tiles[0].width + 1) / 2, f->tiles[0].height, GL_RGBA);
+        glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
 
         yuv_tex.upload_frame(f, pbo_frame);
 
@@ -454,7 +454,7 @@ public:
 
                 int w = (f->tiles[0].width + 3) / 4 * 4;
                 int h = (f->tiles[0].height + 3) / 4 * 4;
-                dxt_tex.init();
+                dxt_tex.allocate();
                 glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
                                 GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
@@ -514,7 +514,7 @@ public:
 
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                dxt_tex.init();
+                dxt_tex.allocate();
                 glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
                                 GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,

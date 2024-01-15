@@ -252,7 +252,7 @@ Texture::~Texture(){
 }
 
 void Texture::allocate(int w, int h, GLint internal_fmt) {
-        init();
+        allocate();
         if(w != width || h != height || internal_fmt != internal_format){
                 width = w;
                 height = h;
@@ -331,7 +331,7 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
                         break;
         }
 
-        init();
+        allocate(width, height, fmt);
 
         if(pbo_frame){
                 GlBuffer *pbo = static_cast<GlBuffer *>(f->callbacks.dispose_udata);
@@ -353,7 +353,7 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
         }
 }
 
-void Texture::init(){
+void Texture::allocate(){
         if(tex_id != 0)
                 return;
 
@@ -367,11 +367,6 @@ void Texture::init(){
         glGenBuffers(1, &pbo);
 }
 
-void Texture::bind() {
-        init();
-        glBindTexture(GL_TEXTURE_2D, tex_id);
-}
-
 
 void Framebuffer::attach_texture(GLuint tex){
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -382,14 +377,16 @@ void Framebuffer::attach_texture(GLuint tex){
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-        assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
+                printf("Error %d\n", glGetError());
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
         assert(tex);
-        tex->bind();
         tex->allocate(f->tiles[0].width, f->tiles[0].height, GL_RGB);
+        glBindTexture(GL_TEXTURE_2D, tex->get());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -458,6 +455,7 @@ void main(){
 
         program = GlProgram(vert_src, frag_src);
         quad = Model::get_quad();
+        texture.allocate();
         uploader.attach_dst_texture(&texture);
 }
 

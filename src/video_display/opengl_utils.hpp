@@ -151,7 +151,8 @@ public:
         ~Texture();
 
         /**
-         * Returns the underlying OpenGL texture id.
+         * Returns the underlying OpenGL texture id. The texture needs to be
+         * allocated first with the allocate member function.
          */
         GLuint get() const { assert(tex_id); return tex_id; }
 
@@ -165,12 +166,7 @@ public:
          */
         void allocate(int w, int h, GLint internal_fmt);
 
-        /**
-         * Creates the actual OpenGL texture objects if not yet created
-         */
-        void init();
-
-        void bind();
+        void allocate();
 
         /**
          * Uploads video frame to the texture
@@ -371,6 +367,12 @@ private:
  */
 class TripleBufferTexture{
 public:
+        void allocateTextures() {
+                back.allocate();
+                mid.allocate();
+                front.allocate();
+        }
+
         /**
          * Returns a reference to the back texture
          */
