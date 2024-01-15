@@ -528,6 +528,7 @@ static void gl_show_help(bool full) {
               << "\twindow size in pixels, with optional position; full\n"
               << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
               << (full ? " [1]" : "") << "\n";
+        col() << TBOLD("\tfixed_size") << "\tdo not resize window on new stream\n";
 #ifdef SPOUT
         col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
 #endif
@@ -570,7 +571,7 @@ static bool set_size(struct state_gl *s, const char *tok)
 {
         if (strstr(tok, "fixed_size=") == tok) {
                 log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "fixed_size with dimensions is "
+                        MOD_NAME "fixed_size with dimensions is"
                                  " deprecated, use size"
                                  " instead\n");
         }
@@ -675,9 +676,6 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                                 return nullptr;
                         }
                 } else if (strcmp(tok, "fixed_size") == 0) {
-                        log_msg(LOG_LEVEL_WARNING,
-                                MOD_NAME "fixed_size deprecated, use size with "
-                                         "dimensions\n");
                         s->fixed_size = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
