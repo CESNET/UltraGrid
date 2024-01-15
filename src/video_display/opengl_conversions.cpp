@@ -539,21 +539,23 @@ private:
         Texture dxt_tex;
 };
 
+struct {
+        codec_t codec;
+        std::unique_ptr<Frame_convertor> (*construct_func)();
+} codec_convertor_map[]{
+        {UYVY, &Frame_convertor::construct_unique<Yuv_convertor>},
+        {v210, &Frame_convertor::construct_unique<V210_convertor>},
+        {Y416, &Frame_convertor::construct_unique<Y416_convertor>},
+        {DXT1, &Frame_convertor::construct_unique<DXT1_convertor>},
+        {DXT1, &Frame_convertor::construct_unique<DXT1_YUV_convertor>},
+        {DXT5, &Frame_convertor::construct_unique<DXT5_convertor>},
+};
+
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
-        switch(codec){
-        case UYVY:
-                return std::make_unique<Yuv_convertor>();
-        case v210:
-                return std::make_unique<V210_convertor>();
-        case Y416:
-                return std::make_unique<Y416_convertor>();
-        case DXT1:
-                return std::make_unique<DXT1_convertor>();
-        case DXT1_YUV:
-                return std::make_unique<DXT1_YUV_convertor>();
-        case DXT5:
-                return std::make_unique<DXT5_convertor>();
-        default:
-                return nullptr;
+        for(const auto& i : codec_convertor_map){
+                if(i.codec == codec)
+                        return i.construct_func();
         }
+
+        return nullptr;
 }

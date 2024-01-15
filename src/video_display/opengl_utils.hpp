@@ -328,6 +328,11 @@ class Frame_convertor{
 public:
         virtual ~Frame_convertor() {};
 
+        template<class Derived>
+        static std::unique_ptr<Frame_convertor> construct_unique() {
+                return std::make_unique<Derived>();
+        }
+
         /**
          * Renders the video frame containing YUV image data to attached texture
          *
