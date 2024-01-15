@@ -38,29 +38,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <assert.h>
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #else
 #include <GL/glew.h>
-#endif /* HAVE_MACOSX */
+#endif /* __APPLE__ */
 #include <GLFW/glfw3.h>
 
 #include "spout_sender.h"
 #include "syphon_server.h"
 
-#include <array>
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <climits>
+#include <cmath>
 #include <condition_variable>
-#include <csetjmp>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -70,6 +65,9 @@
 #include <unordered_map>
 
 #include "color.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
@@ -852,7 +850,7 @@ static void screenshot(struct video_frame *frame)
         t = time(NULL);
         struct tm *time_ptr;
 
-#ifdef WIN32
+#ifdef _WIN32
         time_ptr = localtime(&t);
 #else
         struct tm time_tmp;
@@ -1336,7 +1334,7 @@ static void display_gl_render_last(GLFWwindow *win) {
         display_gl_putf(s, f, PUTF_NONBLOCK);
 }
 
-#if defined HAVE_LINUX || defined WIN32
+#if defined __linux__ || defined _WIN32
 #ifndef GLEW_ERROR_NO_GLX_DISPLAY
 #define GLEW_ERROR_NO_GLX_DISPLAY 4
 #endif
@@ -1349,7 +1347,7 @@ static const char *glewGetError(GLenum err) {
                 default: return (const char *) glewGetErrorString(err);
         }
 }
-#endif // defined HAVE_LINUX || defined WIN32
+#endif // defined __linux__ || defined _WIN32
 
 static void glfw_print_error(int error_code, const char* description) {
         LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
@@ -1538,14 +1536,14 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwSetFramebufferSizeCallback(s->window, gl_resize);
         glfwSetWindowRefreshCallback(s->window, display_gl_render_last);
 
-#if defined HAVE_LINUX || defined WIN32
+#if defined __linux__ || defined _WIN32
         if (GLenum err = glewInit()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %s (err %d)\n", glewGetError(err), err);
                 if (err != GLEW_ERROR_NO_GLX_DISPLAY) { // do not fail on error 4 (on Wayland), which can be suppressed
                         return false;
                 }
         }
-#endif /* HAVE_LINUX */
+#endif
         if (!display_gl_check_gl_version()) {
                 glfwDestroyWindow(s->window);
                 s->window = nullptr;
