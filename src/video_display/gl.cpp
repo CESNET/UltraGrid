@@ -379,6 +379,7 @@ struct state_gl {
         int             dxt_height = 0;
 
         int             vsync = 1;
+        bool            noresizable = false;
         bool            paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
         chrono::steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
@@ -680,7 +681,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                 } else if (strcmp(tok, "fixed_size") == 0) {
                         s->fixed_size = true;
                 } else if (strcmp(tok, "noresizable") == 0) {
-                        s->hints[GLFW_RESIZABLE] = GLFW_FALSE;
+                        s->noresizable = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
@@ -1407,6 +1408,11 @@ display_gl_set_window_hints(struct state_gl *s)
         for (auto const &hint : s->hints) {
                 glfwWindowHint(hint.first, hint.second);
         }
+#ifndef _WIN32
+        if (s->noresizable) {
+                glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        }
+#endif
 
         const char *hints = get_commandline_param(GL_WINDOW_HINT_OPT_PARAM_NAME);
         if (hints == nullptr) {
@@ -1524,6 +1530,10 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->pos_x != INT_MIN) {
                 const int y = s->pos_y == INT_MIN ? 0 : s->pos_y;
                 glfwSetWindowPos(s->window, s->pos_x, y);
+        }
+        if (s->noresizable) {
+                glfwSetWindowSizeLimits(s->window, width, height, width,
+                                        height);
         }
         if (mon != nullptr) { /// @todo remove/revert when no needed (see particular commit message
                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, get_refresh_rate(s->modeset, mon, GLFW_DONT_CARE));
