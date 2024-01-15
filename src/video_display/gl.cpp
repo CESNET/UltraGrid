@@ -530,6 +530,7 @@ static void gl_show_help(bool full) {
               << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
               << (full ? " [1]" : "") << "\n";
         col() << TBOLD("\tfixed_size") << "\tdo not resize window on new stream\n";
+        col() << TBOLD("\tnoresizable") << "\twindow won't be resizable (useful with size=)\n";
 #ifdef SPOUT
         col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
 #endif
@@ -678,6 +679,8 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         }
                 } else if (strcmp(tok, "fixed_size") == 0) {
                         s->fixed_size = true;
+                } else if (strcmp(tok, "noresizable") == 0) {
+                        s->hints[GLFW_RESIZABLE] = GLFW_FALSE;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
