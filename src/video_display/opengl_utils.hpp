@@ -57,6 +57,7 @@
 //#include <SDL2/SDL_opengl.h>
 #include <mutex>
 #include <memory>
+#include <vector>
 #include <cassert>
 
 #include "types.h"
@@ -357,6 +358,8 @@ class FrameUploader{
 public:
         void put_frame(video_frame *f, bool pbo_frame = false);
         void attach_dst_texture(Texture *tex){ this->tex = tex; }
+
+        std::vector<codec_t> get_supported_codecs();
 
 private:
         std::unique_ptr<Frame_convertor> conv;

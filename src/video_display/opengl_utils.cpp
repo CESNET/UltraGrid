@@ -411,6 +411,18 @@ void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
         }
 }
 
+std::vector<codec_t> FrameUploader::get_supported_codecs(){
+        std::vector<codec_t> ret;
+
+        ret.push_back(RGB);
+        ret.push_back(RGBA);
+
+        auto cvt = get_convertor_supported_codecs();
+        ret.insert(ret.end(), cvt.begin(), cvt.end());
+
+        return ret;
+}
+
 void FlatVideoScene::init(){
         const char *vert_src = R"END(
 #version 330 core
