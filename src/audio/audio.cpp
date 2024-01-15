@@ -920,7 +920,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                 }
                 free(old_receiver);
                 rtp_done(old_device);
-
+                MSG(NOTICE, "Changed receiver to %s\n", msg->receiver);
                 break;
         }
         case SENDER_MSG_CHANGE_PORT: {
@@ -941,9 +941,9 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                             "Changing receiver failed!");
                 }
                 rtp_done(old_device);
-
+                MSG(NOTICE, "Changed TX port to %d\n", msg->tx_port);
                 break;
-        } break;
+        }
         case SENDER_MSG_GET_STATUS: {
                 char status[128] = "";
                 snprintf(status, sizeof status, "%d", (int) s->muted_sender);
