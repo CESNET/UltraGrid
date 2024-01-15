@@ -559,3 +559,12 @@ std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
 
         return nullptr;
 }
+
+std::vector<codec_t> get_convertor_supported_codecs(){
+        std::vector<codec_t> ret;
+        ret.reserve(std::size(codec_convertor_map));
+        for(const auto& i : codec_convertor_map){
+                ret.push_back(i.codec);
+        }
+        return ret;
+}

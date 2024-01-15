@@ -39,9 +39,11 @@
 #define OPENGL_CONVERSIONS_HPP_2824166ee0a2
 
 #include <memory>
+#include <vector>
 #include "types.h"
 #include "opengl_utils.hpp"
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec);
+std::vector<codec_t> get_convertor_supported_codecs();
 
 #endif
