@@ -296,6 +296,10 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 
 void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 		void*& /* streamToken */) {
+	if (exitting) {
+		return;
+	}
+
 	if (Vdestination != NULL) {
 		if (avType == video || avType == av) {
 			char pathV[1024];
@@ -356,4 +360,6 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 		}
 	}
 }
+
+volatile bool BasicRTSPOnlySubsession::exitting = false;
 /* vi: set noexpandtab: */
