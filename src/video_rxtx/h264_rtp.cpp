@@ -46,11 +46,8 @@
  * version from 7th Aug 2015).
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <cstdlib>
+#include <cstring>
 
 #include "compat/misc.h"
 #include "host.h"
@@ -70,7 +67,6 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                 int rtsp_port) :
         rtp_video_rxtx(params)
 {
-#ifdef HAVE_RTSP_SERVER
         m_rtsp_server = init_rtsp_server(rtsp_port,
                         static_cast<struct module *>(params.at("parent").ptr),
                         static_cast<rtps_types_t>(params.at("avType").l),
@@ -78,7 +74,6 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                         params.at("audio_sample_rate").i, params.at("audio_channels").i,
                         params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i);
         c_start_server(m_rtsp_server);
-#endif
 }
 
 void
@@ -101,10 +96,8 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 {
-#ifdef HAVE_RTSP_SERVER
         c_stop_server(m_rtsp_server);
         free(m_rtsp_server);
-#endif
 }
 
 static void rtps_server_usage(){
@@ -143,14 +136,13 @@ static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> con
         if (strlen(rtsp_port_str) == 0) {
                 rtsp_port = 0;
         } else {
-                if (!strcmp(rtsp_port_str, "help")) {
-#ifdef HAVE_RTSP_SERVER
+                if (strcmp(rtsp_port_str, "help") == 0) {
                         rtps_server_usage();
-#endif
-                        return 0;
-                } else {
-                        rtsp_port = get_rtsp_server_port(rtsp_port_str);
-                        if (rtsp_port == -1) return 0;
+                        return nullptr;
+                }
+                rtsp_port = get_rtsp_server_port(rtsp_port_str);
+                if (rtsp_port == -1) {
+                        return nullptr;
                 }
         }
         return new h264_rtp_video_rxtx(params, rtsp_port);
