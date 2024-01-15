@@ -389,7 +389,6 @@ struct state_gl {
         struct module   mod;
 
         void *syphon_spout = nullptr;
-        bool hide_window = false;
 
         bool fixed_size = false;
         int fixed_w = 0;
@@ -398,7 +397,9 @@ struct state_gl {
         int pos_y = INT_MIN;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
-        bool nodecorate = false;
+        map<int, int> hints = {
+                {GLFW_AUTO_ICONIFY, GLFW_FALSE}
+        };
         int use_pbo = -1;
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
@@ -636,7 +637,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         char *pos = strchr(tok,'/');
                         if(pos) s->video_aspect /= atof(pos + 1);
                 } else if(!strcasecmp(tok, "nodecorate")) {
-                        s->nodecorate = true;
+                        s->hints[GLFW_DECORATED] =  GLFW_FALSE;
                 } else if(!strcasecmp(tok, "novsync")) {
                         s->vsync = 0;
                 } else if(!strcasecmp(tok, "single")) {
@@ -667,7 +668,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                                 s->gamma /= stof(strchr(tok, '/') + 1);
                         }
                 } else if (!strcasecmp(tok, "hide-window")) {
-                        s->hide_window = true;
+                        s->hints[GLFW_VISIBLE] = GLFW_FALSE;
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
                         s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                 } else if (strstr(tok, "size=") == tok ||
@@ -1397,7 +1398,13 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
         return ret;
 }
 
-static void display_gl_set_user_window_hints() {
+static void
+display_gl_set_window_hints(struct state_gl *s)
+{
+        for (auto const &hint : s->hints) {
+                glfwWindowHint(hint.first, hint.second);
+        }
+
         const char *hints = get_commandline_param(GL_WINDOW_HINT_OPT_PARAM_NAME);
         if (hints == nullptr) {
                 return;
@@ -1490,12 +1497,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
                         glfwWindowHint(bits, 10);
                 }
         }
-        if (s->nodecorate) {
-                glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-        }
 
         set_mac_color_space();
-        glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
         glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
         struct video_frame *splash = get_splashscreen();
         int width = splash->tiles[0].width;
@@ -1511,8 +1514,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 height = mode->height;
                 glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
         }
-        glfwWindowHint(GLFW_VISIBLE, s->hide_window ? GLFW_FALSE : GLFW_TRUE);
-        display_gl_set_user_window_hints();
+        display_gl_set_window_hints(s);
         if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), nullptr, nullptr)) == nullptr) {
                 return false;
         }
