@@ -121,13 +121,13 @@ parse_fmt(char *cfg, struct resize_param *param)
         if (strchr(item, 'x')) {
             param->mode          = USE_DIMENSIONS;
             param->target_width  = strtol(item, NULL, 10);
-            errno                = 0;
             param->target_height = strtol(strchr(item, 'x') + 1, NULL, 10);
         } else {
             param->mode   = USE_FRACTION;
             param->factor = strtod(item, NULL);
             if (strchr(item, '/')) {
-                    param->factor /= strtol(strchr(item, '/') + 1, NULL, 10);
+                    const long den = strtol(strchr(item, '/') + 1, NULL, 10);
+                    param->factor  = den <= 0 ? .0 : param->factor / den;
             }
         }
     }
