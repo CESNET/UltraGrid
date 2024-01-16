@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,20 +48,24 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #include "compat/misc.h"
+#include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "transmit.h"
-#include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
+#include "transmit.h"
+#include "tv.h"
 #include "utils/color_out.h"
+#include "video.h"
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
-#include "video.h"
 
-using namespace std;
+#define MOD_NAME "[vrxtx/h264_rtp] "
+
+using std::shared_ptr;
 
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params,
                 int rtsp_port) :
@@ -79,6 +83,11 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
+        if (tx_frame->color_spec != H264) {
+                MSG(ERROR,
+                    "codecs other than H.264 currently not supported, got %s\n",
+                    get_codec_name(tx_frame->color_spec));
+        }
         tx_send_h264(m_tx, tx_frame.get(), m_network_device);
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
