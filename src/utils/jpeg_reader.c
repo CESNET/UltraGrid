@@ -411,14 +411,24 @@ static int read_dqt(struct jpeg_info *param, uint8_t** image)
 
         for (;length > 0; length-=65) {
                 int index = read_byte(*image);
-                uint8_t **table;
-                if( index == 0 || index == 1 ) {
-                        table = &param->quantization_tables[index];
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DQT marker index should be 0 or 1 but %d was presented!\n", index);
+                const int Pq = index >> 4;  // precision - 0 for 8-bit, 1 for 16-bit
+                const int Tq = index & 0xF; // destination (0-3)
+                if (Pq == 1) {
+                        MSG(ERROR, "16-bit quant tables not supported!\n");
                         return -1;
                 }
-                *table = *image;
+                if (Pq != 0) {
+                        MSG(ERROR, "Wrong quant table precision %d!\n", Pq);
+                        return -1;
+                }
+                if (Tq >= JPEG_MAX_COMPONENT_COUNT) {
+                        MSG(ERROR,
+                            "DQT marker Tq should be at most 3 "
+                            "but %d was presented!\n",
+                            Tq);
+                        return -1;
+                }
+                param->quantization_tables[Tq] = *image;
 
                 *image += 64; // skip table content
         }

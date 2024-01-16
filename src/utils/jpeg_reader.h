@@ -61,10 +61,10 @@ struct jpeg_info {
         int width, height, comp_count;
         enum jpeg_color_spec color_spec;
         bool interleaved;
-        int sampling_factor_v[4];
-        int sampling_factor_h[4];
+        int sampling_factor_v[JPEG_MAX_COMPONENT_COUNT];
+        int sampling_factor_h[JPEG_MAX_COMPONENT_COUNT];
         int restart_interval; // content of DRI marker
-        uint8_t *quantization_tables[2]; // assuming 8-bit tables
+        uint8_t *quantization_tables[JPEG_MAX_COMPONENT_COUNT];
         /// mapping component -> index to table_quantization
         int comp_table_quantization_map[JPEG_MAX_COMPONENT_COUNT];
         uint8_t *data; // entropy-coded segment start
