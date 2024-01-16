@@ -36,14 +36,7 @@
  */
 /**
  * @file
- * Most of the code is taken from GPUJPEG reader.
- *
- * @todo
- * Fix correct quantization table mapping handling - eg. libavcodec uses only
- * one table (DQT) and maps in SOF0 both Y and CbCr to that. Since GPUJPEG
- * used 2 (hardcoded), the warning is only commented out. In jpeg_get_rtp_hdr_data()
- * the second (missing) table is simply taken from 1st (that is correct - but needs
- * to be checked from SOF0 mapping).
+ * The JPEG parsing code is taken from mostly from GPUJPEG reader.
  */
 
 #include <assert.h>
@@ -319,13 +312,14 @@ static int read_sof0(struct jpeg_info *param, uint8_t** image)
                 param->sampling_factor_v[comp] = (sampling) & 15;
 
                 int table_index = (int)read_byte(*image);
-                if ( comp == 0 && table_index != 0 ) {
-                        log_msg(LOG_LEVEL_VERBOSE, "[JPEG] [Error] SOF0 marker component Y should have quantization table index 0 but %d was presented!\n", table_index);
+                if (table_index > 3) {
+                        MSG(VERBOSE,
+                            "SOF0 marker contains unexpected quantization "
+                            "table index %d!\n",
+                            table_index);
                         return -1;
                 }
-                if ( (comp == 1 || comp == 2) && table_index != 1 ) {
-                        log_msg(LOG_LEVEL_VERBOSE, "[JPEG] [Warning] SOF0 marker component Cb or Cr should have quantization table index 1 but %d was presented!\n", table_index);
-                }
+                param->comp_table_quantization_map[comp] = table_index;
                 length -= 3;
         }
 
@@ -746,6 +740,18 @@ check_rtp_compatibility(const struct jpeg_info *info)
                 return false;
         }
 
+        for (int c = 0; c < info->comp_count; c++) {
+                if (info->comp_table_quantization_map[c] >= 2) {
+                        MSG(ERROR, "Quantization table index %d (>=2) used!\n",
+                            info->comp_table_quantization_map[c]);
+                        return false;
+                }
+        }
+        if (info->comp_table_quantization_map[1] !=
+            info->comp_table_quantization_map[2]) {
+                MSG(ERROR, "Quantization table for Cb and Cr differ!\n");
+        }
+
         return true;
 }
 
@@ -792,13 +798,11 @@ bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hd
                 assert(hdr_data->q <= 127);
 	}
         if (hdr_data->q == 255) {
-		hdr_data->quantization_tables[0] = i.quantization_tables[0];
-                if (i.quantization_tables[1] != NULL) {
-                        hdr_data->quantization_tables[1] = i.quantization_tables[1];
-                } else { // libavcodec uses one table only
-                        hdr_data->quantization_tables[1] = hdr_data->quantization_tables[0];
-                }
-	}
+                hdr_data->quantization_tables[0] =
+                    i.quantization_tables[i.comp_table_quantization_map[0]];
+                hdr_data->quantization_tables[1] = // shared Cb/Cr table
+                    i.quantization_tables[i.comp_table_quantization_map[1]];
+        }
 
 	return true;
 }

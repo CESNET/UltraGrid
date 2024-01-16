@@ -40,6 +40,9 @@
 
 #ifndef __cplusplus
 #include <stdbool.h>
+#include <stdint.h>
+#else
+#include <cstdint>
 #endif
 
 enum jpeg_color_spec {
@@ -50,6 +53,10 @@ enum jpeg_color_spec {
         JPEG_COLOR_SPEC_YCCK
 };
 
+enum {
+        JPEG_MAX_COMPONENT_COUNT = 4,
+};
+
 struct jpeg_info {
         int width, height, comp_count;
         enum jpeg_color_spec color_spec;
@@ -58,6 +65,8 @@ struct jpeg_info {
         int sampling_factor_h[4];
         int restart_interval; // content of DRI marker
         uint8_t *quantization_tables[2]; // assuming 8-bit tables
+        /// mapping component -> index to table_quantization
+        int comp_table_quantization_map[JPEG_MAX_COMPONENT_COUNT];
         uint8_t *data; // entropy-coded segment start
         char com[65536 - 2 + 1]; // comment (COM marker)
         uint8_t huff_lum_dc[16 + 256]; // if first byte is 255, table was not defined
