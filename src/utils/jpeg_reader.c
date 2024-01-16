@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,29 +46,30 @@
  * to be checked from SOF0 mapping).
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // defined HAVE_CONFIG_H
-
-#include "utils/jpeg_reader.h"
+#include <assert.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "debug.h"
+#include "utils/jpeg_reader.h"
 
-u_char lum_dc_codelens[] = {
+#define MOD_NAME "[JPEG reader] "
+
+// RFC 2435 Appendix B
+static const uint8_t lum_dc_codelens[] = {
         0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
 };
 
-u_char lum_dc_symbols[] = {
+static const uint8_t lum_dc_symbols[] = {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 };
 
-u_char lum_ac_codelens[] = {
+static const uint8_t lum_ac_codelens[] = {
         0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d,
 };
 
-u_char lum_ac_symbols[] = {
+static const uint8_t lum_ac_symbols[] = {
         0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
         0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
         0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08,
@@ -92,19 +93,19 @@ u_char lum_ac_symbols[] = {
         0xf9, 0xfa,
 };
 
-u_char chm_dc_codelens[] = {
+static const uint8_t chm_dc_codelens[] = {
         0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
 };
 
-u_char chm_dc_symbols[] = {
+static const uint8_t chm_dc_symbols[] = {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 };
 
-u_char chm_ac_codelens[] = {
+static const uint8_t chm_ac_codelens[] = {
         0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77,
 };
 
-u_char chm_ac_symbols[] = {
+static const uint8_t chm_ac_symbols[] = {
         0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21,
         0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71,
         0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91,
@@ -671,7 +672,9 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         return 0;
 }
 
-static bool check_huff_tables(struct jpeg_info *param) {
+static bool
+check_huff_tables(const struct jpeg_info *param)
+{
         // tables defined implicitly
         if (param->huff_lum_dc[0] == 255 || param->huff_lum_ac[0] == 255 ||
                         param->huff_chm_dc[0] == 255 || param->huff_chm_ac[0] == 255) {
@@ -719,6 +722,33 @@ static bool check_huff_tables(struct jpeg_info *param) {
 
 static bool arr_eq3(const int *a1, const int *a2) { for (int i = 0; i < 3; ++i) if (a1[i] != a2[i]) return false; return true; }
 
+static bool
+check_rtp_compatibility(const struct jpeg_info *info)
+{
+        if (info->comp_count != 3) {
+                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG component count: %d!\n", info->comp_count);
+		return false;
+        }
+        if (info->color_spec != JPEG_COLOR_SPEC_YCBCR) {
+                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG color space (only YCbCr supported!\n");
+		return false;
+        }
+        if (!info->interleaved) {
+                if (strstr(info->com, "GPUJPEG")) {
+                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected, use \"-c GPUJPEG:interleaved\"!\n");
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected!\n");
+                }
+		return false;
+        }
+        if (!check_huff_tables(info)) {
+                log_msg(LOG_LEVEL_ERROR, "Non-default Huffman tables detected!\n");
+                return false;
+        }
+
+        return true;
+}
+
 bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hdr_data)
 {
         struct jpeg_info i;
@@ -728,25 +758,7 @@ bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hd
                 log_msg(LOG_LEVEL_ERROR, "Cannot parse JPEG!\n");
                 return false;
 	}
-        if (i.comp_count != 3) {
-                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG component count: %d!\n", i.comp_count);
-		return false;
-        }
-        if (i.color_spec != JPEG_COLOR_SPEC_YCBCR) {
-                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG color space (only YCbCr supported!\n");
-		return false;
-        }
-        if (!i.interleaved) {
-                if (strstr(i.com, "GPUJPEG")) {
-                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected, use \"-c GPUJPEG:interleaved\"!\n");
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected!\n");
-                }
-		return false;
-        }
-
-        if (!check_huff_tables(&i)) {
-                log_msg(LOG_LEVEL_ERROR, "Non-default Huffman tables detected!\n");
+        if (!check_rtp_compatibility(&i)) {
                 return false;
         }
 
