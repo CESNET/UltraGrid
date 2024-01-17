@@ -41,6 +41,7 @@
 #include "host.h"
 #include "video_codec.h"
 #include "opengl_conversions.hpp"
+#include "gl_vdpau.hpp"
 
 #define MOD_NAME "[GL conversions] "
 
@@ -604,6 +605,50 @@ private:
         const Texture *tex = nullptr;
 };
 
+static const char fp_passthrough[] = R"raw(
+#version 330
+
+layout(location = 0) out vec4 color;
+in vec2 UV;
+uniform sampler2D tex;
+
+void main()
+{
+        color = texture(tex, UV);
+}
+)raw";
+
+#ifdef HWACC_VDPAU
+class VDPAU_convertor : public Frame_convertor{
+public:
+        VDPAU_convertor(): program(vert_src, fp_passthrough),
+        quad(Model::get_quad()) {
+                vdp.init();
+        }
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                glUseProgram(program.get());
+                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
+                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(f->tiles[0].data));
+                quad.render();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glUseProgram(0);
+        }
+
+        void attach_texture(const Texture& tex) override { fbuf.attach_texture(tex); }
+private:
+        struct state_vdpau vdp;
+        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
+        Model quad;// = Model::get_quad();
+        Framebuffer fbuf;
+        const Texture *tex = nullptr;
+};
+#endif
+
 struct {
         codec_t codec;
         std::unique_ptr<Frame_convertor> (*construct_func)();
@@ -617,6 +662,9 @@ struct {
         {DXT1, &Frame_convertor::construct_unique<DXT1_YUV_convertor>},
         {DXT5, &Frame_convertor::construct_unique<DXT5_convertor>},
         {R10k, &Frame_convertor::construct_unique<R10k_convertor>},
+#ifdef HWACC_VDPAU
+        {HW_VDPAU, &Frame_convertor::construct_unique<VDPAU_convertor>},
+#endif
 };
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
