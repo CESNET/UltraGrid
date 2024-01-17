@@ -192,6 +192,7 @@ static void handle_user_event(state_vr *s, SDL_Event *event){
                         s->scene.put_frame(frame);
 
                         lk.lock();
+                        vf_recycle(frame);
                         s->free_frame_queue.push(frame);
                         lk.unlock();
                 } else {
