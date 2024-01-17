@@ -392,22 +392,12 @@ void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        //TODO
-        if(f->color_spec == UYVY
-                        || f->color_spec == v210
-                        || f->color_spec == DXT1
-                        || f->color_spec == DXT1_YUV
-                        || f->color_spec == DXT5
-                        || f->color_spec == R10k
-                        || f->color_spec == Y416){
-                if(!conv){
-                        conv = get_convertor_for_codec(f->color_spec);
-                }
-                conv->attach_texture(*tex);
-                conv->put_frame(f, pbo_frame);
-        } else {
-                tex->upload_frame(f, pbo_frame);
+        if(!conv || f->color_spec != configured_codec){
+                conv = get_convertor_for_codec(f->color_spec);
         }
+        assert(conv && "Frame uploader for codec not A;");
+        conv->attach_texture(*tex);
+        conv->put_frame(f, pbo_frame);
 }
 
 std::vector<codec_t> FrameUploader::get_supported_codecs(){

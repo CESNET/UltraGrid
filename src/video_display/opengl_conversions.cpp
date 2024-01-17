@@ -572,10 +572,44 @@ private:
         const Texture *tex = nullptr;
 };
 
+class RGB_convertor : public Frame_convertor{
+public:
+        RGB_convertor() {}
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                int w = f->tiles[0].width;
+                int h = f->tiles[0].height;
+                glBindTexture(GL_TEXTURE_2D, tex->get());
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, f->tiles[0].data);
+        }
+
+        void attach_texture(const Texture& tex) override { this->tex = &tex; }
+private:
+        const Texture *tex = nullptr;
+};
+
+class RGBA_convertor : public Frame_convertor{
+public:
+        RGBA_convertor() {}
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                int w = f->tiles[0].width;
+                int h = f->tiles[0].height;
+                glBindTexture(GL_TEXTURE_2D, tex->get());
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, f->tiles[0].data);
+        }
+
+        void attach_texture(const Texture& tex) override { this->tex = &tex; }
+private:
+        const Texture *tex = nullptr;
+};
+
 struct {
         codec_t codec;
         std::unique_ptr<Frame_convertor> (*construct_func)();
 } codec_convertor_map[]{
+        {RGB, &Frame_convertor::construct_unique<RGB_convertor>},
+        {RGBA, &Frame_convertor::construct_unique<RGBA_convertor>},
         {UYVY, &Frame_convertor::construct_unique<Yuv_convertor>},
         {v210, &Frame_convertor::construct_unique<V210_convertor>},
         {Y416, &Frame_convertor::construct_unique<Y416_convertor>},

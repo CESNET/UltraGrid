@@ -359,6 +359,7 @@ public:
 
 private:
         std::unique_ptr<Frame_convertor> conv;
+        codec_t configured_codec = VIDEO_CODEC_NONE;
         Texture *tex = nullptr;
 };
 
