@@ -394,6 +394,7 @@ void FrameUploader::put_frame(video_frame *f, bool pbo_frame){
 
         if(!conv || f->color_spec != configured_codec){
                 conv = get_convertor_for_codec(f->color_spec);
+                configured_codec = f->color_spec;
         }
         assert(conv && "Frame uploader for codec not A;");
         conv->attach_texture(*tex);
