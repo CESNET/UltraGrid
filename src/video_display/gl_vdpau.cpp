@@ -239,6 +239,9 @@ bool state_vdpau::init(){
  * @brief Uninitializes state_vdpau
  */
 void state_vdpau::uninit(){
+        uninitMixer();
+        uninitInterop();
+        hw_vdpau_frame_unref(&lastFrame);
         glDeleteTextures(4, textures);
         for(int i = 0; i < 4; i++){
                 textures[i] = 0;
