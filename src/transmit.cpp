@@ -685,9 +685,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
-        long packet_count = packet_sizes.size() * (tx->fec_scheme == FEC_MULT ? tx->mult_count : 1);
-
-        long packet_rate = get_packet_rate(tx, frame, substream, packet_count);
+        const long packet_count = (long) packet_sizes.size() * tx->mult_count;
+        const long packet_rate =
+            get_packet_rate(tx, frame, (int) substream, packet_count);
 
         // initialize header array with values (except offset which is different among
         // different packts)
