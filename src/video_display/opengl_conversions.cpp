@@ -539,6 +539,39 @@ private:
         Texture dxt_tex;
 };
 
+class R10k_convertor : public Frame_convertor{
+public:
+        R10k_convertor() {}
+
+        void put_frame(video_frame *f, bool pbo_frame = false) override{
+                int w = f->tiles[0].width;
+                int h = f->tiles[0].height;
+                scratchpad.resize(w * h * 8);
+                process_r10k(reinterpret_cast<uint32_t *>(scratchpad.data()), reinterpret_cast<uint32_t *>(f->tiles[0].data), w, h);
+
+                glBindTexture(GL_TEXTURE_2D, tex->get());
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, scratchpad.data());
+        }
+
+        void attach_texture(const Texture& tex) override { this->tex = &tex; }
+private:
+        void process_r10k(uint32_t * __restrict out, const uint32_t *__restrict in, long width, long height) {
+                long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
+                for (long i = 0; i < height; i += 1) {
+                        OPTIMIZED_FOR (long j = 0; j < width; j += 1) {
+                                uint32_t x = *in++;
+                                *out++ = /* output is x2b8g8r8 little-endian */
+                                        (x & 0xFFU) << 2U | (x & 0xC0'00U) >> 14U | // R
+                                        (x & 0x3F'00U) << 6U | (x & 0xF0'00'00) >> 10U | // G
+                                        (x & 0x0F'00'00U) << 10U | (x & 0xFC'00'00'00U) >> 6U; // B
+                        }
+                        in += line_padding_b / sizeof(uint32_t);
+                }
+        }
+        std::vector<char> scratchpad;
+        const Texture *tex = nullptr;
+};
+
 struct {
         codec_t codec;
         std::unique_ptr<Frame_convertor> (*construct_func)();
@@ -549,6 +582,7 @@ struct {
         {DXT1, &Frame_convertor::construct_unique<DXT1_convertor>},
         {DXT1, &Frame_convertor::construct_unique<DXT1_YUV_convertor>},
         {DXT5, &Frame_convertor::construct_unique<DXT5_convertor>},
+        {R10k, &Frame_convertor::construct_unique<R10k_convertor>},
 };
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
