@@ -548,6 +548,11 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
                 pos += len;
                 ret.push_back(len);
         } while (pos < frame->tiles[substream].data_len);
+
+        if (pos > frame->tiles[substream].data_len) {
+                ret[ret.size() - 1] -=
+                    (int) (pos - frame->tiles[substream].data_len);
+        }
         return ret;
 }
 
@@ -637,9 +642,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         struct tile *tile = &frame->tiles[substream];
 
-        int data_len;
         // see definition in rtp_callback.h
-
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
         int pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);            /* A value specified in our packet format */
@@ -717,14 +720,12 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 rtp_hdr_packet[1] = htonl(offset);
 
                 char *data = tile->data + pos;
-                data_len = packet_sizes.at(packet_idx);
-                if (pos + data_len >= (unsigned int) tile->data_len) {
-                        if (send_m) {
-                                m = 1;
-                        }
-                        data_len = tile->data_len - pos;
-                }
+                int data_len = packet_sizes.at(packet_idx);
                 pos += data_len;
+
+                if (pos == tile->data_len && send_m != 0) {
+                        m = 1;
+                }
                 if(data_len) { /* check needed for FEC_MULT */
                         char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
 
