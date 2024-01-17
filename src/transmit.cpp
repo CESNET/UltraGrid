@@ -636,6 +636,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 unsigned int substream,
                 int fragment_offset)
 {
+        assert(fragment_offset == 0); // no longer supported
         if (!rtp_has_receiver(rtp_session)) {
                 return;
         }
@@ -654,8 +655,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 	LARGE_INTEGER start, stop, freq;
 #endif
         long delta, overslept = 0;
-        array <int, FEC_MAX_MULT> mult_pos{};
-        int mult_index = 0;
         int hdrs_len = get_tx_hdr_len(rtp_is_ipv6(rtp_session));
 
         assert(tx->magic == TRANSMIT_MAGIC);
@@ -688,75 +687,54 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
-        const long packet_count = (long) packet_sizes.size() * tx->mult_count;
+        const long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
         const long packet_rate =
-            get_packet_rate(tx, frame, (int) substream, packet_count);
+            get_packet_rate(tx, frame, (int) substream, mult_pkt_cnt);
 
         // initialize header array with values (except offset which is different among
         // different packts)
-        void *rtp_headers = malloc(packet_count * rtp_hdr_len);
+        void *rtp_headers = malloc(mult_pkt_cnt * rtp_hdr_len);
         uint32_t *rtp_hdr_packet = (uint32_t *) rtp_headers;
-        for (int i = 0; i < packet_count; ++i) {
-                memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
-                rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
+        for (int m = 0; m < tx->mult_count; ++m) {
+                unsigned pos = 0;
+                for (unsigned i = 0; i < packet_sizes.size(); ++i) {
+                        memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
+                        rtp_hdr_packet[1] = htonl(pos);
+                        rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
+                        pos += packet_sizes.at(i);
+                }
         }
-        rtp_hdr_packet = (uint32_t *) rtp_headers;
 
         if (!tx->encryption) {
-                rtp_async_start(rtp_session, packet_count);
+                rtp_async_start(rtp_session, mult_pkt_cnt);
         }
 
-        int packet_idx = 0;
-        unsigned pos = 0;
-        do {
+        rtp_hdr_packet = (uint32_t *) rtp_headers;
+        for (long i = 0; i < mult_pkt_cnt; ++i) {
                 GET_STARTTIME;
-                int m = 0;
-                if(tx->fec_scheme == FEC_MULT) {
-                        pos = mult_pos[mult_index];
+                const int m        = i == mult_pkt_cnt - 1 ? send_m : 0;
+                char     *data     = tile->data + ntohl(rtp_hdr_packet[1]);
+                int       data_len = packet_sizes.at(i % packet_sizes.size());
+
+                char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+                if (tx->encryption != nullptr) {
+                        data_len = tx->enc_funcs->encrypt(
+                            tx->encryption, data, data_len,
+                            (char *) rtp_hdr_packet,
+                            frame->fec_params.type != FEC_NONE
+                                ? sizeof(fec_payload_hdr_t)
+                                : sizeof(video_payload_hdr_t),
+                            encrypted_data);
+                        data = encrypted_data;
                 }
 
-                int offset = pos + fragment_offset;
-
-                rtp_hdr_packet[1] = htonl(offset);
-
-                char *data = tile->data + pos;
-                int data_len = packet_sizes.at(packet_idx);
-                pos += data_len;
-
-                if (pos == tile->data_len && send_m != 0) {
-                        m = 1;
-                }
-                if(data_len) { /* check needed for FEC_MULT */
-                        char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
-
-                        if (tx->encryption) {
-                                data_len = tx->enc_funcs->encrypt(tx->encryption,
-                                                data, data_len,
-                                                (char *) rtp_hdr_packet,
-                                                frame->fec_params.type != FEC_NONE ? sizeof(fec_payload_hdr_t) :
-                                                sizeof(video_payload_hdr_t),
-                                                encrypted_data);
-                                data = encrypted_data;
-                        }
-
-                        rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  (char *) rtp_hdr_packet, rtp_hdr_len,
-                                  data, data_len, 0, 0, 0);
-                }
-
-                if (mult_index + 1 == tx->mult_count) {
-                        ++packet_idx;
-                }
-
-                if(tx->fec_scheme == FEC_MULT) {
-                        mult_pos[mult_index] = pos;
-                        mult_index = (mult_index + 1) % tx->mult_count;
-                }
-
+                rtp_send_data_hdr(rtp_session, ts, pt, m, 0, nullptr,
+                                  (char *) rtp_hdr_packet, rtp_hdr_len, data,
+                                  data_len, nullptr, 0, 0);
                 rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
 
                 // TRAFFIC SHAPER
-                if (pos < (unsigned int) tile->data_len) { // wait for all but last packet
+                if (m != 1) { // wait for all but last packet
                         do {
                                 GET_STOPTIME;
                                 GET_DELTA;
@@ -764,9 +742,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         overslept = -(packet_rate - delta - overslept);
                         //fprintf(stdout, "%ld ", overslept);
                 }
-        } while (pos < tile->data_len || mult_index != 0); // when multiplying, we need all streams go to the end
+        }
 
-        const long data_sent = tile->data_len + rtp_hdr_len * packet_count;
+        const long data_sent = tile->data_len + rtp_hdr_len * mult_pkt_cnt;
         report_stats(tx, rtp_session, data_sent);
 
         if (!tx->encryption) {
