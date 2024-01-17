@@ -626,6 +626,10 @@ public:
                 vdp.init();
         }
 
+        ~VDPAU_convertor() {
+                vdp.uninit();
+        }
+
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 glUseProgram(program.get());
                 glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
@@ -634,6 +638,7 @@ public:
 
                 vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(f->tiles[0].data));
                 quad.render();
+                glBindTexture(GL_TEXTURE_2D, 0);
 
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glUseProgram(0);
