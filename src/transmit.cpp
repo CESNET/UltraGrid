@@ -687,13 +687,13 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
-        const long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
+        long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
         const long packet_rate =
             get_packet_rate(tx, frame, (int) substream, mult_pkt_cnt);
 
         // initialize header array with values (except offset which is different among
         // different packts)
-        void *rtp_headers = malloc(mult_pkt_cnt * rtp_hdr_len);
+        void *rtp_headers = malloc((mult_pkt_cnt + 1) * rtp_hdr_len);
         uint32_t *rtp_hdr_packet = (uint32_t *) rtp_headers;
         for (int m = 0; m < tx->mult_count; ++m) {
                 unsigned pos = 0;
@@ -703,6 +703,11 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
                         pos += packet_sizes.at(i);
                 }
+        }
+        if (frame->fec_params.type != FEC_NONE) { // dup 1st pkt with RS/LDGM
+                mult_pkt_cnt += 1;
+                memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
+                rtp_hdr_packet[1] = htonl(0);
         }
 
         if (!tx->encryption) {
