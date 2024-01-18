@@ -46,6 +46,7 @@
 #ifdef _WIN32
 #include <audioclient.h>
 #include <objbase.h>
+#include <vfwmsgs.h>
 #include "debug.h"
 #endif // defined _WIN32
 
@@ -117,6 +118,9 @@ const char *hresult_to_str(HRESULT res) {
 		case AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED: return "The caller is requesting exclusive-mode use of the endpoint device, but the user has disabled exclusive-mode use of the device.";
 		case AUDCLNT_E_BUFDURATION_PERIOD_NOT_EQUAL: return "The AUDCLNT_STREAMFLAGS_EVENTCALLBACK flag is set but parameters hnsBufferDuration and hnsPeriodicity are not equal.";
 		case AUDCLNT_E_SERVICE_NOT_RUNNING: return "The Windows audio service is not running.";
+                case VFW_E_CANNOT_CONNECT:
+                        return "DirectShow: No combination of intermediate filters "
+                               "could be found to make the connection.";
                 default:
                        snprintf(unknown, sizeof unknown, "(unknown: %ld S=%lu,R=%lu,C=%lu,facility=%lu,code=%lu)", res, ((unsigned long int) res) >> 31u, (res >> 30u) & 0x1, (res >> 29u) & 0x1, (res >> 16u) & 0x7ff, res & 0xff);
                        return unknown;

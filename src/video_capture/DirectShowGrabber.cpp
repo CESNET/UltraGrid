@@ -1087,9 +1087,10 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		}
 	}
 	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot connect capture filter to sample grabber.\n");
-		goto error;
-	}
+                MSG(ERROR, "vidcap_dshow_init: Cannot connect capture "
+                           "filter to sample grabber: %s.\n", hresult_to_str(res));
+                goto error;
+        }
 
 	res = ConnectFilters(s->filterGraph, s->sampleGrabberFilter, s->nullRenderer);
 	if (res != S_OK) {
