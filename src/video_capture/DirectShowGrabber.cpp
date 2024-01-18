@@ -959,22 +959,21 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			goto error;
 		}
 
-		if (s->desc.color_spec == VIDEO_CODEC_NONE && get_ug_codec(&mediaType->subtype) != VIDEO_CODEC_NONE) {
-			res = s->sampleGrabber->SetMediaType(mediaType);
-			if (res != S_OK) {
-				log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot setup media type of grabber filter.\n");
-				goto error;
-			}
-			s->desc.color_spec = get_ug_codec(&mediaType->subtype);
-		} else {
-
-			if (sampleGrabberMT.subtype == MEDIASUBTYPE_RGB24) s->desc.color_spec = BGR;
-			else if (sampleGrabberMT.subtype == MEDIASUBTYPE_YUY2) s->desc.color_spec = YUYV;
-			else {
-				log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown color specifiation of the chosen format, cannot grab.\n");
-				goto error;
-			}
-		}
+                if (s->desc.color_spec != VIDEO_CODEC_NONE) {
+                        MSG(WARNING, "Mode set explicitly, specified "
+                                    "color-space is ignored!\n");
+                }
+                s->desc.color_spec = get_ug_codec(&mediaType->subtype);
+                if (s->desc.color_spec == VC_NONE) {
+                        MSG(ERROR, "Unsupported pixel format, cannot grab.\n");
+                        goto error;
+                }
+                res = s->sampleGrabber->SetMediaType(mediaType);
+                if (res != S_OK) {
+                        MSG(ERROR, "vidcap_dshow_init: Cannot setup media type "
+                                   "of grabber filter.");
+                        goto error;
+                }
 
 		struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
 		s->desc.width = desc.width;
