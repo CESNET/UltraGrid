@@ -113,6 +113,19 @@ static void compileShader(GLuint shaderId){
 static std::vector<float> gen_sphere_vertices(int r, int latitude_n, int longtitude_n);
 static std::vector<unsigned> gen_sphere_indices(int latitude_n, int longtitude_n);
 
+bool check_gl_extension_present(const char *ext){
+        int count = 0;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+
+        for(int i = 0; i < count; i++){
+                const char *item = (const char *) glGetStringi(GL_EXTENSIONS, i);
+                if(strcmp(item, ext) == 0)
+                        return true;
+        }
+
+        return false;
+}
+
 GlProgram::GlProgram(const char *vert_src, const char *frag_src){
         GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
         GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);

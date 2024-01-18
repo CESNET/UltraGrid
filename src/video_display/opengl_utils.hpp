@@ -62,6 +62,8 @@
 
 #include "types.h"
 
+bool check_gl_extension_present(const char *ext);
+
 /**
  * RAII wrapper for OpenGL program
  */
