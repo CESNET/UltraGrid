@@ -64,6 +64,7 @@ extern "C" {
  */
 typedef enum {
         VIDEO_CODEC_NONE = 0, ///< dummy color spec
+        VC_NONE          = VIDEO_CODEC_NONE, // shortcut
         VIDEO_CODEC_FIRST,
         RGBA = VIDEO_CODEC_FIRST, ///< RGBA 8-bit, big-endian
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1

@@ -1240,7 +1240,6 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 }
 
 static const CHAR * GetSubtypeNameA(const GUID *pSubtype);
-static const WCHAR * GetSubtypeNameW(const GUID *pSubtype) __attribute__((unused));
 static int LocateSubtype(const GUID *pSubtype);
 static void FreeMediaType(AM_MEDIA_TYPE& mt);
 
@@ -1278,28 +1277,27 @@ static GUID GUID_I420 = {0x30323449, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0
 
 static const struct {
         const GUID *pSubtype;
-        WORD BitCount;
         const CHAR *pName;
-        const WCHAR *wszName;
 	codec_t ug_codec;
-} BitCountMap[] =  { { &MEDIASUBTYPE_RGB1,        1,   "RGB Monochrome",     L"RGB Monochrome", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_RGB4,        4,   "RGB VGA",            L"RGB VGA", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_RGB8,        8,   "RGB 8",              L"RGB 8", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_RGB565,      16,  "RGB 565 (16 bit)",   L"RGB 565 (16 bit)", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_RGB555,      16,  "RGB 555 (16 bit)",   L"RGB 555 (16 bit)", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_RGB24,       24,  "RGB 24",             L"RGB 24", BGR },
-	{ &MEDIASUBTYPE_RGB32,       32,  "RGB 32",             L"RGB 32", RGBA },
-	{ &MEDIASUBTYPE_ARGB32,    32,  "ARGB 32",             L"ARGB 32", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_Overlay,     0,   "Overlay",            L"Overlay", VIDEO_CODEC_NONE },
-	{ &GUID_I420        ,       12,   "I420",               L"I420", VIDEO_CODEC_NONE },
-	{ &MEDIASUBTYPE_YUY2,       12,   "YUY2",               L"YUY2", YUYV },
-	{ &GUID_R210,               12,   "r210",               L"r210", VIDEO_CODEC_NONE },
-	{ &GUID_v210,               12,   "v210",               L"v210", v210 },
-	{ &GUID_V210,               12,   "V210",               L"V210", v210 },
-	{ &MEDIASUBTYPE_UYVY,       12,   "UYVY",               L"UYVY", UYVY },
-	{ &GUID_HDYC,               12,   "HDYC",               L"HDYC", UYVY },
-	{ &MEDIASUBTYPE_MJPG,        0,   "MJPG",               L"MJPG", MJPG },
-	{ &GUID_NULL,                0,   "UNKNOWN",            L"UNKNOWN", VIDEO_CODEC_NONE },
+} BitCountMap[] = {
+        {&MEDIASUBTYPE_RGB1,     "RGB Monochrome",   VC_NONE},
+        { &MEDIASUBTYPE_RGB4,    "RGB VGA",          VC_NONE},
+        { &MEDIASUBTYPE_RGB8,    "RGB 8",            VC_NONE},
+        { &MEDIASUBTYPE_RGB565,  "RGB 565 (16 bit)", VC_NONE},
+        { &MEDIASUBTYPE_RGB555,  "RGB 555 (16 bit)", VC_NONE},
+        { &MEDIASUBTYPE_RGB24,   "RGB 24",           BGR    },
+        { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA   },
+        { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE},
+        { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE},
+        { &GUID_I420,            "I420",             VC_NONE},
+        { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV   },
+        { &GUID_R210,            "r210",             VC_NONE},
+        { &GUID_v210,            "v210",             v210   },
+        { &GUID_V210,            "V210",             v210   },
+        { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY   },
+        { &GUID_HDYC,            "HDYC",             UYVY   },
+        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG   },
+        { &GUID_NULL,            "UNKNOWN",          VC_NONE},
 };
 
 static codec_t get_ug_codec(const GUID *pSubtype)
@@ -1347,11 +1345,6 @@ static int LocateSubtype(const GUID *pSubtype)
         }
 
         return iPosition;
-}
-
-static const WCHAR * GetSubtypeNameW(const GUID *pSubtype)
-{
-        return BitCountMap[LocateSubtype(pSubtype)].wszName;
 }
 
 static const CHAR * GetSubtypeNameA(const GUID *pSubtype)
