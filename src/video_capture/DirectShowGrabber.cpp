@@ -1307,13 +1307,8 @@ static const CHAR * GetSubtypeName(const GUID *pSubtype)
         if (LocateSubtype(pSubtype) == sizeof BitCountMap / sizeof BitCountMap[0] - 1) {
                 memcpy(fourcc, &pSubtype->Data1, 4);
                 return fourcc;
-        } else {
-		if (BitCountMap[LocateSubtype(pSubtype)].ug_codec != VIDEO_CODEC_NONE) {
-			return get_codec_name(BitCountMap[LocateSubtype(pSubtype)].ug_codec);
-		} else { // not supported by UG
-			return GetSubtypeNameA(pSubtype);
-		}
         }
+        return GetSubtypeNameA(pSubtype);
 }
 
 extern "C" const struct video_capture_info vidcap_dshow_info = {
