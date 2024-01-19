@@ -805,6 +805,14 @@ static void vidcap_dshow_should_exit(void *state) {
 }
 
 static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
+#define HANDLE_ERR(res, msg, ...) \
+        do { \
+        if (res != S_OK) { \
+                        MSG(ERROR, "vidcap_dshow_init: " msg ": %s\n", \
+                            __VA_ARGS__ __VA_OPT__(, ) hresult_to_str(res)); \
+                        goto error; \
+        } \
+        } while (0)
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 
@@ -873,51 +881,30 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                               << get_friendly_name(s->moniker) << "\n";
 
 	res = s->moniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &s->captureFilter);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot bind capture filter to device.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot bind capture filter to device");
 
 	res = s->filterGraph->AddFilter(s->captureFilter, L"Capture filter");
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot add capture filter to filter graph.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot add capture filter to filter graph");
 
 	res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, s->captureFilter,
 			IID_IAMStreamConfig, (void **) &s->streamConfig);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot find interface for reading capture capabilites.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot find interface for reading capture capabilites");
 
 	// create instance of sample grabber
 	res = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->sampleGrabberFilter));
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create instance of sample grabber.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot create instance of sample grabber");
 
 	// add the sample grabber to filter graph
 	res = s->filterGraph->AddFilter(s->sampleGrabberFilter, L"Sample Grabber");
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot add sample grabber to filter graph.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot add sample grabber to filter graph");
 
 	// query the sample grabber filter for control interface
 	res = s->sampleGrabberFilter->QueryInterface(IID_PPV_ARGS(&s->sampleGrabber));
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot query sample grabber filter for control interface.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot query sample grabber filter for control interface");
 
 	// make the sample grabber buffer frames
 	res = s->sampleGrabber->SetBufferSamples(TRUE);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot set sample grabber to buffer samples.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot set sample grabber to buffer samples");
 
 	// set media type for sample grabber; this is not done a very detailed setup, because it would be unneccessarily complicated to do so
 	AM_MEDIA_TYPE sampleGrabberMT;
@@ -925,17 +912,11 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	sampleGrabberMT.majortype = MEDIATYPE_Video;
 	sampleGrabberMT.subtype = MEDIASUBTYPE_RGB24;
 	res = s->sampleGrabber->SetMediaType(&sampleGrabberMT);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot setup media type of grabber filter.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot setup media type of grabber filter");
 
 	int capCount, capSize;
 	res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot read number of capture capabilites.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot read number of capture capabilites");
 	if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
 		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Unknown format of capture capabilites.\n");
 		goto error;
@@ -954,10 +935,10 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			goto error;
 		}
 		// Some other error occured
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot read stream capabilities #%d (index is correct).\n", s->modeNumber);
-			goto error;
-		}
+                HANDLE_ERR(
+                    res,
+                    "Cannot read stream capabilities #%d (index is correct)",
+                    s->modeNumber);
 
                 if (s->desc.color_spec != VIDEO_CODEC_NONE) {
                         MSG(WARNING, "Mode set explicitly, specified "
@@ -969,11 +950,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                         goto error;
                 }
                 res = s->sampleGrabber->SetMediaType(mediaType);
-                if (res != S_OK) {
-                        MSG(ERROR, "vidcap_dshow_init: Cannot setup media type "
-                                   "of grabber filter.");
-                        goto error;
-                }
+                HANDLE_ERR(res, "Cannot setup media type "
+                                "of grabber filter");
 
 		struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
 		s->desc.width = desc.width;
@@ -1010,10 +988,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
 	if (s->modeNumber < 0) { // mode number was not set by user directly
                 s->streamConfig->GetFormat(&mediaType);
-                if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot get current capture format.\n");
-                        goto error;
-                }
+                HANDLE_ERR(res, "Cannot get current capture format");
                 switch (s->desc.color_spec) {
                         case BGR : mediaType->subtype = MEDIASUBTYPE_RGB24;
                                    break;
@@ -1030,10 +1005,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                 infoHeader->AvgTimePerFrame = (REFERENCE_TIME) (1e7 / s->desc.fps);
         }
 	res = s->streamConfig->SetFormat(mediaType);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot set capture format.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot set capture format");
 	DeleteMediaType(mediaType);
 
 	if (s->convert_YUYV_RGB) {
@@ -1059,25 +1031,16 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	// Create null renderer discarding all incoming frames
 	res = CoCreateInstance(CLSID_NullRenderer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter,
 			(void **) &s->nullRenderer);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create NullRenderer.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot create NullRenderer");
 
 	res = s->filterGraph->AddFilter(s->nullRenderer, L"NullRenderer");
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot add null renderer to filter graph.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot add null renderer to filter graph");
 
 	IEnumPins *pinEnum;
 	IPin *pin;
 
 	res = s->captureFilter->EnumPins(&pinEnum);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Error enumerating pins of capture filter.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Error enumerating pins of capture filter");
 
 	while (pinEnum->Next(1, &pin, NULL) == S_OK) {
 		res = ConnectFilters(s->filterGraph, pin, s->sampleGrabberFilter);
@@ -1086,17 +1049,10 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			break;
 		}
 	}
-	if (res != S_OK) {
-                MSG(ERROR, "vidcap_dshow_init: Cannot connect capture "
-                           "filter to sample grabber: %s.\n", hresult_to_str(res));
-                goto error;
-        }
+	HANDLE_ERR(res, "Cannot connect capture filter to sample grabber");
 
 	res = ConnectFilters(s->filterGraph, s->sampleGrabberFilter, s->nullRenderer);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot connect sample grabber to null renderer.\n");
-		goto error;
-	}
+	HANDLE_ERR(res, "Cannot connect sample grabber to null renderer");
 
 	s->SGCallback = new SampleGrabberCallback(s, &s->frames);
 	s->sampleGrabber->SetCallback(s->SGCallback, 1);
@@ -1111,10 +1067,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	*/
 
 	res = s->filterGraph->QueryInterface(IID_IMediaControl, (void **) &s->mediaControl);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot find media control interface.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot find media control interface");
 
 	FILTER_STATE fs;
 	res = s->mediaControl->Run();
@@ -1123,17 +1076,9 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 				break;
 			}
 	}
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot run filter graph.\n");
-		ErrorDescription(res);
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot run filter graph");
 	res = s->sampleGrabberFilter->GetState(INFINITE, &fs);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "filter getstate error\n");
-		ErrorDescription(res);
-		goto error;
-	}
+        HANDLE_ERR(res, "filter getstate error");
 
 	s->frame = vf_alloc_desc(s->desc);
 	register_should_exit_callback(vidcap_params_get_parent(params), vidcap_dshow_should_exit, s);
@@ -1144,6 +1089,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 error:
 	cleanup(s);
 	return VIDCAP_INIT_FAIL;
+#undef HANDLE_ERR
 }
 
 static void vidcap_dshow_done(void *state) {
