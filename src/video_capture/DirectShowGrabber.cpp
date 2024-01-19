@@ -38,11 +38,15 @@
 EXTERN_C const CLSID CLSID_NullRenderer;
 EXTERN_C const CLSID CLSID_SampleGrabber;
 
+typedef void (*convert_t)(int width, int height, const unsigned char *in,
+                          unsigned char *out);
+
 using namespace std;
 
 static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);
 static const CHAR * GetSubtypeName(const GUID *pSubtype);
 static codec_t get_ug_codec(const GUID *pSubtype);
+static convert_t get_conversion(const GUID *pSubtype);
 static codec_t get_ug_from_subtype_name(const char *subtype_name);
 static void vidcap_dshow_probe(device_info **available_cards, int *count, void (**deleter)(void *));
 
@@ -74,6 +78,7 @@ struct vidcap_dshow_state {
 	int modeNumber;
 	struct video_desc desc;
 	bool convert_YUYV_RGB; ///< @todo check - currently newer set
+	convert_t convert;
 
 	struct video_frame *frame;
 	long grabBufferLen;
@@ -143,8 +148,10 @@ public:
 		if (len <= 0) return S_OK;
 
 		EnterCriticalSection(&s->returnBufferCS);
-		if (s->grabBufferLen != len) {
-			s->grabBuffer = (BYTE *) realloc((void *) s->grabBuffer, len * sizeof(BYTE));
+                const long req_len = vc_get_datalen(
+                    s->desc.width, s->desc.height, s->desc.color_spec);
+                if (s->grabBufferLen != req_len) {
+                        s->grabBuffer = (BYTE *) realloc((void *) s->grabBuffer, req_len);
 			if (s->grabBuffer == NULL) {
 				s->grabBufferLen = 0;
 				return S_OK;
@@ -156,7 +163,9 @@ public:
                 // Apparently DirectShow uses bottom-to-top line ordering so we want make
                 // it top-to-bottom
 		int linesize = vc_get_linesize(s->desc.width, s->desc.color_spec);
-		if (s->desc.color_spec == BGR) {
+		if (s->convert != nullptr) {
+			s->convert(s->desc.width, s->desc.height, buffer, s->grabBuffer);
+		} else if (s->desc.color_spec == BGR) {
 			for(unsigned int i = 0; i < s->desc.height; ++i) {
 				memcpy((char *) s->grabBuffer + i * linesize,
 						(char *) buffer + (s->desc.height - i - 1) * linesize,
@@ -1006,6 +1015,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
         }
 	res = s->streamConfig->SetFormat(mediaType);
 	HANDLE_ERR(res, "Cannot set capture format");
+	s->convert = get_conversion(&mediaType->subtype);
 	DeleteMediaType(mediaType);
 
 	if (s->convert_YUYV_RGB) {
@@ -1215,6 +1225,25 @@ static void DeleteMediaType(AM_MEDIA_TYPE *pmt) {
         CoTaskMemFree((PVOID)pmt);
 }
 
+void
+nv12_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
+{
+        const int uyvy_linesize = vc_get_linesize(width, UYVY);
+        for (int y = 0; y < height; ++y) {
+                const unsigned char *src_y    = in + width * y;
+                const unsigned char *src_cbcr = in + width * height;
+                unsigned char       *dst      = out + y * uyvy_linesize;
+
+                OPTIMIZED_FOR(int x = 0; x < width / 2; ++x)
+                {
+                                *dst++ = *src_cbcr++;
+                                *dst++ = *src_y++;
+                                *dst++ = *src_cbcr++;
+                                *dst++ = *src_y++;
+                }
+        }
+}
+
 static GUID GUID_R210 = {0x30313272, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_v210 = {0x30313276, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_V210 = {0x30313256, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
@@ -1225,30 +1254,38 @@ static const struct {
         const GUID *pSubtype;
         const CHAR *pName;
 	codec_t ug_codec;
+	convert_t convert;
 } BitCountMap[] = {
-        {&MEDIASUBTYPE_RGB1,     "RGB Monochrome",   VC_NONE},
-        { &MEDIASUBTYPE_RGB4,    "RGB VGA",          VC_NONE},
-        { &MEDIASUBTYPE_RGB8,    "RGB 8",            VC_NONE},
-        { &MEDIASUBTYPE_RGB565,  "RGB 565 (16 bit)", VC_NONE},
-        { &MEDIASUBTYPE_RGB555,  "RGB 555 (16 bit)", VC_NONE},
-        { &MEDIASUBTYPE_RGB24,   "RGB 24",           BGR    },
-        { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA   },
-        { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE},
-        { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE},
-        { &GUID_I420,            "I420",             VC_NONE},
-        { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV   },
-        { &GUID_R210,            "r210",             VC_NONE},
-        { &GUID_v210,            "v210",             v210   },
-        { &GUID_V210,            "V210",             v210   },
-        { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY   },
-        { &GUID_HDYC,            "HDYC",             UYVY   },
-        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG   },
-        { &GUID_NULL,            "UNKNOWN",          VC_NONE},
+        {&MEDIASUBTYPE_RGB1,     "RGB Monochrome",   VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_RGB4,    "RGB VGA",          VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_RGB8,    "RGB 8",            VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_RGB565,  "RGB 565 (16 bit)", VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_RGB555,  "RGB 555 (16 bit)", VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_RGB24,   "RGB 24",           BGR,     nullptr     },
+        { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA,    nullptr     },
+        { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE, nullptr     },
+        { &GUID_I420,            "I420",             VC_NONE, nullptr     },
+        { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV,    nullptr     },
+        { &GUID_R210,            "r210",             VC_NONE, nullptr     },
+        { &GUID_v210,            "v210",             v210,    nullptr     },
+        { &GUID_V210,            "V210",             v210,    nullptr     },
+        { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY,    nullptr     },
+        { &GUID_HDYC,            "HDYC",             UYVY,    nullptr     },
+        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr     },
+        { &MEDIASUBTYPE_NV12,    "NV12",             UYVY,    nv12_to_uyvy},
+        { &GUID_NULL,            "UNKNOWN",          VC_NONE, nullptr     },
 };
 
 static codec_t get_ug_codec(const GUID *pSubtype)
 {
         return BitCountMap[LocateSubtype(pSubtype)].ug_codec;
+}
+
+static convert_t
+get_conversion(const GUID *pSubtype)
+{
+        return BitCountMap[LocateSubtype(pSubtype)].convert;
 }
 
 static codec_t get_ug_from_subtype_name(const char *subtype_name) {
