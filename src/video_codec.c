@@ -282,9 +282,8 @@ int get_bits_per_component(codec_t codec)
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].bits_per_channel;
-        } else {
-                return 0;
         }
+        assert(0);
 }
 
 /// @returns subsampling in format (int) JabA (A is alpha), eg 4440
@@ -1025,6 +1024,7 @@ void i444_8_to_uyvy(int width, int height, const char *in, char *out)
 
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
 {
+        assert(pixfmt >= VIDEO_CODEC_FIRST && pixfmt < VIDEO_CODEC_END);
         struct pixfmt_desc ret = { 0 };
         ret.depth = codec_info[pixfmt].bits_per_channel;
         ret.subsampling = codec_info[pixfmt].subsampling;
