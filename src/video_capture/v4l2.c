@@ -5,7 +5,7 @@
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
  */
  /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,11 +39,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
-
-#include "video_capture.h"
 
 #ifdef HAVE_LIBV4LCONVERT
 #include <libv4lconvert.h>
@@ -54,13 +50,17 @@
 #define KERNEL_VERSION(x,y,z) -1
 #endif
 
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #define DEFAULT_BUF_COUNT 2
 #define MAX_BUF_COUNT 30
@@ -73,8 +73,9 @@
 #include "utils/color_out.h"
 #include "utils/list.h"
 #include "utils/misc.h" // ug_strerror
-#include "video.h"
 #include "v4l2_common.h"
+#include "video.h"
+#include "video_capture.h"
 
 /* prototypes of functions defined in this module */
 static void print_fps(int fd, struct v4l2_frmivalenum *param);
