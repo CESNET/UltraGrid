@@ -524,11 +524,10 @@ parse_fmt(char *fmt, struct parsed_opts *opts)
                         } str_to_uint = { .fourcc = 0 };
                         memcpy(str_to_uint.str, fmt, MIN(strlen(fmt), 4));
                         opts->pixelformat = str_to_uint.fourcc;
-                } else if (strncmp(item, "size=", strlen("size=")) == 0) {
-                        if (strchr(item, 'x')) {
-                                opts->width = atoi(item + strlen("size="));
-                                opts->height = atoi(strchr(item, 'x') + 1);
-                        }
+                } else if (strstr(item, "size=") == item &&
+                           strchr(item, 'x') != NULL) {
+                        opts->width  = atoi(strchr(item, '=') + 1);
+                        opts->height = atoi(strchr(item, 'x') + 1);
                 } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
                         opts->numerator   = atoi(item + strlen("tpf="));
                         opts->denominator = strchr(item, '/') == NULL
