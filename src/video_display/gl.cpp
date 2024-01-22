@@ -1897,9 +1897,7 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
 
         switch (property) {
         case DISPLAY_PROPERTY_CODECS: {
-                if (sizeof gl_supp_codecs > *len) {
-                        return false;
-                }
+                UG_ASSERT(*len >= sizeof gl_supp_codecs);
                 auto filter_codecs = [s](codec_t c) {
                         if (get_bits_per_component(c) > DEPTH8 &&
                             commandline_params.find(
@@ -1925,23 +1923,18 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                 return true;
         }
         case DISPLAY_PROPERTY_RGB_SHIFT:
-                if (sizeof(rgb_shift) > *len) {
-                        return false;
-                }
+                UG_ASSERT(*len >= sizeof rgb_shift);
                 memcpy(val, rgb_shift, sizeof(rgb_shift));
                 *len = sizeof(rgb_shift);
                 return true;
         case DISPLAY_PROPERTY_BUF_PITCH:
+                UG_ASSERT(*len >= sizeof(int));
                 *(int *) val = PITCH_DEFAULT;
                 *len         = sizeof(int);
                 return true;
         case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
-                if (sizeof(supported_il_modes) <= *len) {
-                        memcpy(val, supported_il_modes,
-                               sizeof(supported_il_modes));
-                } else {
-                        return false;
-                }
+                UG_ASSERT(*len >= sizeof supported_il_modes);
+                memcpy(val, supported_il_modes, sizeof(supported_il_modes));
                 *len = sizeof(supported_il_modes);
                 return true;
         default:

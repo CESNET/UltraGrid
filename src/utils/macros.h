@@ -73,7 +73,15 @@
 #endif // defined EXTERN_C
 
 /// unconditional alternative to assert that is not affected by NDEBUG macro
-#define UG_ASSERT(cond) do { if (!(cond)) { fprintf(stderr, "%s:%d: %s: Assertion `" #cond "' failed.\n", __FILE__, __LINE__, __func__); abort(); } } while(0)
+#define UG_ASSERT(cond) \
+        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
+                if (!(cond)) { \
+                        fprintf(stderr, \
+                                "%s:%d: %s: Assertion `" #cond "' failed.\n", \
+                                __FILE__, __LINE__, __func__); \
+                        abort(); \
+                } \
+        } while (0)
 
 /// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array
 #define snprintf_ch(str, ...) snprintf(str, sizeof str, __VA_ARGS__)
