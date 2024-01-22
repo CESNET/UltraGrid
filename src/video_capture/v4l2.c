@@ -72,6 +72,7 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/list.h"
+#include "utils/macros.h"
 #include "utils/misc.h" // ug_strerror
 #include "v4l2_common.h"
 #include "video.h"
@@ -492,15 +493,83 @@ static _Bool v4l2_cap_verify_params(_Bool permissive, const struct v4l2_format *
         return 1;
 }
 
+struct parsed_opts {
+        uint32_t pixelformat;
+        char *dev_name;
+        uint32_t width;
+        uint32_t height;
+        uint32_t numerator;
+        uint32_t denominator;
+        int buffer_count;
+        bool permissive;
+        codec_t v4l2_convert_to;
+};
+
+static bool
+parse_fmt(char *fmt, struct parsed_opts *opts)
+{
+        char *save_ptr = NULL;
+        char *item = NULL;;
+        while ((item = strtok_r(fmt, ":", &save_ptr))) {
+                fmt = NULL;
+                if (strncmp(item, "dev=", strlen("dev=")) == 0 ||
+                    strncmp(item, "device=", strlen("device=")) == 0) {
+                        opts->dev_name = strchr(item, '=') + 1;
+                } else if (strncmp(item, "fmt=", strlen("fmt=")) == 0 ||
+                           strncmp(item, "codec=", strlen("codec=")) == 0) {
+                        char *fmt = strchr(item, '=') + 1;
+                        union {
+                                uint32_t fourcc;
+                                char     str[4];
+                        } str_to_uint = { .fourcc = 0 };
+                        memcpy(str_to_uint.str, fmt, MIN(strlen(fmt), 4));
+                        opts->pixelformat = str_to_uint.fourcc;
+                } else if (strncmp(item, "size=", strlen("size=")) == 0) {
+                        if (strchr(item, 'x')) {
+                                opts->width = atoi(item + strlen("size="));
+                                opts->height = atoi(strchr(item, 'x') + 1);
+                        }
+                } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
+                        opts->numerator   = atoi(item + strlen("tpf="));
+                        opts->denominator = strchr(item, '/') == NULL
+                                                ? 1
+                                                : atoi(strchr(item, '/') + 1);
+                } else if (strncmp(item, "fps=", strlen("fps=")) == 0) {
+                        opts->denominator = atoi(item + strlen("fps="));
+                        opts->numerator   = strchr(item, '/') == NULL
+                                                ? 1
+                                                : atoi(strchr(item, '/') + 1);
+                } else if (strncmp(item, "buffers=", strlen("buffers=")) == 0) {
+                        opts->buffer_count = atoi(item + strlen("buffers="));
+                        assert(opts->buffer_count <= MAX_BUF_COUNT);
+                } else if (strstr(item, "convert=") == item) {
+#ifdef HAVE_LIBV4LCONVERT
+                        const char *codec     = item + strlen("convert=");
+                        opts->v4l2_convert_to = get_codec_from_name(codec);
+                        if (opts->v4l2_convert_to == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        MOD_NAME "Unknown codec: %s\n",
+                                        codec);
+                                return false;
+                        }
+#else
+                        MSG(ERROR, "v4lconvert support not compiled in!");
+                        return false;
+#endif
+                } else if (strstr(item, "permissive") == item) {
+                        opts->permissive = 1;
+                } else {
+                        MSG(ERROR, "Invalid configuration argument: %s\n",
+                            item);
+                        return false;
+                }
+        }
+        return true;
+}
+
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
-        const char *dev_name = NULL;
-        uint32_t pixelformat = 0;
-        uint32_t width = 0,
-                 height = 0;
-        uint32_t numerator = 0,
-                 denominator = 0;
-        codec_t v4l2_convert_to = VIDEO_CODEC_NONE;
+        struct parsed_opts opts = { .buffer_count = DEFAULT_BUF_COUNT };
 
         printf("vidcap_v4l2_init\n");
 
@@ -519,7 +588,6 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 printf("Unable to allocate v4l2 capture state\n");
                 return VIDCAP_INIT_FAIL;
         }
-        s->buffer_count = DEFAULT_BUF_COUNT;
         s->fd = -1;
         s->buffers_to_enqueue = simple_linked_list_init();
         pthread_mutex_init(&s->lock, NULL);
@@ -530,82 +598,24 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         if(vidcap_params_get_fmt(params)) {
                 tmp = strdup(vidcap_params_get_fmt(params));
                 assert(tmp != NULL);
-                char *init_fmt = tmp;
-                char *save_ptr = NULL;
-                char *item;
-                while((item = strtok_r(init_fmt, ":", &save_ptr))) {
-                        if (strncmp(item, "dev=", strlen("dev=")) == 0
-                                        || strncmp(item, "device=", strlen("device=")) == 0) {
-                                dev_name = strchr(item, '=') + 1;
-                        } else if (strncmp(item, "fmt=", strlen("fmt=")) == 0
-                         || strncmp(item, "codec=", strlen("codec=")) == 0) {
-                                                char *fmt = strchr(item, '=') + 1;
-                                                union {
-                                                        uint32_t fourcc;
-                                                        char str[4];
-                                                } str_to_uint;
-                                                int len = 4;
-                                                if(strlen(fmt) < 4) len = strlen(fmt);
-                                                memset(str_to_uint.str, 0, 4);
-                                                memcpy(str_to_uint.str, fmt, len);
-                                                pixelformat = str_to_uint.fourcc;
-                        } else if (strncmp(item, "size=",
-                                        strlen("size=")) == 0) {
-                                if(strchr(item, 'x')) {
-                                        width = atoi(item + strlen("size="));
-                                        height = atoi(strchr(item, 'x') + 1);
-                                }
-                        } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
-                                numerator = atoi(item + strlen("tpf="));
-                                if (strchr(item, '/')) {
-                                        denominator = atoi(strchr(item, '/') + 1);
-                                } else {
-                                        denominator = 1;
-                                }
-                        } else if (strncmp(item, "fps=", strlen("fps=")) == 0) {
-                                denominator = atoi(item + strlen("fps="));
-                                if(strchr(item, '/')) {
-                                        numerator = atoi(strchr(item, '/') + 1);
-                                } else {
-                                        numerator = 1;
-                                }
-                        } else if (strncmp(item, "buffers=",
-                                        strlen("buffers=")) == 0) {
-                                s->buffer_count = atoi(item + strlen("buffers="));
-                                assert (s->buffer_count <= MAX_BUF_COUNT);
-                        } else if (strstr(item, "convert=") == item) {
-#ifdef HAVE_LIBV4LCONVERT
-                                const char *codec = item + strlen("convert=");
-                                v4l2_convert_to = get_codec_from_name(codec);
-                                if (v4l2_convert_to == VIDEO_CODEC_NONE) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown codec: %s\n", codec);
-                                        goto error;
-                                }
-#else
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "v4lconvert support not compiled in!");
-                                goto error;
-#endif
-                        } else if (strstr(item, "permissive") == item) {
-                                s->permissive = 1;
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid configuration argument: %s\n",
-                                                item);
-                                goto error;
-                        }
-                        init_fmt = NULL;
+                if (!parse_fmt(tmp, &opts)) {
+                        goto error;
                 }
         }
 
+        s->buffer_count = opts.buffer_count;
+        s->permissive= opts.permissive;
+
         static_assert(V4L2_PROBE_MAX < 100, "Pattern below has place only for 2 digits");
         char dev_name_try[] = "/dev/videoXX";
-        if (dev_name != NULL) {
-                s->fd = try_open_v4l2_device(LOG_LEVEL_ERROR, dev_name, V4L2_CAP_VIDEO_CAPTURE);
+        if (opts.dev_name != NULL) {
+                s->fd = try_open_v4l2_device(LOG_LEVEL_ERROR, opts.dev_name, V4L2_CAP_VIDEO_CAPTURE);
         } else {
                 for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                         snprintf(dev_name_try, sizeof dev_name_try, "/dev/video%d", i);
                         s->fd = try_open_v4l2_device(LOG_LEVEL_WARNING, dev_name_try, V4L2_CAP_VIDEO_CAPTURE);
                         if (s->fd != -1) {
-                                dev_name = dev_name_try;
+                                opts.dev_name = dev_name_try;
                                 break;
                         }
                 }
@@ -626,13 +636,13 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 goto error;
         }
 
-        if (pixelformat) {
-                fmt.fmt.pix.pixelformat = pixelformat;
+        if (opts.pixelformat) {
+                fmt.fmt.pix.pixelformat = opts.pixelformat;
         }
 
-        if(width != 0 && height != 0) {
-                fmt.fmt.pix.width = width;
-                fmt.fmt.pix.height = height;
+        if (opts.width != 0 && opts.height != 0) {
+                fmt.fmt.pix.width  = opts.width;
+                fmt.fmt.pix.height = opts.height;
         }
 
         fmt.fmt.pix.field = V4L2_FIELD_ANY;
@@ -643,13 +653,17 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
         }
-        if (numerator != 0 && denominator != 0) {
-                stream_params.parm.capture.timeperframe.numerator = numerator;
-                stream_params.parm.capture.timeperframe.denominator = denominator;
+        if (opts.numerator != 0 && opts.denominator != 0) {
+                stream_params.parm.capture.timeperframe.numerator =
+                    opts.numerator;
+                stream_params.parm.capture.timeperframe.denominator =
+                    opts.denominator;
         }
         struct v4l2_streamparm req_stream_params = stream_params;
-        if (numerator != 0 && denominator != 0 && ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set stream params");
+        if (opts.numerator != 0 && opts.denominator != 0 &&
+            ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
+                log_perror(LOG_LEVEL_ERROR,
+                           MOD_NAME "Unable to set stream params");
                 goto error;
         }
         if (!v4l2_cap_verify_params(s->permissive, &req_fmt, &fmt, &req_stream_params, &stream_params) && !s->permissive) {
@@ -673,28 +687,34 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         s->desc.tile_count = 1;
 
-        if (v4l2_convert_to == VIDEO_CODEC_NONE) {
+        if (opts.v4l2_convert_to == VC_NONE) {
                 s->desc.color_spec = get_v4l2_to_ug(fmt.fmt.pix.pixelformat);
                 if (s->desc.color_spec == VIDEO_CODEC_NONE) {
                         char fcc[5];
                         memcpy(fcc, &fmt.fmt.pix.pixelformat, 4);
                         fcc[4] = '\0';
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "No mapping for FCC '%s', converting to RGB!\n", fcc);
-                        v4l2_convert_to = s->dst_fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+                        opts.v4l2_convert_to = s->dst_fmt.fmt.pix.pixelformat =
+                            V4L2_PIX_FMT_RGB24;
                 }
         }
-        if (v4l2_convert_to != VIDEO_CODEC_NONE) {
+        if (opts.v4l2_convert_to != VC_NONE) {
 #ifdef HAVE_LIBV4LCONVERT
-                s->dst_fmt.fmt.pix.pixelformat = get_ug_to_v4l2(v4l2_convert_to);
+                s->dst_fmt.fmt.pix.pixelformat =
+                    get_ug_to_v4l2(opts.v4l2_convert_to);
                 if (!v4lconvert_supported_dst_format(s->dst_fmt.fmt.pix.pixelformat)) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Conversion to %s doesn't seem to be supported by v4lconvert but proceeding as requested...\n", get_codec_name(v4l2_convert_to));
+                        MSG(WARNING,
+                            "Conversion to %s doesn't seem to be supported by "
+                            "v4lconvert but proceeding as requested...\n",
+                            get_codec_name(opts.v4l2_convert_to));
                 }
 
                 if (s->dst_fmt.fmt.pix.pixelformat == 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find %s to V4L2 mapping!\n", get_codec_name(v4l2_convert_to));
+                        MSG(ERROR, "Cannot find %s to V4L2 mapping!\n",
+                            get_codec_name(opts.v4l2_convert_to));
                         goto error;
                 }
-                s->desc.color_spec = v4l2_convert_to;
+                s->desc.color_spec = opts.v4l2_convert_to;
 #endif
         }
 
@@ -716,7 +736,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
 #ifdef HAVE_LIBV4LCONVERT
         s->convert = NULL;
-        if (v4l2_convert_to != VIDEO_CODEC_NONE) {
+        if (opts.v4l2_convert_to != VC_NONE) {
                 s->convert = v4lconvert_create(s->fd);
         }
 #endif
@@ -746,7 +766,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         MSG(NOTICE, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
             s->desc.height, s->desc.fps,
             get_interlacing_suffix(s->desc.interlacing),
-            get_codec_name(s->desc.color_spec), dev_name);
+            get_codec_name(s->desc.color_spec), opts.dev_name);
 
         *state = s;
         return VIDCAP_INIT_OK;
