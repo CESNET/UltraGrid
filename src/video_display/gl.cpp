@@ -1917,9 +1917,10 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                         }
                         return true;
                 };
-                copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(),
-                        (codec_t *) val, filter_codecs);
-                *len = sizeof gl_supp_codecs;
+                const codec_t *end =
+                    copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(),
+                            (codec_t *) val, filter_codecs);
+                *len = (const char *) end - (char *) val;
                 return true;
         }
         case DISPLAY_PROPERTY_RGB_SHIFT:
