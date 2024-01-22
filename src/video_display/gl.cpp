@@ -1896,50 +1896,57 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
-                case DISPLAY_PROPERTY_CODECS:
-                        if (sizeof gl_supp_codecs <= *len) {
-                                auto filter_codecs = [s](codec_t c) {
-                                        if (get_bits_per_component(c) > 8 && commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) != commandline_params.end()) { // option to disable 10-bit processing
-                                                return false;
-                                        }
-                                        if (glsl_programs.find(c) != glsl_programs.end() && s->PHandles.find(c) == s->PHandles.end()) { // GLSL shader needed but compilation failed
-                                                return false;
-                                        }
-                                        if (c == HW_VDPAU && !s->vdp_interop) {
-                                                return false;
-                                        }
-                                        return true;
-                                };
-                                copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
-                        } else {
-                                return false;
-                        }
-
-                        *len = sizeof gl_supp_codecs;
-                        break;
-                case DISPLAY_PROPERTY_RGB_SHIFT:
-                        if(sizeof(rgb_shift) > *len) {
-                                return false;
-                        }
-                        memcpy(val, rgb_shift, sizeof(rgb_shift));
-                        *len = sizeof(rgb_shift);
-                        break;
-                case DISPLAY_PROPERTY_BUF_PITCH:
-                        *(int *) val = PITCH_DEFAULT;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
-                        if(sizeof(supported_il_modes) <= *len) {
-                                memcpy(val, supported_il_modes, sizeof(supported_il_modes));
-                        } else {
-                                return false;
-                        }
-                        *len = sizeof(supported_il_modes);
-                        break;
-                default:
+        case DISPLAY_PROPERTY_CODECS: {
+                if (sizeof gl_supp_codecs > *len) {
                         return false;
+                }
+                auto filter_codecs = [s](codec_t c) {
+                        if (get_bits_per_component(c) > DEPTH8 &&
+                            commandline_params.find(
+                                GL_DISABLE_10B_OPT_PARAM_NAME) !=
+                                commandline_params.end()) { // option to disable
+                                                            // 10-bit processing
+                                return false;
+                        }
+                        if (glsl_programs.find(c) != glsl_programs.end() &&
+                            s->PHandles.find(c) ==
+                                s->PHandles.end()) { // GLSL shader needed but
+                                                     // compilation failed
+                                return false;
+                        }
+                        if (c == HW_VDPAU && !s->vdp_interop) {
+                                return false;
+                        }
+                        return true;
+                };
+                copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(),
+                        (codec_t *) val, filter_codecs);
+                *len = sizeof gl_supp_codecs;
+                return true;
         }
-        return true;
+        case DISPLAY_PROPERTY_RGB_SHIFT:
+                if (sizeof(rgb_shift) > *len) {
+                        return false;
+                }
+                memcpy(val, rgb_shift, sizeof(rgb_shift));
+                *len = sizeof(rgb_shift);
+                return true;
+        case DISPLAY_PROPERTY_BUF_PITCH:
+                *(int *) val = PITCH_DEFAULT;
+                *len         = sizeof(int);
+                return true;
+        case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
+                if (sizeof(supported_il_modes) <= *len) {
+                        memcpy(val, supported_il_modes,
+                               sizeof(supported_il_modes));
+                } else {
+                        return false;
+                }
+                *len = sizeof(supported_il_modes);
+                return true;
+        default:
+                return false;
+        }
 }
 
 static void display_gl_done(void *state)
