@@ -106,6 +106,7 @@ struct control_state {
         queue<string> stat_event_queue;
 
         bool stats_on;
+        int audio_channel_report_count = 16;
 };
 
 #define CONTROL_EXIT -1
@@ -151,6 +152,9 @@ static void new_message(struct module *m) {
                 }
         }
 }
+
+ADD_TO_PARAM("control-report-audio-ch-count", "* control-report-audio-ch-count=<count>\n"
+                "  The number of channels reported over control port.\n");
 
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version)
 {
@@ -273,6 +277,10 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
 
         module_register(&s->mod, root_module);
+
+        if (const char *val = get_commandline_param("control-report-audio-ch-count")) {
+                s->audio_channel_report_count = strtoll(val, NULL, 0);
+        }
 
         *state = s;
         return 0;
@@ -1008,6 +1016,10 @@ void control_report_event(struct control_state *s, const std::string &report_lin
 bool control_stats_enabled(struct control_state *s)
 {
         return s && s->stats_on;
+}
+
+int control_audio_ch_report_count(struct control_state *state){
+        return state ? state->audio_channel_report_count : 0;
 }
 
 static void print_control_help() {

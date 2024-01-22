@@ -850,7 +850,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         if (control_stats_enabled(decoder->control)) {
                 std::string report = "ARECV";
-                for(int i = 0; i < decompressed.get_channel_count() && i <= 8; i++){
+                int num_ch = std::min(decompressed.get_channel_count(), control_audio_ch_report_count(decoder->control));
+                for(int i = 0; i < num_ch; i++){
                         double rms, peak;
                         rms = calculate_rms(&decompressed, i, &peak);
                         double rms_dbfs0 = 20 * log(rms) / log(10);
