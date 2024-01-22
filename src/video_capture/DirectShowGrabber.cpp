@@ -1229,10 +1229,11 @@ void
 nv12_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
 {
         const int uyvy_linesize = vc_get_linesize(width, UYVY);
-        for (int y = 0; y < height; ++y) {
+        for (ptrdiff_t y = 0; y < height; ++y) {
                 const unsigned char *src_y    = in + width * y;
-                const unsigned char *src_cbcr = in + width * height;
-                unsigned char       *dst      = out + y * uyvy_linesize;
+                const unsigned char *src_cbcr =
+                    in + (ptrdiff_t) width * height + width * (y / 2);
+                unsigned char *dst = out + y * uyvy_linesize;
 
                 OPTIMIZED_FOR(int x = 0; x < width / 2; ++x)
                 {
