@@ -743,7 +743,10 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         free(tmp);
 
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d @%.2f %s, codec %s\n", s->desc.width, s->desc.height, s->desc.fps, get_interlacing_description(s->desc.interlacing), get_codec_name(s->desc.color_spec));
+        MSG(NOTICE, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
+            s->desc.height, s->desc.fps,
+            get_interlacing_suffix(s->desc.interlacing),
+            get_codec_name(s->desc.color_spec), dev_name);
 
         *state = s;
         return VIDCAP_INIT_OK;
