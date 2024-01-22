@@ -693,8 +693,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                         memcpy(fcc, &fmt.fmt.pix.pixelformat, 4);
                         fcc[4] = '\0';
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "No mapping for FCC '%s', converting to RGB!\n", fcc);
-                        opts.v4l2_convert_to = s->dst_fmt.fmt.pix.pixelformat =
-                            V4L2_PIX_FMT_RGB24;
+                        opts.v4l2_convert_to = RGB;
                 }
         }
         if (opts.v4l2_convert_to != VC_NONE) {
