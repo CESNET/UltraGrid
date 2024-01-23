@@ -950,11 +950,10 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                     "Cannot read stream capabilities #%d (index is correct)",
                     s->modeNumber);
 
-                if (s->desc.color_spec != VIDEO_CODEC_NONE) {
-                        MSG(WARNING, "Mode set explicitly, specified "
-                                    "color-space is ignored!\n");
+		assert(s->desc.color_spec == VC_NONE || s->desc.color_spec == BGR);
+                if (s->desc.color_spec == VC_NONE) {
+                        s->desc.color_spec = get_ug_codec(&mediaType->subtype);
                 }
-                s->desc.color_spec = get_ug_codec(&mediaType->subtype);
                 if (s->desc.color_spec == VC_NONE) {
                         MSG(WARNING,
                             "Pixel format %.4s not supported directly, "
