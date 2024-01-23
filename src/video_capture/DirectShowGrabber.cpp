@@ -953,17 +953,17 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		assert(s->desc.color_spec == VC_NONE || s->desc.color_spec == BGR);
                 if (s->desc.color_spec == VC_NONE) {
                         s->desc.color_spec = get_ug_codec(&mediaType->subtype);
-                }
-                if (s->desc.color_spec == VC_NONE) {
-                        MSG(WARNING,
-                            "Pixel format %.4s not supported directly, "
-                            "capturing BGR.\n",
-                            (char *) &mediaType->subtype.Data1);
-                        s->desc.color_spec = BGR;
-                } else {
-                        res = s->sampleGrabber->SetMediaType(mediaType);
-                        HANDLE_ERR(res, "Cannot setup media type "
-                                        "of grabber filter");
+                        if (s->desc.color_spec == VC_NONE) {
+                                MSG(WARNING,
+                                    "Pixel format %.4s not supported directly, "
+                                    "capturing BGR.\n",
+                                    (char *) &mediaType->subtype.Data1);
+                                s->desc.color_spec = BGR;
+                        } else {
+                                res = s->sampleGrabber->SetMediaType(mediaType);
+                                HANDLE_ERR(res, "Cannot setup media type "
+                                                "of grabber filter");
+                        }
                 }
 
 		struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
