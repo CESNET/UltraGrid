@@ -390,7 +390,8 @@ static void show_help(struct vidcap_dshow_state *s) {
 	deleter(cards);
 
 	printf("Mode flags:\n");
-	printf("C - codec is not supported in UG; F - video format is not supported\n\n");
+        printf("C - codec not natively supported by UG; F - video format is "
+               "not supported\n\n");
 }
 
 static string
@@ -1019,6 +1020,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
         }
 	res = s->streamConfig->SetFormat(mediaType);
 	HANDLE_ERR(res, "Cannot set capture format");
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting streaming format "
+                            << vidcap_dshow_get_video_desc(mediaType) << "\n";
 	s->convert = get_conversion(&mediaType->subtype);
 	DeleteMediaType(mediaType);
 
