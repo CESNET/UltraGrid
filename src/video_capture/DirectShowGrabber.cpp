@@ -362,7 +362,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 	col() << SBOLD(SRED("\t-t dshow") << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]") "\n";
 	col() << "\t    Flag " << SBOLD("RGB") << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
-	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>")) "\n\n";
+	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:{BGR|YUYV}:<width>:<height>:<fps>")) "\n\n";
 
 	if (!common_init(s)) return;
 
@@ -987,9 +987,12 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
 			struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
 			if (desc.height == s->desc.height && desc.width  == s->desc.width) {
-					format_found = true;
-					break;
-			}
+                                format_found = true;
+                                res = s->sampleGrabber->SetMediaType(mediaType);
+                                HANDLE_ERR(res, "Cannot setup media type "
+                                                "of grabber filter");
+                                break;
+                        }
 
 			DeleteMediaType(mediaType);
 		}
