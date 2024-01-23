@@ -1022,10 +1022,12 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
         }
 	res = s->streamConfig->SetFormat(mediaType);
 	HANDLE_ERR(res, "Cannot set capture format");
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting streaming format "
-                            << vidcap_dshow_get_video_desc(mediaType) << "\n";
-	s->convert = get_conversion(&mediaType->subtype);
-	DeleteMediaType(mediaType);
+        LOG(LOG_LEVEL_INFO)
+            << MOD_NAME
+            << "streaming format: " << vidcap_dshow_get_video_desc(mediaType)
+            << "; grabber codec: " << get_codec_name(s->desc.color_spec) << "\n";
+        s->convert = get_conversion(&mediaType->subtype);
+        DeleteMediaType(mediaType);
 
 	if (s->convert_YUYV_RGB) {
 		s->convert_buffer = (BYTE *) malloc(s->desc.height * s->desc.width * 3);
