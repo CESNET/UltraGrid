@@ -69,7 +69,7 @@ using cv::INTER_AREA;
 using cv::INTER_CUBIC;
 using cv::INTER_LANCZOS4;
 using cv::INTER_LINEAR;
-using cv::INTER_LINEAR_EXACT;
+// using cv::INTER_LINEAR_EXACT;
 using cv::INTER_NEAREST;
 // using cv::INTER_NEAREST_EXACT;
 using cv::Mat;
@@ -212,7 +212,7 @@ static const struct {
         { INTER_CUBIC,         "cubic"        },
         { INTER_AREA,          "area"         },
         { INTER_LANCZOS4,      "lanczos4"     },
-        { INTER_LINEAR_EXACT,  "linear_exact" },
+        // { INTER_LINEAR_EXACT,  "linear_exact" },
         // { INTER_NEAREST_EXACT, "nearest_exact"},
 };
 
