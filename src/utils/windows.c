@@ -121,6 +121,9 @@ const char *hresult_to_str(HRESULT res) {
                 case VFW_E_CANNOT_CONNECT:
                         return "DirectShow: No combination of intermediate filters "
                                "could be found to make the connection.";
+                case VFW_E_NOT_CONNECTED:
+                        return "DirectShow: The operation cannot be performed "
+                               "because the pins are not connected.";
                 default:
                        snprintf(unknown, sizeof unknown, "(unknown: %ld S=%lu,R=%lu,C=%lu,facility=%lu,code=%lu)", res, ((unsigned long int) res) >> 31u, (res >> 30u) & 0x1, (res >> 29u) & 0x1, (res >> 16u) & 0x7ff, res & 0xff);
                        return unknown;

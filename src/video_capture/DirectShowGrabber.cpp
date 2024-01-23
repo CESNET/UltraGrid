@@ -1025,12 +1025,6 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 #endif
 	res = s->streamConfig->SetFormat(mediaType);
 	HANDLE_ERR(res, "Cannot set capture format");
-        LOG(LOG_LEVEL_INFO)
-            << MOD_NAME
-            << "streaming format: " << vidcap_dshow_get_video_desc(mediaType)
-            << "; grabber codec: " << get_codec_name(s->desc.color_spec) << "\n";
-        s->convert = get_conversion(&mediaType->subtype);
-        DeleteMediaType(mediaType);
 
 	if (s->convert_YUYV_RGB) {
 		s->convert_buffer = (BYTE *) malloc(s->desc.height * s->desc.width * 3);
@@ -1074,6 +1068,16 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		}
 	}
 	HANDLE_ERR(res, "Cannot connect capture filter to sample grabber");
+
+        res = s->sampleGrabber->GetConnectedMediaType(&sampleGrabberMT);
+        HANDLE_ERR(res, "Cannot get current grabber format");
+        LOG(LOG_LEVEL_INFO)
+            << MOD_NAME
+            << "streaming format: " << vidcap_dshow_get_video_desc(mediaType)
+            << "; grabber format: "
+            << vidcap_dshow_get_video_desc(&sampleGrabberMT) << "\n";
+        s->convert = get_conversion(&sampleGrabberMT.subtype);
+        DeleteMediaType(mediaType);
 
 	res = ConnectFilters(s->filterGraph, s->sampleGrabberFilter, s->nullRenderer);
 	HANDLE_ERR(res, "Cannot connect sample grabber to null renderer");
