@@ -362,7 +362,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 	col() << SBOLD(SRED("\t-t dshow") << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]") "\n";
 	col() << "\t    Flag " << SBOLD("RGB") << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
-	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:{BGR|YUYV}:<width>:<height>:<fps>")) "\n\n";
+	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>")) "\n\n";
 
 	if (!common_init(s)) return;
 
@@ -980,11 +980,12 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 				log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if ((s->desc.color_spec == BGR  && mediaType->subtype != MEDIASUBTYPE_RGB24) ||
-				(s->desc.color_spec == YUYV && mediaType->subtype != MEDIASUBTYPE_YUY2))
-				continue;
+                        if (s->desc.color_spec !=
+                            get_ug_codec(&mediaType->subtype)) {
+                                continue;
+                        }
 
-			struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
+                        struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
 			if (desc.height == s->desc.height && desc.width  == s->desc.width) {
                                 format_found = true;
                                 res = s->sampleGrabber->SetMediaType(mediaType);
@@ -1002,6 +1003,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		goto error;
 	}
 
+#if 0
 	if (s->modeNumber < 0) { // mode number was not set by user directly
                 s->streamConfig->GetFormat(&mediaType);
                 HANDLE_ERR(res, "Cannot get current capture format");
@@ -1020,6 +1022,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                 infoHeader->rcSource.right = s->desc.width;
                 infoHeader->AvgTimePerFrame = (REFERENCE_TIME) (1e7 / s->desc.fps);
         }
+#endif
 	res = s->streamConfig->SetFormat(mediaType);
 	HANDLE_ERR(res, "Cannot set capture format");
         LOG(LOG_LEVEL_INFO)
