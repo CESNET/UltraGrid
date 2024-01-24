@@ -121,61 +121,72 @@ static void load_yuv_coefficients(GlProgram& program){
         glUniform1f(loc, B_CB(kr, kb));
 }
 
-class Yuv_convertor : public Frame_convertor{
+class Rendering_convertor : public Frame_convertor{
 public:
-        Yuv_convertor();
+        Rendering_convertor(const char* vert_src, const char* frag_src) :
+                program(vert_src, frag_src),
+                quad(Model::get_quad())
+        {
+                width_uniform_location = glGetUniformLocation(program.get(), "width");
+        }
 
-        /**
-         * Renders the video frame containing YUV image data to attached texture
-         *
-         * @param f video frame to convert
-         * @param pbo_frame true if video frame contains the image data
-         * in a PBO buffer
-         */
-        void put_frame(video_frame *f, bool pbo_frame = false) override;
+        virtual ~Rendering_convertor() {  };
 
-        /**
-         * Attach texture to be used as output
-         *
-         * @param tex texture to attach
-         */
-        void attach_texture(const Texture& tex) override {
+        void attach_texture(const Texture& tex) override final {
                 fbuf.attach_texture(tex);
         }
 
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
+        void put_frame(video_frame *f, bool pbo_frame) override final{
+                glUseProgram(program.get());
+                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
+                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                prepare_input_tex(f, pbo_frame);
+
+                if(width_uniform_location != -1)
+                        glUniform1f(width_uniform_location, f->tiles[0].width);
+
+                quad.render();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glUseProgram(0);
+        }
+
+protected:
+        virtual void prepare_input_tex(video_frame *f, bool pbo_frame) = 0;
+
+        GlProgram program;
+        Model quad;
         Framebuffer fbuf;
-        Texture yuv_tex;
+        GLint width_uniform_location = -1;
+        Texture input_tex;
 };
 
-Yuv_convertor::Yuv_convertor(): program(vert_src, yuv_conv_frag_src),
-        quad(Model::get_quad())
-{
-        load_yuv_coefficients(program);
-}
+class Loading_convertor : public Frame_convertor{
+public:
 
+        void attach_texture(const Texture& tex) override final{
+                this->tex = &tex;
+        }
 
-void Yuv_convertor::put_frame(video_frame *f, bool pbo_frame){
-        glUseProgram(program.get());
-        glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-        glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-        glClear(GL_COLOR_BUFFER_BIT);
+protected:
+        const Texture *tex = nullptr;
+};
 
-        yuv_tex.allocate((f->tiles[0].width + 1) / 2, f->tiles[0].height, GL_RGBA);
-        glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
+class Yuv_convertor : public Rendering_convertor{
+public:
+        Yuv_convertor() : Rendering_convertor(vert_src, yuv_conv_frag_src){
+                load_yuv_coefficients(program);
+        }
 
-        yuv_tex.upload_frame(f, pbo_frame);
-
-        GLuint w_loc = glGetUniformLocation(program.get(), "width");
-        glUniform1f(w_loc, f->tiles[0].width);
-
-        quad.render();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glUseProgram(0);
-}
+private:
+        void prepare_input_tex(video_frame *f, bool pbo_frame) override final{
+                input_tex.allocate((f->tiles[0].width + 1) / 2, f->tiles[0].height, GL_RGBA);
+                glBindTexture(GL_TEXTURE_2D, input_tex.get());
+                input_tex.upload_frame(f, pbo_frame);
+        }
+};
 
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
@@ -288,49 +299,26 @@ void main(void) {
 }
 )raw";
 
-class V210_convertor : public Frame_convertor{
+class V210_convertor : public Rendering_convertor{
 public:
-        V210_convertor(): program(vert_src, v210_to_rgb_fp),
-        quad(Model::get_quad())
+        V210_convertor(): Rendering_convertor(vert_src, v210_to_rgb_fp)
         {
                 load_yuv_coefficients(program);
         }
 
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
-                glUseProgram(program.get());
-                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-                glClear(GL_COLOR_BUFFER_BIT);
-
+private:
+        void prepare_input_tex(video_frame *f, bool pbo_frame = false) override final{
                 //TODO
                 int w = vc_get_linesize(f->tiles[0].width, v210) / 4;
                 int h = f->tiles[0].height;
-                yuv_tex.allocate(w, h, GL_RGB10_A2);
-                glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
+                input_tex.allocate(w, h, GL_RGB10_A2);
+                glBindTexture(GL_TEXTURE_2D, input_tex.get());
 
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
                                 w, h, 0,
                                 GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
                                 f->tiles[0].data);
-
-                GLuint w_loc = glGetUniformLocation(program.get(), "width");
-                glUniform1f(w_loc, f->tiles[0].width);
-
-                quad.render();
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glUseProgram(0);
         }
-
-        void attach_texture(const Texture& tex) override {
-                fbuf.attach_texture(tex);
-        }
-
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        Texture yuv_tex;
 };
 
 static const char * yuva_to_rgb_fp = R"raw(
@@ -359,53 +347,31 @@ void main()
 }
 )raw";
 
-class Y416_convertor : public Frame_convertor{
+class Y416_convertor : public Rendering_convertor{
 public:
-        Y416_convertor(): program(vert_src, yuva_to_rgb_fp),
-        quad(Model::get_quad())
+        Y416_convertor(): Rendering_convertor(vert_src, yuva_to_rgb_fp)
         {
                 load_yuv_coefficients(program);
         }
 
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
-                glUseProgram(program.get());
-                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-                glClear(GL_COLOR_BUFFER_BIT);
-
+private:
+        void prepare_input_tex(video_frame *f, bool pbo_frame = false) override final{
                 //TODO
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                yuv_tex.allocate(w, h, GL_RGBA);
-                glBindTexture(GL_TEXTURE_2D, yuv_tex.get());
+                input_tex.allocate(w, h, GL_RGBA);
+                glBindTexture(GL_TEXTURE_2D, input_tex.get());
 
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 w, h, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 f->tiles[0].data);
-
-                quad.render();
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glUseProgram(0);
         }
-
-        void attach_texture(const Texture& tex) override {
-                fbuf.attach_texture(tex);
-        }
-
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        Texture yuv_tex;
 };
 
-class DXT1_convertor : public Frame_convertor{
+class DXT1_convertor : public Loading_convertor{
 public:
-        DXT1_convertor() {}
-
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
+        void put_frame(video_frame *f, bool) override{
                 int w = (f->tiles[0].width + 3) / 4 * 4;
                 int h = (f->tiles[0].height + 3) / 4 * 4;
                 glBindTexture(GL_TEXTURE_2D, tex->get());
@@ -415,13 +381,6 @@ public:
                                 w * h / 2,
                                 f->tiles[0].data);
         }
-
-        void attach_texture(const Texture& tex) override {
-                this->tex = &tex;
-        }
-
-private:
-        const Texture *tex = nullptr;
 };
 
 static const char fp_display_dxt5ycocg[] = R"raw(
@@ -442,42 +401,22 @@ void main()
 }
 )raw";
 
-class DXT5_convertor : public Frame_convertor{
+class DXT5_convertor : public Rendering_convertor{
 public:
-        DXT5_convertor(): program(vert_src, fp_display_dxt5ycocg),
-        quad(Model::get_quad()) { }
+        DXT5_convertor(): Rendering_convertor(vert_src, fp_display_dxt5ycocg) {  }
 
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
-                glUseProgram(program.get());
-                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-                glClear(GL_COLOR_BUFFER_BIT);
-
+private:
+        void prepare_input_tex(video_frame *f, bool) override final{
                 int w = (f->tiles[0].width + 3) / 4 * 4;
                 int h = (f->tiles[0].height + 3) / 4 * 4;
-                dxt_tex.allocate();
-                glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
+                input_tex.allocate();
+                glBindTexture(GL_TEXTURE_2D, input_tex.get());
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
                                 GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                                 w, h, 0,
                                 w * h,
                                 f->tiles[0].data);
-
-                quad.render();
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glUseProgram(0);
         }
-
-        void attach_texture(const Texture& tex) override {
-                fbuf.attach_texture(tex);
-        }
-
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        Texture dxt_tex;
 };
 
 static const char *fp_display_dxt1_yuv = R"raw(
@@ -502,48 +441,26 @@ void main(void) {
 }
 )raw";
 
-class DXT1_YUV_convertor : public Frame_convertor{
+class DXT1_YUV_convertor : public Rendering_convertor{
 public:
-        DXT1_YUV_convertor(): program(vert_src, fp_display_dxt1_yuv),
-        quad(Model::get_quad()) { }
+        DXT1_YUV_convertor(): Rendering_convertor(vert_src, fp_display_dxt1_yuv) {  }
 
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
-                glUseProgram(program.get());
-                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-                glClear(GL_COLOR_BUFFER_BIT);
-
+private:
+        void prepare_input_tex(video_frame *f, bool) override final{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                dxt_tex.allocate();
-                glBindTexture(GL_TEXTURE_2D, dxt_tex.get());
+                input_tex.allocate();
+                glBindTexture(GL_TEXTURE_2D, input_tex.get());
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
                                 GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                 w, h, 0,
                                 (w * h/16) * 8,
                                 f->tiles[0].data);
-
-                quad.render();
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glUseProgram(0);
         }
-
-        void attach_texture(const Texture& tex) override {
-                fbuf.attach_texture(tex);
-        }
-
-private:
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        Texture dxt_tex;
 };
 
-class R10k_convertor : public Frame_convertor{
+class R10k_convertor : public Loading_convertor{
 public:
-        R10k_convertor() {}
-
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
@@ -554,7 +471,6 @@ public:
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, scratchpad.data());
         }
 
-        void attach_texture(const Texture& tex) override { this->tex = &tex; }
 private:
         void process_r10k(uint32_t * __restrict out, const uint32_t *__restrict in, long width, long height) {
                 long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
@@ -570,39 +486,26 @@ private:
                 }
         }
         std::vector<char> scratchpad;
-        const Texture *tex = nullptr;
 };
 
-class RGB_convertor : public Frame_convertor{
+class RGB_convertor : public Loading_convertor{
 public:
-        RGB_convertor() {}
-
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
                 glBindTexture(GL_TEXTURE_2D, tex->get());
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, f->tiles[0].data);
         }
-
-        void attach_texture(const Texture& tex) override { this->tex = &tex; }
-private:
-        const Texture *tex = nullptr;
 };
 
-class RGBA_convertor : public Frame_convertor{
+class RGBA_convertor : public Loading_convertor{
 public:
-        RGBA_convertor() {}
-
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
                 glBindTexture(GL_TEXTURE_2D, tex->get());
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, f->tiles[0].data);
         }
-
-        void attach_texture(const Texture& tex) override { this->tex = &tex; }
-private:
-        const Texture *tex = nullptr;
 };
 
 static const char fp_passthrough[] = R"raw(
@@ -619,10 +522,9 @@ void main()
 )raw";
 
 #ifdef HWACC_VDPAU
-class VDPAU_convertor : public Frame_convertor{
+class VDPAU_convertor : public Rendering_convertor{
 public:
-        VDPAU_convertor(): program(vert_src, fp_passthrough),
-        quad(Model::get_quad()) {
+        VDPAU_convertor(): Rendering_convertor(vert_src, fp_passthrough) {
                 vdp.init();
         }
 
@@ -630,27 +532,12 @@ public:
                 vdp.uninit();
         }
 
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
-                glUseProgram(program.get());
-                glBindFramebuffer(GL_FRAMEBUFFER, fbuf.get());
-                glViewport(0, 0, f->tiles[0].width, f->tiles[0].height);
-                glClear(GL_COLOR_BUFFER_BIT);
-
+private:
+        void prepare_input_tex(video_frame *f, bool pbo_frame = false) override{
                 vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(f->tiles[0].data));
-                quad.render();
-                glBindTexture(GL_TEXTURE_2D, 0);
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glUseProgram(0);
         }
 
-        void attach_texture(const Texture& tex) override { fbuf.attach_texture(tex); }
-private:
         struct state_vdpau vdp;
-        GlProgram program;// = GlProgram(vert_src, yuv_conv_frag_src);
-        Model quad;// = Model::get_quad();
-        Framebuffer fbuf;
-        const Texture *tex = nullptr;
 };
 #endif
 
