@@ -935,9 +935,9 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                         s->desc.color_spec = get_ug_codec(&mediaType->subtype);
                         if (s->desc.color_spec == VC_NONE) {
                                 MSG(WARNING,
-                                    "Pixel format %s not supported directly, "
+                                    "Pixel format %.4s not supported directly, "
                                     "capturing BGR.\n",
-                                    GetSubtypeName(&mediaType->subtype));
+                                    (char *) &mediaType->subtype.Data1);
                                 s->desc.color_spec = BGR;
                         } else {
                                 res = s->sampleGrabber->SetMediaType(mediaType);
