@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#ifndef __APPLE__
+#include <assert.h>
+#include <ctype.h>
+#include <stdint.h>
 #include <signal.h>
-#endif
 #include <string.h>
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "debug.h"
 #include "utils/string.h"
@@ -184,4 +185,37 @@ append_sig_desc(char **ptr, const char *ptr_end, int signum)
         strappend(ptr, ptr_end, sys_siglist[signum]);
 #endif
         strappend(ptr, ptr_end, ")");
+}
+
+/**
+ * Returns string representation of input FourCC in a fashion FFmpeg does -
+ * non-printable character value is printed as a number in '[]'.
+ *
+ * @returns NUL-terminated FourCC, which will be longer than 4B + '\0' if
+ *           non-printable characters are present
+ */
+
+const char *
+pretty_print_fourcc(const void *fcc)
+{
+        enum {
+                CHAR_LEN = 5, // at worst [XXX]
+                CHARS = sizeof(uint32_t),
+                MAX_LEN = CHARS * CHAR_LEN + 1 /* '\0' */,
+        };
+        _Thread_local static char out[MAX_LEN];
+        char *out_ptr = out;
+        const unsigned char *fourcc = fcc;
+
+        for (int i = 0; i < CHARS; ++i) {
+                if (isprint(fourcc[i])) {
+                        *out_ptr++ = (char) fourcc[i];
+                } else {
+                        const int written =
+                            snprintf(out_ptr, CHAR_LEN + 1, "[%hhu]", fourcc[i]);
+                        out_ptr+= written;
+                }
+        }
+        *out_ptr = '\0';
+        return out;
 }
