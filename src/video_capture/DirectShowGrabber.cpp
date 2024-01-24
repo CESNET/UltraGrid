@@ -6,11 +6,18 @@
  * Defines the exported functions for the DLL application.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <cassert>
+#include <cstdio>
+#include <iostream>
+#include <string>
+
+#include <tchar.h>
+#include <dshow.h>
+#include <dvdmedia.h>
+#include <qedit.h>
+#include <oleauto.h>
+//#include <Streams.h>
+#include <windows.h>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -20,18 +27,6 @@
 #include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
-
-#include <tchar.h>
-#include <dshow.h>
-#include <dvdmedia.h>
-#include <qedit.h>
-#include <oleauto.h>
-#include <string>
-//#include <Streams.h>
-
-#include <iostream>
-#include <stdio.h>
-#include <windows.h>
 
 #define MOD_NAME "[dshow] "
 
