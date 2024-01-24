@@ -155,15 +155,8 @@ public:
 		}
 
 		// We need to make a copy, DirectShow will do something with the data
-		int linesize = vc_get_linesize(s->desc.width, s->desc.color_spec);
 		if (s->convert != nullptr) {
 			s->convert(s->desc.width, s->desc.height, buffer, s->grabBuffer);
-		} else if (s->desc.color_spec == RGBA) { // convert from ABGR and bottom-to-top
-			for(unsigned int i = 0; i < s->desc.height; ++i) {
-				vc_copylineRGBA(s->grabBuffer + i * linesize,
-						buffer + (s->desc.height - i - 1) * linesize,
-						linesize, 16, 8, 0);
-			}
 		} else {
 			memcpy((char *) s->grabBuffer, (char *) buffer, len);
 		}
@@ -1263,6 +1256,19 @@ bgr_flip_lines(int width, int height, const unsigned char *in,
         }
 }
 
+/// convert from ABGR and bottom-to-top
+static void
+abgr_flip_and_swap(int width, int height, const unsigned char *in,
+                      unsigned char *out)
+{
+        const size_t linesize = vc_get_linesize(width, RGBA);
+        for (int i = 0; i < height; ++i) {
+                vc_copylineRGBA(out + i * linesize,
+                                in + (height - i - 1) * linesize, linesize, 16,
+                                8, 0);
+        }
+}
+
 static GUID GUID_R210 = {0x30313272, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_v210 = {0x30313276, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_V210 = {0x30313256, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
@@ -1275,25 +1281,25 @@ static const struct {
 	codec_t ug_codec;
 	convert_t convert;
 } BitCountMap[] = {
-        {&MEDIASUBTYPE_RGB1,     "RGB Monochrome",   VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_RGB4,    "RGB VGA",          VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_RGB8,    "RGB 8",            VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_RGB565,  "RGB 565 (16 bit)", VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_RGB555,  "RGB 555 (16 bit)", VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_RGB24,   "RGB 24",           BGR,     bgr_flip_lines},
-        { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA,    nullptr       },
-        { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE, nullptr       },
-        { &GUID_I420,            "I420",             VC_NONE, nullptr       },
-        { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV,    nullptr       },
-        { &GUID_R210,            "r210",             VC_NONE, nullptr       },
-        { &GUID_v210,            "v210",             v210,    nullptr       },
-        { &GUID_V210,            "V210",             v210,    nullptr       },
-        { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY,    nullptr       },
-        { &GUID_HDYC,            "HDYC",             UYVY,    nullptr       },
-        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr       },
-        { &MEDIASUBTYPE_NV12,    "NV12",             UYVY,    nv12_to_uyvy  },
-        { &GUID_NULL,            "UNKNOWN",          VC_NONE, nullptr       },
+        {&MEDIASUBTYPE_RGB1,     "RGB Monochrome",   VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_RGB4,    "RGB VGA",          VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_RGB8,    "RGB 8",            VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_RGB565,  "RGB 565 (16 bit)", VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_RGB555,  "RGB 555 (16 bit)", VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_RGB24,   "RGB 24",           BGR,     bgr_flip_lines    },
+        { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA,    abgr_flip_and_swap},
+        { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE, nullptr           },
+        { &GUID_I420,            "I420",             VC_NONE, nullptr           },
+        { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV,    nullptr           },
+        { &GUID_R210,            "r210",             VC_NONE, nullptr           },
+        { &GUID_v210,            "v210",             v210,    nullptr           },
+        { &GUID_V210,            "V210",             v210,    nullptr           },
+        { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY,    nullptr           },
+        { &GUID_HDYC,            "HDYC",             UYVY,    nullptr           },
+        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr           },
+        { &MEDIASUBTYPE_NV12,    "NV12",             UYVY,    nv12_to_uyvy      },
+        { &GUID_NULL,            "UNKNOWN",          VC_NONE, nullptr           },
 };
 
 static codec_t get_ug_codec(const GUID *pSubtype)
