@@ -80,7 +80,7 @@ install_glfw() {(
         git fetch --depth 500 https://github.com/MartinPulec/glfw.git
         git merge FETCH_HEAD
         cmake -DBUILD_SHARED_LIBS=ON .
-        cmake --build . --parallel
+        cmake --build . -j "$(sysctl -n hw.ncpu)"
         sudo cmake --install .
 )}
 
