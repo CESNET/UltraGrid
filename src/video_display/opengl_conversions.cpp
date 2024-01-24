@@ -45,6 +45,8 @@
 
 #define MOD_NAME "[GL conversions] "
 
+namespace {
+
 static const char *vert_src = R"END(
 #version 330 core
 layout(location = 0) in vec2 vert_pos;
@@ -558,6 +560,8 @@ struct {
         {HW_VDPAU, &Frame_convertor::construct_unique<VDPAU_convertor>},
 #endif
 };
+
+} //anon namespace
 
 std::unique_ptr<Frame_convertor> get_convertor_for_codec(codec_t codec){
         for(const auto& i : codec_convertor_map){
