@@ -360,6 +360,10 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         unsigned char *converted = malloc(data_len);
         if (info.bitdepth == 8) {
                 switch (info.subsampling) {
+                case Y4M_SUBS_420:
+                        i420_8_to_uyvy(desc->width, desc->height, data,
+                                       converted);
+                        break;
                 case Y4M_SUBS_422:
                         i422_8_to_uyvy(desc->width, desc->height, data,
                                        converted);

@@ -995,6 +995,30 @@ i444_16_to_y416(int width, int height, const unsigned char *in,
 }
 
 void
+i420_8_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
+{
+        const int                  uyvy_linesize = vc_get_linesize(width, UYVY);
+        const unsigned char *const cb = in + (ptrdiff_t) width * height;
+        const unsigned char *const cr =
+            cb + (ptrdiff_t) (width / 2) * (height / 2);
+
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                const unsigned char *src_y  = in + width * y;
+                const unsigned char *src_cb = cb + (width / 2) * (y / 2);
+                const unsigned char *src_cr = cr + (width / 2) * (y / 2);
+                unsigned char       *dst    = out + y * uyvy_linesize;
+
+                OPTIMIZED_FOR(int x = 0; x < width / 2; ++x)
+                {
+                        *dst++ = *src_cb++;
+                        *dst++ = *src_y++;
+                        *dst++ = *src_cr++;
+                        *dst++ = *src_y++;
+                }
+        }
+}
+
+void
 i422_8_to_uyvy(int width, int height, const unsigned char *in,
                unsigned char *out)
 {

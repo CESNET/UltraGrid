@@ -1243,30 +1243,6 @@ nv12_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
         }
 }
 
-static void
-i420_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
-{
-        const int                  uyvy_linesize = vc_get_linesize(width, UYVY);
-        const unsigned char *const cb = in + (ptrdiff_t) width * height;
-        const unsigned char *const cr =
-            cb + (ptrdiff_t) (width / 2) * (height / 2);
-
-        for (ptrdiff_t y = 0; y < height; ++y) {
-                const unsigned char *src_y    = in + width * y;
-                const unsigned char *src_cb   = cb + (width / 2) * (y / 2);
-                const unsigned char *src_cr   = cr + (width / 2) * (y / 2);
-                unsigned char       *dst      = out + y * uyvy_linesize;
-
-                OPTIMIZED_FOR(int x = 0; x < width / 2; ++x)
-                {
-                        *dst++ = *src_cb++;
-                        *dst++ = *src_y++;
-                        *dst++ = *src_cr++;
-                        *dst++ = *src_y++;
-                }
-        }
-}
-
 /// Apparently DirectShow uses bottom-to-top line ordering so we want make
 /// it top-to-bottom
 static void
@@ -1314,7 +1290,7 @@ static const struct {
         { &MEDIASUBTYPE_RGB32,   "RGB 32",           RGBA,    abgr_flip_and_swap},
         { &MEDIASUBTYPE_ARGB32,  "ARGB 32",          VC_NONE, nullptr           },
         { &MEDIASUBTYPE_Overlay, "Overlay",          VC_NONE, nullptr           },
-        { &GUID_I420,            "I420",             UYVY,    i420_to_uyvy      },
+        { &GUID_I420,            "I420",             UYVY,    i420_8_to_uyvy    },
         { &MEDIASUBTYPE_YUY2,    "YUY2",             YUYV,    nullptr           },
         { &GUID_R210,            "r210",             VC_NONE, nullptr           },
         { &GUID_v210,            "v210",             v210,    nullptr           },
