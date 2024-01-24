@@ -106,11 +106,16 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
 
 // conversions from/to planar formats
-void uyvy_to_i422(int width, int height, const char *in, char *out);
-void y416_to_i444(int width, int height, const char *in, char *out, int depth);
-void i444_16_to_y416(int width, int height, const char *in, char *out, int in_depth);
-void i422_8_to_uyvy(int width, int height, const char *in, char *out);
-void i444_8_to_uyvy(int width, int height, const char *in, char *out);
+void uyvy_to_i422(int width, int height, const unsigned char *in,
+                  unsigned char *out);
+void y416_to_i444(int width, int height, const unsigned char *in,
+                  unsigned char *out, int depth);
+void i444_16_to_y416(int width, int height, const unsigned char *in,
+                     unsigned char *out, int in_depth);
+void i422_8_to_uyvy(int width, int height, const unsigned char *in,
+                    unsigned char *out);
+void i444_8_to_uyvy(int width, int height, const unsigned char *in,
+                    unsigned char *out);
 
 #ifdef __cplusplus
 }

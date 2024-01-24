@@ -936,43 +936,49 @@ bool codec_is_420(codec_t pix_fmt)
                 pixfmt_plane_info[pix_fmt].plane_info[5] == 2;
 }
 
-void uyvy_to_i422(int width, int height, const char *in, char *out)
+void
+uyvy_to_i422(int width, int height, const unsigned char *in, unsigned char *out)
 {
-        char *out_y = out;
-        char *out_cb = out + width * height;
-        char *out_cr = out + width * height + ((width + 1) / 2) * height;
+        unsigned char *out_y  = out;
+        unsigned char *out_cb = out + width * height;
+        unsigned char *out_cr =
+            out + width * height + ((width + 1) / 2) * height;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width / 2; ++x) {
                         *out_cb++ = *in++;
-                        *out_y++ = *in++;
+                        *out_y++  = *in++;
                         *out_cr++ = *in++;
-                        *out_y++ = *in++;
+                        *out_y++  = *in++;
                 }
                 if (width % 2 == 1) {
                         *out_cb++ = *in++;
-                        *out_y++ = *in++;
+                        *out_y++  = *in++;
                         *out_cr++ = *in++;
                 }
         }
 }
 
-void y416_to_i444(int width, int height, const char *in, char *out, int depth)
+void
+y416_to_i444(int width, int height, const unsigned char *in, unsigned char *out,
+             int depth)
 {
-        const uint16_t *inp = (const uint16_t *)(const void *) in;
-        uint16_t *out_y = (uint16_t *)(void *) out;
-        uint16_t *out_cb = (uint16_t *)(void *) out + width * height;
-        uint16_t *out_cr = (uint16_t *)(void *) out + 2 * width * height;
+        const uint16_t *inp    = (const uint16_t *) (const void *) in;
+        uint16_t       *out_y  = (uint16_t *) (void *) out;
+        uint16_t       *out_cb = (uint16_t *) (void *) out + width * height;
+        uint16_t       *out_cr = (uint16_t *) (void *) out + 2 * width * height;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
                         *out_cb++ = *inp++ >> (16 - depth);
-                        *out_y++ = *inp++ >> (16 - depth);
+                        *out_y++  = *inp++ >> (16 - depth);
                         *out_cr++ = *inp++ >> (16 - depth);
                         inp++; // alpha
                 }
         }
 }
 
-void i444_16_to_y416(int width, int height, const char *in, char *out, int in_depth)
+void
+i444_16_to_y416(int width, int height, const unsigned char *in,
+                unsigned char *out, int in_depth)
 {
         const uint16_t *in_y = (const uint16_t *)(const void *) in;
         const uint16_t *in_cb = (const uint16_t *)(const void *) in + width * height;
@@ -988,12 +994,14 @@ void i444_16_to_y416(int width, int height, const char *in, char *out, int in_de
         }
 }
 
-void i422_8_to_uyvy(int width, int height, const char *in, char *out)
+void
+i422_8_to_uyvy(int width, int height, const unsigned char *in,
+               unsigned char *out)
 {
-        const char *in_y = in;
-        const char *in_cb = in + width * height;
-        const char *in_cr = in_cb + (((width + 1) / 2) * height);
-        char *outp = out;
+        const unsigned char *in_y  = in;
+        const unsigned char *in_cb = in + width * height;
+        const unsigned char *in_cr = in_cb + (((width + 1) / 2) * height);
+        unsigned char       *outp  = out;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < (width + 1) / 2; ++x) {
                         *outp++ = *in_cb++;
@@ -1004,12 +1012,14 @@ void i422_8_to_uyvy(int width, int height, const char *in, char *out)
         }
 }
 
-void i444_8_to_uyvy(int width, int height, const char *in, char *out)
+void
+i444_8_to_uyvy(int width, int height, const unsigned char *in,
+               unsigned char *out)
 {
-        const char *in_y = in;
-        const char *in_cb = in + width * height;
-        const char *in_cr = in_cb + width * height;
-        char *outp = out;
+        const unsigned char *in_y = in;
+        const unsigned char *in_cb = in + width * height;
+        const unsigned char *in_cr = in_cb + width * height;
+        unsigned char *outp = out;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < (width + 1) / 2; ++x) {
                         *outp++ = *in_cb;

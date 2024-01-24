@@ -357,16 +357,26 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         desc->height = info.height;
         desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
         size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
-        *in_file_contents = (char *) malloc(data_len);
+        unsigned char *converted = malloc(data_len);
         if (info.bitdepth == 8) {
-                if (info.subsampling == Y4M_SUBS_422) {
-                        i422_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
-                } else {
-                        i444_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
+                switch (info.subsampling) {
+                case Y4M_SUBS_422:
+                        i422_8_to_uyvy(desc->width, desc->height, data,
+                                       converted);
+                        break;
+                case Y4M_SUBS_444:
+                        i444_8_to_uyvy(desc->width, desc->height, data,
+                                       converted);
+                        break;
+                default:
+                        MSG(ERROR, "Wrong Y4M subsampling: %d", info.subsampling);
+                        free(converted);
+                        return 0;
                 }
         } else {
-                i444_16_to_y416(desc->width, desc->height, (char *) data, *in_file_contents, info.bitdepth);
+                i444_16_to_y416(desc->width, desc->height, data, converted, info.bitdepth);
         }
+        *in_file_contents = (char *) converted;
         free(data);
         return data_len;
 }

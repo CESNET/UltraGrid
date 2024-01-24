@@ -492,32 +492,32 @@ static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
 {
         struct tile *tile = &frame->tiles[0];
         if (get_bits_per_component(frame->color_spec) <= 8 && (frame->color_spec == UYVY || get_decoder_from_to(frame->color_spec, UYVY))) {
-                char *uyvy = tile->data;
-                char *tmp_data_uyvy = NULL;
+                unsigned char *uyvy          = (unsigned char *) tile->data;
+                unsigned char *tmp_data_uyvy = NULL;
                 if (frame->color_spec != UYVY) {
                         decoder_t dec = get_decoder_from_to(frame->color_spec, UYVY);
                         int len = vc_get_datalen(tile->width, tile->height, UYVY);
                         uyvy = tmp_data_uyvy = malloc(len);
-                        dec ((unsigned char *) uyvy, (const unsigned char *) tile->data, len, 0, 0, 0);
+                        dec (uyvy, (const unsigned char *) tile->data, len, 0, 0, 0);
                 }
-                char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
+                unsigned char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
                 uyvy_to_i422(tile->width, tile->height, uyvy, i422);
 
                 struct y4m_metadata info = { .width = tile->width, .height = tile->height, .bitdepth = 8, .subsampling = Y4M_SUBS_422, .limited = true };
-                bool ret = y4m_write(name, &info, (unsigned char *) i422);
+                bool ret = y4m_write(name, &info, i422);
                 free(tmp_data_uyvy);
                 free(i422);
                 return ret;
         } else if (get_decoder_from_to(frame->color_spec, Y416)) {
-                char *y416 = tile->data;
-                char *tmp_data_y416 = NULL;
+                unsigned char *y416          = (unsigned char *) tile->data;
+                unsigned char *tmp_data_y416 = NULL;
                 if (frame->color_spec != Y416) {
                         decoder_t dec = get_decoder_from_to(frame->color_spec, Y416);
                         int len = vc_get_datalen(tile->width, tile->height, Y416);
                         y416 = tmp_data_y416 = malloc(len);
-                        dec ((unsigned char *) y416, (const unsigned char *) tile->data, len, 0, 0, 0);
+                        dec (y416, (const unsigned char *) tile->data, len, 0, 0, 0);
                 }
-                char *i444 = malloc(tile->width * tile->height * 6);
+                unsigned char *i444 = malloc(tile->width * tile->height * 6);
                 int depth = get_bits_per_component(frame->color_spec);
                 y416_to_i444(tile->width, tile->height, y416, i444, depth);
 
