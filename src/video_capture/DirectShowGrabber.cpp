@@ -935,9 +935,9 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
                         s->desc.color_spec = get_ug_codec(&mediaType->subtype);
                         if (s->desc.color_spec == VC_NONE) {
                                 MSG(WARNING,
-                                    "Pixel format %.4s not supported directly, "
+                                    "Pixel format %s not supported directly, "
                                     "capturing BGR.\n",
-                                    (char *) &mediaType->subtype.Data1);
+                                    GetSubtypeName(&mediaType->subtype));
                                 s->desc.color_spec = BGR;
                         } else {
                                 res = s->sampleGrabber->SetMediaType(mediaType);
@@ -1051,11 +1051,10 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
         res = s->sampleGrabber->GetConnectedMediaType(&sampleGrabberMT);
         HANDLE_ERR(res, "Cannot get current grabber format");
-        LOG(LOG_LEVEL_INFO)
-            << MOD_NAME
-            << "streaming format: " << vidcap_dshow_get_video_desc(mediaType)
-            << "; grabber format: "
-            << vidcap_dshow_get_video_desc(&sampleGrabberMT) << "\n";
+        MSG(INFO, "streaming type: %s, grabber type: %s, output: %s\n",
+            GetSubtypeName(&mediaType->subtype),
+            GetSubtypeName(&sampleGrabberMT.subtype),
+            ((string) vidcap_dshow_get_video_desc(&sampleGrabberMT)).c_str());
         s->convert = get_conversion(&sampleGrabberMT.subtype);
         DeleteMediaType(mediaType);
 
