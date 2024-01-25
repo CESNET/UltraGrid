@@ -275,6 +275,10 @@ static bool common_init(struct vidcap_dshow_state *s) {
         HANDLE_ERR(res, "Cannot create System Device Enumerator");
 
         res = s->devEnumerator->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &s->videoInputEnumerator, 0);
+	if (res == S_FALSE) {
+		MSG(ERROR, "no devices found\n");
+		goto error;
+	}
         HANDLE_ERR(res, "Cannot create Video Input Device enumerator");
 
 	// Media processing classes (filters) are conected to a graph.
