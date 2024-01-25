@@ -29,7 +29,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       id: checkout
       with:
         persist-credentials: true
@@ -58,7 +58,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -154,7 +154,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -246,7 +246,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Fetch SDKs ETags
       id: etags
       run: |

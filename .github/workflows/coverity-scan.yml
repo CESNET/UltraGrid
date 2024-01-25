@@ -39,7 +39,7 @@ jobs:
         tar xaf ~/coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ env.coverity_token }}
 
     - name: Fetch SDKs ETags
