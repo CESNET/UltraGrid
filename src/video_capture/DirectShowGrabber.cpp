@@ -216,7 +216,17 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 	return true;
 }
 
+#define HANDLE_ERR_FN(fn, res, msg, ...) \
+        do { \
+                if (res != S_OK) { \
+                        MSG(ERROR, fn ": " msg ": %s\n", \
+                            __VA_ARGS__ __VA_OPT__(, ) hresult_to_str(res)); \
+                        goto error; \
+                } \
+        } while (0)
+
 static bool common_init(struct vidcap_dshow_state *s) {
+#define HANDLE_ERR(...) HANDLE_ERR_FN("vidcap_dshow_init", __VA_ARGS__)
 	// set defaults
 	s->deviceNumber = 1;
 	s->modeNumber = 0;
@@ -262,46 +272,32 @@ static bool common_init(struct vidcap_dshow_state *s) {
 
 	// create device enumerator
 	res = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->devEnumerator));
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create System Device Enumerator.\n");
-		return false;
-	}
+        HANDLE_ERR(res, "Cannot create System Device Enumerator");
 
-	res = s->devEnumerator->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &s->videoInputEnumerator, 0);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create Video Input Device enumerator.\n");
-		return false;
-	}
+        res = s->devEnumerator->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &s->videoInputEnumerator, 0);
+        HANDLE_ERR(res, "Cannot create Video Input Device enumerator");
 
 	// Media processing classes (filters) are conected to a graph.
 	// Create graph builder -- helper class for connecting of the graph
 	res = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER,
 			IID_ICaptureGraphBuilder2, (void **) &s->graphBuilder);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create instance of Capture Graph Builder 2.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot create instance of Capture Graph Builder 2");
 
 	// create the filter graph
 	res = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
 			IID_IGraphBuilder, (void **) &s->filterGraph);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot create instance of Filter Graph.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot create instance of Filter Graph");
 
 	// specify the graph builder a graph to be built
 	res = s->graphBuilder->SetFiltergraph(s->filterGraph);
-	if (res != S_OK) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Cannot attach Filter Graph to Graph Builder.\n");
-		goto error;
-	}
+        HANDLE_ERR(res, "Cannot attach Filter Graph to Graph Builder");
 
 	return true;
 
 error:
 	cleanup(s);
 	return false;
+#undef HANLE_ERR
 }
 
 static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
@@ -796,14 +792,7 @@ static void vidcap_dshow_should_exit(void *state) {
 }
 
 static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
-#define HANDLE_ERR(res, msg, ...) \
-        do { \
-        if (res != S_OK) { \
-                        MSG(ERROR, "vidcap_dshow_init: " msg ": %s\n", \
-                            __VA_ARGS__ __VA_OPT__(, ) hresult_to_str(res)); \
-                        goto error; \
-        } \
-        } while (0)
+#define HANDLE_ERR(...) HANDLE_ERR_FN("vidcap_dshow_init", __VA_ARGS__)
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 
