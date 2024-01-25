@@ -33,7 +33,7 @@ install_gpujpeg() {(
         mkdir ext-deps/gpujpeg/build
         cd ext-deps/gpujpeg/build
         cmake -DBUILD_OPENGL=OFF ..
-        cmake --build . --parallel
+        cmake --build . --parallel "$(nproc)"
         sudo cmake --install .
         sudo ldconfig
 )}
@@ -90,7 +90,7 @@ install_vulkan() {(
         mkdir Vulkan-Loader/build
         cd Vulkan-Loader/build
         cmake ..
-        cmake --build . --parallel
+        cmake --build . --parallel "$(nproc)"
         sudo make install
 )}
 

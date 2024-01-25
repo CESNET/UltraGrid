@@ -24,7 +24,7 @@ build() {(
         sed -i 's/GetProcessorCount/_&/'  ../ConvertLib/ImageScaler.cpp
         cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 .. # assume
                                                   # "-G 'Visual Studio 16 2019'"
-        cmake --build . --config Release --parallel
+        cmake --build . --config Release --parallel "$(nproc)"
 )}
 
 install() {(

@@ -7,7 +7,7 @@ build() {(
         git clone --depth 1 https://github.com/leadedge/Spout2.git
         cd Spout2
         /c/Program\ Files/CMake/bin/cmake.exe -Bbuild2 . # ./BUILD already exists
-        /c/Program\ Files/CMake/bin/cmake.exe --build build2 --parallel
+        /c/Program\ Files/CMake/bin/cmake.exe --build build2 -j "$(nproc)"
 )}
 
 install() {(

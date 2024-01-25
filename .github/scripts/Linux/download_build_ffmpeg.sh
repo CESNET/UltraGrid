@@ -5,7 +5,7 @@ install_aom() {(
         mkdir -p aom/build
         cd aom/build
         cmake -DBUILD_SHARED_LIBS=1 ..
-        cmake --build . --parallel
+        cmake --build . --parallel "$(nproc)"
         sudo cmake --install .
 )}
 

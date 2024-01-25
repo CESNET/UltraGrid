@@ -29,7 +29,7 @@ download_install_cineform() {(
         git apply "$curdir/0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch"
         mkdir build && cd build
         cmake -DBUILD_TOOLS=OFF ..
-        cmake --build . --parallel
+        cmake --build . --parallel "$(nproc)"
         sudo cmake --install .
 )}
 
