@@ -1,6 +1,6 @@
-From 34c715db23c4efd70c5c6e8103d270c804d85666 Mon Sep 17 00:00:00 2001
+From c8caab6ab8b4e4b622b03d05044206b1f56a94f7 Mon Sep 17 00:00:00 2001
 From: Martin Pulec <martin.pulec@cesnet.cz>
-Date: Thu, 1 Dec 2022 10:05:51 +0100
+Date: Thu, 25 Jan 2024 16:56:08 +0100
 Subject: [PATCH] added libde265 decoder
 
 ---
@@ -12,10 +12,10 @@ Subject: [PATCH] added libde265 decoder
  create mode 100644 libavcodec/libde265dec.c
 
 diff --git a/configure b/configure
-index 0d754e7ae9..1ef801552a 100755
+index 21663000f8..b291a3d1eb 100755
 --- a/configure
 +++ b/configure
-@@ -230,6 +230,7 @@ External library support:
+@@ -227,6 +227,7 @@ External library support:
    --enable-libdavs2        enable AVS2 decoding via libdavs2 [no]
    --enable-libdc1394       enable IIDC-1394 grabbing using libdc1394
                             and libraw1394 [no]
@@ -23,15 +23,15 @@ index 0d754e7ae9..1ef801552a 100755
    --enable-libfdk-aac      enable AAC de/encoding via libfdk-aac [no]
    --enable-libflite        enable flite (voice synthesis) support via libflite [no]
    --enable-libfontconfig   enable libfontconfig, useful for drawtext filter [no]
-@@ -1813,6 +1814,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1857,6 +1858,7 @@ EXTERNAL_LIBRARY_LIST="
      libcodec2
      libdav1d
      libdc1394
 +    libde265
-     libdrm
      libflite
      libfontconfig
-@@ -3333,6 +3335,7 @@ libdav1d_decoder_deps="libdav1d"
+     libfreetype
+@@ -3430,6 +3432,7 @@ libdav1d_decoder_deps="libdav1d"
  libdav1d_decoder_select="atsc_a53"
  libdavs2_decoder_deps="libdavs2"
  libdavs2_decoder_select="avs2_parser"
@@ -39,31 +39,31 @@ index 0d754e7ae9..1ef801552a 100755
  libfdk_aac_decoder_deps="libfdk_aac"
  libfdk_aac_encoder_deps="libfdk_aac"
  libfdk_aac_encoder_select="audio_frame_queue"
-@@ -6560,6 +6563,7 @@ enabled libcodec2         && require libcodec2 codec2/codec2.h codec2_create -lc
+@@ -6760,6 +6763,7 @@ enabled libcodec2         && require libcodec2 codec2/codec2.h codec2_create -lc
  enabled libdav1d          && require_pkg_config libdav1d "dav1d >= 0.5.0" "dav1d/dav1d.h" dav1d_version
  enabled libdavs2          && require_pkg_config libdavs2 "davs2 >= 1.6.0" davs2.h davs2_decoder_open
  enabled libdc1394         && require_pkg_config libdc1394 libdc1394-2 dc1394/dc1394.h dc1394_new
 +enabled libde265          && require_pkg_config libde265 "libde265 >= 1.0.0" libde265/de265.h de265_get_version
- enabled libdrm            && require_pkg_config libdrm libdrm xf86drm.h drmGetVersion
+ enabled libdrm            && check_pkg_config libdrm libdrm xf86drm.h drmGetVersion
  enabled libfdk_aac        && { check_pkg_config libfdk_aac fdk-aac "fdk-aac/aacenc_lib.h" aacEncOpen ||
                                 { require libfdk_aac fdk-aac/aacenc_lib.h aacEncOpen -lfdk-aac &&
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 98841ed07c..010a1d54ca 100644
+index 96361ac794..dabd5c7d1e 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -1073,6 +1073,7 @@ OBJS-$(CONFIG_LIBCODEC2_DECODER)          += libcodec2.o
+@@ -1114,6 +1114,7 @@ OBJS-$(CONFIG_LIBCODEC2_DECODER)          += libcodec2.o
  OBJS-$(CONFIG_LIBCODEC2_ENCODER)          += libcodec2.o
- OBJS-$(CONFIG_LIBDAV1D_DECODER)           += libdav1d.o
+ OBJS-$(CONFIG_LIBDAV1D_DECODER)           += libdav1d.o av1_parse.o
  OBJS-$(CONFIG_LIBDAVS2_DECODER)           += libdavs2.o
 +OBJS-$(CONFIG_LIBDE265_DECODER)           += libde265dec.o
  OBJS-$(CONFIG_LIBFDK_AAC_DECODER)         += libfdk-aacdec.o
  OBJS-$(CONFIG_LIBFDK_AAC_ENCODER)         += libfdk-aacenc.o
  OBJS-$(CONFIG_LIBGSM_DECODER)             += libgsmdec.o
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index d5a6c427e1..55bff2b16b 100644
+index ef8c3a6d7d..28b6268e93 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -760,6 +760,7 @@ extern const FFCodec ff_libcodec2_encoder;
+@@ -776,6 +776,7 @@ extern const FFCodec ff_libcodec2_encoder;
  extern const FFCodec ff_libcodec2_decoder;
  extern const FFCodec ff_libdav1d_decoder;
  extern const FFCodec ff_libdavs2_decoder;
@@ -73,7 +73,7 @@ index d5a6c427e1..55bff2b16b 100644
  extern const FFCodec ff_libgsm_encoder;
 diff --git a/libavcodec/libde265dec.c b/libavcodec/libde265dec.c
 new file mode 100644
-index 0000000000..9edc9ebc09
+index 0000000000..e5a18c4942
 --- /dev/null
 +++ b/libavcodec/libde265dec.c
 @@ -0,0 +1,773 @@
@@ -851,5 +851,5 @@ index 0000000000..9edc9ebc09
 +                      AV_CODEC_CAP_SLICE_THREADS,
 +};
 -- 
-2.38.1
+2.43.0
 
