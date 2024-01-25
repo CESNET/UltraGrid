@@ -216,14 +216,17 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 	return true;
 }
 
-#define HANDLE_ERR_FN(fn, res, msg, ...) \
+#define HANDLE_ERR_FN_ACTION(fn, res, action, msg, ...) \
         do { \
                 if (res != S_OK) { \
-                        MSG(ERROR, fn ": " msg ": %s\n", \
+                        MSG(ERROR, "%s: " msg ": %s\n", fn, \
                             __VA_ARGS__ __VA_OPT__(, ) hresult_to_str(res)); \
-                        goto error; \
+                        action; \
                 } \
         } while (0)
+
+#define HANDLE_ERR_FN(fn, res, ...) \
+        HANDLE_ERR_FN_ACTION(fn, res, goto error, __VA_ARGS__)
 
 static bool common_init(struct vidcap_dshow_state *s) {
 #define HANDLE_ERR(...) HANDLE_ERR_FN("vidcap_dshow_init", __VA_ARGS__)
@@ -301,7 +304,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 error:
 	cleanup(s);
 	return false;
-#undef HANLE_ERR
+#undef HANDLE_ERR
 }
 
 static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
@@ -378,27 +381,18 @@ static void show_help(struct vidcap_dshow_state *s) {
 static string
 get_friendly_name(IMoniker *moniker, int idx = -1)
 {
+#define HANDLE_ERR(...) \
+        HANDLE_ERR_FN_ACTION(__func__, res, return {}, __VA_ARGS__)
         IPropertyBag *properties = nullptr;
         const string device_id = idx == -1 ? "" : to_string(idx) + " ";
         // Attach structure for reading basic device properties
         HRESULT res = moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
-        if (res != S_OK) {
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "Failed to read device %sproperties.\n",
-                        device_id.c_str());
-                return {};
-        }
+        HANDLE_ERR("Failed to read device %s properties", device_id.c_str());
 
         VARIANT var;
         VariantInit(&var);
         res = properties->Read(L"FriendlyName", &var, NULL);
-        if (res != S_OK) {
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "Failed to read device %sFriendlyName.\n",
-                        device_id.c_str());
-                VariantClear(&var);
-                return {};
-        }
+        HANDLE_ERR("Failed to read device %s FriendlyName", device_id.c_str());
 
         char buf[MAX_STRING_LEN];
         // convert to standard C string
@@ -409,6 +403,7 @@ get_friendly_name(IMoniker *moniker, int idx = -1)
         properties->Release();
 
         return buf;
+#undef HANDLE_ERR
 }
 
 static void vidcap_dshow_probe(device_info **available_cards, int *count, void (**deleter)(void *))
@@ -443,37 +438,27 @@ static void vidcap_dshow_probe(device_info **available_cards, int *count, void (
                 snprintf(cards[n - 1].name, sizeof cards[n - 1].name, "%s",
                          name);
 
+#define HANDLE_ERR(msg, ...) \
+        HANDLE_ERR_FN_ACTION("vidcap_dshow_help", res, continue, "%s: " msg, \
+                             name __VA_OPT__(, ) __VA_ARGS__)
                 // bind the selected device to the capture filter
                 IBaseFilter *captureFilter;
                 res = s->moniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &captureFilter);
-                if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot bind capture filter to device.\n", name);
-                        ErrorDescription(res);
-                        continue;
-                }
+                HANDLE_ERR("Cannot bind capture filter to device");
 
                 // add the capture filter to the filter graph
                 res = s->filterGraph->AddFilter(captureFilter, L"Capture filter");
-                if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot add capture filter to filter graph.\n", name);
-                        continue;
-                }
+                HANDLE_ERR("Cannot add capture filter to filter graph");
 
                 // connect stream config interface to the capture filter
                 res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, captureFilter,
                                 IID_IAMStreamConfig, (void **) &s->streamConfig);
-                if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot find interface for reading capture capabilites.\n", name);
-                        continue;
-                }
+		HANDLE_ERR("Cannot find interface for reading capture capabilites");
 
                 int capCount, capSize;
                 // read number of capture device capabilities
                 res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
-                if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot read number of capture capabilites.\n", name);
-                        continue;
-                }
+                HANDLE_ERR("Cannot read number of capture capabilites");
                 // check if the format of capture capabilities is the right one
                 if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
 			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Unknown format of capture capabilites.\n", name);
@@ -491,10 +476,8 @@ static void vidcap_dshow_probe(device_info **available_cards, int *count, void (
                         VIDEO_STREAM_CONFIG_CAPS streamCaps;
 
                         res = s->streamConfig->GetStreamCaps(i, &mediaType, (BYTE*) &streamCaps);
-                        if (res != S_OK) {
-				log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot read stream capabilities #%d.\n", name, i);
-                                continue;
-                        }
+                        HANDLE_ERR("Cannot read stream capabilities #%d", i);
+
                         struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
                         if (desc.width == 0) {
                                 continue;
@@ -515,16 +498,14 @@ static void vidcap_dshow_probe(device_info **available_cards, int *count, void (
 
                 s->streamConfig->Release();
                 res = s ->filterGraph->RemoveFilter(captureFilter);
-                if (res != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot remove capture filter from filter graph.\n", name);
-                        continue;
-                }
+                HANDLE_ERR("Cannot remove capture filter from filter graph");
                 captureFilter->Release();
                 s->moniker->Release();
 	}
 	cleanup(s);
         *available_cards = cards;
         *count = card_count;
+#undef HANDLE_ERR
 }
 
 static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
