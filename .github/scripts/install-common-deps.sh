@@ -9,11 +9,6 @@ case "$(uname -s)" in
                 win=yes
                 ;;
 
-        *)
-                if [ "$(id -u)" -ne 0 ]; then
-                        sudo="sudo"
-                fi
-                ;;
 esac
 
 if ! command -v nproc >/dev/null; then
@@ -22,6 +17,10 @@ fi
 
 is_arm() { expr "$(dpkg --print-architecture)" : arm >/dev/null; }
 is_win() { [ "$win" = yes ]; }
+
+if is_win || [ "$(id -u)" -eq 0 ]; then
+        alias sudo=
+fi
 
 download_install_cineform() {(
         git clone --depth 1 https://github.com/gopro/cineform-sdk
@@ -34,7 +33,9 @@ download_install_cineform() {(
 )}
 
 install_ews() {
-        ${sudo:+"$sudo" }curl -LS https://raw.githubusercontent.com/hellerf/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h
+        sudo curl -LS https://raw.githubusercontent.com/hellerf/\
+EmbeddableWebServer/master/EmbeddableWebServer.h -o \
+/usr/local/include/EmbeddableWebServer.h
 }
 
 install_juice() {
@@ -44,7 +45,7 @@ install_juice() {
         cd libjuice/build
         cmake -DCMAKE_INSTALL_PREFIX=/usr/local -G "Unix Makefiles" ..
         make -j "$(nproc)"
-        ${sudo:+"$sudo" }make install
+        sudo make install
 )
 }
 
@@ -55,15 +56,15 @@ install_pcp() {
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
                 make -j "$(nproc)"
-                ${sudo+"$sudo" }make install
+                sudo make install
         )
         rm -rf pcp
 }
 
 install_zfec() {(
         git clone --depth 1 https://github.com/tahoe-lafs/zfec zfec
-        ${sudo:+"$sudo" }mkdir -p /usr/local/src
-        ${sudo:+"$sudo" }mv zfec/zfec /usr/local/src
+        sudo mkdir -p /usr/local/src
+        sudo mv zfec/zfec /usr/local/src
 )}
 
 if ! is_arm && ! is_win; then
