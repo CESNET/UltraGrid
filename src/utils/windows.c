@@ -210,13 +210,29 @@ win_has_ancestor_process(const char *name)
         }
         DWORD          pid  = GetCurrentProcessId();
         PROCESSENTRY32 pe32 = { .dwSize = sizeof(PROCESSENTRY32) };
-        while (GetProcessInfo(hSnapshot, pid, &pe32)) {
-                MSG(DEBUG, "%s: %s PID: %ld, PPID: %ld\n", __func__
+        DWORD          visited_ps[32];
+        unsigned       visited_ps_cnt = 0;
+        bool           cycle          = false;
+        while (!cycle && GetProcessInfo(hSnapshot, pid, &pe32)) {
+                MSG(DEBUG, "%s: %s PID: %ld, PPID: %ld\n", __func__,
                     pe32.szExeFile, pid, pe32.th32ParentProcessID);
                 if (_stricmp(pe32.szExeFile, name) == 0) {
                         CloseHandle(hSnapshot);
                         return true;
                 }
+
+                for (unsigned i = 0; i < visited_ps_cnt; i++) {
+                        if (visited_ps[i] == pe32.th32ParentProcessID) {
+                                cycle = true;
+                        }
+                }
+                if (visited_ps_cnt ==
+                    sizeof visited_ps / sizeof visited_ps[0]) {
+                        MSG(WARNING, "Visited PS exhausted!\n");
+                        break;
+                }
+                visited_ps[visited_ps_cnt++] = pid;
+
                 pid = pe32.th32ParentProcessID;
         }
         CloseHandle(hSnapshot);
