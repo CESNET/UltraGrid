@@ -464,7 +464,8 @@ struct init_data *common_preinit(int argc, char *argv[])
         // warn in W10 "legacy" terminal emulators
         if ((win_has_ancestor_process("powershell.exe") ||
              win_has_ancestor_process("cmd.exe")) &&
-            !win_has_ancestor_process("WindowsTerminal.exe")) {
+            !win_has_ancestor_process("WindowsTerminal.exe") &&
+            getenv("TERM") == nullptr) {
                 MSG(WARNING, "Running inside PS/cmd terminal is not recommended "
                              "because scrolling the output freezes the process, "
                              "consider using Windows Terminal instead!\n");
