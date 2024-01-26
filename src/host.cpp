@@ -116,6 +116,8 @@ extern "C" {
 #include <mcheck.h>
 #endif
 
+#define MOD_NAME "[host] "
+
 using std::array;
 using std::cout;
 using std::endl;
@@ -457,6 +459,16 @@ struct init_data *common_preinit(int argc, char *argv[])
         const bool init_com = !tok_in_argv(argv, "screen:unregister_elevated");
         if (init_com) {
                 com_initialize(&init.com_initialized, nullptr);
+        }
+
+        // warn in W10 "legacy" terminal emulators
+        if ((win_has_ancestor_process("powershell.exe") ||
+             win_has_ancestor_process("cmd.exe")) &&
+            !win_has_ancestor_process("WindowsTerminal.exe")) {
+                MSG(WARNING, "Running inside PS/cmd terminal is not recommended "
+                             "because scrolling the output freezes the process, "
+                             "consider using Windows Terminal instead!\n");
+                Sleep(1000);
         }
 #endif
 

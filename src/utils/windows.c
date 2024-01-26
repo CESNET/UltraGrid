@@ -35,20 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "utils/windows.h"
-
 #ifdef _WIN32
 #include <audioclient.h>
 #include <objbase.h>
+#include <tlhelp32.h>
 #include <vfwmsgs.h>
 #include "debug.h"
 #endif // defined _WIN32
+
+#include "utils/windows.h"
+
+#define MOD_NAME "[utils/win] "
 
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
@@ -183,6 +180,49 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
         }
         return res;
 }
+
+static bool
+GetProcessInfo(HANDLE hSnapshot, DWORD processId, PROCESSENTRY32 *pe32)
+{
+        if (!Process32First(hSnapshot, pe32)) {
+                return false;
+        }
+
+        do {
+                if (pe32->th32ProcessID == processId) {
+                        return true;
+                }
+        } while (Process32Next(hSnapshot, pe32));
+
+        return false;
+}
+
+/**
+ * @returns true if there is a process "name" among current process ancestors
+ * @param name the searched process name (case insensitive)
+ */
+bool
+win_has_ancestor_process(const char *name)
+{
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnapshot == INVALID_HANDLE_VALUE) {
+                return false;
+        }
+        DWORD          pid  = GetCurrentProcessId();
+        PROCESSENTRY32 pe32 = { .dwSize = sizeof(PROCESSENTRY32) };
+        while (GetProcessInfo(hSnapshot, pid, &pe32)) {
+                MSG(DEBUG, "%s: %s PID: %ld, PPID: %ld\n", __func__
+                    pe32.szExeFile, pid, pe32.th32ParentProcessID);
+                if (_stricmp(pe32.szExeFile, name) == 0) {
+                        CloseHandle(hSnapshot);
+                        return true;
+                }
+                pid = pe32.th32ParentProcessID;
+        }
+        CloseHandle(hSnapshot);
+        return false;
+}
+
 #endif // defined _WIN32
 
 /* vim: set expandtab sw=8 tw=120: */
