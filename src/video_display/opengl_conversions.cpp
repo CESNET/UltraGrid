@@ -466,11 +466,29 @@ public:
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                scratchpad.resize(w * h * 8);
-                process_r10k(reinterpret_cast<uint32_t *>(scratchpad.data()), reinterpret_cast<uint32_t *>(f->tiles[0].data), w, h);
+                uint32_t *dst = nullptr;
+                int data_len = w * h * 8;
+                char *tex_src_data = nullptr;
+                if(internal_pbo){
+                        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, internal_pbo->get());
+                        glBufferData(GL_PIXEL_UNPACK_BUFFER, data_len, 0, GL_STREAM_DRAW);
+                        dst = (uint32_t *) glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+                        process_r10k(dst, reinterpret_cast<uint32_t *>(f->tiles[0].data), w, h);
+                        tex_src_data = nullptr;
+                        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+                } else {
+                        scratchpad.resize(w * h * 8);
+                        dst = reinterpret_cast<uint32_t *>(scratchpad.data());
+                        tex_src_data = scratchpad.data();
+                        process_r10k(dst, reinterpret_cast<uint32_t *>(f->tiles[0].data), w, h);
+                }
 
                 glBindTexture(GL_TEXTURE_2D, tex->get());
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, scratchpad.data());
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, tex_src_data);
+
+                if(internal_pbo){
+                        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                }
         }
 
 private:

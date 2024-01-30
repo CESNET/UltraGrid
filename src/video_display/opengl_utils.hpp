@@ -347,6 +347,10 @@ public:
          * @param tex texture to attach
          */
         virtual void attach_texture(const Texture& tex) = 0;
+
+        void set_pbo(GlBuffer *pbo) { internal_pbo = pbo; }
+protected:
+        GlBuffer *internal_pbo = nullptr;
 };
 
 /**
@@ -357,12 +361,20 @@ public:
         void put_frame(video_frame *f, bool pbo_frame = false);
         void attach_dst_texture(Texture *tex){ this->tex = tex; }
 
+        void enable_pbo(bool enable) {
+                if(enable)
+                        upload_pbo = std::make_unique<GlBuffer>();
+                else
+                        upload_pbo.reset();
+        }
+
         std::vector<codec_t> get_supported_codecs();
 
 private:
         std::unique_ptr<Frame_convertor> conv;
         codec_t configured_codec = VIDEO_CODEC_NONE;
         Texture *tex = nullptr;
+        std::unique_ptr<GlBuffer> upload_pbo;
 };
 
 /**
