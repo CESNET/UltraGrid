@@ -3348,6 +3348,7 @@ if test "$build_default" != no; then
         src/video_capture/import.o
         src/video_capture/switcher.o
         src/video_capture/ug_input.o
+        src/video_decompress/i420.o
         src/video_display/aggregate.o
         src/video_display/dump.o
         src/video_display/multiplier.o
