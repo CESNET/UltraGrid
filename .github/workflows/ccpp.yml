@@ -65,7 +65,7 @@ jobs:
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -78,7 +78,7 @@ jobs:
            .github/scripts/Linux/prepare.sh
     - name: Cache rav1e
       id: cache-rav1e
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: rav1e
         key: cache-rav1e-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/rav1e.sh') }}
@@ -91,7 +91,7 @@ jobs:
         sudo ldconfig
     - name: Cache FFmpeg
       id: cache-ffmpeg
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: '/var/tmp/ffmpeg'
         key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/prepare.sh', '.github/scripts/Linux/download_build_ffmpeg.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
@@ -163,7 +163,7 @@ jobs:
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
         key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
@@ -177,7 +177,7 @@ jobs:
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache XIMEA
       id: cache-macos-ximea
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: /var/tmp/XIMEA_OSX_SP.dmg
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
@@ -186,7 +186,7 @@ jobs:
       run: curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg -o /private/var/tmp/XIMEA_OSX_SP.dmg
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: /private/var/tmp/Install_NDI_SDK_Apple.pkg
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -259,7 +259,7 @@ jobs:
       shell: pwsh -command ". '{0}'"
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\ndi.exe'
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -268,7 +268,7 @@ jobs:
       run: curl 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe' -o 'C:\ndi.exe'
     - name: Cache XIMEA
       id: cache-macos-ximea
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\XIMEA_API_Installer.exe'
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
@@ -280,7 +280,7 @@ jobs:
       shell: pwsh -command ". '{0}'"
     - name: Cache JACK
       id: cache-jack
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\Program Files\JACK2'
         key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
@@ -292,7 +292,7 @@ jobs:
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
     - name: Cache live555
       id: cache-live555
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\live555'
         key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
@@ -304,7 +304,7 @@ jobs:
 
     - name: Cache Spout build
       id: cache-spout
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\Spout2'
         key: cache-spout-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_spout.sh') }}
@@ -316,7 +316,7 @@ jobs:
 
     - name: Cache CineForm build
       id: cache-cineform
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: 'C:\cineform-sdk'
         key: cache-cineform-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_cineform.sh') }}

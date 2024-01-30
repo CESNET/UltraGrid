@@ -40,7 +40,7 @@ jobs:
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -50,7 +50,7 @@ jobs:
 
     - name: Cache Environment
       id: cache-bootstrap
-      uses: actions/cache@v3
+      uses: actions/cache@main
       with:
         path: '~/chroot.tar'
         key: cache-bootstrap-${{ matrix.arch }}-${{ hashFiles('.github/scripts/Linux/arm/bootstrap.sh', '.github/scripts/Linux/install_others.sh') }}
