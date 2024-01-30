@@ -1156,7 +1156,8 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 PRIO_LOWER = 800,
                 PRIO_LO    = 900,
         };
-        if (hw_accel_to_ug_pixfmt(internal.accel_type) == ugc) {
+        if (internal.accel_type != HWACCEL_NONE &&
+            hw_accel_to_ug_pixfmt(internal.accel_type) == ugc) {
                 return PRIO_HI;
         }
 
