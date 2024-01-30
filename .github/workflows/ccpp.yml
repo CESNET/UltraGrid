@@ -137,7 +137,7 @@ jobs:
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: UltraGrid-Linux
         path: UltraGrid-${{ env.VERSION }}-x86_64.AppImage
@@ -228,7 +228,7 @@ jobs:
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: UltraGrid-macOS
         path: UltraGrid-${{ env.VERSION }}.dmg
@@ -351,7 +351,7 @@ jobs:
         $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: UltraGrid-Windows
         path: build
