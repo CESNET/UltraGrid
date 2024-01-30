@@ -170,15 +170,6 @@ public:
 
         void allocate();
 
-        /**
-         * Uploads video frame to the texture
-         *
-         * @param f video frame to upload
-         * @pbo_frame true if the video frame contains the image data
-         * in a PBO buffer
-         */
-        void upload_frame(video_frame *f, bool pbo_frame);
-
         void load_frame(int w, int h,
                         GLint internal_format,
                         GLenum src_format,
@@ -203,39 +194,6 @@ public:
                 std::swap(pbo, o.pbo);
         }
 private:
-
-        /**
-         * Uploads image data to the texture
-         *
-         * @param w width of the image 
-         * @param h height of the image 
-         * @param type format of the image (same as type parameter of 
-         * glTexSubImage2D())
-         * @param fmt format of the image (same as internalformat parameter of 
-         * glTexSubImage2D())
-         * @param data pointer to image data to upload
-         */
-        void upload(size_t w, size_t h,
-                        GLenum fmt, GLenum type,
-                        const void *data);
-
-        /**
-         * Uploads image data to the texture
-         *
-         * @param w width of the image 
-         * @param h height of the image 
-         * @param type format of the image (same as type parameter of 
-         * glTexSubImage2D())
-         * @param fmt format of the image (same as internalformat parameter of 
-         * glTexSubImage2D())
-         * @param data pointer to image data to upload
-         * @param data_len length of image data to upload
-         */
-        void upload_internal_pbo(size_t w, size_t h,
-                        GLenum fmt, GLenum type,
-                        const void *data, size_t data_len);
-
-
         GLuint tex_id = 0;
         int width = 0;
         int height = 0;
