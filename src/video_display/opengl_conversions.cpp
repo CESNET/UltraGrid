@@ -134,7 +134,7 @@ public:
 
         virtual ~Rendering_convertor() {  };
 
-        void attach_texture(const Texture& tex) override final {
+        void attach_texture(Texture& tex) override final {
                 fbuf.attach_texture(tex);
         }
 
@@ -168,12 +168,12 @@ protected:
 class Loading_convertor : public Frame_convertor{
 public:
 
-        void attach_texture(const Texture& tex) override final{
+        void attach_texture(Texture& tex) override final{
                 this->tex = &tex;
         }
 
 protected:
-        const Texture *tex = nullptr;
+        Texture *tex = nullptr;
 };
 
 class Yuv_convertor : public Rendering_convertor{
@@ -184,9 +184,12 @@ public:
 
 private:
         void prepare_input_tex(video_frame *f, bool pbo_frame) override final{
-                input_tex.allocate((f->tiles[0].width + 1) / 2, f->tiles[0].height, GL_RGBA);
-                glBindTexture(GL_TEXTURE_2D, input_tex.get());
-                input_tex.upload_frame(f, pbo_frame);
+                int w = (f->tiles[0].width + 1) / 2;
+                int h = f->tiles[0].height;
+
+                input_tex.load_frame(w, h, GL_RGBA,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                f, pbo_frame);
         }
 };
 
@@ -310,16 +313,11 @@ public:
 
 private:
         void prepare_input_tex(video_frame *f, bool pbo_frame = false) override final{
-                //TODO
                 int w = vc_get_linesize(f->tiles[0].width, v210) / 4;
                 int h = f->tiles[0].height;
-                input_tex.allocate(w, h, GL_RGB10_A2);
-                glBindTexture(GL_TEXTURE_2D, input_tex.get());
-
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
-                                w, h, 0,
+                input_tex.load_frame(w, h, GL_RGB10_A2,
                                 GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
-                                f->tiles[0].data);
+                                f, pbo_frame);
         }
 };
 
@@ -358,16 +356,11 @@ public:
 
 private:
         void prepare_input_tex(video_frame *f, bool pbo_frame = false) override final{
-                //TODO
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                input_tex.allocate(w, h, GL_RGBA);
-                glBindTexture(GL_TEXTURE_2D, input_tex.get());
-
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                w, h, 0,
+                input_tex.load_frame(w, h, GL_RGBA,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
-                                f->tiles[0].data);
+                                f, pbo_frame);
         }
 };
 
@@ -513,8 +506,9 @@ public:
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                glBindTexture(GL_TEXTURE_2D, tex->get());
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, f->tiles[0].data);
+                tex->load_frame(w, h, GL_RGB,
+                                GL_RGB, GL_UNSIGNED_BYTE,
+                                f, pbo_frame);
         }
 };
 
@@ -523,8 +517,9 @@ public:
         void put_frame(video_frame *f, bool pbo_frame = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
-                glBindTexture(GL_TEXTURE_2D, tex->get());
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, f->tiles[0].data);
+                tex->load_frame(w, h, GL_RGBA,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                f, pbo_frame);
         }
 };
 

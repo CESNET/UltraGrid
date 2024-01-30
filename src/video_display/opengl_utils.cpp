@@ -366,6 +366,36 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
         }
 }
 
+void Texture::load_frame(int w, int h,
+                GLint internal_format,
+                GLenum src_format,
+                GLenum type,
+                video_frame *f,
+                bool pbo_frame)
+{
+        char *src_data = f->tiles[0].data;
+        allocate(w, h, internal_format);
+        glBindTexture(GL_TEXTURE_2D, tex_id);
+
+        if(pbo_frame){
+                GlBuffer *pbo = static_cast<GlBuffer *>(f->callbacks.dispose_udata);
+
+                glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo->get());
+                glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+                f->tiles[0].data = nullptr;
+                src_data = nullptr;
+        }
+
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
+                        w, h, 0,
+                        src_format, type,
+                        src_data);
+
+        if(pbo_frame){
+                glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        }
+}
+
 void Texture::allocate(){
         if(tex_id != 0)
                 return;
@@ -464,6 +494,7 @@ void main(){
         quad = Model::get_quad();
         texture.allocate();
         uploader.attach_dst_texture(&texture);
+        uploader.enable_pbo(false);
 }
 
 void FlatVideoScene::put_frame(video_frame *f){

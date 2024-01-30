@@ -179,6 +179,13 @@ public:
          */
         void upload_frame(video_frame *f, bool pbo_frame);
 
+        void load_frame(int w, int h,
+                        GLint internal_format,
+                        GLenum src_format,
+                        GLenum type,
+                        video_frame *f,
+                        bool pbo_frame);
+
         Texture(const Texture&) = delete;
         Texture(Texture&& o) { swap(o); }
         Texture& operator=(const Texture&) = delete;
@@ -346,7 +353,7 @@ public:
          *
          * @param tex texture to attach
          */
-        virtual void attach_texture(const Texture& tex) = 0;
+        virtual void attach_texture(Texture& tex) = 0;
 
         void set_pbo(GlBuffer *pbo) { internal_pbo = pbo; }
 protected:
