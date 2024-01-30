@@ -37,9 +37,16 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
+#include <assert.h>
+#ifdef HAVE_SWSCALE
+#include <libswscale/swscale.h>
+#endif // defined HAVE_SWSCALE
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "debug.h"
 #include "host.h"
@@ -56,11 +63,6 @@
 #include "video.h"
 #include "video_codec.h"
 #include "video_decompress.h"
-
-#ifdef HAVE_SWSCALE
-#include <libswscale/swscale.h>
-#endif // defined HAVE_SWSCALE
-#include <limits.h>
 
 #include "hwaccel_libav_common.h"
 #include "hwaccel_vaapi.h"
@@ -476,10 +478,9 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         if (libav_codec_has_extradata(desc.color_spec)) {
                 // for codecs that have metadata we have to defer initialization
                 // because we don't have the data right now
-                return TRUE;
-        } else {
-                return configure_with(s, desc, NULL, 0);
+                return true;
         }
+        return configure_with(s, desc, NULL, 0);
 }
 
 #ifdef HWACC_RPI4
@@ -1108,17 +1109,16 @@ static int libavcodec_decompress_get_property(void *state, int property, void *v
 {
         struct state_libavcodec_decompress *s =
                 (struct state_libavcodec_decompress *) state;
-        UNUSED(s);
-        int ret = FALSE;
+        int ret = false;
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if (*len < sizeof(int)) {
-                                return FALSE;
+                                return false;
                         }
-                        *(int *) val = FALSE;
+                        *(int *) val = false;
                         if (s->codec_ctx && strcmp(s->codec_ctx->codec->name, "h264") == 0) {
-                                *(int *) val = TRUE;
+                                *(int *) val = true;
                         }
                         if (get_commandline_param("lavd-accept-corrupted")) {
                                 *(int *) val =
@@ -1126,10 +1126,8 @@ static int libavcodec_decompress_get_property(void *state, int property, void *v
                         }
 
                         *len = sizeof(int);
-                        ret = TRUE;
+                        ret = true;
                         break;
-                default:
-                        ret = FALSE;
         }
 
         return ret;
