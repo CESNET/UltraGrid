@@ -1063,25 +1063,24 @@ static bool display_xrgl_reconfigure(void *state, struct video_desc desc) {
 }
 
 static bool display_xrgl_get_property(void *state, int property, void *val, size_t *len) {
-        UNUSED(state);
-        codec_t codecs[] = {
-                RGBA,
-                RGB,
-                UYVY,
-        };
+        auto s = static_cast<state_xrgl *>(state);
+
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
-                case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
+                case DISPLAY_PROPERTY_CODECS:{
+                        auto codecs = s->scene.get_codecs();
+                        size_t codecs_size = codecs.size() * sizeof(codec_t);
+                        if(codecs_size <= *len) {
+                             memcpy(val, codecs.data(), codecs_size);
                         } else {
-                                return false;
+                             return false;
                         }
 
-                        *len = sizeof(codecs);
+                        *len = codecs_size;
                         break;
+                }
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
                                 return false;
