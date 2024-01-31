@@ -553,6 +553,14 @@ void FlatVideoScene::resize(int width, int height){
         glUniform2f(pvLoc, x, y);
 }
 
+void FlatVideoScene::enableDeinterlacing(bool enable){
+        glUseProgram(program.get());
+
+        GLuint pvLoc;
+        pvLoc = glGetUniformLocation(program.get(), "deinterlace");
+        glUniform1i(pvLoc, enable);
+}
+
 static std::vector<float> gen_sphere_vertices(int r, int latitude_n, int longtitude_n){
         std::vector<float> verts;
 

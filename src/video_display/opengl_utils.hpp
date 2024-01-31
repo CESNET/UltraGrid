@@ -419,6 +419,10 @@ public:
         void put_frame(video_frame *f);
         void render();
         void resize(int width, int height);
+
+        void enableDeinterlacing(bool enable);
+
+        GLuint get_texture() { return tex.get(); }
 private:
         GlProgram program;
         Model quad;
