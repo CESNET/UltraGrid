@@ -1185,6 +1185,10 @@ elif test $cross_compile = no; then
         if test $found_glm_hpp = yes; then
                 glm=yes
                 GLM_INC=-I$GLM_DIR
+        else
+                AC_LANG_PUSH(C++)
+                AC_CHECK_HEADER([glm/glm.hpp], [glm=yes], [glm=no])
+                AC_LANG_POP(C++)
         fi
 fi
 
