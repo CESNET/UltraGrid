@@ -456,7 +456,7 @@ private:
 
 class R10k_convertor : public Loading_convertor{
 public:
-        void put_frame(video_frame *f, bool pbo_frame = false) override{
+        void put_frame(video_frame *f, bool = false) override{
                 int w = f->tiles[0].width;
                 int h = f->tiles[0].height;
                 uint32_t *dst = nullptr;
@@ -548,7 +548,7 @@ public:
         }
 
 private:
-        void prepare_input_tex(video_frame *f, bool pbo_frame = false) override{
+        void prepare_input_tex(video_frame *f, bool = false) override{
                 vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(f->tiles[0].data));
         }
 
