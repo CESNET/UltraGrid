@@ -70,31 +70,6 @@ static unsigned char pixels[] = {
         255, 0, 0,   0, 255, 0,   0, 0, 255,   255, 255, 255
 };
 
-static const char *vert_src = R"END(
-#version 330 core
-layout(location = 0) in vec2 vert_pos;
-layout(location = 1) in vec2 vert_uv;
-
-out vec2 UV;
-
-uniform vec2 scale_vec;
-
-void main(){
-        gl_Position = vec4(vert_pos, 0.0f, 1.0f);
-        UV = vert_uv;
-}
-)END";
-
-[[maybe_unused]] static const char *frag_src = R"END(
-#version 330 core
-in vec2 UV;
-out vec3 color;
-uniform sampler2D tex;
-void main(){
-        color = texture(tex, UV).rgb;
-}
-)END";
-
 static void compileShader(GLuint shaderId){
         glCompileShader(shaderId);
 
