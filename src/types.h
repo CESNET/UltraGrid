@@ -66,6 +66,7 @@ typedef enum {
         VIDEO_CODEC_NONE = 0, ///< dummy color spec
         VC_NONE          = VIDEO_CODEC_NONE, // shortcut
         VIDEO_CODEC_FIRST,
+        VC_FIRST = VIDEO_CODEC_FIRST,
         RGBA = VIDEO_CODEC_FIRST, ///< RGBA 8-bit, big-endian
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
@@ -105,6 +106,8 @@ typedef enum {
         PRORES_422_PROXY, ///< Apple ProRes 422 (Proxy)
         PRORES_422_LT,    ///< Apple ProRes 422 (LT)
         VIDEO_CODEC_COUNT, ///< count of known video codecs (including VIDEO_CODEC_NONE)
+        VC_COUNT        = VIDEO_CODEC_COUNT,
+        VC_END          = VIDEO_CODEC_COUNT,
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;
 

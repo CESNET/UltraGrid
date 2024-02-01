@@ -3366,6 +3366,7 @@ if test "$build_default" != no; then
         src/vo_postprocess/border.o
         src/vo_postprocess/crop.o
         src/vo_postprocess/deinterlace.o
+        src/vo_postprocess/delay.o
         src/vo_postprocess/interlace.o
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
