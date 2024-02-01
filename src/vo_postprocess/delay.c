@@ -36,7 +36,6 @@
  */
 
 #include <assert.h>
-#include <limits.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,6 +91,10 @@ usage()
 static void *
 delay_init(const char *config)
 {
+        enum {
+                MAX_VAL_FRM = 2000,
+                MAX_VAL_SEC = 60,
+        };
         if (!IS_KEY_PREFIX(config, "seconds") &&
             !IS_KEY_PREFIX(config, "frames")) {
                 usage();
@@ -100,7 +103,8 @@ delay_init(const char *config)
 
         const char *val_s = strchr(config, '=') + 1;
         double      val   = strtod(val_s, NULL);
-        if (val <= 0 || val > INT_MAX) {
+        if (val <= 0 || val > MAX_VAL_FRM ||
+            (IS_KEY_PREFIX(config, "seconds") && val > MAX_VAL_SEC)) {
                 MSG(ERROR, "Wrong delay value: %s\n", val_s);
                 return NULL;
         }
@@ -117,6 +121,8 @@ delay_init(const char *config)
         } else {
                 s->delay_frames = (int) val;
         }
+        MSG(INFO, "Delay set to %g %s.\n", val,
+            s->delay_sec ? "seconds" : "frames");
         s->cached_frames = simple_linked_list_init();
 
         return s;
