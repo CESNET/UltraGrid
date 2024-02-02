@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,10 +64,10 @@ struct disp_deleter{ void operator()(display *d){ display_done(d); } };
 using unique_disp = std::unique_ptr<struct display, disp_deleter>;
 }
 
-struct state_multiplier_common {
+struct state_multiplier {
         std::vector<unique_disp> displays;
 
-        struct video_desc display_desc;
+        struct video_desc desc;
 
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
@@ -77,11 +77,6 @@ struct state_multiplier_common {
 
         struct module *parent;
         thread worker_thread;
-};
-
-struct state_multiplier {
-        shared_ptr<struct state_multiplier_common> common;
-        struct video_desc desc;
 };
 
 static void show_help(){
@@ -99,13 +94,6 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 return INIT_NOERR;
         }
 
-        if (isdigit(fmt[0])) { // fork
-                struct state_multiplier *orig;
-                sscanf(fmt, "%p", &orig);
-                s->common = orig->common;
-                return s.release();
-        }
-
         std::string_view fmt_sv = fmt;
 
         if (fmt_sv == "help") { 
@@ -113,8 +101,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 return INIT_NOERR;
         }
 
-        s->common = std::make_shared<state_multiplier_common>();
-        s->common->parent = parent;
+        s->parent = parent;
 
         for(auto tok = tokenize(fmt_sv, '#'); !tok.empty(); tok = tokenize(fmt_sv, '#')){
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Initializing display " << tok << "\n";
@@ -127,31 +114,34 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         abort();
                 }
                 unique_disp disp(d_ptr);
-                if (display_needs_mainloop(disp.get()) && !s->common->displays.empty()) {
+                if (display_needs_mainloop(disp.get()) && !s->displays.empty()) {
                         LOG(LOG_LEVEL_ERROR) << "[multiplier] Display " << display << " needs mainloop and should be given first!\n";
                 }
 
-                s->common->displays.push_back(std::move(disp));
+                s->displays.push_back(std::move(disp));
         }
 
         return s.release();
 }
 
-static void check_reconf(struct state_multiplier_common *s, struct video_desc desc)
+static void check_reconf(struct state_multiplier *s, struct video_desc *current_desc,
+             struct video_desc desc)
 {
-        if (!video_desc_eq(desc, s->display_desc)) {
-                s->display_desc = desc;
-                fprintf(stderr, "RECONFIGURED\n");
-                for(auto& disp : s->displays){
-                        display_reconfigure(disp.get(), s->display_desc, VIDEO_NORMAL);
-                }
+        if (video_desc_eq(desc, *current_desc)) {
+                return;
+        }
+        *current_desc = desc;
+        fprintf(stderr, "RECONFIGURED\n");
+        for (auto &disp : s->displays) {
+                display_reconfigure(disp.get(), desc, VIDEO_NORMAL);
         }
 }
 
 static void display_multiplier_worker(void *state)
 {
-        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
+        auto *s = (struct state_multiplier *)state;
         int skipped = 0;
+        struct video_desc display_desc{};
 
         while (1) {
                 struct video_frame *frame;
@@ -176,7 +166,7 @@ static void display_multiplier_worker(void *state)
                         continue;
                 }
 
-                check_reconf(s.get(), video_desc_from_frame(frame));
+                check_reconf(s, &display_desc, video_desc_from_frame(frame));
 
                 for (auto& disp : s->displays) {
                         struct video_frame *real_display_frame = display_get_frame(disp.get());
@@ -198,7 +188,7 @@ static void display_multiplier_worker(void *state)
  */
 static void display_multiplier_run(void *state)
 {
-        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
+        auto *s = (state_multiplier *) state; 
 
         assert(!s->displays.empty());
 
@@ -218,20 +208,20 @@ static void display_multiplier_run(void *state)
 
 static void display_multiplier_done(void *state)
 {
-        struct state_multiplier *s = (struct state_multiplier *)state;
+        auto *s = (state_multiplier *) state;
         delete s;
 }
 
 static struct video_frame *display_multiplier_getf(void *state)
 {
-        struct state_multiplier *s = (struct state_multiplier *)state;
+        auto *s = (state_multiplier *) state;
 
         return vf_alloc_desc_data(s->desc);
 }
 
 static bool display_multiplier_putf(void *state, struct video_frame *frame, long long flags)
 {
-        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
+        auto *s = (state_multiplier *) state;
 
         if (flags == PUTF_DISCARD) {
                 vf_free(frame);
@@ -255,31 +245,20 @@ static bool display_multiplier_putf(void *state, struct video_frame *frame, long
 
 static bool display_multiplier_get_property(void *state, int property, void *val, size_t *len)
 {
-        //TODO Figure out forking, for now just disable multi. sources
-        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
-        if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
-#if 0
-                ((struct multi_sources_supp_info *) val)->val = true;
-                ((struct multi_sources_supp_info *) val)->fork_display = display_multiplier_fork;
-                ((struct multi_sources_supp_info *) val)->state = state;
-                *len = sizeof(struct multi_sources_supp_info);
-                return true;
-#endif
-                return false;
+        auto *s = (state_multiplier *) state;
 
-        }
         //TODO Find common properties, for now just return properties of the first display
         return display_ctl_property(s->displays[0].get(), property, val, len);
 }
 
 static bool display_multiplier_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_multiplier *s = (struct state_multiplier *) state;
+        auto *s = (state_multiplier *) state;
 
         s->desc = desc;
 
-        for(auto& disp : s->common->displays){
-               display_reconfigure(disp.get(), desc, VIDEO_NORMAL); 
+        for (auto &disp : s->displays) {
+                display_reconfigure(disp.get(), desc, VIDEO_NORMAL);
         }
 
         return true;
@@ -287,9 +266,9 @@ static bool display_multiplier_reconfigure(void *state, struct video_desc desc)
 
 static void display_multiplier_put_audio_frame(void *state, const struct audio_frame *frame)
 {
-        auto *s = static_cast<struct state_multiplier *>(state);
+        auto *s = static_cast<struct state_multiplier*>(state);
 
-        display_put_audio_frame(s->common->displays.at(0).get(), frame);
+        display_put_audio_frame(s->displays.at(0).get(), frame);
 }
 
 static bool display_multiplier_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -297,7 +276,7 @@ static bool display_multiplier_reconfigure_audio(void *state, int quant_samples,
 {
         auto *s = static_cast<struct state_multiplier *>(state);
 
-        return display_reconfigure_audio(s->common->displays.at(0).get(), quant_samples, channels, sample_rate);
+        return display_reconfigure_audio(s->displays.at(0).get(), quant_samples, channels, sample_rate);
 }
 
 static void display_multiplier_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
