@@ -883,6 +883,13 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
 	assert(buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW || buffer->get_codec() == AC_OPUS);
 
+        if (buffer->get_codec() == AC_OPUS &&
+            buffer->get_channel_count() > 1) { // we cannot interleave Opus here
+                MSG(ERROR, "Opus can currently have only 1 channel in "
+                           "RFC-compliant mode! Discarding...\n");
+                return;
+        }
+
 	int pt;
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
@@ -923,10 +930,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 
                 // interleave
                 if (buffer->get_codec() == AC_OPUS) {
-                        if (buffer->get_channel_count() > 1) { // we cannot interleave Opus here
-                                LOG(LOG_LEVEL_ERROR) << "Transmit: Only Opus with 1 channel is supported in RFC-compliant mode! Discarding...\n";
-                                return;
-                        }
                         memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
                 } else {
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
