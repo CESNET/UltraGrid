@@ -881,7 +881,10 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		const audio_frame2 * buffer) {
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
-	assert(buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW || buffer->get_codec() == AC_OPUS);
+        assert(buffer->get_codec() == AC_MULAW ||
+               buffer->get_codec() == AC_ALAW ||
+               buffer->get_codec() == AC_MP3 ||
+               buffer->get_codec() == AC_OPUS);
 
         if (buffer->get_codec() == AC_OPUS &&
             buffer->get_channel_count() > 1) { // we cannot interleave Opus here
@@ -890,24 +893,23 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 return;
         }
 
-	int pt;
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
 
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
 	// Other channels or Hz goes to DynRTP-Type97
+	int pt = PT_DynRTP_Type97;
 	if (buffer->get_channel_count() == 1 && buffer->get_sample_rate() == 8000) {
 		if (buffer->get_codec() == AC_MULAW)
 			pt = PT_ITU_T_G711_PCMU;
 		else if (buffer->get_codec() == AC_ALAW)
 			pt = PT_ITU_T_G711_PCMA;
-		else pt = PT_DynRTP_Type97;
-	} else {
-		pt = PT_DynRTP_Type97;
-	}
+        } else if (buffer->get_codec() == AC_MP3) {
+                pt = PT_MPA;
+        }
 
-	// The sizes for the different audio_frame2 channels must be the same.
+        // The sizes for the different audio_frame2 channels must be the same.
 	for (int i = 1; i < buffer->get_channel_count(); i++)
 		assert(buffer->get_data_len(0) == buffer->get_data_len(i));
 
@@ -919,9 +921,15 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                         log_msg(LOG_LEVEL_ERROR, "Transmit: Opus frame larger than packet! Discarding...\n");
                         return;
                 }
-        } else { // we may split the data into more packets, compute chunk size
-                int frame_size = buffer->get_channel_count() * buffer->get_bps();
+        }
+        if (pt == PT_ITU_T_G711_PCMU ||
+            pt == PT_ITU_T_G711_PCMA) { // we may split the data into more
+                                        // packets, compute chunk size
+                int frame_size =
+                    buffer->get_channel_count() * buffer->get_bps();
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
+        } else if (pt == PT_MPA) {
+                payload_size -= sizeof(mpa_hdr_t);
         }
 
 	int pos = 0;
@@ -931,6 +939,12 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 // interleave
                 if (buffer->get_codec() == AC_OPUS) {
                         memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
+                } else if (buffer->get_codec() == AC_MP3) {
+                        memset(tx->tmp_packet, 0, 2);
+                        const uint16_t offset = htons(pos);
+                        memcpy(tx->tmp_packet + 2, &offset, sizeof offset);
+                        pkt_len += sizeof(mpa_hdr_t);
+                        memcpy(tx->tmp_packet + 4, buffer->get_data(0), pkt_len);
                 } else {
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
                                 remux_channel(tx->tmp_packet, buffer->get_data(ch) + pos / buffer->get_channel_count(), buffer->get_bps(), pkt_len / buffer->get_channel_count(), 1, buffer->get_channel_count(), 0, ch);

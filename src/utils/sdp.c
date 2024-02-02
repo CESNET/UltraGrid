@@ -226,6 +226,9 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
 	pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
     }
+    if (codec == AC_MP3) {
+	pt = PT_MPA;
+    }
     snprintf(sdp_state->stream[index].media_info, sizeof sdp_state->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
     if (pt == PT_DynRTP_Type97) { // we need rtpmap for our dynamic packet type
 	const char *audio_codec = NULL;
@@ -242,7 +245,8 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
                 ts_rate = 48000; // RFC 7587 specifies always 48 kHz for Opus
 		break;
             default:
-                log_msg(LOG_LEVEL_ERROR, "[SDP] Currently only PCMA, PCMU and Opus audio codecs are supported!\n");
+                MSG(ERROR, "Currently only MP3, PCMA, PCMU and Opus audio "
+                           "codecs are supported!\n");
                 return -2;
 	}
 

@@ -59,6 +59,7 @@
  */
 #define PT_ITU_T_G711_PCMU  0 /* mU-law std */
 #define PT_ITU_T_G711_PCMA  8 /* A-law std */
+#define PT_MPA          14
 #define PT_VIDEO        20
 #define PT_AUDIO        21
 #define PT_VIDEO_LDGM   22
@@ -155,6 +156,8 @@ typedef uint32_t fec_payload_hdr_t[5];
  * bits 9 - 31 currently unused
  */
 typedef uint32_t crypto_payload_hdr_t[1];
+
+typedef uint32_t mpa_hdr_t; /// RFC 2550 hdr for audio - 16b MBZ, 16b Frag_off
 
 #define PT_AUDIO_HAS_FEC(pt) ((pt) == PT_AUDIO_RS || (pt) == PT_ENCRYPT_AUDIO_RS)
 #define PT_AUDIO_IS_ENCRYPTED(pt) ((pt) == PT_ENCRYPT_AUDIO || (pt) == PT_ENCRYPT_AUDIO_RS)
