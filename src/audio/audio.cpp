@@ -425,7 +425,8 @@ int audio_init(struct state_audio **ret, struct module *parent,
                                   audio_capture_channels, params.codec,
                                   sdp_change_address_callback,
                                   get_root_module(parent)) != 0) {
-                        assert(0 && "[SDP] Cannot add audio");
+                        MSG(ERROR,"Cannot add audio to SDP!\n");
+                        goto error;
                 }
         }
 
