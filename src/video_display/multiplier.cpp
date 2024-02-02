@@ -111,7 +111,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 struct display *d_ptr;
                 if (initialize_video_display(parent, display.c_str(), cfg.c_str(), flags, NULL, &d_ptr) != 0) {
                         LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << display << "!\n";
-                        abort();
+                        return nullptr;
                 }
                 unique_disp disp(d_ptr);
                 if (display_needs_mainloop(disp.get()) && !s->displays.empty()) {
