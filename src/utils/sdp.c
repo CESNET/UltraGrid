@@ -4,7 +4,7 @@
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -47,16 +47,11 @@
  *   modules want also to use EmbeddableWebServer)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#ifdef WIN32
 #include <assert.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
@@ -431,7 +426,18 @@ static void print_http_path(struct sdp *sdp) {
                 bool ipv6 = addrs[i].ss_family == AF_INET6;
                 size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
                 getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
-                log_msg(LOG_LEVEL_NOTICE, "Receiver can play SDP with URL http://%s%s%s:%u/%s\n", ipv6 ? "[" : "", hostname, ipv6 ? "]" : "", portInHostOrder, SDP_FILE);
+
+                char recv_str[STR_LENGTH];
+                if (autorun) {
+                    snprintf(recv_str, sizeof recv_str, "ANY receiver");
+                } else {
+                    snprintf(recv_str, sizeof recv_str, "Receiver \"%s\"", sdp_receiver);
+                }
+                MSG(NOTICE,
+                    "%s can play SDP with URL "
+                    "http://%s%s%s:%u/%s\n",
+                    recv_str, ipv6 ? "[" : "", hostname, ipv6 ? "]" : "",
+                    portInHostOrder, SDP_FILE);
             }
         }
     }
