@@ -39,12 +39,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <array>
 #include <iostream>
 
@@ -63,6 +57,8 @@
 #include "video.h"
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_sdp.hpp"
+
+#define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPEG:safe"
 
 using std::array;
 using std::cout;

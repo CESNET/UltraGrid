@@ -1114,7 +1114,7 @@ static int adjust_params(struct ug_options *opt) {
         if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
                 if (opt->requested_compression == nullptr) {
                         if (strcasecmp(opt->video_protocol, "rtsp") == 0) {
-                                opt->requested_compression = DEFAULT_SDP_COMPRESSION;
+                                opt->requested_compression = "lavc:enc=libx264:safe";
                         } else {
                                 opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                         }
@@ -1131,8 +1131,8 @@ static int adjust_params(struct ug_options *opt) {
         const bool tx_audio_std = strcasecmp(opt->audio.proto, "rtsp") == 0 ||
                                   strcasecmp(opt->audio.proto, "sdp") == 0;
         if (opt->audio.codec_cfg == nullptr) {
-                opt->audio.codec_cfg = tx_audio_std ? "Opus:sample_rate=48000"
-                                                    : DEFAULT_AUDIO_CODEC;
+                opt->audio.codec_cfg =
+                    tx_audio_std ? "mp3" : DEFAULT_AUDIO_CODEC;
         }
 
         if (tx_audio_std && audio_capture_channels == 0) {

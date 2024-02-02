@@ -52,8 +52,6 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
-#define DEFAULT_SDP_COMPRESSION "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh:disable_interlaced_dct"
-
 int sdp_set_options(const char *options);
 void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio);
 
