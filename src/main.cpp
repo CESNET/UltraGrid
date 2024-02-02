@@ -603,8 +603,8 @@ static int parse_audio_capture(struct ug_options *opt, char *optarg) {
                 return 1;
         }
         if (string(opt->audio.send_cfg) != ug_options().audio.send_cfg &&
-            !!audio_capture_get_vidcap_flags(opt->audio.send_cfg) !=
-                !!audio_capture_get_vidcap_flags(optarg)) {
+            (audio_capture_get_vidcap_flags(opt->audio.send_cfg) == 0 ||
+             audio_capture_get_vidcap_flags(optarg) == 0)) {
                 log_msg(LOG_LEVEL_ERROR, "Multiple audio devices given! Only "
                                          "allowed for video-attached audio "
                                          "connection (AESEBU/analog/embedded).\n");
