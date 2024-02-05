@@ -155,11 +155,13 @@ static struct sdp *new_sdp(bool ipv6, const char *receiver) {
     if (is_addr_multicast(receiver)) {
         connection_address = receiver;
     }
-    strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", sdp->ip_version, origin_address);
-    strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", sdp->ip_version, connection_address);
-    strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
+    strncpy(sdp->version, "v=0\r\n", STR_LENGTH - 1);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\r\n", sdp->ip_version,
+             origin_address);
+    strncpy(sdp->session_name, "s=Ultragrid streams\r\n", STR_LENGTH - 1);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\r\n", sdp->ip_version,
+             connection_address);
+    strncpy(sdp->times, "t=0 0\r\n", STR_LENGTH - 1);
 
 #ifdef SDP_HTTP
     serverInit(&sdp->http_server);
@@ -269,7 +271,9 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     }
     const int pt = get_audio_rtp_pt_rtpmap(codec, sample_rate, channels,
                                            sdp_state->stream[index].rtpmap);
-    snprintf(sdp_state->stream[index].media_info, sizeof sdp_state->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
+    snprintf(sdp_state->stream[index].media_info,
+             sizeof sdp_state->stream[index].media_info,
+             "m=audio %d RTP/AVP %d\r\n", port, pt);
     sdp_state->audio_set = true;
     start();
 
@@ -299,9 +303,12 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
     if (index < 0) {
         return -1;
     }
-    snprintf(sdp_state->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
+    snprintf(sdp_state->stream[index].media_info, STR_LENGTH,
+             "m=video %d RTP/AVP %d\r\n", port,
+             codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
     if (codec == H264) {
-        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_DynRTP_Type96);
+        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH,
+                 "a=rtpmap:%d H264/90000\r\n", PT_DynRTP_Type96);
     }
 
     sdp_state->video_set = true;
@@ -330,7 +337,7 @@ static bool gen_sdp() {
         strappend(&buf, &len, sdp_state->stream[i].media_info);
         strappend(&buf, &len, sdp_state->stream[i].rtpmap);
     }
-    strappend(&buf, &len, "\n");
+    strappend(&buf, &len, "\r\n");
 
     printf("Printed version:\n%s", buf);
 
@@ -343,7 +350,7 @@ static bool gen_sdp() {
         strncpy(sdp_filename, get_temp_dir(), sizeof sdp_filename - 1);
         strncat(sdp_filename, SDP_FILE, sizeof sdp_filename - strlen(sdp_filename) - 1);
     }
-    FILE *fOut = fopen(sdp_filename, "w");
+    FILE *fOut = fopen(sdp_filename, "wb");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file %s: %s\n", sdp_filename, ug_strerror(errno));
     } else {
@@ -375,8 +382,8 @@ void clean_sdp(struct sdp *sdp){
 // --------------------------------------------------------------------
 #ifdef SDP_HTTP
 
-#define ROBOTS_TXT "User-agent: *\nDisallow: /\n"
-#define SECURITY_TXT "Contact: http://www.ultragrid.cz/contact\n"
+#define ROBOTS_TXT "User-agent: *\r\nDisallow: /\r\n"
+#define SECURITY_TXT "Contact: http://www.ultragrid.cz/contact\r\n"
 
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     struct sdp *sdp = connection->server->tag;
