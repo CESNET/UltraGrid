@@ -877,10 +877,13 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
 static bool
 validate_std_audio(const audio_frame2 * buffer, int payload_size, int data_len)
 {
-        if (buffer->get_codec() == AC_OPUS &&
+        if ((buffer->get_codec() == AC_MP3 ||
+             buffer->get_codec() == AC_OPUS) &&
             buffer->get_channel_count() > 1) { // we cannot interleave Opus here
-                MSG(ERROR, "Opus can currently have only 1 channel in "
-                           "RFC-compliant mode! Discarding...\n");
+                MSG(ERROR,
+                    "%s can currently have only 1 channel in "
+                    "RFC-compliant mode! Discarding...\n",
+                    get_name_to_audio_codec(buffer->get_codec()));
                 return false;
         }
         if (buffer->get_codec() == AC_OPUS && payload_size < data_len) {
