@@ -155,13 +155,14 @@ static struct sdp *new_sdp(bool ipv6, const char *receiver) {
     if (is_addr_multicast(receiver)) {
         connection_address = receiver;
     }
-    strncpy(sdp->version, "v=0\r\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\r\n", sdp->ip_version,
-             origin_address);
-    strncpy(sdp->session_name, "s=Ultragrid streams\r\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\r\n", sdp->ip_version,
-             connection_address);
-    strncpy(sdp->times, "t=0 0\r\n", STR_LENGTH - 1);
+    snprintf(sdp->version, sizeof sdp->version, "v=0\r\n");
+    snprintf(sdp->origin, sizeof sdp->origin, "o=- 0 0 IN IP%d %s\r\n",
+             sdp->ip_version, origin_address);
+    snprintf(sdp->session_name, sizeof sdp->session_name,
+             "s=Ultragrid streams\r\n");
+    snprintf(sdp->connection, sizeof sdp->connection, "c=IN IP%d %s\r\n",
+             sdp->ip_version, connection_address);
+    snprintf(sdp->times, sizeof sdp->times,  "t=0 0\r\n");
 
 #ifdef SDP_HTTP
     serverInit(&sdp->http_server);
@@ -303,11 +304,13 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
     if (index < 0) {
         return -1;
     }
-    snprintf(sdp_state->stream[index].media_info, STR_LENGTH,
+    snprintf(sdp_state->stream[index].media_info,
+             sizeof sdp_state->stream[index].media_info,
              "m=video %d RTP/AVP %d\r\n", port,
              codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
     if (codec == H264) {
-        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH,
+        snprintf(sdp_state->stream[index].rtpmap,
+                 sizeof sdp_state->stream[index].rtpmap,
                  "a=rtpmap:%d H264/90000\r\n", PT_DynRTP_Type96);
     }
 
