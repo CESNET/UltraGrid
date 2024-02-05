@@ -63,6 +63,7 @@
 #include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/misc.h"
+#include "utils/macros.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
 #ifdef SDP_HTTP
@@ -203,6 +204,51 @@ static void start() {
 }
 
 /**
+ * @param rtpmapLine contains generated rtpmap if needed (== no static packet
+ *                   type), "" otherwise; should be at least STR_LEN long
+ */
+int
+get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
+                        char *rtpmapLine)
+{
+    int pt = PT_DynRTP_Type97; // default
+
+    if (sample_rate == kHz48 && channels == 1 &&
+        (codec == AC_ALAW || codec == AC_MULAW)) {
+        pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
+    }
+    if (codec == AC_MP3) {
+        pt = PT_MPA;
+    }
+
+    if (pt != PT_DynRTP_Type97) { // skip rtpmap creation
+        rtpmapLine[0] = '\0';
+        return pt;
+    }
+
+    const int sdp_ch_count =
+        codec == AC_OPUS ? 2 : channels; // RFC 7587 enforces 2 for Opus
+    const char *sdp_codec_name = NULL;
+    switch (codec) {
+    case AC_MULAW:
+        sdp_codec_name = "PCMU";
+        break;
+    case AC_ALAW:
+        sdp_codec_name = "PCMA";
+        break;
+    case AC_OPUS:
+        sdp_codec_name = "opus";
+        break;
+    default:
+        abort();
+    }
+
+    snprintf(rtpmapLine, STR_LEN, "a=rtpmap:%u %s/%d/%d\r\n",
+             pt, sdp_codec_name, sample_rate, sdp_ch_count);
+    return pt;
+}
+
+/**
  * @retval  0 ok
  * @retval -1 too much streams
  * @retval -2 unsupported codec
@@ -221,41 +267,9 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     if (index < 0) {
         return -1;
     }
-    int pt = PT_DynRTP_Type97; // default
-
-    if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
-	pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
-    }
-    if (codec == AC_MP3) {
-	pt = PT_MPA;
-    }
+    const int pt = get_audio_rtp_pt_rtpmap(codec, sample_rate, channels,
+                                           sdp_state->stream[index].rtpmap);
     snprintf(sdp_state->stream[index].media_info, sizeof sdp_state->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
-    if (pt == PT_DynRTP_Type97) { // we need rtpmap for our dynamic packet type
-	const char *audio_codec = NULL;
-        int ts_rate = sample_rate; // equals for PCMA/PCMU
-	switch (codec) {
-	    case AC_ALAW:
-		audio_codec = "PCMA";
-		break;
-	    case AC_MULAW:
-		audio_codec = "PCMU";
-		break;
-	    case AC_OPUS:
-		audio_codec = "opus";
-                ts_rate = 48000; // RFC 7587 specifies always 48 kHz for Opus
-		break;
-            default:
-                MSG(ERROR, "Currently only MP3, PCMA, PCMU and Opus audio "
-                           "codecs are supported!\n");
-                return -2;
-	}
-
-        const int sdp_ch_count =
-            codec == AC_OPUS ? 2 : channels; // RFC 7587 enforces 2 for Opus
-        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH,
-                 "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec,
-                 ts_rate, sdp_ch_count);
-    }
     sdp_state->audio_set = true;
     start();
 
