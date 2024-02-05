@@ -49,6 +49,8 @@
 #include <GroupsockHelper.hh>
 
 #include "messaging.h"
+#include "utils/macros.h"
+#include "utils/sdp.h"
 
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
@@ -132,28 +134,17 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		unsigned estBitrate = 384;
 		char const* mediaType = "audio";
 		AddressString ipAddressStr(fServerAddressForSDP);
-		uint8_t rtpPayloadType;
 
-		if (audio_sample_rate == 8000 && audio_channels == 1) { //NOW NOT COMPUTING 1 BPS BECAUSE RESAMPLER FORCES TO 2 BPS...
-			if (audio_codec == AC_MULAW)
-				rtpPayloadType = 0;
-			else if (audio_codec == AC_ALAW)
-				rtpPayloadType = 8;
-			else rtpPayloadType = 97;
-		} else {
-			rtpPayloadType = 97;
-		}
-
-		char* rtpmapLine = strdup("a=rtpmap:97 PCMU/48000/2\n"); //only to alloc max possible size
+                char rtpmapLine[STR_LEN];
 		//char const* auxSDPLine = "";
+                const uint8_t rtpPayloadType = get_audio_rtp_pt_rtpmap(
+                    audio_codec, audio_sample_rate, audio_channels, rtpmapLine);
 
-		const int sdp_ch_count = audio_codec == AC_OPUS ? 2 :
-			audio_channels; // RFC 7587 enforces 2 for Opus
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
 				"b=AS:%u\r\n"
 				"a=rtcp:%d\r\n"
-				"a=rtpmap:%u %s/%d/%d\r\n"
+				"%s"
 				"a=control:%s\r\n";
 		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
 				+ 3 /* max char len */
@@ -167,16 +158,11 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				rtpPayloadType, // m= <fmt list>
 				ipAddressStr.val(), // c= address
 				estBitrate, // b=AS:<bandwidth>
-				//rtpmapLine, // a=rtpmap:... (if present)
 				rtp_port_audio + 1,
-				rtpPayloadType,
-				audio_codec == AC_MULAW ? "PCMU" : audio_codec == AC_ALAW ? "PCMA" : "opus",
-				audio_sample_rate,
-				sdp_ch_count,
+				rtpmapLine, // a=rtpmap:... (if present)
 				trackId()); // a=control:<track-id>
 
 		fSDPLines = sdpLines;
-		free(rtpmapLine);
 	}
 }
 
