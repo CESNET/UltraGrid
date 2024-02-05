@@ -874,6 +874,22 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         report_stats(tx, rtp_session, data_sent);
 }
 
+static bool
+validate_std_audio(const audio_frame2 * buffer, int payload_size, int data_len)
+{
+        if (buffer->get_codec() == AC_OPUS &&
+            buffer->get_channel_count() > 1) { // we cannot interleave Opus here
+                MSG(ERROR, "Opus can currently have only 1 channel in "
+                           "RFC-compliant mode! Discarding...\n");
+                return false;
+        }
+        if (buffer->get_codec() == AC_OPUS && payload_size < data_len) {
+                MSG(ERROR, "Opus frame larger than packet! Discarding...\n");
+                return false;
+        }
+        return true;
+}
+
 /**
  * audio_tx_send_standard - Send interleaved channels from the audio_frame2,
  *                       	as the mulaw and A-law standards (dynamic or std PT).
@@ -885,13 +901,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                buffer->get_codec() == AC_ALAW ||
                buffer->get_codec() == AC_MP3 ||
                buffer->get_codec() == AC_OPUS);
-
-        if (buffer->get_codec() == AC_OPUS &&
-            buffer->get_channel_count() > 1) { // we cannot interleave Opus here
-                MSG(ERROR, "Opus can currently have only 1 channel in "
-                           "RFC-compliant mode! Discarding...\n");
-                return;
-        }
 
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
@@ -916,12 +925,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	int data_len = buffer->get_data_len(0) * buffer->get_channel_count(); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
-        if (buffer->get_codec() == AC_OPUS) { // OPUS needs to fit one package
-                if (payload_size < data_len) {
-                        log_msg(LOG_LEVEL_ERROR, "Transmit: Opus frame larger than packet! Discarding...\n");
-                        return;
-                }
-        }
         if (pt == PT_ITU_T_G711_PCMU ||
             pt == PT_ITU_T_G711_PCMA) { // we may split the data into more
                                         // packets, compute chunk size
@@ -930,6 +933,10 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
         } else if (pt == PT_MPA) {
                 payload_size -= sizeof(mpa_hdr_t);
+        }
+
+        if (!validate_std_audio(buffer, payload_size, data_len)) {
+                return;
         }
 
 	int pos = 0;
