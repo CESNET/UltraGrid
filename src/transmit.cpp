@@ -875,18 +875,21 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
 }
 
 static bool
-validate_std_audio(const audio_frame2 * buffer, int payload_size, int data_len)
+validate_std_audio(const audio_frame2 * buffer, int payload_size)
 {
         if ((buffer->get_codec() == AC_MP3 ||
              buffer->get_codec() == AC_OPUS) &&
             buffer->get_channel_count() > 1) { // we cannot interleave Opus here
-                MSG(ERROR,
-                    "%s can currently have only 1 channel in "
-                    "RFC-compliant mode! Discarding...\n",
-                    get_name_to_audio_codec(buffer->get_codec()));
-                return false;
+                const uint32_t msg_id = to_fourcc('t', 'x', 'v', 'a');
+                log_msg_once(LOG_LEVEL_ERROR, msg_id,
+                             MOD_NAME
+                             "%s can currently have only 1 channel in "
+                             "RFC-compliant mode! Discarding channels but the "
+                             "first one...\n",
+                             get_name_to_audio_codec(buffer->get_codec()));
         }
-        if (buffer->get_codec() == AC_OPUS && payload_size < data_len) {
+        if (buffer->get_codec() == AC_OPUS &&
+            payload_size < (int) buffer->get_data_len(0)) {
                 MSG(ERROR, "Opus frame larger than packet! Discarding...\n");
                 return false;
         }
@@ -921,11 +924,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 pt = PT_MPA;
         }
 
-        // The sizes for the different audio_frame2 channels must be the same.
-	for (int i = 1; i < buffer->get_channel_count(); i++)
-		assert(buffer->get_data_len(0) == buffer->get_data_len(i));
-
-	int data_len = buffer->get_data_len(0) * buffer->get_channel_count(); 	/* Number of samples to send 			*/
+	int data_len = buffer->get_data_len(0); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
         if (pt == PT_ITU_T_G711_PCMU ||
@@ -934,11 +933,17 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 int frame_size =
                     buffer->get_channel_count() * buffer->get_bps();
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
+                // The sizes for the different channels must be the same.
+                for (int i = 1; i < buffer->get_channel_count(); i++) {
+                        assert(buffer->get_data_len(0) ==
+                               buffer->get_data_len(i));
+                }
+                data_len *= buffer->get_channel_count();
         } else if (pt == PT_MPA) {
                 payload_size -= sizeof(mpa_hdr_t);
         }
 
-        if (!validate_std_audio(buffer, payload_size, data_len)) {
+        if (!validate_std_audio(buffer, payload_size)) {
                 return;
         }
 
@@ -946,7 +951,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	do {
                 int pkt_len = std::min(payload_size, data_len - pos);
 
-                // interleave
                 if (buffer->get_codec() == AC_OPUS) {
                         memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
                 } else if (buffer->get_codec() == AC_MP3) {
@@ -955,7 +959,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                         memcpy(tx->tmp_packet + 2, &offset, sizeof offset);
                         pkt_len += sizeof(mpa_hdr_t);
                         memcpy(tx->tmp_packet + 4, buffer->get_data(0), pkt_len);
-                } else {
+                } else { // interleave
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
                                 remux_channel(tx->tmp_packet, buffer->get_data(ch) + pos / buffer->get_channel_count(), buffer->get_bps(), pkt_len / buffer->get_channel_count(), 1, buffer->get_channel_count(), 0, ch);
                         }
