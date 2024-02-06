@@ -35,20 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/color_out.h"
-#include "video.h"
-#include "video_capture.h"
-
 #import <AVFoundation/AVFoundation.h>
 #include <AppKit/NSApplication.h>
-#include <Availability.h>
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
@@ -56,6 +44,12 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+
+#include "debug.h"
+#include "lib_common.h"
+#include "utils/color_out.h"
+#include "video.h"
+#include "video_capture.h"
 
 #define MOD_NAME "[AVFoundation] "
 
@@ -66,11 +60,11 @@
 #define DESK_VIEW_IF_DEFINED ,AVCaptureDeviceTypeDeskViewCamera
 #else
 #define DESK_VIEW_IF_DEFINED
-#endif
+#endif // mac 14
 
-#if ! defined __MAC_14_0
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 140000
 #define AVCaptureDeviceTypeExternal AVCaptureDeviceTypeExternalUnknown
-#endif
+#endif // < mac 14
 
 using std::string;
 
@@ -134,7 +128,8 @@ fromConnection:(AVCaptureConnection *)connection;
 /// sort devices according to UID because macOS orders last used device first (doesn't keep stable order)
 +(NSArray *) devices
 {
-#if defined __MAC_10_15 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_15
+
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101500
         AVCaptureDeviceDiscoverySession *discoverySession =
             [AVCaptureDeviceDiscoverySession
                 discoverySessionWithDeviceTypes:@[
@@ -208,7 +203,7 @@ fromConnection:(AVCaptureConnection *)connection;
         col() << "(type '-t avfoundation:fullhelp' to see available framerates; device marked with an asterisk ('*') is default)" << "\n";
 }
 
-#ifdef __MAC_10_14
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
 // http://anasambri.com/ios/accessing-camera-and-photos-in-ios.html
 static void (^cb)(BOOL) = ^void(BOOL granted) {
         if (!granted) {
@@ -217,7 +212,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                                 });
         }
 };
-#endif // defined __MAC_10_14
+#endif // at least mac 10.14
 
 - (id)initWithParams: (NSDictionary *) params
 {
@@ -228,7 +223,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 	m_frames = 0;
         m_fps_req = 0.0;
 
-#ifdef __MAC_10_14
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
         if (authorization_status == AVAuthorizationStatusRestricted ||
                         authorization_status == AVAuthorizationStatusDenied) {
@@ -237,7 +232,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         if (authorization_status == AVAuthorizationStatusNotDetermined) {
                 [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:cb];
         }
-#endif // defined __MAC_10_14
+#endif // at least mac 10.14
 
         NSError *error = nil;
 
