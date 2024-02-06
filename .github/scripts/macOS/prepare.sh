@@ -46,7 +46,12 @@ cd $TEMP_INST
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {
-        hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
+        installer=/private/var/tmp/XIMEA_OSX_SP.dmg
+        if [ ! -f $installer ]; then
+                curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP\
+.dmg -o $installer
+        fi
+        hdiutil mount $installer
         sudo cp -a /Volumes/XIMEA/m3api.framework "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
         sudo xattr -dr com.apple.quarantine "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
         umount /Volumes/XIMEA
@@ -86,7 +91,12 @@ install_glfw() {(
 
 # Install NDI
 install_ndi() {
-        sudo installer -pkg /private/var/tmp/Install_NDI_SDK_Apple.pkg -target /
+        installer=/private/var/tmp/Install_NDI_SDK_Apple.pkg
+        if [ ! -f $installer ]; then
+                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_\
+SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
+        fi
+        sudo installer -pkg $installer -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt | sudo tee /usr/local/include/ndi_version.h
         if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
