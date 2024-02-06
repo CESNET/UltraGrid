@@ -10,11 +10,12 @@ TEMP_INST=/tmp/install
 
 if [ -z "${GITHUB_ENV-}" ]; then
         GITHUB_ENV=/dev/null
+        GITHUB_PATH=/dev/null
 fi
 
-CPATH=/usr/local/include
-DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
-LIBRARY_PATH=/usr/local/lib
+export CPATH=/usr/local/include
+export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
+export LIBRARY_PATH=/usr/local/lib
 # shellcheck disable=SC2140
 printf "%b" \
 "CPATH=$CPATH\n"\
@@ -39,115 +40,15 @@ include/vulkan/vulkan_hpp_macros.hpp -o /usr/local/include/vulkan/\
 vulkan_hpp_macros.hpp
 fi
 
-.github/scripts/macOS/install_dylibbundler_v2.sh
-
 mkdir $TEMP_INST
 cd $TEMP_INST
 
-# Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
-install_ximea() {
-        installer=/private/var/tmp/XIMEA_OSX_SP.dmg
-        if [ ! -f $installer ]; then
-                curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP\
-.dmg -o $installer
-        fi
-        hdiutil mount $installer
-        sudo cp -a /Volumes/XIMEA/m3api.framework "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-        sudo xattr -dr com.apple.quarantine "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-        umount /Volumes/XIMEA
-}
-
-install_aja() {
-        AJA_DIRECTORY=/private/var/tmp/ntv2sdk
-        git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
-        cd $AJA_DIRECTORY
-        echo "AJA_DIRECTORY=$AJA_DIRECTORY" >>"$GITHUB_ENV"
-        "$srcroot/.github/scripts/download-gh-asset.sh" aja-video/ntv2 \
-                libs_mac_ aja_build.tar.gz
-        tar xzf aja_build.tar.gz
-        sudo cp Release/x64/* /usr/local/lib/
-        cd $TEMP_INST
-}
-
-install_deltacast() {
-        DELTA_CACHE_INST=${SDK_NONFREE_PATH-nonexistent}/VideoMasterHD_inst
-        if [ ! -d "$DELTA_CACHE_INST" ]; then
-                return 0
-        fi
-        FEATURES="$FEATURES --enable-deltacast"
-        echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
-        sudo cp -a "$DELTA_CACHE_INST"/* "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-}
-
-install_glfw() {(
-        git clone --depth 500 https://github.com/glfw/glfw.git
-        cd glfw
-        git fetch --depth 500 https://github.com/MartinPulec/glfw.git
-        git merge FETCH_HEAD
-        cmake -DBUILD_SHARED_LIBS=ON .
-        cmake --build . -j "$(sysctl -n hw.ncpu)"
-        sudo cmake --install .
-)}
-
-# Install NDI
-install_ndi() {
-        installer=/private/var/tmp/Install_NDI_SDK_Apple.pkg
-        if [ ! -f $installer ]; then
-                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_\
-SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
-        fi
-        sudo installer -pkg $installer -target /
-        sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
-        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt | sudo tee /usr/local/include/ndi_version.h
-        if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
-                cd /Library/NDI/lib/x64
-                sudo ln -s libndi.?.dylib libndi.dylib
-                NDI_LIB=/Library/NDI/lib/x64
-        else # NDI 5
-                NDI_LIB=/Library/NDI/lib/macOS
-        fi
-        export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
-        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $NDI_LIB"
-        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
-        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
-        printf '%b' "CPATH=$CPATH\nDYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS\nLIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> "$GITHUB_ENV"
-        cd $TEMP_INST
-}
-
-install_live555() {
-        git clone https://github.com/xanview/live555/
-        cd live555
-        git checkout 35c375
-        ./genMakefiles macosx
-        make -j "$(sysctl -n hw.ncpu)" install
-        cd ..
-}
-
-install_soundfont() {
-        . "$srcroot/.github/scripts/defs.sh"
-        sf_dir="$srcroot/data/MacOS-bundle-template/Contents/share/soundfonts"
-        mkdir -p "$sf_dir"
-        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
-}
-
-install_syphon() {
-        curl -LO https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
-        unzip Syphon.SDK.5.zip
-        sudo cp -R 'Syphon SDK 5/Syphon.framework' \
-                "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-}
+"$srcroot/.github/scripts/macOS/install_dylibbundler_v2.sh"
 
 # Install cross-platform deps
 "$srcroot/.github/scripts/install-common-deps.sh"
 
-install_aja
-install_deltacast
-install_glfw
-install_live555
-install_ndi
-install_soundfont
-install_syphon
-install_ximea
+"$srcroot/.github/scripts/macOS/install_others.sh"
 
 # Remove installation files
 cd
