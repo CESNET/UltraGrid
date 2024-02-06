@@ -1,4 +1,4 @@
-#!/bin/sh -eux
+#!/bin/sh -eu
 ##
 ## Signs given application bundle
 ##
@@ -9,9 +9,27 @@
 ## - **apple_key_p12_b64**  - base64-encoded $KEY_FILE (using password $KEY_FILE_PASS)
 ## - **notarytool_credentials** - developer credentials to be used with notarytool (in format user:password:team_id)
 
+if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] ||
+                [ "$1" = help ]; }; then
+        printf "Usage:\n"
+        printf "\t%s [--sign-only] <bundle_path>\n" "$0"
+        printf "\nSigns and notarizes the application bundle.\n"
+        printf "\nUse \"--sign-only\" to skip application notarization.\n"
+        exit 0
+fi
+
+sign_only=
+if [ "${1-}" = --sign-only ]; then
+        sign_only=1
+        shift
+fi
+
+set -x
+
 APP=${1?Appname must be passed as a first argument}
 
-if [ -z "$apple_key_p12_b64" ] || [ -z "$notarytool_credentials" ]; then
+if [ -z "$apple_key_p12_b64" ] ||
+                { [ -z "$notarytool_credentials" ] && [ ! $sign_only ]; }; then
         echo "Could not find key to sign the application" 2>&1
         if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then
                 exit 1
@@ -19,6 +37,7 @@ if [ -z "$apple_key_p12_b64" ] || [ -z "$notarytool_credentials" ]; then
                 exit 0
         fi
 fi
+
 
 # Import keys
 # Inspired by https://www.update.rocks/blog/osx-signing-with-travis/
@@ -39,6 +58,10 @@ for f in $(find "$APP/Contents/libs" -type f) $APP; do
         codesign --force --deep -s CESNET --options runtime --entitlements data/entitlements.mac.plist -v "$f"
 done
 #codesign --force --deep -s CESNET --options runtime -v $APP/Contents/MacOS/uv-qt
+
+if [ $sign_only ]; then
+        exit 0
+fi
 
 # Zip and send for notarization
 ZIP_FILE=uv-qt.zip
