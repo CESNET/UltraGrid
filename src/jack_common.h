@@ -4,7 +4,7 @@
  *         Martin Pulec      <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -171,7 +171,8 @@ static struct libjack_connection *open_libjack(void)
 #ifdef __aarch64__
                 "/opt/homebrew/lib/libjack.dylib",
 #endif // defined __aarch64__
-                "libjack.dylib"
+                "libjack.dylib",
+                "/usr/local/lib/libjack.dylib"
 #elif defined(__linux__)
                 "libjack.so"
 #endif
