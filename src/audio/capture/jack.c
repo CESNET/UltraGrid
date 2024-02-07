@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,11 +35,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <jack/jack.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
@@ -49,16 +48,14 @@
 #include "host.h"
 #include "jack_common.h"
 #include "lib_common.h"
-#include "utils/ring_buffer.h"
 #include "utils/macros.h"
+#include "utils/ring_buffer.h"
 
-#include <jack/jack.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define MAX_PORTS 64
 #define MOD_NAME "[JACK capture] "
+
+enum {
+        MAX_PORTS = 64,
+};
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,12 +40,6 @@
  * It looks like there is no jack_stop()?
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <jack/jack.h>
 #include <limits.h>
 #include <stdio.h>
@@ -56,8 +50,8 @@
 #include "audio/types.h"
 #include "jack_common.h"
 #include "pthread.h"
-#include "rtp/rtp.h"
 #include "rtp/pbuf.h"
+#include "rtp/rtp.h"
 
 #define CLIENT_NAME "UltraGrid Transport"
 #define BUFF_ELEM (1<<16)

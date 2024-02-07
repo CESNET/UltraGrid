@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,32 +35,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <jack/jack.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
+#include "jack_common.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
 #include "utils/macros.h"
 #include "utils/ring_buffer.h"
-#include "jack_common.h"
 
-#include <jack/jack.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#define DEFAULT_AUDIO_BUF_LEN_MS 50
-#define MAX_LEN_MS 1000
-#define MAX_PORTS 64
 #define MOD_NAME "[JACK playback] "
+
+enum {
+        DEFAULT_AUDIO_BUF_LEN_MS = 50,
+        MAX_LEN_MS               = 1000,
+        MAX_PORTS                = 64,
+};
 
 struct state_jack_playback {
         struct libjack_connection *libjack;

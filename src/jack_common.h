@@ -40,8 +40,12 @@
 #define JACK_COMMON_H
 
 #ifdef __cplusplus
+#include <cassert>
+#include <cerrno>
 #include <cstring>
 #else
+#include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <string.h>
 #endif // ! defined __cplusplus
