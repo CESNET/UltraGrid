@@ -114,7 +114,7 @@
 #endif
 
 enum {
-        STR_LEN = 1024, ///< "standard" string length placeholder
+        STR_LEN = 2048, ///< "standard" string length placeholder
 };
 
 /// expands to true value if <k> from tok in format <k>=<v> is prefix of key

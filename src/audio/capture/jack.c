@@ -41,9 +41,6 @@
 #include "config_win32.h"
 #endif
 
-#define MAX_PORTS 64
-#define MOD_NAME "[JACK capture] "
-
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "audio/utils.h"
@@ -59,6 +56,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MAX_PORTS 64
+#define MOD_NAME "[JACK capture] "
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);

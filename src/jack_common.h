@@ -39,8 +39,11 @@
 #ifndef JACK_COMMON_H
 #define JACK_COMMON_H
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+#include <cstring>
+#else
 #include <stdbool.h>
+#include <string.h>
 #endif // ! defined __cplusplus
 
 #include <jack/jack.h>
@@ -50,11 +53,14 @@
 #include "compat/dlfunc.h"
 #include "debug.h"
 #include "types.h"
+#include "utils/macros.h"
 
 #if defined (__linux__) && defined (_GNU_SOURCE)
 #include "utils/fs.h"
 #define HAVE_DLINFO 1
 #endif
+
+#define MOD_NAME "[jack_common] "
 
 typedef int (*jack_activate_t)(jack_client_t *client) JACK_OPTIONAL_WEAK_EXPORT;
 typedef int (*jack_client_close_t)(jack_client_t *client) JACK_OPTIONAL_WEAK_EXPORT;
@@ -158,19 +164,32 @@ static struct libjack_connection *open_libjack(void)
         }
 #endif
 
-        const char *shlib =
+        const char *shlib[] = {
 #ifdef _WIN32
-                "C:/Windows/libjack64.dll";
-#elif defined (__APPLE__)
-                "libjack.dylib";
-#elif defined (__linux__)
-                "libjack.so";
-#else
-                "";
+                "C:/Windows/libjack64.dll"
+#elif defined(__APPLE__)
+#ifdef __aarch64__
+                "/opt/homebrew/lib/libjack.dylib",
+#endif // defined __aarch64__
+                "libjack.dylib"
+#elif defined(__linux__)
+                "libjack.so"
 #endif
-        s->libjack = dlopen(shlib, RTLD_NOW);
+        };
+        char err[STR_LEN];
+        err[0] = '\0';
+        for (unsigned i = 0; i < sizeof shlib / sizeof shlib[0]; ++i) {
+                s->libjack = dlopen(shlib[i], RTLD_NOW);
+                if (s->libjack != NULL) {
+                        MSG(VERBOSE, "library loaded from: %s\n", shlib[i]);
+                        break;
+                }
+                snprintf(err + strlen(err), sizeof err - strlen(err),
+                         "JACK library \"%s\" opening failed: %s\n", shlib[i],
+                         dlerror());
+        }
         if (s->libjack == NULL) {
-                log_msg(LOG_LEVEL_ERROR, "JACK library \"%s\" opening failed: %s\n", shlib, dlerror());
+                log_msg(LOG_LEVEL_ERROR, "%s", err);
                 free(s);
                 return NULL;
         }
@@ -257,6 +276,7 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         return available_devices;
 }
 
+#undef MOD_NAME
 
 #endif //JACK_COMMON_H
 
