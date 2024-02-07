@@ -116,6 +116,8 @@ struct sdp {
     char times[STR_LENGTH];
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
+    int audio_index;
+    int video_index;
     char *sdp_dump;
     void (*audio_address_callback)(void *udata, const char *address);
     void *audio_address_callback_udata;
@@ -132,9 +134,10 @@ static void sdp_stop_http_server(struct sdp *sdp);
 static void clean_sdp(struct sdp *sdp);
 
 static struct sdp *new_sdp(bool ipv6, const char *receiver) {
-    struct sdp *sdp;
-    sdp = calloc(1, sizeof(struct sdp));
+    struct sdp *sdp = calloc(1, sizeof(*sdp));
     assert(sdp != NULL);
+    sdp->audio_index = -1;
+    sdp->video_index = -1;
     sdp->ip_version = ipv6 ? 6 : 4;
     const char *ip_loopback;
     if (sdp->ip_version == 6) {
@@ -276,6 +279,7 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     if (index < 0) {
         return -1;
     }
+    sdp_state->audio_index = index;
     const int pt = get_audio_rtp_pt_rtpmap(codec, sample_rate, channels,
                                            sdp_state->stream[index].rtpmap);
     snprintf(sdp_state->stream[index].media_info,
@@ -310,6 +314,7 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
     if (index < 0) {
         return -1;
     }
+    sdp_state->video_index = index;
     snprintf(sdp_state->stream[index].media_info,
              sizeof sdp_state->stream[index].media_info,
              "m=video %d RTP/AVP %d\r\n", port,
@@ -444,6 +449,32 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
     return (THREAD_RETURN_TYPE) 0;
 }
 
+/**
+ * prints direct RTP URL for streams that can be decoded without
+ * the SDP (using static packet type)
+ */
+static void
+print_std_rtp_urls(struct sdp *sdp, bool ipv6) {
+    const char *const bind_addr = ipv6 ? "[::]" : "0.0.0.0";
+    int               port      = 0;
+    if (sdp->audio_index >= 0 &&
+        sdp->stream[sdp->audio_index].rtpmap[0] == '\0') {
+        if (sscanf(sdp_state->stream[sdp->audio_index].media_info, "%*[^ ] %d",
+                   &port) == 1) {
+            MSG(NOTICE, "audio can be played directly with rtp://%s:%d\n",
+                bind_addr, port);
+        }
+    }
+    if (sdp->video_index >= 0 &&
+        sdp->stream[sdp->video_index].rtpmap[0] == '\0') {
+        if (sscanf(sdp_state->stream[sdp->video_index].media_info, "%*[^ ] %d",
+                   &port) == 1) {
+            MSG(NOTICE, "video can be played directly with rtp://%s:%d\n",
+                bind_addr, port);
+        }
+    }
+}
+
 static void print_http_path(struct sdp *sdp) {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
@@ -472,6 +503,7 @@ static void print_http_path(struct sdp *sdp) {
                     "http://%s%s%s:%u/%s\n",
                     recv_str, ipv6 ? "[" : "", hostname, ipv6 ? "]" : "",
                     portInHostOrder, SDP_FILE);
+                print_std_rtp_urls(sdp, ipv6);
             }
         }
     }
