@@ -185,8 +185,9 @@ void *video_rxtx::sender_loop() {
                 shared_ptr<video_frame> tx_frame;
 
                 tx_frame = compress_pop(m_compression);
-                if (!tx_frame)
-                        goto exit;
+                if (!tx_frame) {
+                        break;
+                }
 
                 export_video(m_exporter, tx_frame.get());
 
@@ -194,7 +195,7 @@ void *video_rxtx::sender_loop() {
                 m_frames_sent += 1;
         }
 
-exit:
+        check_sender_messages();
         return NULL;
 }
 

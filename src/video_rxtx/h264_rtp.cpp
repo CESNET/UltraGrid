@@ -110,8 +110,8 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 
 void h264_rtp_video_rxtx::join()
 {
-        video_rxtx::join();
         c_stop_server(m_rtsp_server);
+        video_rxtx::join();
 }
 
 static void rtps_server_usage(){
