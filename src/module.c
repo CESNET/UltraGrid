@@ -135,6 +135,10 @@ void module_done(struct module *module_data)
 
         if(simple_linked_list_size(tmp.msg_queue) > 0) {
                 fprintf(stderr, "Warning: Message queue not empty!\n");
+                if (log_level >= LOG_LEVEL_VERBOSE) {
+                        printf("Path: ");
+                        dump_parents(&tmp);
+                }
                 struct message *m;
                 while ((m = check_message(&tmp))) {
                         free_message(m, NULL);
@@ -330,6 +334,21 @@ void dump_tree(struct module *node, int indent) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
+}
+
+void
+dump_parents(struct module *node)
+{
+        bool first = true;
+        while (node != NULL) {
+                if (!first) {
+                        printf("<-");
+                }
+                printf("%s", module_class_name(node->cls));
+                first = false;
+                node  = get_parent_module(node);
+        }
+        printf("\n");
 }
 
 /**

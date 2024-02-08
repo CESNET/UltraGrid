@@ -191,6 +191,7 @@ struct module *get_root_module(struct module *node);
 struct module *get_parent_module(struct module *node);
 
 void dump_tree(struct module *root, int indent);
+void dump_parents(struct module *node);
 
 #define CAST_MODULE(x) ((struct module *) x)
 
