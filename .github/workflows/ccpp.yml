@@ -145,7 +145,11 @@ jobs:
   macOS:
     name: run macOS
     needs: prepare
-    runs-on: macos-12
+    strategy:
+      matrix:
+        os: [macos-12, macos-14]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
