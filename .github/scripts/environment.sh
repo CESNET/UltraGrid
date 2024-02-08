@@ -28,7 +28,6 @@ export FEATURES="\
  --enable-aja\
  --enable-blank\
  --enable-caca\
- --enable-cineform\
  --enable-decklink\
  --enable-file\
  --enable-gl\
@@ -81,4 +80,9 @@ case "$RUNNER_OS" in
                 return 1
                 ;;
 esac
+
+if [ "$(uname -s)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then
+        FEATURES="$FEATURES --enable-cineform"
+fi
+
 printf '%b' "FEATURES=$FEATURES\n" >> "$GITHUB_ENV"

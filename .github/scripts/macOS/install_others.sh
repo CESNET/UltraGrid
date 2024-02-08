@@ -38,7 +38,7 @@ install_aja() {(
 
 install_deltacast() {(
         DELTA_CACHE_INST=${SDK_NONFREE_PATH-nonexistent}/VideoMasterHD_inst
-        if [ ! -d "$DELTA_CACHE_INST" ]; then
+        if [ ! -d "$DELTA_CACHE_INST" ] || [ "$(uname -m)" = arm64 ]; then
                 return 0
         fi
         FEATURES="$FEATURES --enable-deltacast"

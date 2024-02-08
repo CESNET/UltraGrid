@@ -15,7 +15,10 @@ if ! command -v nproc >/dev/null; then
         nproc() { sysctl -n hw.logicalcpu; } # mac
 fi
 
-is_arm() { expr "$(dpkg --print-architecture)" : arm >/dev/null; }
+is_arm() {
+        uname_m=$(uname -m)
+        expr "$uname_m" : arm > /dev/null || [ "$uname_m" = aarch64 ]
+}
 is_win() { [ "$win" = yes ]; }
 
 if is_win || [ "$(id -u)" -eq 0 ]; then
