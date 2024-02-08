@@ -34,7 +34,8 @@ EOF
 }
 
 if [ "$version" = master ]; then
-        url="https://github.com/CESNET/UltraGrid/releases/download/continuous/UltraGrid-continuous.dmg"
+        url="https://github.com/CESNET/UltraGrid/releases/download/continuous/\
+UltraGrid-$(uname -m)-continuous.dmg"
 else
         json=$(mktemp)
         curl https://api.github.com/repos/CESNET/UltraGrid/releases -o "$json"
@@ -43,7 +44,8 @@ else
                 echo "Version $current_ver is current."
                 exit 0
         fi
-        url=$(get_release_json_val "$json" 'assets.filter(item => item.name.match(".*dmg"))[0].browser_download_url')
+        url=$(get_release_json_val "$json" 'assets.filter(item => '\
+'item.name.match(".*'"$(uname -m)"'.*dmg"))[0].browser_download_url')
         rm "$json"
 fi
 
