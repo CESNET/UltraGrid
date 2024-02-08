@@ -94,7 +94,6 @@ public:
         Boolean reuseFirstSource,
         struct module *mod,
         rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
-    static volatile bool exitting; // fixme
 
 protected:
 

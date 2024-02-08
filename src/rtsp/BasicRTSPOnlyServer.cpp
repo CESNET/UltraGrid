@@ -153,7 +153,6 @@ void *BasicRTSPOnlyServer::start_server(void *args){
 	}
 
 	instance->env->taskScheduler().doEventLoop(watch); 
-    BasicRTSPOnlySubsession::exitting = true;
 
     Medium::close(instance->rtspServer);
     delete &instance->env->taskScheduler();
