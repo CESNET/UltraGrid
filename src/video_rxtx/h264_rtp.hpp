@@ -50,6 +50,7 @@ class h264_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
         virtual ~h264_rtp_video_rxtx();
+        void join() override;
 private:
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {

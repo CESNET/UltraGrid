@@ -105,8 +105,13 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 {
-        c_stop_server(m_rtsp_server);
         free(m_rtsp_server);
+}
+
+void h264_rtp_video_rxtx::join()
+{
+        video_rxtx::join();
+        c_stop_server(m_rtsp_server);
 }
 
 static void rtps_server_usage(){
