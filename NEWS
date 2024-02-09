@@ -24,6 +24,7 @@ next
 * added file (libavformat-backed) output
 * supported >8 bit transcoding in hd-rum-transcode and resize filter
 * improved DShow capture compatibility with new pixfmts + convert to RGB
+* added official mac arm64 build
 
 1.8
 ====
