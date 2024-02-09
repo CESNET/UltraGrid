@@ -80,7 +80,8 @@ install_pipewire() {(
 
 # FFmpeg master needs at least v1.3.238 as for 23th Aug '23
 install_vulkan() {(
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
+        # TOREMOVE: FFmpeg doesn't currently build with main (2024-02-09)
+        git clone -b v1.3.276 --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
         mkdir Vulkan-Headers/build
         cd Vulkan-Headers/build
         cmake ..
