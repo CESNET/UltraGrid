@@ -16,6 +16,11 @@ fi
 export CPATH=/usr/local/include
 export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 export LIBRARY_PATH=/usr/local/lib
+if [ "$(uname -m)" = arm64 ]; then
+        CPATH=/usr/local/include:/opt/homebrew/include
+        DYLIBBUNDLER_FLAGS="$DYLIBBUNDLER_FLAGS -s /opt/homebrew/lib"
+        LIBRARY_PATH="$LIBRARY_PATH:/opt/homebrew/lib"
+fi
 printf "%b" \
 "CPATH=$CPATH\n\
 LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
