@@ -91,7 +91,7 @@ install_live555() {(
         cd live555
         git checkout 35c375
         ./genMakefiles macosx
-        make -j "$(sysctl -n hw.ncpu)" install
+        sudo make -j "$(sysctl -n hw.ncpu)" install
 )}
 
 install_soundfont() {(

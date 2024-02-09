@@ -36,6 +36,7 @@ download_install_cineform() {(
 )}
 
 install_ews() {
+        sudo mkdir -p /usr/local/include
         sudo curl -LS https://raw.githubusercontent.com/hellerf/\
 EmbeddableWebServer/master/EmbeddableWebServer.h -o \
 /usr/local/include/EmbeddableWebServer.h
