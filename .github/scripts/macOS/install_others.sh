@@ -102,10 +102,20 @@ install_soundfont() {(
 )}
 
 install_syphon() {(
-        curl -LO https://github.com/Syphon/Syphon-Framework/releases/download/\
-5/Syphon.SDK.5.zip
-        unzip Syphon.SDK.5.zip
-        sudo cp -R 'Syphon SDK 5/Syphon.framework' \
+        if [ "$(uname -m)" = arm64 ]; then
+                git clone --depth 1 https://github.com/Syphon/\
+Syphon-Framework.git
+                cd Syphon-Framework
+                xcodebuild LD_DYLIB_INSTALL_NAME=@executable_path/../\
+Frameworks/Syphon.framework/Versions/A/Syphon
+                cd build/Release
+        else
+                curl -LO https://github.com/Syphon/Syphon-Framework/releases/\
+download/5/Syphon.SDK.5.zip
+                unzip Syphon.SDK.5.zip
+                cd 'Syphon SDK 5'
+        fi
+        sudo cp -R 'Syphon.framework' \
                 "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
 )}
 
