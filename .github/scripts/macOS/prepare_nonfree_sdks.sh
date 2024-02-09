@@ -17,6 +17,10 @@ sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD_Audio.fr
 sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
 #sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework libVideoMasterHD_SP.dylib $(xcrun --show-sdk-path)/System/Library/Frameworks
 mkdir "$DELTA_CACHE_INST"
-sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework "$DELTA_CACHE_INST/"
+cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework "$DELTA_CACHE_INST/"
+cd "$DELTA_CACHE_INST"
+security unlock-keychain -p "$KEY_CHAIN_PASS" "$KEY_CHAIN"
+codesign --force -s CESNET VideoMasterHD.framework VideoMasterHD_Audio.framework
 cd -
 sudo rm -rf /Library/Frameworks/VideoMasterHD* # ensure that only the copy above is used
+
