@@ -6,7 +6,8 @@
 ##  sign.sh <app_bundle_directory>
 ##
 ## Environment variables:
-## - **apple_key_p12_b64**  - base64-encoded $KEY_FILE (using password $KEY_FILE_PASS)
+## - **KEY_CHAIN**              - keychain containing the CESNET signing key
+## - **KEY_CHAIN_PASS**         - password to the above keychain
 ## - **notarytool_credentials** - developer credentials to be used with notarytool (in format user:password:team_id)
 
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] ||
@@ -28,7 +29,7 @@ set -x
 
 APP=${1?Appname must be passed as a first argument}
 
-if [ -z "$apple_key_p12_b64" ] ||
+if [ -z "$KEY_CHAIN" ] || [ -z "$KEY_CHAIN_PASS" ] ||
                 { [ -z "$notarytool_credentials" ] && [ ! $sign_only ]; }; then
         echo "Could not find key to sign the application" 2>&1
         if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then

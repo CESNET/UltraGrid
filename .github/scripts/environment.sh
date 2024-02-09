@@ -1,9 +1,13 @@
 # shellcheck shell=sh
 #
-# Exports common environment variables to next steps via $GITHU_ENV variable.
-# Note that exporting the variable is not necessarily needed but it ensures that
-# the vars are visible also later in current step (the script needs to be sourced,
-# not run).
+## Exports common environment variables to next steps via $GITHU_ENV variable.
+## Note that exporting the variable is not necessarily needed but it ensures that
+## the vars are visible also later in current step (the script needs to be sourced,
+## not run).
+##
+## Environment variables:
+## - **apple_key_p12_b64** - [mac only] base64-encoded $KEY_FILE (using
+##                           password $KEY_FILE_PASS)
 
 if expr "$GITHUB_REF" : 'refs/tags/' >/dev/null; then
   TAG=${GITHUB_REF#refs/tags/}
