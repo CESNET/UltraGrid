@@ -198,7 +198,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; ./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
+      run: "ARCH=$UG_ARCH ./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: make check

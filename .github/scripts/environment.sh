@@ -86,3 +86,8 @@ if [ "$(uname -s)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then
 fi
 
 printf '%b' "FEATURES=$FEATURES\n" >> "$GITHUB_ENV"
+
+if [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" != arm64 ]; then
+        printf 'UG_ARCH=-msse4.2\n' >> "$GITHUB_ENV"
+fi
+
