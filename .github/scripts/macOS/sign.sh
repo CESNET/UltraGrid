@@ -38,19 +38,7 @@ if [ -z "$apple_key_p12_b64" ] ||
         fi
 fi
 
-
-# Import keys
-# Inspired by https://www.update.rocks/blog/osx-signing-with-travis/
-KEY_CHAIN=build.keychain
-KEY_CHAIN_PASS=build
-KEY_FILE=/tmp/signing_key.p12
-KEY_FILE_PASS=dummy
-echo "$apple_key_p12_b64" | base64 -d > $KEY_FILE
-security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN || true
-security default-keychain -s $KEY_CHAIN
-security unlock-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
-security import "$KEY_FILE" -A -P "$KEY_FILE_PASS"
-security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY_CHAIN
+security unlock-keychain -p "$KEY_CHAIN_PASS" "$KEY_CHAIN"
 
 # Sign the application
 # Libs need to be signed explicitly for some reason

@@ -13,6 +13,25 @@ if [ -z "${GITHUB_ENV-}" ]; then
         GITHUB_PATH=/dev/null
 fi
 
+import_signing_key() {
+        if [ -z "$apple_key_p12_b64" ]; then
+                return 0
+        fi
+        # Inspired by https://www.update.rocks/blog/osx-signing-with-travis/
+        KEY_CHAIN=build.keychain
+        KEY_CHAIN_PASS=build
+        KEY_FILE=/tmp/signing_key.p12
+        KEY_FILE_PASS=dummy
+        echo "$apple_key_p12_b64" | base64 -d > $KEY_FILE
+        security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN || true
+        security default-keychain -s $KEY_CHAIN
+        security unlock-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
+        security import "$KEY_FILE" -A -P "$KEY_FILE_PASS"
+        security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY_CHAIN
+        printf '%b' "KEY_CHAIN_PASS=$KEY_CHAIN_PASS\nKEY_CHAIN=$KEY_CHAIN\n" \
+                >> "$GITHUB_ENV"
+}
+
 export CPATH=/usr/local/include
 export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 export LIBRARY_PATH=/usr/local/lib
@@ -29,6 +48,8 @@ LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
 echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
+
+import_signing_key
 
 brew install autoconf automake libtool pkg-config \
         asciidoctor
