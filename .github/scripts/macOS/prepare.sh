@@ -16,10 +16,9 @@ fi
 export CPATH=/usr/local/include
 export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 export LIBRARY_PATH=/usr/local/lib
-# shellcheck disable=SC2140
 printf "%b" \
-"CPATH=$CPATH\n"\
-"LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
+"CPATH=$CPATH\n\
+LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
 echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"

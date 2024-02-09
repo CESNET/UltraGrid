@@ -273,11 +273,10 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
                 FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--profile=$ULTRAGRID_USE_FIREJAIL"
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
-                # shellcheck disable=SC2140
-                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all"\
-" --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp"\
-" --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR"\
-" --read-write=$FJ_TMPDIR --writable-var"
+                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all\
+ --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp\
+ --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR\
+ --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
                 if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
