@@ -1,6 +1,6 @@
 #!/bin/sh -eu
 
-srcroot=${GITHUB_WORKSPACE-.}
+srcroot=${GITHUB_WORKSPACE-$PWD}
 readonly srcroot
 
 if [ -z "${GITHUB_ENV-}" ]; then
