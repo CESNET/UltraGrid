@@ -1,4 +1,23 @@
 #!/bin/sh -eu
+#
+## updates UltraGrid build on macOS
+##
+## The script is expected to be run with a absolute path and from
+## a writable location (eg. namely not from a mounted DMG).
+##
+## @note Currently (2024-02-09) when updating x86_64 build on
+## arm64, arm64 build will be downloaded, which some users may
+## consider as a bug. Perhaps not a big deal, anyways, and this
+## notice may be removed in future as Intels mac share decline.
+
+if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }
+then
+        echo "Updates UltraGrid macOS build."
+        echo
+        echo "Should be run without arguments with the absolute path"
+        echo "and in a writable location (eg. not from a mounted DMG)."
+        exit 0
+fi
 
 readonly appname=uv-qt.app
 dir=$(dirname "$0")
