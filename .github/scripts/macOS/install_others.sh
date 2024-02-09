@@ -33,7 +33,8 @@ install_aja() {(
         "$srcroot/.github/scripts/download-gh-asset.sh" aja-video/ntv2 \
                 libs_mac_ aja_build.tar.gz
         tar xzf aja_build.tar.gz
-        sudo cp Release/x64/* /usr/local/lib/
+        arch_subd=$(uname -m | sed 's/x86_64/x64/')
+        sudo cp Release/"$arch_subd"/* /usr/local/lib/
 )}
 
 install_deltacast() {(
