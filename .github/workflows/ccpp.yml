@@ -225,12 +225,12 @@ jobs:
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
       run: |
         brew install jq
-        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20build
+        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20$(uname -m)%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@main
       with:
-        name: UltraGrid-macOS
+        name: UltraGrid-${{ env.VERSION }}-macOS
         path: UltraGrid-${{ env.VERSION }}.dmg
 
   Windows:

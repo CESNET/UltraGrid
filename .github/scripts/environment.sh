@@ -14,6 +14,11 @@ else
   TAG=$VERSION
 fi
 
+# include platform on mac in version string
+if [ "$(uname -s)" = Darwin ]; then
+        VERSION="$(uname -m)-$VERSION"
+fi
+
 if [ -z "${CHANNEL-}" ]; then
         CHANNEL=$VERSION
 fi
