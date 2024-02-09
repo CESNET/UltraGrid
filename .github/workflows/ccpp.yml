@@ -165,6 +165,8 @@ jobs:
         echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)" >> $GITHUB_OUTPUT
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
+    - name: Set environment
+      run: . .github/scripts/environment.sh
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
@@ -198,9 +200,7 @@ jobs:
       if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
     - name: bootstrap
-      run: |
-        . .github/scripts/environment.sh
-        .github/scripts/macOS/prepare.sh
+      run: .github/scripts/macOS/prepare.sh
     - name: configure
       run: "ARCH=$UG_ARCH ./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
     - name: make bundle

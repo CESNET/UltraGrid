@@ -96,3 +96,23 @@ if [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" != arm64 ]; then
         printf 'UG_ARCH=-msse4.2\n' >> "$GITHUB_ENV"
 fi
 
+import_signing_key() {
+        if [ "$(uname -s)" != Darwin ] || [ -z "$apple_key_p12_b64" ]; then
+                return 0
+        fi
+        # Inspired by https://www.update.rocks/blog/osx-signing-with-travis/
+        KEY_CHAIN=build.keychain
+        KEY_CHAIN_PASS=build
+        KEY_FILE=/tmp/signing_key.p12
+        KEY_FILE_PASS=dummy
+        echo "$apple_key_p12_b64" | base64 -d > $KEY_FILE
+        security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN || true
+        security default-keychain -s $KEY_CHAIN
+        security unlock-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
+        security import "$KEY_FILE" -A -P "$KEY_FILE_PASS"
+        security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY_CHAIN
+        printf '%b' "KEY_CHAIN_PASS=$KEY_CHAIN_PASS\nKEY_CHAIN=$KEY_CHAIN\n" \
+                >> "$GITHUB_ENV"
+}
+import_signing_key
+
