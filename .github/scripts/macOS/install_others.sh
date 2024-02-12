@@ -105,15 +105,18 @@ install_soundfont() {(
         curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
 )}
 
-install_syphon() {(
+install_syphon() {
+        syphon_dst=/Library/Frameworks
+(
         git clone --depth 1 https://github.com/Syphon/Syphon-Framework.git
         cd Syphon-Framework
-        xcodebuild
+        xcodebuild LD_DYLIB_INSTALL_NAME=$syphon_dst/\
+Syphon.framework/Versions/A/Syphon
         sudo cp -R 'build/Release/Syphon.framework' \
-                /usr/local/lib
+                $syphon_dst
 )
         export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\
--F/usr/local/lib"
+-F$syphon_dst"
         printf '%b' "COMMON_OSX_FLAGS=$COMMON_OSX_FLAGS\n" >> "$GITHUB_ENV"
 }
 
