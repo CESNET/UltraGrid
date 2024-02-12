@@ -3015,7 +3015,6 @@ if test "$syphon_req" != no && test "$system" = MacOSX; then
         if test $my_cv_framework_Syphon = yes
         then
                 AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
-                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
                 add_module syphon "src/syphon_server.o src/video_capture/syphon.o" "-framework Syphon"
                 syphon=yes
         fi

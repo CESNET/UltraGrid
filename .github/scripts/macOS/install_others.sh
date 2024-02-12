@@ -106,22 +106,16 @@ install_soundfont() {(
 )}
 
 install_syphon() {(
-        if [ "$(uname -m)" = arm64 ]; then
-                git clone --depth 1 https://github.com/Syphon/\
-Syphon-Framework.git
-                cd Syphon-Framework
-                xcodebuild LD_DYLIB_INSTALL_NAME=@executable_path/../\
-Frameworks/Syphon.framework/Versions/A/Syphon
-                cd build/Release
-        else
-                curl -LO https://github.com/Syphon/Syphon-Framework/releases/\
-download/5/Syphon.SDK.5.zip
-                unzip Syphon.SDK.5.zip
-                cd 'Syphon SDK 5'
-        fi
-        sudo cp -R 'Syphon.framework' \
-                "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-)}
+        git clone --depth 1 https://github.com/Syphon/Syphon-Framework.git
+        cd Syphon-Framework
+        xcodebuild
+        sudo cp -R 'build/Release/Syphon.framework' \
+                /usr/local/lib
+)
+        export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\
+-F/usr/local/lib"
+        printf '%b' "COMMON_OSX_FLAGS=$COMMON_OSX_FLAGS\n" >> "$GITHUB_ENV"
+}
 
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then

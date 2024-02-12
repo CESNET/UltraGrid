@@ -236,10 +236,6 @@ src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
 	touch $@
 
-Frameworks/Syphon.framework:
-	$(MKDIR_P) Frameworks
-	$(CP) -R $$(xcrun --show-sdk-path)/System/Library/Frameworks//Syphon.framework Frameworks/
-
 $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS) -o $(TARGET)
