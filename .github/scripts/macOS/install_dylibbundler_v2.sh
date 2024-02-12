@@ -19,8 +19,18 @@
 #         /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1281.100.1)
 #
 # Seems to no longer has a significant impact on execution time.
-#
-# TODO: remove when sure that it is not needed and replace its call by the Homebres installation
 
-brew install dylibbundler
+# 2024-01-12
+# Revert back the v2 - it is capable to bundle Frameworks, which the v1
+# isn't. Also it doesn't seem to fail anymore. This is in an attempt to
+# better handle the frameworks in the light of the problems with need to
+# sign the VideoMasterHD[_audio] frameworks.
+
+cd /tmp
+git clone --depth 1 https://github.com/SCG82/macdylibbundler.git
+cd macdylibbundler
+make -j "$(sysctl -n hw.ncpu)"
+sudo cp dylibbundler /usr/local/bin
+cd -
+rm -rf macdylibbundler
 
