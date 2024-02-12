@@ -265,6 +265,8 @@ if test $system = MacOSX; then
 
                 if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
                         UG_MSG_WARN([Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
+                else
+                        DYLIBBUNDLER="$DYLIBBUNDLER -f" # bundle also frameworks
                 fi
         fi
 fi
