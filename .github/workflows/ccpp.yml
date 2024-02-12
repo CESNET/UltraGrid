@@ -180,7 +180,6 @@ jobs:
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
-        $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
