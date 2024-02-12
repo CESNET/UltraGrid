@@ -155,6 +155,7 @@ if test $system = MacOSX; then
         if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
                 MACOS_LEGACY=yes
         fi
+        COMMON_OSX_FLAGS='-F/Library/Frameworks'
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
@@ -986,7 +987,6 @@ if test "$deltacast_req" != no; then
                 if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
                         deltacast_found=yes
                         DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
-                        BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
                 fi
         fi
         if test "$deltacast_found" = yes; then
