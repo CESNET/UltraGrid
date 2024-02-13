@@ -43,13 +43,12 @@ install_deltacast() {(
         fi
         unzip "$SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip"
         sudo installer -pkg VideoMaster_SDK.pkg -target / || true
-)
         export FEATURES="${FEATURES+$FEATURES }--enable-deltacast"
         echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
         export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\
 -F/Library/Frameworks"
         printf '%b' "COMMON_OSX_FLAGS=$COMMON_OSX_FLAGS\n" >> "$GITHUB_ENV"
-}
+)}
 
 install_glfw() {(
         git clone --depth 500 https://github.com/glfw/glfw.git
