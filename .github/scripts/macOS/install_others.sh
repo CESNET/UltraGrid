@@ -71,13 +71,7 @@ SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt |
                 sudo tee /usr/local/include/ndi_version.h
-        if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
-                cd /Library/NDI/lib/x64
-                sudo ln -s libndi.?.dylib libndi.dylib
-                NDI_LIB=/Library/NDI/lib/x64
-        else # NDI 5
-                NDI_LIB=/Library/NDI/lib/macOS
-        fi
+        NDI_LIB=/Library/NDI/lib/macOS
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
         export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }\
 -s $NDI_LIB"
