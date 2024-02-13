@@ -100,10 +100,9 @@ https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
 )}
 
 install_soundfont() {
-        . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
         sf_dir="$GITHUB_WORKSPACE/data/Windows/share/soundfonts"
         mkdir -p "$sf_dir"
-        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
+        cp "$GITHUB_WORKSPACE/data/default.sf3" "$sf_dir"
 }
 
 # Install cross-platform deps

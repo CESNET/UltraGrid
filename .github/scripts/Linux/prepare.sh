@@ -53,11 +53,6 @@ sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install qtbase5-dev
 
-. "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
-sf=$(basename "$DEFAULT_SF_URL")
-curl -L "$DEFAULT_SF_URL" -o "$HOME/$sf"
-printf '%b' "SDL_SOUNDFONTS=$HOME/$sf\n" >> "$GITHUB_ENV"
-
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 

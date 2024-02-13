@@ -98,10 +98,9 @@ install_live555() {(
 )}
 
 install_soundfont() {(
-        . "$srcroot/.github/scripts/defs.sh"
         sf_dir="$srcroot/data/MacOS-bundle-template/Contents/share/soundfonts"
         mkdir -p "$sf_dir"
-        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
+        cp "$GITHUB_WORKSPACE/data/default.sf3" "$sf_dir"
 )}
 
 install_syphon() {
