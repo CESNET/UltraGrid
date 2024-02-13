@@ -1,4 +1,9 @@
 #!/bin/sh -eu
+#
+# Environment variables that may be updated by subsequent functions
+# (eg. FEATURES) should not be set in a subshell, otherwise just the
+# latter update will be written to $GITHUB_ENV. Also watch out early
+# return from function not to be inside the subshell.
 
 srcroot=${GITHUB_WORKSPACE-$PWD}
 readonly srcroot
@@ -37,7 +42,7 @@ install_aja() {(
         sudo cp Release/"$arch_subd"/* /usr/local/lib/
 )}
 
-install_deltacast() {(
+install_deltacast() {
         if [ ! -f "$SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip" ]; then
                 return
         fi
@@ -48,7 +53,7 @@ install_deltacast() {(
         export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\
 -F/Library/Frameworks"
         printf '%b' "COMMON_OSX_FLAGS=$COMMON_OSX_FLAGS\n" >> "$GITHUB_ENV"
-)}
+}
 
 install_glfw() {(
         git clone --depth 500 https://github.com/glfw/glfw.git
@@ -71,6 +76,7 @@ SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt |
                 sudo tee /usr/local/include/ndi_version.h
+)
         NDI_LIB=/Library/NDI/lib/macOS
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
         export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }\
@@ -81,7 +87,7 @@ $MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
         printf '%b' "CPATH=$CPATH\nDYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS\n\
 LIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> \
 "$GITHUB_ENV"
-)}
+}
 
 install_live555() {(
         git clone https://github.com/xanview/live555/
