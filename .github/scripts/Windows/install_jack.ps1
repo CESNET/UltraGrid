@@ -9,7 +9,7 @@ $repo = "jackaudio/jack2-releases"
 $releases = "https://api.github.com/repos/$repo/releases"
 $tag = (Invoke-WebRequest $releases -Headers @{Authorization = "token ${Env:GITHUB_TOKEN}"} | ConvertFrom-Json)[0].tag_name
 $download = "https://github.com/$repo/releases/download/$tag/jack2-win64-$tag.exe"
-Invoke-WebRequest $download -Headers @{Authorization = "token ${Env:GITHUB_TOKEN}"} -o jack2.exe
+Invoke-WebRequest $download -Headers @{Authorization = "token ${Env:GITHUB_TOKEN}"} -OutFile jack2.exe
 Start-Process -FilePath '.\jack2.exe' -ArgumentList '/SILENT' -Wait -NoNewWindow
 
 # The lib is moved to the JACK library for 2 reasons:
