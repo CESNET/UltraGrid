@@ -66,8 +66,7 @@ add_fonts() { # for GUI+testcard2
         done
         if ls $APPPREFIX/lib/*mixer* >/dev/null 2>&1; then
                 mkdir -p $APPPREFIX/share/soundfonts
-                sf=${SDL_SOUNDFONTS:-$srcdir/data/default.sf3}
-                cp "$sf" $APPPREFIX/share/soundfonts/default."${sf##*.}"
+                cp "$srcdir/data/default.sf3" $APPPREFIX/share/soundfonts/
         fi
 }
 
