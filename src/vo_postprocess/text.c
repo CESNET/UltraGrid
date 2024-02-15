@@ -82,9 +82,8 @@ struct state_text {
         // font size
         int text_height_pt;   
 
-        // actual px height (with descender)
         int text_width_px;    
-        int text_height_px;
+        int text_height_px; // actual px height (with descender)
 
         struct video_desc saved_desc;
 
@@ -162,7 +161,7 @@ parsed_textspec_is_invalid:
         }
         free(config_copy);
 
-        if (s->text == NULL) {  // happens when :t= field is not entered
+        if (s->text == NULL || strlen(s->text) == 0 || s->req_h < -1) {
                 goto parsed_textspec_is_invalid;
         }
 
