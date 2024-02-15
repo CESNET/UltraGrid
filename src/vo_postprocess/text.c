@@ -304,11 +304,6 @@ static struct video_frame * text_getf(void *state)
         return s->in;
 }
 
-/**
- * @todo
- * Rendering of the text is a bit slow. Since the text doesn't change at all, it should be
- * prerendered and then only alpha blended.
- */
 static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         MagickBooleanType status;
