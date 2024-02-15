@@ -122,6 +122,7 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
+parsed_textspec_is_invalid:
                 char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
                         "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
                 color_printf("%s", wrap_paragraph(desc));
@@ -160,6 +161,10 @@ static void * text_init(const char *config) {
                 tmp = NULL;
         }
         free(config_copy);
+
+        if (s->text == NULL) {  // happens when :t= field is not entered
+                goto parsed_textspec_is_invalid;
+        }
 
         return s;
 }
