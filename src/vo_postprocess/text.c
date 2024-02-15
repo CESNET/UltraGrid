@@ -256,13 +256,10 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         status = MagickSetDepth(s->wand_bg, 8);
         status &= MagickSetDepth(s->wand_text, 8);
-        if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetDepth failed!\n");
-                return false;
-        }
+        assert(status == MagickTrue && "[text vo_pp.] MagickSetDepth failed");
         
         PixelWand *transparent_bg = NewPixelWand();
-        // PixelSetColor(transparent_bg, "#cccccc80");
+        // PixelSetColor(transparent_bg, "#cccccc80");  // for debugging
         PixelSetColor(transparent_bg, "#00000000");
 
         // still need a dummy canvas to query font metrics
@@ -289,7 +286,12 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         double x_off = 0;
         double y_off_baseline = s->text_height_px - (-descender) + 1;
         double rot = 0;
-        MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
+        status = MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
+        if (!status) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n\n"
+                "Perhaps the text contains invalid characters?\n");
+                return false;
+        }
 
         DestroyPixelWand(transparent_bg);
 
@@ -322,6 +324,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         // cannot copy just the rectangle because pixel formats
         // are not necessarily byte aligned
         char *stripe = malloc((size_t) s->text_height_px * dst_linesize);
+        assert(stripe != NULL && "Malloc failed");
         for (ptrdiff_t y = 0; y < s->text_height_px; y++) {
                 // skip what is out-of-bounds
                 if (y + s->margin_y < 0) {
@@ -341,10 +344,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         MagickRemoveImage(s->wand_bg);
 
         status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
-                return false;
-        }
+        assert(status == MagickTrue && "[text vo_pp.] MagickSetSize failed -- ");
 
         status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
         if (status != MagickTrue) {
@@ -363,10 +363,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         unsigned char *data;
         size_t data_len;
         data = MagickGetImageBlob(s->wand_bg, &data_len);
-        if (!data) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickGetImageBlob failed!\n");
-                return false;
-        }
+        assert(data != NULL && "[text vo_pp.] MagickGetImageBlob failed!");
 
         // send the input stream...
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
