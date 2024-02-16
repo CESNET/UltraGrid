@@ -1,0 +1,25 @@
+From c57d1e155b45c6859f55642dfa017fe3ac02648c Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Fri, 19 Aug 2022 11:07:28 +0200
+Subject: [PATCH 4/6] cocoa: print wrong NS color space if given
+
+---
+ src/cocoa_window.m | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/cocoa_window.m b/src/cocoa_window.m
+index 16a4e2be..eaaf0b3d 100644
+--- a/src/cocoa_window.m
++++ b/src/cocoa_window.m
+@@ -897,7 +897,7 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
+                     case 3: space = kCGColorSpaceITUR_2020_PQ_EOTF; break;
+                     default:
+                             _glfwInputError(GLFW_PLATFORM_ERROR,
+-                                            "Cocoa: invalid color space specified");
++                                            "Cocoa: invalid color space 0x%x specified", wndconfig->ns.color);
+                             /* fall through */
+                     case 0: space = kCGColorSpaceITUR_709; break;
+             }
+-- 
+2.43.2
+

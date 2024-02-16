@@ -1,0 +1,27 @@
+From e83013baad88d531969bf22dc394987fabaaab02 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Mon, 15 Jan 2024 13:20:59 +0100
+Subject: [PATCH 6/6] replaced some deprecates
+
+---
+ src/cocoa_window.m | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/cocoa_window.m b/src/cocoa_window.m
+index adfa0463..c3b5091f 100644
+--- a/src/cocoa_window.m
++++ b/src/cocoa_window.m
+@@ -906,8 +906,8 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
+                     // 2020/2100
+                     case 0x20: space = kCGColorSpaceExtendedLinearITUR_2020; break;
+                     case 0x21: space = kCGColorSpaceITUR_2020; break;
+-                    case 0x22: space = kCGColorSpaceITUR_2020_HLG; break;
+-                    case 0x23: space = kCGColorSpaceITUR_2020_PQ_EOTF; break;
++                    case 0x22: space = kCGColorSpaceITUR_2100_HLG; break;
++                    case 0x23: space = kCGColorSpaceITUR_2100_PQ; break;
+                     // P3
+                     case 0x30: space = kCGColorSpaceExtendedLinearDisplayP3; break;
+                     case 0x31: space = kCGColorSpaceDCIP3; break;
+-- 
+2.43.2
+

@@ -58,8 +58,7 @@ install_deltacast() {
 install_glfw() {(
         git clone --depth 500 https://github.com/glfw/glfw.git
         cd glfw
-        git fetch --depth 500 https://github.com/MartinPulec/glfw.git
-        git merge FETCH_HEAD
+        git am -3 "$srcroot"/.github/scripts/macOS/glfw-patches/*.patch
         cmake -DBUILD_SHARED_LIBS=ON .
         cmake --build . -j "$(sysctl -n hw.ncpu)"
         sudo cmake --install .

@@ -1,0 +1,41 @@
+From 89c253b1d57ed2173c8a93442ca8b944e7ab8eb7 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Wed, 22 Jun 2022 10:52:12 +0200
+Subject: [PATCH 3/6] nsgl_context: set extended dynamic range to true
+
+---
+ src/nsgl_context.m | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/nsgl_context.m b/src/nsgl_context.m
+index 20404a80..9fe62124 100644
+--- a/src/nsgl_context.m
++++ b/src/nsgl_context.m
+@@ -241,6 +241,8 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
+         }
+     }
+ 
++    GLFWbool useHDR = false;
++
+     if (fbconfig->redBits != GLFW_DONT_CARE &&
+         fbconfig->greenBits != GLFW_DONT_CARE &&
+         fbconfig->blueBits != GLFW_DONT_CARE)
+@@ -253,6 +255,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
+         {
+             colorBits = 64;
+             ADD_ATTRIB(NSOpenGLPFAColorFloat);
++            useHDR = true;
+         }
+         else {
+             colorBits = fbconfig->redBits +
+@@ -345,6 +348,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
+     }
+ 
+     [window->ns.view setWantsBestResolutionOpenGLSurface:window->ns.scaleFramebuffer];
++    [window->ns.view setWantsExtendedDynamicRangeOpenGLSurface: useHDR];
+ 
+     [window->context.nsgl.object setView:window->ns.view];
+ 
+-- 
+2.43.2
+

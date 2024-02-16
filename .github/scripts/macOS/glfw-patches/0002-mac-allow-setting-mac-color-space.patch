@@ -1,0 +1,91 @@
+From 43972108665e0072a7169c7d0ac890a260e77d34 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Wed, 1 Jun 2022 14:16:05 +0200
+Subject: [PATCH 2/6] mac: allow setting mac color space
+
+---
+ include/GLFW/glfw3.h |  1 +
+ src/cocoa_window.m   | 18 ++++++++++++++++++
+ src/internal.h       |  1 +
+ src/window.c         |  5 +++++
+ 4 files changed, 25 insertions(+)
+
+diff --git a/include/GLFW/glfw3.h b/include/GLFW/glfw3.h
+index c8ca3ffe..d643248e 100644
+--- a/include/GLFW/glfw3.h
++++ b/include/GLFW/glfw3.h
+@@ -1117,6 +1117,7 @@ extern "C" {
+  *  [window hint](@ref GLFW_COCOA_GRAPHICS_SWITCHING_hint).
+  */
+ #define GLFW_COCOA_GRAPHICS_SWITCHING 0x00023003
++#define GLFW_COCOA_NS_COLOR_SPACE     0x00023004
+ /*! @brief X11 specific
+  *  [window hint](@ref GLFW_X11_CLASS_NAME_hint).
+  */
+diff --git a/src/cocoa_window.m b/src/cocoa_window.m
+index 7e90cf99..16a4e2be 100644
+--- a/src/cocoa_window.m
++++ b/src/cocoa_window.m
+@@ -888,6 +888,24 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
+     [window->ns.object setAcceptsMouseMovedEvents:YES];
+     [window->ns.object setRestorable:NO];
+ 
++    if (wndconfig->ns.color != GLFW_DONT_CARE) {
++            CFStringRef space;
++            // https://developer.apple.com/documentation/coregraphics/cgcolorspace/color_space_names
++            switch (wndconfig->ns.color) {
++                    case 1: space = kCGColorSpaceDisplayP3; break;
++                    case 2: space = kCGColorSpaceITUR_2020_HLG; break;
++                    case 3: space = kCGColorSpaceITUR_2020_PQ_EOTF; break;
++                    default:
++                            _glfwInputError(GLFW_PLATFORM_ERROR,
++                                            "Cocoa: invalid color space specified");
++                            /* fall through */
++                    case 0: space = kCGColorSpaceITUR_709; break;
++            }
++            NSColorSpace *nsColorSpace = [[NSColorSpace alloc] initWithCGColorSpace:CGColorSpaceCreateWithName(space)];
++            [window->ns.object setColorSpace:nsColorSpace];
++    }
++
++
+ #if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
+     if ([window->ns.object respondsToSelector:@selector(setTabbingMode:)])
+         [window->ns.object setTabbingMode:NSWindowTabbingModeDisallowed];
+diff --git a/src/internal.h b/src/internal.h
+index c6c856f1..bddc3e67 100644
+--- a/src/internal.h
++++ b/src/internal.h
+@@ -404,6 +404,7 @@ struct _GLFWwndconfig
+     GLFWbool      scaleToMonitor;
+     GLFWbool      scaleFramebuffer;
+     struct {
++        int       color;
+         char      frameName[256];
+     } ns;
+     struct {
+diff --git a/src/window.c b/src/window.c
+index 3b8d706e..8ad31963 100644
+--- a/src/window.c
++++ b/src/window.c
+@@ -289,6 +289,8 @@ void glfwDefaultWindowHints(void)
+ 
+     // The default is to select the highest available refresh rate
+     _glfw.hints.refreshRate = GLFW_DONT_CARE;
++
++    _glfw.hints.window.ns.color = GLFW_DONT_CARE;
+ }
+ 
+ GLFWAPI void glfwWindowHint(int hint, int value)
+@@ -397,6 +399,9 @@ GLFWAPI void glfwWindowHint(int hint, int value)
+         case GLFW_MOUSE_PASSTHROUGH:
+             _glfw.hints.window.mousePassthrough = value ? GLFW_TRUE : GLFW_FALSE;
+             return;
++        case GLFW_COCOA_NS_COLOR_SPACE:
++             _glfw.hints.window.ns.color = value;
++             return;
+         case GLFW_CLIENT_API:
+             _glfw.hints.context.client = value;
+             return;
+-- 
+2.43.2
+
