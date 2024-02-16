@@ -46,6 +46,7 @@
 #include <assert.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/channel_layout.h>
 #include <pthread.h>
 
 #include "audio/types.h"

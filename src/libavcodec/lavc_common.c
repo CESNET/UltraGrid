@@ -44,18 +44,13 @@
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "host.h"
 #include "libavcodec/lavc_common.h"
+#include <libavutil/channel_layout.h>
 #include "utils/macros.h"
 #include "video.h"
 
