@@ -35,22 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
+#include <assert.h>                     // for assert
 #include <compat/platform_semaphore.h>
-#include <errno.h>
 #include <pthread.h>
+#include <stdint.h>                     // for uint32_t
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>                     // for memcpy, memset, strdup
 
-#include "debug.h"
-#include "video.h"
+#include "types.h"                      // for tile, video_frame, video_desc
+#include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "video_codec.h"
 #include "video_export.h"
+#include "video_frame.h"                // for video_desc_from_frame, video_...
 
 #define MAX_QUEUE_SIZE 300
 
@@ -59,8 +56,6 @@
  */
 static void *video_export_thread(void *arg);
 void output_summary(struct video_export *s);
-
-struct output_entry;
 
 struct output_entry {
         char *filename;
@@ -129,9 +124,7 @@ static void *video_export_thread(void *arg)
 
 struct video_export * video_export_init(const char *path)
 {
-        struct video_export *s;
-
-        s = (struct video_export *) calloc(1, sizeof(struct video_export));
+        struct video_export *s = calloc(1, sizeof *s);
         assert(s != NULL);
 
         platform_sem_init(&s->semaphore, 0, 0);
@@ -154,8 +147,8 @@ struct video_export * video_export_init(const char *path)
 
 void output_summary(struct video_export *s)
 {
-        char name[512];
-        snprintf(name, 512, "%s/video.info", s->path);
+        char name[MAX_PATH_SIZE];
+        snprintf(name, sizeof name, "%s/video.info", s->path);
 
         FILE *summary = fopen(name, "w");
 
@@ -232,16 +225,16 @@ void video_export(struct video_export *s, struct video_frame *frame)
 
                 entry->data_len = frame->tiles[i].data_len;
                 entry->data = (char *) malloc(entry->data_len);
-                entry->filename = malloc(512);
+                entry->filename = malloc(MAX_PATH_SIZE);
                 entry->next = NULL;
 
                 if(frame->tile_count == 1) {
-                        snprintf(entry->filename, 512, "%s/%08d.%s", s->path,
+                        snprintf(entry->filename, MAX_PATH_SIZE, "%s/%08d.%s", s->path,
                                  s->total,
                                  get_codec_file_extension(frame->color_spec));
                 } else {
                         // add also tile index
-                        snprintf(entry->filename, 512, "%s/%08d_%d.%s", s->path,
+                        snprintf(entry->filename, MAX_PATH_SIZE, "%s/%08d_%d.%s", s->path,
                                  s->total, i,
                                  get_codec_file_extension(frame->color_spec));
                 }
