@@ -126,7 +126,6 @@ static bool parse_options(struct exporter *s, char *save_ptr, bool *should_expor
 }
 
 #define HANDLE_ERROR export_destroy(s); return NULL;
-#define OPTLEN_MAX 40 ///< max length of cmdline options
 
 struct exporter *export_init(struct module *parent, const char *cfg, bool should_export)
 {
@@ -140,14 +139,12 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                         export_destroy(s);
                         return NULL;
                 }
-                char cfg_copy[PATH_MAX + OPTLEN_MAX] = "";
+                char *cfg_copy = strdup(cfg);
                 char *save_ptr = NULL;
-                strncpy(cfg_copy, cfg, sizeof cfg_copy - 1);
                 s->dir = strtok_r(cfg_copy, ":", &save_ptr);
                 if (s->dir == NULL) {
                         HANDLE_ERROR
                 }
-                s->dir = strdup(s->dir);
                 if (!parse_options(s, save_ptr, &should_export)) {
                         HANDLE_ERROR
                 }
