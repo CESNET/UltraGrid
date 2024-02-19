@@ -298,9 +298,9 @@ run() {
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
                 # shellcheck disable=SC2046 # intentional
-                eval $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
+                eval exec $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
         else
-                "$DIR/usr/bin/$tool" "$@"
+                exec "$DIR/usr/bin/$tool" "$@"
         fi
 }
 
