@@ -286,8 +286,10 @@ struct state_video_compress_libav {
 #endif
 
         int conv_thread_count = clamp<unsigned int>(thread::hardware_concurrency(), 1, INT_MAX); ///< number of threads used for UG conversions
-        double mov_avg_comp_duration = 0;
-        long mov_avg_frames = 0;
+
+        double    mov_avg_comp_duration = 0;
+        long      mov_avg_frames        = 0;
+        time_ns_t duration_warn_last_print;
 
         map<int64_t, char[VF_METADATA_SIZE]> metadata_storage;
 };
@@ -1149,16 +1151,19 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 /// print hint to improve performance if not making it
 static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_pixfmt_change_ns, time_ns_t dur_total_ns)
 {
+        enum { REPEAT_INT_SEC = 30 };
         constexpr int mov_window = 100;
-        if (s->mov_avg_frames >= 10 * mov_window) {
-                return;
-        }
         double duration = dur_total_ns / NS_IN_SEC_DBL;
         s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->compressed_desc.fps) {
                 return;
         }
+        const time_ns_t now = get_time_in_ns();
+        if (now < s->duration_warn_last_print + NS_IN_SEC * REPEAT_INT_SEC) {
+                return;
+        }
+        s->duration_warn_last_print = now;
         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average compression time of last %d frames is %f ms but time per frame is only %f ms!\n",
                         mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->compressed_desc.fps);
         string hint;
@@ -1187,8 +1192,6 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Also pixfmt change of last frame took " << dur_pixfmt_change_ns / NS_IN_MS_DBL << " ms.\n"
                         "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n";
         }
-
-        s->mov_avg_frames = LONG_MAX;
 }
 
 static void write_orig_format(struct video_frame *compressed_frame, codec_t orig_pixfmt) {

@@ -99,8 +99,10 @@ struct state_libavcodec_decompress {
         struct hw_accel_state hwaccel;
 
         _Bool sps_vps_found; ///< to avoid initial error flood, start decoding after SPS (H.264) or VPS (HEVC) was received
-        double mov_avg_comp_duration;
-        long mov_avg_frames;
+
+        double    mov_avg_comp_duration;
+        long      mov_avg_frames;
+        time_ns_t duration_warn_last_print;
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -921,15 +923,18 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
 /// print hint to improve performance if not making it
 static void check_duration(struct state_libavcodec_decompress *s, double duration_total_sec, double duration_pixfmt_change_sec)
 {
+        enum { REPEAT_INT_SEC = 30 };
         const int mov_window = 100;
-        if (s->mov_avg_frames >= 10 * mov_window) {
-                return;
-        }
         s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_total_sec) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->desc.fps) {
                 return;
         }
+        const time_ns_t now = get_time_in_ns();
+        if (now < s->duration_warn_last_print + NS_IN_SEC * REPEAT_INT_SEC) {
+                return;
+        }
+        s->duration_warn_last_print = now;
         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average decompression time of last %d frames is %f ms but time per frame is only %f ms!\n",
                         mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->desc.fps);
         const char *hint = NULL;
@@ -943,7 +948,6 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                                 "You may also try to disable low delay decode using 'd' flag.\n",
                                 hint);
         }
-        s->mov_avg_frames = LONG_MAX;
 
         bool in_rgb = av_pix_fmt_desc_get(s->convert_in)->flags & AV_PIX_FMT_FLAG_RGB;
         if (codec_is_a_rgb(s->out_codec) != in_rgb && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
