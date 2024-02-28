@@ -139,10 +139,10 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                         export_destroy(s);
                         return NULL;
                 }
-                char *cfg_copy = strdup(cfg);
+                s->dir = strdup(cfg);
                 char *save_ptr = NULL;
-                s->dir = strtok_r(cfg_copy, ":", &save_ptr);
-                if (s->dir == NULL) {
+                char *item = strtok_r(s->dir, ":", &save_ptr); // skip the dir
+                if (item == NULL) {
                         HANDLE_ERROR
                 }
                 if (!parse_options(s, save_ptr, &should_export)) {
