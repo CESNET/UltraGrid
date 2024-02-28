@@ -674,8 +674,15 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->stereo = true;
         } else if(strcasecmp(opt, "timecode") == 0) {
                 s->sync_timecode = TRUE;
-        } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
-                const char *connection = opt + strlen("connection=");
+        } else if (IS_KEY_PREFIX(opt, "codec")) {
+                const char *codec = strchr(opt, '=') + 1;
+                s->set_codec(get_codec_from_name(codec));
+                if(s->codec == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", codec);
+                        return false;
+                }
+        } else if (IS_KEY_PREFIX(opt, "connection")) {
+                const char *connection = strchr(opt, '=') + 1;
                 for (auto const & it : get_connection_string_map()) {
                         if (strcasecmp(connection, it.second.c_str()) == 0) {
                                 s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option((int64_t) it.first);
@@ -695,13 +702,6 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 parse_devices(s, strchr(opt, '=') + 1);
         } else if (IS_KEY_PREFIX(opt, "mode")) {
                 s->mode = strchr(opt, '=') + 1;
-        } else if (IS_KEY_PREFIX(opt, "codec")) {
-                const char *codec = strchr(opt, '=') + 1;
-                s->set_codec(get_codec_from_name(codec));
-                if(s->codec == VIDEO_CODEC_NONE) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", codec);
-                        return false;
-                }
         } else if (strcasecmp(opt, "detect-format") == 0) {
                 s->detect_format = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
@@ -733,7 +733,6 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         }
 
         return true;
-
 }
 
 static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_ptr)
