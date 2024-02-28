@@ -511,17 +511,17 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         printf("\tin video format listing above by flag \"3D\".\n");
 	printf("\n");
 
-        col() << SBOLD("detect-format") << "\n";
-        col() << "\tTry to detect input video format even if the device doesn't support\n"
-                "\tautodetect, eg. \"-t decklink:connection=HDMI:detect-format\".\n";
-        col() << "\n";
-
         col() << SBOLD("fullhelp") << "\n";
         col() << "\tPrint description of all available options.\n";
         col() << "\n";
 
         col() << SBOLD("half-duplex | full-duplex") << "\n";
         col() << "\tSet a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link).\n";
+        col() << "\n";
+
+        col() << SBOLD("[no]passthrough[=keep]") << "\n";
+        col() << "\tDisables/enables/keeps capture passthrough (default is "
+                 "disable).\n";
         col() << "\n";
 
         if (full) {
@@ -554,8 +554,11 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
                 col() << "\n";
 
-                col() << SBOLD("[no]passthrough[=keep]") << "\n";
-                col() << "\tDisables/enables/keeps capture passthrough (default is disable).\n";
+                col() << SBOLD("detect-format") << "\n";
+                col() << "\tTry to detect input video format even if the "
+                         "device doesn't support\n"
+                         "\tautodetect, eg. \"-t "
+                         "decklink:connection=HDMI:detect-format\".\n";
                 col() << "\n";
 
                 col() << SBOLD("profile=<FourCC>") << " - use desired device profile:\n";
@@ -567,7 +570,7 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
                 col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
-                col() << SBOLD("\taacl") << "\t\tset analog audio levels to maximum gain on audio input\n";
+                col() << SBOLD("\taacl[=no]") << "\t\tset analog audio levels to maximum gain on audio input\n";
                 col() << "\n";
         } else {
                 col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
