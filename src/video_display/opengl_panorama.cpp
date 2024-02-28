@@ -105,26 +105,32 @@ void PanoramaScene::render(int width, int height, const glm::mat4& pvMat){
         pvLoc = glGetUniformLocation(program.get(), "pv_mat");
         glUniformMatrix4fv(pvLoc, 1, GL_FALSE, glm::value_ptr(pvMat));
 
+        GLuint tex_id;
         {//lock
                 std::lock_guard<std::mutex> lock(tex_mut);
                 if(tex.is_new_front_available()){
                         tex.swap_front();
                 }
+                tex_id = tex.get_front().get();
         }
 
-        glBindTexture(GL_TEXTURE_2D, tex.get_front().get());
+        glBindTexture(GL_TEXTURE_2D, tex_id);
         model.render();
 }
 
 void PanoramaScene::put_frame(video_frame *f, bool pbo_frame){
         PROFILE_FUNC;
 
-        Texture& back_texture = tex.get_back();
+        Texture *back_texture;
+        {
+                std::lock_guard<std::mutex> lock(tex_mut);
+                back_texture = &tex.get_back();
+        }
 
-        uploader.attach_dst_texture(&back_texture);
+        uploader.attach_dst_texture(back_texture);
         uploader.put_frame(f, pbo_frame);
 
-        glBindTexture(GL_TEXTURE_2D, back_texture.get());
+        glBindTexture(GL_TEXTURE_2D, back_texture->get());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
         glFinish();
