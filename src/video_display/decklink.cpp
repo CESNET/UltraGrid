@@ -12,7 +12,7 @@
  * usage and also SignalGenerator was used for scheduled playback.
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -539,6 +539,15 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the DeckLink cards with resampler (experimental)\n";
+
+        col() << SBOLD("\t<option_FourCC>=<value>")
+              << "\tarbitrary BMD option (given a FourCC) and corresponding "
+                 "value, i.a.:\n";
+        col() << SBOLD("\t\taacl[=no]")
+              << "\tset maximum audio attenuation on output\n";
+        col() << SBOLD("\t\tvoio=blac|lafa")
+              << "\tdisplay either black or last frame when idle\n";
+
         if (!full) {
                 col() << SBOLD("\tconversion") << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
                 col() << "\n\t(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n";
@@ -578,9 +587,6 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
                 col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << SBOLD("\tquery=<FourCC>") << "\tquery specified device argument in help listing\n";
-                col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
-                col() << SBOLD("\t\taacl") << "\t\tset maximum audio attenuation on output\n";
-                col() << SBOLD("\t\tvoio=blac|lafa") << "\tdisplay either black or last frame when idle\n";
         }
 
         col() << "\nRecognized pixel formats:";
