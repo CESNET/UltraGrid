@@ -9,7 +9,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,16 +46,17 @@
  *
  */
 
-#include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 
 #include <algorithm>
 #include <cassert>
-#include <condition_variable>
 #include <chrono>
-#include <iostream>
+#include <climits>
+#include <condition_variable>
+#include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
