@@ -37,6 +37,7 @@
 
 #ifdef _WIN32
 #include <audioclient.h>
+#include <ntstatus.h>
 #include <objbase.h>
 #include <tlhelp32.h>
 #include <vfwmsgs.h>
@@ -237,6 +238,37 @@ win_has_ancestor_process(const char *name)
         }
         CloseHandle(hSnapshot);
         return false;
+}
+
+unsigned long
+get_windows_build()
+{
+        RTL_OSVERSIONINFOW osVersionInfo = { .dwOSVersionInfoSize =
+                                                 sizeof(RTL_OSVERSIONINFOW) };
+
+        HMODULE hNtDll = GetModuleHandleW(L"ntdll.dll");
+        if (hNtDll == NULL) {
+                MSG(VERBOSE, "Cannot load ntdll.dll!\n");
+                return 0;
+        }
+
+        typedef NTSTATUS(WINAPI * RtlGetVersionFunc)(
+            PRTL_OSVERSIONINFOW lpVersionInformation);
+        RtlGetVersionFunc pRtlGetVersion =
+            (RtlGetVersionFunc) GetProcAddress(hNtDll, "RtlGetVersion");
+        if (pRtlGetVersion == NULL) {
+                MSG(VERBOSE, "Cannot get RtlGetVersion from ntdll.dll!\n");
+                return 0;
+        }
+
+        if (pRtlGetVersion(&osVersionInfo) != STATUS_SUCCESS) {
+                MSG(VERBOSE, "Cannot get Windows version nfo!\n");
+                return 0;
+        }
+        MSG(DEBUG, "Windows version: %lu.%lu (build %lu)\n",
+            osVersionInfo.dwMajorVersion, osVersionInfo.dwMinorVersion,
+            osVersionInfo.dwBuildNumber);
+        return osVersionInfo.dwBuildNumber;
 }
 
 #endif // defined _WIN32

@@ -42,6 +42,10 @@
 #include <stdbool.h>
 #endif
 
+enum {
+        BUILD_WINDOWS_11_OR_LATER = 22000,
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -86,6 +90,7 @@ const char *hresult_to_str(HRESULT res);
 const char *get_win32_error(DWORD error);
 const char *win_wstr_to_str(const wchar_t *wstr);
 bool win_has_ancestor_process(const char *name);
+unsigned long get_windows_build(void);
 #endif // defined _WIN32
 
 #ifdef __cplusplus
