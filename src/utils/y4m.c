@@ -5,7 +5,7 @@
  * This file is part of GPUJPEG.
  */
 /*
- * Copyright (c) 2022-2023, CESNET z.s.p.o.
+ * Copyright (c) 2022-2024, CESNET z.s.p.o.
  *
  * All rights reserved.
  *
@@ -52,7 +52,7 @@ static bool y4m_process_chroma_type(char *c, struct y4m_metadata *info) {
         }
         int subsampling = 0;
         if (sscanf(c, "%dp%d", &subsampling, &info->bitdepth) == 0) {
-                fprintf(stderr, "Y4M: unable to parse chroma type");
+                fprintf(stderr, "Y4M: unable to parse chroma type\n");
                 return false;
         }
         info->subsampling = subsampling;
@@ -77,7 +77,7 @@ static size_t y4m_get_data_len(const struct y4m_metadata *info) {
 size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char **data, void *(*allocator)(size_t)) {
         FILE *file = fopen(filename, "rb");
         if (!file) {
-                fprintf(stderr, "Failed to open %s: %s", filename, strerror(errno));
+                fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
                 return 0;
         }
         char item[129];
@@ -116,7 +116,7 @@ size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char *
         }
         *data = (unsigned char *) allocator(datalen);
         if (!*data) {
-                fprintf(stderr, "Unspecified depth header field!");
+                fprintf(stderr, "Unspecified depth header field!\n");
                 fclose(file);
                 return 0;
         }
@@ -136,7 +136,7 @@ bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsi
         errno = 0;
         FILE *file = fopen(filename, "wb");
         if (!file) {
-                fprintf(stderr, "Failed to open %s for writing: %s", filename, strerror(errno));
+                fprintf(stderr, "Failed to open %s for writing: %s\n", filename, strerror(errno));
                 return false;
         }
         char chroma_type[42];
@@ -144,7 +144,7 @@ bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsi
                 snprintf(chroma_type, sizeof chroma_type, "mono");
         } else if (info->subsampling == Y4M_SUBS_YUVA) {
                 if (info->bitdepth != 8) {
-                        fprintf(stderr, "Only 8-bit 444alpha is supported for Y4M!");
+                        fprintf(stderr, "Only 8-bit 444alpha is supported for Y4M!\n");
                         fclose(file);
                         return false;
                 }
@@ -167,7 +167,7 @@ bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsi
         errno = 0;
         size_t bytes_written = fwrite((const char *) data, 1, len, file);
         if (bytes_written != len) {
-                fprintf(stderr, "Unable to write Y4M data - length %zd, written %zd: %s",
+                fprintf(stderr, "Unable to write Y4M data - length %zd, written %zd: %s\n",
                         len, bytes_written, strerror(errno));
         }
         fclose(file);
