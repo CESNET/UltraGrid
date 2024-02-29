@@ -348,10 +348,11 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         if (y4m_read(filename, &info, &data, malloc) == 0) {
                 return 0;
         }
-        if (((info.subsampling < Y4M_SUBS_420 ||
+        if (info.bitdepth < DEPTH8 ||
+            ((info.subsampling < Y4M_SUBS_420 ||
               info.subsampling > Y4M_SUBS_444) &&
              info.bitdepth == DEPTH8) ||
-            (info.subsampling == Y4M_SUBS_444 && info.bitdepth > DEPTH8)) {
+            (info.bitdepth > DEPTH8 && info.subsampling != Y4M_SUBS_444)) {
                 MSG(ERROR, "Only 3-channel 8-bit Y4M or >8 bit 4:4:4 "
                            "subsampled are supported.\n");
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Provided Y4M picture has subsampling %d and bit depth %d bits.\n", info.subsampling, info.bitdepth);
@@ -362,6 +363,7 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
         size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         unsigned char *converted = malloc(data_len);
+
         if (info.bitdepth == 8) {
                 switch (info.subsampling) {
                 case Y4M_SUBS_420:
