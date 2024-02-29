@@ -995,6 +995,71 @@ i444_16_to_y416(int width, int height, const unsigned char *in,
 }
 
 void
+i422_16_to_y416(int width, int height, const unsigned char *in,
+                unsigned char *out, int in_depth)
+{
+        enum { ALPHA16_OPAQUE = 0xFFFF };
+        const uint16_t *in_y  = (const uint16_t *) (const void *) in;
+        const uint16_t *in_cb = in_y + (ptrdiff_t) width * height;
+        const uint16_t *in_cr = in_cb + (ptrdiff_t) ((width + 1) / 2) * height;
+        uint16_t       *outp  = (void *) out;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < (width + 1) / 2; ++x) {
+                        *outp++ = *in_cb << (DEPTH16 - in_depth);
+                        *outp++ = *in_y++ << (DEPTH16 - in_depth);
+                        *outp++ = *in_cr << (DEPTH16 - in_depth);
+                        *outp++ = ALPHA16_OPAQUE;
+                        *outp++ = *in_cb++ << (DEPTH16 - in_depth);
+                        *outp++ = *in_y++ << (DEPTH16 - in_depth);
+                        *outp++ = *in_cr++ << (DEPTH16 - in_depth);
+                        *outp++ = ALPHA16_OPAQUE;
+                }
+        }
+}
+
+void
+i420_16_to_y416(int width, int height, const unsigned char *in,
+                unsigned char *out, int in_depth)
+{
+        enum { ALPHA16_OPAQUE = 0xFFFF };
+        const uint16_t *in_y1 = (const void *) in;
+        const uint16_t *in_y2 = in_y1 + width;
+        const uint16_t *in_cb =
+            (const uint16_t *) (const void *) in + (ptrdiff_t) width * height;
+        const uint16_t *in_cr =
+            in_cb + (ptrdiff_t) ((width + 1) / 2) * ((height + 1) / 2);
+        const size_t out_line_len = vc_get_linesize(width, Y416) / 2;
+        uint16_t    *outp1        = (void *) out;
+        uint16_t    *outp2        = outp1 + out_line_len;
+        for (int y = 0; y < (height + 1) / 2; ++y) {
+                for (int x = 0; x < (width + 1) / 2; ++x) {
+                        *outp1++ = *in_cb << (DEPTH16 - in_depth);
+                        *outp1++ = *in_y1++ << (DEPTH16 - in_depth);
+                        *outp1++ = *in_cr << (DEPTH16 - in_depth);
+                        *outp1++ = ALPHA16_OPAQUE;
+
+                        *outp2++ = *in_cb << (DEPTH16 - in_depth);
+                        *outp2++ = *in_y2++ << (DEPTH16 - in_depth);
+                        *outp2++ = *in_cr << (DEPTH16 - in_depth);
+                        *outp2++ = ALPHA16_OPAQUE;
+
+                        *outp1++ = *in_cb << (DEPTH16 - in_depth);
+                        *outp1++ = *in_y1++ << (DEPTH16 - in_depth);
+                        *outp1++ = *in_cr << (DEPTH16 - in_depth);
+                        *outp1++ = ALPHA16_OPAQUE;
+
+                        *outp2++ = *in_cb++ << (DEPTH16 - in_depth);
+                        *outp2++ = *in_y2++ << (DEPTH16 - in_depth);
+                        *outp2++ = *in_cr++ << (DEPTH16 - in_depth);
+                        *outp2++ = ALPHA16_OPAQUE;
+                }
+                outp1 += out_line_len;
+                outp2 += out_line_len;
+                in_y1 += width;
+                in_y2 += width;
+        }
+}
+void
 i420_8_to_uyvy(int width, int height, const unsigned char *in, unsigned char *out)
 {
         const int                  uyvy_linesize = vc_get_linesize(width, UYVY);

@@ -112,6 +112,10 @@ void y416_to_i444(int width, int height, const unsigned char *in,
                   unsigned char *out, int depth);
 void i444_16_to_y416(int width, int height, const unsigned char *in,
                      unsigned char *out, int in_depth);
+void i422_16_to_y416(int width, int height, const unsigned char *in,
+                     unsigned char *out, int in_depth);
+void i420_16_to_y416(int width, int height, const unsigned char *in,
+                     unsigned char *out, int in_depth);
 void i420_8_to_uyvy(int width, int height, const unsigned char *in,
                     unsigned char *out);
 void i422_8_to_uyvy(int width, int height, const unsigned char *in,

@@ -12,7 +12,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -349,42 +349,50 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
                 return 0;
         }
         if (info.bitdepth < DEPTH8 ||
-            ((info.subsampling < Y4M_SUBS_420 ||
-              info.subsampling > Y4M_SUBS_444) &&
-             info.bitdepth == DEPTH8) ||
-            (info.bitdepth > DEPTH8 && info.subsampling != Y4M_SUBS_444)) {
-                MSG(ERROR, "Only 3-channel 8-bit Y4M or >8 bit 4:4:4 "
-                           "subsampled are supported.\n");
+            (info.subsampling < Y4M_SUBS_420 ||
+              info.subsampling > Y4M_SUBS_444)) {
+                MSG(ERROR, "Only 3-channel 8+ bit Y4M is supported.\n");
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Provided Y4M picture has subsampling %d and bit depth %d bits.\n", info.subsampling, info.bitdepth);
                 return 0;
         }
         desc->width = info.width;
         desc->height = info.height;
-        desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
+        desc->color_spec = info.bitdepth == DEPTH8 ? UYVY : Y416;
         size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         unsigned char *converted = malloc(data_len);
 
-        if (info.bitdepth == 8) {
-                switch (info.subsampling) {
-                case Y4M_SUBS_420:
+        switch (info.subsampling) {
+        case Y4M_SUBS_420:
+                if (info.bitdepth == DEPTH8) {
                         i420_8_to_uyvy(desc->width, desc->height, data,
                                        converted);
-                        break;
-                case Y4M_SUBS_422:
+                } else {
+                        i420_16_to_y416((int) desc->width, (int) desc->height,
+                                        data, converted, info.bitdepth);
+                }
+                break;
+        case Y4M_SUBS_422:
+                if (info.bitdepth == DEPTH8) {
                         i422_8_to_uyvy(desc->width, desc->height, data,
                                        converted);
-                        break;
-                case Y4M_SUBS_444:
+                } else {
+                        i422_16_to_y416((int) desc->width, (int) desc->height,
+                                        data, converted, info.bitdepth);
+                }
+                break;
+        case Y4M_SUBS_444:
+                if (info.bitdepth == DEPTH8) {
                         i444_8_to_uyvy(desc->width, desc->height, data,
                                        converted);
-                        break;
-                default:
-                        MSG(ERROR, "Wrong Y4M subsampling: %d", info.subsampling);
-                        free(converted);
-                        return 0;
+                } else {
+                        i444_16_to_y416((int) desc->width, (int) desc->height,
+                                        data, converted, info.bitdepth);
                 }
-        } else {
-                i444_16_to_y416(desc->width, desc->height, data, converted, info.bitdepth);
+                break;
+        default:
+                MSG(ERROR, "Wrong Y4M subsampling: %d", info.subsampling);
+                free(converted);
+                return 0;
         }
         *in_file_contents = (char *) converted;
         free(data);
