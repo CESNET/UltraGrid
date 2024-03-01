@@ -38,7 +38,6 @@
 #define LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
 
 #include "audio/types.h"
-#include "debug.h"
 #include "types.h"
 
 #ifdef __cplusplus

@@ -56,6 +56,7 @@
 
 #include "color.h"
 #include "compat/qsort_s.h"
+#include "debug.h"
 #include "host.h"
 #include "hwaccel_rpi4.h"
 #include "hwaccel_vdpau.h"

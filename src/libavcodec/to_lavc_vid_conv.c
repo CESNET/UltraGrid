@@ -43,18 +43,15 @@
 
 #define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "color.h"
 #include "compat/qsort_s.h"
+#include "config_unix.h"  // htonl
+#include "config_win32.h" // -||-
+#include "debug.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "utils/macros.h" // OPTIMIZED_FOR

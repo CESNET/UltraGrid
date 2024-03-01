@@ -48,6 +48,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "debug.h"
 #include "host.h"
 #include "libavcodec/lavc_common.h"
 #include <libavutil/channel_layout.h>

@@ -47,6 +47,7 @@
 #include "config_win32.h"
 #endif
 
+#include "debug.h"
 #include "hwaccel_libav_common.h"
 #include "libavcodec/lavc_common.h"
 #include "types.h"
