@@ -44,7 +44,6 @@
 #include "libavcodec/lavc_common.h"
 
 #ifndef __cplusplus
-#include <stdalign.h>
 #include <stdbool.h>
 #endif
 
@@ -53,18 +52,16 @@ extern "C" {
 #endif
 
 struct av_to_uv_convert_state;
+typedef struct av_to_uv_convert_state av_to_uv_convert_t;
 
-typedef struct av_to_uv_convert_state {
-        alignas(8) char priv_data[24];
-        bool valid;
-} av_to_uv_convert_t;
+av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
+void av_to_uv_convert(const av_to_uv_convert_t *s, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
+void av_to_uv_conversion_destroy(av_to_uv_convert_t **);
 
-void av_to_uv_convert(const av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
-
-av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel);
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel);
-enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t *av_conv);
+enum AVPixelFormat pick_av_convertible_to_ug(codec_t              color_spec,
+                                             av_to_uv_convert_t **av_conv);
 
 #ifdef __cplusplus
 }

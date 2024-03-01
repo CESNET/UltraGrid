@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,7 @@ struct state_libavcodec_decompress {
         int              max_compressed_len;
         codec_t          out_codec;
         struct {
-                av_to_uv_convert_t convert;
+                av_to_uv_convert_t *convert;
                 enum AVPixelFormat convert_in;
         };
         bool             block_accel[HWACCEL_COUNT];
@@ -109,6 +109,8 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
+        av_to_uv_conversion_destroy(&s->convert);
+
         if(s->codec_ctx) {
                 lavd_flush(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
@@ -818,8 +820,9 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
         if (s->convert_in == av_codec) {
                 return 1;
         }
+        av_to_uv_conversion_destroy(&s->convert);
         s->convert = get_av_to_uv_conversion(av_codec, out_codec);
-        if (s->convert.valid) {
+        if (s->convert != NULL) {
                 s->convert_in = av_codec;
                 return 1;
         }
@@ -862,9 +865,12 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
  * @param  width     frame width
  * @param  height    frame height
  */
-static void change_pixfmt(AVFrame *frame, unsigned char *dst, const av_to_uv_convert_t *convert,
-                codec_t out_codec, int width, int height,
-                int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
+static void
+change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
+              codec_t out_codec, int width, int height, int pitch,
+              int rgb_shift[static restrict 3],
+              struct state_libavcodec_decompress_sws *sws)
+{
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (!sws->ctx) {
@@ -1092,8 +1098,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                         return DECODER_UNSUPP_PIXFMT;
                 }
-                change_pixfmt(s->frame, dst, &s->convert, s->out_codec, s->desc.width,
-                              s->desc.height, s->pitch, s->rgb_shift, &s->sws);
+                change_pixfmt(s->frame, dst, s->convert, s->out_codec,
+                              s->desc.width, s->desc.height, s->pitch,
+                              s->rgb_shift, &s->sws);
         }
         time_ns_t t2 = get_time_in_ns();
         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),

@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,12 +43,6 @@
  * @todo
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
 #include <assert.h>
 #include <stdbool.h>
@@ -2181,13 +2175,12 @@ static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_f
 typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
 typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
-struct av_to_uv_convert_state_priv {
+struct av_to_uv_convert_state {
         av_to_uv_convert_fp convert;
         codec_t src_pixfmt;
         codec_t dst_pixfmt;
         decoder_t dec;
 };
-_Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data size");
 
 struct av_to_uv_conversion {
         enum AVPixelFormat av_codec;
@@ -2325,18 +2318,18 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #define AV_TO_UV_CONVERSION_COUNT (sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0])
 static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_conversions + AV_TO_UV_CONVERSION_COUNT;
 
-static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
-                codec_t dst_pixfmt) {
-        struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        priv->dec = dec;
-        priv->dst_pixfmt = dst_pixfmt;
-        ret->valid = true;
+static void
+set_decoder_mapped_to_uv(av_to_uv_convert_t *s, decoder_t dec,
+                         codec_t dst_pixfmt)
+{
+        s->dec        = dec;
+        s->dst_pixfmt = dst_pixfmt;
 }
 
-static void set_decoder_memcpy(av_to_uv_convert_t *ret, codec_t color_spec) {
-        struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        priv->dst_pixfmt = color_spec;
-        ret->valid = true;
+static void
+set_decoder_memcpy(av_to_uv_convert_t *s, codec_t color_spec)
+{
+        s->dst_pixfmt = color_spec;
 }
 
 static QSORT_S_COMP_DEFINE(compare_convs, a, b, orig_c) {
@@ -2376,22 +2369,33 @@ static decoder_t get_av_and_uv_conversion(enum AVPixelFormat av_codec, codec_t u
         return NULL;
 }
 
-av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
-        av_to_uv_convert_t ret = { .valid = false };
-        struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
+void
+av_to_uv_conversion_destroy(av_to_uv_convert_t **s)
+{
+        if (s == NULL || *s == NULL) {
+                return;
+        }
+        free(*s);
+        *s = NULL;
+}
+
+av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+        av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
 
         codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(av_codec);
         if (mapped_pix_fmt == uv_codec) {
                 if (codec_is_planar(uv_codec)) {
                         log_msg(LOG_LEVEL_ERROR, "Planar pixfmts not support here, please report a bug!\n");
-                } else {
-                        set_decoder_memcpy(&ret, uv_codec);
+                        free(ret);
+                        return NULL;
                 }
+                set_decoder_memcpy(ret, uv_codec);
                 return ret;
-        } else if (mapped_pix_fmt) {
+        }
+        if (mapped_pix_fmt != VC_NONE) {
                 decoder_t dec = get_decoder_from_to(mapped_pix_fmt, uv_codec);
                 if (dec) {
-                        set_decoder_mapped_to_uv(&ret, dec, uv_codec);
+                        set_decoder_mapped_to_uv(ret, dec, uv_codec);
                         return ret;
                 }
         }
@@ -2400,25 +2404,24 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                         conversions < av_to_uv_conversions_end; conversions++) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
-                        priv->convert = conversions->convert;
-                        ret.valid = true;
+                        ret->convert = conversions->convert;
                         watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(uv_codec));
                         return ret;
                 }
         }
 
         av_to_uv_convert_fp av_convert = NULL;
-        codec_t intermediate;
+        codec_t intermediate = VC_NONE;
         decoder_t dec = get_av_and_uv_conversion(av_codec, uv_codec,
                 &intermediate, &av_convert);
         if (!dec) {
-                return ret;
+                free(ret);
+                return NULL;
         }
-        priv->dec = dec;
-        priv->convert = av_convert;
-        priv->src_pixfmt = intermediate;
-        priv->dst_pixfmt = uv_codec;
-        ret.valid = true;
+        ret->dec = dec;
+        ret->convert = av_convert;
+        ret->src_pixfmt = intermediate;
+        ret->dst_pixfmt = uv_codec;
         watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
         watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
 
@@ -2497,11 +2500,13 @@ enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_
         return get_ug_codec_to_av(fmt, &c, use_hwaccel);
 }
 
-enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t *av_conv) {
-        av_conv->valid = false;
+enum AVPixelFormat
+pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
+{
+        *av_conv = calloc(1, sizeof **av_conv);
 
         if (get_ug_to_av_pixfmt(color_spec) != AV_PIX_FMT_NONE) {
-                set_decoder_memcpy(av_conv, color_spec);
+                set_decoder_memcpy(*av_conv, color_spec);
                 return get_ug_to_av_pixfmt(color_spec);
         }
 
@@ -2509,58 +2514,66 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
         decoder_t dec;
         if (out_desc.rgb) {
                 if (out_desc.depth > 8 && (dec = get_decoder_from_to(RG48, color_spec))) {
-                        set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                        set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
                         return AV_PIX_FMT_RGB48LE;
                 } else if ((dec = get_decoder_from_to(RGB, color_spec))) {
-                        set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                        set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
                         return AV_PIX_FMT_RGB24;
                 }
         }
 #if XV3X_PRESENT
         if (out_desc.depth > 8 && (dec = get_decoder_from_to(Y416, color_spec))) {
-                set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
                 return AV_PIX_FMT_XV36;
         }
 #endif
         if ((dec = get_decoder_from_to(UYVY, color_spec))) {
-                set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
                 return AV_PIX_FMT_UYVY422;
         }
         for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
                 if (c->uv_codec == color_spec) { // pick any (first usable)
-                        av_conv->valid = true;
-                        struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
-                        memset(priv, 0, sizeof *priv);
-                        priv->convert = c->convert;
+                        memset(*av_conv, 0, sizeof **av_conv);
+                        (*av_conv)->convert = c->convert;
                         return c->av_codec;
                 }
         }
+        free(*av_conv);
+        *av_conv = NULL;
         return AV_PIX_FMT_NONE;
 }
 
-void av_to_uv_convert(const av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
-        const struct av_to_uv_convert_state_priv *priv = (const void *) state->priv_data;
+void
+av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
+                 AVFrame *__restrict in_frame, int width, int height, int pitch,
+                 const int *__restrict rgb_shift)
+{
         unsigned char *dec_input = in_frame->data[0];
         size_t src_linesize = in_frame->linesize[0];
         unsigned char *tmp = NULL;
-        if (priv->convert) {
+        if (s->convert) {
                 DEBUG_TIMER_START(lavd_av_to_uv);
-                if (!priv->dec) {
-                        priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+                if (!s->dec) {
+                        s->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
                         DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
                 }
-                src_linesize = vc_get_linesize(width, priv->src_pixfmt);
-                dec_input = tmp = malloc(vc_get_datalen(width, height, priv->src_pixfmt) + MAX_PADDING);
-                int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT };
-                priv->convert((char *) dec_input, in_frame, width, height, src_linesize, default_rgb_shift);
+                src_linesize = vc_get_linesize(width, s->src_pixfmt);
+                dec_input = tmp = malloc(
+                    vc_get_datalen(width, height, s->src_pixfmt) + MAX_PADDING);
+                int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT,
+                                            DEFAULT_B_SHIFT };
+                s->convert((char *) dec_input, in_frame, width, height,
+                           src_linesize, default_rgb_shift);
                 DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
-        if (priv->dec) {
+        if (s->dec) {
                 DEBUG_TIMER_START(lavd_dec);
-                int dst_size = vc_get_size(width, priv->dst_pixfmt);
+                int dst_size = vc_get_size(width, s->dst_pixfmt);
                 for (ptrdiff_t i = 0; i < height; ++i) {
-                        priv->dec((unsigned char *) dst_buffer + i * pitch, dec_input + i * src_linesize, dst_size, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                        s->dec((unsigned char *) dst_buffer + i * pitch,
+                               dec_input + i * src_linesize, dst_size,
+                               rgb_shift[0], rgb_shift[1], rgb_shift[2]);
                 }
                 DEBUG_TIMER_STOP(lavd_dec);
                 free(tmp);
@@ -2568,7 +2581,7 @@ void av_to_uv_convert(const av_to_uv_convert_t *state, char * __restrict dst_buf
         }
 
         // memcpy only
-        int linesize = vc_get_linesize(width, priv->dst_pixfmt);
+        int linesize = vc_get_linesize(width, s->dst_pixfmt);
         for (ptrdiff_t i = 0; i < height; ++i) {
                 memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
         }

@@ -103,7 +103,7 @@ struct vidcap_state_lavf_decoder {
         int thread_type;
 
         struct SwsContext *sws_ctx;
-        av_to_uv_convert_t conv_uv;
+        av_to_uv_convert_t *conv_uv;
 
         bool failed;
         bool loop;
@@ -199,6 +199,8 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         if (s->fmt_ctx) {
                 avformat_close_input(&s->fmt_ctx);
         }
+
+        av_to_uv_conversion_destroy(&s->conv_uv);
 
         flush_captured_data(s);
         ring_buffer_destroy(s->audio_data);
@@ -422,9 +424,9 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
         int video_dst_linesize[4] = {
             vc_get_linesize(out->tiles[0].width, out->color_spec)};
         uint8_t *dst[4] = {(uint8_t *)out->tiles[0].data};
-        if (s->conv_uv.valid) {
+        if (s->conv_uv) {
                 int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
-                av_to_uv_convert(&s->conv_uv, out->tiles[0].data, frame,
+                av_to_uv_convert(s->conv_uv, out->tiles[0].data, frame,
                                  out->tiles[0].width, out->tiles[0].height,
                                  video_dst_linesize[0], rgb_shift);
         } else {
@@ -695,7 +697,7 @@ static bool setup_video(struct vidcap_state_lavf_decoder *s) {
         }
         s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt,
                                              s->video_desc.color_spec);
-        if (s->conv_uv.valid) {
+        if (s->conv_uv) {
                 return true;
         }
         // else swscale needed
