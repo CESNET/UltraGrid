@@ -478,6 +478,146 @@ AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 
 # -------------------------------------------------------------------------------------------------
+# CUDA stuff
+#
+# CUDA compiler choice - defaults to nvcc
+# 
+# CUDA lookup order:
+# 1) --with-cuda
+# 2) CUDA_DIRECTORY env variable
+# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
+# 4) default CUDA path
+
+CUDA_COMPUTE_ARGS=""
+CUDA_COMPILER=""
+
+CUDA_INC=
+CUDA_LIB=
+NVCC=
+CUDA_LIB_PATH=
+FOUND_CUDA=no
+CUDA_PATH=$CUDA_DIRECTORY
+
+AC_ARG_ENABLE(cuda,
+              AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
+              [cuda_req=$enableval],
+              [cuda_req=$build_default])
+
+AC_ARG_WITH(cuda,
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],
+            [CUDA_PATH=$withval
+            ])
+
+if test -n "$CUDA_PATH"; then
+        CUDA_PATH_SEP="$CUDA_PATH/bin$PATH_SEPARATOR"
+fi
+
+if test $cuda_req != no; then
+        # nvcc is intentional here
+        AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
+                [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
+fi
+
+if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
+then
+        CUDA_PATH=`dirname "$NVCC"`
+        CUDA_PATH=`dirname "$CUDA_PATH"`
+
+        if test $system = Windows; then
+                AC_CHECK_PROG([CL], [cl], [cl],
+                              [])
+                if test -n "$CL"; then
+                        FOUND_CUDA=yes
+                fi
+        else
+                FOUND_CUDA=yes
+        fi
+	AC_MSG_CHECKING([CUDA Toolkit version - major])
+        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_major)
+	AC_MSG_CHECKING([CUDA Toolkit version - minor])
+        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_minor)
+
+        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+        then
+                CUDA_LIB_PATH="$CUDA_PATH/lib64"
+        else
+                CUDA_LIB_PATH="$CUDA_PATH/lib"
+        fi
+
+        if test $system = Windows; then
+                CUDA_PATH="\"$CUDA_PATH\""
+                CUDA_LIB_PATH="\"$CUDA_LIB_PATH\""
+                if test $WORD_LEN = 64; then
+                        CUDA_LIB_PATH="$CUDA_LIB_PATH/x64"
+                else
+                        CUDA_LIB_PATH="$CUDA_LIB_PATH/Win32"
+                fi
+        fi
+
+        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+        CUDA_INC="-I$CUDA_PATH/include"
+        CUDA_COMPILER="$NVCC"
+        INC="$INC $CUDA_INC"
+
+        if test $system = MacOSX; then
+                LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
+                DYLIBBUNDLER_FLAGS="${DYLIBBUNDER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $CUDA_LIB_PATH"
+        fi
+fi
+
+AC_SUBST(DYLIBBUNDLER_FLAGS)
+
+# Pick compiler for cuda device code
+AC_ARG_WITH(cuda-compiler,
+              AS_HELP_STRING([--with-cuda-compiler=compiler], [select compiler to compile cuda code with; suported: clang, nvcc; default: nvcc]),
+              [CUDA_COMPILER="$withval"],
+              [])
+
+HOST_CC_REPORT=" ("
+case "$CUDA_COMPILER" in
+	*nvcc*)
+		;;
+	*clang*)
+		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
+		;;
+	"")
+		;;
+	*)
+		UG_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
+		;;
+esac
+HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
+
+# CUDA host compiler
+AC_ARG_WITH(cuda-host-compiler,
+	AS_HELP_STRING([--with-cuda-host-compiler=BINARY],[specify compiler used for building cuda host code]))
+if test "x${with_cuda_host_compiler}" != "x" ; then
+	AC_PATH_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[no])
+	# note AC_CHECK_PROG always fails on path with spaces in MSW
+	if test "x${cuda_host_cc}" != "xno" -o $system = Windows; then
+		CUDA_FLAGS="$CUDA_FLAGS -ccbin \"${cuda_host_cc}\""
+	else
+		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
+	fi
+else
+	with_cuda_host_compiler="default"
+fi
+
+if test "x$FOUND_CUDA" = "xyes" ; then
+	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
+else
+	HOST_CC_REPORT=""
+fi
+
+ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
+
+AC_SUBST(CUDA_INC)
+AC_SUBST(CUDA_COMPILER)
+AC_SUBST(CUDA_COMPUTE_ARGS)
+
+# -------------------------------------------------------------------------------------------------
 # GL common
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(gl,
@@ -2078,146 +2218,6 @@ fi
 if test $uyvy_req = yes && test $uyvy = no; then
         AC_MSG_ERROR([UYVY not found]);
 fi
-
-# -------------------------------------------------------------------------------------------------
-# CUDA stuff
-#
-# CUDA compiler choice - defaults to nvcc
-# 
-# CUDA lookup order:
-# 1) --with-cuda
-# 2) CUDA_DIRECTORY env variable
-# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
-# 4) default CUDA path
-
-CUDA_COMPUTE_ARGS=""
-CUDA_COMPILER=""
-
-CUDA_INC=
-CUDA_LIB=
-NVCC=
-CUDA_LIB_PATH=
-FOUND_CUDA=no
-CUDA_PATH=$CUDA_DIRECTORY
-
-AC_ARG_ENABLE(cuda,
-              AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
-              [cuda_req=$enableval],
-              [cuda_req=$build_default])
-
-AC_ARG_WITH(cuda,
-            [  --with-cuda=DIR         specify location of CUDA Toolkit],
-            [CUDA_PATH=$withval
-            ])
-
-if test -n "$CUDA_PATH"; then
-        CUDA_PATH_SEP="$CUDA_PATH/bin$PATH_SEPARATOR"
-fi
-
-if test $cuda_req != no; then
-        # nvcc is intentional here
-        AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
-                [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
-fi
-
-if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
-then
-        CUDA_PATH=`dirname "$NVCC"`
-        CUDA_PATH=`dirname "$CUDA_PATH"`
-
-        if test $system = Windows; then
-                AC_CHECK_PROG([CL], [cl], [cl],
-                              [])
-                if test -n "$CL"; then
-                        FOUND_CUDA=yes
-                fi
-        else
-                FOUND_CUDA=yes
-        fi
-	AC_MSG_CHECKING([CUDA Toolkit version - major])
-        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
-	AC_MSG_RESULT($nvcc_major)
-	AC_MSG_CHECKING([CUDA Toolkit version - minor])
-        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
-	AC_MSG_RESULT($nvcc_minor)
-
-        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
-        then
-                CUDA_LIB_PATH="$CUDA_PATH/lib64"
-        else
-                CUDA_LIB_PATH="$CUDA_PATH/lib"
-        fi
-
-        if test $system = Windows; then
-                CUDA_PATH="\"$CUDA_PATH\""
-                CUDA_LIB_PATH="\"$CUDA_LIB_PATH\""
-                if test $WORD_LEN = 64; then
-                        CUDA_LIB_PATH="$CUDA_LIB_PATH/x64"
-                else
-                        CUDA_LIB_PATH="$CUDA_LIB_PATH/Win32"
-                fi
-        fi
-
-        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
-        CUDA_INC="-I$CUDA_PATH/include"
-        CUDA_COMPILER="$NVCC"
-        INC="$INC $CUDA_INC"
-
-        if test $system = MacOSX; then
-                LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
-                DYLIBBUNDLER_FLAGS="${DYLIBBUNDER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $CUDA_LIB_PATH"
-        fi
-fi
-
-AC_SUBST(DYLIBBUNDLER_FLAGS)
-
-# Pick compiler for cuda device code
-AC_ARG_WITH(cuda-compiler,
-              AS_HELP_STRING([--with-cuda-compiler=compiler], [select compiler to compile cuda code with; suported: clang, nvcc; default: nvcc]),
-              [CUDA_COMPILER="$withval"],
-              [])
-
-HOST_CC_REPORT=" ("
-case "$CUDA_COMPILER" in
-	*nvcc*)
-		;;
-	*clang*)
-		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
-		;;
-	"")
-		;;
-	*)
-		UG_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
-		;;
-esac
-HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
-
-# CUDA host compiler
-AC_ARG_WITH(cuda-host-compiler,
-	AS_HELP_STRING([--with-cuda-host-compiler=BINARY],[specify compiler used for building cuda host code]))
-if test "x${with_cuda_host_compiler}" != "x" ; then
-	AC_PATH_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[no])
-	# note AC_CHECK_PROG always fails on path with spaces in MSW
-	if test "x${cuda_host_cc}" != "xno" -o $system = Windows; then
-		CUDA_FLAGS="$CUDA_FLAGS -ccbin \"${cuda_host_cc}\""
-	else
-		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
-	fi
-else
-	with_cuda_host_compiler="default"
-fi
-
-if test "x$FOUND_CUDA" = "xyes" ; then
-	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
-else
-	HOST_CC_REPORT=""
-fi
-
-ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
-
-AC_SUBST(CUDA_INC)
-AC_SUBST(CUDA_COMPILER)
-AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
