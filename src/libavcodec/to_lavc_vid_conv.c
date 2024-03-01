@@ -1497,6 +1497,73 @@ static inline _Bool filter(const struct to_lavc_req_prop *req_prop, codec_t uv_f
 }
 
 /**
+ * sets fmt_set[avformat]=1 for every AVPixelFormat that can be converted to
+ * @param[out] comp_data conversion properties (basically of AVPixelFormat, but
+ * if there is a conversion over UG codec, the lowest spec is used)
+ */
+static void
+set_convertible_formats(codec_t in_codec, struct to_lavc_req_prop req_prop,
+                        int fmt_set[static AV_PIX_FMT_NB],
+                        struct lavc_compare_convs_data *comp_data)
+{
+        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed, only UV pixfmt change
+                if (!get_decoder_from_to(in_codec, i->uv_codec)) {
+                        continue;
+                }
+                if (!filter(&req_prop, i->uv_codec, i->av_pixfmt)) {
+                        continue;
+                }
+                fmt_set[i->av_pixfmt]   = 1;
+                struct pixfmt_desc desc = av_pixfmt_get_desc(i->av_pixfmt);
+                log_msg(
+                    LOG_LEVEL_DEBUG2,
+                    MOD_NAME
+                    "conversion ->%s prop:\t%2d b, subsampling %d, RGB: %d\n",
+                    get_codec_name(i->uv_codec), desc.depth, desc.subsampling,
+                    desc.rgb);
+                comp_data->descs[i->av_pixfmt] = desc;
+                comp_data->steps[i->av_pixfmt] = 1;
+        }
+        for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions();
+             c->src != VIDEO_CODEC_NONE;
+             c++) { // AV conv needed (with possible UV pixfmt change)
+                if (c->src != in_codec &&
+                    !get_decoder_from_to(in_codec, c->src)) {
+                        continue;
+                }
+                if (!filter(&req_prop, c->src, c->dst)) {
+                        continue;
+                }
+                fmt_set[c->dst]             = 1;
+                struct pixfmt_desc desc_src = get_pixfmt_desc(in_codec);
+                struct pixfmt_desc desc_uv  = get_pixfmt_desc(c->src);
+                struct pixfmt_desc desc_av  = av_pixfmt_get_desc(c->dst);
+                struct pixfmt_desc desc     = {
+                            .depth = MIN(desc_av.depth, desc_uv.depth),
+                            .subsampling =
+                            MIN(desc_av.subsampling, desc_uv.subsampling),
+                            .rgb = desc_av.rgb == desc_uv.rgb ? desc_av.rgb
+                                                              : !desc_src.rgb
+                };
+                if (compare_pixdesc(&desc, &comp_data->descs[c->dst],
+                                    &desc_src) <
+                    0) { // override only with better
+                        log_msg(LOG_LEVEL_DEBUG2,
+                                MOD_NAME "conversion %s->%s prop:\t%2d b, "
+                                         "subsampling %d, RGB: %d\n",
+                                get_codec_name(c->src),
+                                av_get_pix_fmt_name(c->dst), desc.depth,
+                                desc.subsampling, desc.rgb);
+                        comp_data->descs[c->dst] = desc;
+                        comp_data->steps[c->dst] =
+                            get_decoder_from_to(in_codec, c->src) == vc_memcpy
+                                ? 1
+                                : 2;
+                }
+        }
+}
+
+/**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
  *
@@ -1518,35 +1585,7 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
         int sort_start_idx = nb_fmts;
         int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences; for every added element, comp_data must be also set
         struct lavc_compare_convs_data comp_data = { 0 };
-        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed, only UV pixfmt change
-                if (get_decoder_from_to(in_codec, i->uv_codec)) {
-                        if (filter(&req_prop, i->uv_codec, i->av_pixfmt)) {
-                                fmt_set[i->av_pixfmt] = 1;
-                                struct pixfmt_desc desc = av_pixfmt_get_desc(i->av_pixfmt);
-                                log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "conversion ->%s prop:\t%2d b, subsampling %d, RGB: %d\n", get_codec_name(i->uv_codec), desc.depth, desc.subsampling, desc.rgb);
-                                comp_data.descs[i->av_pixfmt] = desc;
-                                comp_data.steps[i->av_pixfmt] = 1;
-                        }
-                }
-        }
-        for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // AV conv needed (with possible UV pixfmt change)
-                if (c->src == in_codec || get_decoder_from_to(in_codec, c->src)) {
-                        if (filter(&req_prop, c->src, c->dst)) {
-                                fmt_set[c->dst] = 1;
-                                struct pixfmt_desc desc_src = get_pixfmt_desc(in_codec);
-                                struct pixfmt_desc desc_uv = get_pixfmt_desc(c->src);
-                                struct pixfmt_desc desc_av = av_pixfmt_get_desc(c->dst);
-                                struct pixfmt_desc desc = { .depth = MIN(desc_av.depth, desc_uv.depth),
-                                        .subsampling = MIN(desc_av.subsampling, desc_uv.subsampling),
-                                        .rgb = desc_av.rgb == desc_uv.rgb ? desc_av.rgb : !desc_src.rgb };
-                                if (compare_pixdesc(&desc, &comp_data.descs[c->dst], &desc_src) < 0) { // override only with better
-                                        log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "conversion %s->%s prop:\t%2d b, subsampling %d, RGB: %d\n", get_codec_name(c->src), av_get_pix_fmt_name(c->dst), desc.depth, desc.subsampling, desc.rgb);
-                                        comp_data.descs[c->dst] = desc;
-                                        comp_data.steps[c->dst] = get_decoder_from_to(in_codec, c->src) == vc_memcpy ? 1 : 2;
-                                }
-                        }
-                }
-        }
+        set_convertible_formats(in_codec, req_prop, fmt_set, &comp_data);
         for (int i = 0; i < AV_PIX_FMT_NB; ++i) {
                 if (fmt_set[i]) {
                         fmts[nb_fmts++] = (enum AVPixelFormat) i;
