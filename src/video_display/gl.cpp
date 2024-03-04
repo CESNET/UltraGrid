@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,7 +87,7 @@
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 #define GL_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x38e52705
 #define GL_DISABLE_10B_OPT_PARAM_NAME "gl-disable-10b"
-#define GL_WINDOW_HINT_OPT_PARAM_NAME "glfw-window-hint"
+#define GL_WINDOW_HINT_OPT_PARAM_NAME "glfw-window-hint" ///< @todo TOREMOVE
 #define MAX_BUFFER_SIZE 1
 #define ADAPTIVE_VSYNC -1
 #define SYSTEM_VSYNC 0xFE
@@ -500,8 +500,7 @@ static void gl_print_monitors(bool fullhelp) {
 static void gl_show_help(bool full) {
         col() << "usage:\n";
         col() << SBOLD(SRED("\t-d gl[:<options>]")
-                       << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME
-                                  "|" GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>]"
+                       << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "]"
                                 : ""))
               << "\n";
         col() << SBOLD("\t-d gl:[full]help") "\n\n";
@@ -540,11 +539,10 @@ static void gl_show_help(bool full) {
 #endif
         col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
         if (full) {
+                col() << TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
+                        "window hint key\n"
+                         "\t\t\t<k> to value <v>, eg. 0x20006=1 to autoiconify\n";
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
-                col() << TBOLD("\t--param " GL_WINDOW_HINT_OPT_PARAM_NAME)
-                      << "=<k>=<v>[:<k2>=<v2>] set GLFW window hint key\n"
-                         "\t\t<k> to value <v>, eg. 0x20006=1 to autoiconify"
-                         "(experts only)\n";
                 col() << "\n" TBOLD(
                     "[1]") " position doesn't work in Wayland\n";
         }
@@ -599,6 +597,24 @@ static bool set_size(struct state_gl *s, const char *tok)
                 s->pos_y = atoi(tok);
         }
         return true;
+}
+
+static void
+parse_window_hints(struct state_gl *s, char *hints)
+{
+        char *tok      = nullptr;
+        char *save_ptr = nullptr;
+        while ((tok = strtok_r(hints, ",", &save_ptr)) != nullptr) {
+                hints = nullptr;
+                if (strchr(tok, '=') == nullptr) {
+                        MSG(ERROR, "Malformed window hint - missing value "
+                                   "(expected <k>=<v>).\n");
+                        continue;
+                }
+                const int key = stoi(tok, nullptr, 0);
+                const int val = stoi(strchr(tok, '=') + 1, nullptr, 0);
+                s->hints[key] = val;
+        }
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
@@ -682,6 +698,8 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         s->fixed_size = true;
                 } else if (strcmp(tok, "noresizable") == 0) {
                         s->noresizable = true;
+                } else if (strstr(tok, "window_hint=") == tok) {
+                        parse_window_hints(s, strchr(tok, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
@@ -1414,6 +1432,7 @@ display_gl_set_window_hints(struct state_gl *s)
         }
 #endif
 
+        /// @todo TOREMOVE
         const char *hints = get_commandline_param(GL_WINDOW_HINT_OPT_PARAM_NAME);
         if (hints == nullptr) {
                 return;
@@ -1487,7 +1506,7 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "  Disable 10 bit codec processing to improve performance\n");
 ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
          "* " GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>[:<k2>=<v2>...]\n"
-         "  Set window hint <k> to value <v>\n");
+         "  Set window hint <k> to value <v> (deprecated, use option)\n");
 /**
  * Initializes OpenGL stuff. If this function succeeds, display_gl_cleanup_opengl() needs
  * to be called to release resources.
