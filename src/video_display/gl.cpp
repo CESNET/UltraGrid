@@ -95,7 +95,6 @@
 
 #include "gl_vdpau.hpp"
 
-namespace chrono = std::chrono;
 using std::array;
 using std::condition_variable;
 using std::copy;
@@ -117,6 +116,10 @@ using std::string_view;
 using std::unique_lock;
 using std::unordered_map;
 using std::vector;
+using std::chrono::duration;
+using std::chrono::duration_cast;
+using std::chrono::seconds;
+using std::chrono::steady_clock;
 using namespace std::chrono_literals;
 
 static const char * deinterlace_fp = R"raw(
@@ -403,7 +406,7 @@ struct state_gl {
         bool            noresizable = false;
         bool            paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
-        chrono::steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
+        steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
 
         double          window_size_factor = 1.0;
@@ -1205,11 +1208,11 @@ static void gl_process_frames(struct state_gl *s)
 
 
         if (s->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (s->cursor_shown_from != chrono::steady_clock::time_point()) {
-                        auto now = chrono::steady_clock::now();
-                        if (chrono::duration_cast<chrono::seconds>(now - s->cursor_shown_from).count() > 2) {
+                if (s->cursor_shown_from != steady_clock::time_point()) {
+                        const auto now = steady_clock::now();
+                        if (duration_cast<seconds>(now - s->cursor_shown_from).count() > 2) {
                                 glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-                                s->cursor_shown_from = chrono::steady_clock::time_point();
+                                s->cursor_shown_from = steady_clock::time_point();
                         }
                 }
         }
@@ -1217,7 +1220,7 @@ static void gl_process_frames(struct state_gl *s)
         {
                 unique_lock<mutex> lk(s->lock);
                 double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
-                s->new_frame_ready_cv.wait_for(lk, chrono::duration<double>(timeout), [s] {
+                s->new_frame_ready_cv.wait_for(lk, duration<double>(timeout), [s] {
                                 return s->frame_queue.size() > 0;});
                 if (s->frame_queue.size() == 0) {
                         return;
@@ -1388,10 +1391,10 @@ static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 {
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         if (s->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (s->cursor_shown_from == chrono::steady_clock::time_point()) {
+                if (s->cursor_shown_from == steady_clock::time_point()) {
                         glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
-                s->cursor_shown_from = chrono::steady_clock::now();
+                s->cursor_shown_from = steady_clock::now();
         }
 }
 
