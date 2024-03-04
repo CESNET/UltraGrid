@@ -536,10 +536,10 @@ static void gl_show_help(bool full) {
         if (full) {
                 col() << TBOLD("\tinit_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "init hint key\n"
-                         "\t\t\t<k> to value <v>\n";
+                         "\t\t\t<k> to value <v> (" TBOLD("list_hints")" to enumerate)\n";
                 col() << TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "window hint key\n"
-                         "\t\t\t<k> to value <v>, eg. 0x20006=1 to autoiconify\n";
+                         "\t\t\t<k> to value <v>,  (" TBOLD("list_hints")" to enumerate)\n";
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
                 col() << "\n" TBOLD(
                     "[1]") " position doesn't work in Wayland\n";
@@ -597,6 +597,13 @@ static bool set_size(struct state_gl *s, const char *tok)
         return true;
 }
 
+static const map<string, int> hint_map = {
+        {"autoiconify", 0x20006},
+        { "platform",   0x50003},
+        { "x11",        0x60003},
+        { "wayland",    0x60004},
+};
+
 /// @param window_hints true for window hints, otherwise init hints
 static void
 parse_hints(struct state_gl *s, bool window_hints, char *hints)
@@ -610,14 +617,49 @@ parse_hints(struct state_gl *s, bool window_hints, char *hints)
                                    "(expected <k>=<v>).\n");
                         continue;
                 }
-                const int key = stoi(tok, nullptr, 0);
-                const int val = stoi(strchr(tok, '=') + 1, nullptr, 0);
+                const char *key_s = tok;
+                const char *val_s = strchr(tok, '=') + 1;
+                *strchr(tok, '=') = '\0';
+                const int key     = hint_map.find(key_s) != hint_map.end()
+                                        ? hint_map.at(key_s)
+                                        : stoi(key_s, nullptr, 0);
+                const int val     = hint_map.find(val_s) != hint_map.end()
+                                        ? hint_map.at(val_s)
+                                        : stoi(val_s, nullptr, 0);
                 if (window_hints) {
                         s->window_hints[key] = val;
                 } else {
                         s->init_hints[key] = val;
                 }
         }
+}
+
+static void
+list_hints()
+{
+        color_printf(
+            "Very " TBOLD("incomplete") " list of hints and its values.\n");
+        color_printf("Keywords listed below can be passed to the options "
+                     "instead of the numberic value.\n\n");
+
+        color_printf("The list contains both keys and values for init and "
+                     "window hints.\n");
+        color_printf("Window hints start witn 0x20000, init with 0x50000, the "
+                     "others are values.\n\n");
+
+        color_printf("For commplete list refer to glfw3.h (eg. online "
+                     "<https://github.com/glfw/glfw/blob/master/include/GLFW/"
+                     "glfw3.h>).\n\n");
+
+        color_printf("Available hints keys and values:\n");
+        for (const auto &h : hint_map) {
+                color_printf("\t" TBOLD("%s") " - %#x\n", h.first.c_str(),
+                             h.second);
+        }
+        color_printf("\n");
+
+        color_printf(
+            "Example usage: " TBOLD("-d gl:init_hints=platform=x11") "\n\n");
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
@@ -705,6 +747,9 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         parse_hints(s, true, strchr(tok, '=') + 1);
                 } else if (strstr(tok, "init_hint=") == tok) {
                         parse_hints(s, false, strchr(tok, '=') + 1);
+                } else if (strcmp(tok, "list_hints") == 0) {
+                        list_hints();
+                        return nullptr;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
