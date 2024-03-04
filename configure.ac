@@ -2236,7 +2236,7 @@ if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_PATH_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[no])
 	# note AC_CHECK_PROG always fails on path with spaces in MSW
 	if test "x${cuda_host_cc}" != "xno" -o $system = Windows; then
-		CUDA_FLAGS+=" -ccbin \"${cuda_host_cc}\""
+		CUDA_FLAGS="$CUDA_FLAGS -ccbin \"${cuda_host_cc}\""
 	else
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
 	fi
