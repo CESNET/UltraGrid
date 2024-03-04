@@ -448,6 +448,7 @@ static int parse_cuda_device(char *optarg) {
                 ++i;
         }
         cuda_devices_count = i;
+        cuda_devices_explicit = true;
         return 0;
 }
 

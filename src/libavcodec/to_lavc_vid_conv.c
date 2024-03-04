@@ -54,6 +54,7 @@
 #include "debug.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
+#include "libavcodec/to_lavc_vid_conv_cuda.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/parallel_conv.h"
 #include "utils/worker.h"
@@ -1563,6 +1564,27 @@ set_convertible_formats(codec_t in_codec, struct to_lavc_req_prop req_prop,
         }
 }
 
+static void
+set_convertible_formats_cuda(codec_t in_codec, struct to_lavc_req_prop req_prop,
+                             int fmt_set[static AV_PIX_FMT_NB],
+                             struct lavc_compare_convs_data *comp_data)
+{
+        for (unsigned i = 0; i < sizeof to_lavc_cuda_supp_formats /
+                                     sizeof to_lavc_cuda_supp_formats[0];
+             i++) {
+                const enum AVPixelFormat f = to_lavc_cuda_supp_formats[i];
+                if (!filter(&req_prop, in_codec, f)) {
+                        continue;
+                }
+                fmt_set[f]                    = 1;
+                const struct pixfmt_desc desc = av_pixfmt_get_desc(f);
+                MSG(DEBUG2, "Adding CUDA-convertible format %s\n",
+                    av_get_pix_fmt_name(f));
+                comp_data->descs[f] = desc;
+                comp_data->steps[f] = 1;
+        }
+}
+
 /**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
@@ -1585,7 +1607,13 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
         int sort_start_idx = nb_fmts;
         int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences; for every added element, comp_data must be also set
         struct lavc_compare_convs_data comp_data = { 0 };
-        set_convertible_formats(in_codec, req_prop, fmt_set, &comp_data);
+        if (cuda_devices_explicit) {
+                set_convertible_formats_cuda(in_codec, req_prop, fmt_set,
+                                        &comp_data);
+        } else {
+                set_convertible_formats(in_codec, req_prop, fmt_set,
+                                        &comp_data);
+        }
         for (int i = 0; i < AV_PIX_FMT_NB; ++i) {
                 if (fmt_set[i]) {
                         fmts[nb_fmts++] = (enum AVPixelFormat) i;
@@ -1612,6 +1640,8 @@ struct to_lavc_vid_conv {
         codec_t             decoded_codec;
         decoder_t           decoder;
         pixfmt_callback_t   pixfmt_conv_callback;
+
+        struct to_lavc_vid_conv_cuda *cuda_conv_state;
 };
 
 static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -1688,6 +1718,15 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                 s->decoded_codec = in_pixfmt;
                 s->decoder = vc_memcpy;
         } else {
+                if (cuda_devices_explicit) {
+                        s->cuda_conv_state = to_lavc_vid_conv_cuda_init(
+                            in_pixfmt, width, height, out_pixfmt);
+                        if (s->cuda_conv_state != NULL) {
+                                MSG(NOTICE, "Using CUDA FFmpeg conversions.\n");
+                                return s;
+                        }
+                        MSG(ERROR, "Unable to initialize CUDA conv state!\n");
+                }
                 s->decoder = get_decoder_from_uv_to_uv(in_pixfmt, out_pixfmt, &s->decoded_codec);
                 if (s->decoder == NULL) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
@@ -1744,6 +1783,9 @@ static void *pixfmt_conv_task(void *arg) {
 /// @return AVFrame with converted data (if needed); valid until next to_lavc_vid_conv()
 ///         call or to_lavc_vid_conv_destroy()
 struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
+        if (s->cuda_conv_state != NULL) {
+                return to_lavc_vid_conv_cuda(s->cuda_conv_state, in_data);
+        }
         int ret = 0;
         unsigned char *decoded = NULL;
         if ((ret = av_frame_make_writable(s->out_frame)) != 0) {

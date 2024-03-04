@@ -97,6 +97,7 @@ extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if
 #define MAX_CUDA_DEVICES 4
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
+extern bool cuda_devices_explicit; ///< --cuda-device/-D specified expilcitly
 
 #define MODE_SENDER   (1U<<0U)
 #define MODE_RECEIVER (1U<<1U)

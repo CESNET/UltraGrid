@@ -1832,6 +1832,10 @@ if test $libavcodec_req != no && test $found_libavcodec = yes &&
 then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
+        if test "$FOUND_CUDA" = yes; then
+                to_lavc_cuda_obj=src/libavcodec/to_lavc_vid_conv_cuda.o
+                LIBAVCODEC_VIDEO="$LIBAVCODEC_VIDEO $to_lavc_cuda_obj"
+        fi
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         if test $lavc_hwacc_vdpau = yes; then
                 AC_DEFINE([HWACC_VDPAU], [1], [Build with libavcodec VDPAU HW acceleration support])
@@ -1888,7 +1892,7 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
                 add_module vidcap_file "src/libavcodec/lavc_common.o "\
 src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
                 add_module display_file "src/libavcodec/lavc_common.o "\
-"src/video_display/file.o src/libavcodec/to_lavc_vid_conv.o" \
+"src/video_display/file.o src/libavcodec/to_lavc_vid_conv.o $to_lavc_cuda_obj" \
 "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS"
         fi
 fi
