@@ -38,7 +38,7 @@
 
 using std::shared_ptr;
 
-#define TOREMOVE_TEST 1
+// #define TOREMOVE_TEST 1
 
 #include "libavcodec/lavc_common.h"
 #include "libavcodec/to_lavc_vid_conv.h"
@@ -67,7 +67,7 @@ to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
         assert(ret == 0);
         return s;
 #else
-        fprintf(stderr, "TODO: implement!\n");
+        // fprintf(stderr, "TODO: implement!\n");
         return nullptr;
 #endif
 }
