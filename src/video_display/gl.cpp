@@ -95,7 +95,28 @@
 
 #include "gl_vdpau.hpp"
 
-using namespace std;
+namespace chrono = std::chrono;
+using std::array;
+using std::condition_variable;
+using std::copy;
+using std::copy_if;
+using std::cout;
+using std::find;
+using std::lock_guard;
+using std::map;
+using std::min;
+using std::mutex;
+using std::ostringstream;
+using std::pair;
+using std::queue;
+using std::stof;
+using std::stoi;
+using std::stol;
+using std::string;
+using std::string_view;
+using std::unique_lock;
+using std::unordered_map;
+using std::vector;
 using namespace std::chrono_literals;
 
 static const char * deinterlace_fp = R"raw(
