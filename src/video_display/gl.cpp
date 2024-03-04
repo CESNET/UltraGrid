@@ -398,7 +398,8 @@ struct state_gl {
         int pos_y = INT_MIN;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
-        map<int, int> hints = {
+        map<int, int> init_hints;
+        map<int, int> window_hints = {
                 {GLFW_AUTO_ICONIFY, GLFW_FALSE}
         };
         int use_pbo = -1;
@@ -409,12 +410,6 @@ struct state_gl {
         vector<char> scratchpad; ///< scratchpad sized WxHx8
 
         state_gl(struct module *parent) {
-                glfwSetErrorCallback(glfw_print_error);
-
-                if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
-                        LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
-                        throw false;
-                }
                 module_init_default(&mod);
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
@@ -539,6 +534,9 @@ static void gl_show_help(bool full) {
 #endif
         col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
         if (full) {
+                col() << TBOLD("\tinit_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
+                        "init hint key\n"
+                         "\t\t\t<k> to value <v>\n";
                 col() << TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "window hint key\n"
                          "\t\t\t<k> to value <v>, eg. 0x20006=1 to autoiconify\n";
@@ -599,8 +597,9 @@ static bool set_size(struct state_gl *s, const char *tok)
         return true;
 }
 
+/// @param window_hints true for window hints, otherwise init hints
 static void
-parse_window_hints(struct state_gl *s, char *hints)
+parse_hints(struct state_gl *s, bool window_hints, char *hints)
 {
         char *tok      = nullptr;
         char *save_ptr = nullptr;
@@ -613,7 +612,11 @@ parse_window_hints(struct state_gl *s, char *hints)
                 }
                 const int key = stoi(tok, nullptr, 0);
                 const int val = stoi(strchr(tok, '=') + 1, nullptr, 0);
-                s->hints[key] = val;
+                if (window_hints) {
+                        s->window_hints[key] = val;
+                } else {
+                        s->init_hints[key] = val;
+                }
         }
 }
 
@@ -655,7 +658,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         char *pos = strchr(tok,'/');
                         if(pos) s->video_aspect /= atof(pos + 1);
                 } else if(!strcasecmp(tok, "nodecorate")) {
-                        s->hints[GLFW_DECORATED] =  GLFW_FALSE;
+                        s->window_hints[GLFW_DECORATED] =  GLFW_FALSE;
                 } else if(!strcasecmp(tok, "novsync")) {
                         s->vsync = 0;
                 } else if(!strcasecmp(tok, "single")) {
@@ -686,7 +689,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                                 s->gamma /= stof(strchr(tok, '/') + 1);
                         }
                 } else if (!strcasecmp(tok, "hide-window")) {
-                        s->hints[GLFW_VISIBLE] = GLFW_FALSE;
+                        s->window_hints[GLFW_VISIBLE] = GLFW_FALSE;
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
                         s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                 } else if (strstr(tok, "size=") == tok ||
@@ -699,7 +702,9 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                 } else if (strcmp(tok, "noresizable") == 0) {
                         s->noresizable = true;
                 } else if (strstr(tok, "window_hint=") == tok) {
-                        parse_window_hints(s, strchr(tok, '=') + 1);
+                        parse_hints(s, true, strchr(tok, '=') + 1);
+                } else if (strstr(tok, "init_hint=") == tok) {
+                        parse_hints(s, false, strchr(tok, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return nullptr;
@@ -748,6 +753,10 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 char msg[18];
                 snprintf(msg, sizeof msg, "%" PRIx64, i.first);
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
+        }
+
+        for (auto const &hint : s->init_hints) {
+                glfwInitHint(hint.first, hint.second);
         }
 
         if (!display_gl_init_opengl(s)) {
@@ -1423,7 +1432,7 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
 static void
 display_gl_set_window_hints(struct state_gl *s)
 {
-        for (auto const &hint : s->hints) {
+        for (auto const &hint : s->window_hints) {
                 glfwWindowHint(hint.first, hint.second);
         }
 #ifndef _WIN32
@@ -1513,6 +1522,14 @@ ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
+        glfwSetErrorCallback(glfw_print_error);
+
+        if (ref_count_init_once<int>()(glfwInit, glfw_init_count)
+                .value_or(GLFW_TRUE) == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
+                return false;
+        }
+
         if (s->monitor == nullptr) {
                 s->monitor = glfwGetPrimaryMonitor();
                 if (s->monitor == nullptr) {
