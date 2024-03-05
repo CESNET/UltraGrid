@@ -58,6 +58,10 @@ extern "C" {
 
 #include "libavcodec/utils.h"
 
+#ifdef _MSC_VER
+#define __attribute__(a)
+#endif
+
 // component indices to rgb_shift[] (@ref av_to_uv_convert)
 enum {
         R_SHIFT_IDX = 0,

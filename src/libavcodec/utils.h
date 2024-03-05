@@ -41,6 +41,10 @@
 
 #include "types.h"
 
+#ifdef _MSC_VER
+#define __attribute__(a)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
