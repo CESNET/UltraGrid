@@ -110,7 +110,7 @@ char *xor_using_sse2 (char *source, char *dest, int packet_size)
     return dest;
 }
 
-CUDA_DLL_API void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,int param_k,int param_m,int w_f,int packet_size ,int buf_size)
+void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,int param_k,int param_m,int w_f,int packet_size ,int buf_size)
 {
 
     // cudaError_t error;
@@ -191,7 +191,7 @@ CUDA_DLL_API void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,
         } \
 } while(0)
 
-CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ERROR_VEC, int not_done, int *frame_size,int * error_vec,int * sync_vec,int M,int K,int w_f,int buf_size,int packet_size)
+void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ERROR_VEC, int not_done, int *frame_size,int * error_vec,int * sync_vec,int M,int K,int w_f,int buf_size,int packet_size)
 {
 
 

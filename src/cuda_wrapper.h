@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,16 +44,6 @@
 extern "C" {
 #endif // __cplusplus
 
-#if defined _MSC_VER || defined __MINGW32__
-#ifdef EXPORT_DLL_SYMBOLS
-#define CUDA_DLL_API __declspec(dllexport)
-#else
-#define CUDA_DLL_API __declspec(dllimport)
-#endif
-#else // other platforms
-#define CUDA_DLL_API
-#endif
-
 /// @{
 #define CUDA_WRAPPER_SUCCESS 0
 /// @}
@@ -65,18 +55,18 @@ extern "C" {
 
 typedef void *cuda_wrapper_stream_t;
 
-CUDA_DLL_API int cuda_wrapper_free(void *buffer);
-CUDA_DLL_API int cuda_wrapper_free_host(void *buffer);
-CUDA_DLL_API int cuda_wrapper_host_alloc(void **pHost, size_t size, unsigned int flags);
-CUDA_DLL_API int cuda_wrapper_malloc(void **buffer, size_t data_len);
-CUDA_DLL_API int cuda_wrapper_malloc_host(void **buffer, size_t data_len);
-CUDA_DLL_API int cuda_wrapper_memcpy(void *dst, const void *src,
+int cuda_wrapper_free(void *buffer);
+int cuda_wrapper_free_host(void *buffer);
+int cuda_wrapper_host_alloc(void **pHost, size_t size, unsigned int flags);
+int cuda_wrapper_malloc(void **buffer, size_t data_len);
+int cuda_wrapper_malloc_host(void **buffer, size_t data_len);
+int cuda_wrapper_memcpy(void *dst, const void *src,
                 size_t count, int kind);
-CUDA_DLL_API const char *cuda_wrapper_last_error_string(void);
-CUDA_DLL_API int cuda_wrapper_set_device(int index);
-CUDA_DLL_API int cuda_wrapper_get_last_error(void);
-CUDA_DLL_API const char * cuda_wrapper_get_error_string(int error);
-CUDA_DLL_API void cuda_wrapper_print_devices_info(void);
+const char *cuda_wrapper_last_error_string(void);
+int cuda_wrapper_set_device(int index);
+int cuda_wrapper_get_last_error(void);
+const char * cuda_wrapper_get_error_string(int error);
+void cuda_wrapper_print_devices_info(void);
 
 #ifdef __cplusplus
 }

@@ -195,12 +195,6 @@ then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -fPIC"
-        CU_OBJ_SUFFIX="o"
-else # Windows
-        if test $WORD_LEN = 32; then
-                CUDA_FLAGS="-m32"
-        fi
-        CU_OBJ_SUFFIX="lib"
 fi
 AC_SUBST(CUDA_FLAGS)
 
@@ -574,18 +568,9 @@ fi
 
 if test "$FOUND_CUDA" = yes; then
           AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
-          if test $system = Windows; then
-                  # It is twice by intent - as an object to force dependency
-                  # (== build the object), as a lib to be at the end of the
-                  # link list (it is a library) in MSW. TODO: make it prettier
-                  # somehow. The same applies also for other CUDA objs/libs.
-                  CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
-                  CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
-                  DLL_LIBS="$DLL_LIBS src/cuda_wrapper.dll"
-          else
+          OBJS="$OBJS src/cuda_wrapper.o"
+          if test $system != Windows; then
                   LIBS="$LIBS $CUDA_LIB"
-                  OBJS="$OBJS src/cuda_wrapper.$CU_OBJ_SUFFIX"
-                  CUDA_COMMON_LIB=
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
@@ -2274,20 +2259,6 @@ ENSURE_FEATURE_PRESENT([$gpujpeg_req], [$gpujpeg], [GPUJPEG not found])
 
 cuda_dxt=no
 
-AC_DEFUN([DEFINE_CUDA_DXT], [
-          if test -z "$included_shared_cuda_dxt_cu"; then
-                  if test $system = Windows; then
-                          CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
-                          CUDA_DXT_COMMON_LIB="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
-                          DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.dll"
-                  else
-                          CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
-                          CUDA_DXT_COMMON_LIB=
-                  fi
-                  included_shared_cuda_dxt_cu=yes
-          fi
-        ])
-
 AC_ARG_ENABLE(cuda-dxt,
 [  --disable-cuda-dxt      disable CUDA DXT compression (auto)]
 [                          Requires: CUDA],
@@ -2295,13 +2266,13 @@ AC_ARG_ENABLE(cuda-dxt,
         [cuda_dxt_req=$build_default])
 
 LIBS=$SAVED_LIBS
+CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.o"
 
 if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
 then
         cuda_dxt=yes
 
-        DEFINE_CUDA_DXT
-        CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
+        CUDA_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_LIB"
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
         add_module vcompress_cuda_dxt "$CUDA_DXT_OBJ" "$CUDA_DXT_LIB"
 fi
@@ -2321,10 +2292,9 @@ AC_ARG_ENABLE(gpujpeg_to_dxt,
 if test $gpujpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
 then
-        DEFINE_CUDA_DXT
         gpujpeg_to_dxt=yes
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
-        GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
+        GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
         GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
         add_module vdecompress_gpujpeg_to_dxt "$GPUJPEG_TO_DXT_OBJ" "$GPUJPEG_TO_DXT_LIB"
 fi
@@ -2366,7 +2336,7 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
                 gpustitch=yes
 
                 GPUSTITCH_LIB="-lgpustitch $LIBGPUSTITCH_LIBS"
-                GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
+                GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.o $CUDA_COMMON_OBJ"
                 add_module vidcap_gpustitch "$GPUSTITCH_OBJ" "$GPUSTITCH_LIB"
 
                 INC="$INC $LIBGPUSTITCH_CFLAGS"
@@ -2924,14 +2894,8 @@ AC_ARG_ENABLE(ldgm-gpu,
 if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
-        LDGM_GPU_LIBS="$CUDA_COMMON_LIB $CUDA_LIB"
-        if test $system = Windows; then
-                DLL_LIBS="$DLL_LIBS ldgm/src/gpu.dll"
-                LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
-                LDGM_GPU_LIBS="$LDGM_GPU_LIBS ldgm/src/gpu.$CU_OBJ_SUFFIX"
-        else
-                LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
-        fi
+        LDGM_GPU_LIBS="$CUDA_LIB"
+        LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.o"
         add_module ldgm_gpu "$LDGM_GPU_OBJS" "$LDGM_GPU_LIBS"
         if test $WORD_LEN = 32 -a $system = Linux; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -msse2"

@@ -284,12 +284,6 @@ POSTPROCESS_DEPS = \
 	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
 	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
-%.lib: %.cu
-	$(MKDIR_P) $(dir $@)
-	$(CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) --shared $< -o $*.dll
-	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -M --shared $< > $*.d
-	touch $@
-	$(POSTPROCESS_DEPS)
 
 src/libavcodec/from_lavc_vid_conv.o: src/libavcodec/from_lavc_vid_conv.c
 	$(MKDIR_P) $(dir $@)

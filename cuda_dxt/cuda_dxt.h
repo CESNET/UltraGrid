@@ -27,7 +27,7 @@ extern "C" {
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-CUDA_DLL_API int cuda_rgb_to_dxt1
+int cuda_rgb_to_dxt1
 (
     const void * src, 
     void * out, 
@@ -51,7 +51,7 @@ CUDA_DLL_API int cuda_rgb_to_dxt1
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-CUDA_DLL_API int cuda_yuv_to_dxt1
+int cuda_yuv_to_dxt1
 (
     const void * src,
     void * out,
@@ -74,7 +74,7 @@ CUDA_DLL_API int cuda_yuv_to_dxt1
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-CUDA_DLL_API int cuda_rgb_to_dxt6
+int cuda_rgb_to_dxt6
 (
     const void * src, 
     void * out, 
@@ -83,9 +83,9 @@ CUDA_DLL_API int cuda_rgb_to_dxt6
     cuda_wrapper_stream_t stream
 );
 
-CUDA_DLL_API int cuda_yuv_to_dxt6(const void * src, void * out,
+int cuda_yuv_to_dxt6(const void * src, void * out,
                 int size_x, int size_y, cuda_wrapper_stream_t stream);
-CUDA_DLL_API int cuda_yuv422_to_yuv444(const void * src, void * out,
+int cuda_yuv422_to_yuv444(const void * src, void * out,
                 int pix_count, cuda_wrapper_stream_t str);
 
 #ifdef __cplusplus
