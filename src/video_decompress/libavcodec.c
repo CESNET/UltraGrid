@@ -485,6 +485,29 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         return configure_with(s, desc, NULL, 0);
 }
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 75, 100)
+static int drm_prime_init(struct AVCodecContext *s,
+                struct hw_accel_state *state,
+                codec_t out_codec)
+{
+        UNUSED(s), UNUSED(out_codec);
+        state->type = HWACCEL_DRM_PRIME;
+        AVBufferRef *ref = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_DRM, &ref);
+        if(ret < 0)
+                return ret;
+
+        s->hw_device_ctx = ref;
+        state->copy = true;
+        state->tmp_frame = av_frame_alloc();
+        if(!state->tmp_frame){
+                av_buffer_unref(&ref);
+                return -1;
+        }
+        return 0;
+}
+#endif
+
 #if defined HWACC_COMMON_IMPL && LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
 static int vulkan_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
@@ -596,6 +619,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 #endif
 #ifdef HAVE_MACOSX
                 {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init},
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 75, 100)
+                {AV_PIX_FMT_DRM_PRIME, drm_prime_init},
 #endif
                 {AV_PIX_FMT_NONE, NULL}
         };

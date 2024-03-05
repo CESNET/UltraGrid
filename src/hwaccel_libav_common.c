@@ -65,6 +65,9 @@ static const struct {
         { "vaapi",        HWACCEL_VAAPI,        AV_PIX_FMT_VAAPI,        0       },
         { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0       },
         { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,         0       },
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 75, 100)
+        { "drm-prime",    HWACCEL_DRM_PRIME,    AV_PIX_FMT_DRM_PRIME,    0       },
+#endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
         { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,       0       },
 #endif

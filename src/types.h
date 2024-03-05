@@ -118,6 +118,7 @@ enum hw_accel_type {
         HWACCEL_VIDEOTOOLBOX,
         HWACCEL_CUDA,
         HWACCEL_VULKAN,
+        HWACCEL_DRM_PRIME,
         HWACCEL_COUNT
 };
 
