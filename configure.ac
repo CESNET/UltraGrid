@@ -298,40 +298,6 @@ if test "$req_man" = yes && test "$A2X" = :; then
 [AsciiDoc/Asciidoctor was not found!])
 fi
 
-# -------------------------------------------------------------------------------------------------
-# Additional macros
-# -------------------------------------------------------------------------------------------------
-AC_DEFUN([CUDA_MESSAGE], [
-          if test -z "$cuda_msg_defined" -a $system != Windows; then
-                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
-decompression, you will need to have CUDA libraries visible to your OS.\n\
-If not done so, you can accomplish this by adding line:\n\
-        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
-to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
-        exec bash\n***\n"
-                  cuda_msg_defined=yes
-          fi
-        ])
-
-AC_DEFUN([DEFINE_CUDA], [
-          if test -z "$cuda_var_defined"; then
-                  AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
-                  if test $system = Windows; then
-                          # It is twice by intent - as an object to force dependency
-                          # (== build the object), as a lib to be at the end of the
-                          # link list (it is a library) in MSW. TODO: make it prettier
-                          # somehow. The same applies also for other CUDA objs/libs.
-                          CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
-                          CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
-                          DLL_LIBS="$DLL_LIBS src/cuda_wrapper.dll"
-                  else
-                          LIBS="$LIBS $CUDA_LIB"
-                          OBJS="$OBJS src/cuda_wrapper.$CU_OBJ_SUFFIX"
-                          CUDA_COMMON_LIB=
-                  fi
-                  cuda_var_defined=yes
-          fi
-        ])
 AC_SUBST(DLL_LIBS)
 
 AC_CHECK_FUNCS(usleep)
@@ -504,7 +470,7 @@ AC_ARG_ENABLE(cuda,
               [cuda_req=$build_default])
 
 AC_ARG_WITH(cuda,
-            [  --with-cuda=DIR         specify location of CUDA Toolkit],
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],/FOUN
             [CUDA_PATH=$withval
             ])
 
@@ -603,6 +569,30 @@ if test "x$FOUND_CUDA" = "xyes" ; then
 	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
 else
 	HOST_CC_REPORT=""
+fi
+
+
+if test "$FOUND_CUDA" = yes; then
+          AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
+          if test $system = Windows; then
+                  # It is twice by intent - as an object to force dependency
+                  # (== build the object), as a lib to be at the end of the
+                  # link list (it is a library) in MSW. TODO: make it prettier
+                  # somehow. The same applies also for other CUDA objs/libs.
+                  CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
+                  CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
+                  DLL_LIBS="$DLL_LIBS src/cuda_wrapper.dll"
+          else
+                  LIBS="$LIBS $CUDA_LIB"
+                  OBJS="$OBJS src/cuda_wrapper.$CU_OBJ_SUFFIX"
+                  CUDA_COMMON_LIB=
+                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
+decompression, you will need to have CUDA libraries visible to your OS.\n\
+If not done so, you can accomplish this by adding line:\n\
+        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
+to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
+        exec bash\n***\n"
+          fi
 fi
 
 ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
@@ -2310,12 +2300,10 @@ if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
 then
         cuda_dxt=yes
 
-        DEFINE_CUDA
         DEFINE_CUDA_DXT
         CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
         add_module vcompress_cuda_dxt "$CUDA_DXT_OBJ" "$CUDA_DXT_LIB"
-        CUDA_MESSAGE
 fi
 
 ENSURE_FEATURE_PRESENT([$cuda_dxt_req], [$cuda_dxt], [CUDA DXT not found])
@@ -2333,14 +2321,12 @@ AC_ARG_ENABLE(gpujpeg_to_dxt,
 if test $gpujpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
 then
-        DEFINE_CUDA
         DEFINE_CUDA_DXT
         gpujpeg_to_dxt=yes
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
         GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
         GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
         add_module vdecompress_gpujpeg_to_dxt "$GPUJPEG_TO_DXT_OBJ" "$GPUJPEG_TO_DXT_LIB"
-        CUDA_MESSAGE
 fi
 
 ENSURE_FEATURE_PRESENT([$gpujpeg_to_dxt], [$gpujpeg_to_dxt_req], [GPUJPEG DXT transcoder not found])
@@ -2384,7 +2370,6 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
                 add_module vidcap_gpustitch "$GPUSTITCH_OBJ" "$GPUSTITCH_LIB"
 
                 INC="$INC $LIBGPUSTITCH_CFLAGS"
-                CUDA_MESSAGE
         fi
 fi
 
@@ -2938,8 +2923,6 @@ AC_ARG_ENABLE(ldgm-gpu,
 
 if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
-        DEFINE_CUDA
-        CUDA_MESSAGE
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
         LDGM_GPU_LIBS="$CUDA_COMMON_LIB $CUDA_LIB"
         if test $system = Windows; then
