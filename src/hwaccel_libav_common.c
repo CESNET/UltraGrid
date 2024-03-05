@@ -64,7 +64,6 @@ static const struct {
         { "vdpau-copy",   HWACCEL_VDPAU,        AV_PIX_FMT_VDPAU,        HW_VDPAU},
         { "vaapi",        HWACCEL_VAAPI,        AV_PIX_FMT_VAAPI,        0       },
         { "videotoolbox", HWACCEL_VIDEOTOOLBOX, AV_PIX_FMT_VIDEOTOOLBOX, 0       },
-        { "rpi4",         HWACCEL_RPI4,         AV_PIX_FMT_RPI4_8,       RPI4_8  },
         { "cuda",         HWACCEL_CUDA,         AV_PIX_FMT_CUDA,         0       },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
         { "vulkan",       HWACCEL_VULKAN,       AV_PIX_FMT_VULKAN,       0       },

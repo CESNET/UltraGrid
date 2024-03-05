@@ -485,19 +485,6 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         return configure_with(s, desc, NULL, 0);
 }
 
-#ifdef HWACC_RPI4
-static int rpi4_hwacc_init(struct AVCodecContext *s,
-                struct hw_accel_state *state,
-                codec_t out_codec)
-{
-        UNUSED(s), UNUSED(out_codec);
-        state->type = HWACCEL_RPI4;
-        state->copy = false;
-        return 0;
-}
-#endif
-
-
 #if defined HWACC_COMMON_IMPL && LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
 static int vulkan_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
@@ -609,9 +596,6 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 #endif
 #ifdef HAVE_MACOSX
                 {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init},
-#endif
-#ifdef HWACC_RPI4
-                {AV_PIX_FMT_RPI4_8, rpi4_hwacc_init},
 #endif
                 {AV_PIX_FMT_NONE, NULL}
         };

@@ -69,7 +69,6 @@
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
-#include "hwaccel_rpi4.h"
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR
 #include "video_codec.h"
 
@@ -165,8 +164,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('M','J','2','R'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
                 to_fourcc('V', 'D', 'P', 'S'), HW_VDPAU_FRAME_SZ, 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4440, "vdpau"},
-        [RPI4_8] = {"RPI4_8", "Raspberry pi 4 hw. decoded (SAND)",
-                to_fourcc('S', 'A', 'N', 'D'), sizeof(av_frame_wrapper), 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4200, "sand"},
         [HFYU] = {"HFYU", "HuffYUV",
                 to_fourcc('H','F','Y','U'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "hfyu"},
         [FFV1] = {"FFV1", "FFV1",

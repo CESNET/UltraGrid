@@ -58,7 +58,6 @@
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "host.h"
-#include "hwaccel_rpi4.h"
 #include "hwaccel_vdpau.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/lavc_common.h"
@@ -2037,20 +2036,6 @@ static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restr
 
         callbacks->recycle = hw_vdpau_recycle_callback; 
         callbacks->copy = hw_vdpau_copy_callback; 
-}
-#endif
-
-#ifdef HWACC_RPI4
-static void av_rpi4_8_to_ug(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
-{
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(pitch);
-        UNUSED(rgb_shift);
-
-        av_frame_wrapper *out = (av_frame_wrapper *)(void *) dst_buffer;
-        av_frame_ref(out->av_frame, in_frame);
 }
 #endif
 

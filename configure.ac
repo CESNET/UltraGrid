@@ -1571,7 +1571,6 @@ fi
 lavc_hwacc_common=no
 lavc_hwacc_vdpau=no
 lavc_hwacc_vaapi=no
-lavc_hwacc_rpi4=no
 
 define(lavc_hwacc_common_dep, libavcodec libavutil >= 55.22.1)
 define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
@@ -1589,13 +1588,6 @@ AC_ARG_ENABLE(lavc-hw-accel-vaapi,
 [                          Requires: lavc_hwacc_vaapi_dep],
     [lavc_hwacc_vaapi_req=$enableval],
     [lavc_hwacc_vaapi_req=$build_default]
-)
-
-AC_ARG_ENABLE(lavc-hw-accel-rpi4,
-[  --disable-lavc-hw-accel-rpi4          disable lavc-hw-accel-rpi4 (default is auto)]
-[                          Requires: Raspbian-patched ffmpeg libmmal],
-    [lavc_hwacc_rpi4_req=$enableval],
-    [lavc_hwacc_rpi4_req=$build_default]
 )
 
 LAVC_HWACC_FLAGS=-DHWACC_COMMON_IMPL
@@ -1622,25 +1614,6 @@ if test $lavc_hwacc_vaapi_req != no; then
                 lavc_hwacc_common=yes
         fi
 fi
-if test $lavc_hwacc_rpi4_req != no; then
-        SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
-        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/vc/lib/pkgconfig/"
-        PKG_CHECK_MODULES([MMAL], [mmal], [ FOUND_HWACC_RPI4_DEP=yes ], [ FOUND_HWACC_RPI4_DEP=no ])
-        PKG_CHECK_MODULES([BCM_HOST], [bcm_host], [ ], [ FOUND_HWACC_RPI4_DEP=no ])
-        PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
-        AC_CHECK_HEADER([libavcodec/rpi_zc.h], [  ], [FOUND_HWACC_RPI4_DEP=no], [#include <libavcodec/avcodec.h>])
-        SAVED_CFLAGS=$CFLAGS
-        CFLAGS="$CFLAGS ${MMAL_CFLAGS}"
-        AC_CHECK_HEADER([interface/mmal/mmal.h], [], [FOUND_HWACC_RPI4_DEP=no])
-        CFLAGS=$SAVED_CFLAGS
-        if test "$FOUND_HWACC_RPI4_DEP" = yes; then
-                LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
-                LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
-                add_module rpi4_hw_accel src/video_display/rpi4_out.o "${MMAL_LIBS} ${BCM_HOST_LIBS}"
-                lavc_hwacc_rpi4=yes
-                lavc_hwacc_common=yes
-        fi
-fi
 if test $system = MacOSX; then
         lavc_hwacc_common=yes
 fi
@@ -1652,7 +1625,6 @@ fi
 
 ENSURE_FEATURE_PRESENT([$lavc_hwacc_vdpau_req], [$lavc_hwacc_vdpau], [Could not find hwacc vdpau dependencies])
 ENSURE_FEATURE_PRESENT([$lavc_hwacc_vaapi_req], [$lavc_hwacc_vaapi], [Could not find hwacc vaapi dependencies!])
-ENSURE_FEATURE_PRESENT([$lavc_hwacc_rpi4_req], [$lavc_hwacc_rpi4], [Could not find hwacc rpi4 dependencies!])
 
 # -------------------------------------------------------------------------------------------------
 # Libswscale
@@ -3515,7 +3487,7 @@ RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
 RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
-RESULT=`add_column "$RESULT" "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi, RPI4 $lavc_hwacc_rpi4)" $libavcodec $?`
+RESULT=`add_column "$RESULT" "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
 RESULT=`end_section "$RESULT"`
