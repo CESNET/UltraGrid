@@ -532,12 +532,6 @@ then
         else
                 FOUND_CUDA=yes
         fi
-	AC_MSG_CHECKING([CUDA Toolkit version - major])
-        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
-	AC_MSG_RESULT($nvcc_major)
-	AC_MSG_CHECKING([CUDA Toolkit version - minor])
-        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
-	AC_MSG_RESULT($nvcc_minor)
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
