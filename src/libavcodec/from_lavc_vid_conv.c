@@ -57,6 +57,8 @@
 #include "libavcodec/lavc_common.h"
 #include "pixfmt_conv.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
+#include "utils/misc.h"   // get_cpu_core_count
+#include "utils/worker.h" // task_run_parallel
 #include "video.h"
 
 #ifdef __SSE3__
@@ -2585,6 +2587,67 @@ av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
         for (ptrdiff_t i = 0; i < height; ++i) {
                 memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
         }
+}
+
+struct convert_task_data {
+        const av_to_uv_convert_t *convert;
+        unsigned char            *out_data;
+        AVFrame                  *in_frame;
+        int                       width;
+        int                       height;
+        int                       pitch;
+        const int                *rgb_shift;
+};
+
+static void *
+convert_task(void *arg)
+{
+        struct convert_task_data *d = arg;
+        av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
+                         d->width, d->height, d->pitch, d->rgb_shift);
+        return NULL;
+}
+
+void
+parallel_convert(codec_t out_codec, const av_to_uv_convert_t *convert,
+                 char *dst, AVFrame *in, int width, int height, int pitch,
+                 int rgb_shift[3])
+{
+        if (codec_is_const_size(out_codec)) { // VAAPI etc
+                av_to_uv_convert(convert, dst, in, width, height, pitch,
+                                 rgb_shift);
+                return;
+        }
+
+        const int cpu_count = get_cpu_core_count();
+
+        struct convert_task_data d[cpu_count];
+        AVFrame                  parts[cpu_count];
+        for (int i = 0; i < cpu_count; ++i) {
+                int row_height = (height / cpu_count) & ~1; // needs to be even
+                unsigned char *part_dst =
+                    (unsigned char *) dst + (size_t) i * row_height * pitch;
+                memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
+                const AVPixFmtDescriptor *fmt_desc =
+                    av_pix_fmt_desc_get(in->format);
+                for (int plane = 0; plane < AV_NUM_DATA_POINTERS; ++plane) {
+                        if (in->data[plane] == NULL) {
+                                break;
+                        }
+                        parts[i].data[plane] =
+                            in->data[plane] +
+                            ((i * row_height * in->linesize[plane]) >>
+                             (plane == 0 ? 0 : fmt_desc->log2_chroma_h));
+                }
+                if (i == cpu_count - 1) {
+                        row_height = height - row_height * (cpu_count - 1);
+                }
+                d[i] =
+                    (struct convert_task_data){ convert,  part_dst,   &parts[i],
+                                                width,    row_height, pitch,
+                                                rgb_shift };
+        }
+        task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
 }
 
 #pragma GCC diagnostic pop
