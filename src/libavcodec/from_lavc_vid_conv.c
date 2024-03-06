@@ -2320,20 +2320,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #define AV_TO_UV_CONVERSION_COUNT (sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0])
 static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_conversions + AV_TO_UV_CONVERSION_COUNT;
 
-static void
-set_decoder_mapped_to_uv(av_to_uv_convert_t *s, decoder_t dec,
-                         codec_t dst_pixfmt)
-{
-        s->dec        = dec;
-        s->dst_pixfmt = dst_pixfmt;
-}
-
-static void
-set_decoder_memcpy(av_to_uv_convert_t *s, codec_t color_spec)
-{
-        s->dst_pixfmt = color_spec;
-}
-
 static QSORT_S_COMP_DEFINE(compare_convs, a, b, orig_c) {
         const struct av_to_uv_conversion *conv_a = a;
         const struct av_to_uv_conversion *conv_b = b;
@@ -2383,6 +2369,7 @@ av_to_uv_conversion_destroy(av_to_uv_convert_t **s)
 
 av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
+        ret->dst_pixfmt = uv_codec;
 
         codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(av_codec);
         if (mapped_pix_fmt == uv_codec) {
@@ -2391,13 +2378,12 @@ av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                         free(ret);
                         return NULL;
                 }
-                set_decoder_memcpy(ret, uv_codec);
                 return ret;
         }
         if (mapped_pix_fmt != VC_NONE) {
                 decoder_t dec = get_decoder_from_to(mapped_pix_fmt, uv_codec);
                 if (dec) {
-                        set_decoder_mapped_to_uv(ret, dec, uv_codec);
+                        ret->dec = dec;
                         return ret;
                 }
         }
@@ -2423,7 +2409,6 @@ av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         ret->dec = dec;
         ret->convert = av_convert;
         ret->src_pixfmt = intermediate;
-        ret->dst_pixfmt = uv_codec;
         watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
         watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
 
@@ -2506,9 +2491,9 @@ enum AVPixelFormat
 pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
 {
         *av_conv = calloc(1, sizeof **av_conv);
+        (*av_conv)->dst_pixfmt = color_spec;
 
         if (get_ug_to_av_pixfmt(color_spec) != AV_PIX_FMT_NONE) {
-                set_decoder_memcpy(*av_conv, color_spec);
                 return get_ug_to_av_pixfmt(color_spec);
         }
 
@@ -2516,21 +2501,21 @@ pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
         decoder_t dec;
         if (out_desc.rgb) {
                 if (out_desc.depth > 8 && (dec = get_decoder_from_to(RG48, color_spec))) {
-                        set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
+                        (*av_conv)->dec = dec;
                         return AV_PIX_FMT_RGB48LE;
                 } else if ((dec = get_decoder_from_to(RGB, color_spec))) {
-                        set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
+                        (*av_conv)->dec = dec;
                         return AV_PIX_FMT_RGB24;
                 }
         }
 #if XV3X_PRESENT
         if (out_desc.depth > 8 && (dec = get_decoder_from_to(Y416, color_spec))) {
-                set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
+                (*av_conv)->dec = dec;
                 return AV_PIX_FMT_XV36;
         }
 #endif
         if ((dec = get_decoder_from_to(UYVY, color_spec))) {
-                set_decoder_mapped_to_uv(*av_conv, dec, color_spec);
+                (*av_conv)->dec = dec;
                 return AV_PIX_FMT_UYVY422;
         }
         for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
