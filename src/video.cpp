@@ -245,17 +245,24 @@ const char *video_desc_to_string(struct video_desc d)
         return desc_str.c_str();
 }
 
+/**
+ * @retval 0.0  FPS not specified
+ * @retval <0.0 wrong FPS specification
+ */
 static double
 parse_fps(const char *string, bool interlaced)
 {
         const char *fps_str = strpbrk(string, "DKdikp");
         assert(fps_str != nullptr);
         fps_str += 1;
+        if (strlen(fps_str) == 0) {
+                return 0.0;
+        }
         char      *endptr = nullptr;
         const long fps_l  = strtol(fps_str, &endptr, 10);
         if (fps_l <= 0 || fps_l > FPS_MAX || *endptr != '\0') {
-                MSG(ERROR, "Wrong mode specification: %s\n", string);
-                return 0.0;
+                MSG(ERROR, "Wrong mode FPS specification: %s\n", string);
+                return -1;
         }
         double fps = 0;
         // adjust FPS (Hi29 has FPS 29.97)
@@ -355,7 +362,7 @@ struct video_desc get_video_desc_from_string(const char *string)
                 return {};
         }
         ret.fps = parse_fps(string, ret.interlacing == INTERLACED_MERGED);
-        if (ret.fps == 0.0) {
+        if (ret.fps < .0) {
                 return {};
         }
 
