@@ -76,6 +76,8 @@ using std::shared_ptr;
 using std::string;
 using std::unique_ptr;
 
+#define MOD_NAME "[ldgm] "
+
 typedef enum {
         STD1500 = 1500,
         JUMBO9000 = 9000,
@@ -395,6 +397,30 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
         init(k, m, c);
 }
 
+static void
+check_packet_size(size_t len, int k)
+{
+        enum { SHMEM_SIZE = 48 * 1024 };
+        static bool printed = false;
+        if (printed) {
+                return;
+        }
+        const size_t packet_size = len / k + 4;
+        if (packet_size < SHMEM_SIZE) {
+                return;
+        }
+
+        printed = true;
+        const char *dev = get_commandline_param("ldgm-device");
+        if (dev == nullptr|| strcasecmp(dev, "GPU") != 0) {
+                return;
+        }
+        MSG(WARNING,
+            "Packet size is %zu B, which may exceed GPU memory, which is "
+            "usually %d.\nYou can try to increase the parameter K.\n",
+            packet_size, SHMEM_SIZE);
+}
+
 shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
 {
         // We need to have copy of coding session shared pointer in order to exit
@@ -412,6 +438,8 @@ shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
         for (unsigned int i = 0; i < tx_frame->tile_count; ++i) {
                 video_payload_hdr_t video_hdr;
                 format_video_header(tx_frame.get(), i, 0, video_hdr);
+
+                check_packet_size(tx_frame->tiles[i].data_len, m_k);
 
                 int out_size;
                 char *output = m_coding_session->encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
