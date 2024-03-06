@@ -135,8 +135,8 @@ const configuration_t suggested_configurations[] = {
 
 #define MINIMAL_VALUE 64 ///< reasonable minimum (seems that 32 crashes sometimes)
                          ///< @todo Check why doesn't lower values work out
-#define DEFAULT_K 256
-#define DEFAULT_M 192
+#define DEFAULT_K 512
+#define DEFAULT_M 384
 #define DEFAULT_C 5
 #define MIN_C 2 // reasonable minimum
 #define MAX_C 63 // from packet format
