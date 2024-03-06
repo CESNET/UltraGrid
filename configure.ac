@@ -1568,7 +1568,6 @@ fi
 # -------------------------------------------------------------------------------------------------
 # libavcodec hw-accelerated decoding support
 # -------------------------------------------------------------------------------------------------
-lavc_hwacc_common=no
 lavc_hwacc_vdpau=no
 lavc_hwacc_vaapi=no
 
@@ -1601,7 +1600,6 @@ if test $lavc_hwacc_vdpau_req != no; then
                 LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
                 HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
                 lavc_hwacc_vdpau=yes
-                lavc_hwacc_common=yes
         fi
 fi
 if test $lavc_hwacc_vaapi_req != no; then
@@ -1611,17 +1609,10 @@ if test $lavc_hwacc_vaapi_req != no; then
                 LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
                 HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
                 lavc_hwacc_vaapi=yes
-                lavc_hwacc_common=yes
         fi
 fi
-if test $system = MacOSX; then
-        lavc_hwacc_common=yes
-fi
 
-if test $lavc_hwacc_common = yes
-then
-        COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
-fi
+COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
 
 ENSURE_FEATURE_PRESENT([$lavc_hwacc_vdpau_req], [$lavc_hwacc_vdpau], [Could not find hwacc vdpau dependencies])
 ENSURE_FEATURE_PRESENT([$lavc_hwacc_vaapi_req], [$lavc_hwacc_vaapi], [Could not find hwacc vaapi dependencies!])
