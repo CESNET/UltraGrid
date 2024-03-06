@@ -55,16 +55,19 @@
  * * fix broken tiling (perhaps wrapper over pattern generator)
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
+#include <ctype.h>                          // for isdigit
+#include <errno.h>                          // for errno
+#include <math.h>                           // for round, sin, M_PI
+#include <stdbool.h>                        // for false, bool, true
+#include <stddef.h>                         // for ptrdiff_t
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/htonl.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
