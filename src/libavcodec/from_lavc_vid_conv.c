@@ -45,6 +45,7 @@
  */
 
 #include <assert.h>
+#include <libavutil/pixfmt.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -54,6 +55,7 @@
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "libavcodec/from_lavc_vid_conv.h"
+#include "libavcodec/from_lavc_vid_conv_cuda.h"
 #include "libavcodec/lavc_common.h"
 #include "pixfmt_conv.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
@@ -2182,6 +2184,7 @@ struct av_to_uv_convert_state {
         codec_t src_pixfmt;
         codec_t dst_pixfmt;
         decoder_t dec;
+        struct av_to_uv_convert_cuda *cuda_conv_state;
 };
 
 struct av_to_uv_conversion {
@@ -2331,6 +2334,18 @@ static QSORT_S_COMP_DEFINE(compare_convs, a, b, orig_c) {
         return ret != 0 ? ret : (int) conv_a->uv_codec - (int) conv_b->uv_codec;
 }
 
+static QSORT_S_COMP_DEFINE(compare_codecs, a, b, orig_c)
+{
+        const codec_t            *codec_a  = a;
+        const codec_t            *codec_b  = b;
+        const struct pixfmt_desc *src_desc = orig_c;
+        const struct pixfmt_desc  desc_a   = get_pixfmt_desc(*codec_a);
+        const struct pixfmt_desc  desc_b   = get_pixfmt_desc(*codec_b);
+
+        const int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
+        return ret != 0 ? ret : (int) *codec_a - (int) *codec_b;
+}
+
 static decoder_t get_av_and_uv_conversion(enum AVPixelFormat av_codec, codec_t uv_codec,
                 codec_t *intermediate_c, av_to_uv_convert_fp *av_convert) {
         struct av_to_uv_conversion convs[AV_TO_UV_CONVERSION_COUNT];
@@ -2363,13 +2378,39 @@ av_to_uv_conversion_destroy(av_to_uv_convert_t **s)
         if (s == NULL || *s == NULL) {
                 return;
         }
+        av_to_uv_conversion_cuda_destroy(&(*s)->cuda_conv_state);
         free(*s);
         *s = NULL;
+}
+
+static bool
+cuda_conv_enabled()
+{
+        if (!cuda_devices_explicit) {
+                return false;
+        }
+        struct av_to_uv_convert_cuda *s =
+            get_av_to_uv_cuda_conversion(AV_PIX_FMT_YUV444P, UYVY);
+        if (s == NULL) {
+                return false;
+        }
+        av_to_uv_conversion_cuda_destroy(&s);
+        return true;
 }
 
 av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
         ret->dst_pixfmt = uv_codec;
+
+        if (cuda_conv_enabled()) {
+                ret->cuda_conv_state = get_av_to_uv_cuda_conversion(
+                    av_codec, uv_codec);
+                if (ret->cuda_conv_state != NULL) {
+                        MSG(NOTICE, "Using CUDA FFmpeg conversions.\n");
+                        return ret;
+                }
+                MSG(ERROR, "Unable to initialize CUDA conv state!\n");
+        }
 
         codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(av_codec);
         if (mapped_pix_fmt == uv_codec) {
@@ -2477,13 +2518,58 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
         return AV_PIX_FMT_NONE;
 }
 
+static enum AVPixelFormat
+get_first_supported_cuda(const enum AVPixelFormat *fmts)
+{
+        for (; *fmts != AV_PIX_FMT_NONE; fmts++) {
+                for (unsigned i = 0;
+                     i < sizeof from_lavc_cuda_supp_formats /
+                             sizeof from_lavc_cuda_supp_formats[0];
+                     ++i) {
+                        if (*fmts == from_lavc_cuda_supp_formats[i]) {
+                                return *fmts;
+                        }
+                }
+        }
+        return AV_PIX_FMT_NONE;
+}
+
+static codec_t
+probe_cuda_ug_to_av(const enum AVPixelFormat *fmts)
+{
+        const enum AVPixelFormat sel_fmt = get_first_supported_cuda(fmts);
+        if (sel_fmt == AV_PIX_FMT_NONE) {
+                return VIDEO_CODEC_NONE;
+        }
+
+        codec_t ug_codecs[VC_COUNT];
+        int     ugc_count = 0;
+        for (codec_t c = VC_FIRST; c < VC_END; ++c) {
+                if (!is_codec_opaque(c)) {
+                        ug_codecs[ugc_count++] = c;
+                }
+        }
+
+        struct pixfmt_desc src_desc = av_pixfmt_get_desc(sel_fmt);
+
+        qsort_s(ug_codecs, ugc_count, sizeof ug_codecs[0], compare_codecs,
+                &src_desc);
+        return ug_codecs[0];
+}
+
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel) {
+        if (cuda_conv_enabled()) {
+                return probe_cuda_ug_to_av(fmt);
+        }
         codec_t c = VIDEO_CODEC_NONE;
         get_ug_codec_to_av(fmt, &c, use_hwaccel);
         return c;
 }
 
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel) {
+        if (cuda_conv_enabled()) {
+                return get_first_supported_cuda(fmt);
+        }
         return get_ug_codec_to_av(fmt, &c, use_hwaccel);
 }
 
@@ -2598,6 +2684,12 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                  char *dst, AVFrame *in, int width, int height, int pitch,
                  const int rgb_shift[3])
 {
+        if (convert->cuda_conv_state != NULL) {
+                av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in, width,
+                                      height, pitch, rgb_shift);
+                return;
+        }
+
         if (codec_is_const_size(convert->dst_pixfmt)) { // VAAPI etc
                 do_av_to_uv_convert(convert, dst, in, width, height, pitch,
                                  rgb_shift);

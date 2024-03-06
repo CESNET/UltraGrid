@@ -43,6 +43,9 @@
 
 struct AVFrame;
 
+#include <libavutil/pixfmt.h>
+#include <stdio.h>
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -52,15 +55,21 @@ struct AVFrame;
 extern "C" {
 #endif
 
+/// @note needs to support conversion for all dst codec_t
+static const enum AVPixelFormat from_lavc_cuda_supp_formats[] = {
+        AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV444P
+};
+
 struct av_to_uv_convert_cuda;
 
 #ifdef HAVE_CUDA
-struct av_to_uv_convert_cuda *get_av_to_uv_cuda_conversion(int     av_codec,
-                                                           codec_t uv_codec);
+struct av_to_uv_convert_cuda *
+get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec);
 void av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
                            char *__restrict dst_buffer,
-                           struct AVFrame *__restrict in_frame, int width, int height,
-                           int pitch, const int *__restrict rgb_shift);
+                           struct AVFrame *__restrict in_frame, int width,
+                           int height, int pitch,
+                           const int *__restrict rgb_shift);
 void av_to_uv_conversion_cuda_destroy(struct av_to_uv_convert_cuda **state);
 
 #else
@@ -68,6 +77,7 @@ static struct av_to_uv_convert_cuda *
 get_av_to_uv_cuda_conversion(int av_codec, codec_t uv_codec)
 {
         (void) av_codec, (void) uv_codec;
+        fprintf(stderr, "ERROR: CUDA support not compiled in!\n");
         return NULL;
 }
 
