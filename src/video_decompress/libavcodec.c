@@ -827,7 +827,8 @@ change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (!sws->ctx) {
-                parallel_convert(out_codec, convert, (char *) dst, frame, width, height, pitch, rgb_shift);
+                av_to_uv_convert(convert, (char *) dst, frame, width, height,
+                                 pitch, rgb_shift);
                 return;
         }
 
@@ -838,7 +839,8 @@ change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
         }
 
         lavd_sws_convert(sws, frame);
-        parallel_convert(out_codec, convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
+        av_to_uv_convert(convert, (char *) dst, sws->frame, width, height,
+                         pitch, rgb_shift);
 #endif // HAVE_SWSCALE
 }
 

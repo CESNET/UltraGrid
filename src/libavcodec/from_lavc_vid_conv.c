@@ -2545,8 +2545,8 @@ pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
         return AV_PIX_FMT_NONE;
 }
 
-void
-av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
+static void
+do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
                  AVFrame *__restrict in_frame, int width, int height, int pitch,
                  const int *__restrict rgb_shift)
 {
@@ -2603,18 +2603,18 @@ static void *
 convert_task(void *arg)
 {
         struct convert_task_data *d = arg;
-        av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
+        do_av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
                          d->width, d->height, d->pitch, d->rgb_shift);
         return NULL;
 }
 
 void
-parallel_convert(codec_t out_codec, const av_to_uv_convert_t *convert,
+av_to_uv_convert(const av_to_uv_convert_t *convert,
                  char *dst, AVFrame *in, int width, int height, int pitch,
-                 int rgb_shift[3])
+                 const int rgb_shift[3])
 {
-        if (codec_is_const_size(out_codec)) { // VAAPI etc
-                av_to_uv_convert(convert, dst, in, width, height, pitch,
+        if (codec_is_const_size(convert->dst_pixfmt)) { // VAAPI etc
+                do_av_to_uv_convert(convert, dst, in, width, height, pitch,
                                  rgb_shift);
                 return;
         }
