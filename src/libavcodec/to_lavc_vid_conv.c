@@ -1586,7 +1586,12 @@ set_convertible_formats_cuda(codec_t in_codec, struct to_lavc_req_prop req_prop,
 }
 
 /// @todo TOREMOVE after cuda conversions implemented
-static bool cuda_conv_implemented() {
+static bool
+cuda_conv_enabled()
+{
+        if (!cuda_devices_explicit) {
+                return false;
+        }
         struct to_lavc_vid_conv_cuda *s =
             to_lavc_vid_conv_cuda_init(UYVY, 1, 1, AV_PIX_FMT_YUV444P);
         if (s == NULL) {
@@ -1618,7 +1623,7 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
         int sort_start_idx = nb_fmts;
         int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences; for every added element, comp_data must be also set
         struct lavc_compare_convs_data comp_data = { 0 };
-        if (cuda_devices_explicit && cuda_conv_implemented()) {
+        if (cuda_conv_enabled()) {
                 set_convertible_formats_cuda(in_codec, req_prop, fmt_set,
                                         &comp_data);
         } else {
@@ -1729,7 +1734,7 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                 s->decoded_codec = in_pixfmt;
                 s->decoder = vc_memcpy;
         } else {
-                if (cuda_devices_explicit && cuda_conv_implemented()) {
+                if (cuda_conv_enabled()) {
                         s->cuda_conv_state = to_lavc_vid_conv_cuda_init(
                             in_pixfmt, width, height, out_pixfmt);
                         if (s->cuda_conv_state != NULL) {
