@@ -40,6 +40,8 @@
 #define LOG_LEVEL_VERBOSE 6
 extern "C" void log_msg(int log_level, const char *format, ...);
 
+// #define TOREMOVE_TEST 1
+
 struct av_to_uv_convert_cuda {
         enum AVPixelFormat in_codec;
         codec_t out_codec;
@@ -48,6 +50,7 @@ struct av_to_uv_convert_cuda {
 struct av_to_uv_convert_cuda *
 get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec)
 {
+#ifdef TOREMOVE_TEST
         assert(av_codec == AV_PIX_FMT_YUV422P);
         auto *ret = new struct av_to_uv_convert_cuda();
         log_msg(LOG_LEVEL_VERBOSE, "[%s] converting from %s to %s\n",
@@ -56,6 +59,10 @@ get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec)
         ret->in_codec  = av_codec;
         ret->out_codec = uv_codec;
         return ret;
+#else
+        // fprintf(stderr, "TODO: implement!\n");
+        return nullptr;
+#endif
 }
 
 void
@@ -64,6 +71,7 @@ av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
                       int width, int height, int pitch,
                       const int *__restrict rgb_shift)
 {
+        /// @todo replace with actual CUDA stuff
         for (size_t y = 0; y < height; ++y) {
                 char *src_y =
                     (char *) in_frame->data[0] + in_frame->linesize[0] * y;
