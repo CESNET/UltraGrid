@@ -683,7 +683,7 @@ list_hints()
         color_printf("\n");
 
         color_printf(
-            "Example usage: " TBOLD("-d gl:init_hints=platform=x11") "\n\n");
+            "Example usage: " TBOLD("-d gl:init_hint=platform=x11") "\n\n");
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
