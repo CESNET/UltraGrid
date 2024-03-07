@@ -57,7 +57,7 @@ extern "C" {
 
 /// @note needs to support conversion for all dst codec_t
 static const enum AVPixelFormat from_lavc_cuda_supp_formats[] = {
-        AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV444P
+        AV_PIX_FMT_YUV422P
 };
 
 struct av_to_uv_convert_cuda;

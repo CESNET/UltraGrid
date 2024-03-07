@@ -46,9 +46,8 @@ struct av_to_uv_convert_cuda {
 struct av_to_uv_convert_cuda *
 get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec)
 {
-        assert(av_codec == AV_PIX_FMT_YUV444P ||
-               av_codec == AV_PIX_FMT_YUV422P);
-        auto *ret      = new struct av_to_uv_convert_cuda();
+        assert(av_codec == AV_PIX_FMT_YUV422P);
+        auto *ret = new struct av_to_uv_convert_cuda();
         log_msg(LOG_LEVEL_VERBOSE, "[%s] converting from %s to %s\n",
                 __FILE__, av_get_pix_fmt_name(av_codec),
                 get_codec_name(uv_codec));
@@ -63,44 +62,20 @@ av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
                       int width, int height, int pitch,
                       const int *__restrict rgb_shift)
 {
-        if (state->in_codec == AV_PIX_FMT_YUV422P) {
+        for (size_t y = 0; y < height; ++y) {
+                char *src_y =
+                    (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *src_cb =
+                    (char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                char *src_cr =
+                    (char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                char *dst = dst_buffer + pitch * y;
 
-                for (size_t y = 0; y < height; ++y) {
-                        char *src_y = (char *) in_frame->data[0] +
-                                      in_frame->linesize[0] * y;
-                        char *src_cb = (char *) in_frame->data[1] +
-                                       in_frame->linesize[1] * y;
-                        char *src_cr = (char *) in_frame->data[2] +
-                                       in_frame->linesize[2] * y;
-                        char *dst = dst_buffer + pitch * y;
-
-                        for (int x = 0; x < width / 2; ++x) {
-                                *dst++ = *src_cb++;
-                                *dst++ = *src_y++;
-                                *dst++ = *src_cr++;
-                                *dst++ = *src_y++;
-                        }
-                }
-        } else {
-                for (size_t y = 0; y < height; ++y) {
-                        char *src_y = (char *) in_frame->data[0] +
-                                      in_frame->linesize[0] * y;
-                        unsigned char *src_cb =
-                            (unsigned char *) in_frame->data[1] +
-                            in_frame->linesize[1] * y;
-                        unsigned char *src_cr =
-                            (unsigned char *) in_frame->data[2] +
-                            in_frame->linesize[2] * y;
-                        char *dst = dst_buffer + pitch * y;
-
-                        for (size_t x = 0; x < width / 2; ++x) {
-                                *dst++ = (*src_cb + *(src_cb + 1)) / 2;
-                                src_cb += 2;
-                                *dst++ = *src_y++;
-                                *dst++ = (*src_cr + *(src_cr + 1)) / 2;
-                                src_cr += 2;
-                                *dst++ = *src_y++;
-                        }
+                for (int x = 0; x < width / 2; ++x) {
+                        *dst++ = *src_cb++;
+                        *dst++ = *src_y++;
+                        *dst++ = *src_cr++;
+                        *dst++ = *src_y++;
                 }
         }
 }
