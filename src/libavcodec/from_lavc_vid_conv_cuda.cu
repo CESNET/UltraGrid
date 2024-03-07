@@ -32,10 +32,12 @@
  */
 
 #include <cassert>
+#include <cuda_runtime.h>
 
-#include "video_codec.h"
+#include "host.h"
 #include "from_lavc_vid_conv_cuda.h"
 #include "libavcodec/lavc_common.h"
+#include "video_codec.h"
 
 #define LOG_LEVEL_VERBOSE 6
 extern "C" void log_msg(int log_level, const char *format, ...);
@@ -61,6 +63,10 @@ get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec)
         return ret;
 #else
         // fprintf(stderr, "TODO: implement!\n");
+        // if (cudaSetDevice(cuda_devices[0]) != cudaSuccess) {
+        //         fprintf(stderr, "CUDA init failed!\n");
+        //         return nullptr;
+        // }
         return nullptr;
 #endif
 }

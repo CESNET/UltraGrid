@@ -34,12 +34,14 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdio>
+#include <cuda_runtime.h>
 #include <memory>
 
 using std::shared_ptr;
 
 // #define TOREMOVE_TEST 1
 
+#include "host.h"
 #include "libavcodec/lavc_common.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "to_lavc_vid_conv_cuda.h"
@@ -68,6 +70,10 @@ to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
         return s;
 #else
         // fprintf(stderr, "TODO: implement!\n");
+        // if (cudaSetDevice(cuda_devices[0]) != cudaSuccess) {
+        //         fprintf(stderr, "CUDA init failed!\n");
+        //         return nullptr;
+        // }
         return nullptr;
 #endif
 }
