@@ -190,8 +190,9 @@ AC_ARG_ENABLE(all,
         [build_default=auto]
         )
 
-if test $system = MacOSX -o $system = Linux
-then
+if test $system = Windows; then
+        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS"
+else
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -fPIC"
