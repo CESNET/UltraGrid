@@ -824,9 +824,15 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
         }
 
+#if GLFW_VERSION_MAJOR < 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
+        if(!s->init_hints.empty()){
+                log_msg(LOG_LEVEL_WARNING, "GLFW version < 3.3 doesn't support init hints. Ignoring them.\n");
+        }
+#else
         for (auto const &hint : s->init_hints) {
                 glfwInitHint(hint.first, hint.second);
         }
+#endif
 
         if (!display_gl_init_opengl(s)) {
                 delete s;
