@@ -96,7 +96,7 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default")
 
         } catch (...) {
                 if (m_compression) {
-                        module_done(CAST_MODULE(m_compression));
+                        compress_done(m_compression);
                 }
 
                 module_done(&m_receiver_mod);
@@ -112,7 +112,7 @@ video_rxtx::~video_rxtx() {
                 send(NULL);
                 compress_pop(m_compression);
         }
-        module_done(CAST_MODULE(m_compression));
+        compress_done(m_compression);
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 }

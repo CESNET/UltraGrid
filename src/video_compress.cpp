@@ -6,7 +6,7 @@
  * @brief Video compress functions.
  */
 /*
- * Copyright (c) 2011-2023 CESNET z.s.p.o.
+ * Copyright (c) 2011-2024 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,18 +37,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
 #include <cassert>
 #include <cinttypes>
+#include <cstdio>
+#include <cstring>
 #include <memory>
-#include <stdio.h>
 #include <string>
-#include <string.h>
 #include <thread>
 #include <vector>
 
@@ -111,7 +106,6 @@ struct compress_state {
 
 static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy,
                 shared_ptr<video_frame> frame);
-static void compress_done(struct module *mod);
 
 /// @brief Displays list of available compressions.
 void show_compress_help(bool full)
@@ -203,7 +197,6 @@ int compress_init(struct module *parent, const char *config_string, struct compr
         module_init_default(&proxy->mod);
         proxy->mod.cls = MODULE_CLASS_COMPRESS;
         proxy->mod.priv_data = proxy;
-        proxy->mod.deleter = compress_done;
 
         try {
                 proxy->ptr = compress_state_real::create(&proxy->mod, config_string, proxy);
@@ -486,18 +479,20 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
  * @brief Video compression cleanup function.
  * @param mod video compress module
  */
-static void compress_done(struct module *mod)
+void
+compress_done(struct compress_state *proxy)
 {
-        if(!mod)
+        if (proxy == nullptr) {
                 return;
+        }
 
-        struct compress_state *proxy = (struct compress_state *) mod->priv_data;
         struct compress_state_real *s = proxy->ptr;
         if (!proxy->poisoned) { // pass poisoned pill if it wasn't
                 compress_frame(proxy, {});
         }
 
         delete s;
+        module_done(&proxy->mod);
         delete proxy;
 }
 

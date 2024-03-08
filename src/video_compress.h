@@ -8,7 +8,7 @@
  * @brief API for video compress drivers.
  */
 /*
- * Copyright (c) 2009-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2009-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,6 +93,7 @@ typedef struct module *(*compress_init_t)(struct module *parent,
 void show_compress_help(bool full);
 // documented at definition
 int compress_init(struct module *parent, const char *config_string, struct compress_state **);
+void compress_done(struct compress_state *);
 #ifdef __cplusplus
 }
 #endif
