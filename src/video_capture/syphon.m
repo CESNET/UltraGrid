@@ -427,7 +427,11 @@ static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **ou
 
         if (!s->use_rgb) {
                 s->program_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
-                assert(s->program_to_yuv422 != 0);
+                if (s->program_to_yuv422 == 0) {
+                        MSG(ERROR, "Cannot compile shader for YUV 4:2:2 conversion!\n");
+                        vidcap_syphon_done(s);
+                        return VIDCAP_INIT_FAIL;
+                }
                 glUseProgram(s->program_to_yuv422);
                 glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
         }
