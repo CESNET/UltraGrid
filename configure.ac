@@ -1775,6 +1775,13 @@ AC_ARG_ENABLE(libavcodec,
 [libavcodec_req=$build_default]
 )
 
+AC_ARG_ENABLE(lavc-cuda-conv,
+      AS_HELP_STRING([--disable-lavc-cuda-conv], [disable lavc CUDA conversions (default is auto)]
+              [Requires: libavcodec CUDA]),
+        [lavc_cuda_conv_req=$enableval],
+        [lavc_cuda_conv_req=$build_default]
+)
+
 if test "$libavcodec_req" != no; then
         PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
         PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
@@ -1802,7 +1809,8 @@ if test $libavcodec_req != no && test $found_libavcodec = yes &&
 then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
-        if test "$FOUND_CUDA" = yes; then
+        if test "$lavc_cuda_conv_req" != no && test "$FOUND_CUDA" = yes; then
+                AC_DEFINE([HAVE_LAVC_CUDA_CONV], [1], [Build with lavc CUDA conversions])
                 to_lavc_cuda_obj=src/libavcodec/to_lavc_vid_conv_cuda.o
                 LIBAVCODEC_VIDEO="$LIBAVCODEC_VIDEO $to_lavc_cuda_obj src/libavcodec/from_lavc_vid_conv_cuda.o"
         fi
@@ -1828,6 +1836,7 @@ else
 fi
 
 ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
+ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$FOUND_CUDA], [CUDA not found for lavc CUDA convs])
 
 # -------------------------------------------------------------------------------------------------
 # File vidcap/display

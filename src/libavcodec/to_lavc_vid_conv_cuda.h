@@ -59,7 +59,7 @@ extern "C" {
 /// @note needs to support conversion for all src codec_t
 static const enum AVPixelFormat to_lavc_cuda_supp_formats[] = { AV_PIX_FMT_YUV444P };
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_LAVC_CUDA_CONV
 struct to_lavc_vid_conv_cuda *
 to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
                            enum AVPixelFormat out_pixfmt);

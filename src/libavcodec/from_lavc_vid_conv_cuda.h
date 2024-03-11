@@ -62,7 +62,7 @@ static const enum AVPixelFormat from_lavc_cuda_supp_formats[] = {
 
 struct av_to_uv_convert_cuda;
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_LAVC_CUDA_CONV
 struct av_to_uv_convert_cuda *
 get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec);
 void av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
