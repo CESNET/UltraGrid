@@ -20,7 +20,7 @@ jobs:
             repo: http://mirrordirector.raspbian.org/raspbian/
             keyring: /etc/apt/trusted.gpg
             qemu_bin_arch: arm
-            deb_release: buster
+            deb_release: bullseye
           - arch: arm64
             repo: https://deb.debian.org/debian
             keyring: /usr/share/keyrings/debian-archive-keyring.gpg
