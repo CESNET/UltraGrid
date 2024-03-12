@@ -18,10 +18,7 @@ set -- "$@" --enable-decklink --enable-file --enable-ndi --enable-rtsp \
 set -- "$@" --enable-caca --enable-gl-display --enable-panogl_disp --enable-sdl                         # display
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
 set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-text --enable-video-mixer --enable-zfec # extras (pp. etc)
-if [ "$ARCH" = armhf ]; then
-        # 64b doesn't have needed headers
-        set -- "$@" --enable-lavc-hw-accel-rpi4
-else
+if [ "$ARCH" = arm64 ]; then
         set -- "$@" --enable-vulkan
 fi
 
