@@ -121,9 +121,9 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
-parsed_textspec_is_invalid:
+parsed_textspec_is_invalid:;
                 char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
-                        "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
+			 "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
                 color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");
                 color_printf("\t" TBOLD("-p text:<text>") "\n");
@@ -347,7 +347,11 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         }
 
         // compose it with text
+#ifdef WAND7
         status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, true, s->margin_x, 0);
+#else
+        status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, s->margin_x, 0);
+#endif
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickCompositeImage failed!\n");
                 return false;
