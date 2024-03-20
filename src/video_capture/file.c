@@ -433,7 +433,7 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
                           video_dst_linesize);
         }
         out->seq = frame->pts < 0 ? UINT32_MAX : MIN(frame->pts, UINT32_MAX);
-#ifdef FF_API_PKT_DURATION
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 30, 100)
         out->duration = frame->duration;
 #else
         out->duration = frame->pkt_duration;
