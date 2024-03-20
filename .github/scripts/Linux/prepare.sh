@@ -1,9 +1,10 @@
 #!/bin/bash -eux
 
+export PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig:/usr/local/lib/pkgconfig
 printf "%b" "AJA_DIRECTORY=/var/tmp/ntv2\n\
 CPATH=/usr/local/qt/include\n\
 LIBRARY_PATH=/usr/local/qt/lib\n\
-PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig\n" >> "$GITHUB_ENV"
+PKG_CONFIG_PATH=$PKG_CONFIG_PATH\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
 git config --global user.name "UltraGrid Builder"

@@ -78,6 +78,21 @@ install_pipewire() {(
         fi
 )}
 
+install_rav1e() {(
+        # TODO: use avx2 later
+        if expr "${UG_ARCH-}" : '.*avx' >/dev/null; then
+                avx2=avx2
+        fi
+        fpattern="librav1e.*linux-${avx2-sse4}.tar.gz"
+        "${GITHUB_WORKSPACE-.}"/.github/scripts/download-gh-asset.sh xiph/rav1e \
+                "$fpattern" librav1e.tar.gz
+        sudo tar xaf librav1e.tar.gz -C /usr/local
+        sudo rm -rf /usr/local/lib/librav1e.so*
+        sudo sed -i -e 's-prefix=dist-prefix=/usr/local-' \
+                -e 's/-lrav1e/-lrav1e -lm -pthread/' \
+                /usr/local/lib/pkgconfig/rav1e.pc
+)}
+
 # FFmpeg master needs at least v1.3.238 as for 23th Aug '23
 install_vulkan() {(
         # TOREMOVE: FFmpeg doesn't currently build with main (2024-02-09)
@@ -101,7 +116,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- aja gpujpeg live555 ndi pipewire vulkan ximea
+        set -- aja gpujpeg live555 ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then
