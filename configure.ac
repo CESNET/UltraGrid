@@ -1826,6 +1826,9 @@ then
                 LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_DECOMPRESS_OBJ src/hwaccel_videotoolbox.o"
         fi
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
+        if test "$system" != Windows; then
+                CUDA_FLAGS="$CUDA_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
+        fi
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
         add_module vcompress_libavcodec "$LIBAVCODEC_COMPRESS_OBJ" "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS"
