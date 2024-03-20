@@ -97,7 +97,8 @@ fi
 printf '%b' "FEATURES=$FEATURES\n" >> "$GITHUB_ENV"
 
 if [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" != arm64 ]; then
-        printf 'UG_ARCH=-msse4.2\n' >> "$GITHUB_ENV"
+        export UG_ARCH=-msse4.2
+        printf "UG_ARCH=%s\n" $UG_ARCH >> "$GITHUB_ENV"
 fi
 
 import_signing_key() {
