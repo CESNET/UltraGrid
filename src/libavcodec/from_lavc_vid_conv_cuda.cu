@@ -47,6 +47,7 @@ extern "C" void log_msg(int log_level, const char *format, ...);
 struct av_to_uv_convert_cuda {
         enum AVPixelFormat in_codec;
         codec_t out_codec;
+        virtual ~av_to_uv_convert_cuda() = default;
 };
 
 struct av_to_uv_convert_cuda *

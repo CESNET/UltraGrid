@@ -191,7 +191,8 @@ AC_ARG_ENABLE(all,
         )
 
 if test $system = Windows; then
-        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS"
+        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS -Xcompiler -GS-"
+        LDFLAGS="$LDFLAGS -Xlinker //nodefaultlib"
 else
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"

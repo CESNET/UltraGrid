@@ -48,6 +48,7 @@ using std::shared_ptr;
 
 struct to_lavc_vid_conv_cuda {
         shared_ptr<struct AVFrame> out_frame;
+        virtual ~to_lavc_vid_conv_cuda() = default;
 };
 
 struct to_lavc_vid_conv_cuda *

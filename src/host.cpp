@@ -163,6 +163,11 @@ std::unordered_map<std::string, std::string> commandline_params;
 mainloop_t mainloop;
 void *mainloop_udata;
 
+#if defined HAVE_CUDA && defined _WIN32
+// required for NVCC+MSVC compiled objs if /nodefaultlib is used
+extern "C" int _fltused = 0;
+#endif
+
 struct init_data {
         bool com_initialized = false;
         list <void *> opened_libs;
