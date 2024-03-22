@@ -93,7 +93,10 @@
 #include "types.h"
 
 #ifndef __cplusplus
+#include <limits.h> // LLONG_MAX
 #include <stdbool.h>
+#else
+#include <climits>  // LLONG_MAX
 #endif // ! defined __cplusplus
 
 #ifdef __cplusplus
