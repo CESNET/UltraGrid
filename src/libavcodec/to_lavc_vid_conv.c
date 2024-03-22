@@ -1726,6 +1726,7 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                         s->out_frame_parts[i]->linesize[0] = s->out_frame->linesize[0];
                         s->out_frame_parts[i]->linesize[1] = s->out_frame->linesize[1];
                         s->out_frame_parts[i]->linesize[2] = s->out_frame->linesize[2];
+                        s->out_frame_parts[i]->opaque = s->out_frame->opaque;
                 }
         }
 
