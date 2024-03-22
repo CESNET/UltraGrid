@@ -68,6 +68,8 @@ struct state_caca {
         pthread_cond_t frame_consumed_cv;
 };
 
+static bool  display_caca_putf(void *state, struct video_frame *frame,
+                               long long timeout_ns);
 static void *worker(void *arg);
 
 static void display_caca_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -82,6 +84,9 @@ static void display_caca_done(void *state)
 {
         struct state_caca *s = state;
         if (s->started) {
+                if (!s->should_exit) {
+                        display_caca_putf(state, NULL, PUTF_BLOCKING);
+                }
                 pthread_join(s->thread_id, NULL);
         }
         if (s->dither) {
