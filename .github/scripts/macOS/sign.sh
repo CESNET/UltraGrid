@@ -29,8 +29,9 @@ set -x
 
 APP=${1?Appname must be passed as a first argument}
 
-if [ -z "$KEY_CHAIN" ] || [ -z "$KEY_CHAIN_PASS" ] ||
-                { [ -z "$notarytool_credentials" ] && [ ! $sign_only ]; }; then
+if [ -z "${KEY_CHAIN-}" ] || [ -z "${KEY_CHAIN_PASS-}" ] ||
+                { [ -z "${notarytool_credentials-}" ] && [ ! $sign_only ]; }
+then
         echo "Could not find key to sign the application" 2>&1
         if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then
                 exit 1
