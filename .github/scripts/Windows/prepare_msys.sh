@@ -48,7 +48,9 @@ m=$MINGW_PACKAGE_PREFIX
 $PACMAN_INSTALL automake autoconf git make pkgconf $m-toolchain unzip zip
 $PACMAN_INSTALL $m-asciidoc \
         $m-ffmpeg \
-        $m-libnatpmp
+        $m-libnatpmp \
+        $m-vulkan-headers $m-vulkan-loader \
+
 $PACMAN_INSTALL $m-libsoxr $m-speexdsp
 $PACMAN_INSTALL $m-glew $m-libcaca $m-SDL2 $m-SDL2_mixer $m-SDL2_ttf $m-glfw
 $PACMAN_INSTALL $m-glm
