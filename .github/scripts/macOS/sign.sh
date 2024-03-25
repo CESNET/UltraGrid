@@ -9,6 +9,9 @@
 ## - **KEY_CHAIN**              - keychain containing the CESNET signing key
 ## - **KEY_CHAIN_PASS**         - password to the above keychain
 ## - **notarytool_credentials** - developer credentials to be used with notarytool (in format user:password:team_id)
+##
+## KEY_CHAIN and KEY_CHAIN_PASS are set by .github/scripts/environment.sh
+## if apple_key_p12_b64 GH environment workflow is defined.
 
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] ||
                 [ "$1" = help ]; }; then
@@ -29,15 +32,13 @@ set -x
 
 APP=${1?Appname must be passed as a first argument}
 
-if [ -z "${KEY_CHAIN-}" ] || [ -z "${KEY_CHAIN_PASS-}" ] ||
-                { [ -z "${notarytool_credentials-}" ] && [ ! $sign_only ]; }
-then
+if [ -z "${KEY_CHAIN-}" ] || [ -z "${KEY_CHAIN_PASS-}" ]; then
         echo "Could not find key to sign the application" 2>&1
-        if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then
-                exit 1
-        else
-                exit 0
-        fi
+        exit 1
+fi
+if  [ -z "${notarytool_credentials-}" ] && [ ! $sign_only ]; then
+        echo "Could not find notarytool credentials" 2>&1
+        exit 1
 fi
 
 security unlock-keychain -p "$KEY_CHAIN_PASS" "$KEY_CHAIN"
