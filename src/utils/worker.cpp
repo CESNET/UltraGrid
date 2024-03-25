@@ -42,10 +42,12 @@
 #include <set>
 #include <vector>
 
-#include "utils/misc.h" // get_cpu_core_count
+#include "utils/macros.h" // for MAX_CPU_CORES
+#include "utils/misc.h"   // get_cpu_core_count
 #include "utils/thread.h"
 #include "utils/worker.h"
 
+using std::min;
 using std::queue;
 using std::set;
 using std::vector;
@@ -329,8 +331,8 @@ static void *respawn_parallel_task(void *arg) {
  */
 void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata)
 {
-        int threads = get_cpu_core_count();
-        struct respawn_parallel_data data[threads];
+        const int threads = min<int>(get_cpu_core_count(), MAX_CPU_CORES);
+        struct respawn_parallel_data data[MAX_CPU_CORES];
 
         for (int i = 0; i < threads; ++i) {
                 data[i].c = c;

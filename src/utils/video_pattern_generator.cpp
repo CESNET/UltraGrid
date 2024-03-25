@@ -647,12 +647,12 @@ struct gray_video_pattern_generator : public video_pattern_generator {
                 int col = 0;
                 while (col < 0xFF) {
                         int pixels = get_pf_block_pixels(color_spec);
-                        unsigned char rgba[pixels * 4];
+                        unsigned char rgba[MAX_PFB_SIZE * 4];
                         for (int i = 0; i < pixels * 4; ++i) {
                                 rgba[i] = (i + 1) % 4 != 0 ? col : 0xFFU; // handle alpha
                         }
                         int dst_bs = get_pf_block_bytes(color_spec);
-                        unsigned char dst[dst_bs];
+                        unsigned char dst[MAX_PFB_SIZE];
                         testcard_convert_buffer(RGBA, color_spec, dst, rgba, pixels, 1);
 
                         auto next_frame = vector<unsigned char>(data_len);

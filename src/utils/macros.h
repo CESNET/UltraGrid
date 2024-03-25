@@ -113,8 +113,10 @@
 #define OPTIMIZED_FOR for
 #endif
 
+/// the following limits are used mostly for static array allocations
 enum {
-        STR_LEN = 2048, ///< "standard" string length placeholder
+        MAX_CPU_CORES = 256,  ///< maximal expected CPU core count
+        STR_LEN       = 2048, ///< "standard" string length placeholder
 };
 
 /// expands to true value if <k> from tok in format <k>=<v> is prefix of key
