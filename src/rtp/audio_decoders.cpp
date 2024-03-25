@@ -683,7 +683,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 }
 
                 unsigned int length;
-                char plaintext[cdata->data->data_len]; // plaintext will be actually shorter
+                char plaintext[RTP_MAX_PACKET_LEN]; // plaintext will be actually shorter
                 size_t main_hdr_len = PT_AUDIO_HAS_FEC(pt) ? sizeof(fec_payload_hdr_t) : sizeof(audio_payload_hdr_t);
                 if (PT_AUDIO_IS_ENCRYPTED(pt)) {
                         uint32_t encryption_hdr = ntohl(*(uint32_t *)(void *) (cdata->data->data + main_hdr_len));

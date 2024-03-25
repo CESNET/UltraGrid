@@ -716,7 +716,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 char     *data     = tile->data + ntohl(rtp_hdr_packet[1]);
                 int       data_len = packet_sizes.at(i % packet_sizes.size());
 
-                char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+                char encrypted_data[RTP_MAX_PACKET_LEN + MAX_CRYPTO_EXCEED];
                 if (tx->encryption != nullptr) {
                         data_len = tx->enc_funcs->encrypt(
                             tx->encryption, data, data_len,
@@ -851,7 +851,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 rtp_hdr[1] = htonl(pos);
                 pos += data_len;
 
-                char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+                char encrypted_data[RTP_MAX_PACKET_LEN + MAX_CRYPTO_EXCEED];
                 if (tx->encryption) {
                         data_len = tx->enc_funcs->encrypt(
                             tx->encryption, const_cast<char *>(data), data_len,

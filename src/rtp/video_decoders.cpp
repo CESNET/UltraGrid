@@ -1608,7 +1608,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         goto cleanup;
                 }
 
-                char plaintext[len]; // will be actually shorter
+                char plaintext[RTP_MAX_PACKET_LEN]; // will be actually shorter
                 if (PT_VIDEO_IS_ENCRYPTED(pt)) {
                         int data_len;
 
