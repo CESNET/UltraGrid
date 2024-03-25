@@ -13,6 +13,8 @@
 ## KEY_CHAIN and KEY_CHAIN_PASS are set by .github/scripts/environment.sh
 ## if apple_key_p12_b64 GH environment workflow is defined.
 
+# The command-line parameters are not used by the CI but are intended
+# to be used interactively for debugging.
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] ||
                 [ "$1" = help ]; }; then
         printf "Usage:\n"
@@ -21,7 +23,6 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] ||
         printf "\nUse \"--sign-only\" to skip application notarization.\n"
         exit 0
 fi
-
 sign_only=
 if [ "${1-}" = --sign-only ]; then
         sign_only=1
