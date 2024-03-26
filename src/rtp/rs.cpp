@@ -155,7 +155,7 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
                 memset(out_data + sizeof(len32) + hdr_len + len, 0, ss * m_k - (sizeof(len32) + hdr_len + len));
 
 #if 0
-                void *src[m_k];
+                void *src[MAX_K];
                 for (int k = 0; k < m_k; ++k) {
                         src[k] = *out + ss * k;
                 }
@@ -164,12 +164,12 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
                         fec_encode(state, src, *out + ss * (m_k + m), m, ss);
                 }
 #else
-                void *src[m_k];
+                void *src[MAX_K];
                 for (unsigned int k = 0; k < m_k; ++k) {
                         src[k] = out_data + ss * k;
                 }
-                void *dst[m_n-m_k];
-                unsigned int dst_idx[m_n-m_k];
+                void *dst[MAX_N];
+                unsigned int dst_idx[MAX_N];
                 for (unsigned int m = 0; m < m_n-m_k; ++m) {
                         dst[m] = out_data + ss * (m_k + m);
                         dst_idx[m] = m_k + m;
@@ -221,13 +221,13 @@ audio_frame2 rs::encode(const audio_frame2 &in)
 
                 out.set_fec_params(i, fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss));
 
-                void *src[m_k];
+                void *src[MAX_K];
                 for (unsigned int k = 0; k < m_k; ++k) {
                         src[k] = out.get_data(i) + ss * k;
                 }
 
-                void *dst[m_n-m_k];
-                unsigned int dst_idx[m_n-m_k];
+                void *dst[MAX_N];
+                unsigned int dst_idx[MAX_N];
                 for (unsigned int m = 0; m < m_n-m_k; ++m) {
                         dst[m] = out.get_data(i) + ss * (m_k + m);
                         dst_idx[m] = m_k + m;
@@ -291,8 +291,9 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         }
 
 #ifdef HAVE_ZFEC
-        void *pkt[m_n];
-        unsigned int index[m_n];
+        assert(m_n <= MAX_N);
+        void *pkt[MAX_N];
+        unsigned int index[MAX_N];
         unsigned int i = 0;
 #if 0
 
