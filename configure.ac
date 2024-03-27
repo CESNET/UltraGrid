@@ -192,7 +192,6 @@ AC_ARG_ENABLE(all,
 
 if test $system = Windows; then
         CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS -Xcompiler -GS-"
-        LDFLAGS="$LDFLAGS -Xlinker //nodefaultlib"
 else
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
@@ -489,6 +488,8 @@ then
                 AC_CHECK_PROG([CL], [cl], [cl],
                               [])
                 if test -n "$CL"; then
+                        cl_lib_path=$(realpath "$(dirname "$(command -v "$CL")")"/../../../lib/x64)
+                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L\"$cl_lib_path\""
                         FOUND_CUDA=yes
                 fi
         else
@@ -512,7 +513,7 @@ then
                 fi
         fi
 
-        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L$CUDA_LIB_PATH -lcudart"
         CUDA_INC="-I$CUDA_PATH/include"
         CUDA_COMPILER="$NVCC"
         INC="$INC $CUDA_INC"
