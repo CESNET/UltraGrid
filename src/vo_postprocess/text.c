@@ -41,6 +41,7 @@
  * Add support for more pixel formats.
  */
 
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -71,14 +72,24 @@
 struct state_text {
         struct video_frame *in;
         char *data;
+        size_t data_size;
         char *text;
         int req_x, req_y, req_h;
-        int width, height; // width in pixels
-        int margin_x, margin_y, text_h;
+        int width;                 // pixels
+        int text_base_y;
+        int margin_x, margin_y;
+        
+        // font size
+        int text_height_pt;   
+
+        int text_width_px;    
+        int text_height_px; // actual px height (with descender)
+
         struct video_desc saved_desc;
 
         DrawingWand *dw;
-        MagickWand *wand;
+        MagickWand *wand_bg;
+        MagickWand *wand_text;
 };
 
 static bool text_get_property(void *state, int property, void *val, size_t *len)
@@ -110,8 +121,9 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
+parsed_textspec_is_invalid:;
                 char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
-                        "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
+			 "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
                 color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");
                 color_printf("\t" TBOLD("-p text:<text>") "\n");
@@ -149,6 +161,10 @@ static void * text_init(const char *config) {
         }
         free(config_copy);
 
+        if (s->text == NULL || strlen(s->text) == 0 || s->req_h < -1) {
+                goto parsed_textspec_is_invalid;
+        }
+
         return s;
 }
 
@@ -170,21 +186,25 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         struct state_text *s = (struct state_text *) state;
 
         vf_free(s->in);
-        if (s->wand)
-                DestroyMagickWand(s->wand);
+        if (s->wand_text)
+                DestroyMagickWand(s->wand_text);
+        if (s->wand_bg)
+                DestroyMagickWand(s->wand_bg);
         if (s->dw)
                 DestroyDrawingWand(s->dw);
         s->in = 0;
-        s->wand = 0;
+        s->wand_bg = 0;
+        s->wand_text = 0;
         s->dw = 0;
 
         s->in = vf_alloc_desc_data(desc);
 
         s->margin_x = s->req_x == -1 ? (int) desc.width / MARGIN_X_DIV : s->req_x;
         s->margin_y = s->req_y == -1 ? (int) desc.height / MARGIN_Y_DIV : s->req_y;
-        s->text_h = s->req_h == -1 ? (int) desc.height / TEXT_H_DIV : s->req_h;
-        s->width = MIN(s->margin_x + strlen(s->text) * s->text_h, desc.width);
-        s->height = MIN(s->margin_y + s->text_h, (int) desc.height);
+        s->text_height_pt = s->req_h == -1 ? (int) desc.height / TEXT_H_DIV : s->req_h;
+        s->width = MIN(s->margin_x + strlen(s->text) * s->text_height_pt, desc.width);
+        s->text_base_y = MIN(s->margin_y + s->text_height_pt, (int) desc.height);
+
 
         const char *color;
         const char *color_outline;
@@ -208,7 +228,7 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         }
 
         s->dw = NewDrawingWand();
-        DrawSetFontSize(s->dw, s->text_h);
+        DrawSetFontSize(s->dw, s->text_height_pt);
         MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
@@ -223,24 +243,56 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
                DestroyPixelWand(pw);
         }
 
-        s->wand = NewMagickWand();
-        status = MagickSetFormat(s->wand, colorspace);
+        s->wand_bg = NewMagickWand();
+        status = MagickSetFormat(s->wand_bg, colorspace);
+        s->wand_text = NewMagickWand();
+        status &= MagickSetFormat(s->wand_text, colorspace);
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
                 return false;
         }
 
-        status = MagickSetSize(s->wand, s->width, s->height);
-        if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
+
+        status = MagickSetDepth(s->wand_bg, 8);
+        status &= MagickSetDepth(s->wand_text, 8);
+        assert(status == MagickTrue && "[text vo_pp.] MagickSetDepth failed");
+        
+        PixelWand *transparent_bg = NewPixelWand();
+        // PixelSetColor(transparent_bg, "#cccccc80");  // for debugging
+        PixelSetColor(transparent_bg, "#00000000");
+
+        // still need a dummy canvas to query font metrics
+        MagickNewImage(s->wand_text, 1, 1, transparent_bg);
+
+        // glyph w, glyph h, ascender, descender, txt w, txt h
+        double *metrics = MagickQueryFontMetrics(s->wand_text, s->dw, s->text);
+        if(!metrics) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickQueryFontMetrics failed!\n");
+                return false;
+        }
+        double descender =  metrics[3];  // has negative value
+        s->text_width_px =  metrics[4];
+        s->text_height_px = metrics[5];  // whole height, including the descender
+        free(metrics);
+
+        MagickRemoveImage(s->wand_text);
+        status = MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg);
+        if (!status) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickNewImage failed!\n");
                 return false;
         }
 
-        status = MagickSetDepth(s->wand, 8);
-        if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetDepth failed!\n");
+        double x_off = 0;
+        double y_off_baseline = s->text_height_px - (-descender) + 1;
+        double rot = 0;
+        status = MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
+        if (!status) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n\n"
+                "Perhaps the text contains invalid characters?\n");
                 return false;
         }
+
+        DestroyPixelWand(transparent_bg);
 
         return true;
 }
@@ -252,59 +304,89 @@ static struct video_frame * text_getf(void *state)
         return s->in;
 }
 
-/**
- * @todo
- * Rendering of the text is a bit slow. Since the text doesn't change at all, it should be
- * prerendered and then only alpha blended.
- */
 static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        MagickBooleanType status;
         struct state_text *s = (struct state_text *) state;
 
-        int dstlinesize = vc_get_linesize(s->width, in->color_spec);
-        int srclinesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-        char *tmp = malloc((size_t) s->height * dstlinesize);
-        for (ptrdiff_t y = 0; y < s->height; y++) {
-                memcpy(tmp + y * dstlinesize, in->tiles[0].data + y * srclinesize, dstlinesize);
+        int dst_linesize = vc_get_linesize(s->width, in->color_spec);
+        int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
+
+        int im_height_px = in->tiles[0].height;
+
+        // copy over just the relevant "stripe"
+        // cannot copy just the rectangle because pixel formats
+        // are not necessarily byte aligned
+        char *stripe = malloc((size_t) s->text_height_px * dst_linesize);
+        assert(stripe != NULL && "Malloc failed");
+        for (ptrdiff_t y = 0; y < s->text_height_px; y++) {
+                // skip what is out-of-bounds
+                if (y + s->margin_y < 0) {
+                        y += -s->margin_y - 1;
+                        continue;
+                }
+                if (y + s->margin_y >= im_height_px)
+                        break;
+
+                // copy what isn't
+                memcpy(stripe + (y) * dst_linesize,
+                       in->tiles[0].data + (y + s->margin_y) * src_linesize, 
+                       dst_linesize);
         }
 
-        MagickRemoveImage(s->wand);
-        MagickBooleanType status = MagickReadImageBlob(s->wand, tmp, s->height * dstlinesize);
+        // read image stripe into ImageMagick
+        MagickRemoveImage(s->wand_bg);
+
+        status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
+        assert(status == MagickTrue && "[text vo_pp.] MagickSetSize failed -- ");
+
+        status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
                 return false;
         }
-        //double *ret = MagickQueryFontMetrics(wand, dw, s->text.c_str());
-        //fprintf(stderr, "%f %f %f %f %f\n", ret[0], ret[1], ret[2], ret[3], ret[4]);
+
+        // compose it with text
+#ifdef WAND7
+        status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, true, s->margin_x, 0);
+#else
+        status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, s->margin_x, 0);
+#endif
+        if (status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickCompositeImage failed!\n");
+                return false;
+        }
+
+        // extract the composed data
         unsigned char *data;
         size_t data_len;
-        status = MagickAnnotateImage(s->wand, s->dw, s->margin_x, s->margin_y + s->text_h, 0, s->text);
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n");
-                return false;
-        }
-        status = MagickDrawImage(s->wand, s->dw);
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickDrawImage failed!\n");
-                return false;
-        }
-        data = MagickGetImageBlob(s->wand, &data_len);
-        if (!data) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickGetImageBlob failed!\n");
-                return false;
-        }
+        data = MagickGetImageBlob(s->wand_bg, &data_len);
+        assert(data != NULL && "[text vo_pp.] MagickGetImageBlob failed!");
 
+        // send the input stream...
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
-        if ((int) data_len == s->height * dstlinesize) {
-                for (int y = 0; y < s->height; y++) {
-                        memcpy(out->tiles[0].data + y * req_pitch, data + y * dstlinesize, dstlinesize);
+        // ...and the text stripe on top of it
+        // if ((int) data_len == s->text_height_pt * dstlinesize) {
+                for (int y = 0; y < s->text_height_px; y++) {
+                        // again, skip what is oob
+                        if (y + s->margin_y < 0) {
+                                y += - s->margin_y - 1; // 1 == don't y++ on continue
+                                continue;
+                        }
+                        if (y + s->margin_y >= im_height_px) {
+                                break;
+                        }
+
+                        memcpy(out->tiles[0].data + (y + s->margin_y) * req_pitch,
+                               data + y * dst_linesize,
+                               dst_linesize);
                 }
-        }
+        // }
 
         free(data);
-        free(tmp);
 
+        free(stripe);
         return true;
 }
 
@@ -339,7 +421,8 @@ static void text_done(void *state)
 
         vf_free(s->in);
 
-        DestroyMagickWand(s->wand);
+        DestroyMagickWand(s->wand_bg);
+        DestroyMagickWand(s->wand_text);
         DestroyDrawingWand(s->dw);
 
         free(s->data);
