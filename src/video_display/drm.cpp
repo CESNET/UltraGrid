@@ -480,9 +480,23 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
 
         s->frame.reset(vf_alloc_desc_data(desc));
 
-        //TODO Select proper pixel format based on desc
-        s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, DRM_FORMAT_UYVY);
-        s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, DRM_FORMAT_UYVY);
+        uint32_t pix_fmt;
+
+        switch(desc.color_spec){
+        case RGBA:
+                pix_fmt = DRM_FORMAT_XBGR8888;
+                break;
+        case UYVY:
+                pix_fmt = DRM_FORMAT_UYVY;
+                break;
+        default:
+                return false;
+        }
+
+        //TODO: check if selected pix_fmt is supported
+
+        s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
+        s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
 
 
         return true;
