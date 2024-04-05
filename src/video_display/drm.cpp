@@ -273,11 +273,10 @@ static bool init_drm_state(drm_display_state *s){
         return true;
 }
 
-static Framebuffer create_dumb_fb(int dri, int width, int height){
+static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_fmt){
         Framebuffer buf;
 
-        //TODO
-        uint32_t pix_fmt = DRM_FORMAT_XBGR8888;
+        //TODO: Currently pix_fmt is assumed to be single plane and 32 bpp
 
         int res = 0;
 
@@ -339,6 +338,21 @@ static void unset_framebuffer(drm_display_state *s){
         }
 }
 
+static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0){
+        auto dst_p = static_cast<char *>(dst->map.get());
+        auto src_p = static_cast<char *>(src->tiles[0].data);
+        auto linesize = vc_get_linesize(src->tiles[0].width, src->color_spec);
+
+        dst_p += dst->pitch * y;
+        dst_p += x * 4; //TODO
+
+        for(unsigned y = 0; y < src->tiles[0].height; y++){
+                memcpy(dst_p, src_p, linesize);
+                dst_p += dst->pitch;
+                src_p += linesize;
+        }
+}
+
 static void *display_drm_init(struct module *parent, const char *cfg, unsigned int flags)
 {
         UNUSED(parent), UNUSED(flags);
@@ -349,8 +363,6 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
                 return nullptr;
         }
 
-        s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay);
-        s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay);
 
         unset_framebuffer(s.get());
 
@@ -390,18 +402,6 @@ static bool swap_buffers(drm_display_state *s){
         return true;
 }
 
-static void draw_frame(Framebuffer *dst, video_frame *src){
-        auto dst_p = static_cast<char *>(dst->map.get());
-        auto src_p = static_cast<char *>(src->tiles[0].data);
-        auto linesize = vc_get_linesize(src->tiles[0].width, src->color_spec);
-
-        for(unsigned y = 0; y < src->tiles[0].height; y++){
-                memcpy(dst_p, src_p, linesize);
-                dst_p += dst->pitch;
-                src_p += linesize;
-        }
-}
-
 static bool display_drm_putf(void *state, struct video_frame *frame, long long flags)
 {
         if (flags == PUTF_DISCARD || frame == NULL) {
@@ -420,7 +420,7 @@ static bool display_drm_get_property(void *state, int property, void *val, size_
 {
         auto s = static_cast<drm_display_state *>(state);
 
-        codec_t codecs[] = {RGBA};
+        codec_t codecs[] = {RGBA, UYVY};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
@@ -451,6 +451,11 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
         s->desc = desc;
 
         s->frame.reset(vf_alloc_desc_data(desc));
+
+        //TODO Select proper pixel format based on desc
+        s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, DRM_FORMAT_UYVY);
+        s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, DRM_FORMAT_UYVY);
+
 
         return true;
 }
