@@ -264,6 +264,12 @@ static bool init_drm_state(drm_display_state *s){
                 return false;
         }
 
+        int res = drmSetMaster(dri);
+        if(res != 0){
+                log_msg(LOG_LEVEL_ERROR, "Unable to get DRM master. Is X11 or Wayland running?\n");
+                return false;
+        }
+
         return true;
 }
 
