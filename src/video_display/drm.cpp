@@ -16,6 +16,7 @@
 #include <vector>
 #include <condition_variable>
 #include <queue>
+#include <algorithm>
 
 #include "debug.h"
 #include "host.h"
@@ -204,6 +205,8 @@ struct Framebuffer{
 struct drm_display_state {
         Drm_state drm;
 
+        Framebuffer splashscreen;
+
         Framebuffer back_buffer;
         Framebuffer front_buffer;
 
@@ -338,6 +341,15 @@ static void unset_framebuffer(drm_display_state *s){
         }
 }
 
+static void draw_splash(drm_display_state *s){
+        int res = 0;
+        res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
+                        s->splashscreen.id.get().id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
+        if(res < 0){
+                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+        }
+}
+
 static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0){
         auto dst_p = static_cast<char *>(dst->map.get());
         auto src_p = static_cast<char *>(src->tiles[0].data);
@@ -353,6 +365,21 @@ static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0)
         }
 }
 
+static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
+        auto splash_frame = get_splashscreen();
+        int w = splash_frame->tiles[0].width;
+        int h = splash_frame->tiles[0].height;
+
+        int x = std::max(0, (width - w) / 2);
+        int y = std::max(0, (height - h) / 2);
+
+        auto fb = create_dumb_fb(s->drm.dri_fd.get(), width, height, DRM_FORMAT_XBGR8888);
+        draw_frame(&fb, splash_frame, x, y);
+
+        return fb;
+}
+
+
 static void *display_drm_init(struct module *parent, const char *cfg, unsigned int flags)
 {
         UNUSED(parent), UNUSED(flags);
@@ -363,8 +390,9 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
                 return nullptr;
         }
 
+        s->splashscreen = get_splash_fb(s.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay);
 
-        unset_framebuffer(s.get());
+        draw_splash(s.get());
 
         return s.release();
 }
