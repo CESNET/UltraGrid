@@ -1901,6 +1901,33 @@ fi
 ENSURE_FEATURE_PRESENT([$vidcap_file_req], [$vidcap_file], [Vidcap file input dependencies not found])
 
 # -------------------------------------------------------------------------------------------------
+# DRM display
+# -------------------------------------------------------------------------------------------------
+drm_disp=no
+
+AC_ARG_ENABLE(drm_disp,
+      AS_HELP_STRING([--disable-drm], [disable DRM display support (default is auto)]
+              [Requires: libdrm]),
+        [drm_req=$enableval],
+        [drm_req=$build_default]
+)
+
+if test $drm_req != no; then
+        PKG_CHECK_MODULES([DRM], [libdrm], FOUND_DRM_DEP=yes, FOUND_DRM_DEP=no)
+
+        if test $drm_req != no -a $FOUND_DRM_DEP = yes
+        then
+                CFLAGS="$CFLAGS ${DRM_CFLAGS}"
+                CXXFLAGS="$CXXFLAGS ${DRM_CFLAGS}"
+                DRM_OBJ="src/video_display/drm.o"
+                add_module display_drm "$DRM_OBJ" "$DRM_LIBS"
+                drm_disp=yes
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([$drm_req], [$drm], [drm dep not found (libdrm)])
+
+# -------------------------------------------------------------------------------------------------
 # OpenGL display
 # -------------------------------------------------------------------------------------------------
 GL_LIB=$OPENGL_LIB
@@ -3448,6 +3475,7 @@ RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
+RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
