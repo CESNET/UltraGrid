@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,9 @@
 
 #ifndef GPUJPEG_VERSION_INT
 #error "Old GPUJPEG API detected!"
+#endif
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 0)
+#define NEW_PARAM_IMG_NO_COMP_COUNT
 #endif
 
 #define MOD_NAME "[GPUJPEG enc.] "
@@ -276,10 +279,18 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.width = desc.width;
         m_param_image.height = desc.height;
 
+
+#if !defined NEW_PARAM_IMG_NO_COMP_COUNT
         m_param_image.comp_count = 3;
+#endif
         if (m_parent_state->m_compress_alpha) {
                 if (desc.color_spec == RGBA) {
+#ifdef NEW_PARAM_IMG_NO_COMP_COUNT
+                        gpujpeg_parameters_chroma_subsampling(
+                            &m_encoder_param, GPUJPEG_SUBSAMPLING_4444);
+#else
                         m_param_image.comp_count = 4;
+#endif
                 } else {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Requested alpha encode but input codec is unsupported pixel format: "
                                 << get_codec_name(desc.color_spec) << "\n";
@@ -290,7 +301,11 @@ bool encoder_state::configure_with(struct video_desc desc)
         switch (m_enc_input_codec) {
         case I420: m_param_image.pixel_format = GPUJPEG_420_U8_P0P1P2; break;
         case RGB: m_param_image.pixel_format = GPUJPEG_444_U8_P012; break;
+#ifdef NEW_PARAM_IMG_NO_COMP_COUNT
+        case RGBA: m_param_image.pixel_format = GPUJPEG_4444_U8_P0123; break;
+#else
         case RGBA: m_param_image.pixel_format = GPUJPEG_444_U8_P012Z; break;
+#endif
         case UYVY: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
         default:
                 log_msg(LOG_LEVEL_FATAL, MOD_NAME "Unexpected codec: %s\n",
