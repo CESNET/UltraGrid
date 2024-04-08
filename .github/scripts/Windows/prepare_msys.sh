@@ -7,6 +7,7 @@ export PATH=$MSYSTEM_PREFIX/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include:/usr/include
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:$MSYSTEM_PREFIX/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
+export CUDA_FLAGS='--generate-code arch=compute_35,code=sm_35'
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
 if test -d "$CUDA_D"; then
