@@ -265,7 +265,7 @@ void PreviewWidget::paintGL(){
 static const char *get_temp_dir(void)
 {
 #ifdef _WIN32
-        static __thread char temp_dir[MAX_PATH];
+        static __thread char temp_dir[MAX_PATH + 1];
         if (GetTempPathA(sizeof temp_dir, temp_dir) == 0) {
                 return NULL;
         }

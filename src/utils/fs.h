@@ -42,7 +42,7 @@
 // maximal platform path length including terminating null byte
 #ifdef _WIN32
 #include <windows.h>
-#define MAX_PATH_SIZE MAX_PATH
+#define MAX_PATH_SIZE (MAX_PATH + 1)
 #else
 #include <limits.h>
 #define MAX_PATH_SIZE PATH_MAX
