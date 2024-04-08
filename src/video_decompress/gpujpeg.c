@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,10 @@
 
 #define MOD_NAME "[GPUJPEG dec.] "
 
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 0)
+#define NEW_PARAM_IMG_NO_COMP_COUNT
+#endif
+
 struct state_decompress_gpujpeg {
         struct gpujpeg_decoder *decoder;
 
@@ -100,7 +104,11 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         case RGBA:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
+#ifdef NEW_PARAM_IMG_NO_COMP_COUNT
+                                GPUJPEG_4444_U8_P0123 : GPUJPEG_444_U8_P012);
+#else
                                 GPUJPEG_444_U8_P012A : GPUJPEG_444_U8_P012);
+#endif
                 break;
         case RGB:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
@@ -216,10 +224,13 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
                         break;
                 case GPUJPEG_444_U8_P012:
                 case GPUJPEG_444_U8_P0P1P2:
-                case GPUJPEG_444_U8_P012Z:
                         internal_prop->subsampling = 4440;
                         break;
+#ifdef NEW_PARAM_IMG_NO_COMP_COUNT
+                case GPUJPEG_4444_U8_P0123:
+#else
                 case GPUJPEG_444_U8_P012A:
+#endif
                         internal_prop->subsampling = 4444;
                         break;
 
