@@ -227,6 +227,9 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
                         break;
                 case GPUJPEG_444_U8_P012:
                 case GPUJPEG_444_U8_P0P1P2:
+#if !defined NEW_PARAM_IMG_NO_COMP_COUNT
+                case GPUJPEG_444_U8_P012Z:
+#endif
                         internal_prop->subsampling = 4440;
                         break;
 #ifdef NEW_PARAM_IMG_NO_COMP_COUNT
