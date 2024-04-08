@@ -183,8 +183,11 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, struct pixfmt_desc *internal_prop) {
 	struct gpujpeg_image_parameters image_params = { 0 };
+        gpujpeg_image_set_default_parameters(&image_params);
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 0)
-        struct gpujpeg_parameters params = { .verbose = MAX(0, log_level - LOG_LEVEL_INFO) };
+        struct gpujpeg_parameters params;
+        gpujpeg_set_default_parameters(&params);
+        params.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
 	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, &params, NULL) != 0) {
 #else
 	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
