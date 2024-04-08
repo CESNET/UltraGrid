@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#include <windows.h> // for GetTempPathA, MAX_PATH
+#else
+#include <limits.h>  // for PATH_MAX
+#endif
 #include <stdio.h>
 #include <QMessageBox>
 #include <QOpenGLFunctions_3_3_Core>
