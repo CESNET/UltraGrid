@@ -1270,11 +1270,13 @@ abgr_flip_and_swap(int width, int height, const unsigned char *in,
         }
 }
 
-static GUID GUID_R210 = {0x30313272, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
-static GUID GUID_v210 = {0x30313276, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
-static GUID GUID_V210 = {0x30313256, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
-static GUID GUID_HDYC = {0x43594448, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
-static GUID GUID_I420 = {0x30323449, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
+#define GUID_FROM_FOURCC(fourcc) {fourcc, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}}
+static const GUID GUID_R210 = GUID_FROM_FOURCC(0x30313272);
+static const GUID GUID_v210 = GUID_FROM_FOURCC(0x30313276);
+static const GUID GUID_V210 = GUID_FROM_FOURCC(0x30313256);
+static const GUID GUID_HDYC = GUID_FROM_FOURCC(0x43594448);
+static const GUID GUID_I420 = GUID_FROM_FOURCC(0x30323449);
+static const GUID GUID_H264 = GUID_FROM_FOURCC(to_fourcc('H', '2', '6', '4')); // 0x34363248
 
 static const struct {
         const GUID *pSubtype;
@@ -1299,6 +1301,7 @@ static const struct {
         { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY,    nullptr           },
         { &GUID_HDYC,            "HDYC",             UYVY,    nullptr           },
         { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr           },
+        { &GUID_H264,            "H264",             H264,    nullptr           },
         { &MEDIASUBTYPE_NV12,    "NV12",             UYVY,    nv12_to_uyvy      },
         { &GUID_NULL,            "UNKNOWN",          VC_NONE, nullptr           },
 };
