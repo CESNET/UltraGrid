@@ -985,6 +985,13 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		goto error;
 	}
 
+	if (is_codec_opaque(s->desc.color_spec)) {
+                MSG(WARNING,
+                    "Capturing a compressed format directly. You may consider "
+                    "enforcing conversion to RGB (':RGB' option), eg. to "
+                    "use another compression.\n");
+        }
+
 #if 0
 	if (s->modeNumber < 0) { // mode number was not set by user directly
                 s->streamConfig->GetFormat(&mediaType);
