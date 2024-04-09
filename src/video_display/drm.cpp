@@ -376,7 +376,7 @@ static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0)
         auto linesize = vc_get_linesize(src->tiles[0].width, src->color_spec);
 
         dst_p += dst->pitch * y;
-        dst_p += x * 4; //TODO
+        dst_p += vc_get_size(x, src->color_spec);
 
         for(unsigned y = 0; y < src->tiles[0].height; y++){
                 memcpy(dst_p, src_p, linesize);
