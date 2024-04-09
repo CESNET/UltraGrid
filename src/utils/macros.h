@@ -83,6 +83,18 @@
                 } \
         } while (0)
 
+/// soft version of @ref UG_ASSERT_SOFT - only exit if user requested exit on
+/// failures
+#define UG_ASSERT_NO_FATAL(cond) \
+        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
+                if (!(cond)) { \
+                        fprintf(stderr, \
+                                "%s:%d: %s: Assertion `" #cond "' failed.\n", \
+                                __FILE__, __LINE__, __func__); \
+                        handle_error(EXIT_FAILURE); \
+                } \
+        } while (0)
+
 /// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array
 #define snprintf_ch(str, ...) snprintf(str, sizeof str, __VA_ARGS__)
 #define starts_with(str, token) !strncmp(str, token, strlen(token))
