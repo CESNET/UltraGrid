@@ -489,6 +489,10 @@ then
                               [])
                 if test -n "$CL"; then
                         cl_lib_path=$(realpath "$(dirname "$(command -v "$CL")")"/../../../lib/x64)
+                        if test $? -ne 0; then
+                                # MSVS 14.0 has it otherwhere
+                                cl_lib_path=$(realpath "$(dirname "$(command -v "$CL")")"/../lib)
+                        fi
                         CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L\"$cl_lib_path\""
                         FOUND_CUDA=yes
                 fi
