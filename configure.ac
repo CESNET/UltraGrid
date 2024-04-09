@@ -191,7 +191,7 @@ AC_ARG_ENABLE(all,
         )
 
 if test $system = Windows; then
-        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS -Xcompiler -GS- -Xcompiler -d2FH4- -Xcompiler -MD"
+        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -FS -Xcompiler -GS- -Xcompiler -MD"
 else
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
@@ -584,6 +584,16 @@ If not done so, you can accomplish this by adding line:\n\
         export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
 to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
         exec bash\n***\n"
+          else
+                AC_MSG_CHECKING([cl.exe supports -d2FH4-])
+                tst=$(mktemp tst-cl-frame-pointer-XXXX.c)
+                if "$CL" -d2FH4- -c $tst >/dev/null 2>&1; then
+                        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -d2FH4-"
+                        AC_MSG_RESULT(yes)
+                else
+                        AC_MSG_RESULT(no)
+                fi
+                rm $tst
           fi
 fi
 
