@@ -40,10 +40,10 @@ void main(){
 static const char *frag_src = R"END(
 #version 330 core
 in vec2 UV;
-out vec3 color;
+out vec4 color;
 uniform sampler2D tex;
 void main(){
-	color = texture(tex, UV).rgb;
+	color = vec4(texture(tex, UV).rgb, 1.0f);
 }
 )END";
 
