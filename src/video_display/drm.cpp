@@ -338,14 +338,13 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
         struct drm_mode_map_dumb map_info = {};
         map_info.handle = buf.handle.get().handle;
 
-        res = ioctl(dri, DRM_IOCTL_MODE_MAP_DUMB, &map_info);
+        res = drmIoctl(dri, DRM_IOCTL_MODE_MAP_DUMB, &map_info);
         if(res != 0){
                 log_msg(LOG_LEVEL_ERROR, "Failed to get map info (%d)\n", res);
                 return {};
         }
 
         buf.map = MemoryMapping::create(0, buf.size, PROT_READ | PROT_WRITE, MAP_SHARED, dri, map_info.offset);
-
         if(!buf.map.valid()){
                 log_msg(LOG_LEVEL_ERROR, "Failed to map buffer\n");
                 return {};
