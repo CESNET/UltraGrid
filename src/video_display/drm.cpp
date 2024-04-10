@@ -154,7 +154,9 @@ namespace{
                         if(h.dri_fd < 0)
                                 return;
 
-                        drmModeDestroyDumbBuffer(h.dri_fd, h.handle);
+                        drm_mode_destroy_dumb destroy_info = {};
+                        destroy_info.handle = h.handle;
+                        drmIoctl(h.dri_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_info);
                 }
         };
         using Fb_handle_uniq = Uniq_wrapper<Fb_handle, Fb_handle_deleter>;
@@ -297,11 +299,18 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
 
         {
                 Fb_handle handle;
-                res = drmModeCreateDumbBuffer(dri, width, height, 32, 0, &handle.handle, &buf.pitch, &buf.size);
+                drm_mode_create_dumb create_info = {};
+                create_info.width = width;
+                create_info.height = height;
+                create_info.bpp = 32;
+                res = drmIoctl(dri, DRM_IOCTL_MODE_CREATE_DUMB, &create_info);
                 if(res != 0){
                         log_msg(LOG_LEVEL_ERROR, "Failed to create a dumb framebuffer (%d)\n", res);
                         return {};
                 }
+                handle.handle = create_info.handle;
+                buf.pitch = create_info.pitch;
+                buf.size = create_info.size;
                 handle.dri_fd = dri;
                 buf.handle = Fb_handle_uniq(handle);
         }
