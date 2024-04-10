@@ -1277,6 +1277,8 @@ abgr_flip_and_swap(int width, int height, const unsigned char *in,
         }
 }
 
+// <https://learn.microsoft.com/en-us/windows/win32/medfound/video-subtype-guids>
+// <https://gix.github.io/media-types>
 #define GUID_FROM_FOURCC(fourcc) {fourcc, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}}
 static const GUID GUID_R210 = GUID_FROM_FOURCC(0x30313272);
 static const GUID GUID_v210 = GUID_FROM_FOURCC(0x30313276);
@@ -1284,6 +1286,8 @@ static const GUID GUID_V210 = GUID_FROM_FOURCC(0x30313256);
 static const GUID GUID_HDYC = GUID_FROM_FOURCC(0x43594448);
 static const GUID GUID_I420 = GUID_FROM_FOURCC(0x30323449);
 static const GUID GUID_H264 = GUID_FROM_FOURCC(to_fourcc('H', '2', '6', '4')); // 0x34363248
+static const GUID GUID_HEVC = GUID_FROM_FOURCC(to_fourcc('H', 'E', 'V', 'C'));
+static const GUID GUID_AV01 = GUID_FROM_FOURCC(to_fourcc('A', 'V', '0', '1'));
 
 static const struct {
         const GUID *pSubtype;
@@ -1309,6 +1313,8 @@ static const struct {
         { &GUID_HDYC,            "HDYC",             UYVY,    nullptr           },
         { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr           },
         { &GUID_H264,            "H264",             H264,    nullptr           },
+        { &GUID_HEVC,            "HEVC",             H265,    nullptr           },
+        { &GUID_AV01,            "AV1",              AV1,     nullptr           },
         { &MEDIASUBTYPE_NV12,    "NV12",             UYVY,    nv12_to_uyvy      },
         { &GUID_NULL,            "UNKNOWN",          VC_NONE, nullptr           },
 };
