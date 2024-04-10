@@ -229,6 +229,18 @@ static bool init_drm_state(drm_display_state *s){
                 return false;
         }
 
+        drmVersionPtr version = drmGetVersion(dri);
+        if(version){
+                log_msg(LOG_LEVEL_INFO, "DRM version: %d.%d.%d (%s), Driver: %s\n",
+                                version->version_major,
+                                version->version_minor,
+                                version->version_patchlevel,
+                                version->date,
+                                version->name);
+                drmFreeVersion(version);
+        }
+
+
         s->drm.res.reset(drmModeGetResources(dri));
         if(!s->drm.res){
                 log_msg(LOG_LEVEL_ERROR, "Failed to get DRI resources\n");
