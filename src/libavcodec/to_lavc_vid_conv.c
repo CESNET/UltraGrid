@@ -1868,8 +1868,9 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
                 }
         }
         time_ns_t t2 = get_time_in_ns();
-        log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "duration uv pixfmt change: %f ms, av foramt change: %f ms\n",
-                (t1 - t0) / MS_IN_SEC_DBL, (t2 - t1) / MS_IN_SEC_DBL);
+        MSG(DEBUG2,
+            "duration uv pixfmt change: %f ms, av format change: %f ms\n",
+            (t1 - t0) / NS_IN_MS_DBL, (t2 - t1) / NS_IN_MS_DBL);
         return frame;
 };
 
