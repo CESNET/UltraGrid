@@ -55,7 +55,6 @@ if [ "$(lsb_release -rs)" = 20.04 ]; then
         git am -3 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto"
 fi
 install_aom
-( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j "$(nproc)" && sudo make install || exit 1 )
 install_libvpx
 install_nv_codec_headers
 install_onevpl

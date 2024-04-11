@@ -53,9 +53,7 @@ sudo add-apt-repository ppa:savoury1/vlc3 # new x265
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
-# own x264 build
-sudo apt --no-install-recommends install asciidoc xmlto
+sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
 sudo apt install qtbase5-dev
 
