@@ -39,7 +39,9 @@
 
 #include <array>
 #include <cassert>
+#include <cinttypes>
 #include <cmath>
+#include <cstdint>
 #include <list>
 #include <map>
 #include <regex>
@@ -289,7 +291,8 @@ struct state_video_compress_libav {
 
         double    mov_avg_comp_duration = 0;
         long      mov_avg_frames        = 0;
-        time_ns_t duration_warn_last_print;
+        time_ns_t duration_warn_last_print = 0;
+        int64_t   max_pts_diff_reported    = 0;
 
         map<int64_t, char[VF_METADATA_SIZE]> metadata_storage;
 };
@@ -1395,6 +1398,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 return {};
         }
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+        const int64_t pkt_pts = s->pkt->pts;
         shared_ptr<video_frame> out{};
         if (ret == 0) {
                 out = out_vf_from_pkt(s, s->pkt);
@@ -1408,6 +1412,17 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
         check_duration(s, t1 - t0, t3 - t0);
+
+        if (!out) {
+                return {};
+        }
+
+        const int64_t pts_diff = s->cur_pts - pkt_pts - 1;
+        if (pts_diff > s->max_pts_diff_reported) {
+                MSG(WARNING, "Frame delayed %" PRId64 " frames by the compression!\n",
+                    pts_diff);
+                s->max_pts_diff_reported = pts_diff;
+        }
 
         if (s->store_orig_format) {
                 write_orig_format(out.get(), tx->color_spec);
