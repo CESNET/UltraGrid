@@ -1248,6 +1248,7 @@ void
 restore_metadata(state_video_compress_libav *s, struct video_frame *out,
                  int64_t pts)
 {
+        assert (pts != AV_NOPTS_VALUE);
         auto it = s->metadata_storage.find(pts);
         if (it != s->metadata_storage.end()) {
                 vf_restore_metadata(out, it->second);
