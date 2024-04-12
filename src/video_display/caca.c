@@ -62,6 +62,7 @@ struct state_caca {
 
         _Bool started;
         _Bool should_exit;
+        int log_level_stored;
         pthread_t thread_id;
         pthread_mutex_t lock;
         pthread_cond_t frame_ready_cv;
@@ -98,6 +99,9 @@ static void display_caca_done(void *state)
         if (s->canvas) {
                 caca_free_canvas(s->canvas);
         }
+        if (s->log_level_stored != -1 && log_level == LOG_LEVEL_ERROR) {
+                log_level = s->log_level_stored;
+        }
         vf_free(s->f);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->frame_ready_cv);
@@ -131,6 +135,7 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 }
         }
         struct state_caca *s = calloc(1, sizeof *s);
+        s->log_level_stored = -1;
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->frame_ready_cv, NULL);
@@ -154,6 +159,13 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
         if (strcmp(driver, "x11") != 0 && strcmp(driver, "null") != 0) {
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Disabling keyboard control.\n");
                 set_commandline_param("disable-keyboard-control", "");
+                if (log_level == LOG_LEVEL_INFO) {
+                        s->log_level_stored = log_level;
+                        MSG(INFO,
+                            "Setting log level to error - set to a different "
+                            "level than info to keep logging.\n");
+                        log_level = LOG_LEVEL_ERROR;
+                }
         }
 
         s->f = get_splashscreen();
