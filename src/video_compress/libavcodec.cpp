@@ -114,6 +114,7 @@ using namespace std::string_literals;
 namespace {
 enum {
         FLW_THRESH = 1920 * 1080 * 30, //< in px/sec
+        HOUSEKEEP_INTERVAL = 100, //< for metadata_storage
 };
 
 constexpr const codec_t DEFAULT_CODEC       = MJPG;
@@ -1232,9 +1233,6 @@ static void write_orig_format(struct video_frame *compressed_frame, codec_t orig
         *data_len += sizeof eob;
 }
 
-enum {
-        HOUSEKEEP_INTERVAL = 100,
-};
 void
 store_metadata(state_video_compress_libav *s, const struct video_frame *f,
                int64_t pts)
@@ -1335,6 +1333,32 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
         return out;
 }
 
+shared_ptr<video_frame>
+receive_packet(state_video_compress_libav *s)
+{
+        const int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+        if (ret != 0) {
+                if (ret == AVERROR(EAGAIN)) {
+                        MSG(DEBUG,
+                            "avcodec_receive_packet: received none packet "
+                            "(EAGAIN)\n");
+                } else {
+                        print_libav_error(LOG_LEVEL_WARNING,
+                                          MOD_NAME "Receive packet error", ret);
+                }
+                return {};
+        }
+
+        const int64_t pts_diff = s->cur_pts - s->pkt->pts - 1;
+        if (pts_diff > s->max_pts_diff_reported) {
+                MSG(WARNING, "Frame delayed %" PRId64 " frames by the compression!\n",
+                    pts_diff);
+                s->max_pts_diff_reported = pts_diff;
+        }
+
+        return out_vf_from_pkt(s, s->pkt);
+}
+
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         auto *s = (state_video_compress_libav *) mod->priv_data;
@@ -1351,15 +1375,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 
         if (!tx) { // reading further encoded frames
-                const int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-                if (ret == 0) {
-                        return out_vf_from_pkt(s, s->pkt);
-                }
-                if (ret != AVERROR(EAGAIN)) {
-                        print_libav_error(LOG_LEVEL_WARNING,
-                                          MOD_NAME "Receive packet error", ret);
-                }
-                return {};
+                return receive_packet(s);
         }
 
         time_ns_t t0 = get_time_in_ns();
@@ -1398,15 +1414,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
         }
-        int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
-        const int64_t pkt_pts = s->pkt->pts;
-        shared_ptr<video_frame> out{};
-        if (ret == 0) {
-                out = out_vf_from_pkt(s, s->pkt);
-        }
-        if (ret != AVERROR(EAGAIN) && ret != 0) {
-                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
-        }
+
+        shared_ptr<video_frame> out = receive_packet(s);
         time_ns_t t3 = get_time_in_ns();
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
                 << (t1 - t0) / NS_IN_SEC_DBL <<
@@ -1416,13 +1425,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         if (!out) {
                 return {};
-        }
-
-        const int64_t pts_diff = s->cur_pts - pkt_pts - 1;
-        if (pts_diff > s->max_pts_diff_reported) {
-                MSG(WARNING, "Frame delayed %" PRId64 " frames by the compression!\n",
-                    pts_diff);
-                s->max_pts_diff_reported = pts_diff;
         }
 
         if (s->store_orig_format) {
