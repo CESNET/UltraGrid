@@ -1176,9 +1176,16 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
                 if (s->lavc_opts.find("delay") == s->lavc_opts.end()) {
                         hint = "\"delay=<frames>\" option to NVENC compression (2 suggested)";
                 }
-        } if (strcmp(s->codec_ctx->codec->name, "libaom-av1") == 0) {
+        } else if (strcmp(s->codec_ctx->codec->name, "libaom-av1") == 0) {
                 if (s->lavc_opts.find("cpu-used") == s->lavc_opts.end()) {
                         hint = "\"cpu-used=8\" option for quality/speed trade-off to AOM AV1 compression (values 0-8 allowed)";
+                        quality_hurt = "quality";
+                }
+        } else if (strcmp(s->codec_ctx->codec->name, "libsvt_hevc") == 0) {
+                if (s->lavc_opts.find("preset") == s->lavc_opts.end()) {
+                        hint =
+                            "\"preset=12\" option for quality/speed trade-off "
+                            "to libsvt_hevc compression (values 0-12 allowed)";
                         quality_hurt = "quality";
                 }
         } else if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
