@@ -2067,6 +2067,8 @@ static void av_drm_prime_to_ug_drm_prime(char * __restrict dst_buffer, AVFrame *
         assert(av_drm_frame->nb_layers == 1);
         AVDRMLayerDescriptor *layer = &av_drm_frame->layers[0];
 
+        out->fd_count = av_drm_frame->nb_objects;
+
         for(int i = 0; i < av_drm_frame->nb_objects; i++){
                 out->dmabuf_fds[i] = av_drm_frame->objects[i].fd;
         }

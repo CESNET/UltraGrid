@@ -9,6 +9,7 @@ struct AVFrame;
 struct drm_prime_frame{
         uint32_t drm_format;
 
+        int fd_count;
         int dmabuf_fds[4];
 
         int planes;
