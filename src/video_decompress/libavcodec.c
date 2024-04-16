@@ -498,7 +498,7 @@ static int drm_prime_init(struct AVCodecContext *s,
                 return ret;
 
         s->hw_device_ctx = ref;
-        state->copy = true;
+        state->copy = out_codec != DRM_PRIME;
         state->tmp_frame = av_frame_alloc();
         if(!state->tmp_frame){
                 av_buffer_unref(&ref);
