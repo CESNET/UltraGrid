@@ -114,6 +114,7 @@ using namespace std::string_literals;
 namespace {
 enum {
         FLW_THRESH = 1920 * 1080 * 30, //< in px/sec
+        FLW_UHD_60 = 3840 * 2160 * 60,
         HOUSEKEEP_INTERVAL = 100, //< for metadata_storage
 };
 
@@ -1870,6 +1871,10 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt);
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_slice_mode", 1);
                         check_av_opt_set<int>(codec_ctx->priv_data, "umv", 0);
+                }
+                if (param->desc.width * param->desc.height * param->desc.fps > FLW_UHD_60) {
+                        check_av_opt_set<const char *>(codec_ctx->priv_data,
+                                                       "preset", "11");
                 }
         } else if ("libsvtav1"s == codec_ctx->codec->name) {
                 const char *preset =
