@@ -46,6 +46,7 @@
 
 #include <assert.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/hwcontext_drm.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -54,6 +55,7 @@
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
+#include "hwaccel_drm.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/from_lavc_vid_conv_cuda.h"
 #include "libavcodec/lavc_common.h"
@@ -2037,6 +2039,52 @@ static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restr
 }
 #endif
 
+static void hw_drm_recycle_callback(struct video_frame *frame){
+        for(unsigned i = 0; i < frame->tile_count; i++){
+                struct drm_prime_frame *drm_frame = (struct drm_prime_frame *)(void *) frame->tiles[i].data;
+                av_frame_free(&drm_frame->av_frame);
+                memset(drm_frame, 0, sizeof(struct drm_prime_frame));
+        }
+
+        frame->callbacks.recycle = NULL;
+}
+
+static void av_drm_prime_to_ug_drm_prime(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(width);
+        UNUSED(height);
+        UNUSED(pitch);
+        UNUSED(rgb_shift);
+
+        struct video_frame_callbacks *callbacks = in_frame->opaque;
+
+        struct drm_prime_frame *out = (struct drm_prime_frame *)(void *) dst_buffer;
+        memset(out, 0, sizeof(struct drm_prime_frame));
+
+
+        AVDRMFrameDescriptor *av_drm_frame = (struct AVDRMFrameDescriptor *) in_frame->data[0];
+        assert(av_drm_frame->nb_layers == 1);
+        AVDRMLayerDescriptor *layer = &av_drm_frame->layers[0];
+
+        for(int i = 0; i < av_drm_frame->nb_objects; i++){
+                out->dmabuf_fds[i] = av_drm_frame->objects[i].fd;
+        }
+
+        out->planes = layer->nb_planes;
+        out->drm_format = layer->format;
+
+        for(int i = 0; i < layer->nb_planes; i++){
+                out->fd_indices[i] = layer->planes[i].object_index;
+                out->modifiers[i] = av_drm_frame->objects[layer->planes[i].object_index].format_modifier;
+                out->offsets[i] = layer->planes[i].offset;
+                out->pitches[i] = layer->planes[i].pitch;
+        }
+
+        out->av_frame = av_frame_clone(in_frame);
+        callbacks->recycle = hw_drm_recycle_callback; 
+}
+
 static void ayuv64_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2319,6 +2367,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #ifdef HWACC_RPI4
         {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug},
 #endif
+        {AV_PIX_FMT_DRM_PRIME, DRM_PRIME, av_drm_prime_to_ug_drm_prime},
 };
 #define AV_TO_UV_CONVERSION_COUNT (sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0])
 static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_conversions + AV_TO_UV_CONVERSION_COUNT;
