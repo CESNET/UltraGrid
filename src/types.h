@@ -105,6 +105,7 @@ typedef enum {
         PRORES_422,       ///< Apple ProRes 422
         PRORES_422_PROXY, ///< Apple ProRes 422 (Proxy)
         PRORES_422_LT,    ///< Apple ProRes 422 (LT)
+        DRM_PRIME, ///< DRM Prime buffer, data contains struct drm_prime_frame
         VIDEO_CODEC_COUNT, ///< count of known video codecs (including VIDEO_CODEC_NONE)
         VC_COUNT        = VIDEO_CODEC_COUNT,
         VC_END          = VIDEO_CODEC_COUNT,

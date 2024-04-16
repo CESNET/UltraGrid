@@ -69,6 +69,7 @@
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
+#include "hwaccel_drm.h"
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR
 #include "video_codec.h"
 
@@ -194,6 +195,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('a','p','c','o'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "apco"},
         [PRORES_422_LT] =  {"PRORES_422_LT", "Apple ProRes 422 (LT)",
                 to_fourcc('a','p','c','s'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "apcs"},
+        [DRM_PRIME] = {"DRM_PRIME", "DRM Prime buffer",
+                to_fourcc('D', 'R', 'M', 'P'), sizeof(struct drm_prime_frame), 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 0, "drm_prime"},
 };
 
 /// for planar pixel formats
