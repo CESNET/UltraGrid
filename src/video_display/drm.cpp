@@ -29,6 +29,7 @@
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
+#include "hwaccel_drm.h"
 
 #define MOD_NAME "[drm] "
 
@@ -176,11 +177,83 @@ namespace{
         };
         using Fb_id_uniq = Uniq_wrapper<Fb_id, Fb_id_deleter>;
 
+        class Gem_handle_manager{
+                /* The handles returned from drmPrimeFDToHandle() must not be
+                 * double free'd. Two frames can apparently also point to the
+                 * same prime buffer, so we really need to reference count it
+                 * ourselves.
+                 */
+        private:
+                void add_ref(uint32_t handle){
+                        handle_map[handle]++;
+                };
+
+                void unref(uint32_t handle){
+                        int refs = handle_map[handle]--;
+                        assert(refs >= 0 && "Unref called on invalid handle");
+
+                        if(refs == 0){
+                                drmIoctl(dri_fd, DRM_IOCTL_GEM_CLOSE, &handle);
+                                handle_map.erase(handle);
+                        }
+                }
+                int dri_fd = -1;
+                std::map<uint32_t, int> handle_map;
+
+        public:
+                Gem_handle_manager(int dri_fd): dri_fd(dri_fd) { }
+
+                class Handle{
+                public:
+                        Handle() = default;
+                        ~Handle(){
+                                if(ctx)
+                                        ctx->unref(handle);
+                        }
+
+                        Handle(const Handle&) = delete;
+                        Handle& operator=(const Handle&) = delete;
+                        Handle(Handle&& o){
+                                std::swap(handle, o.handle);
+                                std::swap(ctx, o.ctx);
+                        }
+                        Handle& operator=(Handle&& o){
+                                std::swap(handle, o.handle);
+                                std::swap(ctx, o.ctx);
+                                return *this;
+                        }
+
+                        uint32_t get() const {
+                                return handle;
+                        }
+                private:
+                        friend Gem_handle_manager;
+                        Handle(uint32_t handle, Gem_handle_manager *ctx): handle(handle), ctx(ctx){
+                                ctx->add_ref(handle);
+                        }
+                        uint32_t handle = 0;
+                        Gem_handle_manager *ctx = nullptr;
+                };
+
+                Handle get_handle(int fd){
+                        uint32_t handle = 0;
+                        int res = drmPrimeFDToHandle(dri_fd, fd, &handle);
+                        if(res < 0){
+                                log_msg(LOG_LEVEL_ERROR, "Failed to get a GEM handle from prime fd %d\n", fd);
+                                return {};
+                        }
+                        return Handle(handle, this);
+                }
+
+        };
+
 } //anon namespace
   //
 
 struct Drm_state {
         Fd_uniq dri_fd;
+
+        std::unique_ptr<Gem_handle_manager> gem_manager;
 
         Drm_res_uniq res;
         Drm_connector_uniq connector;
@@ -204,6 +277,12 @@ struct Framebuffer{
         MemoryMapping map;
 };
 
+struct Drm_prime_fb{
+        frame_uniq frame;
+        Gem_handle_manager::Handle gem_objects[4] = {};
+        Fb_id_uniq id;
+};
+
 struct drm_display_state {
         Drm_state drm;
 
@@ -211,6 +290,8 @@ struct drm_display_state {
 
         Framebuffer back_buffer;
         Framebuffer front_buffer;
+
+        Drm_prime_fb drm_prime_fb;
 
         video_desc desc;
         frame_uniq frame;
@@ -241,6 +322,8 @@ static bool init_drm_state(drm_display_state *s){
                                 version->name);
                 drmFreeVersion(version);
         }
+
+        s->drm.gem_manager = std::make_unique<Gem_handle_manager>(dri);
 
 
         s->drm.res.reset(drmModeGetResources(dri));
@@ -433,7 +516,8 @@ static struct video_frame *display_drm_getf(void *state)
 {
         auto s = static_cast<drm_display_state *>(state);
 
-        return s->frame.get();
+        //return s->frame.get();
+        return vf_alloc_desc_data(s->desc);
 }
 
 static bool swap_buffers(drm_display_state *s){
@@ -450,6 +534,36 @@ static bool swap_buffers(drm_display_state *s){
         return true;
 }
 
+static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame *frame){
+        assert(frame->color_spec == DRM_PRIME);
+
+        auto drm_frame = (drm_prime_frame *) frame->tiles[0].data;
+
+        Drm_prime_fb fb;
+        fb.frame = frame_uniq(frame);
+
+        for(int i = 0; i < drm_frame->fd_count; i++){
+                fb.gem_objects[i] = s->drm.gem_manager->get_handle(drm_frame->dmabuf_fds[i]);
+        }
+
+        uint32_t handles[4] = {};
+        for(int i = 0; i < drm_frame->planes; i++){
+                handles[i] = fb.gem_objects[drm_frame->fd_indices[i]].get();
+        }
+
+        int res = 0;
+        Fb_id fb_id;
+        res = drmModeAddFB2WithModifiers(s->drm.dri_fd.get(), frame->tiles[0].width, frame->tiles[0].height, drm_frame->drm_format,
+                        handles, drm_frame->pitches, drm_frame->offsets, drm_frame->modifiers, &fb_id.id, DRM_MODE_FB_MODIFIERS);
+        if(res != 0){
+                log_msg(LOG_LEVEL_ERROR, "Failed to add FB\n");
+        }
+        fb_id.dri_fd = s->drm.dri_fd.get();
+        fb.id = Fb_id_uniq(fb_id);
+
+        return fb;
+}
+
 static bool display_drm_putf(void *state, struct video_frame *frame, long long flags)
 {
         if (flags == PUTF_DISCARD || frame == NULL) {
@@ -457,6 +571,22 @@ static bool display_drm_putf(void *state, struct video_frame *frame, long long f
         }
 
         auto s = static_cast<drm_display_state *>(state);
+
+        if(frame->color_spec == DRM_PRIME){
+                Drm_prime_fb fb = drm_fb_from_frame(s, frame);
+                frame = nullptr;
+
+                int res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
+                                fb.id.get().id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
+                if(res < 0){
+                        log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                        return false;
+                }
+
+                s->drm_prime_fb = std::move(fb);
+
+                return true;
+        }
 
         draw_frame(&s->back_buffer, frame);
         swap_buffers(s);
@@ -468,7 +598,7 @@ static bool display_drm_get_property(void *state, int property, void *val, size_
 {
         auto s = static_cast<drm_display_state *>(state);
 
-        codec_t codecs[] = {RGBA, UYVY};
+        codec_t codecs[] = {DRM_PRIME, RGBA, UYVY};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
@@ -509,6 +639,11 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
         case UYVY:
                 pix_fmt = DRM_FORMAT_UYVY;
                 break;
+        case DRM_PRIME:
+                pix_fmt = 0; //UNUSED
+                /* We don't create dumb buffers in this case, we import framebuffers from video frames instead
+                 */
+                return true;
         default:
                 return false;
         }
