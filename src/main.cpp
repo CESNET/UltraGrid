@@ -626,7 +626,7 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
                 return false;
         }
         if (char *tx_port_str = strtok_r(nullptr, ":", &save_ptr)) {
-                opt->port_base = stoi(first_val, nullptr, 0);
+                opt->video_rx_port = stoi(first_val, nullptr, 0);
                 opt->video_tx_port = stoi(tx_port_str, nullptr, 0);
                 char *tok = nullptr;
                 if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
