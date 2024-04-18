@@ -1292,10 +1292,7 @@ set_audio_props(state_decklink         *s,
 
         int64_t max_aud_chans = 0;
         HRESULT result        = s->deckLinkAttributes->GetInt(
-            audio_output == DISPLAY_FLAG_AUDIO_EMBEDDED
-                ? BMDDeckLinkMaximumAudioChannels
-                : BMDDeckLinkMaximumAnalogAudioOutputChannels,
-            &max_aud_chans);
+                BMDDeckLinkMaximumAudioChannels, &max_aud_chans);
         if (result != S_OK) {
                 MSG(WARNING, "Cannot get maximum audio channels: %s\n",
                     bmd_hresult_to_string(result).c_str());
