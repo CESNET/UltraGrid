@@ -247,7 +247,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         int device_idx = [params valueForKey:@"device"] ? [[params valueForKey:@"device"] intValue] : -1;
         NSString *device_uid = [params valueForKey:@"uid"];
         NSString *device_name = [params valueForKey:@"name"];
-        if (device_idx != 0 || device_uid) {
+        if (device_idx != -1 || device_name != nullptr ||
+            device_uid != nullptr) {
                 int i = -1;
                 for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                         i++;
