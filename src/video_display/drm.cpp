@@ -54,12 +54,19 @@ namespace{
                 Fd_uniq() = default;
                 Fd_uniq(int fd) : fd(fd) { }
                 Fd_uniq(const Fd_uniq&) = delete;
+                Fd_uniq(Fd_uniq&& o){
+                        std::swap(fd, o.fd);
+                }
 
                 ~Fd_uniq(){
                         destruct();
                 }
 
                 Fd_uniq& operator=(const Fd_uniq&) = delete;
+                Fd_uniq& operator=(Fd_uniq&& o){
+                        std::swap(fd, o.fd);
+                        return *this;
+                }
 
                 int get() { return fd; }
                 void reset(int fd){
@@ -302,19 +309,10 @@ struct drm_display_state {
         std::vector<frame_uniq> free_frames;
 };
 
-static bool init_drm_state(drm_display_state *s){
-        s->drm.dri_fd.reset(open("/dev/dri/card1", O_RDWR));
-
-        int dri = s->drm.dri_fd.get();
-
-        if(dri < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to open DRI device\n");
-                return false;
-        }
-
-        drmVersionPtr version = drmGetVersion(dri);
+static void print_drm_driver_info(drm_display_state *s){
+        drmVersionPtr version = drmGetVersion(s->drm.dri_fd.get());
         if(version){
-                log_msg(LOG_LEVEL_INFO, "DRM version: %d.%d.%d (%s), Driver: %s\n",
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "DRM version: %d.%d.%d (%s), Driver: %s\n",
                                 version->version_major,
                                 version->version_minor,
                                 version->version_patchlevel,
@@ -322,6 +320,48 @@ static bool init_drm_state(drm_display_state *s){
                                 version->name);
                 drmFreeVersion(version);
         }
+}
+
+static Fd_uniq open_dri(drm_display_state *s){
+        char buf[256] = {};
+        const int max_index = 32;
+        for(int i = 0; i < max_index; i++){
+                snprintf(buf, sizeof(buf), DRM_DEV_NAME, DRM_DIR_NAME, i);
+                int fd = open(buf, O_RDWR);
+                if(fd < 0){
+                        if(errno == ENOENT)
+                                continue;
+
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to open %s (%s)\n", buf, strerror(errno));
+                        continue;
+                }
+
+                uint64_t dumb_support = false;
+                int res = 0;
+                res = drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &dumb_support);
+                if(res < 0 || !dumb_support){
+                        close(fd);
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support dumb buffers\n", buf);
+                        continue;
+                }
+
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Opened %s DRI device\n", buf);
+                return Fd_uniq(fd);
+
+        }
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No suitable DRI device found\n");
+        return {};
+}
+
+static bool init_drm_state(drm_display_state *s){
+        s->drm.dri_fd = open_dri(s);
+
+        int dri = s->drm.dri_fd.get();
+        if(dri < 0){
+                return false;
+        }
+
+        print_drm_driver_info(s);
 
         s->drm.gem_manager = std::make_unique<Gem_handle_manager>(dri);
 
