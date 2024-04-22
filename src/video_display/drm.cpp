@@ -476,6 +476,17 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
         return buf;
 }
 
+static bool set_framebuffer(drm_display_state *s, uint32_t fb_id){
+        int res = 0;
+        res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
+                        fb_id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
+        if(res < 0){
+                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                return false;
+        }
+        return true;
+}
+
 static void unset_framebuffer(drm_display_state *s){
         int res = 0;
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
@@ -562,25 +573,16 @@ static struct video_frame *display_drm_getf(void *state)
 
 static bool swap_buffers(drm_display_state *s){
         std::swap(s->front_buffer, s->back_buffer);
-
-        int res = 0;
-        res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
-                        s->front_buffer.id.get().id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
-        if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
-                return false;
-        }
-
-        return true;
+        return set_framebuffer(s, s->front_buffer.id.get().id);
 }
 
-static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame *frame){
-        assert(frame->color_spec == DRM_PRIME);
-
-        auto drm_frame = (drm_prime_frame *) frame->tiles[0].data;
+static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame **frame){
+        assert((*frame)->color_spec == DRM_PRIME);
 
         Drm_prime_fb fb;
-        fb.frame = frame_uniq(frame);
+        fb.frame = frame_uniq(*frame);
+        *frame = nullptr;
+        auto drm_frame = (drm_prime_frame *) fb.frame->tiles[0].data;
 
         for(int i = 0; i < drm_frame->fd_count; i++){
                 fb.gem_objects[i] = s->drm.gem_manager->get_handle(drm_frame->dmabuf_fds[i]);
@@ -593,7 +595,7 @@ static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame *frame){
 
         int res = 0;
         Fb_id fb_id;
-        res = drmModeAddFB2WithModifiers(s->drm.dri_fd.get(), frame->tiles[0].width, frame->tiles[0].height, drm_frame->drm_format,
+        res = drmModeAddFB2WithModifiers(s->drm.dri_fd.get(), fb.frame->tiles[0].width, fb.frame->tiles[0].height, drm_frame->drm_format,
                         handles, drm_frame->pitches, drm_frame->offsets, drm_frame->modifiers, &fb_id.id, DRM_MODE_FB_MODIFIERS);
         if(res != 0){
                 log_msg(LOG_LEVEL_ERROR, "Failed to add FB\n");
@@ -613,18 +615,12 @@ static bool display_drm_putf(void *state, struct video_frame *frame, long long f
         auto s = static_cast<drm_display_state *>(state);
 
         if(frame->color_spec == DRM_PRIME){
-                Drm_prime_fb fb = drm_fb_from_frame(s, frame);
-                frame = nullptr;
-
-                int res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
-                                fb.id.get().id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
-                if(res < 0){
-                        log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                Drm_prime_fb fb = drm_fb_from_frame(s, &frame);
+                if(!set_framebuffer(s, fb.id.get().id)){
                         return false;
                 }
 
                 s->drm_prime_fb = std::move(fb);
-
                 return true;
         }
 
