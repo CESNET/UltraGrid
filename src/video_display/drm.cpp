@@ -309,6 +309,28 @@ struct drm_display_state {
         std::vector<frame_uniq> free_frames;
 };
 
+static std::string get_connector_str(int type, uint32_t id){
+        std::string res;
+        switch(type){
+        case DRM_MODE_CONNECTOR_VGA: res = "VGA"; break;
+        case DRM_MODE_CONNECTOR_HDMIA: res = "HDMI-A"; break;
+        case DRM_MODE_CONNECTOR_HDMIB: res = "HDMI-B"; break;
+        case DRM_MODE_CONNECTOR_DisplayPort: res = "DP"; break;
+        case DRM_MODE_CONNECTOR_eDP: res = "eDP"; break;
+        case DRM_MODE_CONNECTOR_DVII: res = "DVI-I"; break;
+        case DRM_MODE_CONNECTOR_DVID: res = "DVI-D"; break;
+        case DRM_MODE_CONNECTOR_DVIA: res = "DVI-A"; break;
+        case DRM_MODE_CONNECTOR_USB: res = "USB"; break;
+        default:
+                res = std::to_string(type);
+        }
+
+        res += "-";
+        res += std::to_string(id);
+
+        return res;
+}
+
 static void print_drm_driver_info(drm_display_state *s){
         drmVersionPtr version = drmGetVersion(s->drm.dri_fd.get());
         if(version){
@@ -389,7 +411,7 @@ static bool init_drm_state(drm_display_state *s){
         for(int i = 0; i < s->drm.res->count_connectors; i++){
                 s->drm.connector.reset(drmModeGetConnectorCurrent(dri, s->drm.res->connectors[i]));
 
-                log_msg(LOG_LEVEL_INFO, "%d-%u\n", s->drm.connector->connector_type, s->drm.connector->connector_type_id);
+                log_msg(LOG_LEVEL_INFO, "%s\n", get_connector_str(s->drm.connector->connector_type, s->drm.connector->connector_type_id).c_str());
 
                 for(int i = 0; i < s->drm.connector->count_modes; i++){
                         if(s->drm.connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
