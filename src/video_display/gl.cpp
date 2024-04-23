@@ -427,6 +427,7 @@ struct state_gl {
                 {GLFW_AUTO_ICONIFY, GLFW_FALSE}
         };
         int use_pbo = -1;
+        int req_monitor_idx = -1;
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
@@ -700,15 +701,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                 } else if(!strncmp(tok, "fs", 2)) {
                         s->fs = true;
                         if (char *val = strchr(tok, '=')) {
-                                val += 1;
-                                int idx = stoi(val);
-                                int count = 0;
-                                GLFWmonitor **mon = glfwGetMonitors(&count);
-                                if (idx >= count) {
-                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong monitor index: " << idx << " (max " << count - 1 << ")\n";
-                                        return nullptr;
-                                }
-                                s->monitor = mon[idx];
+                                s->req_monitor_idx = stoi(val + 1);
                         }
                 } else if(strstr(tok, "modeset") != nullptr) {
                         if (strcmp(tok, "nomodeset") != 0) {
@@ -1603,6 +1596,17 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 .value_or(GLFW_TRUE) == GLFW_FALSE) {
                 LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                 return false;
+        }
+
+        if (s->req_monitor_idx != -1) {
+                int           count = 0;
+                GLFWmonitor **mon   = glfwGetMonitors(&count);
+                if (s->req_monitor_idx >= count) {
+                        MSG(ERROR, "Wrong monitor index: %d (max %d)\n",
+                            s->req_monitor_idx, count - 1);
+                        return false;
+                }
+                s->monitor = mon[s->req_monitor_idx];
         }
 
         if (s->monitor == nullptr) {
