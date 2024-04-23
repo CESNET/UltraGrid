@@ -246,7 +246,7 @@ namespace{
                         uint32_t handle = 0;
                         int res = drmPrimeFDToHandle(dri_fd, fd, &handle);
                         if(res < 0){
-                                log_msg(LOG_LEVEL_ERROR, "Failed to get a GEM handle from prime fd %d\n", fd);
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get a GEM handle from prime fd %d\n", fd);
                                 return {};
                         }
                         return Handle(handle, this);
@@ -338,7 +338,7 @@ static Fd_uniq open_dri(drm_display_state *s){
 
                 Drm_res_uniq resources(drmModeGetResources(fd));
                 if(!resources){
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to get resources on %s (%s)", buf, strerror(errno));
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to get resources on %s (%s)\n", buf, strerror(errno));
                         continue;
                 }
 
@@ -382,7 +382,7 @@ static bool init_drm_state(drm_display_state *s){
 
         s->drm.res.reset(drmModeGetResources(dri));
         if(!s->drm.res){
-                log_msg(LOG_LEVEL_ERROR, "Failed to get DRI resources\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get DRI resources: %s\n", strerror(errno));
                 return false;
         }
 
@@ -408,19 +408,19 @@ static bool init_drm_state(drm_display_state *s){
 
         s->drm.encoder.reset(drmModeGetEncoder(dri, s->drm.connector->encoder_id));
         if(!s->drm.encoder){
-                log_msg(LOG_LEVEL_ERROR, "Failed to get encoder\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoder\n");
                 return false;
         }
 
         s->drm.crtc.reset(drmModeGetCrtc(dri, s->drm.encoder->crtc_id));
         if(!s->drm.crtc){
-                log_msg(LOG_LEVEL_ERROR, "Failed to get crtc\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get crtc\n");
                 return false;
         }
 
         int res = drmSetMaster(dri);
         if(res != 0){
-                log_msg(LOG_LEVEL_ERROR, "Unable to get DRM master. Is X11 or Wayland running?\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get DRM master. Is X11 or Wayland running?\n");
                 return false;
         }
 
@@ -442,7 +442,7 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
                 create_info.bpp = 32;
                 res = drmIoctl(dri, DRM_IOCTL_MODE_CREATE_DUMB, &create_info);
                 if(res != 0){
-                        log_msg(LOG_LEVEL_ERROR, "Failed to create a dumb framebuffer (%d)\n", res);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create a dumb framebuffer (%d)\n", res);
                         return {};
                 }
                 handle.handle = create_info.handle;
@@ -461,7 +461,7 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
                                 pix_fmt, handles, pitches, offsets, &fb_id.id, 0);
 
                 if(res != 0){
-                        log_msg(LOG_LEVEL_ERROR, "Failed to add framebuffer (%d)\n", res);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to add framebuffer (%d)\n", res);
                         return {};
                 }
 
@@ -469,7 +469,7 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
                 buf.id = Fb_id_uniq(fb_id);
         }
 
-        log_msg(LOG_LEVEL_INFO, "Created dumb buffer: pitch %u, handle: %u\n", buf.pitch, buf.handle.get().handle);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Created dumb buffer: pitch %u, handle: %u\n", buf.pitch, buf.handle.get().handle);
 
 
         struct drm_mode_map_dumb map_info = {};
@@ -477,13 +477,13 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
 
         res = drmIoctl(dri, DRM_IOCTL_MODE_MAP_DUMB, &map_info);
         if(res != 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to get map info (%d)\n", res);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get map info (%d)\n", res);
                 return {};
         }
 
         buf.map = MemoryMapping::create(0, buf.size, PROT_READ | PROT_WRITE, MAP_SHARED, dri, map_info.offset);
         if(!buf.map.valid()){
-                log_msg(LOG_LEVEL_ERROR, "Failed to map buffer\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to map buffer\n");
                 return {};
         }
 
@@ -495,7 +495,7 @@ static bool set_framebuffer(drm_display_state *s, uint32_t fb_id){
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
                         fb_id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
         if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set crtc (%d)\n", res);
                 return false;
         }
         return true;
@@ -505,7 +505,7 @@ static void unset_framebuffer(drm_display_state *s){
         int res = 0;
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
         if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set crtc (%d)\n", res);
         }
 }
 
@@ -514,7 +514,7 @@ static void draw_splash(drm_display_state *s){
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
                         s->splashscreen.id.get().id, 0, 0, &s->drm.connector->connector_id, 1, s->drm.mode_info);
         if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to set crtc (%d)\n", res);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set crtc (%d)\n", res);
         }
 }
 
@@ -573,7 +573,7 @@ static void display_drm_done(void *state)
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id, s->drm.crtc->buffer_id,
                        s->drm.crtc->x , s->drm.crtc->y, &s->drm.connector->connector_id, 1, &s->drm.crtc->mode);
         if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to restore original crtc (%d)\n", res);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to restore original crtc (%d)\n", res);
         }
 }
 
@@ -612,7 +612,7 @@ static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame **frame)
         res = drmModeAddFB2WithModifiers(s->drm.dri_fd.get(), fb.frame->tiles[0].width, fb.frame->tiles[0].height, drm_frame->drm_format,
                         handles, drm_frame->pitches, drm_frame->offsets, drm_frame->modifiers, &fb_id.id, DRM_MODE_FB_MODIFIERS);
         if(res != 0){
-                log_msg(LOG_LEVEL_ERROR, "Failed to add FB\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to add FB\n");
         }
         fb_id.dri_fd = s->drm.dri_fd.get();
         fb.id = Fb_id_uniq(fb_id);
