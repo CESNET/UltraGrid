@@ -404,7 +404,7 @@ struct state_gl {
 
         int             vsync = 1;
         bool            noresizable = false;
-        bool            paused = false;
+        volatile bool   paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
         steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
@@ -2145,7 +2145,7 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
         lk.unlock();
         s->new_frame_ready_cv.notify_one();
 
-        return true;
+        return !s->paused;
 }
 
 static const struct video_display_info display_gl_info = {
