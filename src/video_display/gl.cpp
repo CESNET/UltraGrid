@@ -113,6 +113,7 @@ using std::stoi;
 using std::stol;
 using std::string;
 using std::string_view;
+using std::swap;
 using std::unique_lock;
 using std::unordered_map;
 using std::vector;
@@ -1176,6 +1177,43 @@ static void pop_frame(struct state_gl *s, unique_lock<mutex> &lk)
         s->frame_consumed_cv.notify_one();
 }
 
+/// draw pause symbol (2 vertical bars) to the lefttop part of the frame
+static void
+draw_pause()
+{
+#define LEFT_BAR_LEFT   (-.92)
+#define LEFT_BAR_RIGHT  (-.91)
+#define RIGHT_BAR_LEFT  (-.9)
+#define RIGHT_BAR_RIGHT (-.89)
+#define BARS_TOP        (.9)
+#define BARS_BOTTOM     (.8)
+        glColor4f(0, 0, 0, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glBegin(GL_QUADS);
+        glVertex2f(LEFT_BAR_LEFT, BARS_BOTTOM);  // bottom left
+        glVertex2f(LEFT_BAR_RIGHT, BARS_BOTTOM); // bottom right
+        glVertex2f(LEFT_BAR_RIGHT, BARS_TOP);    // top right
+        glVertex2f(LEFT_BAR_LEFT, BARS_TOP);     // top left
+        glEnd();
+        glBegin(GL_QUADS);
+        glVertex2f(RIGHT_BAR_LEFT, BARS_BOTTOM);
+        glVertex2f(RIGHT_BAR_RIGHT, BARS_BOTTOM);
+        glVertex2f(RIGHT_BAR_RIGHT, BARS_TOP);
+        glVertex2f(RIGHT_BAR_LEFT, BARS_TOP);
+        glEnd();
+        glColor4f(1, 1, 1, 1);
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
+        gl_check_error();
+}
+
 static void gl_process_frames(struct state_gl *s)
 {
         struct video_frame *frame;
@@ -1232,13 +1270,10 @@ static void gl_process_frames(struct state_gl *s)
 
                 glfwMakeContextCurrent(s->window);
 
-                if (s->paused) {
-                        vf_recycle(frame);
-                        s->free_frame_queue.push(frame);
-                        pop_frame(s, lk);
-                        return;
-                }
                 if (s->current_frame) {
+                        if (s->paused) {
+                                swap(frame, s->current_frame);
+                        }
                         vf_recycle(s->current_frame);
                         s->free_frame_queue.push(s->current_frame);
                 }
@@ -1256,6 +1291,9 @@ static void gl_process_frames(struct state_gl *s)
         }
         gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
         glUseProgram(0);
+        if (s->paused) {
+                draw_pause();
+        }
 
         // publish to Syphon/Spout
         if (s->syphon_spout) {
