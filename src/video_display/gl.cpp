@@ -337,7 +337,7 @@ static constexpr array keybindings{
         pair<int64_t, string_view>{'f', "toggle fullscreen"},
         pair<int64_t, string_view>{'q', "quit"},
         pair<int64_t, string_view>{'d', "toggle deinterlace"},
-        pair<int64_t, string_view>{'p', "pause video"},
+        pair<int64_t, string_view>{K_ALT('p'), "pause video"},
         pair<int64_t, string_view>{K_ALT('s'), "screenshot"},
         pair<int64_t, string_view>{K_ALT('c'), "show/hide cursor"},
         pair<int64_t, string_view>{K_CTRL_DOWN, "make window 10% smaller"},
@@ -1374,9 +1374,11 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         s->deinterlace = s->deinterlace == state_gl::deint::off ? state_gl::deint::on : state_gl::deint::off;
                         log_msg(LOG_LEVEL_NOTICE, "Deinterlacing: %s\n", state_gl::deint_to_string(s->deinterlace));
                         break;
-                case 'p':
+                case K_ALT('p'):
                         s->paused = !s->paused;
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << (s->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
+                        MSG(NOTICE, "%s\n",
+                            s->paused ? "Paused (press 'Alt-p' to unpause)"
+                                      : "Unpaused");
                         break;
                 case K_ALT('s'):
                         screenshot(s->current_frame);
