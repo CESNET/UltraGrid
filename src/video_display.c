@@ -336,11 +336,13 @@ struct video_frame *display_get_frame(struct display *d)
 static bool display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
         bool ret = d->funcs->putf(d->state, frame, timeout_ns);
-        if (!ret || !d->funcs->generic_fps_indicator_prefix) {
+        if (!d->funcs->generic_fps_indicator_prefix) {
                 return ret;
         }
+        if (ret) {
+                d->frames++;
+        }
         // display FPS
-        d->frames++;
         time_ns_t t = get_time_in_ns();
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
