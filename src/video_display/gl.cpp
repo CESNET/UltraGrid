@@ -336,7 +336,7 @@ unordered_map<codec_t, const char *> glsl_programs = {
 static constexpr array keybindings{
         pair<int64_t, string_view>{'f', "toggle fullscreen"},
         pair<int64_t, string_view>{'q', "quit"},
-        pair<int64_t, string_view>{'d', "toggle deinterlace"},
+        pair<int64_t, string_view>{K_ALT('d'), "toggle deinterlace"},
         pair<int64_t, string_view>{K_ALT('p'), "pause video"},
         pair<int64_t, string_view>{K_ALT('s'), "screenshot"},
         pair<int64_t, string_view>{K_ALT('c'), "show/hide cursor"},
@@ -1370,9 +1370,10 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                 case 'q':
                         exit_uv(0);
                         break;
-                case 'd':
+                case K_ALT('d'):
                         s->deinterlace = s->deinterlace == state_gl::deint::off ? state_gl::deint::on : state_gl::deint::off;
-                        log_msg(LOG_LEVEL_NOTICE, "Deinterlacing: %s\n", state_gl::deint_to_string(s->deinterlace));
+                        MSG(NOTICE, "Deinterlacing: %s\n",
+                            state_gl::deint_to_string(s->deinterlace));
                         break;
                 case K_ALT('p'):
                         s->paused = !s->paused;
