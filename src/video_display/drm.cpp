@@ -336,12 +336,26 @@ static Fd_uniq open_dri(drm_display_state *s){
                         continue;
                 }
 
+                Drm_res_uniq resources(drmModeGetResources(fd));
+                if(!resources){
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to get resources on %s (%s)", buf, strerror(errno));
+                        continue;
+                }
+
                 uint64_t dumb_support = false;
                 int res = 0;
                 res = drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &dumb_support);
                 if(res < 0 || !dumb_support){
                         close(fd);
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support dumb buffers\n", buf);
+                        continue;
+                }
+
+                uint64_t prime_support = false;
+                res = drmGetCap(fd, DRM_CAP_PRIME, &prime_support);
+                if(res < 0 || !prime_support){
+                        close(fd);
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support PRIME buffers\n", buf);
                         continue;
                 }
 
