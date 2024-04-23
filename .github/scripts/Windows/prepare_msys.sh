@@ -46,7 +46,9 @@ PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
 m=$MINGW_PACKAGE_PREFIX
-$PACMAN_INSTALL automake autoconf git make pkgconf $m-toolchain unzip zip
+$PACMAN_INSTALL automake autoconf git make pkgconf \
+        $m-gcc-compat $m-toolchain \
+        unzip zip
 $PACMAN_INSTALL $m-asciidoc \
         $m-ffmpeg \
         $m-libnatpmp \
