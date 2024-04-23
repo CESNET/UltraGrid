@@ -26,6 +26,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/text.h"
+#include "utils/string_view_utils.hpp"
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
@@ -67,6 +68,8 @@ namespace{
                         std::swap(fd, o.fd);
                         return *this;
                 }
+
+                operator bool() const { return fd > 0; }
 
                 int get() { return fd; }
                 void reset(int fd){
@@ -291,6 +294,9 @@ struct Drm_prime_fb{
 };
 
 struct drm_display_state {
+        std::string cfg;
+        std::string device_path;
+
         Drm_state drm;
 
         Framebuffer splashscreen;
@@ -345,45 +351,57 @@ static void print_drm_driver_info(drm_display_state *s){
 }
 
 static Fd_uniq open_dri(drm_display_state *s){
-        char buf[256] = {};
-        const int max_index = 32;
-        for(int i = 0; i < max_index; i++){
-                snprintf(buf, sizeof(buf), DRM_DEV_NAME, DRM_DIR_NAME, i);
-                int fd = open(buf, O_RDWR);
-                if(fd < 0){
-                        if(errno == ENOENT)
-                                continue;
 
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to open %s (%s)\n", buf, strerror(errno));
-                        continue;
+        auto do_open = [](const char *path) -> Fd_uniq {
+                int fd = open(path, O_RDWR);
+                if(fd < 0){
+                        if(errno != ENOENT)
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to open %s (%s)\n", path, strerror(errno));
+
+                        return {};
                 }
+                Fd_uniq ret(fd);
 
                 Drm_res_uniq resources(drmModeGetResources(fd));
                 if(!resources){
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to get resources on %s (%s)\n", buf, strerror(errno));
-                        continue;
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Failed to get resources on %s (%s)\n", path, strerror(errno));
+                        return {};
                 }
 
                 uint64_t dumb_support = false;
                 int res = 0;
                 res = drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &dumb_support);
                 if(res < 0 || !dumb_support){
-                        close(fd);
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support dumb buffers\n", buf);
-                        continue;
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support dumb buffers\n", path);
+                        return {};
                 }
 
                 uint64_t prime_support = false;
                 res = drmGetCap(fd, DRM_CAP_PRIME, &prime_support);
                 if(res < 0 || !prime_support){
-                        close(fd);
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support PRIME buffers\n", buf);
-                        continue;
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support PRIME buffers\n", path);
+                        return {};
                 }
 
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Opened %s DRI device\n", buf);
-                return Fd_uniq(fd);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Opened %s DRI device\n", path);
+                return ret;
+        };
 
+        if(!s->device_path.empty()){
+                auto ret = do_open(s->device_path.c_str());
+                if(!ret)
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to open specified device (%s)\n", s->device_path.c_str());
+
+                return ret;
+        }
+
+        char buf[256] = {};
+        const int max_index = 32;
+        for(int i = 0; i < max_index; i++){
+                snprintf(buf, sizeof(buf), DRM_DEV_NAME, DRM_DIR_NAME, i);
+                auto ret = do_open(buf);
+                if(ret)
+                        return ret;
         }
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "No suitable DRI device found\n");
         return {};
@@ -561,12 +579,30 @@ static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         return fb;
 }
 
-
 static void *display_drm_init(struct module *parent, const char *cfg, unsigned int flags)
 {
         UNUSED(parent), UNUSED(flags);
 
         auto s = std::make_unique<drm_display_state>();
+
+        if(cfg)
+                s->cfg = cfg;
+
+        std::string_view sv_cfg(s->cfg);
+        while(!sv_cfg.empty()){
+                auto token = tokenize(sv_cfg, ':');
+                auto key = tokenize(token, '=');
+                auto val = tokenize(token, '=');
+
+                if(key == "help"){
+                        color_printf("DRM display\n");
+                        color_printf("Usage: drm[:dev=<path>]\n");
+                        return INIT_NOERR;
+                } else if(key == "dev"){
+                        s->device_path = val;
+                }
+        }
+
 
         if(!init_drm_state(s.get())){
                 return nullptr;
