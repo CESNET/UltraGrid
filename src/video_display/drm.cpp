@@ -501,14 +501,6 @@ static bool set_framebuffer(drm_display_state *s, uint32_t fb_id){
         return true;
 }
 
-static void unset_framebuffer(drm_display_state *s){
-        int res = 0;
-        res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
-        if(res < 0){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set crtc (%d)\n", res);
-        }
-}
-
 static void draw_splash(drm_display_state *s){
         int res = 0;
         res = drmModeSetCrtc(s->drm.dri_fd.get(), s->drm.crtc->crtc_id,
