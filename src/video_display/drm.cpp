@@ -339,15 +339,18 @@ static std::string get_connector_str(int type, uint32_t id){
 
 static void print_drm_driver_info(drm_display_state *s){
         drmVersionPtr version = drmGetVersion(s->drm.dri_fd.get());
-        if(version){
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "DRM version: %d.%d.%d (%s), Driver: %s\n",
-                                version->version_major,
-                                version->version_minor,
-                                version->version_patchlevel,
-                                version->date,
-                                version->name);
-                drmFreeVersion(version);
+        if(!version){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get DRM driver version\n");
+                return;
         }
+
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "DRM version: %d.%d.%d (%s), Driver: %s\n",
+                        version->version_major,
+                        version->version_minor,
+                        version->version_patchlevel,
+                        version->date,
+                        version->name);
+        drmFreeVersion(version);
 }
 
 static Fd_uniq open_dri(drm_display_state *s){
