@@ -1601,7 +1601,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->req_monitor_idx != -1) {
                 int           count = 0;
                 GLFWmonitor **mon   = glfwGetMonitors(&count);
-                if (s->req_monitor_idx >= count) {
+                if (s->req_monitor_idx < 0 || s->req_monitor_idx >= count) {
                         MSG(ERROR, "Wrong monitor index: %d (max %d)\n",
                             s->req_monitor_idx, count - 1);
                         return false;
