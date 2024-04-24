@@ -617,8 +617,10 @@ parse_fmt(char *fmt)
                         }
                 }
                 if (i == sizeof allowed_params / sizeof allowed_params[0]) {
-                        MSG(WARNING, "Unknown option %s in config string!\n",
+                        MSG(ERROR, "Unknown option \"%s\" in config string!\n",
                                 key_cstr);
+                        [init_params release];
+                        return nullptr;
                 }
                 NSString *val = [NSString stringWithCString:val_cstr
                         encoding:NSASCIIStringEncoding];
@@ -648,6 +650,9 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
         char *fmt = strdup(vidcap_params_get_fmt(params));
         NSMutableDictionary *init_params = parse_fmt(fmt);
         free(fmt);
+        if (init_params == nullptr) {
+                return VIDCAP_INIT_FAIL;
+        }
 
         void *ret = nullptr;
         @try {
