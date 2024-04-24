@@ -589,23 +589,16 @@ static void vidcap_avfoundation_probe(struct device_info **available_cards, int 
         *count = card_count;
 }
 
-static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
+static NSMutableDictionary *
+parse_fmt(char *fmt)
 {
-        if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
-                [vidcap_avfoundation_state usage: false];
-                return VIDCAP_INIT_NOERR;
-        } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                [vidcap_avfoundation_state usage: true];
-                return VIDCAP_INIT_NOERR;
-        }
-        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
-        }
         NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
-        char *tmp = strdup(vidcap_params_get_fmt(params));
-        char *item, *save_ptr, *cfg = tmp;
-        const char *allowed_params[] = { "device", "uid", "name", "mode",
-                        "fps", "fr_idx", "preset" };
+        char                *item        = nullptr;
+        char                *save_ptr    = nullptr;
+        char                *cfg         = fmt;
+        const char *allowed_params[] = { "device", "uid",    "name",  "mode",
+                                         "fps",    "fr_idx", "preset" };
+
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
                 const char *key_cstr = item;
                 const char *val_cstr = "";
@@ -629,13 +622,33 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
                 }
                 NSString *val = [NSString stringWithCString:val_cstr
                         encoding:NSASCIIStringEncoding];
-                NSString *key = [NSString stringWithCString:key_cstr encoding:NSASCIIStringEncoding];
+                NSString *key = [NSString stringWithCString:key_cstr
+                        encoding:NSASCIIStringEncoding];
                 [init_params setObject:val forKey:key];
                 [key release];
                 [val release];
 
                 cfg = NULL;
         }
+        return init_params;
+}
+
+static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
+{
+        if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
+                [vidcap_avfoundation_state usage: false];
+                return VIDCAP_INIT_NOERR;
+        } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
+                [vidcap_avfoundation_state usage: true];
+                return VIDCAP_INIT_NOERR;
+        }
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
+        }
+        char *fmt = strdup(vidcap_params_get_fmt(params));
+        NSMutableDictionary *init_params = parse_fmt(fmt);
+        free(fmt);
+
         void *ret = nullptr;
         @try {
                 ret = (void *) [[vidcap_avfoundation_state alloc] initWithParams: init_params];
@@ -645,7 +658,6 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
                 ret = nullptr;
         }
         [init_params release];
-        free(tmp);
         if (ret) {
                 *state = ret;
                 return VIDCAP_INIT_OK;
