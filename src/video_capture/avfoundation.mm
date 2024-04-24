@@ -312,18 +312,6 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 forKey:(id)kCVPixelBufferPixelFormatTypeKey];
 #endif
 
-        // check if all options we get are recognized
-        id objects[] = { @"device", @"uid", @"name",  @"mode", @"fps", @"fr_idx", @"preset"};
-        NSUInteger count = sizeof(objects) / sizeof(id);
-        NSArray *knownKeys = [NSArray arrayWithObjects:objects
-                count:count];
-        NSMutableDictionary *params_copy = [params mutableCopy];
-        [params_copy removeObjectsForKeys: knownKeys];
-        if ([params_copy count] > 0) {
-                LOG(LOG_LEVEL_WARNING) << "[AVFoundation] Unknown options in config string!\n";
-        }
-        [params_copy release];
-
         if ([params valueForKey:@"mode"]) {
                 use_preset = false;
                 int mode = [[params valueForKey:@"mode"] intValue];
@@ -616,17 +604,31 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
         NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr, *cfg = tmp;
+        const char *allowed_params[] = { "device", "uid", "name", "mode",
+                        "fps", "fr_idx", "preset" };
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
-                char *key_cstr = item;
-
-                NSString *val;
+                const char *key_cstr = item;
+                const char *val_cstr = "";
                 if (strchr(item, '=')) {
-                        char *val_cstr = strchr(item, '=') + 1;
+                        val_cstr = strchr(item, '=') + 1;
                         *strchr(item, '=') = '\0';
-                        val = [NSString stringWithCString:val_cstr encoding:NSASCIIStringEncoding];
-                } else {
-                        val = @"";
                 }
+                // following accepts also shortcuts, eg. "n=" for "name="
+                unsigned int i = 0;
+                for ( ; i < sizeof allowed_params / sizeof allowed_params[0];
+                                ++i) {
+                        if (strstr(allowed_params[i], key_cstr) ==
+                                        allowed_params[i]) {
+                                key_cstr = allowed_params[i];
+                                break;
+                        }
+                }
+                if (i == sizeof allowed_params / sizeof allowed_params[0]) {
+                        MSG(WARNING, "Unknown option %s in config string!\n",
+                                key_cstr);
+                }
+                NSString *val = [NSString stringWithCString:val_cstr
+                        encoding:NSASCIIStringEncoding];
                 NSString *key = [NSString stringWithCString:key_cstr encoding:NSASCIIStringEncoding];
                 [init_params setObject:val forKey:key];
                 [key release];
