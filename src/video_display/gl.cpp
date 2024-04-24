@@ -1181,13 +1181,16 @@ static void pop_frame(struct state_gl *s, unique_lock<mutex> &lk)
 static void
 draw_pause()
 {
-#define LEFT_BAR_LEFT   (-.92)
-#define LEFT_BAR_RIGHT  (-.91)
-#define RIGHT_BAR_LEFT  (-.9)
-#define RIGHT_BAR_RIGHT (-.89)
+#define BAR_WIDTH       (.01)
+#define LEFT_BAR_LEFT   (-.9)
+#define LEFT_BAR_RIGHT  (LEFT_BAR_LEFT + BAR_WIDTH)
+#define RIGHT_BAR_LEFT  (LEFT_BAR_RIGHT + BAR_WIDTH)
+#define RIGHT_BAR_RIGHT (RIGHT_BAR_LEFT + BAR_WIDTH)
 #define BARS_TOP        (.9)
 #define BARS_BOTTOM     (.8)
-        glColor4f(0, 0, 0, 1);
+#define BAR_GREY_COL    (0.9)
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glColor3f(BAR_GREY_COL, BAR_GREY_COL, BAR_GREY_COL);
         glMatrixMode(GL_MODELVIEW);
         glPushMatrix();
         glLoadIdentity();
