@@ -657,7 +657,15 @@ static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         int x = std::max(0, (width - w) / 2);
         int y = std::max(0, (height - h) / 2);
 
-        auto fb = create_dumb_fb(s->drm.dri_fd.get(), width, height, DRM_FORMAT_XBGR8888);
+        uint32_t pix_fmt;
+        if(s->drm.supported_drm_formats.find(DRM_FORMAT_XBGR8888) != s->drm.supported_drm_formats.end()){
+                pix_fmt = DRM_FORMAT_XBGR8888;
+        } else {
+                //XRGB_8888 should be always present
+                //red and blue will be swapped, but for splash it doesn't matter much
+                pix_fmt = DRM_FORMAT_XRGB8888;
+        }
+        auto fb = create_dumb_fb(s->drm.dri_fd.get(), width, height, pix_fmt);
         draw_frame(&fb, splash_frame, x, y);
 
         return fb;
