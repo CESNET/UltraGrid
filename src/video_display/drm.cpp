@@ -50,6 +50,18 @@ namespace{
         struct drm_crtc_deleter{ void operator()(drmModeCrtcPtr c) { drmModeFreeCrtc(c); } };
         using Drm_crtc_uniq = std::unique_ptr<drmModeCrtc, drm_crtc_deleter>;
 
+        struct drm_plane_res_deleter{ void operator()(drmModePlaneResPtr r) { drmModeFreePlaneResources(r); } };
+        using Drm_plane_res_uniq = std::unique_ptr<drmModePlaneRes, drm_plane_res_deleter>;
+
+        struct drm_plane_deleter{ void operator()(drmModePlanePtr p) { drmModeFreePlane(p); } };
+        using Drm_plane_uniq = std::unique_ptr<drmModePlane, drm_plane_deleter>;
+
+        struct drm_obj_props_deleter{ void operator()(drmModeObjectPropertiesPtr p) { drmModeFreeObjectProperties(p); } };
+        using Drm_object_properties_uniq = std::unique_ptr<drmModeObjectProperties, drm_obj_props_deleter>;
+
+        struct drm_prop_deleter{ void operator()(drmModePropertyPtr p) { drmModeFreeProperty(p); } };
+        using Drm_property_uniq = std::unique_ptr<drmModePropertyRes, drm_prop_deleter>;
+
         class Fd_uniq{
         public:
                 Fd_uniq() = default;
@@ -269,6 +281,9 @@ struct Drm_state {
         Drm_connector_uniq connector;
         Drm_encoder_uniq encoder;
         Drm_crtc_uniq crtc;
+        int crtc_index = -1;
+
+        std::set<uint32_t> supported_drm_formats;
 
         drmModeModeInfoPtr mode_info;
 };
@@ -410,6 +425,54 @@ static Fd_uniq open_dri(drm_display_state *s){
         return {};
 }
 
+static int64_t get_property(int dri, drmModeObjectPropertiesPtr props, std::string_view name){
+        for(unsigned i = 0; i < props->count_props; i++){
+                Drm_property_uniq prop(drmModeGetProperty(dri, props->props[i]));
+                if(!prop)
+                        continue;
+
+                if(prop->name == name)
+                        return props->prop_values[i];
+        }
+        return -1;
+}
+
+static bool probe_drm_formats(drm_display_state *s){
+        int dri = s->drm.dri_fd.get();
+        Drm_plane_res_uniq plane_res(drmModeGetPlaneResources(dri));
+        if(!plane_res){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get plane resources (%s)\n", strerror(errno));
+                return false;
+        }
+
+        Drm_plane_uniq primary_plane;
+        for(unsigned i = 0; i < plane_res->count_planes; i++){
+                Drm_plane_uniq plane(drmModeGetPlane(dri, plane_res->planes[i]));
+                if(!(plane->possible_crtcs & (1 << s->drm.crtc_index)))
+                        continue;
+
+                Drm_object_properties_uniq props(drmModeObjectGetProperties(dri, plane_res->planes[i], DRM_MODE_OBJECT_PLANE));
+                if(!props){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get plane props (%s)\n", strerror(errno));
+                }
+                if(get_property(dri, props.get(), "type") == DRM_PLANE_TYPE_PRIMARY){
+                        primary_plane = std::move(plane);
+                        break;
+                }
+        }
+
+        if(!primary_plane){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to find the primary plane\n");
+                return false;
+        }
+
+        for(unsigned i = 0; i < primary_plane->count_formats; i++){
+                s->drm.supported_drm_formats.insert(primary_plane->formats[i]);
+        }
+
+        return true;
+}
+
 static bool init_drm_state(drm_display_state *s){
         s->drm.dri_fd = open_dri(s);
 
@@ -419,6 +482,13 @@ static bool init_drm_state(drm_display_state *s){
         }
 
         print_drm_driver_info(s);
+
+        int res = 0;
+        res = drmSetClientCap(dri, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+        if(res != 0){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set universal planes capab\n");
+                return false;
+        }
 
         s->drm.gem_manager = std::make_unique<Gem_handle_manager>(dri);
 
@@ -460,10 +530,21 @@ static bool init_drm_state(drm_display_state *s){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get crtc\n");
                 return false;
         }
+        for(int i = 0; i < s->drm.res->count_crtcs; i++){
+                if(s->drm.res->crtcs[i] == s->drm.crtc->crtc_id){
+                        s->drm.crtc_index = i;
+                        break;
+                }
+        }
 
-        int res = drmSetMaster(dri);
+        res = drmSetMaster(dri);
         if(res != 0){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get DRM master. Is X11 or Wayland running?\n");
+                return false;
+        }
+
+        if(!probe_drm_formats(s)){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to probe DRM supported formats\n");
                 return false;
         }
 
