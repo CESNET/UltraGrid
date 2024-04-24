@@ -76,6 +76,7 @@
 #include "config_win32.h"
 #endif // defined HAVE_CONFIG_H
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdatomic.h>
 
@@ -3268,14 +3269,17 @@ static void rtcp_udp_send(struct rtp *session, int len, char *buffer)
         if (!session->send_rtcp_to_origin) {
                 int rc = udp_send(session->rtcp_socket, buffer, len);
                 if (rc == -1) {
-                        log_msg(LOG_LEVEL_WARNING, "sending RTCP packet: %s", ug_strerror(errno));
+                        log_msg(LOG_LEVEL_WARNING, "sending RTCP packet: %s\n",
+                                ug_strerror(errno));
                 }
         } else {
                 if (session->rtcp_dest_len > 0) {
                         int rc = udp_sendto(session->rtcp_socket, buffer, len,
                                         (struct sockaddr *) &session->rtcp_dest, session->rtcp_dest_len);
                         if (rc == -1) {
-                                log_msg(LOG_LEVEL_WARNING, "sending RTCP packet: %s", ug_strerror(errno));
+                                log_msg(LOG_LEVEL_WARNING,
+                                        "sending RTCP packet: %s\n",
+                                        ug_strerror(errno));
                         }
                 }
         }
