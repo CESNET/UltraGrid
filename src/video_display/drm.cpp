@@ -650,7 +650,7 @@ static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0)
 }
 
 static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
-        auto splash_frame = get_splashscreen();
+        frame_uniq splash_frame(get_splashscreen());
         int w = splash_frame->tiles[0].width;
         int h = splash_frame->tiles[0].height;
 
@@ -666,7 +666,7 @@ static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
                 pix_fmt = DRM_FORMAT_XRGB8888;
         }
         auto fb = create_dumb_fb(s->drm.dri_fd.get(), width, height, pix_fmt);
-        draw_frame(&fb, splash_frame, x, y);
+        draw_frame(&fb, splash_frame.get(), x, y);
 
         return fb;
 }
@@ -723,7 +723,15 @@ static struct video_frame *display_drm_getf(void *state)
 {
         auto s = static_cast<drm_display_state *>(state);
 
-        //return s->frame.get();
+        while(!s->free_frames.empty()){
+                auto frame = std::move(s->free_frames.back());
+                s->free_frames.pop_back();
+
+                if(video_desc_eq(video_desc_from_frame(frame.get()), s->desc)){
+                        return frame.release();
+                }
+        }
+
         return vf_alloc_desc_data(s->desc);
 }
 
@@ -732,12 +740,11 @@ static bool swap_buffers(drm_display_state *s){
         return set_framebuffer(s, s->front_buffer.id.get().id);
 }
 
-static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame **frame){
-        assert((*frame)->color_spec == DRM_PRIME);
+static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, frame_uniq frame){
+        assert(frame->color_spec == DRM_PRIME);
 
         Drm_prime_fb fb;
-        fb.frame = frame_uniq(*frame);
-        *frame = nullptr;
+        fb.frame = std::move(frame);
         auto drm_frame = (drm_prime_frame *) fb.frame->tiles[0].data;
 
         for(int i = 0; i < drm_frame->fd_count; i++){
@@ -762,25 +769,48 @@ static Drm_prime_fb drm_fb_from_frame(drm_display_state *s, video_frame **frame)
         return fb;
 }
 
-static bool display_drm_putf(void *state, struct video_frame *frame, long long flags)
+static void recycle_frame(drm_display_state *s, frame_uniq& frame){
+        vf_recycle(frame.get());
+        s->free_frames.push_back(std::move(frame));
+}
+
+static void recycle_prime_frame(drm_display_state *s, Drm_prime_fb& fb){
+        frame_uniq frame = std::move(fb.frame);
+        fb = {};
+        if(frame){
+                vf_recycle(frame.get());
+                s->free_frames.push_back(std::move(frame));
+        }
+}
+
+static bool display_drm_putf(void *state, struct video_frame *f, long long flags)
 {
-        if (flags == PUTF_DISCARD || frame == NULL) {
+        frame_uniq frame(f);
+
+        if (!frame) {
                 return true;
         }
 
         auto s = static_cast<drm_display_state *>(state);
 
+        if(flags == PUTF_DISCARD){
+                recycle_frame(s, frame);
+                return true;
+        }
+
         if(frame->color_spec == DRM_PRIME){
-                Drm_prime_fb fb = drm_fb_from_frame(s, &frame);
+                Drm_prime_fb fb = drm_fb_from_frame(s, std::move(frame));
                 if(!set_framebuffer(s, fb.id.get().id)){
                         return false;
                 }
 
+                recycle_prime_frame(s, s->drm_prime_fb);
                 s->drm_prime_fb = std::move(fb);
                 return true;
         }
 
-        draw_frame(&s->back_buffer, frame);
+        draw_frame(&s->back_buffer, frame.get());
+        recycle_frame(s, frame);
         swap_buffers(s);
 
         return true;
