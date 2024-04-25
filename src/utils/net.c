@@ -35,22 +35,32 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#include <iphlpapi.h>
+#include <tchar.h>
+#include <ws2tcpip.h>
+typedef SOCKET fd_t;
+#else
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <netdb.h>
+#include <netinet/ip.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#define closesocket close
+#define INVALID_SOCKET (-1)
+typedef int fd_t;
 #endif
 
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
-
-#ifdef WIN32
-#include <tchar.h>
-#else
-#include <ifaddrs.h>
-#include <netinet/ip.h>
-#include <sys/types.h>
-#endif
+#include <stdlib.h>
+#include <string.h>
 
 #include "utils/net.h"
 #include "utils/windows.h"
@@ -237,7 +247,7 @@ uint16_t socket_get_recv_port(int fd)
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version)
 {
         assert(ip_version == 0 || ip_version == 4 || ip_version == 6);
-#ifdef WIN32
+#ifdef _WIN32
 #define WORKING_BUFFER_SIZE 15000
 #define MAX_TRIES 3
 	/* Declare and initialize variables */
@@ -407,7 +417,7 @@ bool is_ipv6_supported(void)
                 return false;
         }
         if (fd != INVALID_SOCKET) {
-                CLOSESOCKET(fd);
+                closesocket(fd);
         }
         return true;
 }
