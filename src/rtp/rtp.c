@@ -1074,7 +1074,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
         session->mt_recv = multithreaded;
-        session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
+        session->send_rtcp_to_origin =
+            (tx_port == 0 && is_host_loopback(addr)) || is_host_blackhole(addr);
 
         if (rx_port == 0) {
                 const unsigned random_off = (ug_rand() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;

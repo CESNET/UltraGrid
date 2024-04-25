@@ -905,11 +905,10 @@ error:
         return NULL;
 }
 
-static const struct in6_addr in6_blackhole = IN6ADDR_BLACKHOLE_INIT;
-
 bool udp_is_blackhole(socket_udp *s) {
         return s->sock.ss_family == AF_INET6 &&
-                        memcmp(&((struct sockaddr_in6 *) &s->sock)->sin6_addr, &in6_blackhole, IN6_BLACKHOLE_PREFIX_LEN) == 0;
+               is_addr_blackhole(
+                   &((struct sockaddr_in6 *) &s->sock)->sin6_addr);
 }
 
 void udp_set_receiver(socket_udp *s, struct sockaddr *sa, socklen_t len) {
