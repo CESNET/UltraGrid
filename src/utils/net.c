@@ -169,26 +169,6 @@ static struct addrinfo *resolve_host(const char *hostname, const char *err_prefi
         return ai;
 }
 
-/// returns true for RFC 6666 IPv6 black hole address
-bool
-is_addr_blackhole(const struct in6_addr *addr)
-{
-        static const struct in6_addr in6_blackhole = IN6ADDR_BLACKHOLE_INIT;
-        return memcmp(addr, &in6_blackhole, IN6_BLACKHOLE_PREFIX_LEN) == 0;
-}
-
-/// returns true for RFC 6666 IPv6 black hole address string
-bool
-is_host_blackhole(const char *hostname)
-{
-        if (strchr(hostname, ':') == NULL) { // not an IPv6 literal
-                return false;
-        }
-        struct in6_addr ipv6_addr;
-        inet_pton(AF_INET6, hostname, &ipv6_addr);
-        return is_addr_blackhole(&ipv6_addr);
-}
-
 bool is_host_loopback(const char *hostname)
 {
         struct addrinfo *ai = resolve_host(hostname, "is_host_loopback: ");

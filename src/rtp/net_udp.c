@@ -905,10 +905,18 @@ error:
         return NULL;
 }
 
-bool udp_is_blackhole(socket_udp *s) {
+/// @returns true if the socket was initialize with
+///               IN6_BLACKHOLE_SERVER_MODE_STR
+bool
+udp_is_server_mode_blackhole(socket_udp *s)
+{
+        struct in6_addr ipv6_blackhole_server_mode;
+        inet_pton(AF_INET6, IN6_BLACKHOLE_SERVER_MODE_STR,
+                  &ipv6_blackhole_server_mode);
         return s->sock.ss_family == AF_INET6 &&
-               is_addr_blackhole(
-                   &((struct sockaddr_in6 *) &s->sock)->sin6_addr);
+               memcmp(&((struct sockaddr_in6 *) &s->sock)->sin6_addr,
+                      &ipv6_blackhole_server_mode,
+                      sizeof ipv6_blackhole_server_mode) == 0;
 }
 
 void udp_set_receiver(socket_udp *s, struct sockaddr *sa, socklen_t len) {

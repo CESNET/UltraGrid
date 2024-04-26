@@ -1075,7 +1075,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->userdata = userdata;
         session->mt_recv = multithreaded;
         session->send_rtcp_to_origin =
-            (tx_port == 0 && is_host_loopback(addr)) || is_host_blackhole(addr);
+            (tx_port == 0 && is_host_loopback(addr)) ||
+            strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0;
 
         if (rx_port == 0) {
                 const unsigned random_off = (ug_rand() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
@@ -1574,7 +1575,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                                                  initVec);
                 }
 
-                if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
+                if (!rtp_has_receiver(session)) {
                         session->opt->send_back = FALSE; // avoid multiple checks if already sending
                         struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
                         log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
@@ -4025,7 +4026,8 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
 
 bool rtp_has_receiver(struct rtp *session)
 {
-        return !session->opt->send_back || !udp_is_blackhole(session->rtp_socket);
+        return !session->opt->send_back ||
+               !udp_is_server_mode_blackhole(session->rtp_socket);
 }
 
 bool rtp_is_ipv6(struct rtp *session)

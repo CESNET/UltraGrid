@@ -1075,7 +1075,7 @@ static int adjust_params(struct ug_options *opt) {
                         LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
                         return EXIT_FAIL_USAGE;
                 }
-                opt->requested_receiver = IN6_BLACKHOLE_STR;
+                opt->requested_receiver = IN6_BLACKHOLE_SERVER_MODE_STR;
                 if (strcmp(opt->requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) != 0) {
                         opt->requested_display = "dummy";
                 }

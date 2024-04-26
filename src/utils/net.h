@@ -48,24 +48,19 @@
 #endif // __cplusplus
 
 #define IN6_MAX_ASCII_LEN 39 // 32 nibbles + 7 colons
-
-#define IN6ADDR_BLACKHOLE_INIT { { { 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } } // RFC 6666
-#define IN6_BLACKHOLE_PREFIX_LEN 8 // in bytes (64 bit prefix)
-#define IN6_BLACKHOLE_STR "100::1"
+// RFC 6666 prefix 100::/64, suffix 'UltrGrS'
+#define IN6_BLACKHOLE_SERVER_MODE_STR "100::556C:7472:4772:6453"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct in6_addr;
 struct sockaddr;
 struct sockaddr_storage;
-bool is_addr_blackhole(const struct in6_addr *addr);
 bool is_addr_linklocal(struct sockaddr *sa);
 bool is_addr_loopback(struct sockaddr *sa);
 bool is_addr_private(struct sockaddr *sa);
 bool is_addr_multicast(const char *addr);
-bool is_host_blackhole(const char *hostname);
 bool is_host_loopback(const char *hostname);
 bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
