@@ -52,6 +52,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -269,8 +270,14 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                 for (int i = 0; i < columns; i += 1) {
                         r.x = i * r.w;
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
-                        if (i % 2 == 1) testcard_fillRect(&pixmap, &r, 0);
-                        else testcard_fillRect(&pixmap, &r, image_pattern_ebu_smpte_bars<0xBFU, 7>::bars[columns - 1 - i]);
+                        if (i % 2 == 1) {
+                                testcard_fillRect(&pixmap, &r, 0);
+                        } else {
+                                testcard_fillRect(
+                                    &pixmap, &r,
+                                    image_pattern_ebu_smpte_bars<
+                                        0xBFU, 7>::bars[columns - 1 - i]);
+                        }
                 }
                 columns = 6;
                 r.w = (width + columns - 1) / columns;

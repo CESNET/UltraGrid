@@ -45,15 +45,14 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "module.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
-#include "utils/color_out.h"
 #include "utils/sdp.h"
-#include "video.h"
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_sdp.hpp"
 
