@@ -1233,10 +1233,13 @@ void
 store_metadata(state_video_compress_libav *s, const struct video_frame *f,
                int64_t pts)
 {
-        char *metadata_store = s->metadata_storage[pts];
-        assert((int) s->metadata_storage.size() <=
-               5 * HOUSEKEEP_INTERVAL); // something bad is happening
-        vf_store_metadata(f, metadata_store);
+        // batch remove frames older than HOUSEKEEP_INTERVAL
+        if (pts > HOUSEKEEP_INTERVAL && pts % HOUSEKEEP_INTERVAL == 0) {
+                s->metadata_storage.erase(
+                    s->metadata_storage.begin(),
+                    s->metadata_storage.lower_bound(pts - HOUSEKEEP_INTERVAL));
+        }
+        vf_store_metadata(f, s->metadata_storage[pts]);
 }
 void
 restore_metadata(state_video_compress_libav *s, struct video_frame *out,
@@ -1246,13 +1249,9 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
         if (it != s->metadata_storage.end()) {
                 vf_restore_metadata(out, it->second);
         } else {
+                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('l', 'c', 'm', 'd'),
+                             MOD_NAME "Metadata for frame not found!\n");
                 debug_msg("Metadata for frame %" PRIu64 " not found!\n", pts);
-        }
-        // batch remove frames older than HOUSEKEEP_INTERVAL
-        if (pts > HOUSEKEEP_INTERVAL && pts % HOUSEKEEP_INTERVAL == 0) {
-                s->metadata_storage.erase(
-                    s->metadata_storage.begin(),
-                    s->metadata_storage.lower_bound(pts - HOUSEKEEP_INTERVAL));
         }
 }
 
