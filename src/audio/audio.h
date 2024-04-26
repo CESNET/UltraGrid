@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -108,8 +108,9 @@ struct audio_frame * audio_get_frame(struct state_audio *s);
 
 unsigned int audio_get_display_flags(struct state_audio *s);
 
-void sdp_send_change_address_message(struct module *root, enum module_class *path,
-                                 const char *address);
+void sdp_send_change_address_message(struct module           *root,
+                                     const enum module_class *path,
+                                     const char              *address);
 
 #ifdef __cplusplus
 }

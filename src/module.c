@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -183,9 +183,10 @@ const char *module_class_name(enum module_class cls)
                 return NULL;
 }
 
-void append_message_path(char *buf, int buflen, enum module_class modules[])
+void
+append_message_path(char *buf, int buflen, const enum module_class *modules)
 {
-        enum module_class *mod = modules;
+        const enum module_class *mod = modules;
 
         while(*mod != MODULE_CLASS_NONE) {
                 if(strlen(buf) > 0) {

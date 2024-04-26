@@ -13,7 +13,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,14 +50,9 @@
  * Do the rendering in 16 bits
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <algorithm>
-#include <array>
+#include <cassert>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <random>
@@ -80,7 +75,6 @@ constexpr size_t headroom = 128; // headroom for cases when dst color_spec has w
 constexpr int rg48_bpp = 6;
 
 using namespace std::string_literals;
-using std::array;
 using std::copy;
 using std::cout;
 using std::default_random_engine;
@@ -221,7 +215,7 @@ class image_pattern_bars : public image_pattern {
  */
 template<uint8_t f, int columns>
 class image_pattern_ebu_smpte_bars : public image_pattern {
-        static constexpr array bars{
+        static constexpr uint32_t bars[] = {
                 uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | f  },
                         uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | f  },
                         uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
@@ -247,7 +241,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                                 r.h = min<int>(rect_size, height - r.y);
                                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                                 testcard_fillRect(&pixmap, &r,
-                                                bars.at(col_num));
+                                                bars[col_num]);
                                 col_num = (col_num + 1) % columns;
                         }
                 }
@@ -257,7 +251,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
 };
 
 class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
-        static constexpr array bottom_bars{
+        static constexpr uint32_t bottom_bars[] = {
                 uint32_t{0xFFU << 24U | 105 << 16U | 63 << 8U | 0U  },
                 uint32_t{0xFFFFFFFFU },
                 uint32_t{0xFFU << 24U | 119U << 16U | 0U << 8U | 0U },
@@ -276,7 +270,7 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                         r.x = i * r.w;
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                         if (i % 2 == 1) testcard_fillRect(&pixmap, &r, 0);
-                        else testcard_fillRect(&pixmap, &r, image_pattern_ebu_smpte_bars<0xBFU, 7>::bars.at(columns - 1 - i));
+                        else testcard_fillRect(&pixmap, &r, image_pattern_ebu_smpte_bars<0xBFU, 7>::bars[columns - 1 - i]);
                 }
                 columns = 6;
                 r.w = (width + columns - 1) / columns;
@@ -286,7 +280,7 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                         r.x = i * r.w;
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                         testcard_fillRect(&pixmap, &r,
-                                        bottom_bars.at(i));
+                                        bottom_bars[i]);
                 }
                 // pluge - skipping a "superblack" and black bar
                 r.x = 5 * (width / 7);

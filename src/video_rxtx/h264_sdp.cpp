@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <array>
 #include <iostream>
 
 #include "audio/audio.h"
@@ -60,7 +59,6 @@
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPEG:safe"
 
-using std::array;
 using std::cout;
 using std::exception;
 using std::shared_ptr;
@@ -86,9 +84,10 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
         }
         s->m_saved_addr = address;
 
-        array path_sender{ MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+        constexpr enum module_class path_sender[] = { MODULE_CLASS_SENDER,
+                                                      MODULE_CLASS_NONE };
         sdp_send_change_address_message(get_root_module(s->m_parent),
-                                        path_sender.data(), address);
+                                        path_sender, address);
 }
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)

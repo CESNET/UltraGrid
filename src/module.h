@@ -4,7 +4,7 @@
  * @ingroup module
  */
 /*
- * Copyright (c) 2013-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -144,7 +144,8 @@ void module_init_default(struct module *module_data);
 void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
-void append_message_path(char *buf, int buflen, enum module_class modules[]);
+void        append_message_path(char *buf, int buflen,
+                                const enum module_class *modules);
 bool module_get_path_str(struct module *mod, char *buf, size_t buflen);
 
 #ifdef __cplusplus

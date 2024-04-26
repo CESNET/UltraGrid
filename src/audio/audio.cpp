@@ -232,8 +232,9 @@ static void should_exit_audio(void *state) {
 }
 
 void
-sdp_send_change_address_message(struct module *root, enum module_class *path,
-                            const char *address)
+sdp_send_change_address_message(struct module           *root,
+                                const enum module_class *path,
+                                const char              *address)
 {
         array<char, 1024> pathV{};
 
