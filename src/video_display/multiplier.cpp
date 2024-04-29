@@ -299,5 +299,5 @@ static const struct video_display_info display_multiplier_info = {
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
-REGISTER_HIDDEN_MODULE(multiplier, &display_multiplier_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
+REGISTER_MODULE(multiplier, &display_multiplier_info,
+                LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
