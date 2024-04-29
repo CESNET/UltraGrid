@@ -51,11 +51,11 @@
 #include "syphon_server.h"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <climits>
 #include <cmath>
 #include <condition_variable>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -75,12 +75,12 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/ref_count.hpp"
 #include "video.h"
 #include "video_display.h"
-#include "tv.h"
 
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
@@ -95,11 +95,12 @@
 
 #include "gl_vdpau.hpp"
 
-using std::array;
+using std::begin;
 using std::condition_variable;
 using std::copy;
 using std::copy_if;
 using std::cout;
+using std::end;
 using std::find;
 using std::lock_guard;
 using std::map;
@@ -333,7 +334,7 @@ unordered_map<codec_t, const char *> glsl_programs = {
         { DXT5, fp_display_dxt5ycocg },
 };
 
-static constexpr array keybindings{
+static constexpr pair<int64_t, string_view> keybindings[] = {
         pair<int64_t, string_view>{'f', "toggle fullscreen"},
         pair<int64_t, string_view>{'q', "quit"},
         pair<int64_t, string_view>{K_ALT('d'), "toggle deinterlace"},
@@ -457,7 +458,7 @@ struct state_gl {
         }
 };
 
-static constexpr array gl_supp_codecs = {
+static constexpr codec_t gl_supp_codecs[] = {
 #ifdef HWACC_VDPAU
         HW_VDPAU,
 #endif
@@ -871,7 +872,8 @@ display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
-        assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
+        assert(find(begin(gl_supp_codecs), end(gl_supp_codecs),
+                    desc.color_spec) != end(gl_supp_codecs));
         if (get_bits_per_component(desc.color_spec) > 8) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
         }
@@ -1456,7 +1458,7 @@ static bool display_gl_check_gl_version() {
 }
 
 static void display_gl_print_depth() {
-        array<int, 3> bits = {};
+        int bits[3];
         glGetIntegerv(GL_RED_BITS, &bits[0]);
         glGetIntegerv(GL_GREEN_BITS, &bits[1]);
         glGetIntegerv(GL_BLUE_BITS, &bits[2]);
@@ -2076,10 +2078,10 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                         }
                         return true;
                 };
-                const codec_t *end =
-                    copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(),
+                const codec_t *endptr =
+                    copy_if(begin(gl_supp_codecs), end(gl_supp_codecs),
                             (codec_t *) val, filter_codecs);
-                *len = (const char *) end - (char *) val;
+                *len = (const char *) endptr - (char *) val;
                 return true;
         }
         case DISPLAY_PROPERTY_RGB_SHIFT:
