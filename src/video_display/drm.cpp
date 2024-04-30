@@ -856,6 +856,9 @@ static bool display_drm_get_property(void *state, int property, void *val, size_
         auto s = static_cast<drm_display_state *>(state);
 
         int rgb_shift[] = {0, 8, 16};
+        if(!drm_format_supported(s, DRM_FORMAT_XBGR8888)){
+                std::swap(rgb_shift[0], rgb_shift[2]);
+        }
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
