@@ -570,6 +570,8 @@ static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_f
                         return {};
                 }
                 handle.handle = create_info.handle;
+                buf.width = width;
+                buf.height = height;
                 buf.pitch = create_info.pitch;
                 buf.size = create_info.size;
                 handle.dri_fd = dri;
@@ -637,15 +639,20 @@ static void draw_splash(drm_display_state *s){
 static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0){
         auto dst_p = static_cast<char *>(dst->map.get());
         auto src_p = static_cast<char *>(src->tiles[0].data);
-        auto linesize = vc_get_linesize(src->tiles[0].width, src->color_spec);
+
+        int width = std::min(src->tiles[0].width, dst->width - x);
+        int height = std::min(src->tiles[0].height, dst->height - y);
+
+        auto src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
+        auto linesize = vc_get_size(width, src->color_spec);
 
         dst_p += dst->pitch * y;
         dst_p += vc_get_size(x, src->color_spec);
 
-        for(unsigned y = 0; y < src->tiles[0].height; y++){
+        for(unsigned y = 0; y < height; y++){
                 memcpy(dst_p, src_p, linesize);
                 dst_p += dst->pitch;
-                src_p += linesize;
+                src_p += src_pitch;
         }
 }
 
