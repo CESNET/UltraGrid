@@ -284,6 +284,7 @@ struct Drm_state {
         int crtc_index = -1;
 
         std::set<uint32_t> supported_drm_formats;
+        bool prime_support = false;
 
         drmModeModeInfoPtr mode_info;
 };
@@ -391,13 +392,6 @@ static Fd_uniq open_dri(drm_display_state *s){
                 res = drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &dumb_support);
                 if(res < 0 || !dumb_support){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support dumb buffers\n", path);
-                        return {};
-                }
-
-                uint64_t prime_support = false;
-                res = drmGetCap(fd, DRM_CAP_PRIME, &prime_support);
-                if(res < 0 || !prime_support){
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s does not support PRIME buffers\n", path);
                         return {};
                 }
 
@@ -548,6 +542,13 @@ static bool init_drm_state(drm_display_state *s){
                 return false;
         }
 
+        uint64_t prime_support = false;
+        res = drmGetCap(dri, DRM_CAP_PRIME, &prime_support);
+        if(res < 0 || !prime_support){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "DRM device does not support PRIME buffers\n");
+        }
+        s->drm.prime_support = prime_support;
+
         return true;
 }
 
@@ -656,6 +657,10 @@ static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0)
         }
 }
 
+static bool drm_format_supported(drm_display_state *s, uint32_t fmt){
+        return s->drm.supported_drm_formats.find(fmt) != s->drm.supported_drm_formats.end();
+}
+
 static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         frame_uniq splash_frame(get_splashscreen());
         int w = splash_frame->tiles[0].width;
@@ -665,7 +670,7 @@ static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         int y = std::max(0, (height - h) / 2);
 
         uint32_t pix_fmt;
-        if(s->drm.supported_drm_formats.find(DRM_FORMAT_XBGR8888) != s->drm.supported_drm_formats.end()){
+        if(drm_format_supported(s, DRM_FORMAT_XBGR8888)){
                 pix_fmt = DRM_FORMAT_XBGR8888;
         } else {
                 //XRGB_8888 should be always present
@@ -823,21 +828,38 @@ static bool display_drm_putf(void *state, struct video_frame *f, long long flags
         return true;
 }
 
+static bool get_codecs(drm_display_state *s, void *val, size_t *len){
+        std::vector<codec_t> out;
+
+        if(s->drm.prime_support)
+                out.push_back(DRM_PRIME);
+
+        if(s->drm.supported_drm_formats.find(DRM_FORMAT_UYVY) != s->drm.supported_drm_formats.end())
+                out.push_back(UYVY);
+
+        out.push_back(RGBA);
+
+        size_t length = sizeof(codec_t) * out.size();
+
+        if(*len < length) {
+                return false;
+        }
+        *len = length;
+        memcpy(val, out.data(), *len);
+
+        return true;
+
+}
+
 static bool display_drm_get_property(void *state, int property, void *val, size_t *len)
 {
         auto s = static_cast<drm_display_state *>(state);
 
-        codec_t codecs[] = {DRM_PRIME, RGBA, UYVY};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(*len < sizeof(codecs)) {
-                                return false;
-                        }
-                        *len = sizeof(codecs);
-                        memcpy(val, codecs, *len);
-                        break;
+                        return get_codecs(s, val, len);
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
                                 return false;
@@ -863,7 +885,7 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
 
         switch(desc.color_spec){
         case RGBA:
-                pix_fmt = DRM_FORMAT_XBGR8888;
+                pix_fmt = drm_format_supported(s, DRM_FORMAT_XBGR8888) ? DRM_FORMAT_XBGR8888 : DRM_FORMAT_XRGB8888;
                 break;
         case UYVY:
                 pix_fmt = DRM_FORMAT_UYVY;
@@ -876,8 +898,6 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
         default:
                 return false;
         }
-
-        //TODO: check if selected pix_fmt is supported
 
         s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
         s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
