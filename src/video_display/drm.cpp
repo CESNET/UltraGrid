@@ -910,6 +910,10 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
 
+        if(desc.width > s->drm.mode_info->hdisplay || desc.height > s->drm.mode_info->vdisplay){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Video resolution is larger than framebuffer. Only part of video frames will be visible\n");
+        }
+
         s->front_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
         s->back_buffer = create_dumb_fb(s->drm.dri_fd.get(), s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, pix_fmt);
 
