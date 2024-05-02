@@ -342,7 +342,9 @@ static std::string get_connector_str(int type, uint32_t id){
         case DRM_MODE_CONNECTOR_DVII: res = "DVI-I"; break;
         case DRM_MODE_CONNECTOR_DVID: res = "DVI-D"; break;
         case DRM_MODE_CONNECTOR_DVIA: res = "DVI-A"; break;
+#ifdef DRM_MODE_CONNECTOR_USB
         case DRM_MODE_CONNECTOR_USB: res = "USB"; break;
+#endif
         default:
                 res = std::to_string(type);
         }
