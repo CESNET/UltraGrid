@@ -637,20 +637,33 @@ static void draw_splash(drm_display_state *s){
         }
 }
 
-static void draw_frame(Framebuffer *dst, video_frame *src, int x = 0, int y = 0){
+static void draw_frame(Framebuffer *dst, video_frame *src, bool center = true){
         auto dst_p = static_cast<char *>(dst->map.get());
         auto src_p = static_cast<char *>(src->tiles[0].data);
 
-        int width = std::min(src->tiles[0].width, dst->width - x);
-        int height = std::min(src->tiles[0].height, dst->height - y);
+        auto src_w = src->tiles[0].width;
+        auto src_h = src->tiles[0].height;
 
-        auto src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
+        unsigned x = 0;
+        unsigned y = 0;
+
+        if(center){
+                if(src_w < dst->width)
+                        x = (dst->width - src_w) / 2;
+                if(src_h < dst->height)
+                        y = (dst->height - src_h) / 2;
+        }
+
+        int width = std::min(src_w, dst->width - x);
+        int height = std::min(src_h, dst->height - y);
+
+        auto src_pitch = vc_get_linesize(src_w, src->color_spec);
         auto linesize = vc_get_size(width, src->color_spec);
 
         dst_p += dst->pitch * y;
         dst_p += vc_get_size(x, src->color_spec);
 
-        for(unsigned y = 0; y < height; y++){
+        for(int y = 0; y < height; y++){
                 memcpy(dst_p, src_p, linesize);
                 dst_p += dst->pitch;
                 src_p += src_pitch;
@@ -663,11 +676,6 @@ static bool drm_format_supported(drm_display_state *s, uint32_t fmt){
 
 static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         frame_uniq splash_frame(get_splashscreen());
-        int w = splash_frame->tiles[0].width;
-        int h = splash_frame->tiles[0].height;
-
-        int x = std::max(0, (width - w) / 2);
-        int y = std::max(0, (height - h) / 2);
 
         uint32_t pix_fmt;
         if(drm_format_supported(s, DRM_FORMAT_XBGR8888)){
@@ -678,7 +686,7 @@ static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
                 pix_fmt = DRM_FORMAT_XRGB8888;
         }
         auto fb = create_dumb_fb(s->drm.dri_fd.get(), width, height, pix_fmt);
-        draw_frame(&fb, splash_frame.get(), x, y);
+        draw_frame(&fb, splash_frame.get(), true);
 
         return fb;
 }
