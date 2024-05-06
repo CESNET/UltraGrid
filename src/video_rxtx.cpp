@@ -106,8 +106,14 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default")
         }
 }
 
+static void should_exit_video_rxtx(void *state) {
+        video_rxtx *s = (video_rxtx *) state;
+        s->m_should_exit = true;
+}
+
 video_rxtx::~video_rxtx() {
         join();
+        unregister_should_exit_callback(m_parent, should_exit_video_rxtx, this);
         if (!m_poisoned && m_compression) {
                 send(NULL);
                 compress_pop(m_compression);
@@ -115,11 +121,6 @@ video_rxtx::~video_rxtx() {
         module_done(CAST_MODULE(m_compression));
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
-}
-
-static void should_exit_video_rxtx(void *state) {
-        video_rxtx *s = (video_rxtx *) state;
-        s->m_should_exit = true;
 }
 
 void video_rxtx::start() {
