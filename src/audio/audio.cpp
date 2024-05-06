@@ -560,6 +560,9 @@ void audio_done(struct state_audio *s)
 
         audio_codec_done(s->audio_encoder);
 
+        unregister_should_exit_callback(get_root_module(s->mod.get()),
+                                        should_exit_audio, s);
+
         delete s;
 }
 
