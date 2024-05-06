@@ -133,6 +133,8 @@ void common_cleanup(struct init_data *init_data);
 // root module management
 void init_root_module(struct module *root_mod);
 void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
+void unregister_should_exit_callback(struct module *mod,
+                                     void (*callback)(void *), void *udata);
 void exit_uv(int status);
 int get_exit_status(struct module *root_mod);
 

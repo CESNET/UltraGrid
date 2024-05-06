@@ -554,6 +554,9 @@ private:
         friend void register_should_exit_callback(struct module *mod,
                                                   void (*callback)(void *),
                                                   void *udata);
+        friend void unregister_should_exit_callback(struct module *mod,
+                                                    void (*callback)(void *),
+                                                    void *udata);
 };
 
 static state_root * volatile state_root_static; ///< used by exit_uv() called from signal handler
@@ -1021,6 +1024,28 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
         auto              *s = (state_root *) get_root_module(mod)->priv_data;
         unique_lock<mutex> lk(s->lock);
         s->should_exit_callbacks.emplace_back(callback, udata);
+}
+
+/**
+ * Unregisters should_exit callback registered with @ref register_should_exit_callback
+ *
+ * The callback must have been registered (and not unregistered),
+ * otherwise abort is (currently) called.
+ */
+void
+unregister_should_exit_callback(struct module *mod, void (*callback)(void *),
+                                void          *udata)
+{
+        auto              *s = (state_root *) get_root_module(mod)->priv_data;
+        unique_lock<mutex> lk(s->lock);
+        for (auto it = s->should_exit_callbacks.begin();
+             it != s->should_exit_callbacks.end(); ++it) {
+                if (get<0>(*it) == callback && get<1>(*it) == udata) {
+                        s->should_exit_callbacks.erase(it);
+                        return;
+                }
+        }
+        abort();
 }
 
 ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
