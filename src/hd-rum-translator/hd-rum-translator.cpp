@@ -1185,6 +1185,7 @@ int main(int argc, char **argv)
     hd_rum_translator_deinit(&state);
     udp_exit(sock_in);
     common_cleanup(init);
+    unregister_should_exit_callback(&state.mod, hd_rum_translator_should_exit_callback, const_cast<bool *>(&should_exit));
 
     printf("Exit\n");
 

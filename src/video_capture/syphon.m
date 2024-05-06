@@ -156,6 +156,8 @@ struct state_vidcap_syphon {
 
         int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
         struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
+
+        struct module *parent;
 };
 
 static void probe_devices_callback(struct state_vidcap_syphon *s);
@@ -455,7 +457,8 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
                 return ret;
         }
 
-        register_should_exit_callback(vidcap_params_get_parent(params), should_exit_syphon, s);
+        s->parent = vidcap_params_get_parent(params);
+        register_should_exit_callback(s->parent, should_exit_syphon, s);
         register_mainloop(syphon_mainloop, s);
 
         *state = s;
@@ -466,6 +469,9 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 static void vidcap_syphon_done(void *state)
 {
         struct state_vidcap_syphon *s = state;
+        if (s->parent != NULL) {
+                unregister_should_exit_callback(s->parent, should_exit_syphon, s);
+        }
 
         if (s->timer) {
                 CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), s->timer, kCFRunLoopCommonModes);

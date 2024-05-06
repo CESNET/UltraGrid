@@ -61,6 +61,7 @@ static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
 
 struct state_jack_capture {
+        struct module             *parent;
         struct libjack_connection *libjack;
 
         struct audio_frame frame;
@@ -154,6 +155,7 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         strcpy(client_name, PACKAGE_NAME);
 
         struct state_jack_capture *s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
+        s->parent = parent;
         if(!s) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
@@ -302,6 +304,9 @@ static struct audio_frame *audio_cap_jack_read(void *state)
 static void audio_cap_jack_done(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
+
+        unregister_should_exit_callback(s->parent, audio_cap_jack_should_exit,
+                                        s);
 
         s->libjack->client_close(s->client);
         free(s->tmp);

@@ -860,6 +860,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
 static void vidcap_file_done(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
+        unregister_should_exit_callback(&s->mod, vidcap_file_should_exit, s);
         assert(s->mod.priv_magic == MAGIC);
 
         vidcap_file_should_exit(s);

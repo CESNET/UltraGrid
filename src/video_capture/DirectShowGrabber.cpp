@@ -105,6 +105,8 @@ struct vidcap_dshow_state {
 	IMoniker *moniker;
 	IAMStreamConfig *streamConfig;
 	IMediaControl *mediaControl;
+
+	struct module *parent;
 };
 
 class SampleGrabberCallback : public ISampleGrabberCB {
@@ -1097,7 +1099,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
         HANDLE_ERR("filter getstate error");
 
 	s->frame = vf_alloc_desc(s->desc);
-	register_should_exit_callback(vidcap_params_get_parent(params), vidcap_dshow_should_exit, s);
+	s->parent = vidcap_params_get_parent(params);
+	register_should_exit_callback(s->parent, vidcap_dshow_should_exit, s);
 
 	*state = s;
 	return VIDCAP_INIT_OK;
@@ -1110,6 +1113,8 @@ error:
 
 static void vidcap_dshow_done(void *state) {
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
+
+        unregister_should_exit_callback(s->parent, vidcap_dshow_should_exit, s);
 
 	HRESULT res = s->mediaControl->Stop();
 	if (res != S_OK) {
