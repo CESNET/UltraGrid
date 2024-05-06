@@ -537,28 +537,6 @@ struct state_root {
                         perror("PLATFORM_PIPE_WRITE");
                 }
         }
-        static void new_message(struct module *mod)
-        {
-                auto *s = (state_root *) mod->priv_data;
-                struct msg_root *m;
-                list<struct msg_root *> unhandled_messages;
-                while ((m = (struct msg_root *) check_message(mod))) {
-                        if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
-                                unhandled_messages.push_back(m);
-                                continue;
-                        }
-                        unique_lock<mutex> lk(s->lock);
-                        s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
-                        lk.unlock();
-                        if (s->should_exit_thread_notified) {
-                                m->should_exit_callback(m->udata);
-                        }
-                        free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
-                }
-                for (auto & m : unhandled_messages) {
-                        module_store_message(mod, (struct message *) m);
-                }
-        }
 
         volatile int exit_status = EXIT_SUCCESS;
 private:
@@ -567,6 +545,9 @@ private:
         thread should_exit_thread;
         bool should_exit_thread_notified{false};
         list<tuple<void (*)(void *), void *>> should_exit_callbacks;
+        friend void register_should_exit_callback(struct module *mod,
+                                                  void (*callback)(void *),
+                                                  void *udata);
 };
 
 static state_root * volatile state_root_static; ///< used by exit_uv() called from signal handler
@@ -580,7 +561,8 @@ static state_root * volatile state_root_static; ///< used by exit_uv() called fr
 void init_root_module(struct module *root_mod) {
         module_init_default(root_mod);
         root_mod->cls = MODULE_CLASS_ROOT;
-        root_mod->new_message = state_root::new_message;
+        root_mod->new_message = nullptr; // note that the root mod messages
+                                         // processes also the reflector
         root_mod->deleter = state_root::deleter;
         state_root_static = new state_root();
         root_mod->priv_data = state_root_static;
@@ -1030,14 +1012,9 @@ bool register_mainloop(mainloop_t m, void *u)
 
 void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata)
 {
-        auto m = (struct msg_root *) new_message(sizeof(struct msg_root));
-        m->type = ROOT_MSG_REGISTER_SHOULD_EXIT;
-        m->should_exit_callback = callback;
-        m->udata = udata;
-
-        struct response *r = send_message_sync(get_root_module(mod), "root", (struct message *) m, -1, SEND_MESSAGE_FLAG_NO_STORE);
-        assert(response_get_status(r) == RESPONSE_OK);
-        free_response(r);
+        auto              *s = (state_root *) get_root_module(mod)->priv_data;
+        unique_lock<mutex> lk(s->lock);
+        s->should_exit_callbacks.emplace_back(callback, udata);
 }
 
 ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"

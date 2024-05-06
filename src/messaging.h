@@ -80,21 +80,6 @@ struct message {
         void *priv_data;
 };
 
-enum msg_root_type {
-        ROOT_MSG_REGISTER_SHOULD_EXIT,
-};
-
-struct msg_root {
-        struct message m;
-        enum msg_root_type type;
-        union {
-                struct {
-                        void (*should_exit_callback)(void *udata);
-                        void *udata;
-                };
-        };
-};
-
 enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
