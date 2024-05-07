@@ -5,7 +5,7 @@
  * With code taken from Olivier Mehani (set_tio()).
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -783,10 +783,10 @@ void keyboard_control::impl::info()
 void keyboard_control::impl::usage()
 {
         col() << "\nAvailable keybindings:\n" <<
-                TBOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
-                TBOLD("\t  / 9  ") << "- decrease volume" << G('/') << "\n" <<
-                TBOLD("\t   >   ") << "- increase audio delay by 10 ms" << G('>') << "\n" <<
-                TBOLD("\t   <   ") << "- decrease audio delay by 10 ms" << G('<') << "\n" <<
+                TBOLD("\t  * 0  ") << "- increase receiver volume" << G('*') << "\n" <<
+                TBOLD("\t  / 9  ") << "- decrease receiver volume" << G('/') << "\n" <<
+                TBOLD("\t   >   ") << "- increase receiver audio delay by 10 ms" << G('>') << "\n" <<
+                TBOLD("\t   <   ") << "- decrease receiver audio delay by 10 ms" << G('<') << "\n" <<
                 TBOLD("\t   m   ") << "- mute/unmute receiver" << G('m') << "\n" <<
                 TBOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
                 TBOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
