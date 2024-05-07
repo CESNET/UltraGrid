@@ -207,8 +207,12 @@ static void show_help(_Bool full)
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-t v4l2[:device=<dev>]" TERM_FG_RESET
-                        "[:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>][:permissive] | -t v4l2:[short]help\n" TERM_RESET);
+        color_printf(TBOLD(
+            TRED("\t-t v4l2[:device=<dev>]")
+                "[:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<"
+                "fps>][:buffers=<bufcnt>][:convert=<conv>][:permissive]")
+            "\n");
+        color_printf("\t" TBOLD("-t v4l2:[short]help") "\n");
         printf("where\n");
         color_printf(TERM_BOLD "<dev> -" TERM_RESET "\tuse device to grab from (default: first usable)\n");
         color_printf(TERM_BOLD "\t<tpf>" TERM_RESET " - time per frame in format <numerator>/<denominator>\n");
@@ -331,6 +335,10 @@ static void show_help(_Bool full)
 
 next_device:
                 close(fd);
+        }
+
+        if (full) {
+                printf("(use \"shorthelp\" to display more terse output)\n");
         }
 }
 
