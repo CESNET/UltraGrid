@@ -147,7 +147,13 @@ fromConnection:(AVCaptureConnection *)connection;
         }];
 }
 
-+ (void)usage: (BOOL) verbose
+enum usage_verbosity {
+        VERB_SHORT,
+        VERB_NORMAL,
+        VERB_FULL,
+};
+
++ (void)usage: (enum usage_verbosity) verbose
 {
         col() << "AV Foundation capture usage:" << "\n";
         col() << "\t" << SBOLD(SRED("-t avfoundation") << "[:device=<idx>|:name=<name>|:uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]") << "\n";
@@ -174,7 +180,12 @@ fromConnection:(AVCaptureConnection *)connection;
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                 int j = 0;
                 string default_dev = device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : "";
-                col() << default_dev << i << ": " << SBOLD([[device localizedName] UTF8String]) << " (uid: " << [[device uniqueID] UTF8String] << ")\n";
+                col() << default_dev << i++ << ": " << SBOLD([[device
+                        localizedName] UTF8String]) << " (uid: " <<
+                        [[device uniqueID] UTF8String] << ")\n";
+                if (verbose == VERB_SHORT) {
+                        continue;
+                }
                 for ( AVCaptureDeviceFormat *format in [device formats] ) {
                         CMVideoFormatDescriptionRef formatDesc = [format formatDescription];
                         FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
@@ -182,7 +193,7 @@ fromConnection:(AVCaptureConnection *)connection;
                         FourCharCode fcc_host = CFSwapInt32BigToHost(fcc);
 
                         printf("\t%d: %.4s %dx%d", j, (const char *) &fcc_host, dim.width, dim.height);
-                        if (verbose) {
+                        if (verbose == VERB_FULL) {
                                 cout << endl;
                                 int k = 0;
                                 for ( AVFrameRateRange *range in format.videoSupportedFrameRateRanges ) {
@@ -198,7 +209,6 @@ fromConnection:(AVCaptureConnection *)connection;
                         j++;
                 }
                 col() << "\n";
-                i++;
         }
         col() << "(type '-t avfoundation:fullhelp' to see available framerates; device marked with an asterisk ('*') is default)" << "\n";
 }
@@ -638,10 +648,13 @@ parse_fmt(char *fmt)
 static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
 {
         if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
-                [vidcap_avfoundation_state usage: false];
+                [vidcap_avfoundation_state usage: VERB_NORMAL];
+                return VIDCAP_INIT_NOERR;
+        } else if (strcasecmp(vidcap_params_get_fmt(params), "shorthelp") == 0) {
+                [vidcap_avfoundation_state usage: VERB_SHORT];
                 return VIDCAP_INIT_NOERR;
         } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                [vidcap_avfoundation_state usage: true];
+                [vidcap_avfoundation_state usage: VERB_FULL];
                 return VIDCAP_INIT_NOERR;
         }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
