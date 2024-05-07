@@ -157,6 +157,7 @@ enum usage_verbosity {
 {
         col() << "AV Foundation capture usage:" << "\n";
         col() << "\t" << SBOLD(SRED("-t avfoundation") << "[:device=<idx>|:name=<name>|:uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:[short|full]help") << "\n";
         col() << "\n";
         col() << "where:\n";
         col() << "\t" << SBOLD("<idx>") << " represents a device index in a list below\n";
@@ -210,7 +211,11 @@ enum usage_verbosity {
                 }
                 col() << "\n";
         }
-        col() << "(type '-t avfoundation:fullhelp' to see available framerates; device marked with an asterisk ('*') is default)" << "\n";
+        col() << "device marked with an asterisk ('*') is default\n";
+        if (verbose == VERB_NORMAL) {
+                col() << "(type '-t avfoundation:fullhelp' to see available framerates)\n";
+                col() << "(type '-t avfoundation:shorthelp' to hide modes)\n";
+        }
 }
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
