@@ -512,11 +512,10 @@ parse_fmt(char *fmt, struct parsed_opts *opts)
         char *item = NULL;;
         while ((item = strtok_r(fmt, ":", &save_ptr))) {
                 fmt = NULL;
-                if (strncmp(item, "dev=", strlen("dev=")) == 0 ||
-                    strncmp(item, "device=", strlen("device=")) == 0) {
+                if (IS_KEY_PREFIX(item, "device")) {
                         opts->dev_name = strchr(item, '=') + 1;
-                } else if (strncmp(item, "fmt=", strlen("fmt=")) == 0 ||
-                           strncmp(item, "codec=", strlen("codec=")) == 0) {
+                } else if (IS_KEY_PREFIX(item, "fmt") ||
+                           IS_KEY_PREFIX(item, "codec")) {
                         char *fmt = strchr(item, '=') + 1;
                         union {
                                 uint32_t fourcc;
@@ -524,26 +523,26 @@ parse_fmt(char *fmt, struct parsed_opts *opts)
                         } str_to_uint = { .fourcc = 0 };
                         memcpy(str_to_uint.str, fmt, MIN(strlen(fmt), 4));
                         opts->pixelformat = str_to_uint.fourcc;
-                } else if (strstr(item, "size=") == item &&
+                } else if (IS_KEY_PREFIX(item, "size") &&
                            strchr(item, 'x') != NULL) {
                         opts->width  = atoi(strchr(item, '=') + 1);
                         opts->height = atoi(strchr(item, 'x') + 1);
-                } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
-                        opts->numerator   = atoi(item + strlen("tpf="));
+                } else if (IS_KEY_PREFIX(item, "tpf")) {
+                        opts->numerator   = atoi(strchr(item, '=') + 1);
                         opts->denominator = strchr(item, '/') == NULL
                                                 ? 1
                                                 : atoi(strchr(item, '/') + 1);
-                } else if (strncmp(item, "fps=", strlen("fps=")) == 0) {
-                        opts->denominator = atoi(item + strlen("fps="));
+                } else if (IS_KEY_PREFIX(item, "fps")) {
+                        opts->denominator = atoi(strchr(item, '=') + 1);
                         opts->numerator   = strchr(item, '/') == NULL
                                                 ? 1
                                                 : atoi(strchr(item, '/') + 1);
-                } else if (strncmp(item, "buffers=", strlen("buffers=")) == 0) {
-                        opts->buffer_count = atoi(item + strlen("buffers="));
+                } else if (IS_KEY_PREFIX(item, "buffers")) {
+                        opts->buffer_count = atoi(strchr(item, '=') + 1);
                         assert(opts->buffer_count <= MAX_BUF_COUNT);
-                } else if (strstr(item, "convert=") == item) {
+                } else if (IS_KEY_PREFIX(item, "convert")) {
 #ifdef HAVE_LIBV4LCONVERT
-                        const char *codec     = item + strlen("convert=");
+                        const char *codec     = strchr(item, '=') + 1;
                         opts->v4l2_convert_to = get_codec_from_name(codec);
                         if (opts->v4l2_convert_to == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR,
@@ -555,7 +554,7 @@ parse_fmt(char *fmt, struct parsed_opts *opts)
                         MSG(ERROR, "v4lconvert support not compiled in!");
                         return false;
 #endif
-                } else if (strstr(item, "permissive") == item) {
+                } else if (IS_PREFIX(item, "permissive")) {
                         opts->permissive = 1;
                 } else {
                         MSG(ERROR, "Invalid configuration argument: %s\n",
