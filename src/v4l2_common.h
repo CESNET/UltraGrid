@@ -5,7 +5,7 @@
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
  */
  /*
- * Copyright (c) 2012-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,10 +70,32 @@ static struct {
         {V4L2_PIX_FMT_YUYV, YUYV},
         {V4L2_PIX_FMT_UYVY, UYVY},
         {V4L2_PIX_FMT_YUV420, I420},
+#ifdef V4L2_PIX_FMT_YUVA32
+        {V4L2_PIX_FMT_YUVA32, Y416},
+#endif
+#ifdef V4L2_PIX_FMT_Y210
+        {V4L2_PIX_FMT_Y210, Y216},
+#endif
+#ifdef V4L2_PIX_FMT_Y212
+        {V4L2_PIX_FMT_Y212, Y216},
+#endif
+#ifdef V4L2_PIX_FMT_Y216
+        {V4L2_PIX_FMT_Y216, Y216},
+#endif
         {V4L2_PIX_FMT_RGB24, RGB},
+        {V4L2_PIX_FMT_BGR24, BGR},
         {V4L2_PIX_FMT_RGB32, RGBA},
+#ifdef V4L2_PIX_FMT_RGBA32
+        {V4L2_PIX_FMT_RGBA32, RGBA},
+#endif
 #ifdef V4L2_PIX_FMT_RGBX32
         {V4L2_PIX_FMT_RGBX32, RGBA},
+#endif
+#ifdef V4L2_PIX_FMT_RGBX1010102
+        {V4L2_PIX_FMT_RGBX1010102, R10k},
+#endif
+#ifdef V4L2_PIX_FMT_RGBA1010102
+        {V4L2_PIX_FMT_RGBA1010102, R10k},
 #endif
         {V4L2_PIX_FMT_MJPEG, MJPG},
         {V4L2_PIX_FMT_JPEG, MJPG},
