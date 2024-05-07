@@ -62,8 +62,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define DEFAULT_BUF_COUNT 2
-#define MAX_BUF_COUNT 30
+enum {
+        DEFAULT_BUF_COUNT = 3,
+        MAX_BUF_COUNT     = 30,
+};
 #define MOD_NAME "[V4L cap.] "
 
 #include "debug.h"
