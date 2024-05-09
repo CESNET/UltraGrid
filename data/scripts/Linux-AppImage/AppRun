@@ -115,13 +115,10 @@ handle_updates() {(
 ## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11)
 ## @retval 0 if preloaded; 1 otherwise
 set_libva_ld_preload() {
-        if [ ! -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ]; then
+        [ -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ] ||
                 return 0
-        fi
         LOADER=$(get_loader)
-        if [ ! -x "$LOADER" ]; then
-                return 1
-        fi
+        [ -x "$LOADER" ] || return 1
         get_ai_lib_path() {(
                 LD_LIBRARY_PATH=$n_ld_library_path LD_TRACE_LOADED_OBJECTS=1 \
                         "$LOADER" "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_\
@@ -136,9 +133,7 @@ libavcodec.so" | grep "$1" | grep -v 'not found' | awk '{print $3}'
         check_libva_deps "$AI_LIBAVCODEC_LIB" && check_libva_deps \
                 "$(get_ai_lib_path libavutil.so)" || return 1
         LIBVA_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB" | grep libva.so | grep -v 'not found' | awk '{print $3}')
-        if [ -z "$LIBVA_LIB" ]; then
-                return 1
-        fi
+        [ -n "$LIBVA_LIB" ] || return 1
         libva_libs=$LIBVA_LIB
         # add also libva-drm, libva-x11 if present
         for n in libva-drm libva-x11; do
