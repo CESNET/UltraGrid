@@ -53,8 +53,13 @@ EOF
 }
 
 if [ "$version" = master ]; then
-        url="https://github.com/CESNET/UltraGrid/releases/download/continuous/\
-UltraGrid-$(uname -m)-continuous.dmg"
+        macos_ver_major=$(uname -r | cut -f 1 -d .)
+        if [ "$macos_ver_major" -ge 21 ]; then
+                n=UltraGrid-$(uname -m)-continuous.dmg
+        else
+                n=UltraGrid-nightly-alt.dmg
+        fi
+        url=https://github.com/CESNET/UltraGrid/releases/download/continuous/$n
 else
         json=$(mktemp)
         curl https://api.github.com/repos/CESNET/UltraGrid/releases -o "$json"
@@ -77,7 +82,7 @@ fi
 updater_dir=$(mktemp -d /tmp/ug-updater.XXXXXXXX)
 cd "$updater_dir"
 
-echo "Downloading current version"
+echo "Downloading current version from $url"
 readonly dmg=UltraGrid-updated.dmg
 curl -L "$url" -o $dmg
 
