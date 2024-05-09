@@ -122,13 +122,19 @@ set_libva_ld_preload() {
         if [ ! -x "$LOADER" ]; then
                 return 1
         fi
-        AI_LIBAVCODEC_LIB=$(LD_LIBRARY_PATH=$n_ld_library_path \
-                LD_TRACE_LOADED_OBJECTS=1 "$LOADER" \
-                "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" |
-                grep libavcodec.so | grep -v 'not found' | awk '{print $3}')
-        if [ -z "$AI_LIBAVCODEC_LIB" ]; then
-                return 1
-        fi
+        get_ai_lib_path() {(
+                LD_LIBRARY_PATH=$n_ld_library_path LD_TRACE_LOADED_OBJECTS=1 \
+                        "$LOADER" "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_\
+libavcodec.so" | grep "$1" | grep -v 'not found' | awk '{print $3}'
+        )}
+        AI_LIBAVCODEC_LIB=$(get_ai_lib_path libavcodec.so)
+        check_libva_deps() { # check if all liva*.so satisfied from sys
+                [ -n "$1" ] || return 1
+                ! LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$1" |
+                        grep -q 'libva.*not found'
+        }
+        check_libva_deps "$AI_LIBAVCODEC_LIB" && check_libva_deps \
+                "$(get_ai_lib_path libavutil.so)" || return 1
         LIBVA_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB" | grep libva.so | grep -v 'not found' | awk '{print $3}')
         if [ -z "$LIBVA_LIB" ]; then
                 return 1
