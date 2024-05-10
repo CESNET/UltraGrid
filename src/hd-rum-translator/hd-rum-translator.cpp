@@ -13,7 +13,7 @@
  *   compresses and sends frame to receiver
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -593,10 +593,6 @@ struct cmdline_parameters {
     const char *conference_compression = nullptr;
 };
 
-static bool needs_argument(const char *opt) {
-    return strcmp(opt, "-4") != 0 && strcmp(opt, "-6") != 0;
-}
-
 /// unit_evaluate() is similar but uses SI prefixes
 static int
 parse_size(const char *sz_str) noexcept(false)
@@ -749,92 +745,70 @@ parse_fmt(int argc, char **argv,
     }
 
     parsed->host_count = 0;
+    while (optind < argc) {
+            parsed->hosts.resize(parsed->host_count + 1);
+            parsed->hosts[parsed->host_count].bitrate = RATE_UNLIMITED;
+            parsed->hosts[parsed->host_count].mtu     = 1500;
 
-    for (int i = optind; i< argc; ++i) {
-        if (argv[i][0] != '-') {
-            parsed->host_count += 1;
-        } else {
-            if(strlen(argv[i]) != 2) {
-                fprintf(stderr, "Error: invalid option '%s'\n", argv[i]);
-                exit(EXIT_FAIL_USAGE);
+            const char *const optstring = "+46P:c:f:l:m:";
+            int               ch        = 0;
+            while ((ch = getopt(argc, argv, optstring)) != -1) {
+                    switch (ch) {
+                    case 'P':
+                            if (strchr(optarg, ':') != nullptr) {
+                                    parsed->hosts[parsed->host_count].rx_port =
+                                        stoi(optarg);
+                                    parsed->hosts[parsed->host_count].tx_port =
+                                        stoi(strchr(optarg, ':') + 1);
+                            } else {
+                                    parsed->hosts[parsed->host_count].tx_port =
+                                        stoi(optarg);
+                            }
+                            break;
+                    case 'm':
+                            parsed->hosts[parsed->host_count].mtu = stoi(optarg);
+                            break;
+                    case 'c':
+                            parsed->hosts[parsed->host_count].compression = optarg;
+                            break;
+                    case 'f':
+                            parsed->hosts[parsed->host_count].fec = optarg;
+                            break;
+                    case 'l':
+                            if (strcmp(optarg, "unlimited") == 0) {
+                                    parsed->hosts[parsed->host_count].bitrate =
+                                        RATE_UNLIMITED;
+                            } else if (strcmp(optarg, "auto") == 0) {
+                                    parsed->hosts[parsed->host_count].bitrate = RATE_AUTO;
+                            } else {
+                                    parsed->hosts[parsed->host_count].bitrate =
+                                        unit_evaluate(optarg, nullptr);
+                                    if (parsed->hosts[parsed->host_count].bitrate <= 0) {
+                                            MSG(FATAL,
+                                                "Error: wrong bitrate - %s\n",
+                                                optarg);
+                                            return -1;
+                                    }
+                            }
+                            break;
+                    case '4':
+                            parsed->hosts[parsed->host_count].force_ip_version = 4;
+                            break;
+                    case '6':
+                            parsed->hosts[parsed->host_count].force_ip_version = 6;
+                            break;
+                    default:
+                            MSG(FATAL, "Error: invalid host option %s\n",
+                                argv[optind - 1]);
+                            return -1;
+                    }
             }
-
-            if (i == argc - 1 || (argv[i + 1][0] == '-' && needs_argument(argv[i]))) {
-                fprintf(stderr, "Error: option '-%c' requires an argument\n", argv[i][1]);
+            if (optind == argc) {
+                MSG(ERROR,
+                    "Error: host option following last host address!\n");
                 return -1;
             }
-            if (needs_argument(argv[i])) {
-                parsed->host_count -= 1; // because option argument (mandatory) will be counted as a host
-                                         // in next iteration
-            }
-        }
-    }
-
-
-    if (argc >= 2 && needs_argument(argv[argc - 2]) && argv[argc - 2][0] == '-') {
-        fprintf(stderr, "Error: last option on is option '%s', expected hostname\n", argv[argc - 2]);
-        return -1;
-    }
-
-    parsed->hosts.resize(parsed->host_count);
-    // default values
-    for(int i = 0; i < parsed->host_count; ++i) {
-        parsed->hosts[i].bitrate = RATE_UNLIMITED;
-        parsed->hosts[i].mtu = 1500;
-    }
-
-    int host_idx = 0;
-    for(int i = optind; i < argc; ++i) {
-        if (argv[i][0] == '-') {
-            switch(argv[i][1]) {
-                case 'P':
-                    if (strchr(argv[i + 1], ':')) {
-                        parsed->hosts[host_idx].rx_port = stoi(argv[i + 1]);
-                        parsed->hosts[host_idx].tx_port = stoi(strchr(argv[i + 1], ':') + 1);
-                    } else {
-                        parsed->hosts[host_idx].tx_port = stoi(argv[i + 1]);
-                    }
-                    break;
-                case 'm':
-                    parsed->hosts[host_idx].mtu = stoi(argv[i + 1]);
-                    break;
-                case 'c':
-                    parsed->hosts[host_idx].compression = argv[i + 1];
-                    break;
-                case 'f':
-                    parsed->hosts[host_idx].fec = argv[i + 1];
-                    break;
-                case 'l':
-                    if (strcmp(argv[i + 1], "unlimited") == 0) {
-                        parsed->hosts[host_idx].bitrate = RATE_UNLIMITED;
-                    } else if (strcmp(argv[i + 1], "auto") == 0) {
-                        parsed->hosts[host_idx].bitrate = RATE_AUTO;
-                    } else {
-                        parsed->hosts[host_idx].bitrate =
-                            unit_evaluate(argv[i + 1], nullptr);
-                        if (parsed->hosts[host_idx].bitrate <= 0) {
-                            LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: wrong bitrate - " << argv[i + 1] << "\n";
-                            exit(EXIT_FAIL_USAGE);
-                        }
-                    }
-                    break;
-                case '4':
-                    parsed->hosts[host_idx].force_ip_version = 4;
-                    break;
-                case '6':
-                    parsed->hosts[host_idx].force_ip_version = 6;
-                    break;
-                default:
-                    LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: invalid host option " << argv[i] << "\n";
-                    exit(EXIT_FAIL_USAGE);
-            }
-            if (needs_argument(argv[i])) {
-                i += 1;
-            }
-        } else {
-            parsed->hosts[host_idx].addr = argv[i];
-            host_idx += 1;
-        }
+            parsed->hosts[parsed->host_count++].addr = argv[optind++];
     }
 
     return 0;
