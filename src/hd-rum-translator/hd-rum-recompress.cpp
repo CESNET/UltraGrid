@@ -353,6 +353,7 @@ void recompress_done(struct state_recompress *s) {
                         compress_frame(worker.second.compress.get(), nullptr);
 
                         worker.second.thread.join();
+                        compress_done(worker.second.compress.get());
                 }
         }
         delete s;
