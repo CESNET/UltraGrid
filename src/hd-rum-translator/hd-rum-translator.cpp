@@ -530,23 +530,23 @@ static void usage(const char *progname) {
              "8M for uncompressed video\n"
           << SBOLD("\tport") << " - UDP port number\n";
     col() << SUNDERLINE("global_opts") << " may be:\n"
-          << SBOLD("\t--control-port <port_number>[:0|:1]")
+          << SBOLD("\t--control-port|-n <port_number>[:0|:1]")
           << " - control port to connect to, optionally client/server "
              "(default)\n"
-          << SBOLD("\t--blend")
+          << SBOLD("\t--blend|-B")
           << " - enable blending from original to newly received stream, "
              "increases latency\n"
-          << SBOLD("\t--server <port>")
+          << SBOLD("\t--server|-S <port>")
           << " - enable server mode for clients to connect on specified "
              "port\n"
-          << SBOLD("\t--conference <width>:<height>[:fps]")
+          << SBOLD("\t--conference|-r <width>:<height>[:fps]")
           << " - enable combining of multiple inputs, increases latency\n"
-          << SBOLD("\t--conference-compression <compression>")
+          << SBOLD("\t--conference-compression|-R <compression>")
           << " - compression for conference participants\n"
-          << SBOLD("\t--capture-filter <cfg_string>")
+          << SBOLD("\t--capture-filter|-F <cfg_string>")
           << " - apply video capture filter to incoming video\n"
-          << SBOLD("\t--param") << " - additional parameters\n"
-          << SBOLD("\t--help\n") << SBOLD("\t--verbose\n") << SBOLD("\t-v")
+          << SBOLD("\t--param|-m") << " - additional parameters\n"
+          << SBOLD("\t--help|-h\n") << SBOLD("\t--verbose|-V\n") << SBOLD("\t-v")
           << " - print version\n";
     col() << "and " << SUNDERLINE("hostX_options") << " may be:\n"
           << SBOLD("\t-P [<rx_port>:]<tx_port>")
