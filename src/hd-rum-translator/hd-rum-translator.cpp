@@ -50,6 +50,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <getopt.h>
 #include <pthread.h>
 #include <string>
 #include <thread>
@@ -627,6 +628,85 @@ parse_size(const char *sz_str) noexcept(false)
     return ret;
 }
 
+static int parse_global_opts(int argc, char **argv,
+          struct cmdline_parameters *parsed) noexcept(false)
+{
+        const struct option getopt_options[] = {
+                {"blend",                   no_argument,       nullptr, 'B'},
+                { "capture-filter",         required_argument, nullptr, 'F'},
+                { "list-modules",           required_argument, nullptr, 'L'},
+                { "param",                  required_argument, nullptr, 'O'},
+                { "conference-compression", required_argument, nullptr, 'R'},
+                { "server",                 required_argument, nullptr, 'S'},
+                { "verbose",                optional_argument, nullptr, 'V'},
+                { "capabilities",           no_argument,       nullptr, 'b'},
+                { "help",                   no_argument,       nullptr, 'h'},
+                { "contol-port",            required_argument, nullptr, 'n'},
+                { "conference",             required_argument, nullptr, 'r'},
+                { "version",                no_argument,       nullptr, 'v'},
+                { nullptr,                  0,                 nullptr, 0  }
+        };
+        const char *const optstring = "+BF:LR:S:Vbhm:n:r:v";
+
+        int ch = 0;
+        while ((ch = getopt_long(argc, argv, optstring, getopt_options,
+                                 nullptr)) != -1) {
+                switch (ch) {
+                case 'c':
+                        parsed->control_port            = stoi(optarg);
+                        parsed->control_connection_type = 0;
+                        if (strchr(optarg, ':') != nullptr) {
+                                parsed->control_connection_type =
+                                    stoi(strchr(optarg, ':') + 1);
+                        }
+                        break;
+                case 'b':
+                        print_capabilities("");
+                        return 1;
+                case 'B':
+                        parsed->out_conf.mode = BLEND;
+                        break;
+                case 'r':
+                        parsed->out_conf.mode = CONFERENCE;
+                        parsed->out_conf.arg  = optarg;
+                        break;
+                case 'R':
+                        parsed->conference_compression = optarg;
+                        break;
+                case 'S':
+                        parsed->server_port = stoi(optarg);
+                        break;
+                case 'F':
+                        parsed->capture_filter = optarg;
+                        break;
+                case 'h':
+                        usage(argv[0]);
+                        return 1;
+                case 'v':
+                        // nothing needed, version is printed everytime
+                        return 1;
+                case 'V':
+                        parsed->log_level = optarg != nullptr
+                                                ? stoi(optarg)
+                                                : LOG_LEVEL_VERBOSE;
+                        break;
+                case 'O':
+                        // already handled in common_preinit()
+                        break;
+                case 'L':
+                        list_all_modules();
+                        return 1;
+                case '?':
+                default:
+                        MSG(FATAL, "Unknown global parameter: %s\n\n",
+                            argv[optind - 1]);
+                        usage(argv[0]);
+                        return -1;
+                }
+        }
+    return 0;
+}
+
 /**
  * @todo
  * Use rather getopt() than manual parsing.
@@ -638,54 +718,12 @@ static int
 parse_fmt(int argc, char **argv,
           struct cmdline_parameters *parsed) noexcept(false)
 {
-    int start_index = 1;
-
-    while(start_index < argc && argv[start_index][0] == '-') {
-        if(strcmp(argv[start_index], "--control-port") == 0) {
-            char *item = argv[++start_index];
-            parsed->control_port = stoi(item);
-            parsed->control_connection_type = 0;
-            if (strchr(item, ':')) {
-                parsed->control_connection_type = stoi(strchr(item, ':') + 1);
-            }
-        } else if(strcmp(argv[start_index], "--capabilities") == 0) {
-            print_capabilities("");
-            return 1;
-        } else if(strcmp(argv[start_index], "--blend") == 0) {
-            parsed->out_conf.mode = BLEND;
-        } else if(strcmp(argv[start_index], "--conference") == 0) {
-            parsed->out_conf.mode = CONFERENCE;
-            char *item = argv[++start_index];
-            parsed->out_conf.arg = item;
-        } else if(strcmp(argv[start_index], "--conference-compression") == 0) {
-            char *item = argv[++start_index];
-            parsed->conference_compression = item;
-        } else if(strcmp(argv[start_index], "--server") == 0) {
-            char *item = argv[++start_index];
-            parsed->server_port = stoi(item);
-        } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
-            parsed->capture_filter = argv[++start_index];
-        } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
-            usage(argv[0]);
-            return 1;
-        } else if(strcmp(argv[start_index], "-v") == 0) {
-            return 1;
-        } else if (strstr(argv[start_index], "--verbose") == argv[start_index]) {
-            parsed->log_level = strchr(argv[start_index], '=')
-                ? stoi(strchr(argv[start_index], '=') + 1)
-                : LOG_LEVEL_VERBOSE;
-        } else if(strcmp(argv[start_index], "--param") == 0 && start_index < argc - 1) {
-            // already handled in common_preinit()
-        } else if (!strcmp(argv[start_index], "--list-modules")) {
-            list_all_modules();
-            return 1;
-        } else {
-            LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Unknown global parameter: " << argv[start_index] << "\n\n";
-            usage(argv[0]);
-            return -1;
-        }
-        start_index++;
+    const int rc = parse_global_opts(argc, argv, parsed);
+    if (rc != 0) {
+        return rc;
     }
+
+    int start_index = optind;
 
     if (argc < start_index + 2) {
         MSG(FATAL, "Missing parameter%s port!\n\n",
