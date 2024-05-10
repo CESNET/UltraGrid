@@ -723,38 +723,34 @@ parse_fmt(int argc, char **argv,
         return rc;
     }
 
-    int start_index = optind;
-
-    if (argc < start_index + 2) {
+    if (optind + 2 > argc) {
         MSG(FATAL, "Missing parameter%s port!\n\n",
-            argc < start_index + 1 ? " buffer_size and" : "");
+            argc < optind + 1 ? " buffer_size and" : "");
         usage(argv[0]);
         return -1;
     }
 
-    parsed->bufsize = parse_size(argv[start_index]);
+    parsed->bufsize = parse_size(argv[optind++]);
     try {
-        parsed->port = stoi(argv[start_index + 1]);
+        parsed->port = stoi(argv[optind]);
     } catch (invalid_argument &) {
         throw ug_runtime_error(string("invalid port number: ") +
-                               argv[start_index + 1]);
+                               argv[optind]);
     }
     if (parsed->port < 0 || parsed->port >= USHRT_MAX) {
         throw ug_runtime_error(string("port must be in range [0..") +
                                to_string(USHRT_MAX) +
-                               "], given: " + argv[start_index + 1]);
+                               "], given: " + argv[optind]);
     }
+    optind++;
     if (parsed->port == 0) {
         MSG(WARNING,
             "Given RX port 0, reflector will listen on a random port.\n");
     }
 
-    argv += start_index + 1;
-    argc -= start_index + 1;
-
     parsed->host_count = 0;
 
-    for(int i = 1; i < argc; ++i) {
+    for (int i = optind; i< argc; ++i) {
         if (argv[i][0] != '-') {
             parsed->host_count += 1;
         } else {
@@ -788,7 +784,7 @@ parse_fmt(int argc, char **argv,
     }
 
     int host_idx = 0;
-    for(int i = 1; i < argc; ++i) {
+    for(int i = optind; i < argc; ++i) {
         if (argv[i][0] == '-') {
             switch(argv[i][1]) {
                 case 'P':
