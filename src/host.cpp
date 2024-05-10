@@ -327,7 +327,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
 {
         char *log_opt = nullptr;
         static struct option getopt_options[] = {
-                {"param", no_argument, nullptr, OPT_PARAM}, // no_argument -- sic (!), see below
+                {"param", no_argument, nullptr, 'O'}, // no_argument -- sic (!), see below
                 {"verbose", optional_argument, nullptr, 'V'},
                 { nullptr, 0, nullptr, 0 }
         };
@@ -356,7 +356,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                                         logging_lvl += 1;
                                 }
                                 break;
-                        case OPT_PARAM:
+                        case 'O':
                                 if (i == argc - 1) {
                                         fprintf(stderr, "Missing argument to \"--param\"!\n");
                                         return false;

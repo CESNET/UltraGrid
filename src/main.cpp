@@ -128,10 +128,8 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_HOST (('A' << 8) | 'H')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
-#define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
-#define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
@@ -734,6 +732,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
 {
         static struct option getopt_options[] = {                // sort by
                 {"audio-capture-format",   required_argument, nullptr, 'a'},
+                {"capabilities",           optional_argument, nullptr, 'b'},
                 {"compress",               required_argument, nullptr, 'c'},
                 {"display",                required_argument, nullptr, 'd'},
                 {"encryption",             required_argument, nullptr, 'e'},
@@ -755,8 +754,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"capture-filter",         required_argument, nullptr, 'F'},
                 {"fullhelp",               no_argument,       nullptr, 'H'},
                 {"playback",               required_argument, nullptr, 'I'},
+                {"list-modules",           no_argument,       nullptr, 'L'},
                 {"mode",                   required_argument, nullptr, 'M'},
                 {"nat-traverse",           optional_argument, nullptr, 'N'},
+                {"param",                  required_argument, nullptr, 'O'},
                 {"port",                   required_argument, nullptr, 'P'},
                 {"server",                 no_argument,       nullptr, 'S'},
                 {"ttl",                    required_argument, nullptr, 'T'},
@@ -766,13 +767,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"audio-delay",            required_argument, 0, OPT_AUDIO_DELAY},
                 {"audio-host",             required_argument, 0, OPT_AUDIO_HOST},
                 {"audio-protocol",         required_argument, 0, OPT_AUDIO_PROTOCOL},
-                {"capabilities",           optional_argument, 0, OPT_CAPABILITIES},
                 {"control-port",           required_argument, 0, OPT_CONTROL_PORT},
                 {"audio-scale",            required_argument, 0, OPT_AUDIO_SCALE},
                 {"echo-cancellation",      no_argument,       0, OPT_ECHO_CANCELLATION},
-                {"list-modules",           no_argument,       0, OPT_LIST_MODULES},
                 {"mcast-if",               required_argument, 0, OPT_MCAST_IF},
-                {"param",                  required_argument, 0, OPT_PARAM},
                 {"conv-policy",            required_argument, 0, OPT_PIXFMT_CONV_POLICY},
                 {"pix-fmts",               no_argument,       0, OPT_PIX_FMTS},
                 {"rtsp-server",            optional_argument, 0, OPT_RTSP_SERVER},
@@ -782,7 +780,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {0, 0, 0, 0}
         };
         const char *optstring =
-            "46A:CD:E::F:HI:M:N::P:ST:U:Va:c:e:f:d:hi:l:m:p:r:s:t:vx:";
+            "46A:CD:E::F:HI:LM:N::O:P:ST:U:Va:b::c:e:f:d:hi:l:m:p:r:s:t:vx:";
 
         int ch = 0;
         while ((ch =
@@ -982,15 +980,15 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                         "--param window-title=<title>\n");
                         commandline_params["window-title"] = optarg;
                         break;
-                case OPT_CAPABILITIES:
+                case 'b':
                         opt->requested_capabilities = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_DELAY:
                         set_audio_delay(stoi(optarg));
                         break;
-                case OPT_LIST_MODULES:
+                case 'L':
                         return list_all_modules() ? 1 : -EXIT_FAILURE;
-                case OPT_PARAM:
+                case 'O':
                         if (!parse_params(optarg, false)) {
                                 return 1;
                         }
