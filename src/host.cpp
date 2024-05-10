@@ -371,6 +371,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                 }
                 optind = 1;
         }
+        optind = 0;
         opterr = saved_opterr;
         if (logging_lvl == 0) {
                 logging_lvl = getenv("ULTRAGRID_VERBOSE") != nullptr && strlen(getenv("ULTRAGRID_VERBOSE")) > 0 ? LOG_LEVEL_VERBOSE : log_level;
