@@ -12,7 +12,7 @@
  * This file contains common (global) variables and functions.
  */
 /*
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024, CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -150,6 +150,7 @@ bool tok_in_argv(char **argv, const char *tok);
 int set_audio_capture_format(const char *optarg);
 int set_pixfmt_conv_policy(const char *optarg);
 bool parse_params(const char *optarg, bool preinit);
+bool parse_bitrate(char *optarg, long long int *bitrate);
 void print_pixel_formats(void);
 void print_video_codecs(void);
 void register_param(const char *param, const char *doc);

@@ -367,61 +367,6 @@ static void *capture_thread(void *arg)
         return NULL;
 }
 
-static bool parse_bitrate(char *optarg, long long int *bitrate) {
-        map<string, long long int> bitrate_spec_map = {
-                { "auto", RATE_AUTO },
-                { "dynamic", RATE_DYNAMIC },
-                { "unlimited", RATE_UNLIMITED },
-        };
-
-        if (auto it = bitrate_spec_map.find(optarg); it != bitrate_spec_map.end()) {
-                *bitrate = it->second;
-                return true;
-        }
-        if (strcmp(optarg, "help") == 0) {
-#               define NUMERIC_PATTERN "{1-9}{0-9}*[kMG][!][E]"
-                col() << "Usage:\n" <<
-                        "\tuv " << TERM_BOLD "-l [auto | dynamic | unlimited | " << NUMERIC_PATTERN << "]\n" TERM_RESET <<
-                        "where\n"
-                        "\t" << TBOLD("auto") << " - spread packets across frame time\n"
-                        "\t" << TBOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
-                        "\t" << TBOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
-                        "\t" << TBOLD(NUMERIC_PATTERN) << " - send packets at most at specified bitrate\n\n" <<
-                        TBOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
-                        "\n";
-                return true;
-        }
-        bool force = false, fixed = false;
-        for (int i = 0; i < 2; ++i) {
-                if (optarg[strlen(optarg) - 1] == '!' ||
-                                optarg[strlen(optarg) - 1] == 'E') {
-                        if (optarg[strlen(optarg) - 1] == '!') {
-                                force = true;
-                                optarg[strlen(optarg) - 1] = '\0';
-                        }
-                        if (optarg[strlen(optarg) - 1] == 'E') {
-                                fixed = true;
-                                optarg[strlen(optarg) - 1] = '\0';
-                        }
-                }
-        }
-        *bitrate = unit_evaluate(optarg, nullptr);
-        if (*bitrate <= 0) {
-                log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
-                return false;
-        }
-        long long mb5 = 5ll * 1000 * 1000, // it'll take 6.4 sec to send 4 MB frame at 5 Mbps
-             gb100 = 100ll * 1000 * 1000 * 1000; // traffic shaping to eg. 40 Gbps may make sense
-        if ((*bitrate < mb5 || *bitrate > gb100) && !force) {
-                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too %s, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate, *bitrate < mb5 ? "low" : "high", optarg);
-                return false;
-        }
-        if (fixed) {
-                *bitrate |= RATE_FLAG_FIXED_RATE;
-        }
-        return true;
-}
-
 /// @retval <0 return code whose absolute value will be returned from main()
 /// @retval 0 success
 /// @retval 1 device list was printed

@@ -575,7 +575,7 @@ struct host_opts {
     int mtu;
     char *compression;
     char *fec;
-    int64_t bitrate;
+    long long int bitrate;
     int force_ip_version;
 };
 
@@ -775,20 +775,10 @@ parse_fmt(int argc, char **argv,
                             parsed->hosts[parsed->host_count].fec = optarg;
                             break;
                     case 'l':
-                            if (strcmp(optarg, "unlimited") == 0) {
-                                    parsed->hosts[parsed->host_count].bitrate =
-                                        RATE_UNLIMITED;
-                            } else if (strcmp(optarg, "auto") == 0) {
-                                    parsed->hosts[parsed->host_count].bitrate = RATE_AUTO;
-                            } else {
-                                    parsed->hosts[parsed->host_count].bitrate =
-                                        unit_evaluate(optarg, nullptr);
-                                    if (parsed->hosts[parsed->host_count].bitrate <= 0) {
-                                            MSG(FATAL,
-                                                "Error: wrong bitrate - %s\n",
-                                                optarg);
-                                            return -1;
-                                    }
+                            if (!parse_bitrate(
+                                    optarg, &parsed->hosts[parsed->host_count]
+                                                 .bitrate)) {
+                                    return -1;
                             }
                             break;
                     case '4':
