@@ -86,7 +86,7 @@ static void * deinterlace_blend_init(const char *config) {
 
         if (strcmp(config, "force") == 0) {
                 s->force = 1;
-        } else {
+        } else if (strlen(config) > 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", config);
                 free(s);
                 return NULL;
