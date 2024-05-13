@@ -47,7 +47,7 @@
 #ifndef _WIN32
 #include <execinfo.h>
 #include <fcntl.h>
-#endif // defined WIN32
+#endif // defined _WIN32
 
 #if __GLIBC__ == 2 && __GLIBC_MINOR__ < 27
 #include <sys/syscall.h>
@@ -192,7 +192,7 @@ void common_cleanup(struct init_data *init)
         muntrace();
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
         WSACleanup();
 #endif
 }
@@ -205,7 +205,7 @@ ADD_TO_PARAM("stderr-buf",
          "  Buffering for stderr\n");
 static bool set_output_buffering() {
         const unordered_map<const char *, pair<FILE *, int>> outs = { // pair<output, default mode>
-#ifdef WIN32
+#ifdef _WIN32
                 { "stdout-buf", pair{stdout, _IONBF} },
 #else
                 { "stdout-buf", pair{stdout, _IOLBF} },
@@ -268,7 +268,7 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
  */
 static void load_libgcc()
 {
-#ifndef WIN32
+#ifndef _WIN32
         array<void *, 1> addresses{};
         backtrace(addresses.data(), addresses.size());
 #endif
@@ -441,7 +441,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 #endif
 
         struct init_data init{};
-#ifdef WIN32
+#ifdef _WIN32
         WSADATA wsaData;
         int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if(err != 0) {
@@ -1200,7 +1200,7 @@ print_backtrace()
                 }
         }
         close(fd);
-#endif // defined WIN32
+#endif // defined _WIN32
 }
 
 void crash_signal_handler(int sig)
@@ -1229,12 +1229,12 @@ void crash_signal_handler(int sig)
 void hang_signal_handler(int sig)
 {
         UNUSED(sig);
-#ifndef WIN32
+#ifndef _WIN32
         assert(sig == SIGALRM);
         char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
         write_all(STDERR_FILENO, sizeof msg - 1, msg);
         signal(SIGALRM, SIG_DFL);
-#endif // ! defined WIN32
+#endif // ! defined _WIN32
 }
 
 // some common parameters used within multiple modules

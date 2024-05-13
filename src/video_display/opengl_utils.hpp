@@ -49,7 +49,7 @@
 #       include <X11/Xlib.h>
 #       include <GL/glew.h>
 #       include <GL/glx.h>
-#else // WIN32
+#else // _WIN32
 #       include <GL/glew.h>
 #endif //HAVE_MACOSX
 

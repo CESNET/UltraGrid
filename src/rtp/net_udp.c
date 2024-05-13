@@ -84,7 +84,7 @@ static void *udp_reader(void *arg);
 const struct in6_addr in6addr_any = { IN6ADDR_ANY_INIT };
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 typedef char *sockopt_t;
 #else
 typedef void *sockopt_t;
@@ -145,7 +145,7 @@ struct socket_udp_local {
         fd_t rx_fd;
         fd_t tx_fd;
         bool multithreaded;
-#ifdef WIN32
+#ifdef _WIN32
         bool is_wsa_overlapped;
 #endif
 
@@ -172,7 +172,7 @@ struct _socket_udp {
         struct socket_udp_local *local;
         bool local_is_slave; // whether is the local
 
-#ifdef WIN32
+#ifdef _WIN32
         WSAOVERLAPPED *overlapped;
         WSAEVENT *overlapped_events;
         void **dispose_udata;
@@ -184,7 +184,7 @@ struct _socket_udp {
 
 static void udp_clean_async_state(socket_udp *s);
 
-#ifdef WIN32
+#ifdef _WIN32
 /* Want to use both Winsock 1 and 2 socket options, but since
 * IPv6 support requires Winsock 2 we have to add own backwards
 * compatibility for Winsock 1.
@@ -192,7 +192,7 @@ static void udp_clean_async_state(socket_udp *s);
 #define SETSOCKOPT winsock_versions_setsockopt
 #else
 #define SETSOCKOPT setsockopt
-#endif                          /* WIN32 */
+#endif                          /* _WIN32 */
 
 #define GETSOCKOPT getsockopt
 
@@ -205,7 +205,7 @@ void socket_error(const char *msg, ...)
         va_list ap;
         char buffer[ERRBUF_SIZE] = "";
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WSERR(x) {#x,x}
         struct wse {
                 char errname[20];
@@ -254,7 +254,7 @@ void socket_error(const char *msg, ...)
 #endif
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 #define socket_herror socket_error
 #else
 static void socket_herror(const char *msg, ...)
@@ -270,7 +270,7 @@ static void socket_herror(const char *msg, ...)
 }
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 /* ws2tcpip.h defines these constants with different values from
 * winsock.h so files that use winsock 2 values but try to use 
 * winsock 1 fail.  So what was the motivation in changing the
@@ -367,7 +367,7 @@ static bool udp_addr_valid4(const char *dst)
 static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
 {
         if (IN_MULTICAST(ntohl(addr))) {
-#ifndef WIN32
+#ifndef _WIN32
                 char loop = 1;
 #endif
                 struct ip_mreq imr;
@@ -381,7 +381,7 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
                         socket_error("setsockopt IP_ADD_MEMBERSHIP");
                         return false;
                 }
-#ifndef WIN32
+#ifndef _WIN32
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
                      sizeof(loop)) != 0) {
@@ -750,7 +750,7 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         }
         if (bind(fd, (struct sockaddr *)&s_in, sin_len) != 0) {
                 socket_error("bind");
-#ifdef WIN32
+#ifdef _WIN32
                 log_msg(LOG_LEVEL_ERROR, "Check if there is no service running on UDP port %d. ", rx_port);
                 if (rx_port == 5004 || rx_port == 5005)
                         log_msg(LOG_LEVEL_ERROR, "Windows Media Services is usually a good candidate to check and disable.\n");
@@ -764,7 +764,7 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
 ADD_TO_PARAM("udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
-#ifdef WIN32
+#ifdef _WIN32
 ADD_TO_PARAM("udp-disable-multi-socket",
                 "* udp-disable-multi-socket\n"
                 "  Disable separate sockets for RX and TX (Win only). Separated RX/TX is a workaround\n"
@@ -818,7 +818,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         } else {
                 s->ifindex = 0;
         }
-#ifdef WIN32
+#ifdef _WIN32
         if (!is_host_loopback(addr)) {
                 s->local->is_wsa_overlapped = true;
         }
@@ -1040,7 +1040,7 @@ int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_ad
         return sendto(s->local->tx_fd, buffer, buflen, 0, dst_addr, addrlen);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
 {
         assert(s != NULL);
@@ -1083,7 +1083,7 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
         free(d);
         return ret;
 }
-#endif // WIN32
+#endif // _WIN32
 
 /**
  * When receiving data in separate thread, this function fetches data
@@ -1282,7 +1282,7 @@ int udp_recv_data(socket_udp * s, char **buffer){
         return udp_recvfrom_data(s, buffer, NULL, NULL);
 }
 
-#ifndef WIN32
+#ifndef _WIN32
 int udp_recvv(socket_udp * s, struct msghdr *m)
 {
         if (recvmsg(s->local->rx_fd, m, 0) == -1) {
@@ -1291,7 +1291,7 @@ int udp_recvv(socket_udp * s, struct msghdr *m)
         }
         return 0;
 }
-#endif // WIN32
+#endif // _WIN32
 
 /**
  * udp_fd_set:
@@ -1529,7 +1529,7 @@ void udp_flush_recv_buf(socket_udp *s)
  */
 void udp_async_start(socket_udp *s, int nr_packets)
 {
-#ifdef WIN32
+#ifdef _WIN32
         if (!s->local->is_wsa_overlapped) {
                 return;
         }
@@ -1556,7 +1556,7 @@ void udp_async_start(socket_udp *s, int nr_packets)
 
 void udp_async_wait(socket_udp *s)
 {
-#ifdef WIN32
+#ifdef _WIN32
         if (!s->overlapping_active)
                 return;
         for(int i = 0; i < s->overlapped_count; i += WSA_MAXIMUM_WAIT_EVENTS)
@@ -1583,7 +1583,7 @@ void udp_async_wait(socket_udp *s)
 
 static void udp_clean_async_state(socket_udp *s)
 {
-#ifdef WIN32
+#ifdef _WIN32
         for (int i = 0; i < s->overlapped_max; i++) {
                 WSACloseEvent(s->overlapped[i].hEvent);
         }
@@ -1679,7 +1679,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         return 0;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 /**
  * This function sends buffer asynchronously with provided Winsock parameters.
  *

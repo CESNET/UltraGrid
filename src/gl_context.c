@@ -41,8 +41,6 @@
 #include "config_win32.h"
 #endif
 
-#if defined HAVE_MACOSX || (defined HAVE_LINUX && defined HAVE_LIBGL) || defined WIN32
-
 #include <stdio.h>
 
 #ifdef HAVE_MACOSX
@@ -50,7 +48,7 @@
 #elif defined HAVE_LINUX
 #include "x11_common.h"
 #include "glx_common.h"
-#else // WIN32
+#else // _WIN32
 #include "win32_gl_common.h"
 #endif
 
@@ -103,7 +101,7 @@ bool init_gl_context(struct gl_context *context, int which) {
                 context->context = mac_gl_init(MAC_GL_PROFILE_LEGACY);
                 context->legacy = TRUE;
         }
-#else // WIN32
+#else // _WIN32
         if(which == GL_CONTEXT_ANY) {
                 context->context = win32_context_init(OPENGL_VERSION_UNSPECIFIED);
         } else if(which == GL_CONTEXT_LEGACY) {
@@ -250,4 +248,3 @@ void gl_context_make_current(struct gl_context *context)
 #endif
 }
 
-#endif /* defined HAVE_MACOSX || (defined HAVE_LINUX && defined HAVE_LIBGLEW) */

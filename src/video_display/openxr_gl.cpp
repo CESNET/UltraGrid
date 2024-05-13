@@ -53,7 +53,7 @@
 #       include <GL/glx.h>
 #       define XR_USE_PLATFORM_XLIB
 #       define XR_USE_GRAPHICS_API_OPENGL
-#elif defined WIN32
+#elif defined _WIN32
 #       define XR_USE_PLATFORM_WIN32
 #       define XR_USE_GRAPHICS_API_OPENGL
 #endif
@@ -629,7 +629,7 @@ static void display_xrgl_run(void *state){
         Openxr_session session(s->xr_state.instance.get(),
                         s->xr_state.system_id,
                         &graphics_binding_gl);
-#elif defined WIN32
+#elif defined _WIN32
         XrGraphicsBindingOpenGLWin32KHR graphics_binding_gl = {};
         graphics_binding_gl.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
         graphics_binding_gl.next = nullptr;

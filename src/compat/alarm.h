@@ -38,7 +38,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef WIN32
+#ifdef _WIN32
 
 #ifndef COMPAT_ALARM_H
 #define COMPAT_ALARM_H
@@ -49,4 +49,4 @@ EXTERN_C void alarm(unsigned int sec);
 
 #endif // defined COMPAT_ALARM_H
 
-#endif /* WIN32 */
+#endif /* _WIN32 */

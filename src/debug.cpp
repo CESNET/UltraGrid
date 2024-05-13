@@ -70,7 +70,7 @@ static void _dprintf(const char *format, ...)
                 return;
         }
 
-#ifdef WIN32
+#ifdef _WIN32
         char msg[65535];
         va_list ap;
 
@@ -84,7 +84,7 @@ static void _dprintf(const char *format, ...)
         va_start(ap, format);
         vfprintf(stderr, format, ap);
         va_end(ap);
-#endif                          /* WIN32 */
+#endif                          /* _WIN32 */
 }
 
 static void

@@ -46,7 +46,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/stat.h>
-#ifndef WIN32
+#ifndef _WIN32
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #endif

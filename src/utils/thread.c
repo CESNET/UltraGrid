@@ -53,7 +53,7 @@
 #include "host.h"
 #include "utils/thread.h"
 
-#if ! defined  WIN32 || defined HAVE_SETTHREADDESCRIPTION
+#if ! defined  _WIN32 || defined HAVE_SETTHREADDESCRIPTION
 static inline char *get_argv_program_name(void) {
 #ifdef HAVE_CONFIG_H
         if (uv_argv != NULL && uv_argv[0] != NULL) {

@@ -61,11 +61,11 @@
 
 #define MAX_CLIENTS 16
 
-#ifdef WIN32
+#ifdef _WIN32
 typedef const char *sso_val_type;
 #else
 typedef void *sso_val_type;
-#endif                          /* WIN32 */
+#endif // defined _WIN32
 
 using namespace std;
 

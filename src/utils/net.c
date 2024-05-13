@@ -308,7 +308,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 	}
 
 	return true;
-#else // ! defined WIN32
+#else // ! defined _WIN32
 	size_t available_len = *len;
 	*len = 0;
 	struct ifaddrs* a = NULL;

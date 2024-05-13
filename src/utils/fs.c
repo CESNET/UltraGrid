@@ -61,7 +61,7 @@ const char *get_temp_dir(void)
                 return temp_dir;
         }
 
-#ifdef WIN32
+#ifdef _WIN32
         if (GetTempPathA(sizeof temp_dir, temp_dir) == 0) {
                 return NULL;
         }

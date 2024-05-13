@@ -154,7 +154,7 @@ static int system_pipe(fd_t p[2])
 
 int platform_pipe_init(fd_t p[2])
 {
-#ifdef WIN32
+#ifdef _WIN32
         // This needs to be called twice, indeed, since WSACleanup will be run
         // on both ends. This call is also required because not all pipes are
         // destroyed before common_cleanup which calls WSACleanup
@@ -227,7 +227,7 @@ int platform_pipe_init(fd_t p[2])
 void platform_pipe_close(fd_t pipe)
 {
         CLOSESOCKET(pipe);
-#ifdef WIN32
+#ifdef _WIN32
         WSACleanup();
 #endif
 }

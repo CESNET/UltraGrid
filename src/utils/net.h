@@ -71,7 +71,7 @@ unsigned get_sockaddr_addr_port(struct sockaddr *sa);
 const char *get_sockaddr_str(struct sockaddr *sa);
 const char *ug_gai_strerror(int errcode);
 
-#ifdef WIN32
+#ifdef _WIN32
 #define CLOSESOCKET closesocket
 #else
 #define CLOSESOCKET close

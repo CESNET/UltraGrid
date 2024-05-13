@@ -914,7 +914,7 @@ static char *get_cname(socket_udp * s)
         char *hname;
         char *uname;
         char *cname;
-#ifndef WIN32
+#ifndef _WIN32
         struct passwd *pwent;
 #else
         char *name;
@@ -925,7 +925,7 @@ static char *get_cname(socket_udp * s)
         cname[0] = '\0';
 
         /* First, fill in the username... */
-#ifdef WIN32
+#ifdef _WIN32
         name = NULL;
         namelen = 0;
         GetUserName(NULL, &namelen);
@@ -1046,7 +1046,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         char *cname;
         char *hname;
 
-#ifdef WIN32
+#ifdef _WIN32
         if (multithreaded) {
                 log_msg(LOG_LEVEL_WARNING, "Multithreaded RTP is not recommended for MSW due to internal locking within Winsock implementation.\n");
         }
@@ -2766,7 +2766,7 @@ rtp_send_data_hdr(struct rtp *session,
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-#ifdef WIN32
+#ifdef _WIN32
         WSABUF *send_vector = NULL;
 #else
         struct iovec send_vector[3];
@@ -2818,7 +2818,7 @@ rtp_send_data_hdr(struct rtp *session,
         /* Allocate memory for the packet... */
         assert(buffer_len < RTP_MAX_PACKET_LEN);
         /* we dont always need 20 (12|16) but this seems to work. LG */
-#ifdef WIN32
+#ifdef _WIN32
         d = (uint8_t *) malloc(3 * sizeof(WSABUF) + 20 + RTP_PACKET_HEADER_SIZE);
         send_vector = d;
         buffer = (uint8_t *) d + 3 * sizeof(WSABUF);
@@ -2827,7 +2827,7 @@ rtp_send_data_hdr(struct rtp *session,
 #endif
         packet = (rtp_packet *)(void *) buffer;
 
-#ifdef WIN32
+#ifdef _WIN32
         send_vector[0].buf = (char *) (buffer + RTP_PACKET_HEADER_SIZE);
         send_vector[0].len = buffer_len;
 #else
@@ -2883,7 +2883,7 @@ rtp_send_data_hdr(struct rtp *session,
         }
         /* ...the payload header... */
         if (phdr != NULL) {
-#ifdef WIN32
+#ifdef _WIN32
                 send_vector[send_vector_len].buf = phdr;
                 send_vector[send_vector_len].len = phdr_len;
 #else
@@ -2894,7 +2894,7 @@ rtp_send_data_hdr(struct rtp *session,
         }
         /* ...and the media data... */
         if (data_len > 0) {
-#ifdef WIN32
+#ifdef _WIN32
                 send_vector[send_vector_len].buf = (void *) data;
                 send_vector[send_vector_len].len = data_len;
 #else

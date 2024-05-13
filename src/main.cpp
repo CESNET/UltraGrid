@@ -67,7 +67,7 @@
 #include <cstdlib>
 #ifndef _WIN32
 #include <execinfo.h>
-#endif // defined WIN32
+#endif // defined _WIN32
 #include <getopt.h>
 #include <iostream>
 #include <list>
@@ -1253,7 +1253,7 @@ int main(int argc, char *argv[])
 
         struct ug_nat_traverse *nat_traverse = nullptr;
 
-#ifndef WIN32
+#ifndef _WIN32
         signal(SIGQUIT, crash_signal_handler);
 #endif
         signal(SIGABRT, crash_signal_handler);
@@ -1361,7 +1361,7 @@ int main(int argc, char *argv[])
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
-#ifndef WIN32
+#ifndef _WIN32
         signal(SIGHUP, signal_handler);
         signal(SIGPIPE, signal_handler);
 #endif
@@ -1535,7 +1535,7 @@ cleanup:
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);
-#ifndef WIN32
+#ifndef _WIN32
         signal(SIGHUP, SIG_DFL);
         signal(SIGALRM, hang_signal_handler);
 #endif

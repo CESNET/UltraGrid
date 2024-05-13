@@ -52,7 +52,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifndef WIN32
+#ifndef _WIN32
 
 #ifndef _IHDTV_H_
 #define _IHDTV_H_
@@ -130,5 +130,5 @@ ihdtv_send(ihdtv_connection *tx_connection, struct video_frame *tx_frame, unsign
 
 #endif
 
-#endif // WIN32
+#endif // _WIN32
 

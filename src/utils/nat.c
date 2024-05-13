@@ -160,7 +160,7 @@ static const char* decode_fresult(pcp_fstate_e s)
     }
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 static char *ctime_r(const time_t *timep, char *buf)
 {
     ctime_s(buf, 26, timep);

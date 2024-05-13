@@ -107,7 +107,7 @@ char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
        size_t len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(bmd_string), kCFStringEncodingUTF8) + 1;
        cstr = (char *) malloc(len);
        CFStringGetCString(bmd_string, (char *) cstr, len, kCFStringEncodingUTF8);
-#elif defined WIN32
+#elif defined _WIN32
        size_t len = SysStringLen(bmd_string) * 4 + 1;
        cstr = (char *) malloc(len);
        wcstombs((char *) cstr, bmd_string, len);
@@ -141,7 +141,7 @@ void release_bmd_api_str(BMD_STR string)
         }
 #ifdef HAVE_MACOSX
         CFRelease(string);
-#elif defined WIN32
+#elif defined _WIN32
         SysFreeString(string);
 #else
         free(const_cast<char *>(string));
@@ -165,7 +165,7 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
 IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose, bool coinit)
 {
         IDeckLinkIterator *deckLinkIterator = nullptr;
-#ifdef WIN32
+#ifdef _WIN32
         if (coinit) {
                 com_initialize(com_initialized, "[BMD] ");
         }
@@ -206,7 +206,7 @@ bool blackmagic_api_version_check()
         if (!com_initialize(&com_initialized, "[BMD] ")) {
                 goto cleanup;
         }
-#ifdef WIN32
+#ifdef _WIN32
         result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
                 IID_IDeckLinkAPIInformation, (void **) &APIInformation);
         if(FAILED(result)) {
@@ -249,7 +249,7 @@ void print_decklink_version()
         IDeckLinkAPIInformation *APIInformation = NULL;
         HRESULT result;
 
-#ifdef WIN32
+#ifdef _WIN32
         bool com_initialized = false;
         if (!com_initialize(&com_initialized, "[BMD] ")) {
                 goto cleanup;
@@ -282,7 +282,7 @@ cleanup:
         if (APIInformation) {
                 APIInformation->Release();
         }
-#ifdef WIN32
+#ifdef _WIN32
         com_uninitialize(&com_initialized);
 #endif
 }

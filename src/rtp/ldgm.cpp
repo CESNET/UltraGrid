@@ -172,7 +172,7 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
 
         int res;
 
-#ifdef WIN32
+#ifdef _WIN32
         TCHAR tmpPath[MAX_PATH];
         UINT ret = GetTempPath(MAX_PATH, tmpPath);
         if(ret == 0 || ret > MAX_PATH) {

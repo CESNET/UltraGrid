@@ -52,7 +52,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifndef WIN32
+#ifndef _WIN32
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -513,5 +513,5 @@ ihdtv_receive(ihdtv_connection * connection, char *buffer,
         return 0;
 }
 
-#endif // WIN32
+#endif // _WIN32
 

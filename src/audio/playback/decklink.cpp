@@ -57,7 +57,7 @@
 #include "video_codec.h"
 #include "video_capture.h"
 
-#ifndef WIN32
+#ifndef _WIN32
 #define STDMETHODCALLTYPE
 #endif
 

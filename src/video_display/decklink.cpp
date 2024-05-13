@@ -80,7 +80,7 @@
 #include "video_display.h"
 #include "video_display/decklink_drift_fix.hpp"
 
-#ifndef WIN32
+#ifndef _WIN32
 #define STDMETHODCALLTYPE
 #endif
 
@@ -1742,7 +1742,7 @@ static bool display_decklink_reconfigure_audio(void *state, int quant_samples, i
         return true;
 }
 
-#ifndef WIN32
+#ifndef _WIN32
 static bool operator==(const REFIID & first, const REFIID & second){
     return (first.byte0 == second.byte0) &&
         (first.byte1 == second.byte1) &&

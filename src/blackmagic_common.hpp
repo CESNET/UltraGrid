@@ -68,7 +68,7 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
                   { UYVY, bmdFormat8BitYUV },
 };
 
-#ifdef WIN32
+#ifdef _WIN32
 #define BMD_BOOL BOOL
 #define BMD_TRUE TRUE
 #define BMD_FALSE FALSE

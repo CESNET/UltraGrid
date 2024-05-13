@@ -346,7 +346,7 @@ static int64_t get_ansi_code() {
         return c;
 }
 
-#ifndef WIN32
+#ifndef _WIN32
 /*
  * Input must be 0x80-0xff
  */
@@ -381,7 +381,7 @@ static int64_t get_utf8_code(int c) {
 }
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 static int64_t convert_win_to_ansi_keycode(int c) {
         switch (c) {
         case 0xe048: return K_UP;
@@ -397,7 +397,7 @@ static int64_t convert_win_to_ansi_keycode(int c) {
 #endif
 
 static bool is_utf8(int64_t ch) {
-#ifdef WIN32
+#ifdef _WIN32
         return false;
 #endif
 
@@ -502,7 +502,7 @@ int64_t keyboard_control::impl::get_next_key()
                                 if ((c = get_ansi_code()) < 0) {
                                         continue;
                                 }
-#ifdef WIN32
+#ifdef _WIN32
                         } else if (c == 0x0 || c == 0xe0) { // Win keycodes
                                 int tmp = GETCH();
                                 debug_msg(MOD_NAME "Pressed %d\n", tmp);

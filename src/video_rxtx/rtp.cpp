@@ -242,7 +242,7 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 {
         log_msg(LOG_LEVEL_INFO, "\n***\n"
                         "Unable to set buffer size to %d B.\n"
-#if defined WIN32
+#if defined _WIN32
                         "See https://github.com/CESNET/UltraGrid/wiki/Extending-Network-Buffers-%%28Windows%%29 for details.\n",
 #else
                         "Please set net.core.rmem_max value to %d or greater (see also\n"
@@ -259,7 +259,7 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 #ifdef HAVE_MACOSX
                         size * 4,
 #endif /* HAVE_MACOSX */
-#endif /* ! defined WIN32 */
+#endif /* ! defined _WIN32 */
                         size);
 
 }
@@ -270,7 +270,7 @@ struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,
 {
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
 
-#if !defined WIN32
+#if !defined _WIN32
         const bool multithreaded = true;
 #else
         const bool multithreaded = false;

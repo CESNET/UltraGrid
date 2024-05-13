@@ -73,7 +73,7 @@ static void *worker(void *arg);
 static void show_help(void);
 static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s);
 static void SyncForSignal(struct vidcap_bluefish444_state *s);
-#ifdef WIN32
+#ifdef _WIN32
 static int CompleteBlueAsyncReq(HANDLE hDevice, LPOVERLAPPED pOverlap);
 #endif
 static bool should_exit_worker = false;
@@ -162,7 +162,7 @@ struct vidcap_bluefish444_state {
         uint32_t                  MemoryFormat;
         uint32_t                  UpdateFormat;
         bool                      SubField;
-#ifdef WIN32
+#ifdef _WIN32
         blue_video_sync_struct   *pIrqInfo;
 #endif
 
@@ -173,7 +173,7 @@ struct vidcap_bluefish444_state {
         struct audio_frame        audio;
         unsigned int             *hanc_buffer;
 
-#ifdef WIN32
+#ifdef _WIN32
         OVERLAPPED                OverlapChA;
 #endif
 
@@ -262,7 +262,7 @@ bool UpdateVideoMode(struct vidcap_bluefish444_state *s, uint32_t VideoMode)
         return false;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 static int CompleteBlueAsyncReq(HANDLE hDevice, LPOVERLAPPED pOverlap)
 {
         DWORD bytesReturned;
@@ -275,7 +275,7 @@ static int CompleteBlueAsyncReq(HANDLE hDevice, LPOVERLAPPED pOverlap)
 
 static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
 {
-#ifdef WIN32
+#ifdef _WIN32
         assert(s->attachedDevices == 1);
 
         BOOL bWaitForField = TRUE;
@@ -505,7 +505,7 @@ static void *worker(void *arg)
                         }
 
                 } else {
-#ifdef WIN32
+#ifdef _WIN32
                         DWORD IrqReturn = 0;
                         UINT VideoMsc = 0;
                         // we do not allow mode change when in subfield mode
@@ -608,7 +608,7 @@ static void *worker(void *arg)
                 pthread_mutex_unlock(&s->lock);
 
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
-#ifdef WIN32
+#ifdef _WIN32
                         unsigned int FifoSize = 0;
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
                                                         0, &FifoSize))) {
@@ -656,7 +656,7 @@ static void *worker(void *arg)
 
                 //DMA the frame from the card to our buffer
                 for(int i = 0; i < s->attachedDevices; ++i) {
-#ifdef WIN32
+#ifdef _WIN32
                         bfcSystemBufferReadAsync(s->pSDK[i], (unsigned char *)
                                         current_frame->video->tiles[i].data,
                                         ChunkSize, NULL,
@@ -675,7 +675,7 @@ static void *worker(void *arg)
                 }
 
                 if(s->grab_audio && hanc_buffer_id != -1) {
-#ifdef WIN32
+#ifdef _WIN32
                         bfcSystemBufferReadAsync(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
 #else
                         bfcSystemBufferRead(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC), 0);
@@ -815,7 +815,7 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
         parse_fmt(s, tmp_fmt);
         free(tmp_fmt);
 
-#ifdef WIN32
+#ifdef _WIN32
         memset(&s->OverlapChA, 0, sizeof(s->OverlapChA));
         s->OverlapChA.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 #endif
@@ -824,7 +824,7 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
         s->SavedVideoMode = VID_FMT_INVALID;
 
         if(s->SubField) {
-#ifdef WIN32
+#ifdef _WIN32
                 s->VideoEngine = VIDEO_ENGINE_FRAMESTORE;
                 s->pIrqInfo = bfcNewVideoSyncStruct(s->pSDK);
 #else
@@ -991,7 +991,7 @@ static void vidcap_bluefish444_done(void *state)
         pthread_mutex_unlock(&s->lock);
         pthread_join(s->worker_id, NULL);
 
-#ifdef WIN32
+#ifdef _WIN32
         CloseHandle(s->OverlapChA.hEvent);
 #endif
 

@@ -264,7 +264,7 @@ void *display_bluefish444_state::playback_loop() noexcept
 
         gettimeofday(&t0, NULL);
 
-#ifdef WIN32
+#ifdef _WIN32
         OVERLAPPED Overlapped[MAX_BLUE_OUT_CHANNELS];
         for (int i = 0;i < MAX_BLUE_OUT_CHANNELS; ++ i) {
                 Overlapped[i].hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -303,7 +303,7 @@ void *display_bluefish444_state::playback_loop() noexcept
 
                 for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                         unsigned char *videoBuffer;
-#ifdef WIN32
+#ifdef _WIN32
                         OVERLAPPED *OverlapCh = &Overlapped[i];
 #endif
                         if(m_TileCount == m_AttachedDevicesCount) {
@@ -311,13 +311,13 @@ void *display_bluefish444_state::playback_loop() noexcept
                         } else { // untiled 4K
                                 videoBuffer = (unsigned char *) frame->pVideoBuffer[0];
                         }
-#ifdef WIN32
+#ifdef _WIN32
                         int err = bfcSystemBufferWriteAsync(
 #else
                         int err = bfcSystemBufferWrite(
 #endif
                                         m_pSDK[i], videoBuffer + m_Offset[i], m_GoldenSize,
-#ifdef WIN32
+#ifdef _WIN32
                                         OverlapCh,
 #endif
                                         (m_PlayAudio && i == 0 ?
@@ -329,7 +329,7 @@ void *display_bluefish444_state::playback_loop() noexcept
                                 WaitResult = false;
                         }
                 }
-#ifdef WIN32
+#ifdef _WIN32
                 if(WaitResult) {
                         for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                                 DWORD BytesReturned = 0;
@@ -396,7 +396,7 @@ void *display_bluefish444_state::playback_loop() noexcept
                                 //ResetEvent(OverlapChA.hEvent);
 
                                 //now we can DMA the HANC frame
-#ifdef WIN32
+#ifdef _WIN32
                                 bfcSystemBufferWriteAsync(m_pSDK[0], (unsigned char *) m_HancInfo.hanc_data_ptr,
                                                 MAX_HANC_SIZE,
                                                 NULL, BlueImage_HANC_DMABuffer(frame->BufferId, BLUE_DATA_HANC));
@@ -441,7 +441,7 @@ void *display_bluefish444_state::playback_loop() noexcept
                 m_pPlayingBuffer = frame;
         }
 
-#ifdef WIN32
+#ifdef _WIN32
                 for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                         CloseHandle(Overlapped[i].hEvent);
                 }

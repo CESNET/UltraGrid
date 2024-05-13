@@ -168,7 +168,7 @@ const char *format_in_si_units(unsigned long long int val) {
 
 
 bool is_wine() {
-#ifdef WIN32
+#ifdef _WIN32
         HMODULE hntdll = GetModuleHandle("ntdll.dll");
         if(!hntdll) {
                 return false;

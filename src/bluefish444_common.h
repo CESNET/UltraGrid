@@ -46,7 +46,7 @@
 
 #include "debug.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <objbase.h>
 #include <BlueVelvetC_UltraGrid.h>
 #else

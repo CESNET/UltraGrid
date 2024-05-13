@@ -83,7 +83,7 @@ constexpr const int DEFAULT_AUDIO_BPS = 4;
 constexpr const size_t MAX_AUDIO_PACKETS = 10;
 #define MOD_NAME "[DeckLink capture] "
 
-#ifndef WIN32
+#ifndef _WIN32
 #define STDMETHODCALLTYPE
 #endif
 

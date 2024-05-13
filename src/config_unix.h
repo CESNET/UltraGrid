@@ -208,4 +208,4 @@ CONF_NIX_EXT_C int __xpg_strerror_r(int errcode, char *buffer, size_t length);
 #endif // ! defined __STDC_LIB_EXT1__
 
 #endif /* _CONFIG_UNIX_H */
-#endif /* NDEF WIN32 */
+#endif /* NDEF _WIN32 */
