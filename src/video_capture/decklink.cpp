@@ -571,7 +571,9 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
                 col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
-                col() << SBOLD("\taacl[=no]") << "\t\tset analog audio levels to maximum gain on audio input\n";
+                col() << SBOLD("\taacl[=no]")
+                      << "\t\tset analog audio levels to maximum gain "
+                         "(consumer audio level)\n";
                 col() << "\n";
         } else {
                 col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";

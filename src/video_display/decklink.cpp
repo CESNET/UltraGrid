@@ -543,8 +543,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\t<option_FourCC>=<value>")
               << "\tarbitrary BMD option (given a FourCC) and corresponding "
                  "value, i.a.:\n";
-        col() << SBOLD("\t\taacl[=no]")
-              << "\tset maximum audio attenuation on output\n";
+        col()
+            << SBOLD("\t\taacl[=no]")
+            << "\tset maximum analog audio attenuation (consumer line level)\n";
         col() << SBOLD("\t\tvoio=blac|lafa")
               << "\tdisplay either black or last frame when idle\n";
 
