@@ -327,49 +327,44 @@ static bool parse_opts_set_logging(int argc, char *argv[])
 {
         char *log_opt = nullptr;
         static struct option getopt_options[] = {
-                {"param", no_argument, nullptr, 'O'}, // no_argument -- sic (!), see below
+                {"param", required_argument, nullptr, 'O'},
                 {"verbose", optional_argument, nullptr, 'V'},
                 { nullptr, 0, nullptr, 0 }
         };
+        const char *const optstring = "+O:V";
         int saved_opterr = opterr;
-        opterr = 0; // options are further handled in main.cpp
-        // modified getopt - process all "argv[0] argv[n]" pairs to avoid permutation
-        // of argv arguments - we do not have the whole option set in optstring, so it
-        // would put optargs to the end ("uv -t testcard -V" -> "uv -t -V testcard")
+        opterr = 0; // options are further handled in main.cpp. skip unknown
 
         int logging_lvl = 0;
         bool logger_skip_repeats = true;
 
         log_timestamp_mode logger_show_timestamps = LOG_TIMESTAMP_AUTO;
 
-        for (int i = 1; i < argc; ++i) {
-                char *my_argv[] = { argv[0], argv[i] };
-
-                int ch = 0;
-                while ((ch = getopt_long(2, my_argv, "V", getopt_options,
-                            NULL)) != -1) {
-                        switch (ch) {
-                        case 'V':
-                                if (optarg) {
-                                        log_opt = optarg;
-                                } else {
-                                        logging_lvl += 1;
-                                }
-                                break;
-                        case 'O':
-                                if (i == argc - 1) {
-                                        fprintf(stderr, "Missing argument to \"--param\"!\n");
-                                        return false;
-                                }
-                                if (!parse_params(argv[i + 1], true)) {
-                                        return false;
-                                }
-                                break;
-                        default: // will be handled in main
-                                break;
+        while (optind < argc) {
+                const int ch =
+                    getopt_long(argc, argv, optstring, getopt_options, nullptr);
+                switch (ch) {
+                case 'V':
+                        if (optarg == nullptr) {
+                                log_opt = optarg;
+                        } else {
+                                logging_lvl += 1;
                         }
+                        break;
+                case 'O':
+                        if (!parse_params(optarg, true)) {
+                                return false;
+                        }
+                        break;
+                case -1: // skip a non-option (or an argument to an option that
+                         // is not recognized by this getopt)
+                        optind += 1;
+                        break;
+                case '?': // other option that will be handled in main
+                        break;
+                default:
+                        abort(); // shouldn't reach here
                 }
-                optind = 1;
         }
         optind = 0;
         opterr = saved_opterr;
