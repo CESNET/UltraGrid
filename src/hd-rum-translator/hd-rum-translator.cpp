@@ -682,12 +682,11 @@ static int parse_global_opts(int argc, char **argv,
                         // nothing needed, version is printed everytime
                         return 1;
                 case 'V':
-                        parsed->log_level = optarg != nullptr
-                                                ? stoi(optarg)
-                                                : LOG_LEVEL_VERBOSE;
-                        break;
+                        break; // already handled in common_preinit()
                 case 'O':
-                        // already handled in common_preinit()
+                        if (!parse_params(optarg, false)) {
+                                return 1;
+                        }
                         break;
                 case 'L':
                         list_all_modules();
