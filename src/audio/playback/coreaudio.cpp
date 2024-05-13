@@ -72,6 +72,7 @@ using std::cout;
 using std::stoi;
 
 constexpr int DEFAULT_BUFLEN_MS = 50;
+constexpr int CA_DIR = 1;
 #define NO_DATA_STOP_SEC 2
 #define MOD_NAME "[CoreAudio play.] "
 
@@ -296,18 +297,22 @@ void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *na
         CFRelease(deviceName);
 }
 
+/**
+ * @briew probe for available capture/playback devices (direction given by
+ * parameter dir)
+ * @param dir -1 capture, 1 playback
+ */
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
-        if (dir != 0) {
-                *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-                snprintf((*available_devices)[0].dev, sizeof (*available_devices)[0].dev, "");
-                snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
-                                "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
-                *count = 1;
-        } else {
-                *count = 0;
-                *available_devices = nullptr;
-        }
+        assert(dir == -1 || dir == 1);
+        *available_devices =
+            (struct device_info *) calloc(1, sizeof(struct device_info));
+        snprintf((*available_devices)[0].dev, sizeof(*available_devices)[0].dev,
+                 "");
+        snprintf((*available_devices)[0].name,
+                 sizeof(*available_devices)[0].name, "Default CoreAudio %s",
+                 dir == -1 ? "capture" : "playback");
+        *count = 1;
 
         int dev_count;
         AudioDeviceID *dev_ids;
@@ -354,10 +359,18 @@ error:
         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Error obtaining device list.\n";
 }
 
-AudioDeviceID audio_ca_get_device_by_name(const char *name) {
+/**
+ * @briew tries to get device id from device name
+ * @param name  name of the device to be looked up
+ * @param dir   direction - @sa audio_ca_probe for values;
+ *              dir is needed only for deafult device names
+ */
+AudioDeviceID
+audio_ca_get_device_by_name(const char *name, int dir)
+{
         struct device_info *devices = NULL;
         int count = 0;
-        audio_ca_probe(&devices, &count, 0);
+        audio_ca_probe(&devices, &count, dir);
         for (int i = 0; i < count; ++i) {
                 if (strstr(devices[i].name, name) != NULL) {
                         return atoi(devices[i].dev + 1);
@@ -451,7 +464,7 @@ static void * audio_play_ca_init(const char *cfg)
                 try {
                         device = stoi(cfg);
                 } catch (std::invalid_argument &e) {
-                        device = audio_ca_get_device_by_name(cfg);
+                        device = audio_ca_get_device_by_name(cfg, CA_DIR);
                         if (device == UINT_MAX) {
                                 log_msg(LOG_LEVEL_ERROR,
                                         MOD_NAME

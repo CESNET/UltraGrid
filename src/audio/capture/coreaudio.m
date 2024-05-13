@@ -62,6 +62,10 @@
 
 #define MOD_NAME "[CoreAudio cap.] "
 
+enum {
+        CA_DIR = -1,
+};
+
 struct state_ca_capture {
         AudioComponentInstance auHALComponentInstance;
         struct audio_frame frame;
@@ -219,7 +223,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 char *endptr = NULL;
                 device = strtol(cfg, &endptr, 0);
                 if (*endptr != '\0') {
-                        device = audio_ca_get_device_by_name(cfg);
+                        device = audio_ca_get_device_by_name(cfg, CA_DIR);
                         if (device == UINT_MAX) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index or unrecognized name \"%s\"!\n", cfg);
                                 return NULL;
