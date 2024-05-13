@@ -45,15 +45,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <atomic>                                 // for atomic, memory_order
+#include <cassert>                                // for assert
+#include <cctype>                                 // for isdigit
 #include <cinttypes>
 #include <climits>
+#include <csignal>                                // for sigaction, signal
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>                                  // for localtime, strftime
 #include <getopt.h>
+#include <memory>                                 // for shared_ptr, operator!=
 #include <pthread.h>
+#include <stdexcept>                              // for invalid_argument
 #include <string>
 #include <thread>
+#include <unistd.h>                               // for optarg, optind, ssi...
+#include <utility>                                // for swap, move
 #include <vector>
 
 #include "control_socket.h"
@@ -79,8 +88,6 @@ using std::vector;
 
 #define MOD_NAME "[hd-rum-trans] "
 
-struct item;
-
 #define REPLICA_MAGIC 0xd2ff3323
 
 static char *get_replica_mod_name(const char *addr, uint16_t tx_port){
@@ -104,9 +111,10 @@ struct replica {
         if (!sock || res != 0) {
             throw string("Cannot initialize output port!\n");
         }
-        if (udp_set_send_buf(sock.get(), bufsize) != TRUE)
+        if (!udp_set_send_buf(sock.get(), bufsize)) {
             fprintf(stderr, "Cannot set send buffer to %sB!\n",
                     format_in_si_units(bufsize));
+        }
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
         mod.name = get_replica_mod_name(addr, tx_port);
@@ -1036,7 +1044,7 @@ int main(int argc, char **argv)
         EXIT(EXIT_FAILURE);
     }
 
-    if (udp_set_recv_buf(sock_in, state.bufsize) != TRUE) {
+    if (!udp_set_recv_buf(sock_in, state.bufsize)) {
         fprintf(stderr, "Cannot set recv buffer to %sB!\n",
                 format_in_si_units(state.bufsize));
     }
