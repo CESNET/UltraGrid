@@ -35,19 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // defined HAVE_CONFIG_H
+#ifdef _WIN32
 
-#ifdef WIN32
+#include <pthread.h>
+#include <stdlib.h>
+#include <synchapi.h>
 
 #include "compat/alarm.h"
 
 static void *abort_worker(void *arg) {
         unsigned int *sec = arg;
-        sleep(*sec);
+        Sleep(*sec * 1000);
         free(sec);
         abort();
 }
@@ -61,4 +59,4 @@ void alarm(unsigned int sec)
         pthread_detach(id);
 }
 
-#endif // WIN32
+#endif // _WIN32

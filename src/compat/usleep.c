@@ -36,18 +36,17 @@
  */
 
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
 #ifndef HAVE_USLEEP
-
-int usleep(unsigned int usec)
-{
-#ifdef WIN32
-        Sleep(usec / 1000);
+#ifdef _WIN32
+#include <synchapi.h>
 #else
 #error implemented only for win32 - add other implementation if needed
 #endif
+
+int usleep(unsigned int usec)
+{
+        Sleep(usec / 1000);
 
         return 0;
 }
