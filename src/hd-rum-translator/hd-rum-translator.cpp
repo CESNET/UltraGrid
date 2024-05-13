@@ -216,7 +216,7 @@ static void signal_handler(int signal)
 
 #define MAX_PKT_SIZE 10000
 
-#ifdef WIN32
+#ifdef _WIN32
 struct wsa_aux_storage {
     WSAOVERLAPPED *overlapped;
     int ref;
@@ -306,7 +306,7 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
     return new_response(RESPONSE_OK, NULL);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
         DWORD /* dwNumberOfBytesTransfered */,
         LPOVERLAPPED lpOverlapped, long unsigned int) {
@@ -470,7 +470,7 @@ static void *writer(void *arg)
             }
 
             // distribute it to output ports that don't need transcoding
-#ifdef WIN32
+#ifdef _WIN32
             // send it asynchronously in MSW (performance optimalization)
             SleepEx(0, TRUE); // allow system to call our completion routines in APC
             int ref = 0;
@@ -991,7 +991,7 @@ int main(int argc, char **argv)
     print_version();
     printf("\n");
 
-#ifndef WIN32
+#ifndef _WIN32
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = signal_handler;
