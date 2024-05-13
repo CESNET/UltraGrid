@@ -353,7 +353,7 @@ static bool display_sage_putf(void *state, struct video_frame *frame, long long 
         pthread_mutex_unlock(&s->buffer_writable_lock);
 
         sem_post(&s->semaphore);
-#ifndef HAVE_MACOSX
+#ifndef __APPLE__
         sem_getvalue(&s->semaphore, &tmp);
         if (tmp > 1)
                 printf("frame drop!\n");

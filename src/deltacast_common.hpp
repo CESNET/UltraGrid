@@ -42,7 +42,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <VideoMasterHD/VideoMasterHD_Core.h>
 #ifdef ENUMBASE_DV
 #include <VideoMasterHD/VideoMasterHD_Dv.h>
@@ -79,7 +79,7 @@
 #define DELTA_DVI_DEPRECATED 1
 #endif
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <VideoMasterHD/VideoMasterHD_Ip_Board.h>
 #else
 #include <VideoMasterHD_Ip_Board.h>

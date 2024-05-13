@@ -41,17 +41,17 @@
 #       include "config.h"
 #endif //HAVE_CONFIG_H
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #       include <OpenGL/OpenGL.h> // CGL
 #       include <OpenGL/gl3.h>
 #       include <OpenGL/glext.h>
-#elif defined HAVE_LINUX
+#elif defined __linux__
 #       include <X11/Xlib.h>
 #       include <GL/glew.h>
 #       include <GL/glx.h>
 #else // _WIN32
 #       include <GL/glew.h>
-#endif //HAVE_MACOSX
+#endif //__APPLE__
 
 #include <SDL2/SDL.h>
 //#include <SDL2/SDL_opengl.h>

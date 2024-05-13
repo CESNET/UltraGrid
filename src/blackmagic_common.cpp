@@ -103,7 +103,7 @@ char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
                 return strdup("(NULL!)");
         }
        char *cstr;
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
        size_t len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(bmd_string), kCFStringEncodingUTF8) + 1;
        cstr = (char *) malloc(len);
        CFStringGetCString(bmd_string, (char *) cstr, len, kCFStringEncodingUTF8);
@@ -139,7 +139,7 @@ void release_bmd_api_str(BMD_STR string)
         if (!string) {
                 return;
         }
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         CFRelease(string);
 #elif defined _WIN32
         SysFreeString(string);

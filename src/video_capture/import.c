@@ -863,7 +863,7 @@ static void *video_reader_callback(void *arg)
                 flags |= O_BINARY;
 #endif
                 if (data->o_direct) {
-#ifdef HAVE_LINUX
+#ifdef __linux__
                         flags |= O_DIRECT;
 #endif
                 }

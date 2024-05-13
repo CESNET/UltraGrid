@@ -617,7 +617,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 #ifdef HWACC_VAAPI
                 {AV_PIX_FMT_VAAPI, vaapi_init},
 #endif
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
                 {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 75, 100)

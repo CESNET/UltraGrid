@@ -247,7 +247,7 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 #else
                         "Please set net.core.rmem_max value to %d or greater (see also\n"
                         "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
                         "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
                         "\tsysctl -w net.inet.udp.recvspace=%d\n"
 #else
@@ -256,9 +256,9 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
                         "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
                         "\n***\n\n",
                         size, size,
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
                         size * 4,
-#endif /* HAVE_MACOSX */
+#endif /* __APPLE__ */
 #endif /* ! defined _WIN32 */
                         size);
 

@@ -43,9 +43,9 @@
 
 #include <stdio.h>
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include "mac_gl_common.h"
-#elif defined HAVE_LINUX
+#elif defined __linux__
 #include "x11_common.h"
 #include "glx_common.h"
 #else // _WIN32
@@ -68,7 +68,7 @@
  */
 bool init_gl_context(struct gl_context *context, int which) {
         context->context = NULL;
-#ifdef HAVE_LINUX
+#ifdef __linux__
         if(which == GL_CONTEXT_ANY) {
                 debug_msg("Trying OpenGL 3.1 first.\n");
                 context->context = glx_init(MK_OPENGL_VERSION(3,1));
@@ -84,7 +84,7 @@ bool init_gl_context(struct gl_context *context, int which) {
         if(context->context) {
                 glx_validate(context->context);
         }
-#elif defined HAVE_MACOSX
+#elif defined __APPLE__
         if(which == GL_CONTEXT_ANY) {
                 if(get_mac_kernel_version_major() >= 11) {
                         debug_msg("Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
@@ -224,9 +224,9 @@ void destroy_gl_context(struct gl_context *context) {
         if (context == NULL || context->context == NULL) {
                 return;
         }
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         mac_gl_free(context->context);
-#elif defined HAVE_LINUX
+#elif defined __linux__
         glx_free(context->context);
 #else
         win32_context_free(context->context);
@@ -239,9 +239,9 @@ void gl_context_make_current(struct gl_context *context)
         if(context) {
 		context_state = context->context;
 	}
-#ifdef HAVE_LINUX
+#ifdef __linux__
 	glx_make_current(context_state);
-#elif defined HAVE_MACOSX
+#elif defined __APPLE__
 	mac_gl_make_current(context_state);
 #else
         win32_context_make_current(context_state);

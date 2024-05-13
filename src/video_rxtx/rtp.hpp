@@ -44,7 +44,7 @@
 #include <mutex>
 #include <string>
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
 #else
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)

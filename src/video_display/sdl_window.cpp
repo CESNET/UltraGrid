@@ -76,13 +76,13 @@ Sdl_window::Sdl_window(const char *title,
                 throw std::runtime_error("Failed to create gl context!");
         }
 
-#ifndef HAVE_MACOSX
+#ifndef __APPLE__
         glewExperimental = GL_TRUE;
         GLenum glewError = glewInit();
         if(glewError != GLEW_OK){
                 throw std::runtime_error("Failed to initialize gl context!");
         }
-#endif //HAVE_MACOSX
+#endif //__APPLE__
 
         glClearColor(0,0,0,1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -96,7 +96,7 @@ Sdl_window::~Sdl_window(){
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
-#ifdef HAVE_LINUX
+#ifdef __linux__
 void Sdl_window::getXlibHandles(Display  **xDisplay,
                 GLXContext *glxContext,
                 GLXDrawable *glxDrawable)
@@ -106,7 +106,7 @@ void Sdl_window::getXlibHandles(Display  **xDisplay,
         *glxContext = glXGetCurrentContext();
         *glxDrawable = glXGetCurrentDrawable();
 }
-#endif //HAVE_LINUX
+#endif // defined __linux__
 
 void Sdl_window::make_render_context_current(){
         SDL_GL_MakeCurrent(sdl_window, sdl_gl_context);

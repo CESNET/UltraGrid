@@ -41,17 +41,17 @@
 #       include "config.h"
 #endif //HAVE_CONFIG_H
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #       include <OpenGL/OpenGL.h> // CGL
 #       include <OpenGL/gl3.h>
 #       include <OpenGL/glext.h>
-#elif defined HAVE_LINUX
+#elif defined __linux__
 #       include <X11/Xlib.h>
 #       include <GL/glew.h>
 #       include <GL/glx.h>
 #else // _WIN32
 #       include <GL/glew.h>
-#endif //HAVE_MACOSX
+#endif //__APPLE__
 
 
 
@@ -95,14 +95,14 @@ struct Sdl_window{
         Sdl_window& operator=(const Sdl_window&) = delete;
         Sdl_window& operator=(Sdl_window&& o) { swap(o); return *this; }
 
-#ifdef HAVE_LINUX
+#ifdef __linux__
         /**
          * Used to obtain Xlib window handles
          */
         void getXlibHandles(Display  **xDisplay,
                         GLXContext *glxContext,
                         GLXDrawable *glxDrawable);
-#endif //HAVE_LINUX
+#endif // defined __linux__
 
         /**
          * Sets window title

@@ -594,7 +594,7 @@ static void vc_copylineDVS10toV210(unsigned char * __restrict dst, const unsigne
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
 /* TODO: undo it - currently this decoder is broken */
-#if 0 /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+#if 0 /* !(__APPLE__ || HAVE_32B_LINUX) */
 
 void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 {
@@ -690,7 +690,7 @@ static void vc_copylineDVS10(unsigned char * __restrict dst, const unsigned char
         }
 }
 
-#endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+#endif                          /* !(__APPLE__ || HAVE_32B_LINUX) */
 
 /**
  * @brief Changes color order of an RGB

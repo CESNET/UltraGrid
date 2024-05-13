@@ -3,13 +3,13 @@
 
 #ifdef HWACC_VDPAU
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #else
 #include <GL/glew.h>
-#endif /* HAVE_MACOSX */
+#endif /* __APPLE__ */
 
 #include "hwaccel_vdpau.h"
 typedef GLintptr vdpauSurfaceNV;

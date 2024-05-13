@@ -42,7 +42,7 @@
 #include <GL/glew.h>
 #else
 #include <OpenGL/GL.h>
-#endif /*  HAVE_LINUX */
+#endif /*  __linux__  */
 
 #ifdef __APPLE__
 #include <Availability.h>

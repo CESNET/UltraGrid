@@ -54,19 +54,19 @@
 
 #include "debug.h"
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <mach/semaphore.h>
 #include <mach/task.h>
 #include <mach/mach.h>
 #else
 #include <semaphore.h>
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 
 #include "compat/platform_semaphore.h"
 
 void platform_sem_init(void *semStructure, int pshared, int initialValue)
 {
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         UNUSED(pshared);
         semaphore_create(mach_task_self(), (semaphore_t *) semStructure,
                          SYNC_POLICY_FIFO, initialValue);
@@ -75,21 +75,21 @@ void platform_sem_init(void *semStructure, int pshared, int initialValue)
                 perror("sem_init");
                 abort();
         }
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 }
 
 void platform_sem_post(void *semStructure)
 {
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         semaphore_signal(*((semaphore_t *) semStructure));
 #else
         sem_post((sem_t *) semStructure);
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 }
 
 void platform_sem_wait(void *semStructure)
 {
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         semaphore_wait(*((semaphore_t *) semStructure));
 #else
         int ret = 0;
@@ -97,15 +97,15 @@ void platform_sem_wait(void *semStructure)
         if (ret == -1) {
                 perror("sem_wait");
         }
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 }
 
 void platform_sem_destroy(void *semStructure)
 {
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         semaphore_destroy(mach_task_self(), *(semaphore_t *) semStructure);
 #else
         sem_destroy((sem_t *) semStructure);
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 }
 

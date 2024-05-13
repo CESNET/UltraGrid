@@ -53,14 +53,14 @@
 #ifndef _PLATFORM_SEMAPHORE_H
 #define _PLATFORM_SEMAPHORE_H
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include <mach/semaphore.h>
 #include <mach/task.h>
 
 typedef semaphore_t sem_t;
 #else
 #include <semaphore.h>
-#endif /* HAVE_MACOSX */
+#endif /* __APPLE__ */
 
 #ifdef __cplusplus
 extern "C" {

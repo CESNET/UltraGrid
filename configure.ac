@@ -120,6 +120,7 @@ then
         fi
 fi
 
+# TODO: remove plaform macros definitions
 AC_MSG_CHECKING([OS family])
 if test "$host_vendor" = "apple"; then
         system=MacOSX

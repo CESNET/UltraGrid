@@ -47,7 +47,7 @@
 #include <queue>
 
 #include <assert.h>
-#ifdef HAVE_LINUX
+#ifdef __linux__
 #       include <X11/Xlib.h>
 #       include <GL/glew.h>
 #       include <GL/glx.h>
@@ -617,7 +617,7 @@ static void display_xrgl_run(void *state){
 
         std::thread worker_thread(worker, s);
 
-#ifdef HAVE_LINUX
+#ifdef __linux__
         XrGraphicsBindingOpenGLXlibKHR graphics_binding_gl = {};
         graphics_binding_gl.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR;
         graphics_binding_gl.xDisplay = nullptr;
@@ -647,7 +647,7 @@ static void display_xrgl_run(void *state){
         //TODO: Implement GL OpenXR binding for other platforms
         log_msg(LOG_LEVEL_ERROR, "OpenXR and OpenGL binding not implemented on this platform!\n");
         return;
-#endif //HAVE_LINUX
+#endif // defined __linux__
 
         std::vector<XrViewConfigurationView> config_views = get_views(s->xr_state);
 

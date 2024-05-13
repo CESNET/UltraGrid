@@ -54,12 +54,12 @@
 #include "utils/ring_buffer.h"
 #include "video.h"
 
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
 #include "utils/autorelease_pool.h"
 extern "C" void NSApplicationLoad();
-#elif defined HAVE_LINUX
+#elif defined __linux__
 #include "x11_common.h"
-#endif                          /* HAVE_MACOSX */
+#endif                          /* __APPLE__ */
 
 #include <math.h>
 
@@ -109,7 +109,7 @@ struct state_sdl {
         mutex                   lock;
         condition_variable      frame_consumed_cv;
         
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         void                   *autorelease_pool;
 #endif
         uint32_t sdl_flags_win, sdl_flags_fs;
@@ -121,7 +121,7 @@ struct state_sdl {
                       fixed_w(0), fixed_h(0),
                       screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false), buffered_frames_count(0),
                       current_desc(), current_display_desc(),
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
                       autorelease_pool(nullptr),
 #endif
                       sdl_flags_win(0), sdl_flags_fs(0)
@@ -489,7 +489,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 free (tmp);
         }
         
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         /* Startup function to call when running Cocoa code from a Carbon application. 
          * Whatever the fuck that means. 
          * Avoids uncaught exception (1002)  when creating CGSWindow */
@@ -512,7 +512,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         SDL_SysWMinfo info;
         memset(&info, 0, sizeof(SDL_SysWMinfo));
         ret = SDL_GetWMInfo(&info);
-#ifdef HAVE_LINUX
+#ifdef __linux__
         if (ret == 1) {
                 x11_set_display(info.info.x11.display);
         } else if (ret == 0) {
@@ -569,7 +569,7 @@ static void display_sdl_done(void *state)
 
         SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
         SDL_Quit();
-#ifdef HAVE_MACOSX
+#ifdef __APPLE__
         autorelease_pool_destroy(s->autorelease_pool);
 #endif
 

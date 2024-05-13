@@ -97,7 +97,7 @@ struct pdb {
 
 #ifdef DEBUG
 static
-#ifndef HAVE_MACOSX
+#ifndef __APPLE__
 __thread
 #endif
 int pdb_count;
