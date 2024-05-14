@@ -312,6 +312,9 @@ struct Drm_prime_fb{
 struct drm_display_state {
         std::string cfg;
         std::string device_path;
+        std::string req_connector;
+        int req_width = -1;
+        int req_height = -1;
 
         Drm_state drm;
 
@@ -469,6 +472,20 @@ static bool probe_drm_formats(drm_display_state *s){
         return true;
 }
 
+static std::vector<Drm_connector_uniq> get_connectors(drm_display_state *s){
+        std::vector<Drm_connector_uniq> res;
+
+        for(int i = 0; i < s->drm.res->count_connectors; i++){
+                Drm_connector_uniq conn(drmModeGetConnector(s->drm.dri_fd.get(), s->drm.res->connectors[i]));
+                if(!conn)
+                        continue;
+
+                res.push_back(std::move(conn));
+        }
+
+        return res;
+}
+
 static bool init_drm_state(drm_display_state *s){
         s->drm.dri_fd = open_dri(s);
 
@@ -488,33 +505,68 @@ static bool init_drm_state(drm_display_state *s){
 
         s->drm.gem_manager = std::make_unique<Gem_handle_manager>(dri);
 
-
         s->drm.res.reset(drmModeGetResources(dri));
         if(!s->drm.res){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get DRI resources: %s\n", strerror(errno));
                 return false;
         }
 
-        for(int i = 0; i < s->drm.res->count_connectors; i++){
-                s->drm.connector.reset(drmModeGetConnectorCurrent(dri, s->drm.res->connectors[i]));
+        uint64_t prime_support = false;
+        res = drmGetCap(dri, DRM_CAP_PRIME, &prime_support);
+        if(res < 0 || !prime_support){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "DRM device does not support PRIME buffers\n");
+        }
+        s->drm.prime_support = prime_support;
 
-                log_msg(LOG_LEVEL_INFO, "%s\n", get_connector_str(s->drm.connector->connector_type, s->drm.connector->connector_type_id).c_str());
+        return true;
+}
 
-                for(int i = 0; i < s->drm.connector->count_modes; i++){
-                        if(s->drm.connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
-                                s->drm.mode_info = &s->drm.connector->modes[i];
+static const char *get_connector_status_str(drmModeConnection c){
+        switch(c){
+        case DRM_MODE_CONNECTED:
+                return " (Connected)";
+        case DRM_MODE_DISCONNECTED:
+                return " (Not connected)";
+        case DRM_MODE_UNKNOWNCONNECTION:
+        default:
+                return "";
+        }
+}
+
+static void print_connectors(drm_display_state *s){
+        color_printf("Connectors:\n");
+
+        auto connectors = get_connectors(s);
+        for(auto& connector : connectors){
+                color_printf("\t%s%s:\n", get_connector_str(connector->connector_type, connector->connector_type_id).c_str(),
+                                get_connector_status_str(connector->connection));
+
+                for(int i = 0; i < connector->count_modes; i++){
+                        auto mode_info = &connector->modes[i];
+                        color_printf("\t\t%dx%d@%d (%s)%s\n", mode_info->hdisplay, mode_info->vdisplay, mode_info->vrefresh, mode_info->name,
+                                        mode_info->type & DRM_MODE_TYPE_PREFERRED ? " preferred" : "");
+                }
+        }
+}
+
+static bool setup_crtc(drm_display_state *s){
+        auto connectors = get_connectors(s);
+
+        for(auto& connector : connectors){
+                for(int i = 0; i < connector->count_modes; i++){
+                        if(connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
+                                s->drm.mode_info = &connector->modes[i];
+                                s->drm.connector = std::move(connector);
                                 break;
                         }
                 }
 
                 if(s->drm.mode_info){
-                        log_msg(LOG_LEVEL_INFO, "\tPreferred mode: %dx%d (%s)\n", s->drm.mode_info->hdisplay, s->drm.mode_info->vdisplay, s->drm.mode_info->name);
                         break;
-                } else {
-                        log_msg(LOG_LEVEL_INFO, "\tNo preferred mode\n");
                 }
         }
 
+        int dri = s->drm.dri_fd.get();
         s->drm.encoder.reset(drmModeGetEncoder(dri, s->drm.connector->encoder_id));
         if(!s->drm.encoder){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoder\n");
@@ -533,23 +585,17 @@ static bool init_drm_state(drm_display_state *s){
                 }
         }
 
-        res = drmSetMaster(dri);
-        if(res != 0){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get DRM master. Is X11 or Wayland running?\n");
-                return false;
-        }
-
         if(!probe_drm_formats(s)){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to probe DRM supported formats\n");
                 return false;
         }
 
-        uint64_t prime_support = false;
-        res = drmGetCap(dri, DRM_CAP_PRIME, &prime_support);
-        if(res < 0 || !prime_support){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "DRM device does not support PRIME buffers\n");
+        int res = 0;
+        res = drmSetMaster(dri);
+        if(res != 0){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get DRM master. Is X11 or Wayland running?\n");
+                return false;
         }
-        s->drm.prime_support = prime_support;
 
         return true;
 }
@@ -702,6 +748,7 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
         if(cfg)
                 s->cfg = cfg;
 
+        bool help_requested = false;
         std::string_view sv_cfg(s->cfg);
         while(!sv_cfg.empty()){
                 auto token = tokenize(sv_cfg, ':');
@@ -709,16 +756,25 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
                 auto val = tokenize(token, '=');
 
                 if(key == "help"){
-                        color_printf("DRM display\n");
-                        color_printf("Usage: drm[:dev=<path>]\n");
-                        return INIT_NOERR;
+                        help_requested = true;
                 } else if(key == "dev"){
                         s->device_path = val;
                 }
         }
 
-
         if(!init_drm_state(s.get())){
+                return nullptr;
+        }
+
+        if(help_requested){
+                color_printf("DRM display\n");
+                color_printf("Usage: drm[:dev=<path>]\n");
+                color_printf("\n");
+                print_connectors(s.get());
+                return INIT_NOERR;
+        }
+
+        if(!setup_crtc(s.get())){
                 return nullptr;
         }
 
