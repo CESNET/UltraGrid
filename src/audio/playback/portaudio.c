@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,31 +46,27 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <stdio.h>
 #include <assert.h>
+#include <ctype.h>                   // for isdigit
+#include <portaudio.h> /* from PortAudio */
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdint.h>                  // for int8_t
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-
-#include <portaudio.h> /* from PortAudio */
+struct device_info;
 
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
 #include "compat/misc.h" // strdupa
 #include "debug.h"
+#include "host.h"                    // for get_commandline_param, INIT_NOERR
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/audio_buffer.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "tv.h"
 
 #define MOD_NAME "[Portaudio playback] "
 #define BUFFER_LEN_SEC 1
@@ -419,8 +415,9 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         UNUSED(timeInfo);
         UNUSED(statusFlags);
 
-        ssize_t req_bytes = framesPerBuffer * s->desc.ch_count * s->desc.bps;
-        ssize_t bytes_read = audio_buffer_read(s->data, (char *) outputBuffer, req_bytes);
+        int req_bytes = framesPerBuffer * s->desc.ch_count * s->desc.bps;
+        int bytes_read =
+            audio_buffer_read(s->data, (char *) outputBuffer, req_bytes);
 
         if (bytes_read < req_bytes) {
                 if (!s->quiet)

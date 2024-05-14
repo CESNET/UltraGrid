@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,24 +46,19 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <ctype.h>                   // for isdigit
+#include <portaudio.h> /* from PortAudio API */
+#include <pthread.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-
-#include <portaudio.h> /* from PortAudio API */
+struct device_info;
+struct module;
 
 #include "audio/audio_capture.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
-#include "compat/misc.h"
+#include "compat/misc.h" // strdupa
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
