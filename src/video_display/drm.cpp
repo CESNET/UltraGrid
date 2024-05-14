@@ -813,8 +813,13 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
         }
 
         if(help_requested){
+                color_printf("\n");
                 color_printf("DRM display\n");
-                color_printf("Usage: drm[:dev=<path>][:connector=<c>]\n");
+                color_printf(TBOLD(TRED("\t-t drm"))"[:dev=<path>][:connector=<c>][:mode=<w>x<h>[@<rate>]]\n");
+                color_printf("where:\n");
+                color_printf(TBOLD("\tpath") "        - Path to the DRI device. If not specified /dev/video[0..32] are tried.\n");
+                color_printf(TBOLD("\tconnector") "   - The physical connector the display device is plugged into.\n");
+                color_printf(TBOLD("\tmode") "        - Video mode to use. If not specified, the preferred mode is used. \n");
                 color_printf("\n");
                 print_connectors(s.get());
                 return INIT_NOERR;
