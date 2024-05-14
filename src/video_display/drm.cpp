@@ -315,6 +315,7 @@ struct drm_display_state {
         std::string req_connector;
         int req_width = -1;
         int req_height = -1;
+        int req_rate = -1;
 
         Drm_state drm;
 
@@ -573,11 +574,25 @@ static bool setup_crtc(drm_display_state *s){
                 return false;
         }
 
+        bool find_preferred_mode = s->req_width <= 0 && s->req_height <= 0 && s->req_rate <= 0;
         for(int i = 0; i < s->drm.connector->count_modes; i++){
-                if(s->drm.connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
-                        s->drm.mode_info = &s->drm.connector->modes[i];
-                        break;
+                auto mode = &s->drm.connector->modes[i];
+
+                if(s->req_width > 0 && mode->hdisplay != s->req_width)
+                        continue;
+
+                if(s->req_height > 0 && mode->vdisplay != s->req_height)
+                        continue;
+
+                if(s->req_rate > 0 && mode->vrefresh != s->req_rate)
+                        continue;
+
+                if(find_preferred_mode && !(mode->type & DRM_MODE_TYPE_PREFERRED)){
+                        continue;
                 }
+
+                s->drm.mode_info = mode;
+                break;
         }
 
         if(!s->drm.mode_info){
@@ -780,6 +795,16 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
                         s->device_path = val;
                 } else if(key == "connector"){
                         s->req_connector = val;
+                } else if(key == "mode"){
+                        auto res = tokenize(val, '@');
+                        auto rate = tokenize(val, '@');
+
+                        auto width = tokenize(res, 'x');
+                        auto height = tokenize(res, 'x');
+
+                        parse_num(width, s->req_width);
+                        parse_num(height, s->req_height);
+                        parse_num(rate, s->req_rate);
                 }
         }
 
