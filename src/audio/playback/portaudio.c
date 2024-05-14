@@ -128,7 +128,10 @@ static void portaudio_close(PaStream * stream) // closes and frees all audio res
         Pa_CloseStream(stream);
 }
 
-static _Bool parse_fmt(const char *cfg, int *input_device_idx, const char **device_name) {
+static _Bool
+parse_fmt(const char *cfg, int *input_device_idx,
+          char device_name[static STR_LEN])
+{
         if (isdigit(cfg[0])) {
                 *input_device_idx = atoi(cfg);
                 cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
@@ -137,12 +140,12 @@ static _Bool parse_fmt(const char *cfg, int *input_device_idx, const char **devi
         char *item = NULL;
         char *saveptr = NULL;
         while ((item = strtok_r(ccfg, ":", &saveptr)) != NULL) {
-                if (strstr(item, "device=") == item) {
+                if (IS_KEY_PREFIX(item, "device")) {
                         const char *dev = strchr(item, '=') + 1;
                         if (isdigit(dev[0])) {
                                 *input_device_idx = atoi(dev);
-                        } else { // pointer to *input* cfg
-                                *device_name = strchr(strstr(cfg, "device="), '=') + 1;
+                        } else {
+                                snprintf(device_name, STR_LEN, "%s", dev);
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
@@ -167,7 +170,7 @@ static void audio_play_portaudio_help(void) {
 static void * audio_play_portaudio_init(const char *cfg)
 {	
         int output_device_idx = -1;
-        const char *output_device_name = NULL;
+        char output_device_name[STR_LEN] = "";
 
         portaudio_print_version();
         
@@ -175,7 +178,7 @@ static void * audio_play_portaudio_init(const char *cfg)
                 audio_play_portaudio_help();
                 return INIT_NOERR;
         }
-        if (!parse_fmt(cfg, &output_device_idx, &output_device_name)) {
+        if (!parse_fmt(cfg, &output_device_idx, output_device_name)) {
                 return NULL;
         }
 
@@ -186,7 +189,7 @@ static void * audio_play_portaudio_init(const char *cfg)
                 return NULL;
         }
 
-        if (output_device_name != NULL) {
+        if (strlen(output_device_name) > 0) {
                 output_device_idx = portaudio_select_device_by_name(output_device_name);
         }
 

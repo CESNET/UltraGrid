@@ -122,7 +122,10 @@ static void portaudio_close(PaStream * stream)	// closes and frees all audio res
 	Pa_Terminate();
 }
 
-static _Bool parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx, const char **device_name) {
+static _Bool
+parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx,
+          char device_name[static STR_LEN])
+{
         if (isdigit(cfg[0])) {
                 *input_device_idx = atoi(cfg);
                 cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
@@ -131,14 +134,14 @@ static _Bool parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx, 
         char *item = NULL;
         char *saveptr = NULL;
         while ((item = strtok_r(ccfg, ":", &saveptr)) != NULL) {
-                if (strstr(item, "latency=") == item) {
+                if (IS_KEY_PREFIX(item, "latency")) {
                         *latency = atof(strchr(item, '=') + 1);
-                } else if (strstr(item, "device=") == item) {
+                } else if (IS_KEY_PREFIX(item, "device")) {
                         const char *dev = strchr(item, '=') + 1;
                         if (isdigit(dev[0])) {
                                 *input_device_idx = atoi(dev);
-                        } else { // pointer to *input* cfg
-                                *device_name = strchr(strstr(cfg, "device="), '=') + 1;
+                        } else {
+                                snprintf(device_name, STR_LEN, "%s", dev);
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
@@ -173,12 +176,12 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         }
 
         int input_device_idx = -1;
-        const char *input_device_name = NULL;
+        char input_device_name[STR_LEN] = "";
 	PaError error;
         const	PaDeviceInfo *device_info = NULL;
         PaTime latency = -1.0;
 
-        if (!parse_fmt(cfg, &latency, &input_device_idx, &input_device_name)) {
+        if (!parse_fmt(cfg, &latency, &input_device_idx, input_device_name)) {
                 return NULL;
         }
         
@@ -202,7 +205,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	PaStreamParameters inputParameters;
 
 	// default device
-        if (input_device_name != NULL) {
+        if (strlen(input_device_name) > 0) {
                 input_device_idx = portaudio_select_device_by_name(input_device_name);
         }
         if (input_device_idx == -1) {
