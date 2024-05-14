@@ -553,17 +553,36 @@ static bool setup_crtc(drm_display_state *s){
         auto connectors = get_connectors(s);
 
         for(auto& connector : connectors){
-                for(int i = 0; i < connector->count_modes; i++){
-                        if(connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
-                                s->drm.mode_info = &connector->modes[i];
+                if(!s->req_connector.empty()){
+                        if(s->req_connector == get_connector_str(connector->connector_type, connector->connector_type_id)){
                                 s->drm.connector = std::move(connector);
                                 break;
+                        } else {
+                                continue;
                         }
                 }
 
-                if(s->drm.mode_info){
+                if(connector->count_modes > 0 && connector->connection == DRM_MODE_CONNECTED){
+                        s->drm.connector = std::move(connector);
                         break;
                 }
+        }
+
+        if(!s->drm.connector){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Connector not found\n");
+                return false;
+        }
+
+        for(int i = 0; i < s->drm.connector->count_modes; i++){
+                if(s->drm.connector->modes[i].type & DRM_MODE_TYPE_PREFERRED){
+                        s->drm.mode_info = &s->drm.connector->modes[i];
+                        break;
+                }
+        }
+
+        if(!s->drm.mode_info){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Mode not found\n");
+                return false;
         }
 
         int dri = s->drm.dri_fd.get();
@@ -759,6 +778,8 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
                         help_requested = true;
                 } else if(key == "dev"){
                         s->device_path = val;
+                } else if(key == "connector"){
+                        s->req_connector = val;
                 }
         }
 
@@ -768,7 +789,7 @@ static void *display_drm_init(struct module *parent, const char *cfg, unsigned i
 
         if(help_requested){
                 color_printf("DRM display\n");
-                color_printf("Usage: drm[:dev=<path>]\n");
+                color_printf("Usage: drm[:dev=<path>][:connector=<c>]\n");
                 color_printf("\n");
                 print_connectors(s.get());
                 return INIT_NOERR;
