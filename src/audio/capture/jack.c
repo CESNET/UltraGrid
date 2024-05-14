@@ -155,11 +155,11 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         strcpy(client_name, PACKAGE_NAME);
 
         struct state_jack_capture *s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
-        s->parent = parent;
         if(!s) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
         }
+        s->parent = parent;
         s->libjack = open_libjack();
         if (s->libjack == NULL) {
                 free(s);
