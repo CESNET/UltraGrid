@@ -1151,9 +1151,14 @@ PlaybackDelegate::SetSynchronized(const char *cfg)
 static void
 set_low_latency(struct state_decklink *s, bool on)
 {
+        if (on) {
+                MSG(WARNING, "Low latency option unneeded (implicit).\n");
+                assert(s->low_latency); // check if really so
+                return;
+        }
         MSG(WARNING, "Deprecated, do not use - "
                      "see option \"synchroninzed\" instead.\n");
-        s->low_latency = on;
+        s->low_latency = false;
 }
 
 static bool settings_init(struct state_decklink *s, const char *fmt,
