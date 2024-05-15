@@ -79,6 +79,7 @@
 #include <string.h>
 #include <thread>
 #include <tuple>
+#include <utility>                      // for move
 
 #include "compat/misc.h"
 #include "control_socket.h"
@@ -295,12 +296,17 @@ static void print_fps(const char *prefix, steady_clock::time_point *t0, int *fra
         *frames += 1;
         steady_clock::time_point t1 = steady_clock::now();
         double seconds = duration_cast<duration<double>>(t1 - *t0).count();
-        if (seconds >= 5.0) {
-                double fps = *frames / seconds;
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s" TERM_RESET " %d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
-                *t0 = t1;
-                *frames = 0;
+        if (seconds < 5.0) {
+                return;
         }
+        const double fps = *frames / seconds;
+        log_msg(LOG_LEVEL_INFO,
+                TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN
+                "%s" TERM_RESET " %d frames in %g seconds = "
+                TBOLD("%g FPS") "\n",
+                prefix, *frames, seconds, fps);
+        *t0     = t1;
+        *frames = 0;
 }
 
 /**
@@ -331,32 +337,35 @@ static void *capture_thread(void *arg)
                         AUDIO_FRAME_DISPOSE(audio);
                 }
 
-                if (tx_frame != NULL) {
-                        print_fps(print_fps_prefix, &t0, &frames);
-                        //tx_frame = vf_get_copy(tx_frame);
-                        bool wait_for_cur_uncompressed_frame;
-                        shared_ptr<video_frame> frame;
-                        if (!tx_frame->callbacks.dispose) {
-                                wait_obj_reset(wait_obj);
-                                wait_for_cur_uncompressed_frame = true;
-                                frame = shared_ptr<video_frame>(tx_frame, [wait_obj](struct video_frame *) {
-                                                        wait_obj_notify(wait_obj);
-                                                });
-                        } else {
-                                wait_for_cur_uncompressed_frame = false;
-                                frame = shared_ptr<video_frame>(tx_frame, tx_frame->callbacks.dispose);
-                        }
+                if (tx_frame == nullptr) {
+                        continue;
+                }
+                print_fps(print_fps_prefix, &t0, &frames);
+                // tx_frame = vf_get_copy(tx_frame);
+                bool                    wait_for_cur_uncompressed_frame = false;
+                shared_ptr<video_frame> frame;
+                if (tx_frame->callbacks.dispose == nullptr) {
+                        wait_obj_reset(wait_obj);
+                        wait_for_cur_uncompressed_frame = true;
+                        frame = shared_ptr<video_frame>(
+                            tx_frame, [wait_obj](struct video_frame *) {
+                                    wait_obj_notify(wait_obj);
+                            });
+                } else {
+                        frame = shared_ptr<video_frame>(
+                            tx_frame, tx_frame->callbacks.dispose);
+                }
 
-                        uv->state_video_rxtx->send(std::move(frame)); // std::move really important here (!)
+                uv->state_video_rxtx->send(
+                    std::move(frame)); // std::move really important here (!)
 
-                        // wait for frame frame to be processed, eg. by compress
-                        // or sender (uncompressed video). Grab invalidates previous frame
-                        // (if not defined dispose function).
-                        if (wait_for_cur_uncompressed_frame) {
-                                wait_obj_wait(wait_obj);
-                                tx_frame->callbacks.dispose = NULL;
-                                tx_frame->callbacks.dispose_udata = NULL;
-                        }
+                // wait for frame frame to be processed, eg. by compress
+                // or sender (uncompressed video). Grab invalidates previous
+                // frame (if not defined dispose function).
+                if (wait_for_cur_uncompressed_frame) {
+                        wait_obj_wait(wait_obj);
+                        tx_frame->callbacks.dispose       = nullptr;
+                        tx_frame->callbacks.dispose_udata = nullptr;
                 }
         }
 
