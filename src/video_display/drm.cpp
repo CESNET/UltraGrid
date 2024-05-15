@@ -1039,9 +1039,29 @@ static bool display_drm_reconfigure(void *state, struct video_desc desc)
                 pix_fmt = DRM_FORMAT_UYVY;
                 break;
         case DRM_PRIME:
-                pix_fmt = 0; //UNUSED
                 /* We don't create dumb buffers in this case, we import framebuffers from video frames instead
                  */
+                pix_fmt = 0; //UNUSED
+                if(s->drm.mode_info->hdisplay > desc.width || s->drm.mode_info->vdisplay > desc.height){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Video mode resolution must be less or equal to DRM_PRIME frames. Trying to find a suitable mode...\n");
+                        s->drm.mode_info = nullptr;
+                        for(int i = 0; i < s->drm.connector->count_modes; i++){
+                                auto mode = &s->drm.connector->modes[i];
+
+                                if(mode->hdisplay > desc.width)
+                                        continue;
+
+                                if(mode->vdisplay > desc.height)
+                                        continue;
+
+                                s->drm.mode_info = mode;
+                                break;
+                        }
+                        if(!s->drm.mode_info){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to find suitable mode\n");
+                                return false;
+                        }
+                }
                 return true;
         default:
                 return false;
