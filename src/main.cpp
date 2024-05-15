@@ -64,6 +64,7 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>                        // for floor
 #include <cstdlib>
 #ifndef _WIN32
 #include <execinfo.h>
@@ -289,7 +290,14 @@ static void usage(const char *exec_path, bool full = false)
         printf("\n");
 }
 
-static void print_fps(const char *prefix, steady_clock::time_point *t0, int *frames) {
+static void
+print_fps(const char *prefix, steady_clock::time_point *t0, int *frames,
+          double nominal_fps)
+{
+        enum {
+                MIN_FPS_PERC_WARN  = 98,
+                MIN_FPS_PERC_WARN2 = 90,
+        };
         if (prefix == nullptr) {
                 return;
         }
@@ -299,12 +307,17 @@ static void print_fps(const char *prefix, steady_clock::time_point *t0, int *fra
         if (seconds < 5.0) {
                 return;
         }
-        const double fps = *frames / seconds;
+        const double fps      = *frames / seconds;
+        const int    fps_perc = (int) floor(fps / nominal_fps * 100.);
+        const char  *fps_col  = fps_perc >= MIN_FPS_PERC_WARN ? ""
+                                : fps_perc >= MIN_FPS_PERC_WARN2
+                                    ? T256_FG_SYM(T_ARCTIC_LIME)
+                                    : T256_FG_SYM(T_DARKER_ORANGE);
         log_msg(LOG_LEVEL_INFO,
                 TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN
-                "%s" TERM_RESET " %d frames in %g seconds = "
-                TBOLD("%g FPS") "\n",
-                prefix, *frames, seconds, fps);
+                "%s" TERM_RESET " %d frames in %g seconds = " TERM_BOLD
+                "%s%g FPS" TERM_RESET "\n",
+                prefix, *frames, seconds, fps_col, fps);
         *t0     = t1;
         *frames = 0;
 }
@@ -340,7 +353,7 @@ static void *capture_thread(void *arg)
                 if (tx_frame == nullptr) {
                         continue;
                 }
-                print_fps(print_fps_prefix, &t0, &frames);
+                print_fps(print_fps_prefix, &t0, &frames, tx_frame->fps);
                 // tx_frame = vf_get_copy(tx_frame);
                 bool                    wait_for_cur_uncompressed_frame = false;
                 shared_ptr<video_frame> frame;
