@@ -53,9 +53,10 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include <assert.h>                // for assert
+#include <stdint.h>                // for uint32_t
+#include <stdio.h>                 // for printf
+#include <stdlib.h>                // for NULL, free, malloc, size_t
 
 #include "capture_filter.h"
 #include "debug.h"
@@ -64,11 +65,6 @@
 #include "utils/macros.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
-
-#include <string>
-#include <iomanip>
-
-using namespace std;
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
@@ -123,7 +119,7 @@ int initialize_video_capture(struct module *parent,
                 vidcap_params_set_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
         }
         // similarly for audio connection
-        if (vidcap_params_get_driver(tlast) == nullptr
+        if (vidcap_params_get_driver(tlast) == NULL
                         && vidcap_params_get_flags(tlast) != 0) {
                 if (tprev != param) { // more than one -t
                         log_msg(LOG_LEVEL_ERROR, "Audio connection (-s) needs to be "
@@ -140,7 +136,7 @@ int initialize_video_capture(struct module *parent,
         const struct video_capture_info *vci = (const struct video_capture_info *)
                 load_library(vidcap_params_get_driver(param), LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-        if (vci == nullptr) {
+        if (vci == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "WARNING: Selected '%s' capture card "
                         "was not found.\n", vidcap_params_get_driver(param));
                 return -1;
@@ -240,7 +236,7 @@ const char *vidcap_get_fps_print_prefix(struct vidcap *state)
         if (state->funcs->generic_fps_indicator_prefix == NULL) {
                 return NULL;
         }
-        thread_local char buf[SHORT_STR];
+        _Thread_local static char buf[SHORT_STR];
 
         unsigned len = snprintf(buf, sizeof buf, "%s",
                                 state->funcs->generic_fps_indicator_prefix);

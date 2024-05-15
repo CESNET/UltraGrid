@@ -12,7 +12,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2023 CESNET, z. s. p. o
+ * Copyright (c) 2005-2024 CESNET
  * Copyright (c) 2002 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -95,6 +95,13 @@
 
 #ifndef _VIDEO_CAPTURE_H_
 #define _VIDEO_CAPTURE_H_
+
+#ifdef __cplusplus
+#include <cstddef>
+#else
+#include <stdbool.h>
+#include <stddef.h>
+#endif
 
 #include "types.h"
 #include "video_capture_params.h"
