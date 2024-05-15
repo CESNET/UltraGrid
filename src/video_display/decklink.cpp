@@ -1148,6 +1148,14 @@ PlaybackDelegate::SetSynchronized(const char *cfg)
         assert(m_max_sched_frames > m_min_sched_frames);
 }
 
+static void
+set_low_latency(struct state_decklink *s, bool on)
+{
+        MSG(WARNING, "Deprecated, do not use - "
+                     "see option \"synchroninzed\" instead.\n");
+        s->low_latency = on;
+}
+
 static bool settings_init(struct state_decklink *s, const char *fmt,
                 string &cardId) {
         if (strlen(fmt) == 0) {
@@ -1231,11 +1239,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].set_flag(s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].get_flag());
                         }
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
-                        LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME
-                            << "Deprecated, do not use - "
-                               "see option \"synchroninzed\" instead.\n";
-                        s->low_latency = strcasecmp(ptr, "low-latency") == 0;
+                        set_low_latency(s, strcasecmp(ptr, "low-latency") == 0);
                 } else if (IS_PREFIX(ptr, "synchronized")) {
                         s->low_latency = false;
                         s->delegate.SetSynchronized(strchr(ptr, '='));
