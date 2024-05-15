@@ -315,7 +315,7 @@ struct drm_display_state {
         std::string req_connector;
         int req_width = -1;
         int req_height = -1;
-        int req_rate = -1;
+        unsigned req_rate = 0;
 
         Drm_state drm;
 
@@ -615,7 +615,7 @@ static bool setup_crtc(drm_display_state *s){
                 if(!s->drm.encoder)
                         continue;
 
-                std::vector<int> crtc_list;
+                std::vector<unsigned> crtc_list;
                 if(s->drm.encoder->crtc_id){
                         crtc_list.push_back(s->drm.encoder->crtc_id);
                 }
@@ -625,7 +625,7 @@ static bool setup_crtc(drm_display_state *s){
                         }
                 }
 
-                for(int crtc_id : crtc_list){
+                for(unsigned crtc_id : crtc_list){
                         s->drm.crtc.reset(drmModeGetCrtc(dri, crtc_id));
                         if(s->drm.crtc){
                                 for(int i = 0; i < s->drm.res->count_crtcs; i++){
