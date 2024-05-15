@@ -601,22 +601,50 @@ static bool setup_crtc(drm_display_state *s){
         }
 
         int dri = s->drm.dri_fd.get();
-        s->drm.encoder.reset(drmModeGetEncoder(dri, s->drm.connector->encoder_id));
-        if(!s->drm.encoder){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoder\n");
-                return false;
+
+        std::vector<int> encoder_list;
+        if(s->drm.connector->encoder_id){
+                encoder_list.push_back(s->drm.connector->encoder_id);
+        }
+        for(int i = 0; i < s->drm.connector->count_encoders; i++){
+                encoder_list.push_back(s->drm.connector->encoders[i]);
         }
 
-        s->drm.crtc.reset(drmModeGetCrtc(dri, s->drm.encoder->crtc_id));
-        if(!s->drm.crtc){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get crtc\n");
-                return false;
-        }
-        for(int i = 0; i < s->drm.res->count_crtcs; i++){
-                if(s->drm.res->crtcs[i] == s->drm.crtc->crtc_id){
-                        s->drm.crtc_index = i;
-                        break;
+        for(int encoder_id : encoder_list){
+                s->drm.encoder.reset(drmModeGetEncoder(dri, encoder_id));
+                if(!s->drm.encoder)
+                        continue;
+
+                std::vector<int> crtc_list;
+                if(s->drm.encoder->crtc_id){
+                        crtc_list.push_back(s->drm.encoder->crtc_id);
                 }
+                for(int i = 0; i < s->drm.res->count_crtcs; i++){
+                        if((1 << i) & s->drm.encoder->possible_crtcs){
+                                crtc_list.push_back(s->drm.res->crtcs[i]);
+                        }
+                }
+
+                for(int crtc_id : crtc_list){
+                        s->drm.crtc.reset(drmModeGetCrtc(dri, crtc_id));
+                        if(s->drm.crtc){
+                                for(int i = 0; i < s->drm.res->count_crtcs; i++){
+                                        if(s->drm.res->crtcs[i] == crtc_id){
+                                                s->drm.crtc_index = i;
+                                                break;
+                                        }
+                                }
+                                break;
+                        }
+                }
+                if(s->drm.crtc)
+                        break;
+        }
+
+
+        if(!s->drm.crtc){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to find encoder crtc pair\n");
+                return false;
         }
 
         if(!probe_drm_formats(s)){
