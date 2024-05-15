@@ -13,7 +13,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2024 CESNET
  * Copyright (c) 2001-2004 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"
+#include "utils/macros.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
 
@@ -229,12 +230,26 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
 }
 
 /**
- * @brief If not-NULL returned, display doesn't hae own FPS indicator and wants
- * to use a generic one (prefixed with returned module name)
+ * @returns nullptr if display has own FPS indicator
+ * @returns otherwise the prefix (without trailing space, eg. "[GL]") to be used
+ *          in a generic fps indicator
  */
 const char *vidcap_get_fps_print_prefix(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        return state->funcs->generic_fps_indicator_prefix;
+        if (state->funcs->generic_fps_indicator_prefix == NULL) {
+                return NULL;
+        }
+        thread_local char buf[SHORT_STR];
+
+        unsigned len = snprintf(buf, sizeof buf, "%s",
+                                state->funcs->generic_fps_indicator_prefix);
+        if (len > sizeof buf - 1) { // truncated
+                len = sizeof buf - 1;
+        }
+        if (len > 0 && buf[len - 1] == ' ') { // trim trailing ' '
+                buf[len - 1] = '\0';
+        }
+        return buf;
 }
 

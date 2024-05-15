@@ -128,6 +128,7 @@
 /// the following limits are used mostly for static array allocations
 enum {
         MAX_CPU_CORES = 256,  ///< maximal expected CPU core count
+        SHORT_STR     = 128,
         STR_LEN       = 2048, ///< "standard" string length placeholder
 };
 
