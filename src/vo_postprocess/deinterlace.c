@@ -5,7 +5,7 @@
  * Blending deinterlace filter.
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,22 +37,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <pthread.h>
+#include <assert.h>           // for assert
+#include <stdbool.h>          // for bool, true, false
 #include <stdlib.h>
+#include <string.h>           // for strcmp, memcpy, strlen
 
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "video.h"
-#include "video_display.h"
 #include "vo_postprocess.h"
+struct module;
 
 #define MOD_NAME "[deinterlace_blend] "
 
