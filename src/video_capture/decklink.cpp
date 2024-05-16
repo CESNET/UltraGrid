@@ -46,32 +46,40 @@
  *
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <algorithm>
 #include <cassert>
+#include <cctype>                  // for isdigit
 #include <chrono>
 #include <climits>
 #include <condition_variable>
+#include <cstdint>                 // for int64_t, uint32_t, int32_t
+#include <cstdio>                  // for snprintf, printf
+#include <cstdlib>                 // for free, abort, atoi, malloc, realloc
 #include <cstring>
+#include <exception>               // for exception
 #include <iomanip>
 #include <iostream>
 #include <list>
+#include <map>                     // for map, operator!=, _Rb_tree_const_it...
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <stdexcept>
 #include <string>
+#include <tuple>                   // for tuple, get
+#include <unordered_map>           // for unordered_map
+#include <utility>                 // for pair, operator!=
 #include <vector>
 
 #include "blackmagic_common.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/htonl.h"
+#include "compat/strings.h"
+#include "config.h"                // for PACKAGE_BUGREPORT
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "tv.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/math.h"
@@ -396,7 +404,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                         timecode = 0;
                         if (s->sync_timecode) {
                                 log_msg(LOG_LEVEL_ERROR, "Failed to acquire timecode from stream. Disabling sync.\n");
-                                s->sync_timecode = FALSE;
+                                s->sync_timecode = false;
                         }
                 }
 
@@ -679,7 +687,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         if(strcasecmp(opt, "3D") == 0) {
                 s->stereo = true;
         } else if(strcasecmp(opt, "timecode") == 0) {
-                s->sync_timecode = TRUE;
+                s->sync_timecode = true;
         } else if (IS_KEY_PREFIX(opt, "codec")) {
                 const char *codec = strchr(opt, '=') + 1;
                 s->set_codec(get_codec_from_name(codec));

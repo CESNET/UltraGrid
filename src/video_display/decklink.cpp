@@ -44,20 +44,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <DeckLinkAPIVersion.h>
 #include <algorithm>
 #include <array>
+#include <atomic>                                // for atomic, __atomic_base
+#include <cctype>                                // for isdigit, toupper
 #include <chrono>
 #include <cinttypes>
+#include <cmath>                                 // for ceil, fabs
 #include <cstdint>
-#include <iomanip>
+#include <cstdio>                                // for printf, snprintf
+#include <cstdlib>                               // for abort, atoi, realloc
+#include <cstring>                               // for strlen, strchr, NULL
+#include <exception>                             // for exception
+#include <iostream>                              // for cout
+#include <iterator>                              // for begin, end
+#include <map>                                   // for map, operator!=, ope...
+#include <memory>                                // for unique_ptr
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <stdexcept>                             // for invalid_argument
 #include <string>
+#include <utility>                               // for pair
 #include <vector>
 
 #define DECKLINK_MAGIC to_fourcc('v', 'd', 'D', 'L')
@@ -65,7 +74,9 @@
 
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
-#include "config.h"
+#include "compat/htonl.h"
+#include "compat/strings.h"
+#include "config.h"                              // for PACKAGE_BUGREPORT
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
