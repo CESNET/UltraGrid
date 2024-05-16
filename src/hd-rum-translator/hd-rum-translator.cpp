@@ -1049,8 +1049,7 @@ int main(int argc, char **argv)
                 format_in_si_units(state.bufsize));
     }
 
-    printf("listening on *:%d\n", params.port);
-
+    printf("listening on *:%d\n", udp_get_udp_rx_port(sock_in));
 
     if (params.control_port != -1) {
         if (control_init(params.control_port, params.control_connection_type, &state.control_state, &state.mod, 0) != 0) {
