@@ -841,6 +841,8 @@ change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
         lavd_sws_convert(sws, frame);
         av_to_uv_convert(convert, (char *) dst, sws->frame, width, height,
                          pitch, rgb_shift);
+#else
+        (void) out_codec;
 #endif // HAVE_SWSCALE
 }
 
