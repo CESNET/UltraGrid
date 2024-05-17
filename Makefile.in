@@ -243,9 +243,13 @@ ifeq ($(SYSTEM),Windows)
 	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
-$(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS)
+$(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(REFLECTOR_OBJS) $(LIBS) -o $@
+
+bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
+	$(MKDIR_P) $(dir $@)
+	$(CP) $< $@
 
 -include $(DEP_FILES)
 
@@ -528,7 +532,7 @@ clean:
 	$(COND_SILENCE)-rm -f $(TEST_OBJS) bin/run_tests
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	$(COND_SILENCE)-rm -rf $(BUNDLE) $(GUI_BUNDLE) $(GUI_BUNDLE_DEP)
-	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
+	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) bin/hd-rum-av $(REFLECTOR_OBJS)
 	$(COND_SILENCE)-rm -rf @TOREMOVE@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
 	$(COND_SILENCE)-rm -rf bin/shaders
@@ -575,6 +579,7 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	$(CP) $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
 	$(CP) -r data/MacOS-bundle-template/* $(BUNDLE)/
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	$(CP) $(srcdir)/data/template/bin/* $(BUNDLE)/Contents/MacOS
 	$(CP) -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		do echo quit \
@@ -644,6 +649,7 @@ osx-gui-dmg:
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(INSTALL) -m 755 bin/uv $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 $(srcdir)/data/template/bin/* $(DESTDIR)$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/applications;\
@@ -670,6 +676,7 @@ install: all
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
 	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
+	for n in $(srcdir)/data/template/bin/*; do $(RM) $(DESTDIR)$(bindir)/`basename $$n`; done;
 	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
 	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)/`basename $$n`; done;
 	$(RM) $(DESTDIR)$(docdir)/CONTRIBUTING.md $(DESTDIR)$(docdir)/COPYRIGHT $(DESTDIR)$(docdir)/INSTALL $(DESTDIR)$(docdir)/NEWS $(DESTDIR)$(docdir)/README.md

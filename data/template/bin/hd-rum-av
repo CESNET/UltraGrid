@@ -1,0 +1,149 @@
+#!/bin/sh -eu
+##
+## Wrapper for (transcoding) reflector runnint both audio
+## and video instance simoultaneously. Base parameters are
+## those used for video transcoding reflector, audio parameters
+## are deduced from that (the audio reflector is mostly just a
+## dummy packet reflector).
+##
+
+exe=$(command -v "$0")
+dir=$(dirname "$exe")
+reflector=$dir/hd-rum-transcode
+if ! command -v uname >/dev/null || [ "$(uname -o)" = Msys ]; then
+  reflector=$reflector.exe
+fi
+basename=$(basename "$0")
+
+bold=$(tput bold || true)
+green=$(tput setaf 2 || true)
+yellow=$(tput setaf 3 || true)
+magenta=$(tput setaf 5 || true)
+reset=$(tput sgr0 || true)
+
+adjust_port() {
+  if expr "$1" : ".*:" >/dev/null; then
+    rx=$(echo "$1" | cut -d: -f 1)
+    tx=$(echo "$1" | cut -d: -f 2)
+    printf "%s" $((rx + 2)):$((tx + 2))
+    printf "%s" $((rx + 2)):$((tx + 2)) >&2
+  else
+    printf "%s" $(($1 + 2))
+  fi
+}
+
+# loops over $@ and adjusts (mailny ports) or dismisses unused video options
+run_audio() {
+  in_global_opts=1
+  skip_next= # skip arg, belongs to previous option
+  # shellcheck disable=SC2034
+  for n in $(seq $#); do
+    if [ $skip_next ]; then
+      shift
+      skip_next=
+      continue
+    fi
+
+    if [ $in_global_opts ]; then
+      # pass following options
+      if [ "$1" = -S ] || [ "$1" = --server ]; then
+        set -- "$@" "$1" "$2"
+        skip_next=1
+      elif  [ "$1" = -v ] || expr "$1" : -V > /dev/null; then
+        set -- "$@" "$1"
+      elif  [ "$1" = --param ] || [ "$1" = -O ]; then
+        set -- "$@" "$1" "$2"
+        skip_next=1
+      # drop following options
+      elif  [ "$1" = --blend ] || [ "$1" = -B ]; then
+        : # just skip
+      elif [ "$1" = --control-port ] || [ "$1" = -n ] ||
+        [ "$1" = --conference ] || [ "$1" = -r ] ||
+        [ "$1" = --conference-compression ] || [ "$1" = -R ] ||
+        [ "$1" = --capture-filter ] || [ "$1" = -F ]
+      then
+        skip_next=1
+      elif expr "x$1" : x- >/dev/null; then
+        echo "Unsupported global option $1!"
+        exit 1
+      else
+        in_global_opts=
+        # copy the buffer size and port+2
+        set -- "$@" "$1" $(($2 + 2))
+        skip_next=1
+      fi
+    else
+      # drop host video opt
+      if [ "$1" = -c ] ||
+        [ "$1" = -f ] ||
+        [ "$1" = -m ] ||
+        [ "$1" = -l ]
+      then
+        skip_next=1
+      # pass -4/-6
+      elif [ "$1" = -4 ] || [ "$1" = -6 ]; then
+        set -- "$@" "$1"
+      elif [ "$1" = -P ] || [ "$1" = --port ]; then
+        set -- "$@" "$1" "$(adjust_port "$2")"
+        skip_next=1
+      elif expr "x$1" : x- >/dev/null; then
+        echo "Unsupported host option $1!"
+        exit 1
+      else
+        set -- "$@" "$1"
+      fi
+    fi
+    shift
+  done
+  printf "%s\n" "${bold}Running audio reflector: ${green}$reflector $*${reset}"
+  "$reflector" "$@" | sed "s/^/${yellow}[A]$reset /" &
+}
+
+atexit() {
+  echo "Exit $basename"
+}
+
+sigaction() {
+  trap '' TERM # inhibit following signal to ourselves
+  kill -- -$$
+  trap - INT TERM
+  wait
+}
+
+usage() {
+  printf "Wrapper to run concurrenty both audio and video"
+  echo Usage:
+  printf "%b\n" "\t${bold}$0${reset} <reflector argx>"
+  printf "%b\n\n" "\t${bold}$0${reset} -H"
+  printf "Set video options, audio will be adjusted automatically.\n\n"
+  printf "%s\n" "Use $bold-H$reset for reflector help."
+}
+
+if [ $# = 0 ] || [ "$1" = -h ] || [ "$1" = --help ]; then
+  usage
+  exit 0
+fi
+
+if [ ! -x "$reflector" ]; then
+  echo "$reflector not found or not executable!" >&2
+  exit 2
+fi
+
+if [ "$1" = -H ]; then
+  exec "$reflector" -h
+fi
+
+trap atexit EXIT
+trap sigaction INT TERM
+
+if tty >/dev/null && [ "${ULTRAGRID_COLOR_OUT-unset}" = unset ]; then
+  # enforce color output even though output piped
+  export ULTRAGRID_COLOR_OUT=1
+fi
+
+echo "$basename PID: $$"
+run_audio "$@"
+printf "%s\n" "${bold}Running video reflector: ${green}$reflector $*${reset}"
+"$reflector" "$@" | sed "s/^/${magenta}[V]$reset /" &
+
+wait
