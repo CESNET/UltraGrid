@@ -201,7 +201,7 @@ get_codecs(struct state_pipe *s, void *val, size_t *len)
         }
         auto       *out = (codec_t *) val;
         const void *end = (char *) val + *len;
-        for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+        for (int i = VC_FIRST; i < VIDEO_CODEC_COUNT; ++i) {
                 const auto c = (codec_t) i;
                 if (is_codec_opaque(c)) {
                         continue;
