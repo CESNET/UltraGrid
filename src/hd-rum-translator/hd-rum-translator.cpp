@@ -1011,6 +1011,13 @@ int main(int argc, char **argv)
     int ret = -1;
     try {
         ret = parse_fmt(argc, argv, &params);
+    } catch (invalid_argument &e) {
+        if (strcmp(e.what(), "stoi") != 0 &&
+            strcmp(e.what(), "stod") != 0) {
+            throw;
+        }
+        MSG(ERROR, "Non-numeric value passed to option "
+                   "expecting a number!\n");
     } catch (ug_runtime_error &e) {
         MSG(FATAL, "%s\n", e.what());
     }
