@@ -1081,6 +1081,9 @@ int main(int argc, char **argv)
 
     if(params.server_port > 0){
             state.server_socket = std::shared_ptr<socket_udp>(udp_init("localhost", params.server_port, 0, 255, 0, false), udp_exit);
+            if (!state.server_socket) {
+                EXIT(EXIT_FAILURE);
+            }
     }
 
     if(params.out_conf.mode == CONFERENCE && !params.conference_compression){
