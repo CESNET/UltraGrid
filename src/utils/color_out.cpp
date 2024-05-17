@@ -44,6 +44,8 @@
 #include <unistd.h>
 
 #include <cstdarg>
+#include <cstdlib>  // for getenv
+#include <cstring>  // for strcmp, strlen
 #include <iostream>
 #include <memory>
 
@@ -142,6 +144,10 @@ bool color_output_init() {
                 return color_stdout;
         }
 #endif
+        const char *env_val = getenv("ULTRAGRID_COLOR_OUT");
+        if (env_val != nullptr && strlen(env_val) > 0) {
+                return strcmp(env_val, "0") != 0;
+        }
 #ifdef _WIN32
         color_stdout = isMsysPty(fileno(stdout)) || (_isatty(fileno(stdout)) && setWinTermAnsiColors(STD_OUTPUT_HANDLE));
 #else
