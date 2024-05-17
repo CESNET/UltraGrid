@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,25 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#ifdef _WIN32
+#include <windows.h>
 #endif
 
-#include <unistd.h>
-
 #include <cstdarg>
+#include <cstdio>   // for vsnprintf, fileno, stdout
 #include <cstdlib>  // for getenv
 #include <cstring>  // for strcmp, strlen
-#include <iostream>
-#include <memory>
+#include <iterator> // for back_insert_iterator, back_inserter
+#include <unistd.h> // for isatty
 
 #include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
 
-using std::cout;
 using std::string;
 
 static bool color_stdout;

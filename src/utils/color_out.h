@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,6 @@ char *prune_ansi_sequences_inplace_cstr(char *cstr);
 #endif
 
 #ifdef __cplusplus
-#include <iostream>
 #include <sstream>
 #include <string>
 
