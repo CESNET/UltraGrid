@@ -56,8 +56,6 @@
 
 #include <memory>
 #include <vector>
-#include <condition_variable>
-#include <queue>
 #include <algorithm>
 
 #include "debug.h"
@@ -371,9 +369,6 @@ struct drm_display_state {
         video_desc desc;
         frame_uniq frame;
 
-        std::mutex mut;
-        std::condition_variable frame_consumed_cv;
-        std::queue<frame_uniq> queue;
         std::vector<frame_uniq> free_frames;
 };
 
