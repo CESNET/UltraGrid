@@ -47,6 +47,7 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "video.h"
+#include "video_frame.h"
 #include "vo_postprocess.h"
 struct module;
 
@@ -149,7 +150,9 @@ static struct video_frame * deinterlace_getf(void *state)
 static bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         assert (req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
-        assert (video_desc_eq(video_desc_from_frame(out), video_desc_from_frame(in)));
+        assert(video_desc_eq_excl_param(video_desc_from_frame(out),
+                                        video_desc_from_frame(in),
+                                        PARAM_INTERLACING));
         assert (in->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
         assert (out->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
 
@@ -174,6 +177,7 @@ static struct video_frame *cf_deinterlace_filter(void *state, struct video_frame
         UNUSED(state);
 
         struct video_frame *out = vf_alloc_desc_data(video_desc_from_frame(f));
+        out->interlacing = PROGRESSIVE;
         out->callbacks.dispose = vf_free;
         if (!deinterlace_postprocess(state, f, out, vc_get_linesize(f->tiles[0].width, f->color_spec))) {
                 VIDEO_FRAME_DISPOSE(f);
