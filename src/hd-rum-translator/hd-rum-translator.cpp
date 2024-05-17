@@ -553,7 +553,7 @@ static void usage(const char *progname) {
           << " - compression for conference participants\n"
           << SBOLD("\t--capture-filter|-F <cfg_string>")
           << " - apply video capture filter to incoming video\n"
-          << SBOLD("\t--param|-m") << " - additional parameters\n"
+          << SBOLD("\t--param|-O") << " - additional parameters\n"
           << SBOLD("\t--help|-h\n") << SBOLD("\t--verbose|-V\n") << SBOLD("\t-v")
           << " - print version\n";
     col() << "and " << SUNDERLINE("hostX_options") << " may be:\n"
@@ -650,7 +650,7 @@ static int parse_global_opts(int argc, char **argv,
                 { "version",                no_argument,       nullptr, 'v'},
                 { nullptr,                  0,                 nullptr, 0  }
         };
-        const char *const optstring = "+BF:LR:S:Vbhm:n:r:v";
+        const char *const optstring = "+BF:LO:R:S:Vbhn:r:v";
 
         int ch = 0;
         while ((ch = getopt_long(argc, argv, optstring, getopt_options,
