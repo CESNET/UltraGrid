@@ -30,16 +30,42 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-brew install autoconf automake libtool pkg-config \
-        asciidoctor
-brew install libsoxr speexdsp
-brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
-brew install molten-vk vulkan-headers
-brew install imagemagick libcaca libnatpmp jack opencv wolfssl
-brew install ossp-uuid # for cineform
-brew install qt
-brew install glm
+set -- \
+        asciidoctor \
+        autoconf \
+        automake \
+        ffmpeg \
+        glm \
+        imagemagick \
+        jack \
+        libcaca \
+        libnatpmp \
+        libsoxr \
+        libtool \
+        molten-vk \
+        opencv \
+        ossp-uuid `#for cineform` \
+        pkg-config \
+        portaudio \
+        qt \
+        sdl2 \
+        sdl2_mixer \
+        sdl2_ttf \
+        speexdsp \
+        vulkan-headers \
+        wolfssl \
 
+# shellcheck disable=SC2034
+for n in $(seq $#); do
+        # if not installed, add on the back of positional parameters
+        if ! brew list "$1" >/dev/null; then
+                set -- "$@" "$1"
+        fi
+        shift # remove from the front
+done
+
+brew install "$@"
+ 
 mkdir $TEMP_INST
 cd $TEMP_INST
 
