@@ -55,7 +55,7 @@ EOF
 if [ "$version" = master ]; then
         macos_ver_major=$(uname -r | cut -f 1 -d .)
         if [ "$macos_ver_major" -ge 21 ]; then
-                n=UltraGrid-$(uname -m)-continuous.dmg
+                n=UltraGrid-continuous-$(uname -m).dmg
         else
                 n=UltraGrid-nightly-alt.dmg
         fi

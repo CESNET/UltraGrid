@@ -20,7 +20,7 @@ fi
 
 # include platform on mac in version string
 if [ "$(uname -s)" = Darwin ]; then
-        VERSION="$(uname -m)-$VERSION"
+        VERSION="$VERSION-$(uname -m)"
 fi
 
 if [ -z "${CHANNEL-}" ]; then
