@@ -89,7 +89,6 @@ typedef enum {
         J2K,      ///< JPEG 2000
         J2KR,     ///< JPEG 2000 RGB
         HW_VDPAU, ///< VDPAU hardware surface
-        RPI4_8,   ///< Raspberry pi 4 hw decoded (SAND)
         HFYU,     ///< HuffYUV
         FFV1,     ///< FFV1
         CFHD,     ///< Cineform

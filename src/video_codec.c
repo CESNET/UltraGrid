@@ -165,8 +165,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('M','J','2','R'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
                 to_fourcc('V', 'D', 'P', 'S'), HW_VDPAU_FRAME_SZ, 1, 0, 8, FALSE, TRUE, FALSE, TRUE, 4440, "vdpau"},
-        [RPI4_8] = {"RPI4_8", "RPi 4 hardware surface",
-                0 , 0, 0, 0, 0, FALSE, FALSE, FALSE, FALSE, 0, NULL},
         [HFYU] = {"HFYU", "HuffYUV",
                 to_fourcc('H','F','Y','U'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "hfyu"},
         [FFV1] = {"FFV1", "FFV1",

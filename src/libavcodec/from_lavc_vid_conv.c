@@ -2366,9 +2366,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         // HW acceleration
         {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau},
 #endif
-#ifdef HWACC_RPI4
-        {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug},
-#endif
         {AV_PIX_FMT_DRM_PRIME, DRM_PRIME, av_drm_prime_to_ug_drm_prime},
 };
 #define AV_TO_UV_CONVERSION_COUNT (sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0])

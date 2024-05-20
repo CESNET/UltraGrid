@@ -99,9 +99,6 @@ enum {
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
 #define AV_PIX_FMT_VULKAN AV_PIX_FMT_NONE
 #endif
-#ifndef HWACC_RPI4
-#define AV_PIX_FMT_RPI4_8 AV_PIX_FMT_NONE
-#endif
 
 #ifdef __cplusplus
 extern "C" {
