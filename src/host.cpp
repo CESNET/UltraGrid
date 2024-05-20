@@ -507,7 +507,7 @@ struct state_root {
                 unique_lock<mutex> lk(lock);
                 should_exit_callbacks.clear();
                 lk.unlock();
-                broadcast_should_exit(); // here just exit the should exit thr
+                broadcast_should_exit(true); // here just exit the should exit thr
                 should_exit_thread.join();
                 for (int i = 0; i < 2; ++i) {
                         platform_pipe_close(should_exit_pipe[0]);
@@ -519,33 +519,36 @@ struct state_root {
 
         static void should_exit_watcher(state_root *s) {
                 set_thread_name(__func__);
-                char c;
-                while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &c, 1) != 1) {
-                        perror("PLATFORM_PIPE_READ");
-                }
-                unique_lock<mutex> lk(s->lock);
-                for (auto const &c : s->should_exit_callbacks) {
-                        get<0>(c)(get<1>(c));
+                char q = 0;
+                bool should_exit_thread_notified = false;
+                while (q != QUIT_WATCHER_FLAG) {
+                        while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &q,
+                                                  1) != 1) {
+                                perror("PLATFORM_PIPE_READ");
+                        }
+                        if (!should_exit_thread_notified) {
+                                unique_lock<mutex> lk(s->lock);
+                                for (auto const &c : s->should_exit_callbacks) {
+                                        get<0>(c)(get<1>(c));
+                                }
+                                should_exit_thread_notified = true;
+                        }
                 }
         }
-        void broadcast_should_exit() {
-                char c = 0;
-                unique_lock<mutex> lk(lock);
-                if (should_exit_thread_notified) {
-                        return;
-                }
-                should_exit_thread_notified = true;
-                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &c, 1) != 1) {
+        void broadcast_should_exit(bool quit_watcher = false)
+        {
+                const char q = quit_watcher ? QUIT_WATCHER_FLAG : 0;
+                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &q, 1) != 1) {
                         perror("PLATFORM_PIPE_WRITE");
                 }
         }
 
         volatile int exit_status = EXIT_SUCCESS;
 private:
+        static constexpr char QUIT_WATCHER_FLAG = 1;
         mutex lock;
         fd_t should_exit_pipe[2];
         thread should_exit_thread;
-        bool should_exit_thread_notified{false};
         list<tuple<void (*)(void *), void *>> should_exit_callbacks;
         friend void register_should_exit_callback(struct module *mod,
                                                   void (*callback)(void *),
