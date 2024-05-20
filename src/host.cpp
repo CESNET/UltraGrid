@@ -345,7 +345,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                     getopt_long(argc, argv, optstring, getopt_options, nullptr);
                 switch (ch) {
                 case 'V':
-                        if (optarg == nullptr) {
+                        if (optarg != nullptr) {
                                 log_opt = optarg;
                         } else {
                                 logging_lvl += 1;
