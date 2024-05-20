@@ -184,10 +184,14 @@ struct hd_rum_translator_state {
 static struct item *qinit(int qsize);
 static void qdestroy(struct item *queue);
 static void *writer(void *arg);
-static void signal_handler(int signal);
 
-static void signal_handler(int signal)
+static void signal_handler(int signum)
 {
+#ifdef SIGPIPE
+        if (signum == SIGPIPE) {
+                signal(SIGPIPE, SIG_IGN);
+        }
+#endif // defined SIGPIPE
     if (log_level >= LOG_LEVEL_DEBUG) {
 	char msg[] = "Caught signal ";
 	char buf[128];
@@ -195,10 +199,10 @@ static void signal_handler(int signal)
 	for (size_t i = 0; i < sizeof msg - 1; ++i) {
 	    *ptr++ = msg[i];
 	}
-	if (signal / 10) {
-	    *ptr++ = '0' + signal/10;
-	}
-	*ptr++ = '0' + signal%10;
+        if (signum / 10) {
+            *ptr++ = '0' + signum / 10;
+        }
+        *ptr++ = '0' + signum % 10;
 	*ptr++ = '\n';
 	size_t bytes = ptr - buf;
 	ptr = buf;
@@ -1001,6 +1005,7 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGHUP, &sa, NULL);
     sigaction(SIGABRT, &sa, NULL);
+    sigaction(SIGPIPE, &sa, NULL);
     signal(SIGQUIT, crash_signal_handler);
     signal(SIGALRM, hang_signal_handler);
 #else
