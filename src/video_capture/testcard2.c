@@ -49,6 +49,7 @@
 #include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/thread.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 #include "testcard_common.h"
@@ -190,11 +191,13 @@ static bool parse_fmt(struct testcard_state2 *s, char *fmt) {
 static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                printf("testcard2 is an alternative implementation of testing signal source.\n");
-                printf("It is less maintained than mainline testcard and has less features but has some extra ones, i. a. a timer (if SDL(2)_ttf is found.\n");
-                printf("\n");
-                printf("testcard2 options:\n");
-                printf("\t-t testcard2[:<width>:<height>:<fps>:<codec>]\n");
+                color_printf("testcard2 is an alternative implementation of testing signal source.\n");
+                color_printf("It is less maintained than mainline testcard and has less features but has some extra ones, i. a. a timer (if SDL(2)_ttf is found.\n");
+                color_printf("\n");
+                color_printf("testcard2 options:\n");
+                color_printf(TBOLD(TRED("\t-t testcard2") "[:<width>:<height>:<fps>:<codec>]") "\n");
+                color_printf("or\n");
+                color_printf(TBOLD(TRED("\t-t testcard2") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>][:mode=<mode>]") "\n");
                 testcard_show_codec_help("testcard2", true);
 
                 return VIDCAP_INIT_NOERR;
@@ -207,9 +210,68 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         s->desc.interlacing = PROGRESSIVE;
 
         char *fmt = strdup(strlen(vidcap_params_get_fmt(params)) != 0 ? vidcap_params_get_fmt(params) : DEFAULT_FORMAT);
-        bool ret = parse_fmt(s, fmt);
-        free(fmt);
-        if (!ret) {
+        char *ptr = fmt;
+
+        if (strlen(ptr) > 0 && isdigit(ptr[0])) {
+                bool ret = parse_fmt(s, fmt);
+                free(fmt);
+                if (!ret) {
+                        free(s);
+                        return VIDCAP_INIT_FAIL;
+                }
+        } else {
+                char *default_fmt = strdup(DEFAULT_FORMAT);
+                parse_fmt(s, default_fmt);
+                free(default_fmt);
+
+                bool ret = true;
+                char *save_ptr = NULL;
+                char *tmp = strtok_r(ptr, ":", &save_ptr);
+                while (tmp) {
+                        if (IS_KEY_PREFIX(tmp, "codec")) {
+                                s->desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
+                                if (s->desc.color_spec == VIDEO_CODEC_NONE) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong color spec: %s\n", strchr(tmp, '=') + 1);
+                                        ret = false;
+                                        break;
+                                }
+                        } else if (IS_KEY_PREFIX(tmp, "mode")) {
+                                codec_t saved_codec = s->desc.color_spec;
+                                s->desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
+                                s->desc.color_spec = saved_codec;
+                        } else if (IS_KEY_PREFIX(tmp, "size")) {
+                                tmp = strchr(tmp, '=') + 1;
+                                if (isdigit(tmp[0]) && strchr(tmp, 'x') != NULL) {
+                                        s->desc.width = atoi(tmp);
+                                        s->desc.height = atoi(strchr(tmp, 'x') + 1);
+                                } else {
+                                        struct video_desc size_dsc =
+                                                get_video_desc_from_string(tmp);
+                                        s->desc.width = size_dsc.width;
+                                        s->desc.height = size_dsc.height;
+                                }
+                        } else if (IS_KEY_PREFIX(tmp, "fps")) {
+                                if (!parse_fps(strchr(tmp, '=') + 1, &s->desc)) {
+                                        ret = false;
+                                        break;
+                                }
+                        } else {
+                                fprintf(stderr, "[testcard2] Unknown option: %s\n", tmp);
+                                ret = false;
+                                break;
+                        }
+                        tmp = strtok_r(NULL, ":", &save_ptr);
+                }
+                free(fmt);
+                if (!ret) {
+                        free(s);
+                        return VIDCAP_INIT_FAIL;
+                }
+        }
+
+        if (s->desc.width <= 0 || s->desc.height <= 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video size, given: %dx%d\n",
+                       s->desc.width, s->desc.height);
                 free(s);
                 return VIDCAP_INIT_FAIL;
         }
