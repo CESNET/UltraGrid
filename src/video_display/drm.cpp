@@ -491,6 +491,7 @@ static bool probe_drm_formats(drm_display_state *s){
                 Drm_object_properties_uniq props(drmModeObjectGetProperties(dri, plane_res->planes[i], DRM_MODE_OBJECT_PLANE));
                 if(!props){
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get plane props (%s)\n", strerror(errno));
+                        continue;
                 }
                 if(get_property(dri, props.get(), "type") == DRM_PLANE_TYPE_PRIMARY){
                         primary_plane = std::move(plane);
