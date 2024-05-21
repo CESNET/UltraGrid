@@ -1603,7 +1603,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                 }
                 MSG(WARNING,
                     "Selected color depth %d b may not be supported by HW "
-                    "decoders.\n",
+                    "coders.\n",
                     req_val);
                 disable_opt = ":depth=8";
                 break;
@@ -1612,7 +1612,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                         return;
                 }
                 MSG(WARNING, "Auto-enabling intra-refresh "
-                             "which may not be supported by HW decoders.\n");
+                             "which may not be supported by HW coders.\n");
                 disable_opt = ":disable_intra_refresh";
                 break;
         case INCOMP_INTERLACED_DCT:
@@ -1620,7 +1620,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                         return;
                 }
                 MSG(WARNING, "Auto-enabling interlaced DCT "
-                             "which may not be supported by HW decoders.\n");
+                             "which may not be supported by HW coders.\n");
                 disable_opt = ":disable_interlaced_dct";
                 break;
         case INCOMP_SUBSAMPLING:
@@ -1629,7 +1629,7 @@ incomp_feature_warn(enum incomp_feature f, int req_val)
                 }
                 MSG(WARNING,
                     "Selected pixfmt has subsampling %d:%d:%d, "
-                    "which is usually not supported by hw. decoders\n",
+                    "which is usually not supported by HW coders\n",
                     (req_val / 1000), ((req_val / 100) % 10),
                     ((req_val / 10) % 10));
                 disable_opt = ":subs=420";
