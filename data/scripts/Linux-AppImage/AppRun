@@ -5,7 +5,7 @@
 use_bundled_libva_default=0
 
 # if not run from AppImage (eg. extracted), use default values
-APPIMAGE=${APPIMAGE-none}
+export APPIMAGE="${APPIMAGE-none}"
 ARGV0=${ARGV0-$0}
 
 bold=$(tput bold || true)
@@ -267,7 +267,12 @@ setup_wayland
 set_ld_preload ultragrid_aplay_portaudio.so libjack
 set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
 
-if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
+setup_firejail() {
+        tool=$1
+        if [ "${ULTRAGRID_USE_FIREJAIL:-0}" = 0 ] ||
+                [ "$ULTRAGRID_USE_FIREJAIL" = no ]; then
+                return
+        fi
         command -v firejail >/dev/null || { echo "Firejail not present in system!"; exit 1; }
         fj_opt_file=$(mktemp)
         if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
@@ -286,16 +291,21 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
+        if [ "$tool" = hd-rum-av ]; then
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --private-bin=basename,dirname,\
+expr,kill,ps,sed,seq,sh,tput,tr,tty,uname"
+        fi
         echo "firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${n_ld_library_path}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} $FIREJAIL_OPTS " > "$fj_opt_file"
         if [ "${FIREJAIL_DEBUG:-}" ]; then
                 opts=$(cat "$fj_opt_file")
                 printf "Firejail arguments:\n\t%s\n\n" "$opts"
         fi
-fi
+}
 
 run() {
         tool=$1
         shift
+        setup_firejail "$tool"
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
                 # shellcheck disable=SC2046 # intentional

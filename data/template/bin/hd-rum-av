@@ -7,6 +7,11 @@
 ## dummy packet reflector).
 ##
 
+s_ld_library_path=${LD_LIBRARY_PATH-}
+if [ "${APPIMAGE-}" ]; then
+  LD_LIBRARY_PATH=
+fi
+
 exe=$(command -v "$0")
 dir=$(dirname "$exe")
 reflector=$dir/hd-rum-transcode
@@ -30,6 +35,15 @@ adjust_port() {
   else
     printf "%s" $(($1 + 2))
   fi
+}
+
+run_reflector() {
+  medium=$1
+  line_prefix=$2
+  shift 2
+  printf "%s %s %s\n" "${bold}Running" "$medium" "reflector: ${green}$reflector $*${reset}"
+  LD_LIBRARY_PATH=$s_ld_library_path "$reflector" "$@" |
+    sed "s/^/$line_prefix$reset /" &
 }
 
 # loops over $@ and adjusts (mailny ports) or dismisses unused video options
@@ -95,8 +109,7 @@ run_audio() {
     fi
     shift
   done
-  printf "%s\n" "${bold}Running audio reflector: ${green}$reflector $*${reset}"
-  "$reflector" "$@" | sed "s/^/${yellow}[A]$reset /" &
+  run_reflector audio "${yellow}[A]" "$@"
 }
 
 atexit() {
@@ -105,7 +118,17 @@ atexit() {
 
 sigaction() {
   trap '' TERM # inhibit following signal to ourselves
-  kill -- -$$
+  if ps -o cmd >/dev/null 2>&1; then
+    pgid=$(ps -o pgid= -p $$ | tr -d ' ')
+  else # MSW dowsn't have "ps -o"
+    pgid=$$
+  fi
+  if [ $$ -eq "$pgid" ]; then
+    kill -- -$$
+  else
+    echo "pgid $pgid not pid of the script ($$), not sending kill" \
+      "(ok if in firejail)" >&2
+  fi
   trap - INT TERM
   wait
 }
@@ -143,7 +166,6 @@ fi
 
 echo "$basename PID: $$"
 run_audio "$@"
-printf "%s\n" "${bold}Running video reflector: ${green}$reflector $*${reset}"
-"$reflector" "$@" | sed "s/^/${magenta}[V]$reset /" &
+run_reflector video "${magenta}[V]" "$@"
 
 wait
