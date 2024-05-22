@@ -896,11 +896,14 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
 /// print hint to improve performance if not making it
 static void check_duration(struct state_libavcodec_decompress *s, double duration_total_sec, double duration_pixfmt_change_sec)
 {
-        enum { REPEAT_INT_SEC = 30 };
+        enum { REPEAT_INT_SEC = 30, TIME_SLOT_PERC_MAX = 66 };
         const int mov_window = 100;
+        double tpf = 1 / s->desc.fps;
+        tpf *= TIME_SLOT_PERC_MAX / 100.;
         s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_total_sec) / mov_window;
         s->mov_avg_frames += 1;
-        if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->desc.fps) {
+        if (s->mov_avg_frames < 2 * mov_window ||
+            s->mov_avg_comp_duration < tpf) {
                 return;
         }
         const time_ns_t now = get_time_in_ns();
@@ -908,8 +911,11 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                 return;
         }
         s->duration_warn_last_print = now;
-        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average decompression time of last %d frames is %f ms but time per frame is only %f ms!\n",
-                        mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->desc.fps);
+        MSG(WARNING,
+            "Avg decompress time of last %d frames is %.2f ms which exceeds %.2f "
+            "ms (%d%% of TPF)!\n",
+            mov_window, s->mov_avg_comp_duration * MS_IN_SEC, tpf * MS_IN_SEC,
+            TIME_SLOT_PERC_MAX);
         const char *hint = NULL;
         if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
                 hint = "\"--param lavd-thread-count=<n>FS\" option with small <n> or 0 (nr of logical cores)";
