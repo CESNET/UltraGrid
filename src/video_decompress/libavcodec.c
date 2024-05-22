@@ -99,7 +99,7 @@ struct state_libavcodec_decompress {
         _Bool sps_vps_found; ///< to avoid initial error flood, start decoding after SPS (H.264) or VPS (HEVC) was received
 
         double    mov_avg_comp_duration;
-        long      mov_avg_frames;
+        long long mov_avg_frames;
         time_ns_t duration_warn_last_print;
 };
 
@@ -896,13 +896,19 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
 /// print hint to improve performance if not making it
 static void check_duration(struct state_libavcodec_decompress *s, double duration_total_sec, double duration_pixfmt_change_sec)
 {
-        enum { REPEAT_INT_SEC = 30, TIME_SLOT_PERC_MAX = 66 };
-        const int mov_window = 100;
+        enum {
+                MOV_WIN_FRM        = 100,
+                REPEAT_INT_SEC     = 30,
+                TIME_SLOT_PERC_MAX = 66
+        };
         double tpf = 1 / s->desc.fps;
         tpf *= TIME_SLOT_PERC_MAX / 100.;
-        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_total_sec) / mov_window;
+        s->mov_avg_comp_duration =
+            (s->mov_avg_comp_duration * (MOV_WIN_FRM - 1) +
+             duration_total_sec) /
+            MOV_WIN_FRM;
         s->mov_avg_frames += 1;
-        if (s->mov_avg_frames < 2 * mov_window ||
+        if (s->mov_avg_frames < 2 * MOV_WIN_FRM ||
             s->mov_avg_comp_duration < tpf) {
                 return;
         }
@@ -914,7 +920,7 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         MSG(WARNING,
             "Avg decompress time of last %d frames is %.2f ms which exceeds %.2f "
             "ms (%d%% of TPF)!\n",
-            mov_window, s->mov_avg_comp_duration * MS_IN_SEC, tpf * MS_IN_SEC,
+            MOV_WIN_FRM, s->mov_avg_comp_duration * MS_IN_SEC, tpf * MS_IN_SEC,
             TIME_SLOT_PERC_MAX);
         const char *hint = NULL;
         if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
