@@ -933,7 +933,9 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average decompression time of last %d frames is %f ms but time per frame is only %f ms!\n",
                         mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->desc.fps);
         const char *hint = NULL;
-        if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
+        if ((s->codec_ctx->thread_type & FF_THREAD_FRAME) == 0 &&
+            (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) !=
+                0) {
                 hint = "\"--param lavd-thread-count=<n>FS\" option with small <n> or 0 (nr of logical cores)";
         } else if (s->codec_ctx->thread_count == 1 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
                 hint = "\"--param lavd-thread-count=<n>\" option with small <n> or 0 (nr of logical cores)";
