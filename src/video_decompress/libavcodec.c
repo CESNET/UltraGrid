@@ -931,9 +931,15 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                 hint = "\"--param lavd-thread-count=<n>\" option with small <n> or 0 (nr of logical cores)";
         }
         if (hint) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Consider adding %s to increase throughput at the expense of latency.\n"
-                                "You may also try to disable low delay decode using 'd' flag.\n",
-                                hint);
+                MSG(WARNING,
+                    "Consider adding %s to increase throughput at the expense "
+                    "of latency.\n",
+                    hint);
+        }
+        if ((s->codec_ctx->flags & AV_CODEC_FLAG_LOW_DELAY) != 0) {
+                MSG(WARNING,
+                    "Consider %sdisabling low delay decode using 'd' flag.\n",
+                    hint != NULL ? "also " : "");
         }
 
         bool in_rgb = av_pix_fmt_desc_get(s->convert_in)->flags & AV_PIX_FMT_FLAG_RGB;
