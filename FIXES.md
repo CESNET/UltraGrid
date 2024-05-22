@@ -1,3 +1,9 @@
+#### 1.9.3
+
+* fixed crashes in edge cases
+* support for current DELTACAST driver/SDK
+* deinterlace: fixed running without options
+
 #### 1.9.2
 
 * CI: build CUDA stuff for CC 3.5 (compat with Kepler/Maxwell devices)
