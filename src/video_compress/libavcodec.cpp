@@ -1977,14 +1977,17 @@ void show_encoder_help(string const &name) {
                 }
                 string help_str;
                 if (opt->help != nullptr && strlen(opt->help) > 0) {
-                        help_str = " - "s + opt->help;
-                        if (!default_val.empty()) {
-                                if (strstr(opt->help, "default") == nullptr) {
-                                        help_str += ", ";
-                                } else {
-                                        default_val = "";
-                                }
+                        help_str = opt->help;
+                }
+                if (!default_val.empty()) {
+                        if (help_str.find("default") == 0) {
+                                default_val = "";
+                        } else if (!help_str.empty()) {
+                                help_str += ", ";
                         }
+                }
+                if (!help_str.empty() || !default_val.empty()) {
+                        help_str = " - "s + help_str;
                 }
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
