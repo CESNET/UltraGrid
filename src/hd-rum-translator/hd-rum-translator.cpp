@@ -705,8 +705,7 @@ static int parse_global_opts(int argc, char **argv,
                         return 1;
                 case '?':
                 default:
-                        MSG(FATAL, "Unknown global parameter: %s\n\n",
-                            argv[optind - 1]);
+                        MSG(FATAL, "Unknown global parameter\n\n");
                         usage(argv[0]);
                         return -1;
                 }
@@ -799,8 +798,7 @@ parse_fmt(int argc, char **argv,
                             parsed->hosts[parsed->host_count].force_ip_version = 6;
                             break;
                     default:
-                            MSG(FATAL, "Error: invalid host option %s\n",
-                                argv[optind - 1]);
+                            MSG(FATAL, "Error: invalid host option.\nn");
                             return -1;
                     }
             }
