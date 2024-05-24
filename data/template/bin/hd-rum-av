@@ -31,7 +31,6 @@ adjust_port() {
     rx=$(echo "$1" | cut -d: -f 1)
     tx=$(echo "$1" | cut -d: -f 2)
     printf "%s" $((rx + 2)):$((tx + 2))
-    printf "%s" $((rx + 2)):$((tx + 2)) >&2
   else
     printf "%s" $(($1 + 2))
   fi
@@ -48,68 +47,68 @@ run_reflector() {
 
 # loops over $@ and adjusts (mailny ports) or dismisses unused video options
 run_audio() {
-  in_global_opts=1
-  skip_next= # skip arg, belongs to previous option
+  # translate long opts to short opts
   # shellcheck disable=SC2034
   for n in $(seq $#); do
-    if [ $skip_next ]; then
-      shift
-      skip_next=
-      continue
-    fi
-
-    if [ $in_global_opts ]; then
-      # pass following options
-      if [ "$1" = -S ] || [ "$1" = --server ]; then
-        set -- "$@" "$1" "$2"
-        skip_next=1
-      elif  [ "$1" = -v ] || expr "$1" : -V > /dev/null; then
-        set -- "$@" "$1"
-      elif  [ "$1" = --param ] || [ "$1" = -O ]; then
-        set -- "$@" "$1" "$2"
-        skip_next=1
-      # drop following options
-      elif  [ "$1" = --blend ] || [ "$1" = -B ]; then
-        : # just skip
-      elif [ "$1" = --control-port ] || [ "$1" = -n ] ||
-        [ "$1" = --conference ] || [ "$1" = -r ] ||
-        [ "$1" = --conference-compression ] || [ "$1" = -R ] ||
-        [ "$1" = --capture-filter ] || [ "$1" = -F ]
-      then
-        skip_next=1
-      elif expr "x$1" : x- >/dev/null; then
-        echo "Unsupported global option $1!"
-        exit 1
-      else
-        in_global_opts=
-        # copy the buffer size and port+2
-        set -- "$@" "$1" $(($2 + 2))
-        skip_next=1
-      fi
-    else
-      # drop host video opt
-      if [ "$1" = -c ] ||
-        [ "$1" = -f ] ||
-        [ "$1" = -m ] ||
-        [ "$1" = -l ]
-      then
-        skip_next=1
-      # pass -4/-6
-      elif [ "$1" = -4 ] || [ "$1" = -6 ]; then
-        set -- "$@" "$1"
-      elif [ "$1" = -P ] || [ "$1" = --port ]; then
-        set -- "$@" "$1" "$(adjust_port "$2")"
-        skip_next=1
-      elif expr "x$1" : x- >/dev/null; then
-        echo "Unsupported host option $1!"
-        exit 1
-      else
-        set -- "$@" "$1"
-      fi
-    fi
+    val=$1
+    case "$val" in
+    --help) val=-h;;
+    --server) val=-S;;
+    --verbose) val=-V;;
+    --version) val=-v;;
+    --param) val=-O;;
+    --blend) val=-B;;
+    --control-port) val=-n;;
+    --conference) val=-r;;
+    --conference-compression) val=-R;;
+    --capture-filter) val=-F;;
+    esac
     shift
+    set -- "$@" "$val"
   done
-  run_reflector audio "${yellow}[A]" "$@"
+
+  args=
+  while getopts S:vVO:B:n:r:R:F: name; do
+    case "$name" in
+      O|S) args="$args -$name $OPTARG";;
+      V) args="$args -$name";;
+      v) return;;
+      B|F|R|n|r) ;; # video opts
+      *)
+        echo "Unsupported global option!" >&2
+        exit 1
+        ;;
+    esac
+  done
+  if [ $OPTIND -ge $# ]; then
+      echo "Missing bufsize/port!"
+      exit 1
+  fi
+  eval bufsize="\${$OPTIND}"
+  eval port="\${$((OPTIND+1))}"
+  args="$args ${bufsize?} $((${port?} + 2))"
+  OPTIND=$((OPTIND+2))
+
+  while [ $OPTIND -le $# ]; do
+    if getopts 46P:c:f:m:l: name; then
+      case "$name" in
+        c|f|m|l) ;; # video opts
+        4|6) args="$args -$name";;
+        P) args="$args -P $(adjust_port "$OPTARG")";;
+        *)
+          echo "Unsupported host option!" >&2
+          exit 1
+          ;;
+      esac
+    else
+      eval "host=\${$OPTIND}"
+      args="$args ${host?}"
+      OPTIND=$((OPTIND + 1))
+    fi
+  done
+  # TODO - if args with spaces required, use sth like `eval arg$((argc+=1))=b`
+  # shellcheck disable=SC2086 # see the above TODO
+  run_reflector audio "${yellow}[A]" $args
 }
 
 atexit() {
