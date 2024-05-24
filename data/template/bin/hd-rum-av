@@ -14,10 +14,11 @@ fi
 
 exe=$(command -v "$0")
 dir=$(dirname "$exe")
-reflector=$dir/hd-rum-transcode
 if ! command -v uname >/dev/null || [ "$(uname -o)" = Msys ]; then
-  reflector=$reflector.exe
+  exeext=.exe
 fi
+reflector=$dir/hd-rum-transcode${exeext-}
+uv=$dir/uv${exeext-}
 basename=$(basename "$0")
 
 bold=$(tput bold || true)
@@ -25,6 +26,9 @@ green=$(tput setaf 2 || true)
 yellow=$(tput setaf 3 || true)
 magenta=$(tput setaf 5 || true)
 reset=$(tput sgr0 || true)
+
+video_term_prefix="${magenta}[V]"
+audio_term_prefix="${yellow}[A]"
 
 adjust_port() {
   if expr "$1" : ".*:" >/dev/null; then
@@ -44,6 +48,15 @@ run_reflector() {
   LD_LIBRARY_PATH=$s_ld_library_path "$reflector" "$@" |
     sed "s/^/$line_prefix$reset /" &
 }
+
+run_audio_conference() {
+  port=$1
+  echo "${bold}Running audio conference: ${green}$uv -P $port \
+-r mixer $*${reset}"
+  LD_LIBRARY_PATH=$s_ld_library_path "$uv" -P "$port" -r mixer |
+    sed "s/^/$audio_term_prefix$reset /" &
+}
+
 
 # loops over $@ and adjusts (mailny ports) or dismisses unused video options
 run_audio() {
@@ -73,7 +86,8 @@ run_audio() {
       O|S) args="$args -$name $OPTARG";;
       V) args="$args -$name";;
       v) return;;
-      B|F|R|n|r) ;; # video opts
+      B|F|R|n) ;; # video opts
+      r) conference=1;;
       *)
         echo "Unsupported global option!" >&2
         exit 1
@@ -88,6 +102,11 @@ run_audio() {
   eval port="\${$((OPTIND+1))}"
   args="$args ${bufsize?} $((${port?} + 2))"
   OPTIND=$((OPTIND+2))
+
+  if [ "${conference-}" ]; then
+    run_audio_conference "$port"
+    return
+  fi
 
   while [ $OPTIND -le $# ]; do
     if getopts 46P:c:f:m:l: name; then
@@ -108,7 +127,7 @@ run_audio() {
   done
   # TODO - if args with spaces required, use sth like `eval arg$((argc+=1))=b`
   # shellcheck disable=SC2086 # see the above TODO
-  run_reflector audio "${yellow}[A]" $args
+  run_reflector audio "$audio_term_prefix" $args
 }
 
 atexit() {
@@ -133,11 +152,12 @@ sigaction() {
 }
 
 usage() {
-  printf "Wrapper to run concurrenty both audio and video"
+  printf "reflector wrapper to run concurrenty both audio and video\n\n"
   echo Usage:
-  printf "%b\n" "\t${bold}$0${reset} <reflector argx>"
+  printf "%b\n" "\t${bold}$0${reset} <reflector arg>"
   printf "%b\n\n" "\t${bold}$0${reset} -H"
-  printf "Set video options, audio will be adjusted automatically.\n\n"
+  printf "Set video options, audio will be adjusted automatically.\n"
+  printf "Both server and conference mode is supported.\n\n"
   printf "%s\n" "Use $bold-H$reset for reflector help."
 }
 
@@ -165,6 +185,6 @@ fi
 
 echo "$basename PID: $$"
 run_audio "$@"
-run_reflector video "${magenta}[V]" "$@"
+run_reflector video "$video_term_prefix" "$@"
 
 wait
