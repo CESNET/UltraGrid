@@ -132,12 +132,13 @@ ADD_TO_PARAM("log-color", "* log-color[=no]\n"
 /**
  * @returns whether stdout can process ANSI escape sequences
  */
-bool color_output_init() {
+static bool
+is_output_color()
+{
 #ifdef HAVE_CONFIG_H
         const char *const param_val = get_commandline_param("log-color");
         if (param_val != nullptr) {
-                color_stdout = strcmp(param_val, "no") != 0;
-                return color_stdout;
+                return strcmp(param_val, "no") != 0;
         }
 #endif
         const char *env_val = getenv("ULTRAGRID_COLOR_OUT");
@@ -145,10 +146,18 @@ bool color_output_init() {
                 return strcmp(env_val, "0") != 0;
         }
 #ifdef _WIN32
-        color_stdout = isMsysPty(fileno(stdout)) || (_isatty(fileno(stdout)) && setWinTermAnsiColors(STD_OUTPUT_HANDLE));
+        return isMsysPty(fileno(stdout)) ||
+               (_isatty(fileno(stdout)) &&
+                setWinTermAnsiColors(STD_OUTPUT_HANDLE));
 #else
-        color_stdout = isatty(fileno(stdout));
+        return isatty(fileno(stdout));
 #endif
+}
+/// sets internal variable color_stdout and retunrs its contents
+bool
+color_output_init()
+{
+        color_stdout = is_output_color();
         return color_stdout;
 }
 
