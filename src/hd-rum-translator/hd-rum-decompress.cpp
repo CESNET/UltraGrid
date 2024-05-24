@@ -5,7 +5,7 @@
  * @brief  decompressing part of transcoding reflector
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,16 +37,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "hd-rum-translator/hd-rum-decompress.h"
-#include "hd-rum-translator/hd-rum-recompress.h"
-
-#include <chrono>
 #include <condition_variable>
 #include <iostream>
 #include <map>
@@ -54,7 +44,9 @@
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <vector>
+
+#include "hd-rum-translator/hd-rum-decompress.h"
+#include "hd-rum-translator/hd-rum-recompress.h"
 
 #include "audio/types.h"
 #include "capture_filter.h"
@@ -71,7 +63,13 @@
 
 static constexpr int MAX_QUEUE_SIZE = 2;
 
-using namespace std;
+using std::condition_variable;
+using std::condition_variable;
+using std::map;
+using std::mutex;
+using std::string;
+using std::thread;
+using std::unique_lock;
 
 namespace hd_rum_decompress {
 struct state_transcoder_decompress : public frame_recv_delegate {
@@ -238,7 +236,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                         return nullptr;
                 }
         } catch (string const &s) {
-                cerr << s << endl;
+                LOG(LOG_LEVEL_ERROR) << s << "\n";
                 return nullptr;
         }
 
