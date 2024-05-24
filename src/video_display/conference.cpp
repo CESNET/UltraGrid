@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include "video_codec.h"
 #include "module.h"
 #include "utils/misc.h"
+#include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"
 
 #include <cinttypes>
@@ -453,7 +454,15 @@ static struct display *display_conference_fork(void *state)
         return out;
 }
 
-static void show_help(){
+static void show_help(bool from_reflector = false){
+        if (from_reflector) {
+                color_printf(TBOLD("conference")
+                             " options:\n");
+                color_printf("\t" TBOLD(
+                    "-r <width>:<height>[:<fps>]")
+                             "\n");
+                return;
+        }
         printf("Conference display\n");
         printf("Usage:\n");
         printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[layout]\n");
@@ -467,6 +476,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         if(!fmt){
                 show_help();
                 return INIT_NOERR;
+        }
+
+        if (strcmp(fmt, "reflhelp") == 0) {
+                show_help(true);
+                return nullptr;
         }
 
         if (isdigit(fmt[0])){ // fork
