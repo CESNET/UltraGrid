@@ -421,6 +421,7 @@ struct state_conference_common{
         struct module *parent = nullptr;
         module_raii mod;
 
+        double req_fps = 0;
         struct video_desc desc = {};
         Video_mixer::Layout layout = Video_mixer::Layout::Tiled;
 
@@ -506,7 +507,9 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.height), "Failed to parse height\n");
 
         auto tok = tokenize(conf_cfg, ':');
-        FAIL_IF(!tok.empty() && !parse_num(tokenize(tok, ':'), desc.fps), "Failed to parse fps\n");
+        FAIL_IF(!tok.empty() && !parse_num(tokenize(tok, ':'), s->common->req_fps), "Failed to parse fps\n");
+
+        desc.fps = s->common->req_fps;
 
         tok = tokenize(conf_cfg, ':');
         if(tok == "one_big"){
@@ -537,6 +540,12 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
         PROFILE_FUNC;
         Video_mixer mixer(s->desc.width, s->desc.height, s->layout);
 
+        /**
+         * We initially set next_frame_time to infinity (or a very long time
+         * from now) to avoid uselessly outputing the same frame twice in a row
+         * if we haven't received any new input, because then any new input
+         * would have to wait up to 1 frametime adding needless latency.
+         */
         auto next_frame_time = clock::now() + std::chrono::hours(1); //workaround for gcc bug 58931
         auto last_frame_time = clock::time_point::min();
         for(;;){
@@ -602,6 +611,9 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
                         if(!frame){
                                 display_put_frame(s->real_display.get(), nullptr, PUTF_BLOCKING);
                                 break;
+                        }
+                        if(s->req_fps <= 0){
+                                s->desc.fps = std::max(s->desc.fps, frame->fps);
                         }
                         mixer.process_frame(std::move(frame));
                 }
