@@ -572,7 +572,7 @@ struct host_opts {
     int rx_port;
     int tx_port;
     int mtu;
-    char *compression;
+    const char *compression;
     char *fec;
     int64_t bitrate;
     int force_ip_version;
@@ -1093,7 +1093,11 @@ int main(int argc, char **argv)
             tx_port = params.hosts[i].tx_port;
         }
 
-        const auto& h = params.hosts[i];
+        auto& h = params.hosts[i];
+
+        if(!h.compression && params.out_conf.mode == CONFERENCE){
+            h.compression = params.conference_compression;
+        }
 
         int idx = create_output_port(&state,
                 h.addr, rx_port, tx_port, state.bufsize, h.force_ip_version,
