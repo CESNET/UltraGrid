@@ -152,13 +152,29 @@ sigaction() {
 }
 
 usage() {
-  printf "reflector wrapper to run concurrenty both audio and video\n\n"
+  printf "Reflector wrapper to run concurrenty both audio and video\n\n"
+  printf "%b" "Options set is basically the same as for \
+${bold}hd-rum-transcode$reset,\naudio will be adjusted automatically.\n"
+  printf "\n"
+  printf "Both server and conference mode is supported.\n\n"
   echo Usage:
   printf "%b\n" "\t${bold}$0${reset} <reflector arg>"
   printf "%b\n\n" "\t${bold}$0${reset} -H"
-  printf "Set video options, audio will be adjusted automatically.\n"
-  printf "Both server and conference mode is supported.\n\n"
-  printf "%s\n" "Use $bold-H$reset for reflector help."
+
+  echo Examples:
+  printf "%b\n" "\t${bold}$0 8M 5004 curtis -c lavc:enc=libx264 ormal -P 5008 \
+100::1${reset}"
+  printf "%b\n" "\t\twill send audio and video unchanged to \
+${bold}curtis$reset and ${bold}100::1$reset and transcode video for \
+${bold}ormal$reset"
+  printf "%b\n" "\t$bold$0 -S 5004 8M 6004$reset"
+  printf "%b\n" "\t\tuse ${bold}server mode$reset receiving AV on 6004/6006; \
+clients connect to default ports 5004/5006"
+  printf "%b\n" "\t$bold$0 -r 1920:1080:30 5004$reset"
+  printf "%b\n" "\t\tconference mode"
+  printf "\n"
+
+  printf "%b\n" "Use $bold-H$reset for reflector (hd-rum-transcode) help."
 }
 
 if [ $# = 0 ] || [ "$1" = -h ] || [ "$1" = --help ]; then
