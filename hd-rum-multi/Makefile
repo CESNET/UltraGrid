@@ -1,7 +1,7 @@
 SRCDIR ?= .
 
 all:
-	gcc -g -Wall -pthread -o hd-rum $(SRCDIR)/hd-rum.c
+	$(CC) -g -Wall -pthread -o hd-rum $(SRCDIR)/hd-rum.c
 
 install:
 	install -m 755 hd-rum /usr/local/bin
