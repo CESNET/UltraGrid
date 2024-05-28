@@ -1146,17 +1146,9 @@ static void libavcodec_decompress_done(void *state)
  * This should be take into account existing conversions.
  */
 static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
-        enum {
-                PRIO_NA    = -1,
-                PRIO_PROBE = 80,
-                PRIO_HI    = 200,
-                PRIO_MID   = 500,
-                PRIO_LOWER = 800,
-                PRIO_LO    = 900,
-        };
         if (internal.accel_type != HWACCEL_NONE &&
             hw_accel_to_ug_pixfmt(internal.accel_type) == ugc) {
-                return PRIO_HI;
+                return VDEC_PRIO_PREFERRED;
         }
 
         unsigned i = 0;
@@ -1174,12 +1166,12 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 }
         }
         if (i == sizeof decoders / sizeof decoders[0]) { // lavd doesn't handle this compression
-                return PRIO_NA;
+                return VDEC_PRIO_NA;
         }
 
         switch (ugc) {
                 case VIDEO_CODEC_NONE:
-                        return PRIO_PROBE; // for probe
+                        return VDEC_PRIO_PROBE_LO; // for probe
                 case UYVY:
                 case RG48:
                 case RGB:
@@ -1190,12 +1182,13 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 case Y416:
                         break;
                 default:
-                        return PRIO_NA;
+                        return VDEC_PRIO_NA;
         }
         if (internal.depth == 0) { // unspecified internal format
-                return PRIO_LO;
+                return VDEC_PRIO_LOW;
         }
-        return codec_is_a_rgb(ugc) == internal.rgb ? PRIO_MID : PRIO_LOWER;
+        return codec_is_a_rgb(ugc) == internal.rgb ? VDEC_PRIO_NORMAL
+                                                   : VDEC_PRIO_NOT_PREFERRED;
 }
 
 static const struct video_decompress_info libavcodec_info = {

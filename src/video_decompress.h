@@ -130,10 +130,31 @@ typedef  int (*decompress_get_property_t)(void *state, int property, void *val, 
  */
 typedef  void (*decompress_done_t)(void *);
 
+enum vdec_priority {
+        VDEC_PRIO_NA       = -1, ///< decoder cannot handle the codec in any way
+        VDEC_PRIO_PROBE_HI = 50, ///< decoder can probe
+        VDEC_PRIO_PROBE_LO = 80, ///< decoder is capable to probe the codec but
+                                 ///< doesn't think it is dedicated (like lavd)
+        VDEC_PRIO_PREFERRED =
+            200, ///< decoder is capable to decode given properties ///< and
+                 ///< thinks it is preferred (GJ, CFHD)
+        VDEC_PRIO_NORMAL = 500, ///< decoder can decode the given properties but
+                                ///< is not dedicated (lavd)
+        VDEC_PRIO_NOT_PREFERRED =
+            800, ///< decoder can decode given properties but the decode
+                 ///< is suboptimal (like color space conversion)
+                 ///< @todo consider removing this - as this is after
+                 ///<       probe, the CS conv will be needed for all
+                 ///<       decoders (so it will not differentiate)
+        VDEC_PRIO_LOW = 900, ///< the decoder is unsure if it can decode the
+                             ///< stream (eg. unknown properties)
+};
+
 /**
  * @retval (-1) this module cannot decode specified configuration
  * @return priority Priority to select this decoder if there are multiple matches for
  *                  specified compress/pixelformat pair. Range is [0..1000], lower is better.
+ *                  See @ref vdec_priority for suggested values (but it is not restrictive).
  */
 typedef int (*decompress_get_priority_t)(codec_t compression, struct pixfmt_desc internal, codec_t ugc);
 
@@ -152,7 +173,7 @@ bool decompress_init_multi(codec_t compression,
                 struct state_decompress **out,
                 int count);
 
-/** */
+/// @sa decompress_reconfigure_t
 int decompress_reconfigure(struct state_decompress *,
                 struct video_desc,
                 int rshift,
