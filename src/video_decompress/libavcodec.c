@@ -1162,7 +1162,15 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
         unsigned i = 0;
         for ( ; i < sizeof decoders / sizeof decoders[0]; ++i) {
                 if (decoders[i].ug_codec == compression) {
-                        break;
+                        const AVCodec *const decoder =
+                            avcodec_find_decoder(decoders[i].avcodec_id);
+                        if (decoder != NULL) {
+                                break;
+                        }
+                        MSG(WARNING,
+                            "Codec %s supported by lavd but "
+                            "not compiled in FFmpeg build.\n",
+                            get_codec_name(compression));
                 }
         }
         if (i == sizeof decoders / sizeof decoders[0]) { // lavd doesn't handle this compression
