@@ -252,6 +252,7 @@ static const struct decoder_info decoders[] = {
         { PRORES_422, AV_CODEC_ID_PRORES, NULL, { NULL } },
         { PRORES_422_PROXY, AV_CODEC_ID_PRORES, NULL, { NULL } },
         { PRORES_422_LT, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { CFHD, AV_CODEC_ID_CFHD, NULL, { NULL } }
 };
 
 static bool
