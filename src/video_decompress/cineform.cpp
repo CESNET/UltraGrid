@@ -434,7 +434,7 @@ static int cineform_decompress_get_priority(codec_t compression, struct pixfmt_d
                 default:
                         return -1;
         }
-        return 500;
+        return VDEC_PRIO_PREFERRED;
 }
 
 static const struct video_decompress_info cineform_info = {
