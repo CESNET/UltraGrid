@@ -98,7 +98,7 @@ install_live555() {(
 )}
 
 install_soundfont() {(
-        sf_dir="$srcroot/data/MacOS-bundle-template/Contents/share/soundfonts"
+        sf_dir="$srcroot/data/template/macOS-bundle/Contents/share/soundfonts"
         mkdir -p "$sf_dir"
         cp "$GITHUB_WORKSPACE/data/default.sf3" "$sf_dir"
 )}

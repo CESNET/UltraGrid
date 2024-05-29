@@ -577,7 +577,7 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	rm -rf $(BUNDLE)
 	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs $(BUNDLE)/Contents/Frameworks
 	$(CP) $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
-	$(CP) -r data/MacOS-bundle-template/* $(BUNDLE)/
+	$(CP) -r data/template/macOS-bundle/* $(BUNDLE)/
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
 	$(CP) $(srcdir)/data/template/bin/* $(BUNDLE)/Contents/MacOS
 	$(CP) -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
@@ -664,9 +664,8 @@ install: all
 		$(INSTALL) -m 755 @MODULES@ $(DESTDIR)$(libdir)/ultragrid;\
 	fi
 	$(INSTALL) -d -m 755 $(DESTDIR)$(docdir)
-	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)$(docdir)
+	$(CP) $(DOCS) $(DESTDIR)$(docdir)
 	$(INSTALL) -m 644 $(srcdir)/CONTRIBUTING.md $(srcdir)/COPYRIGHT $(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README.md $(DESTDIR)$(docdir)
-	$(INSTALL) -m 755 $(srcdir)/data/ultragrid-bugreport-collect.sh $(DESTDIR)$(docdir)
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	if [ -n '@MANPAGES@' ]; then $(INSTALL) -m 644 @MANPAGES@ $(DESTDIR)$(man1dir); fi
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
@@ -680,7 +679,6 @@ uninstall:
 	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
 	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)/`basename $$n`; done;
 	$(RM) $(DESTDIR)$(docdir)/CONTRIBUTING.md $(DESTDIR)$(docdir)/COPYRIGHT $(DESTDIR)$(docdir)/INSTALL $(DESTDIR)$(docdir)/NEWS $(DESTDIR)$(docdir)/README.md
-	$(RM) $(DESTDIR)$(docdir)/ultragrid-bugreport-collect.sh
 	rmdir $(DESTDIR)$(docdir)
 	$(RM) $(DESTDIR)$(man1dir)/uv.1 $(DESTDIR)$(man1dir)/hd-rum-transcode.1
 	if [ -f "$(GUI_TARGET)" ]; then \
