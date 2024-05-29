@@ -42,6 +42,19 @@ master branch, preferably rebased to current version. If multiple features are
 created, multiple pull requests containing every single feature should be
 issued.
 
+The pull request should represent a coherent unit, like a single feature added.
+More features should be separated to multiple pull request (of course if possible
+and eg. not firmly bound together).
+
+The contained commits shouls present clearly what was changed. Ideally,
+if refactoring is done, it should not be mixed with functional changes
+in a single commit, similarly for the code movement.
+
+### Copyright and license
+
+Code added to existing file must keep the license. Newly created files should be
+3-clause BSD licensed.
+
 ## Coding standards
 **TODO:** incomplete
 
@@ -50,8 +63,20 @@ issued.
 Recommended style is modified LLVM clang-format style:
 ```
 BasedOnStyle: LLVM
-IndentWidth: 8
+AlignArrayOfStructures: Left
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: DontAlign
+AlwaysBreakAfterReturnType: TopLevelDefinitions
 BreakBeforeBraces: Linux
+Cpp11BracedListStyle: false
+IndentWidth: 8
+Macros:
+  - TBOLD(x)=x
+  - TRED(x)=x
+ReflowComments: true
+SpaceAfterCStyleCast: true
 ````
 
 The style is deduced from original _rtp/rtp.{c,h}_ formatting and it
@@ -63,6 +88,10 @@ without using tabs.
 ### Naming conventions
 
 Logged module name (`MOD_NAME`) should be lower-case.
+
+#### Macros
+
+It is recommended for the function-like macros to be typed upper-case.
 
 ## Conclusion
 Aside of what is enumerated above, we will be glad if you share with us your
