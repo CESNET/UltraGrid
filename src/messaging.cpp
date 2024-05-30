@@ -152,10 +152,10 @@ static struct response *send_message_common(struct module *root, const char *con
                                 if (!(flags & SEND_MESSAGE_FLAG_QUIET))
                                         printf("Receiver %s does not exist.\n", const_path);
                                 //dump_tree(root, 0);
-                                if (simple_linked_list_size(old_receiver->msg_queue_childs) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
+                                if (simple_linked_list_size(old_receiver->msg_queue_children) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
                                         if (!(flags & SEND_MESSAGE_FLAG_QUIET))
                                                 printf("Dropping some old messages for %s (queue full).\n", const_path);
-                                        free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_childs),
+                                        free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_children),
                                                         new_response(RESPONSE_NOT_FOUND, "Receiver not found"));
                                 }
 
@@ -164,7 +164,7 @@ static struct response *send_message_common(struct module *root, const char *con
                                 saved_message->msg = msg;
                                 strcpy(saved_message->path, const_path + (item - tmp));
 
-                                simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
+                                simple_linked_list_append(old_receiver->msg_queue_children, saved_message);
                                 pthread_mutex_unlock(&old_receiver->lock);
 
                                 free(tmp);
@@ -266,16 +266,16 @@ void module_check_undelivered_messages(struct module *node)
 {
         pthread_mutex_guard guard(node->lock);
 
-        for(void *it = simple_linked_list_it_init(node->msg_queue_childs); it != NULL; ) {
+        for(void *it = simple_linked_list_it_init(node->msg_queue_children); it != NULL; ) {
                 struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
                 struct module *receiver = get_matching_child(node, msg->path);
                 if (receiver) {
                         struct response *resp = send_message_to_receiver(receiver, msg->msg);
                         free_response(resp);
-                        simple_linked_list_remove(node->msg_queue_childs, msg);
+                        simple_linked_list_remove(node->msg_queue_children, msg);
                         free(msg);
                         // reinit iterator
-                        it = simple_linked_list_it_init(node->msg_queue_childs);
+                        it = simple_linked_list_it_init(node->msg_queue_children);
                 }
         }
 }

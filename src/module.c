@@ -58,9 +58,9 @@ void module_init_default(struct module *module_data)
         ret |= pthread_mutexattr_destroy(&attr);
         assert(ret == 0 && "Unable to create mutex or set attributes");
 
-        module_data->childs = simple_linked_list_init();
+        module_data->children = simple_linked_list_init();
         module_data->msg_queue = simple_linked_list_init();
-        module_data->msg_queue_childs = simple_linked_list_init();
+        module_data->msg_queue_children = simple_linked_list_init();
 
         module_data->magic = MODULE_MAGIC;
 }
@@ -84,7 +84,7 @@ void module_register(struct module *module_data, struct module *parent)
         if(parent) {
                 module_data->parent = parent;
                 module_mutex_lock(&module_data->parent->lock);
-                simple_linked_list_append(module_data->parent->childs, module_data);
+                simple_linked_list_append(module_data->parent->children, module_data);
                 module_check_undelivered_messages(module_data->parent);
                 module_mutex_unlock(&module_data->parent->lock);
         }
@@ -103,7 +103,7 @@ void module_done(struct module *module_data)
         if(module_data->parent) {
                 module_mutex_lock(&module_data->parent->lock);
                 bool found = simple_linked_list_remove(
-                    module_data->parent->childs, module_data);
+                    module_data->parent->children, module_data);
                 assert(found);
                 module_mutex_unlock(&module_data->parent->lock);
         }
@@ -119,11 +119,11 @@ void module_done(struct module *module_data)
         if(module_data->deleter)
                 module_data->deleter(module_data);
 
-        if(simple_linked_list_size(tmp.childs) > 0) {
+        if(simple_linked_list_size(tmp.children) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
                 dump_tree(&tmp, 0);
                 module_mutex_lock(&tmp.lock);
-                for(void *it = simple_linked_list_it_init(module_data->childs); it != NULL; ) {
+                for(void *it = simple_linked_list_it_init(module_data->children); it != NULL; ) {
                         struct module *child = simple_linked_list_it_next(&it);
                         module_mutex_lock(&child->lock);
                         child->parent = NULL;
@@ -131,7 +131,7 @@ void module_done(struct module *module_data)
                 }
                 module_mutex_unlock(&tmp.lock);
         }
-        simple_linked_list_destroy(tmp.childs);
+        simple_linked_list_destroy(tmp.children);
 
         if(simple_linked_list_size(tmp.msg_queue) > 0) {
                 fprintf(stderr, "Warning: Message queue not empty!\n");
@@ -146,11 +146,11 @@ void module_done(struct module *module_data)
         }
         simple_linked_list_destroy(tmp.msg_queue);
 
-        while (simple_linked_list_size(tmp.msg_queue_childs) > 0) {
-                struct message *m = simple_linked_list_pop(tmp.msg_queue_childs);
+        while (simple_linked_list_size(tmp.msg_queue_children) > 0) {
+                struct message *m = simple_linked_list_pop(tmp.msg_queue_children);
                 free_message_for_child(m, NULL);
         }
-        simple_linked_list_destroy(tmp.msg_queue_childs);
+        simple_linked_list_destroy(tmp.msg_queue_children);
 
         pthread_mutex_destroy(&tmp.lock);
 
@@ -223,7 +223,7 @@ struct module *get_parent_module(struct module *node)
 static struct module *find_child(struct module *node, const char *node_name, int id_num,
                 const char *id_name)
 {
-        for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
+        for(void *it = simple_linked_list_it_init(node->children); it != NULL; ) {
                 struct module *child = (struct module *) simple_linked_list_it_next(&it);
                 const char *child_name = module_class_name(child->cls);
                 assert(child_name != NULL);
@@ -332,7 +332,7 @@ void dump_tree(struct module *root_node, int indent) {
         printf("%s\n", module_class_name(root_node->cls));
 
         module_mutex_lock(&root_node->lock);
-        for(void *it = simple_linked_list_it_init(root_node->childs); it != NULL; ) {
+        for(void *it = simple_linked_list_it_init(root_node->children); it != NULL; ) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
@@ -368,7 +368,7 @@ static const char *get_module_identifier(struct module *mod)
         module_mutex_lock(&parent->lock);
 
         int our_index = 0;
-        for (void *it = simple_linked_list_it_init(parent->childs);
+        for (void *it = simple_linked_list_it_init(parent->children);
              it != NULL;) {
                 struct module *child = simple_linked_list_it_next(&it);
                 if (child->cls != mod->cls) {
