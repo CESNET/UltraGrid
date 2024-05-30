@@ -941,6 +941,15 @@ if test -n "$AJA_DIRECTORY"; then
         AJA_PATH=$AJA_DIRECTORY
 fi
 
+if test -z "$AJA_PATH"; then
+        if test -d /usr/local/include/libajantv2; then
+                AJA_PATH=/usr/local/include/libajantv2
+        # libajantv2 AUR
+        elif test -d /usr/include/libajantv2; then
+                AJA_PATH=/usr/include/libajantv2
+        fi
+fi
+
 AC_ARG_WITH(aja,
             [  --with-aja=DIR          specify location of NTV2],
             [AJA_PATH=$withval
