@@ -21,9 +21,14 @@ install_ximea() {
 
 # Install AJA
 install_aja() {(
-        git clone --depth 1 https://github.com/aja-video/ntv2
-        cd ntv2/ajalibraries/ajantv2/build
-        make -j "$(nproc)"
+        git clone --depth 1 https://github.com/aja-video/libajantv2.git
+        cd libajantv2
+        cmake -Bbuild -DAJANTV2_DISABLE_DEMOS=ON -DAJANTV2_DISABLE_DRIVER=ON \
+                -DAJANTV2_DISABLE_TOOLS=ON -DAJANTV2_DISABLE_TESTS=ON \
+                -DAJANTV2_DISABLE_PLUGINS=ON -DAJANTV2_BUILD_SHARED=ON \
+                -DCMAKE_BUILD_TYPE=Release .
+        cmake --build build -j "$(nproc)"
+        sudo cmake --install build
 )}
 
 

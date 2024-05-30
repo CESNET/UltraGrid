@@ -1,7 +1,7 @@
 #!/bin/bash -eux
 
 export PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig:/usr/local/lib/pkgconfig
-printf "%b" "AJA_DIRECTORY=/var/tmp/ntv2\n\
+printf "%b" "\
 CPATH=/usr/local/qt/include\n\
 LIBRARY_PATH=/usr/local/qt/lib\n\
 PKG_CONFIG_PATH=$PKG_CONFIG_PATH\n" >> "$GITHUB_ENV"
