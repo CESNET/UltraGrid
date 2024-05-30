@@ -40,9 +40,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "config.h"                      // for PACKAGE_BUGREPORT
 #endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
@@ -64,8 +62,15 @@
 #include <ntv2debug.h>
 #include <ntv2devicescanner.h>
 
+#include <algorithm>                     // for copy, max, min
+#include <cassert>
 #include <chrono>
+#include <cmath>                         // for fab
 #include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -76,11 +81,13 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>                       // for pair
 #include <vector>
 
 #include "audio/types.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/color_out.h"             // for col, SBOLD, SRED
 #include "video_display.h"
 #include "video.h"
 

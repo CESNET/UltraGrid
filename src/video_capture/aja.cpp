@@ -46,6 +46,7 @@
 #include "config.h"
 #endif
 #include "config_msvc.h"
+// aligned_alloc/aligned_free
 #include "config_unix.h"
 #include "config_win32.h"
 
@@ -53,11 +54,20 @@
 #undef UNUSED // collides with same-named macro defined by libajantv2
 
 #include <algorithm>
-#include <condition_variable>
 #include <chrono>
+#include <condition_variable>
+#include <cstdint>                   // for uint32_t, uint8_t
+#include <cstdio>                    // for snprintf, printf
+#include <cstdlib>                   // for free, atoi, malloc, realloc
+#include <cstring>                   // for strchr, memcpy, memset, strcmp
+#include <iostream>                  // for operator<<, basic_ostream, cout
+#include <memory>                    // for shared_ptr, __shared_ptr_access
 #include <mutex>
+#include <sstream>                   // for basic_ostringstream
+#include <stdexcept>                 // for runtime_error
 #include <string>
 #include <thread>
+#include <unordered_map>             // for unordered_map, operator!=, _Node...
 #include <utility>
 #ifdef _MSC_VER
 #include <winsock2.h>
@@ -133,7 +143,20 @@ unsigned int *aja_audio_capture_channels = &audio_capture_channels;
 #define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd " failed", return AJA_STATUS_FAIL)
 #define CHECK(cmd) CHECK_OK(cmd, #cmd " failed", NOOP)
 
-using namespace std;
+namespace chrono = std::chrono;
+using std::cerr;
+using std::condition_variable;
+using std::cout;
+using std::endl;
+using std::min;
+using std::mutex;
+using std::ostringstream;
+using std::runtime_error;
+using std::shared_ptr;
+using std::thread;
+using std::to_string;
+using std::unique_lock;
+using std::unordered_map;
 
 struct aligned_data_allocator : public video_frame_pool_allocator {
         void *allocate(size_t size) override {
@@ -604,7 +627,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mVideoFormat =  GetVideoFormatFromInputSource();
                 if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
                 {
-                        LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format" << endl;
+                        LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format\n";
                         return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
                 }
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Detected input signal: " << NTV2VideoFormatToString(mVideoFormat) << "\n";
