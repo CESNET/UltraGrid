@@ -956,28 +956,28 @@ AC_ARG_WITH(aja,
              ])
 
 if test "$aja_req" != no; then
-        if test $system = Linux; then
-                AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
+        if test $system != Windows; then
+                AJA_LIB=ajantv2
+                platform=lin
+                if test "$system" = MacOSX; then
+                        platform=mac
+                fi
+                AC_CHECK_LIB($AJA_LIB, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
                 if test "$FOUND_LIBAJA" = yes; then
                         # we need to have the headers path, anyways (see 30 lines below)
                         if ! test -d "$AJA_PATH"; then
                                 UG_MSG_WARN([libajantv2 found, but \$AJA_DIRECTORY still needs to point to headers root])
                                 FOUND_LIBAJA=no
                         fi
-                        AJA_LIB=-lajantv2
+                        AJA_LIB=-l$AJA_LIB
                 fi
                 if test "$FOUND_LIBAJA" = no && test -n "$AJA_PATH"; then # old ntv2
                         AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
-                        AJA_INC="-I${AJA_PATH}/ajalibraries/ajantv2/src/lin -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajalibraries/ajantv2/includes"
+                        AJA_INC="-I${AJA_PATH}/ajalibraries/ajantv2/src/$platform -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajalibraries/ajantv2/includes"
                         AC_CHECK_FILES($AJA_LIB, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
                 fi
-        elif test $system = Windows; then
+        else # Windows
                 AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
-        else # MacOSX
-                AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
-                if test "$FOUND_LIBAJA" = yes; then
-                        AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                fi
         fi
 
         if test "$FOUND_LIBAJA" = yes; then
@@ -987,15 +987,14 @@ if test "$aja_req" != no; then
         if test $aja = yes -a $system = Windows; then
                 add_module aja src/aja_win32_stub.o -laja
         elif test $aja = yes; then # Linux and macOS
+                AJA_INC="$AJA_INC -I$AJA_PATH -I$AJA_PATH/ajantv2/\
+includes -I$AJA_PATH/ajantv2/src/$platform"
                 if test $system = Linux; then
                         AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
-                        AJA_INC="$AJA_INC -I$AJA_PATH -I$AJA_PATH/ajantv2/\
-includes -I$AJA_PATH/ajantv2/src/lin"
                         AJA_LIB="$AJA_LIB -lrt"
                 else # mac
-                        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
                         AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
-                        AJA_LIB="-lajantv2 -framework IOKit"
+                        AJA_LIB="$AJA_LIB -framework IOKit"
                 fi
 
                 add_module aja "src/aja_common.o src/video_capture/aja.o src/video_display/aja.o" "$AJA_LIB"
