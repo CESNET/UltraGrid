@@ -947,17 +947,10 @@ AC_ARG_WITH(aja,
              ])
 
 if test "$aja_req" != no; then
-        # In lines below, there is a compatibility check for NTV2 12.x (Linux only).
-        # For macOS, only NTV2 13 is checked/supported.
         if test $system = Linux; then
                 if test -n "$AJA_PATH"
                 then
-                        # NTV2 SDK 12.x
-                        AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                        # NTV2 SDK 13.x
-                        if test "$FOUND_LIBAJA" = no; then
-                                AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                        fi
+                        AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
                 fi
         elif test $system = Windows; then
                 AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
@@ -969,14 +962,7 @@ if test "$aja_req" != no; then
         fi
 
         if test "$FOUND_LIBAJA" = yes; then
-                if test $system = Windows; then
-                        aja=yes
-                else # check version at least 16 (only mac+Lin, Windows would require a different check)
-                        AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
-                        if test $AJA_VER -ge 16; then
-                                aja=yes
-                        fi
-                fi
+                aja=yes
         fi
 
         if test $aja = yes -a $system = Windows; then
