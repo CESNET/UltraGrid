@@ -144,14 +144,12 @@ unsigned int *aja_audio_capture_channels = &audio_capture_channels;
 #define CHECK(cmd) CHECK_OK(cmd, #cmd " failed", NOOP)
 
 namespace chrono = std::chrono;
-using std::cerr;
 using std::condition_variable;
-using std::cout;
-using std::endl;
 using std::min;
 using std::mutex;
 using std::ostringstream;
 using std::runtime_error;
+using std::string;
 using std::shared_ptr;
 using std::thread;
 using std::to_string;
@@ -710,7 +708,8 @@ AJAStatus vidcap_state_aja::SetupVideo()
         CHECK(mDevice.SubscribeInputVerticalEvent (mInputChannel));
 
         if (ugaja::codec_map.find(mPixelFormat) == ugaja::codec_map.end()) {
-                cerr << "Cannot find valid mapping from AJA pixel format to UltraGrid" << endl;
+                MSG(ERROR, "Cannot find valid mapping from AJA pixel format to "
+                           "UltraGrid\n");
                 return AJA_STATUS_NOINPUT;
         }
 
@@ -734,7 +733,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.ch_count = *aja_audio_capture_channels > 0 ? *aja_audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         if (mMaxAudioChannels < mAudio.ch_count) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Invalid number of capture channels requested. Requested " <<
-                        mAudio.ch_count << ", maximum " << mMaxAudioChannels << endl;
+                        mAudio.ch_count << ", maximum " << mMaxAudioChannels << "\n";
                 return AJA_STATUS_FAIL;
         }
         if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
@@ -792,15 +791,18 @@ void vidcap_state_aja::SetupHostBuffers (void)
         mPool.reconfigure(desc, mVideoBufferSize);
 
 #ifndef _MSC_VER
-        cout << MOD_NAME "Detected input video mode: " << desc << endl;
+        LOG(LOG_LEVEL_NOTICE) << "Detected input video mode: " << desc << "\n";
 #endif
 }       //      SetupHostBuffers
 
 AJAStatus vidcap_state_aja::Run()
 {
         // Check that there's a valid input to capture
-        if (mDevice.GetInputVideoFormat (mInputSource, mProgressive) == NTV2_FORMAT_UNKNOWN)
-                cout << endl << "## WARNING:  No video signal present on the input connector" << endl;
+        if (mDevice.GetInputVideoFormat(mInputSource, mProgressive) ==
+            NTV2_FORMAT_UNKNOWN) {
+                MSG(WARNING, "## WARNING:  No video signal present on the "
+                             "input connector\n");
+        }
 
         //      Start the playout and capture threads...
         StartProducerThread ();
@@ -935,7 +937,11 @@ void vidcap_state_aja::CaptureFrames (void)
                 CHECK(mDevice.GetInputFrame   (mInputChannel,         readBackIn));
 
                 if (readBackIn == currentInFrame) {
-                        cerr    << "## WARNING:  Drop detected:  current in " << currentInFrame << ", readback in " << readBackIn << endl;
+                        LOG(LOG_LEVEL_WARNING)
+                            << MOD_NAME
+                            << "## WARNING:  Drop detected:  current in "
+                            << currentInFrame << ", readback in " << readBackIn
+                            << "\n";
                 }
 
                 //      Tell the hardware which buffers to start using at the beginning of the next frame...
@@ -1008,40 +1014,47 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 }
 
 static void show_help() {
-        cout << "Usage:\n";
+        col() << "Usage:\n";
         col() << SBOLD(SRED("\t-t aja") << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB|:YUV]|:help] -r [embedded|AESEBU|analog]")"\n";
-        cout << "where\n";
+        col() << "where\n";
 
         col() << SBOLD("\t4K") << "\n";
-        cout << "\t\tVideo input is 4K.\n";
+        col() << "\t\tVideo input is 4K.\n";
 
         col() << SBOLD("\tclear-routing") "\n" <<
                 "\t\tremove all existing signal paths for device\n";
 
         col() << SBOLD("\tchannel") "\n";
-        cout << "\t\tChannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use).\n";
+        col() << "\t\tChannel number to use (indexed from 1). Doesn't need to "
+                 "be set for SDI, useful for HDMI (capture and display should "
+                 "have different channel numbers if both used, also other than "
+                 "1 if SDI1 is in use).\n";
 
         col() << SBOLD("\tconnection") "\n" <<
                 "\t\tConnection can be one of: ";
         NTV2InputSource source = NTV2InputSource();
         while (source != NTV2_INPUTSOURCE_INVALID) {
                 if (source > 0) {
-                        cout << ", ";
+                        col() << ", ";
                 }
-                cout << NTV2InputSourceToString(source, true);
+                col() << NTV2InputSourceToString(source, true);
                 // should be this, but GetNTV2InputSourceForIndex knows only SDIs
                 //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
                 source = (NTV2InputSource) ((int) source + 1);
         }
-        cout << "\n";
+        col() << "\n";
 
         col() << SBOLD("\tprogressive") "\n";
-        cout << "\t\tVideo input is progressive.\n";
+        col() << "\t\tVideo input is progressive.\n";
 
         col() << SBOLD("\tRGB|YUV") "\n";
-        cout << "\t\tSet SDI video input to RGB or YCbCr explicitly. If capture pixel format is set, expect the same encoding on input. You can override this setting by specifying the signal color space explicitly by this option (see https://github.com/CESNET/UltraGrid/wiki/Device-Settings#RGB_over_SDI for details).\n";
-
-        cout << "\n";
+        col() << "\t\tSet SDI video input to RGB or YCbCr explicitly. If "
+                 "capture pixel format is set, expect the same encoding on "
+                 "input. You can override this setting by specifying the "
+                 "signal color space explicitly by this option (see "
+                 "https://github.com/CESNET/UltraGrid/wiki/"
+                 "Device-Settings#RGB_over_SDI for details).\n";
+        col() << "\n";
 
         printf("Available devices:\n");
         CNTV2DeviceScanner      deviceScanner;
@@ -1053,11 +1066,12 @@ static void show_help() {
                         col() << SUNDERLINE("\tAvailable formats:");
                         for (auto fmt : fmt_set) {
                                 if (fmt != *fmt_set.begin()) {
-                                        cout << ",";
+                                        col()<< ",";
                                 }
-                                cout << " \"" << NTV2VideoFormatToString(fmt) << "\"";
+                                col() << " \"" << NTV2VideoFormatToString(fmt)
+                                      << "\"";
                         }
-                        cout << "\n";
+                        col() << "\n";
                 }
                 NTV2FrameBufferFormatSet pix_fmts;
                 if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
@@ -1067,25 +1081,28 @@ static void show_help() {
                         col() << SUNDERLINE("\tAvailable pixel formats:");
                         for (auto fmt : pix_fmts) {
                                 if (fmt != *pix_fmts.begin()) {
-                                        cout << ",";
+                                        col() << ",";
                                 }
                                 if (ugaja::codec_map.find(fmt) ==
                                     ugaja::codec_map.end()) {
-                                        cout << " " << NTV2FrameBufferFormatToString(fmt) << " (unsupported)";
+                                        col() << " "
+                                              << NTV2FrameBufferFormatToString(
+                                                     fmt)
+                                              << " (unsupported)";
                                 } else {
-                                        cout << " "
-                                             << get_codec_name(
-                                                    ugaja::codec_map.at(fmt));
+                                        col() << " "
+                                              << get_codec_name(
+                                                     ugaja::codec_map.at(fmt));
                                 }
                         }
-                        cout << "\n";
+                        col() << "\n";
                 }
                 col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
                 col() << SUNDERLINE("\tno devices found") "\n";
         }
-        cout << "\n";
+        col() << "\n";
 }
 
 LINK_SPEC int vidcap_aja_init(struct vidcap_params *params, void **state)
