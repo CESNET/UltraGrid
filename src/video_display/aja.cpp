@@ -46,6 +46,9 @@
 #endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
+#include "debug.h"
+#undef UNUSED // collides with same-named macro defined by libajantv2
+
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -76,7 +79,6 @@
 #include <vector>
 
 #include "audio/types.h"
-#include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "video_display.h"
@@ -809,7 +811,7 @@ NTV2FrameRate aja::display::getFrameRate(double fps)
 } // end of namespace aja
 } // end of namespace ultragrid
 
-namespace aja = ultragrid::aja;
+namespace ugaja = ultragrid::aja;
 
 LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
@@ -838,7 +840,7 @@ static bool display_aja_is_quad_format(NTV2VideoFormat fmt) {
                 return true;
         }
 #else
-        UNUSED(fmt);
+        (void) fmt;
 #endif
         return false;
 }
@@ -865,7 +867,7 @@ static NTV2VideoFormat display_aja_get_first_matching_video_format(const NTV2Fra
 
 LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
         if (s->desc.color_spec != VIDEO_CODEC_NONE) {
                 s->join();
                 s->desc = {};
@@ -878,11 +880,11 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
 
         bool interlaced = desc.interlacing == INTERLACED_MERGED;
         // first try to skip quad split formats (aka quad link)
-        s->mVideoFormat = display_aja_get_first_matching_video_format(aja::display::getFrameRate(desc.fps),
+        s->mVideoFormat = display_aja_get_first_matching_video_format(ugaja::display::getFrameRate(desc.fps),
                         desc.height, desc.width, interlaced, false, false);
         // if not found or supported, include quad formats
         if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN || !::NTV2DeviceCanDoVideoFormat (s->mDeviceID, s->mVideoFormat)) {
-                s->mVideoFormat = display_aja_get_first_matching_video_format(aja::display::getFrameRate(desc.fps),
+                s->mVideoFormat = display_aja_get_first_matching_video_format(ugaja::display::getFrameRate(desc.fps),
                                 desc.height, desc.width, interlaced, false, true);
         }
         if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN) {
@@ -894,7 +896,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
         s->mPixelFormat = NTV2_FBF_INVALID;
-        for (auto & c : aja::codec_map) {
+        for (auto & c : ugaja::codec_map) {
                 if (c.second == desc.color_spec) {
                         s->mPixelFormat = c.first;
                 }
@@ -911,21 +913,21 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
 
-        s->worker = thread(&aja::display::process_frames, s);
+        s->worker = thread(&ugaja::display::process_frames, s);
 
         return true;
 }
 
 LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags)
 {
-        struct aja::display::configuration conf;
+        struct ugaja::display::configuration conf;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
 
         char *item;
         while ((item = strtok(tmp, ":")) != nullptr) {
                 if (strcmp("help", item) == 0) {
-                        aja::display::show_help();
+                        ugaja::display::show_help();
                         return INIT_NOERR;
                 } else if (strstr(item, "buffers=") == item) {
                         conf.bufLen = atoi(item + strlen("buffers="));
@@ -977,7 +979,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
 
         try {
                 conf.withAudio = (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u;
-                auto s = new aja::display(conf);
+                auto *s = new ugaja::display(conf);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
@@ -988,7 +990,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
 
 LINK_SPEC void display_aja_done(void *state)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
 
         if (s->desc.color_spec != VIDEO_CODEC_NONE) {
                 s->join();
@@ -1000,14 +1002,14 @@ LINK_SPEC void display_aja_done(void *state)
 
 LINK_SPEC struct video_frame *display_aja_getf(void *state)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
 
         return vf_alloc_desc_data(s->desc);
 }
 
 LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
 
         if (frame && frame->color_spec == R12L) {
                 char *tmp = (char *) malloc(frame->tiles[0].data_len);
@@ -1021,12 +1023,12 @@ LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long lon
 
 LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, size_t *len)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
 
-        vector<codec_t> codecs(aja::codec_map.size());
+        vector<codec_t> codecs(ugaja::codec_map.size());
         int count = 0;
 
-        for (auto & c : aja::codec_map) {
+        for (auto & c : ugaja::codec_map) {
                 if (::NTV2DeviceCanDoFrameBufferFormat(s->mDeviceID, c.first)) {
                         codecs[count++] = c.second;
                 }
@@ -1068,7 +1070,7 @@ LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, si
 
 LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame *frame)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
 
         lock_guard<mutex> lk(s->mAudioLock);
         int len = NTV2_AUDIOSIZE_MAX - s->mAudioLen;
@@ -1084,7 +1086,7 @@ LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame
 LINK_SPEC bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
-        auto s = static_cast<struct aja::display *>(state);
+        auto *s = static_cast<struct ugaja::display *>(state);
         assert(quant_samples == BPS * 8 && sample_rate == SAMPLE_RATE && ::NTV2DeviceGetMaxAudioChannels (s->mDeviceID) == channels);
 
         AJAStatus status = s->SetUpAudio();

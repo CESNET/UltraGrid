@@ -49,6 +49,9 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include "debug.h"
+#undef UNUSED // collides with same-named macro defined by libajantv2
+
 #include <algorithm>
 #include <condition_variable>
 #include <chrono>
@@ -62,7 +65,6 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "utils/video_frame_pool.h"
@@ -106,7 +108,7 @@
 
 #define MOD_NAME "[AJA cap.] "
 
-namespace aja = ultragrid::aja;
+namespace ugaja = ultragrid::aja;
 
 #ifdef _MSC_VER
 extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
@@ -226,7 +228,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                                 throw string("Unknown codec " + it.second + "!");
                         }
                         mPixelFormat = NTV2_FBF_INVALID;
-                        for (auto const &c : aja::codec_map) {
+                        for (auto const &c : ugaja::codec_map) {
                                 if (c.second == get_codec_from_name(it.second.c_str())) {
                                         mPixelFormat = c.first;
                                         break;
@@ -684,7 +686,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         CHECK(mDevice.EnableInputInterrupt (mInputChannel));
         CHECK(mDevice.SubscribeInputVerticalEvent (mInputChannel));
 
-        if (aja::codec_map.find(mPixelFormat) == aja::codec_map.end()) {
+        if (ugaja::codec_map.find(mPixelFormat) == ugaja::codec_map.end()) {
                 cerr << "Cannot find valid mapping from AJA pixel format to UltraGrid" << endl;
                 return AJA_STATUS_NOINPUT;
         }
@@ -760,7 +762,7 @@ void vidcap_state_aja::SetupHostBuffers (void)
 
         interlacing_t interlacing = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? PROGRESSIVE : INTERLACED_MERGED;
         video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
-                aja::codec_map.at(mPixelFormat),
+                ugaja::codec_map.at(mPixelFormat),
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
                 interlacing,
                 1};
@@ -1044,11 +1046,13 @@ static void show_help() {
                                 if (fmt != *pix_fmts.begin()) {
                                         cout << ",";
                                 }
-                                if (aja::codec_map.find(fmt) == aja::codec_map.end()) {
+                                if (ugaja::codec_map.find(fmt) ==
+                                    ugaja::codec_map.end()) {
                                         cout << " " << NTV2FrameBufferFormatToString(fmt) << " (unsupported)";
                                 } else {
-                                        cout << " " << get_codec_name(aja::codec_map.at(fmt));
-
+                                        cout << " "
+                                             << get_codec_name(
+                                                    ugaja::codec_map.at(fmt));
                                 }
                         }
                         cout << "\n";
@@ -1136,11 +1140,6 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
 
         *available_cards = cards;
         *count = card_count;
-}
-
-[[maybe_unused]] static void supersede_compiler_warning_workaround()
-{
-        UNUSED(__AJA_trigger_link_error_if_incompatible__);
 }
 
 #ifndef _MSC_VER
