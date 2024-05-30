@@ -337,20 +337,23 @@ struct video_desc get_video_desc_from_string(const char *string)
         struct video_desc ret{};
         ret.color_spec = UYVY;
         ret.tile_count  = 1;
-        if (strncmp(string, "Hp", 2) == 0 || starts_with(string, "1080p")) {
+        if (strncmp(string, "Hp", 2) == 0 || STARTS_WITH(string, "1080p")) {
                 ret.width = 1920;
                 ret.height = 1080;
-        } else if (strncmp(string, "Hi", 2) == 0 || starts_with(string, "1080i")) {
+        } else if (strncmp(string, "Hi", 2) == 0 ||
+                   STARTS_WITH(string, "1080i")) {
                 ret.width = 1920;
                 ret.height = 1080;
                 ret.interlacing = INTERLACED_MERGED;
-        } else if (strncmp(string, "hp", 2) == 0 || starts_with(string, "720p")) {
+        } else if (strncmp(string, "hp", 2) == 0 ||
+                   STARTS_WITH(string, "720p")) {
                 ret.width = 1280;
                 ret.height = 720;
         } else if (strncasecmp(string, "2d", 2) == 0) {
                 ret.width = 2048;
                 ret.height = 1080;
-        } else if (strncasecmp(string, "4k", 2) == 0 || starts_with(string, "2160p")) {
+        } else if (strncasecmp(string, "4k", 2) == 0 ||
+                   STARTS_WITH(string, "2160p")) {
                 ret.width = 3860;
                 ret.height = 2160;
         } else if (strncasecmp(string, "4d", 2) == 0) {

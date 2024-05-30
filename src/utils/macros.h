@@ -97,7 +97,7 @@
 
 /// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array
 #define snprintf_ch(str, ...) snprintf(str, sizeof str, __VA_ARGS__)
-#define starts_with(str, token) !strncmp(str, token, strlen(token))
+#define STARTS_WITH(str, token) !strncmp(str, token, strlen(token))
 
 /**
  * @brief Creates FourCC word
