@@ -82,6 +82,7 @@
 #include "video_capture.h"
 
 #include "ajatypes.h"
+#include <ajantv2/includes/ntv2rp188.h>
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -89,11 +90,9 @@
 #pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #endif // defined __GNUC__
 #include "ntv2devicescanner.h"
-#include "ntv2democommon.h"
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif // defined __GNUC__
-#include "ntv2capture.h"
 #if AJA_NTV2_SDK_VERSION_MAJOR >= 13
 #include "ajabase/common/types.h"
 #include "ajabase/common/videotypes.h"

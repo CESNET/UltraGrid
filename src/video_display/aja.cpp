@@ -53,14 +53,14 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #endif // defined __GNUC__
+#include <ntv2devicescanner.h>
 #include <ajantv2/includes/ntv2utils.h>
-#include <ntv2democommon.h>
+#include <ajabase/system/debug.h>
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif // defined __GNUC__
 #include <ajatypes.h>
 #include <ntv2debug.h>
-#include <ntv2devicescanner.h>
 
 #include <algorithm>                     // for copy, max, min
 #include <cassert>
