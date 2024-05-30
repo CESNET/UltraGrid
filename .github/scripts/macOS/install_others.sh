@@ -14,6 +14,7 @@ fi
 
 # shellcheck source=/dev/null
 . "$srcroot/.github/scripts/json-common.sh"
+. "$srcroot/.github/scripts/functions.sh"
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {(
@@ -31,15 +32,12 @@ install_ximea() {(
 )}
 
 install_aja() {(
-        AJA_DIRECTORY=/private/var/tmp/ntv2sdk
-        git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
-        cd $AJA_DIRECTORY
-        echo "AJA_DIRECTORY=$AJA_DIRECTORY" >>"$GITHUB_ENV"
-        "$srcroot/.github/scripts/download-gh-asset.sh" aja-video/ntv2 \
-                libs_mac_ aja_build.tar.gz
-        tar xzf aja_build.tar.gz
-        arch_subd=$(uname -m | sed 's/x86_64/x64/')
-        sudo cp Release/"$arch_subd"/* /usr/local/lib/
+        git clone --depth 1 https://github.com/aja-video/libajantv2.git
+        cd libajantv2
+        export MACOSX_DEPLOYMENT_TARGET=10.13 # neededd for arm64
+        cmake_aja -Bbuild -S.
+        cmake --build build -j "$(sysctl -n hw.ncpu)"
+        sudo cmake --install build
 )}
 
 install_deltacast() {

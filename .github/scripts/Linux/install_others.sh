@@ -1,6 +1,10 @@
 #!/bin/sh -eux
 
+srcroot=${GITHUB_WORKSPACE-$PWD}
+readonly srcroot
+
 . /etc/os-release
+. "$srcroot/.github/scripts/functions.sh"
 
 if [ "$(id -u)" -eq 0 ]; then
         alias sudo=
@@ -23,10 +27,7 @@ install_ximea() {
 install_aja() {(
         git clone --depth 1 https://github.com/aja-video/libajantv2.git
         cd libajantv2
-        cmake -Bbuild -DAJANTV2_DISABLE_DEMOS=ON -DAJANTV2_DISABLE_DRIVER=ON \
-                -DAJANTV2_DISABLE_TOOLS=ON -DAJANTV2_DISABLE_TESTS=ON \
-                -DAJANTV2_DISABLE_PLUGINS=ON -DAJANTV2_BUILD_SHARED=ON \
-                -DCMAKE_BUILD_TYPE=Release .
+        cmake_aja -Bbuild -S.
         cmake --build build -j "$(nproc)"
         sudo cmake --install build
 )}
