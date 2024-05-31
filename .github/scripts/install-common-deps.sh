@@ -35,22 +35,25 @@ download_install_cineform() {(
         sudo cmake --install .
 )}
 
-install_aja() {(
+download_build_aja() {
         git clone --depth 1 https://github.com/aja-video/libajantv2.git
-        cd libajantv2
         export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
                 -DAJANTV2_DISABLE_PLUGINS=ON  -DAJANTV2_BUILD_SHARED=ON \
-                -DCMAKE_BUILD_TYPE=Release -Bbuild -S.
-        cmake --build build --config Release -j "$(nproc)"
+                -DCMAKE_BUILD_TYPE=Release -Blibajantv2/build -Slibajantv2
+        cmake --build libajantv2/build --config Release -j "$(nproc)"
+}
+
+install_aja() {(
+        if [ ! -d libajantv2 ]; then
+                download_build_aja
+        fi
         if is_win; then
-                cp build/ajantv2/Release/ajantv2.dll /usr/local/bin/
-                cp build/ajantv2/Release/ajantv2.lib /usr/local/lib/
-                cd ..
-                mv libajantv2 "$GITHUB_WORKSPACE/AJA"
+                cp libajantv2/build/ajantv2/Release/ajantv2.dll /usr/local/bin/
+                cp libajantv2/build/ajantv2/Release/ajantv2.lib /usr/local/lib/
         else
-                sudo cmake --install build
+                sudo cmake --install libajantv2/build
         fi
 )}
 

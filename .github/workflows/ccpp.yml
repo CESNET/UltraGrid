@@ -266,6 +266,14 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl 'https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe' -o 'C:\XIMEA_API_Installer.exe'
+
+    - name: Cache libajantv2 build
+      id: cache-aja
+      uses: actions/cache@main
+      with:
+        path: 'libajantv2'
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/install-common-deps.sh') }}
+
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
       shell: pwsh -command ". '{0}'"
