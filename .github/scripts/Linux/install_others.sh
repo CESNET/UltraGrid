@@ -30,16 +30,6 @@ install_gpujpeg() {(
         sudo ldconfig
 )}
 
-# Install live555
-install_live555() {(
-        git clone https://github.com/xanview/live555/
-        cd live555
-        git checkout 35c375
-        ./genMakefiles linux-64bit
-        make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-        sudo make install
-)}
-
 # Install NDI
 install_ndi() {(
         if [ ! -f "Install_NDI_SDK_Linux.tar.gz" ]; then # it should be already cached in a CI step
@@ -107,7 +97,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg live555 ndi pipewire rav1e vulkan ximea
+        set -- gpujpeg ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then

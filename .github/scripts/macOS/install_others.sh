@@ -77,14 +77,6 @@ LIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> \
 "$GITHUB_ENV"
 }
 
-install_live555() {(
-        git clone https://github.com/xanview/live555/
-        cd live555
-        git checkout 35c375
-        ./genMakefiles macosx
-        sudo make -j "$(sysctl -n hw.ncpu)" install
-)}
-
 install_soundfont() {(
         sf_dir="$srcroot/data/template/macOS-bundle/Contents/share/soundfonts"
         mkdir -p "$sf_dir"
@@ -112,7 +104,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- deltacast glfw live555 ndi soundfont syphon ximea
+        set -- deltacast glfw ndi soundfont syphon ximea
 fi
 
 if [ $show_help ]; then

@@ -273,6 +273,12 @@ jobs:
       with:
         path: 'libajantv2'
         key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/install-common-deps.sh') }}
+    - name: Cache live555
+      id: cache-live555
+      uses: actions/cache@main
+      with:
+        path: 'live555'
+        key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/install-common-deps.sh') }}
 
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
@@ -289,17 +295,6 @@ jobs:
       shell: pwsh -command ". '{0}'"
     - name: bootsrap MSYS2
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
-    - name: Cache live555
-      id: cache-live555
-      uses: actions/cache@main
-      with:
-        path: 'C:\live555'
-        key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
-    - name: Build live555
-      if: steps.cache-live555.outputs.cache-hit != 'true'
-      run: $GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh
-    - name: Install live555
-      run: make -C /c/live555 install
 
     - name: Cache Spout build
       id: cache-spout

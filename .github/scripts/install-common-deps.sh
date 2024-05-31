@@ -75,6 +75,39 @@ install_juice() {
 )
 }
 
+download_build_live555() {
+        CPLUSPLUS_COMPILER=c++ # default
+        if is_win; then
+                export CC=gcc
+                export CXX=g++
+                target=mingw
+                PATH=/usr/bin:$PATH
+                # ensure binutils ld is used (not lld)
+                pacman -Sy --noconfirm binutils
+        elif [ "$(uname -s)" = Linux ]; then
+                target=linux-64bit
+                CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+        else
+                target=macosx
+        fi
+
+        git clone https://github.com/xanview/live555/
+        cd live555
+        git checkout 35c375
+        ./genMakefiles "$target"
+
+        make -j "$(nproc)" CPLUSPLUS_COMPILER="$CPLUSPLUS_COMPILER"
+        is_win && pacman -Rs --noconfirm binutils
+        cd ..
+}
+
+install_live555() {(
+        if [ ! -d live555 ]; then
+                download_build_live555
+        fi
+        sudo make -C live555 install
+)}
+
 install_pcp() {
         git clone https://github.com/libpcp/pcp.git
         (
@@ -99,6 +132,7 @@ fi
 install_aja
 install_ews
 install_juice
+install_live555
 install_pcp
 install_zfec
 
