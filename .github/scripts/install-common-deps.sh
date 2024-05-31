@@ -76,17 +76,13 @@ install_juice() {
 }
 
 download_build_live555() {
-        CPLUSPLUS_COMPILER=c++ # default
         if is_win; then
-                export CC=gcc
-                export CXX=g++
                 target=mingw
                 PATH=/usr/bin:$PATH
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
                 target=linux-64bit
-                CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
         else
                 target=macosx
         fi
@@ -96,7 +92,7 @@ download_build_live555() {
         git checkout 35c375
         ./genMakefiles "$target"
 
-        make -j "$(nproc)" CPLUSPLUS_COMPILER="$CPLUSPLUS_COMPILER"
+        make -j "$(nproc)"  CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
         is_win && pacman -Rs --noconfirm binutils
         cd ..
 }
