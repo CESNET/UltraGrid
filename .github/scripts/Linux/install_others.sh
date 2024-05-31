@@ -1,10 +1,6 @@
 #!/bin/sh -eux
 
-srcroot=${GITHUB_WORKSPACE-$PWD}
-readonly srcroot
-
 . /etc/os-release
-. "$srcroot/.github/scripts/functions.sh"
 
 if [ "$(id -u)" -eq 0 ]; then
         alias sudo=
@@ -22,16 +18,6 @@ install_ximea() {
         touch bin/streamViewer.64 # TOREMOVE
         sudo ./install -noudev
 }
-
-# Install AJA
-install_aja() {(
-        git clone --depth 1 https://github.com/aja-video/libajantv2.git
-        cd libajantv2
-        cmake_aja -Bbuild -S.
-        cmake --build build -j "$(nproc)"
-        sudo cmake --install build
-)}
-
 
 install_gpujpeg() {(
         cd "$GITHUB_WORKSPACE"
@@ -121,7 +107,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- aja gpujpeg live555 ndi pipewire rav1e vulkan ximea
+        set -- gpujpeg live555 ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then

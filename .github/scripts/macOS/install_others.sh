@@ -14,7 +14,6 @@ fi
 
 # shellcheck source=/dev/null
 . "$srcroot/.github/scripts/json-common.sh"
-. "$srcroot/.github/scripts/functions.sh"
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {(
@@ -29,15 +28,6 @@ install_ximea() {(
         sudo xattr -dr com.apple.quarantine \
                 "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
         umount /Volumes/XIMEA
-)}
-
-install_aja() {(
-        git clone --depth 1 https://github.com/aja-video/libajantv2.git
-        cd libajantv2
-        export MACOSX_DEPLOYMENT_TARGET=10.13 # neededd for arm64
-        cmake_aja -Bbuild -S.
-        cmake --build build -j "$(sysctl -n hw.ncpu)"
-        sudo cmake --install build
 )}
 
 install_deltacast() {
@@ -122,7 +112,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set --  aja deltacast glfw live555 ndi soundfont syphon ximea
+        set -- deltacast glfw live555 ndi soundfont syphon ximea
 fi
 
 if [ $show_help ]; then

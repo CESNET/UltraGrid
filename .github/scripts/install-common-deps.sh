@@ -35,6 +35,21 @@ download_install_cineform() {(
         sudo cmake --install .
 )}
 
+install_aja() {(
+        if is_win; then
+                return
+        fi
+        git clone --depth 1 https://github.com/aja-video/libajantv2.git
+        cd libajantv2
+        export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
+        cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
+                -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
+                -DAJANTV2_DISABLE_PLUGINS=ON  -DAJANTV2_BUILD_SHARED=ON \
+                -DCMAKE_BUILD_TYPE=Release -Bbuild -S.
+        cmake --build build -j "$(nproc)"
+        sudo cmake --install build
+)}
+
 install_ews() {
         sudo mkdir -p /usr/local/include
         sudo curl -LS https://raw.githubusercontent.com/hellerf/\
@@ -74,6 +89,7 @@ install_zfec() {(
 if ! is_arm && ! is_win; then
         download_install_cineform
 fi
+install_aja
 install_ews
 install_juice
 install_pcp
