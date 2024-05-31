@@ -962,26 +962,17 @@ if test "$aja_req" != no; then
                 if test "$system" = MacOSX; then
                         platform=mac
                 fi
-                AC_CHECK_LIB($AJA_LIB, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
-                if test "$FOUND_LIBAJA" = yes; then
+                AC_CHECK_LIB($AJA_LIB, main, [aja=yes], [aja=no])
+                if test "$aja" = yes; then
                         # we need to have the headers path, anyways (see 30 lines below)
                         if ! test -d "$AJA_PATH"; then
                                 UG_MSG_WARN([libajantv2 found, but \$AJA_DIRECTORY still needs to point to headers root])
-                                FOUND_LIBAJA=no
+                                aja=no
                         fi
                         AJA_LIB=-l$AJA_LIB
                 fi
-                if test "$FOUND_LIBAJA" = no && test -n "$AJA_PATH"; then # old ntv2
-                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
-                        AJA_INC="-I${AJA_PATH}/ajalibraries/ajantv2/src/$platform -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajalibraries/ajantv2/includes"
-                        AC_CHECK_FILES($AJA_LIB, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                fi
         else # Windows
-                AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
-        fi
-
-        if test "$FOUND_LIBAJA" = yes; then
-                aja=yes
+                AC_CHECK_LIB(aja, display_aja_probe, [aja=yes], [aja=no])
         fi
 
         if test $aja = yes -a $system = Windows; then
