@@ -40,8 +40,6 @@ EOF
 # shellcheck source=/dev/null
 . .github/scripts/json-common.sh
 
-github_workspace_cp=$(cygpath "$GITHUB_WORKSPACE")
-
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
@@ -65,18 +63,7 @@ $PACMAN_INSTALL $m-imagemagick $m-opencv
 $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
 
-# Build AJA wrapper if we have SDK
-install_aja() {(
-        git clone --depth 1 https://github.com/aja-video/ntv2 AJA
-        cd AJA
-        "$github_workspace_cp/.github/scripts/download-gh-asset.sh" \
-                aja-video/ntv2 libs_windows_ aja_build.zip
-        rm README.md # would be overriden from zip below
-        unzip aja_build.zip
-        mkdir -p lib
-        cp Release/*.lib lib/
-        cp Release/*.dll /usr/local/bin/
-        cd ..
+build_aja_wrapper() {(
         data/scripts/build_aja_lib_win64.sh
 )}
 
@@ -115,7 +102,7 @@ install_soundfont() {
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
-install_aja
+build_aja_wrapper
 install_deltacast
 install_gpujpeg
 install_soundfont
