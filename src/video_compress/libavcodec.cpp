@@ -448,7 +448,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 return 0;
         }
 
-        int show_help = 0;
+        enum {
+                HELP_NONE,
+                HELP_NORMAL,
+                HELP_FULL,
+        } show_help = HELP_NONE;
 
         // replace all '\:' with 2xDEL
         replace_all(fmt, ESCAPED_COLON, DELDEL);
@@ -456,7 +460,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
 
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                 if (strcasecmp("help", item) == 0 || strcmp(item, "fullhelp") == 0) {
-                        show_help = strcmp(item, "fullhelp") == 0 ? 2 : 1;
+                        show_help = strcmp(item, "fullhelp") == 0 ? HELP_FULL
+                                                                  : HELP_NORMAL;
                 } else if (IS_KEY_PREFIX(item, "codec")) {
                         const char *const codec = strchr(item, '=') + 1;
                         s->requested_codec_id   = get_codec_from_name(codec);
@@ -543,16 +548,18 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 fmt = NULL;
         }
 
-        if (show_help != 0) {
+        if (show_help != HELP_NONE) {
                 if (s->backend.empty()) {
-                        usage(show_help == 2);
+                        usage(show_help == HELP_FULL);
                 } else {
                         show_encoder_help(s->backend);
                 }
         }
-
-        if ((get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec")) ||
-                        (show_help && !s->backend.empty())) {
+        const string req_codec =
+            get_commandline_param("lavc-use-codec") != nullptr
+                ? get_commandline_param("lavc-use-codec")
+                : "";
+        if (req_codec == "help" || (show_help != HELP_NONE && !s->backend.empty())) {
                 auto *codec = avcodec_find_encoder_by_name(s->backend.c_str());
                 if (codec != nullptr) {
                         cout << "\n";
@@ -561,13 +568,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open encoder: " << s->backend << "\n";
                 }
         }
+        if (show_help != HELP_NONE || req_codec == "help") {
+                return 1;
+        }
 
         if (get_commandline_param("keep-pixfmt") != nullptr) {
                 s->store_orig_format = true;
-        }
-
-        if (show_help || (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec"))) {
-                return 1;
         }
 
         return 0;
