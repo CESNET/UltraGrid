@@ -275,7 +275,7 @@ struct state_video_compress_libav {
         struct video_desc compressed_desc{};
 
         struct setparam_param params{lavc_opts, blacklist_opts};
-        string              backend;
+        string              req_encoder;
         int                 requested_gop = DEFAULT_GOP_SIZE;
 
         map<string, string> lavc_opts; ///< user-supplied options from command-line
@@ -470,7 +470,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 return -1;
                         }
                 } else if (IS_KEY_PREFIX(item, "encoder")) {
-                        s->backend = strchr(item, '=') + 1;
+                        s->req_encoder = strchr(item, '=') + 1;
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         s->requested_bitrate =
                             unit_evaluate(strchr(item, '=') + 1, nullptr);
@@ -549,23 +549,25 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         }
 
         if (show_help != HELP_NONE) {
-                if (s->backend.empty()) {
+                if (s->req_encoder.empty()) {
                         usage(show_help == HELP_FULL);
                 } else {
-                        show_encoder_help(s->backend);
+                        show_encoder_help(s->req_encoder);
                 }
         }
         const string req_codec =
             get_commandline_param("lavc-use-codec") != nullptr
                 ? get_commandline_param("lavc-use-codec")
                 : "";
-        if (req_codec == "help" || (show_help != HELP_NONE && !s->backend.empty())) {
-                auto *codec = avcodec_find_encoder_by_name(s->backend.c_str());
+        if (req_codec == "help" || (show_help != HELP_NONE && !s->req_encoder.empty())) {
+                const auto *codec =
+                    avcodec_find_encoder_by_name(s->req_encoder.c_str());
                 if (codec != nullptr) {
                         cout << "\n";
                         print_codec_supp_pix_fmts(codec->pix_fmts);
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open encoder: " << s->backend << "\n";
+                        MSG(ERROR, "Cannot open encoder: %s\n",
+                            s->req_encoder.c_str());
                 }
         }
         if (show_help != HELP_NONE || req_codec == "help") {
@@ -947,17 +949,19 @@ static bool try_open_codec(struct state_video_compress_libav *s,
 
 const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_codec, bool src_rgb) {
         // Open encoder specified by user if given
-        if (!s->backend.empty()) {
-                const AVCodec *codec = avcodec_find_encoder_by_name(s->backend.c_str());
+        if (!s->req_encoder.empty()) {
+                const AVCodec *codec =
+                    avcodec_find_encoder_by_name(s->req_encoder.c_str());
                 if (!codec) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: requested encoder \"%s\" not found!\n",
-                                        s->backend.c_str());
+                                        s->req_encoder.c_str());
                         return nullptr;
                 }
                 if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_av_to_ug_codec(codec->id)) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Encoder \"" << s->backend << "\" doesn't encode requested codec!\n";
+                        MSG(ERROR,
+                            "Encoder \"%s\" doesn't encode requested codec!\n",
+                            s->req_encoder.c_str());
                         return nullptr;
-
                 }
                 *ug_codec = get_av_to_ug_codec(codec->id);
                 if (*ug_codec == VIDEO_CODEC_NONE) {
