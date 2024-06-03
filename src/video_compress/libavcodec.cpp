@@ -443,6 +443,37 @@ void usage(bool full) {
         col() << "Libswscale supported: " << SBOLD(swscale) << "\n";
 }
 
+/**
+ * @brief this function handles special help modes besides the normal usage
+ *
+ * 1. if "help" is given for param lavc-use-codec -> print available input
+ pixfmts
+ * 2. if "help" is given for lavc (-c lavc[...]:help) and encoder is
+ also specified -> print encoder options
+ * 3. otherwise print normal usage
+ */
+void
+handle_help(bool full, string const &req_encoder, string const &req_codec)
+{
+        if (req_codec == "help") {
+                const auto *codec =
+                    avcodec_find_encoder_by_name(req_encoder.c_str());
+                if (codec != nullptr) {
+                        cout << "\n";
+                        print_codec_supp_pix_fmts(codec->pix_fmts);
+                } else {
+                        MSG(ERROR, "Cannot open encoder: %s\n",
+                            req_encoder.c_str());
+                }
+                return;
+        }
+        if (!req_encoder.empty()) {
+                show_encoder_help(req_encoder);
+                return;
+        }
+        usage(full);
+}
+
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         if (!fmt) {
                 return 0;
@@ -548,29 +579,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 fmt = NULL;
         }
 
-        if (show_help != HELP_NONE) {
-                if (s->req_encoder.empty()) {
-                        usage(show_help == HELP_FULL);
-                } else {
-                        show_encoder_help(s->req_encoder);
-                }
-        }
         const string req_codec =
             get_commandline_param("lavc-use-codec") != nullptr
                 ? get_commandline_param("lavc-use-codec")
                 : "";
-        if (req_codec == "help" || (show_help != HELP_NONE && !s->req_encoder.empty())) {
-                const auto *codec =
-                    avcodec_find_encoder_by_name(s->req_encoder.c_str());
-                if (codec != nullptr) {
-                        cout << "\n";
-                        print_codec_supp_pix_fmts(codec->pix_fmts);
-                } else {
-                        MSG(ERROR, "Cannot open encoder: %s\n",
-                            s->req_encoder.c_str());
-                }
-        }
         if (show_help != HELP_NONE || req_codec == "help") {
+                handle_help(show_help == HELP_FULL, s->req_encoder, req_codec);
                 return 1;
         }
 
