@@ -93,7 +93,8 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 void log_msg(int log_level, const char *format, ...) __attribute__((format (printf, 2, 3)));
 void log_msg_once(int log_level, uint32_t id, const char *msg, ...) __attribute__((format (printf, 3, 4)));
 void log_perror(int log_level, const char *msg);
-#define MSG(l, ...) log_msg(LOG_LEVEL_ ## l, MOD_NAME __VA_ARGS__)
+#define MSG(l, fmt, ...) \
+        log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
 
 bool parse_log_cfg(const char *conf_str,
 		int *log_lvl,
