@@ -456,6 +456,11 @@ void
 handle_help(bool full, string const &req_encoder, string const &req_codec)
 {
         if (req_codec == "help") {
+                if (req_encoder.empty()) {
+                        MSG(ERROR, "The encoder needs to be specified "
+                                   "explictly for input codec listing!\n");
+                        return;
+                }
                 const auto *codec =
                     avcodec_find_encoder_by_name(req_encoder.c_str());
                 if (codec != nullptr) {
