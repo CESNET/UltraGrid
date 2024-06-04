@@ -42,6 +42,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstring>                        // for strcmp, strlen, strstr, strchr
 #include <list>
 #include <map>
 #include <regex>
@@ -808,9 +809,11 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
         }
         codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
 
-        if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
+        if (strcmp(codec_ctx->codec->name, "mjpeg") == 0 ||
+            strcmp(codec_ctx->codec->name, "libopenh264") == 0) {
                 codec_ctx->qmin = codec_ctx->qmax = cqp;
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg qmin/qmax to " << cqp <<  "\n";
+                MSG(INFO, "Setting %s qmin/qmax to %d\n",
+                    codec_ctx->codec->name, cqp);
         } else if (strstr(codec_ctx->codec->name, "_qsv") != nullptr) {
                 codec_ctx->global_quality = cqp;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting QSV global_quality to " << cqp <<  "\n";
@@ -855,7 +858,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
                 }
-        } else {
+        } else if (strcmp(s->codec_ctx->codec->name, "libopenh264") != 0) {
                 set_bitrate = true;
         }
         if (set_bitrate || s->params.requested_bitrate > 0) {
@@ -1957,6 +1960,26 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
         }
 }
 
+void
+configure_libopenh264(AVCodecContext *codec_ctx,
+                      struct setparam_param *param)
+{
+        if (param->requested_bitrate != 0 || param->requested_bpp != 0) {
+                check_av_opt_set(codec_ctx->priv_data, "rc_mode", "bitrate");
+        } else if (param->requested_cqp != -1) {
+                MSG(WARNING, "Using quality RC with OpenH264 is currently not recoomended "
+                             "- seems like it performs worse than bitrate or none.\n");
+                check_av_opt_set(codec_ctx->priv_data, "rc_mode", "quality");
+        } else { // FFmpeg sets quality by default
+                check_av_opt_set(codec_ctx->priv_data, "rc_mode", "off");
+                return;
+        }
+        MSG(WARNING, "Setting frame skipping for OpenH264 when bitrate/quality "
+                     "is set. Do not set if not desired.\n");
+        check_av_opt_set(codec_ctx->priv_data, "allow_skip_frames", 1);
+        // slices - must be either >1 to enable multithreading (32 default now)
+}
+
 static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         if (regex_match(codec_ctx->codec->name, regex(".*_amf"))) {
@@ -1985,6 +2008,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_rav1e(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
                 configure_svt(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "libopenh264") == 0) {
+                configure_libopenh264(codec_ctx, param);
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
