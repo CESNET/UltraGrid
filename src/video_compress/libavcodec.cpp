@@ -148,6 +148,10 @@ struct setparam_param {
         int slices = -1;
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
         set<string>         &blacklist_opts; ///< options that should be blacklisted
+        long long int       requested_bitrate = 0;
+        double              requested_bpp = 0;
+        double              requested_crf = -1;
+        int                 requested_cqp = -1;
 };
 
 typedef struct {
@@ -264,10 +268,6 @@ struct state_video_compress_libav {
         int64_t             cur_pts   = 0;
 
         codec_t             requested_codec_id = VIDEO_CODEC_NONE;
-        long long int       requested_bitrate = 0;
-        double              requested_bpp = 0;
-        double              requested_crf = -1;
-        int                 requested_cqp = -1;
         struct to_lavc_req_prop req_conv_prop{ TO_LAVC_REQ_PROP_INIT };
         bool store_orig_format = false;
         struct aux_header aux_header;
@@ -508,25 +508,25 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if (IS_KEY_PREFIX(item, "encoder")) {
                         s->req_encoder = strchr(item, '=') + 1;
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
-                        s->requested_bitrate =
+                        s->params.requested_bitrate =
                             unit_evaluate(strchr(item, '=') + 1, nullptr);
-                        assert(s->requested_bitrate >= 0);
+                        assert(s->params.requested_bitrate >= 0);
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
-                        s->requested_bpp =
+                        s->params.requested_bpp =
                             unit_evaluate_dbl(bpp_str, false, nullptr);
-                        if (std::isnan(s->requested_bpp)) {
+                        if (std::isnan(s->params.requested_bpp)) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong bitrate: " << bpp_str << "\n";
                                 return -1;
                         }
                 } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                         char *crf_str = item + strlen("crf=");
-                        s->requested_crf = atof(crf_str);
+                        s->params.requested_crf = atof(crf_str);
                 } else if (strstr(item, "cqp=") == item || strstr(item, "q=") == item) {
                         if (strstr(item, "q=") == item) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");
                         }
-                        s->requested_cqp = atoi(strchr(item, '=') + 1);
+                        s->params.requested_cqp = atoi(strchr(item, '=') + 1);
                 } else if (IS_KEY_PREFIX(item, "subsampling")) {
                         s->req_conv_prop.subsampling =
                             atoi(strchr(item, '=') + 1);
@@ -808,27 +808,37 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
 
         double avg_bpp; // average bit per pixel
-        avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
-                codec_params[ug_codec].avg_bpp;
+        avg_bpp = s->params.requested_bpp > 0.0
+                      ? s->params.requested_bpp
+                      : codec_params[ug_codec].avg_bpp;
 
         bool set_bitrate = false;
-        int_fast64_t bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
-                desc.width * desc.height * avg_bpp * desc.fps;
+        int_fast64_t bitrate =
+            s->params.requested_bitrate > 0
+                ? s->params.requested_bitrate
+                : desc.width * desc.height * avg_bpp * desc.fps;
 
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
-        if (s->requested_cqp >= 0 || ((is_vaapi || is_mjpeg) && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
-                set_cqp(s->codec_ctx, s->requested_cqp);
-        } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
-                double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
+        if (s->params.requested_cqp >= 0 ||
+            ((is_vaapi || is_mjpeg) && s->params.requested_crf == -1.0 &&
+             s->params.requested_bitrate == 0 &&
+             s->params.requested_bpp == 0.0)) {
+                set_cqp(s->codec_ctx, s->params.requested_cqp);
+        } else if (s->params.requested_crf >= 0.0 ||
+                   (is_x264_x265 && s->params.requested_bitrate == 0 &&
+                    s->params.requested_bpp == 0.0)) {
+                const double crf = s->params.requested_crf >= 0.0
+                                       ? s->params.requested_crf
+                                       : DEFAULT_X264_X265_CRF;
                 if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
                 }
         } else {
                 set_bitrate = true;
         }
-        if (set_bitrate || s->requested_bitrate > 0) {
+        if (set_bitrate || s->params.requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
