@@ -475,7 +475,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
 
         if (strcmp(fmt, "reflhelp") == 0) {
                 show_help(true);
-                return nullptr;
+                return INIT_NOERR;
         }
 
         if (isdigit(fmt[0])){ // fork

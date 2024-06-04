@@ -165,6 +165,14 @@ void state_transcoder_decompress::worker()
 
 void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter, struct state_recompress *recompress)
 {
+        if (conf.mode == CONFERENCE && strcmp(conf.arg, "help") == 0) {
+                struct display *display = nullptr;
+                const int       ret     = initialize_video_display(
+                    parent, "conference", "reflhelp", 0, nullptr, &display);
+                assert(ret == 1);
+                return nullptr;
+        }
+
         struct state_transcoder_decompress *s;
         int force_ip_version = 0;
 
@@ -185,11 +193,6 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                 ret = initialize_video_display(parent, "blend", cfg, 0, NULL, &s->display);
                 break;
         case CONFERENCE:
-                if (strcmp(conf.arg, "help") == 0) {
-                        initialize_video_display(parent, "conference", "reflhelp", 0,
-                                                 nullptr, &s->display);
-                        return nullptr;
-                }
                 snprintf(cfg, sizeof cfg, "pipe:%p#%s", s, conf.arg);
                 ret = initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display);
                 break;
