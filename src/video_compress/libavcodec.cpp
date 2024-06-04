@@ -64,6 +64,7 @@
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
@@ -172,7 +173,6 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
 static void show_encoder_help(string const &name);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 void usage(bool full);
-static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
 
 static map<codec_t, codec_params_t> codec_params = {
@@ -479,7 +479,21 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
         usage(full);
 }
 
-static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
+double
+ranged_stod(const char *val, double min, double max) noexcept(false)
+{
+        const double dbl = std::stod(val);
+        if (dbl < min || dbl > max) {
+                throw ug_runtime_error(
+                    string("Value ") + val + " outside of valid range  [" +
+                    to_string(min) + "," + to_string(max) + "]");
+        }
+        return dbl;
+}
+
+int
+parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
+{
         if (!fmt) {
                 return 0;
         }
@@ -521,12 +535,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         }
                 } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                         char *crf_str = item + strlen("crf=");
-                        s->params.requested_crf = atof(crf_str);
+                        s->params.requested_crf = ranged_stod(crf_str, 0, 63);
                 } else if (strstr(item, "cqp=") == item || strstr(item, "q=") == item) {
                         if (strstr(item, "q=") == item) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");
                         }
-                        s->params.requested_cqp = atoi(strchr(item, '=') + 1);
+                        s->params.requested_cqp = stoi(strchr(item, '=') + 1);
                 } else if (IS_KEY_PREFIX(item, "subsampling")) {
                         s->req_conv_prop.subsampling =
                             atoi(strchr(item, '=') + 1);
@@ -657,7 +671,13 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
 
         char *fmt = strdup(opts);
         struct state_video_compress_libav *s = new state_video_compress_libav(parent);
-        int ret = parse_fmt(s, fmt);
+        int ret = -1;
+        try {
+                ret = parse_fmt(s, fmt);
+        } catch (invalid_argument &e) {
+                MSG(ERROR, "Non-numeric argument presented for an option requiring a "
+                    "number!\n");
+        }
         free(fmt);
         if (ret != 0) {
                 module_done(&s->module_data);
