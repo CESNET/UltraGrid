@@ -1902,7 +1902,7 @@ ENSURE_FEATURE_PRESENT([$vidcap_file_req], [$vidcap_file], [Vidcap file input de
 drm_disp=no
 
 AC_ARG_ENABLE(drm_disp,
-      AS_HELP_STRING([--disable-drm], [disable DRM display support (default is auto)]
+      AS_HELP_STRING([--disable-drm_disp], [disable DRM display support (default is auto)]
               [Requires: libdrm]),
         [drm_req=$enableval],
         [drm_req=$build_default]
