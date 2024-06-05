@@ -352,7 +352,7 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                         if (strstr(tok, "q=") == tok) {
                                 m_quality = atoi(tok + strlen("q="));
                         } else if (strstr(tok, "restart=") == tok) {
-                                m_quality = atoi(tok + strlen("restart="));
+                                m_restart_interval = atoi(tok + strlen("restart="));
                         } else if (strcasecmp(tok, "interleaved") == 0) {
                                 m_force_interleaved = true;
                         } else if (strcasecmp(tok, "Y601") == 0) {
