@@ -74,6 +74,8 @@ typedef int fd_t;
 #define IN_LOOPBACKNET 127
 #endif
 
+#define MOD_NAME "[utils/net] "
+
 bool is_addr_linklocal(struct sockaddr *sa)
 {
         switch (sa->sa_family) {
@@ -315,26 +317,29 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 	getifaddrs(&a);
 	struct ifaddrs* p = a;
 	while (NULL != p) {
-                if (p->ifa_addr == NULL) {
+                if (p->ifa_addr == NULL ||
+                    (ip_version == 0 && (p->ifa_addr->sa_family != AF_INET &&
+                                         p->ifa_addr->sa_family != AF_INET6)) ||
+                    (ip_version == 4 && p->ifa_addr->sa_family != AF_INET) ||
+                    (ip_version == 6 && p->ifa_addr->sa_family != AF_INET6)) {
                         p = p->ifa_next;
-	                continue;
-	        }
-		if ((ip_version == 0 && (p->ifa_addr->sa_family == AF_INET || p->ifa_addr->sa_family == AF_INET6)) ||
-                                (ip_version == 4 && p->ifa_addr->sa_family == AF_INET) ||
-                                (ip_version == 6 && p->ifa_addr->sa_family == AF_INET6)) {
-			if (available_len >= sizeof addrs[0]) {
-                                size_t sa_len = p->ifa_addr->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
-				memcpy(addrs, p->ifa_addr, sa_len);
-				addrs += 1;
-				*len += sizeof(addrs[0]);
-				available_len -= sizeof(addrs[0]);
-			} else {
-				printf("Warning: insufficient space for all addresses.\n");
-				return true;
-			}
-		}
-		p = p->ifa_next;
-	}
+                        continue;
+                }
+                if (available_len < sizeof addrs[0]) {
+                        MSG(WARNING,
+                            "Warning: insufficient space for all addresses.\n");
+                        return true;
+                }
+                size_t sa_len = p->ifa_addr->sa_family == AF_INET
+                                    ? sizeof(struct sockaddr_in)
+                                    : sizeof(struct sockaddr_in6);
+                memcpy(addrs, p->ifa_addr, sa_len);
+                addrs += 1;
+                *len += sizeof(addrs[0]);
+                available_len -= sizeof(addrs[0]);
+
+                p = p->ifa_next;
+        }
 	if (NULL != a) {
 		freeifaddrs(a);
 	}
