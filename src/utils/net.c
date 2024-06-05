@@ -410,22 +410,22 @@ void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n){
         assert(n >= IN6_MAX_ASCII_LEN + 3 /* []: */ + 1 /* \0 */);
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
-                strcpy(buf, "[");
+                snprintf(buf, n, "[");
                 src = &((struct sockaddr_in6 *)(void *) sa)->sin6_addr;
         } else if (sa->sa_family == AF_INET) {
                 src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
         } else {
-                strcpy(buf, "(unknown)");
+                snprintf(buf, n, "(unknown)");
                 return;
         }
         if (inet_ntop(sa->sa_family, src, buf + strlen(buf), n - strlen(buf)) == NULL) {
                 perror("get_sockaddr_str");
-                strcpy(buf, "(error)");
+                snprintf(buf, n, "(error)");
                 return;
         }
 
         if (sa->sa_family == AF_INET6) {
-                strcat(buf, "]");
+                snprintf(buf + strlen(buf), n - strlen(buf), "]");
         }
 }
 
@@ -433,6 +433,7 @@ const char *get_sockaddr_str(struct sockaddr *sa)
 {
         enum { ADDR_LEN = IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */ };
         _Thread_local static char addr[ADDR_LEN] = "";
+        addr[0] = '\0';
 
         get_sockaddr_addr_str(sa, addr, sizeof(addr));
 
