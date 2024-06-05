@@ -1128,7 +1128,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
         }
 
-        if (!s->keep_device_defaults && s->profile.keep()) {
+        if (!s->keep_device_defaults && !s->profile.keep()) {
                 decklink_set_profile(deckLink, s->profile, s->stereo);
         }
 
