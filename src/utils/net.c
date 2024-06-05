@@ -315,6 +315,10 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 	getifaddrs(&a);
 	struct ifaddrs* p = a;
 	while (NULL != p) {
+                if (p->ifa_addr == NULL) {
+                        p = p->ifa_next;
+	                continue;
+	        }
 		if ((ip_version == 0 && (p->ifa_addr->sa_family == AF_INET || p->ifa_addr->sa_family == AF_INET6)) ||
                                 (ip_version == 4 && p->ifa_addr->sa_family == AF_INET) ||
                                 (ip_version == 6 && p->ifa_addr->sa_family == AF_INET6)) {
