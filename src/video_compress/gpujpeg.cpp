@@ -39,6 +39,7 @@
 #include <cassert>
 #include <condition_variable>
 #include <initializer_list>
+#include <libgpujpeg/gpujpeg_common.h>
 #include <libgpujpeg/gpujpeg_encoder.h>
 #include <libgpujpeg/gpujpeg_version.h>
 #include <map>
@@ -65,6 +66,8 @@
 #endif
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 0)
 #define NEW_PARAM_IMG_NO_COMP_COUNT
+#else
+typedef int gpujpeg_sampling_factor_t;
 #endif
 
 #define MOD_NAME "[GPUJPEG enc.] "
@@ -155,7 +158,7 @@ public:
         int                     m_quality;
         bool                    m_force_interleaved = false;
         bool                    m_compress_alpha = false;
-        int                     m_subsampling = 0; // 444, 422 or 420; 0 -> autoselect
+        gpujpeg_sampling_factor_t m_subsampling = 0; // -> autoselect
         enum gpujpeg_color_space m_use_internal_codec = GPUJPEG_NONE; // requested internal codec
 
         synchronized_queue<shared_ptr<struct video_frame>, 1> m_out_queue; ///< queue for compressed frames
@@ -225,6 +228,21 @@ static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
         return get_best_decoder_from(in_codec, candidate_codecs, out_codec);
 }
 
+gpujpeg_sampling_factor_t
+subsampling_to_gj(int ug_subs)
+{
+        switch (ug_subs) {
+        case 444:
+                return GPUJPEG_SUBSAMPLING_444;
+        case 422:
+                return GPUJPEG_SUBSAMPLING_422;
+        case 420:
+                return GPUJPEG_SUBSAMPLING_420;
+        default:
+                abort();
+        }
+}
+
 /**
  * Configures GPUJPEG encoder with provided parameters.
  */
@@ -261,7 +279,13 @@ bool encoder_state::configure_with(struct video_desc desc)
 
 	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
 	m_encoder_param.segment_info = 1;
-        int subsampling = IF_NOT_NULL_ELSE(m_parent_state->m_subsampling, get_subsampling(m_enc_input_codec) / 10);
+        gpujpeg_sampling_factor_t subsampling = m_parent_state->m_subsampling;
+#if !defined NEW_PARAM_IMG_NO_COMP_COUNT
+        if (subsampling == 0) {
+                subsampling =
+                    subsampling_to_gj(get_subsampling(m_enc_input_codec) / 10);
+        }
+#endif
         gpujpeg_parameters_chroma_subsampling(&m_encoder_param, subsampling);
         m_encoder_param.interleaved = (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_force_interleaved) ? 0 : 1;
         m_encoder_param.color_space_internal = IF_NOT_NULL_ELSE(m_parent_state->m_use_internal_codec, codec_is_a_rgb(m_enc_input_codec)
@@ -306,7 +330,9 @@ bool encoder_state::configure_with(struct video_desc desc)
                 abort();
         }
         m_encoder_param.restart_interval = IF_NOT_UNDEF_ELSE(m_parent_state->m_restart_interval,
-#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 4)
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 3)
+                RESTART_AUTO);
+#elif GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 4)
                 gpujpeg_encoder_suggest_restart_interval(&m_param_image, subsampling, m_encoder_param.interleaved, m_encoder_param.verbose));
 #else
                 codec_is_a_rgb(m_enc_input_codec) ? 8 : 4);
@@ -365,8 +391,8 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                         } else if (strcasecmp(tok, "RGB") == 0) {
                                 m_use_internal_codec = GPUJPEG_RGB;
                         } else if (IS_KEY_PREFIX(tok, "subsampling")) {
-                                m_subsampling = atoi(strchr(tok, '=') + 1);
-                                assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
+                                m_subsampling = subsampling_to_gj(
+                                    atoi(strchr(tok, '=') + 1));
                         } else if (strcmp(tok, "alpha") == 0) {
 #if GPUJPEG_VERSION_INT < GPUJPEG_MK_VERSION_INT(0, 20, 2)
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "GPUJPEG v0.20.2 is required for alpha support, %s found.\n",
