@@ -54,6 +54,7 @@
 #include "module.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
@@ -349,11 +350,11 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                                 return false;
                         }
                 } else {
-                        if (strstr(tok, "q=") == tok) {
-                                m_quality = atoi(tok + strlen("q="));
-                        } else if (strstr(tok, "restart=") == tok) {
-                                m_restart_interval = atoi(tok + strlen("restart="));
-                        } else if (strcasecmp(tok, "interleaved") == 0) {
+                        if (IS_KEY_PREFIX(tok, "quality")) {
+                                m_quality = atoi(strchr(tok, '=') + 1);
+                        } else if (IS_KEY_PREFIX(tok, "restart")) {
+                                m_restart_interval = atoi(strchr(tok, '=') + 1);
+                        } else if (IS_PREFIX(tok, "interleaved")) {
                                 m_force_interleaved = true;
                         } else if (strcasecmp(tok, "Y601") == 0) {
                                 m_use_internal_codec = GPUJPEG_YCBCR_BT601;
@@ -363,8 +364,8 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                                 m_use_internal_codec = GPUJPEG_YCBCR_BT709;
                         } else if (strcasecmp(tok, "RGB") == 0) {
                                 m_use_internal_codec = GPUJPEG_RGB;
-                        } else if (strstr(tok, "subsampling=") == tok) {
-                                m_subsampling = atoi(tok + strlen("subsampling="));
+                        } else if (IS_KEY_PREFIX(tok, "subsampling")) {
+                                m_subsampling = atoi(strchr(tok, '=') + 1);
                                 assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
                         } else if (strcmp(tok, "alpha") == 0) {
 #if GPUJPEG_VERSION_INT < GPUJPEG_MK_VERSION_INT(0, 20, 2)
@@ -480,16 +481,18 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 col() << "GPUJPEG comperssion usage:\n";
-                col() << "\t" << TBOLD(TRED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>][:alpha]\n");
+                color_printf(
+                    "\t" TBOLD(TRED(
+                        "-c gpujpeg")
+                                   "[:q=<quality>][:r=<restart_interval>][:"
+                                   "interleaved][:RGB|Y601|Y601full|Y709][:"
+                                   "subsampling=<sub>][:alpha]\n"));
                 col() << "where\n";
 
                 for(const auto& i : usage_opts){
                     col() << "\t" << TBOLD(<< i.help_name <<) << "\n" << i.description;
                 }
 
-                col() << "\n";
-                col() << TBOLD("Note:") << " instead of positional parameters for "
-                        "quality and restart intervals " << TBOLD("\"q=\"") << " and " << TBOLD("\"restart=\"") << " can be used.\n";
                 col() << "\n";
                 return static_cast<module*>(INIT_NOERR);
         }

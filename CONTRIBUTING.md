@@ -72,9 +72,6 @@ AlwaysBreakAfterReturnType: TopLevelDefinitions
 BreakBeforeBraces: Linux
 Cpp11BracedListStyle: false
 IndentWidth: 8
-Macros:
-  - TBOLD(x)=x
-  - TRED(x)=x
 ReflowComments: true
 SpaceAfterCStyleCast: true
 ````
