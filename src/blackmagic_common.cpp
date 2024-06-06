@@ -36,6 +36,7 @@
  */
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
 #include <condition_variable>
@@ -418,6 +419,8 @@ bool decklink_set_profile(IDeckLink *deckLink, bmd_option const &req_profile, bo
                 return error;
         }
 
+        // set '1dfd' for stereo if profile is not set explicitly
+        assert(!req_profile.is_default() || stereo);
         const uint32_t profileID = req_profile.is_default() ? (int64_t) bmdProfileOneSubDeviceFullDuplex : req_profile.get_int();
 
         EXIT_IF_FAILED(manager->GetProfiles(&it), "Cannot set duplex - get profiles");
