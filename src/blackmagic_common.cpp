@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -680,6 +680,16 @@ int64_t bmd_option::get_int() const {
                 return {};
         }
         return m_val.i;
+}
+const char *bmd_option::get_string() const {
+        if (m_type != type_tag::t_string) {
+                MSG(WARNING,
+                    "Option is not set to a string but get_string() called! Current "
+                    "type tag: %d\n",
+                    (int) m_type);
+                return {};
+        }
+        return m_val.s;
 }
 bool bmd_option::is_default() const {
         return m_type == type_tag::t_default;
