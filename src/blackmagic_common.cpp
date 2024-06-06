@@ -35,21 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <algorithm>
+#include <cctype>                // for isxdigit
+#include <chrono>                // for seconds
 #include <condition_variable>
+#include <cstdio>                // for fprintf, stderr
+#include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
 #include <iomanip>
 #include <map>
+#include <mutex>                 // for mutex, lock_guard, unique_lock
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
+#include "compat/htonl.h"
+#include "compat/misc.h"         // for strncasecmp
 #include "DeckLinkAPIVersion.h"
 #include "blackmagic_common.hpp"
 #include "debug.h"

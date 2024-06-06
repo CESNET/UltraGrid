@@ -9,7 +9,7 @@
  * implementation file should be defined.
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,18 @@
 #ifndef strdupa
 #define strdupa(s) (char *) memcpy(alloca(strlen(s) + 1), s, strlen(s) + 1)
 #endif // defined strdupa
+
+// str[n]casecmp
+#ifdef _WIN32 // also defined in config_win32.h
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif // defined strcasecmp
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif // defined strncasecmp
+#else
+#include <strings.h>
+#endif
 
 #endif // defined COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 
