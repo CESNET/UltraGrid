@@ -8,7 +8,8 @@ export CPATH=/usr/local/include:/usr/include
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:$MSYSTEM_PREFIX/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
 export INCLUDE='C:\msys64\clang64\include' # for MSVC (CUDA)
-export CUDA_FLAGS='--generate-code arch=compute_35,code=sm_35'
+export CUDA_FLAGS="--generate-code arch=compute_35,code=sm_35\
+ -allow-unsupported-compiler"
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
 if test -d "$CUDA_D"; then
