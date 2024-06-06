@@ -1142,7 +1142,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         }
 
         if (!s->keep_device_defaults && !s->profile.keep()) {
-                decklink_set_profile(deckLink, s->profile, s->stereo);
+                if (!decklink_set_profile(deckLink, s->profile, s->stereo)) {
+                        INIT_ERR();
+                }
         }
 
         // Query the DeckLink for its configuration interface

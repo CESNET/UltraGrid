@@ -1461,7 +1461,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         if (!s->keep_device_defaults && !s->profile_req.keep()) {
-                decklink_set_profile(s->deckLink, s->profile_req, s->stereo);
+                if (!decklink_set_profile(s->deckLink, s->profile_req,
+                                          s->stereo)) {
+                        display_decklink_done(s);
+                        return nullptr;
+                }
         }
 
         // Obtain the audio/video output interface (IDeckLinkOutput)
