@@ -399,6 +399,12 @@ bool decklink_set_profile(IDeckLink *deckLink, bmd_option const &req_profile, bo
                 return true;
         }
 
+        if (req_profile.is_help()) {
+                printf("Available profiles:\n");
+                print_bmd_device_profiles("\t");
+                return false;
+        }
+
         bool ret = true;
         IDeckLinkProfileManager *manager = nullptr;
         IDeckLinkProfileIterator *it = nullptr;
@@ -695,6 +701,10 @@ const char *bmd_option::get_string() const {
 bool bmd_option::is_default() const {
         return m_type == type_tag::t_default;
 }
+bool bmd_option::is_help() const {
+        return m_type == type_tag::t_string &&
+               strcmp(get_string(), "help") == 0;
+}
 bool bmd_option::is_user_set() const {
         return m_user_specified;
 }
@@ -724,6 +734,11 @@ void bmd_option::parse(const char *val)
 
         if (strcasecmp(val, "keep") == 0) {
                 set_keep();
+                return;
+        }
+
+        if (strcmp(val, "help") == 0) {
+                set_string(val);
                 return;
         }
 

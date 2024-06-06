@@ -98,6 +98,7 @@ public:
         explicit bmd_option(int64_t val, bool user_spec = true);
         explicit bmd_option(bool val, bool user_spec = true);
         bool is_default() const;
+        [[nodiscard]] bool is_help() const;
         bool is_user_set() const;
         void set_keep();
         bool keep() const;
