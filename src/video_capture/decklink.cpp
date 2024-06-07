@@ -524,8 +524,10 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         col() << "\tPrint description of all available options.\n";
         col() << "\n";
 
-        col() << SBOLD("half-duplex | full-duplex") << "\n";
-        col() << "\tSet a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link).\n";
+        col() << SBOLD("half-duplex | full-duplex | simplex") << "\n";
+        col() << "\tSet a profile that allows maximal number of simultaneous "
+                 "IOs / set device to better compatibility (3D, dual-link) / "
+                 "use all connectors as single input.\n";
         col() << "\n";
 
         col() << SBOLD("[no]passthrough[=keep]") << "\n";
@@ -744,6 +746,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->profile.set_int(bmdProfileOneSubDeviceFullDuplex);
         } else if (strstr(opt, "half-duplex") == opt) {
                 s->profile.set_int(bmdDuplexHalf);
+        } else if (strstr(opt, "simplex") == opt) {
+                s->profile.set_int(bmdProfileOneSubDeviceHalfDuplex);
         } else if (strcasecmp(opt, "nosig-send") == 0) {
                 s->nosig_send = true;
         } else if (strstr(opt, "keep-settings") == opt) {

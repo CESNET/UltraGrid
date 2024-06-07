@@ -546,8 +546,10 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\tdevice") << "\t\tindex or name of output device\n";
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
-        col() << SBOLD("\thalf-duplex | full-duplex")
-                << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
+        col() << SBOLD("\thalf-duplex | full-duplex | simplex")
+              << "\tset a profile that allows maximal number of simultaneous "
+                 "IOs / set device to better compatibility (3D, dual-link) / "
+                 "use all connectors as single input\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the DeckLink cards with resampler (experimental)\n";
 
@@ -1221,6 +1223,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->profile_req.set_int(bmdProfileOneSubDeviceFullDuplex);
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
                         s->profile_req.set_int(bmdDuplexHalf);
+                } else if (strcasecmp(ptr, "simplex") == 0) {
+                        s->profile_req.set_int(bmdProfileOneSubDeviceHalfDuplex);
                 } else if (strcasecmp(ptr, "LevelA") == 0) {
                         s->device_options[bmdDeckLinkConfigSMPTELevelAOutput].set_flag(true);
                 } else if (strcasecmp(ptr, "LevelB") == 0) {
