@@ -410,6 +410,126 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
         }
 }
 
+static void
+vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift, int gshift, int bshift);
+static void 
+vc_copylineR12LtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dstlen, int rshift, int gshift, int bshift);
+
+// #ifdef __SSSE3__
+#if 1
+#include <immintrin.h>
+#include <assert.h>
+static void
+vc_copylineR12LtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dstlen, int rshift, int gshift, int bshift)
+{
+        // assert(false); // verify that the function is executed
+
+        // Map 3 bytes of input to 2 bytes of output
+        // byte whose high nibble I need -> low nibble of 1st byte
+        // byte whose low nibble I need  -> high nibble of 1st byte
+        // whole 3rd byte                -> whole 2nd byte
+        
+        #define Z 0x80 // clear dst byte in shuffle
+        #define F 0xff
+
+        __m128i leftmask              = _mm_setr_epi8(F, 0, 0, F, 0, 0, F, 0, 0, F, 0, 0, F, 0, 0, F);
+        __m128i centermask            = _mm_setr_epi8(0, F, 0, 0, F, 0, 0, F, 0, 0, F, 0, 0, F, 0, 0);
+        __m128i rightmask             = _mm_setr_epi8(0, 0, F, 0, 0, F, 0, 0, F, 0, 0, F, 0, 0, F, 0);
+
+        __m128i unpack_hilo_to_odd0   = _mm_setr_epi8(0,  Z,  3,  Z,  6,  Z,  9,  Z, 12,  Z, 15,  Z,  2,  Z,  5,  Z);
+        __m128i unpack_hilo_to_odd1   = _mm_setr_epi8(8,  Z, 11,  Z, 14,  Z,  1,  Z,  4,  Z,  7,  Z, 10,  Z, 13,  Z);
+        __m128i unpack_lohi_to_odd0   = _mm_setr_epi8(1,  Z,  4,  Z,  7,  Z, 10,  Z, 13,  Z,  0,  Z,  3,  Z,  6,  Z);
+        __m128i unpack_lohi_to_odd1   = _mm_setr_epi8(9,  Z, 12,  Z, 15,  Z,  2,  Z,  5,  Z,  8,  Z, 11,  Z, 14,  Z);
+        __m128i unpack_sameb_to_even0 = _mm_setr_epi8(Z,  2,  Z,  5,  Z,  8,  Z, 11,  Z, 14,  Z,  1,  Z,  4,  Z,  7);
+        __m128i unpack_sameb_to_even1 = _mm_setr_epi8(Z, 10,  Z, 13,  Z,  0,  Z,  3,  Z,  6,  Z,  9,  Z, 12,  Z, 15);
+
+        #undef Z
+        #undef F
+
+        int x;
+        OPTIMIZED_FOR (x = 0; x <= dstlen - 32; x += 32) {
+                __m128i chunk0, chunk1, chunk2;
+                chunk0 = _mm_lddqu_si128((__m128i const*)(const void *)  src);
+                chunk1 = _mm_lddqu_si128((__m128i const*)(const void *) (src + 16));
+                chunk2 = _mm_lddqu_si128((__m128i const*)(const void *) (src + 32));
+
+        #ifdef WORDS_BIGENDIAN
+                __m128i shuffle_BEtoLE = _mm_setr_epi8(3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12);
+                chunk0 = _mm_shuffle_epi8(chunk0, shuffle_BEtoLE);
+                chunk1 = _mm_shuffle_epi8(chunk1, shuffle_BEtoLE);
+                chunk2 = _mm_shuffle_epi8(chunk2, shuffle_BEtoLE);
+        #endif
+
+                __m128i hitolo; // positions ≡ 0 (mod 3)
+                {
+                        __m128i hitolo0, hitolo1, hitolo2;
+                        hitolo0 = _mm_and_si128(chunk0, leftmask);   //  0 = 0*3  =  0 + 0
+                        hitolo1 = _mm_and_si128(chunk1, rightmask);  // 18 = 6*3  = 16 + 2
+                        hitolo2 = _mm_and_si128(chunk2, centermask); // 33 = 11*3 = 32 + 1
+                        hitolo  = _mm_or_si128(hitolo0, hitolo1);
+                        hitolo  = _mm_or_si128(hitolo, hitolo2);
+                }
+
+                __m128i lotohi; // positions ≡ 1 (mod 3)
+                {
+                        __m128i lotohi0, lotohi1, lotohi2;
+                        lotohi0 = _mm_and_si128(chunk0, centermask); //  1 = 0*3 + 1  =  0 + 1
+                        lotohi1 = _mm_and_si128(chunk1, leftmask);   // 16 = 5*3 + 1  = 16 + 0
+                        lotohi2 = _mm_and_si128(chunk2, rightmask);  // 34 = 11*3 + 1 = 32 + 2
+                        lotohi  = _mm_or_si128(lotohi0, lotohi1);
+                        lotohi  = _mm_or_si128(lotohi, lotohi2);
+                }
+
+                __m128i copybyte; // positions ≡ 2 (mod 3)
+                {
+                        __m128i copybyte0, copybyte1, copybyte2;
+                        copybyte0 = _mm_and_si128(chunk0, rightmask);   //  2 = 0 * 3 + 2  = 0 + 2
+                        copybyte1 = _mm_and_si128(chunk1, centermask);  // 17 = 5 * 3 + 2  = 16 + 1
+                        copybyte2 = _mm_and_si128(chunk2, leftmask);    // 32 = 10 * 3 + 2 = 32 + 0
+                        copybyte  = _mm_or_si128(copybyte0, copybyte1);
+                        copybyte  = _mm_or_si128(copybyte, copybyte2);
+                }
+
+                // uninterleave, moving to correct locations
+                __m128i lotohi_unp0, lotohi_unp1, hitolo_unp0, hitolo_unp1,
+                        copybyte_unp0, copybyte_unp1;
+                hitolo_unp0   = _mm_shuffle_epi8(hitolo,   unpack_hilo_to_odd0);
+                hitolo_unp1   = _mm_shuffle_epi8(hitolo,   unpack_hilo_to_odd1);
+                lotohi_unp0   = _mm_shuffle_epi8(lotohi,   unpack_lohi_to_odd0);
+                lotohi_unp1   = _mm_shuffle_epi8(lotohi,   unpack_lohi_to_odd1);
+                copybyte_unp0 = _mm_shuffle_epi8(copybyte, unpack_sameb_to_even0);
+                copybyte_unp1 = _mm_shuffle_epi8(copybyte, unpack_sameb_to_even1);
+
+                // actually bitshift low -> high  and high -> low
+                lotohi_unp0 = _mm_slli_epi16(lotohi_unp0, 4);
+                lotohi_unp1 = _mm_slli_epi16(lotohi_unp1, 4);
+                hitolo_unp0 = _mm_srli_epi16(hitolo_unp0, 4);
+                hitolo_unp1 = _mm_srli_epi16(hitolo_unp1, 4);
+
+                // assemble
+                __m128i res0, res1;
+                res0 = _mm_or_si128(copybyte_unp0, lotohi_unp0);
+                res0 = _mm_or_si128(res0,          hitolo_unp0);
+                res1 = _mm_or_si128(copybyte_unp1, lotohi_unp1);
+                res1 = _mm_or_si128(res1,          hitolo_unp1);
+
+
+                // store
+                _mm_storeu_si128((__m128i_u *)  dst,       res0);
+                _mm_storeu_si128((__m128i_u *) (dst + 16), res1);
+
+                src += 48;
+                dst += 32;
+        }
+        // copy leftover bytes
+        dstlen -= x;
+
+        vc_copylineR12LtoRGB(dst, src, dstlen, rshift, gshift, bshift);
+}
+
+#endif // __SSSE3__
+
+
 /**
  * @brief Converts from R12L to RGBA
  *
@@ -2732,6 +2852,9 @@ static const struct decoder_item decoders[] = {
         { vc_copyliner10ktoY416,  R10k,  Y416 },
         { vc_copyliner10ktoRGB,   R10k,  RGB },
         { vc_copylineR12L,        R12L,  RGBA },
+#if 1
+        { vc_copylineR12LtoRGB_SSE,   R12L,  RGB },
+#endif
         { vc_copylineR12LtoRGB,   R12L,  RGB },
         { vc_copylineR12LtoRG48,  R12L,  RG48 },
         { vc_copylineR12LtoR10k,  R12L,  R10k },
