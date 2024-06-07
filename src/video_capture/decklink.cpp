@@ -503,7 +503,7 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
               << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << "\n";
         col() << SBOLD(SRED("\t-t decklink")
-                       << "{:m[ode]=<mode>|:d[evice]=<device_index>|:c[odec]=<colorspace>...<key>=<"
+                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<colorspace>...<key>=<"
                           "val>}*")
               << "\n";
         col() << SBOLD(SRED("\t-t decklink")
@@ -610,27 +610,28 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 		return 0;
 	}
 	
-        cout << "Devices:\n";
+        cout << "Devices (idx, topological ID, name):\n";
 	// Enumerate all cards in this system
-        IDeckLink *deckLink = nullptr;
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
         int numDevices = 0;
-	while (deckLinkIterator->Next(&deckLink) == S_OK)
-	{
+        for (auto & d : deckLinkDevices) {
+                IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
                         deviceName = "(unable to get name)";
                 }
 		
 		// *** Print the model name of the DeckLink card
-                col() << "\t" << TBOLD(<< numDevices <<) << ") " << TBOLD(TGREEN(<< deviceName <<)) << "\n";
-		
+                color_printf("\t" TBOLD("%d") ") " TBOLD("%6x") ") " TBOLD(
+                                 TGREEN("%s")) "\n",
+                             numDevices, d.first, deviceName.c_str());
+
 		// Increment the total number of DeckLink cards found
 		numDevices++;
 	
                 if (full) {
                         vidcap_decklink_print_card_info(deckLink, query_prop_fcc);
                 }
-		deckLink->Release();
 	}
         if (!full) {
                 col() << "\n(use \"-t decklink:"
@@ -832,7 +833,6 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         *deleter = free;
 
         IDeckLinkIterator* deckLinkIterator;
-        IDeckLink* deckLink;
         int numDevices = 0;
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -843,7 +843,9 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         }
 
         // Enumerate all cards in this system
-        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
+        for (auto & d: deckLinkDevices) {
+                IDeckLink *deckLink = d.second.get();
                 HRESULT result;
                 IDeckLinkProfileAttributes *deckLinkAttributes;
 
@@ -869,7 +871,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                 snprintf(cards[*card_count - 1].dev, sizeof cards[*card_count - 1].dev,
                                 ":device=%d", numDevices);
                 snprintf(cards[*card_count - 1].name, sizeof cards[*card_count - 1].name,
-                                "%s #%d", deviceName.c_str(), numDevices);
+                                "%s #%x", deviceName.c_str(), numDevices);
                 snprintf(cards[*card_count - 1].extra, sizeof cards[*card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
 
@@ -881,6 +883,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                         }
                 }
                 list<tuple<int, string, string, string>> modes = get_input_modes (deckLink);
+
                 int i = 0;
                 const int mode_count = sizeof cards[*card_count - 1].modes /
                                                 sizeof cards[*card_count - 1].modes[0];
@@ -933,8 +936,6 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                 numDevices++;
 
                 RELEASE_IF_NOT_NULL(deckLinkAttributes);
-                // Release the IDeckLink instance when we've finished with it to prevent leaks
-                deckLink->Release();
         }
 
         deckLinkIterator->Release();
@@ -1121,20 +1122,25 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         if (deckLinkIterator == NULL) {
                 return false;
         }
-        bool found = false;
-        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
+        for (auto & d: deckLinkDevices) {
+                deckLink = d.second.release(); // we must release manually!
                 string deviceName = bmd_get_device_name(deckLink);
                 if (!deviceName.empty() && deviceName == device_id.c_str()) {
-                        found = true;
-                }
-
-                if (isdigit(device_id.c_str()[0]) && atoi(device_id.c_str()) == dnum) {
-                        found = true;
-                }
-
-                if (found) {
                         break;
                 }
+
+                // topological ID
+                const unsigned long tid =
+                    strtoul(device_id.c_str(), nullptr, 16);
+                if (d.first == tid) {
+                        break;
+                }
+                // idx
+                if (isdigit(device_id.c_str()[0]) && atoi(device_id.c_str()) == dnum) {
+                        break;
+                }
+
                 dnum++;
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
                 deckLink->Release();
@@ -1143,7 +1149,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         deckLinkIterator->Release();
         deckLinkIterator = NULL;
 
-        if (!found) {
+        if (deckLink == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Device " << device_id << " was not found.\n";
                 INIT_ERR();
         }

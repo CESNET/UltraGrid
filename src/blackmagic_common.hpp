@@ -48,6 +48,7 @@
 #include <cstdbool>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <vector>
 #include <string>
 #include <type_traits>
@@ -173,6 +174,9 @@ decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
 bool bmd_parse_audio_levels(const char *opt) noexcept(false);
 void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                          const char                 *query_prop_fcc);
+
+std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>>
+bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

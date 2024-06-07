@@ -39,8 +39,10 @@
 #include <cassert>
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
+#include <climits>               // for UINT_MAX
 #include <condition_variable>
 #include <cstdio>                // for fprintf, stderr
+#include <cstdint>               // for int64_t, uint32_t
 #include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
 #include <iomanip>
 #include <map>
@@ -1085,6 +1087,40 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
         }
         col() << "\t" << hex << "Value of " << SBOLD(query_prop_fcc)
               << " attribute for this device is " << SBOLD(oss.str()) << "\n";
+}
+
+/**
+ * @returns list of DeckLink devices sorted (indexed) by topological ID
+ *          If no topological ID is reported, use UINT_MAX (and lower vals)
+ */
+std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>>
+bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)
+{
+        IDeckLink *deckLink = nullptr;
+        std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>> out;
+        unsigned tid_substitute = UINT_MAX;
+        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+                HRESULT                     result             = E_FAIL;
+                result =
+                    deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                             (void **) &deckLinkAttributes);
+                assert(result == S_OK);
+                int64_t id = 0;
+                result =
+                    deckLinkAttributes->GetInt(BMDDeckLinkTopologicalID, &id);
+                if (result != S_OK) {
+                        id = tid_substitute--;
+                }
+                assert(id >= 0 && id <= UINT_MAX);
+                deckLinkAttributes->Release();
+
+                auto release = [](IDeckLink *d) { d->Release(); };
+                out.emplace(id,
+                            std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>{
+                                deckLink, release });
+        }
+        return out;
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
