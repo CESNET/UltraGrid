@@ -1092,6 +1092,10 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 /**
  * @returns list of DeckLink devices sorted (indexed) by topological ID
  *          If no topological ID is reported, use UINT_MAX (and lower vals)
+ * @note
+ * The returned IDeckLink instances are managed with the unique_ptr, so
+ * take care about the returned object lifetime (particularly not to
+ * be destroyed after decklink_uninitialize()).
  */
 std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>>
 bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)

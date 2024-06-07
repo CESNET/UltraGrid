@@ -636,8 +636,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         }
         
         // Enumerate all cards in this system
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
-        for (auto & d : deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
@@ -1134,8 +1133,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         }
 
         // Enumerate all cards in this system
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
-        for (auto & d: deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
 		if (deviceName.empty()) {
@@ -1434,8 +1432,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         // Connect to the first DeckLink instance
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
-        for (auto & d: deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 s->deckLink = d.second.release(); // unmanage
                 string deviceName = bmd_get_device_name(s->deckLink);
 

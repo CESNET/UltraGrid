@@ -612,9 +612,8 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 	
         cout << "Devices (idx, topological ID, name):\n";
 	// Enumerate all cards in this system
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
         int numDevices = 0;
-        for (auto & d : deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
@@ -843,8 +842,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         }
 
         // Enumerate all cards in this system
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
-        for (auto & d: deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 IDeckLink *deckLink = d.second.get();
                 HRESULT result;
                 IDeckLinkProfileAttributes *deckLinkAttributes;
@@ -1122,8 +1120,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         if (deckLinkIterator == NULL) {
                 return false;
         }
-        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
-        for (auto & d: deckLinkDevices) {
+        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
                 deckLink = d.second.release(); // we must release manually!
                 string deviceName = bmd_get_device_name(deckLink);
                 if (!deviceName.empty() && deviceName == device_id.c_str()) {
