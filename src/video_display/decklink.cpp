@@ -1207,6 +1207,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 const char *val = strchr(ptr, '=') + 1;
                 if (IS_KEY_PREFIX(ptr, "device")) {
                         cardId = strchr(ptr, '=') + 1;
+                } else if (IS_KEY_PREFIX(ptr, "profile")) {
+                        s->profile_req.parse(strchr(ptr, '=') + 1);
                 } else if (strcasecmp(ptr, "3D") == 0) {
                         s->stereo = true;
                 } else if (strcasecmp(ptr, "timecode") == 0) {
@@ -1217,8 +1219,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationDualLink);
                 } else if (strcasecmp(ptr, "quad-link") == 0) {
                         s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationQuadLink);
-                } else if (strstr(ptr, "profile=") == ptr) {
-                        s->profile_req.parse(strchr(ptr, '=') + 1);
                 } else if (strcasecmp(ptr, "full-duplex") == 0) {
                         s->profile_req.set_int(bmdProfileOneSubDeviceFullDuplex);
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
