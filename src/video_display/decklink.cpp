@@ -1218,7 +1218,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "quad-link") == 0) {
                         s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationQuadLink);
                 } else if (strstr(ptr, "profile=") == ptr) {
-                        s->profile_req.parse(ptr);
+                        s->profile_req.parse(strchr(ptr, '=') + 1);
                 } else if (strcasecmp(ptr, "full-duplex") == 0) {
                         s->profile_req.set_int(bmdProfileOneSubDeviceFullDuplex);
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
