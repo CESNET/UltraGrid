@@ -550,7 +550,6 @@ static void
 show_help(bool full, const char *query_prop_fcc = nullptr)
  {
         IDeckLinkIterator*              deckLinkIterator;
-        IDeckLink*                      deckLink;
         int                             numDevices = 0;
 
         col() << "DeckLink display options:\n";
@@ -628,7 +627,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { col() << " " << SBOLD(get_codec_name(i.first)); } );
         cout << "\n";
 
-        col() << "\nDevices:\n";
+        col() << "Devices (idx, topological ID, name):\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
         deckLinkIterator = create_decklink_iterator(&com_initialized, true);
@@ -637,24 +636,24 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         }
         
         // Enumerate all cards in this system
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
+        for (auto & d : deckLinkDevices) {
+                IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
                         deviceName = "(unable to get name)";
                 }
 
                 // *** Print the model name of the DeckLink card
-                col() << "\t" << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
+                color_printf("\t" TBOLD("%d") ") " TBOLD("%6x") ") " TBOLD(
+                                 TGREEN("%s")) "\n",
+                             numDevices, d.first, deviceName.c_str());
                 if (full) {
                         print_output_modes(deckLink, query_prop_fcc);
                 }
 
                 // Increment the total number of DeckLink cards found
                 numDevices++;
-        
-                // Release the IDeckLink instance when we've finished with it to prevent leaks
-                deckLink->Release();
         }
 
         if (!full) {
@@ -1124,7 +1123,6 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 {
         UNUSED(deleter);
         IDeckLinkIterator*              deckLinkIterator;
-        IDeckLink*                      deckLink;
 
         *count = 0;
         *available_cards = nullptr;
@@ -1136,8 +1134,9 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         }
 
         // Enumerate all cards in this system
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
+        for (auto & d: deckLinkDevices) {
+                IDeckLink *deckLink = d.second.get();
                 string deviceName = bmd_get_device_name(deckLink);
 		if (deviceName.empty()) {
 			deviceName = "(unknown)";
@@ -1156,9 +1155,6 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 
                 dev_add_option(&(*available_cards)[*count - 1], "3D", "3D", "3D", ":3D", true);
                 dev_add_option(&(*available_cards)[*count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
-
-                // Release the IDeckLink instance when we've finished with it to prevent leaks
-                deckLink->Release();
         }
 
         deckLinkIterator->Release();
@@ -1438,21 +1434,26 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         // Connect to the first DeckLink instance
-        IDeckLink    *deckLink;
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
-                string deviceName = bmd_get_device_name(deckLink);
+        auto deckLinkDevices = bmd_get_sorted_devices(deckLinkIterator);
+        for (auto & d: deckLinkDevices) {
+                s->deckLink = d.second.release(); // unmanage
+                string deviceName = bmd_get_device_name(s->deckLink);
 
                 if (!deviceName.empty() && deviceName == cardId) {
-                        s->deckLink = deckLink;
                         break;
                 }
+                // topological ID
+                const unsigned long tid = strtoul(cardId.c_str(), nullptr, 16);
+                if (d.first == tid) {
+                        break;
+                }
+                // idx
                 if (isdigit(cardId.c_str()[0]) && dnum == atoi(cardId.c_str())) {
-                        s->deckLink = deckLink;
                         break;
                 }
 
-                deckLink->Release();
+                s->deckLink->Release();
+                s->deckLink = nullptr;
                 dnum++;
         }
         deckLinkIterator->Release();
