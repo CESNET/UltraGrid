@@ -648,11 +648,19 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         }
 
         printf("Examples:\n");
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink") << " # captures autodetected video from first DeckLink (index 0) in system\n";
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=1:mode=Hp30:codec=v210") << " # specify mode for device which doesn't have autodetection\n";
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=\"DeckLink 8K Pro (1)\":profile=1dfd") << " # capture from 8K Pro and set profile to 1-subdevice full-duplex (useful for 3D capture)\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink")
+              << " # captures autodetected video from first DeckLink (index 0) "
+                 "in system\n";
+        col()
+            << "\t" << SBOLD(uv_argv[0] << " -t decklink:d=1:m=Hp30:c=v210")
+            << " # specify mode for device which doesn't have autodetection\n";
+        col() << "\t"
+              << SBOLD(uv_argv[0]
+                       << " -t decklink:d=\"DeckLink 8K Pro (1)\":profile=1dfd")
+              << " # capture from 8K Pro and set profile to 1-subdevice "
+                 "full-duplex (useful for 3D capture)\n";
 
-	printf("\n");
+        printf("\n");
 
         print_decklink_version();
 
@@ -716,21 +724,22 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 parse_devices(s, strchr(opt, '=') + 1);
         } else if (IS_KEY_PREFIX(opt, "mode")) {
                 s->mode = strchr(opt, '=') + 1;
+        } else if (IS_KEY_PREFIX(opt, "profile")) {
+                s->profile.parse(strchr(opt, '=') + 1);
         } else if (strcasecmp(opt, "detect-format") == 0) {
                 s->detect_format = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
                 s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '='), "false") != 0);
-        } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
+        } else if (strncasecmp(opt, "passthrough", 4) == 0 ||
+                   strncasecmp(opt, "nopassthrough", 6) == 0) {
                 if (strstr(opt, "keep")) {
                         s->device_options.erase(bmdDeckLinkConfigCapturePassThroughMode);
                 } else {
                         s->device_options[bmdDeckLinkConfigCapturePassThroughMode] = bmd_option((int64_t) (opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                                 : bmdDeckLinkCapturePassthroughModeCleanSwitch));
                 }
-        } else if (strstr(opt, "profile=") == opt) {
-                s->profile.parse(strchr(opt, '=') + 1);
         } else if (strstr(opt, "full-duplex") == opt) {
                 s->profile.set_int(bmdProfileOneSubDeviceFullDuplex);
         } else if (strstr(opt, "half-duplex") == opt) {
