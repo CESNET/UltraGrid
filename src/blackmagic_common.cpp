@@ -1091,14 +1091,26 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 /**
  * @returns list of DeckLink devices sorted (indexed) by topological ID
  *          If no topological ID is reported, use UINT_MAX (and lower vals)
+ * @param[out] com_initialized  pointer to be passed to decklnk_uninitialize
+ (keeps information if COM needs to be unintialized)
+ * @note
+ Each call of this function should be followed by com_uninitialize() when done
+ with DeckLink. No BMD stuff originating from this function call
+ (IDeckLinks) can be used after that and new call must be made.
  * @note
  * The returned IDeckLink instances are managed with the unique_ptr, so
  * take care about the returned object lifetime (particularly not to
  * be destroyed after decklink_uninitialize()).
  */
 std::vector<bmd_dev>
-bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)
+bmd_get_sorted_devices(bool *com_initialized, bool verbose)
 {
+        IDeckLinkIterator *deckLinkIterator =
+            create_decklink_iterator(com_initialized, verbose);
+        if (deckLinkIterator == nullptr) {
+                return {};
+        }
+
         IDeckLink *deckLink = nullptr;
         std::vector<bmd_dev> out;
         int                  idx = 0;
@@ -1126,6 +1138,7 @@ bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)
                 std::get<unsigned>(it) = id;
                 std::get<int>(it) = idx++;
         }
+        deckLinkIterator->Release();
         std::sort(out.begin(), out.end(), [](bmd_dev &a, bmd_dev &b) {
                 return std::get<unsigned>(a) < std::get<unsigned>(b);
         });

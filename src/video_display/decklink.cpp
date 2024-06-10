@@ -550,7 +550,6 @@ struct state_decklink {
 static void
 show_help(bool full, const char *query_prop_fcc = nullptr)
  {
-        IDeckLinkIterator*              deckLinkIterator;
         int                             numDevices = 0;
 
         col() << "DeckLink display options:\n";
@@ -631,13 +630,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << "Devices (idx, topological ID, name):\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
-        deckLinkIterator = create_decklink_iterator(&com_initialized, true);
-        if (deckLinkIterator == NULL) {
-                return;
-        }
         
         // Enumerate all cards in this system
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized, true)) {
                 IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
@@ -660,8 +655,6 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         if (!full) {
                 col() << "(use \"" << SBOLD("fullhelp") << "\" to see device modes)\n";
         }
-
-        deckLinkIterator->Release();
 
         decklink_uninitialize(&com_initialized);
 
@@ -1123,19 +1116,13 @@ PlaybackDelegate::Preroll(struct state_decklink *s)
 static void display_decklink_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         UNUSED(deleter);
-        IDeckLinkIterator*              deckLinkIterator;
 
         *count = 0;
         *available_cards = nullptr;
 
         bool com_initialized = false;
-        deckLinkIterator = create_decklink_iterator(&com_initialized, false);
-        if (deckLinkIterator == NULL) {
-                return;
-        }
-
         // Enumerate all cards in this system
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized, false)) {
                 IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
 		if (deviceName.empty()) {
@@ -1159,7 +1146,6 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 dev_add_option(&(*available_cards)[*count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
         }
 
-        deckLinkIterator->Release();
         decklink_uninitialize(&com_initialized);
 }
 
@@ -1388,7 +1374,6 @@ set_audio_props(state_decklink         *s,
 
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         string                                          cardId("0");
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
@@ -1427,15 +1412,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        // Initialize the DeckLink API
-        deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
-        if (!deckLinkIterator) {
-                display_decklink_done(s);
-                return nullptr;
-        }
-
         // Connect to the first DeckLink instance
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&s->com_initialized, true)) {
                 s->deckLink = get<0>(d).release(); // unmanage
                 string deviceName = bmd_get_device_name(s->deckLink);
 
@@ -1463,7 +1441,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->deckLink->Release();
                 s->deckLink = nullptr;
         }
-        deckLinkIterator->Release();
         if (s->deckLink == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId << " found\n";
                 display_decklink_done(s);

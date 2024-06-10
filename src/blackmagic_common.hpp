@@ -185,7 +185,7 @@ void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
                            unsigned, int, char>;
 std::vector<bmd_dev>
-bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator);
+bmd_get_sorted_devices(bool *com_initialized, bool verbose = true);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

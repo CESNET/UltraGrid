@@ -629,15 +629,11 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
-        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(&com_initialized);
-        if (deckLinkIterator == NULL) {
-		return 0;
-	}
 	
         cout << "Devices (idx, topological ID, name):\n";
 	// Enumerate all cards in this system
         int numDevices = 0;
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized)) {
                 IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
@@ -853,17 +849,11 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         *card_count = 0;
         *deleter = free;
 
-        IDeckLinkIterator* deckLinkIterator;
-
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
-        deckLinkIterator = create_decklink_iterator(&com_initialized, false);
-        if (deckLinkIterator == nullptr) {
-                return;
-        }
 
         // Enumerate all cards in this system
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized, false)) {
                 IDeckLink *deckLink = get<0>(d).get();
                 HRESULT result;
                 IDeckLinkProfileAttributes *deckLinkAttributes;
@@ -954,7 +944,6 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                 RELEASE_IF_NOT_NULL(deckLinkAttributes);
         }
 
-        deckLinkIterator->Release();
         decklink_uninitialize(&com_initialized);
         *available_cards = cards;
 }
@@ -1136,12 +1125,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         tile = t;
 
         bool com_initialized = false;
-        // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(&com_initialized, true);
-        if (deckLinkIterator == NULL) {
-                return false;
-        }
-        for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized, true)) {
                 deckLink = get<0>(d).release(); // we must release manually!
                 string deviceName = bmd_get_device_name(deckLink);
                 if (!deviceName.empty() && deviceName == device_id.c_str()) {
@@ -1171,8 +1155,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 deckLink->Release();
                 deckLink = NULL;
         }
-        deckLinkIterator->Release();
-        deckLinkIterator = NULL;
 
         if (deckLink == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Device " << device_id << " was not found.\n";
