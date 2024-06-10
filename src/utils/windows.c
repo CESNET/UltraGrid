@@ -48,6 +48,15 @@
 
 #define MOD_NAME "[utils/win] "
 
+/**
+ * @param[out] com_initialize a pointer to a bool that will be passed to
+ * com_uninintialize()
+ * @param[in] err_prefix optional error prefix to be used for eventual error
+ * messges (may be NULL)
+ * @retval true  if either COM already initalized for this thread or this call
+ * initializes COM succesfully
+ * @retval false  COM could not have been initialized
+ */
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
 #ifdef _WIN32

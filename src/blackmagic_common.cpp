@@ -161,10 +161,17 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
 }
 
 /**
+ * @param[out] com_initialized  pointer to be passed to decklnk_uninitialize
+ (keeps information if COM needs to be unintialized)
+ * @param coinit  initialize COM - see a note below
  * @note
  * Each successful call (returning non-null pointer) of this function with coinit == true
  * should be followed by com_uninitialize() when done with DeckLink (not when releasing
  * IDeckLinkIterator!), typically on application shutdown.
+ * @note
+ * see @ref com_initialize for details; basically can be false if that the
+ current thread already called CoInitialize[Ex], which now holds - this is
+ currently called from main thread, that already called it in common_init()
  */
 IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose, bool coinit)
 {
