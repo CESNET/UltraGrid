@@ -49,6 +49,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <tuple>
 #include <vector>
 #include <string>
 #include <type_traits>
@@ -175,7 +176,16 @@ bool bmd_parse_audio_levels(const char *opt) noexcept(false);
 void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                          const char                 *query_prop_fcc);
 
-std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>>
+/**
+ * @details parameters:
+ * - first - IDeckLinkInstance
+ * - unsigned - topological ID
+ * - int - natural idx (the old, order as given by IDeckLinkIterator)
+ * - char - new index ('a', 'b', 'c'...); sorted by topological ID
+ */
+using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
+                           unsigned, int, char>;
+std::vector<bmd_dev>
 bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator);
 
 #endif // defined BLACKMAGIC_COMMON_HPP

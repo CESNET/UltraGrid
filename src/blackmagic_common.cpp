@@ -1097,12 +1097,12 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
  * take care about the returned object lifetime (particularly not to
  * be destroyed after decklink_uninitialize()).
  */
-std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>>
+std::vector<bmd_dev>
 bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)
 {
         IDeckLink *deckLink = nullptr;
-        std::map<unsigned, std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>> out;
-        unsigned tid_substitute = UINT_MAX;
+        std::vector<bmd_dev> out;
+        int                  idx = 0;
         while (deckLinkIterator->Next(&deckLink) == S_OK) {
                 IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
                 HRESULT                     result             = E_FAIL;
@@ -1114,15 +1114,26 @@ bmd_get_sorted_devices(IDeckLinkIterator *deckLinkIterator)
                 result =
                     deckLinkAttributes->GetInt(BMDDeckLinkTopologicalID, &id);
                 if (result != S_OK) {
-                        id = tid_substitute--;
+                        id = UINT_MAX - idx;
                 }
                 assert(id >= 0 && id <= UINT_MAX);
                 deckLinkAttributes->Release();
 
                 auto release = [](IDeckLink *d) { d->Release(); };
-                out.emplace(id,
-                            std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>{
-                                deckLink, release });
+                auto &it      = out.emplace_back(
+                    std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>{
+                        deckLink, release },
+                    0, 0, 0);
+                std::get<unsigned>(it) = id;
+                std::get<int>(it) = idx++;
+        }
+        std::sort(out.begin(), out.end(), [](bmd_dev &a, bmd_dev &b) {
+                return std::get<unsigned>(a) < std::get<unsigned>(b);
+        });
+        // assign new indices
+        char new_idx = 'a';
+        for (auto &d : out) {
+                std::get<char>(d) = new_idx++;
         }
         return out;
 }

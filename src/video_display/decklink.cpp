@@ -130,6 +130,7 @@ using std::atomic_bool;
 using std::cout;
 using std::copy;
 using std::exception;
+using std::get;
 using std::invalid_argument;
 using std::lock_guard;
 using std::map;
@@ -637,16 +638,17 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         
         // Enumerate all cards in this system
         for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
-                IDeckLink *deckLink = d.second.get();
+                IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
                         deviceName = "(unable to get name)";
                 }
 
                 // *** Print the model name of the DeckLink card
-                color_printf("\t" TBOLD("%d") ") " TBOLD("%6x") ") " TBOLD(
+                color_printf("\t" TBOLD("%c") ") " TBOLD("%6x") ") " TBOLD(
                                  TGREEN("%s")) "\n",
-                             numDevices, d.first, deviceName.c_str());
+                             get<char>(d), get<unsigned>(d),
+                             deviceName.c_str());
                 if (full) {
                         print_output_modes(deckLink, query_prop_fcc);
                 }
@@ -1134,7 +1136,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 
         // Enumerate all cards in this system
         for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
-                IDeckLink *deckLink = d.second.get();
+                IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
 		if (deviceName.empty()) {
 			deviceName = "(unknown)";
@@ -1144,7 +1146,9 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
-                snprintf((*available_cards)[*count - 1].dev, sizeof (*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
+                snprintf((*available_cards)[*count - 1].dev,
+                         sizeof(*available_cards)[*count - 1].dev, ":device=%u",
+                         get<unsigned>(d));
                 snprintf((*available_cards)[*count - 1].extra, sizeof (*available_cards)[*count - 1].extra, "\"embeddedAudioAvailable\":\"t\"");
                 (*available_cards)[*count - 1].repeatable = false;
 
@@ -1387,7 +1391,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         string                                          cardId("0");
-        int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
 
@@ -1433,7 +1436,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         // Connect to the first DeckLink instance
         for (auto &d : bmd_get_sorted_devices(deckLinkIterator)) {
-                s->deckLink = d.second.release(); // unmanage
+                s->deckLink = get<0>(d).release(); // unmanage
                 string deviceName = bmd_get_device_name(s->deckLink);
 
                 if (!deviceName.empty() && deviceName == cardId) {
@@ -1441,17 +1444,24 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
                 // topological ID
                 const unsigned long tid = strtoul(cardId.c_str(), nullptr, 16);
-                if (d.first == tid) {
+                if (get<unsigned>(d) == tid) {
                         break;
                 }
-                // idx
-                if (isdigit(cardId.c_str()[0]) && dnum == atoi(cardId.c_str())) {
-                        break;
+                // natural (old) index
+                if (isdigit(cardId.c_str()[0])) {
+                        if (atoi(cardId.c_str()) == get<int>(d)) {
+                                break;
+                        }
+                }
+                // new (character) index
+                if (cardId.length() == 1 && cardId[0] >= 'a') {
+                        if (cardId[0] == get<char>(d)) {
+                                break;
+                        }
                 }
 
                 s->deckLink->Release();
                 s->deckLink = nullptr;
-                dnum++;
         }
         deckLinkIterator->Release();
         if (s->deckLink == nullptr) {
