@@ -97,9 +97,33 @@ constexpr const size_t MAX_AUDIO_PACKETS = 10;
 
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
 
-using namespace std;
-using namespace std::chrono;
+using namespace std::string_literals;
+using std::chrono::duration_cast;
+using std::chrono::microseconds;
+using std::chrono::milliseconds;
+using std::chrono::steady_clock;
+using std::condition_variable;
+using std::cv_status;
+using std::cout;
+using std::exception;
+using std::get;
+using std::internal;
+using std::left;
+using std::list;
+using std::make_unique;
+using std::map;
+using std::max;
+using std::min;
 using std::mutex;
+using std::queue;
+using std::right;
+using std::setw;
+using std::string;
+using std::tuple;
+using std::unique_lock;
+using std::unique_ptr;
+using std::unordered_map;
+using std::vector;
 
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
@@ -1028,7 +1052,11 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
                         if (result == S_OK) {
                                 device->deckLinkInput->StartStreams();
                                 unique_lock<mutex> lk(s->lock);
-                                s->boss_cv.wait_for(lk, chrono::milliseconds(1200), [device]{return device->delegate->newFrameReady == 1;});
+                                s->boss_cv.wait_for(
+                                    lk, milliseconds(1200), [device] {
+                                            return device->delegate
+                                                       ->newFrameReady == 1;
+                                    });
                                 lk.unlock();
                                 device->deckLinkInput->StopStreams();
                                 device->deckLinkInput->DisableVideoInput();
