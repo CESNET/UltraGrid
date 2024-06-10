@@ -869,7 +869,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                 snprintf(cards[*card_count - 1].dev, sizeof cards[*card_count - 1].dev,
                                 ":device=%d", numDevices);
                 snprintf(cards[*card_count - 1].name, sizeof cards[*card_count - 1].name,
-                                "%s #%x", deviceName.c_str(), numDevices);
+                                "%s", deviceName.c_str());
                 snprintf(cards[*card_count - 1].extra, sizeof cards[*card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
 
