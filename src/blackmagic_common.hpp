@@ -133,7 +133,7 @@ std::string get_str_from_bmd_api_str(BMD_STR string);
 std::string bmd_get_flags_str(BMDDisplayModeFlags flags);
 #endif
 
-IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose = true, bool coinit = true);
+IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose = true);
 /// @param com_initialized - pointer passed to create_decklink_iterator
 void decklink_uninitialize(bool *com_initialized);
 bool blackmagic_api_version_check();
