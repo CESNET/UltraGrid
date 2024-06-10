@@ -240,6 +240,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	s->desc.fps = DEFAULT_FPS;
 	s->desc.tile_count = 1;
 	s->desc.interlacing = PROGRESSIVE;
+	s->com_initialized = false;
 
 	s->frame = NULL;
 	s->grabBufferLen = 0;

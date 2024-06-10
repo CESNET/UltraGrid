@@ -181,7 +181,7 @@ struct device_state {
 };
 
 struct vidcap_decklink_state {
-        bool                    com_initialized = true;
+        bool                    com_initialized = false;
         vector <struct device_state>     state{vector <struct device_state>(1)};
         int                     devices_cnt = 1;
         string                  mode;

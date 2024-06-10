@@ -44,13 +44,15 @@
 #include "debug.h"
 #endif // defined _WIN32
 
+#include "debug.h"
 #include "utils/windows.h"
 
 #define MOD_NAME "[utils/win] "
 
 /**
  * @param[out] com_initialize a pointer to a bool that will be passed to
- * com_uninintialize()
+ * com_uninintialize(). The value should be initialized to false - the current
+ * logic can guard only one init/uninit so true is assumed bo be a repeated call.
  * @param[in] err_prefix optional error prefix to be used for eventual error
  * messges (may be NULL)
  * @retval true  if either COM already initalized for this thread or this call
@@ -59,6 +61,10 @@
  */
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
+        if (*com_initialized) {
+                MSG(WARNING, "com_initialized should be initalized to false "
+                             "upon the call!\n");
+        }
 #ifdef _WIN32
         if (err_prefix == NULL) {
                 err_prefix = "";
