@@ -50,6 +50,8 @@
 #include "host.h"
 #include "utils/color_out.h"
 
+#define MOD_NAME "[color_out] "
+
 using std::string;
 
 static bool color_stdout;
@@ -128,6 +130,8 @@ static bool isMsysPty(int fd) {
 #ifdef HAVE_CONFIG_H
 ADD_TO_PARAM("log-color", "* log-color[=no]\n"
                  "  Force enable/disable ANSI text formatting.\n");
+ADD_TO_PARAM("log-nocolor", "* log-nocolor\n"
+                 "  Force disable ANSI text formatting.\n");
 #endif
 /**
  * @returns whether stdout can process ANSI escape sequences
@@ -139,6 +143,12 @@ is_output_color()
         const char *const param_val = get_commandline_param("log-color");
         if (param_val != nullptr) {
                 return strcmp(param_val, "no") != 0;
+        }
+        if (get_commandline_param("log-nocolor") != nullptr) {
+                fprintf(stderr,
+                        MOD_NAME "The param log-nocolor is deprecated, use "
+                                 "'log-color=no' instead\n");
+                return false;
         }
 #endif
         const char *env_val = getenv("ULTRAGRID_COLOR_OUT");
