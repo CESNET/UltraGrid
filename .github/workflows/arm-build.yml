@@ -29,6 +29,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Init environment variables
+      run: . .github/scripts/environment.sh
     - name: Prepare
       run: |
         sudo apt update
@@ -76,6 +78,7 @@ jobs:
       run: |
         sudo cp -ar $GITHUB_WORKSPACE ~/chroot/UltraGrid
         env | grep -v '^\(HOME\)\|\(USER\)' | sed -e "s/=/='/" -e "s/$/'/" | sudo tee ~/chroot/envvars
+        echo "FEATURES=\"$FEATURES\"" | sudo tee -a ~/chroot/envvars
         sudo chroot ~/chroot /bin/sh -ec "set -a; . /envvars; set +a; cd UltraGrid; .github/scripts/Linux/arm/build.sh"
     - name: Upload Release Asset
       id: upload-release-asset

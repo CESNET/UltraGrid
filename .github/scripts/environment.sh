@@ -31,6 +31,12 @@ export CHANNEL TAG VERSION
 
 printf '%b' "CHANNEL=$CHANNEL\nTAG=$TAG\nVERSION=$VERSION\n" >> "$GITHUB_ENV"
 
+## @note `uname -m` is x86_64 for Linux ARM builds, because this script is
+##       not called from the build chroot, so utilize GITHUB_WORKFLOW
+is_arm() {
+        [ "$(uname -m)" = arm64 ] || [ "$GITHUB_WORKFLOW" = 'ARM builds' ]
+}
+
 export FEATURES="\
  --enable-option-checking=fatal\
  --with-live555=/usr/local\
@@ -74,9 +80,14 @@ export FEATURES="\
 CUDA_FEATURES="--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy"
 case "$RUNNER_OS" in
         Linux)
-                FEATURES="$FEATURES $CUDA_FEATURES --enable-plugins\
- --enable-alsa --enable-lavc-hw-accel-vaapi --enable-lavc-hw-accel-vdpau\
- --enable-pipewire-audio --enable-v4l2"
+                FEATURES="$FEATURES --enable-plugins --enable-alsa \
+--enable-pipewire-audio --enable-v4l2 --enable-lavc-hw-accel-vaapi"
+                if is_arm; then
+                        FEATURES="$FEATURES --disable-qt"
+                else
+                        FEATURES="$FEATURES $CUDA_FEATURES \
+--enable-lavc-hw-accel-vdpau"
+                fi
                 ;;
         macOS)
                 FEATURES="$FEATURES --enable-avfoundation --enable-coreaudio --enable-syphon"
@@ -90,7 +101,7 @@ case "$RUNNER_OS" in
                 ;;
 esac
 
-if [ "$(uname -s)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then
+if ! is_arm; then
         FEATURES="$FEATURES --enable-cineform"
 fi
 

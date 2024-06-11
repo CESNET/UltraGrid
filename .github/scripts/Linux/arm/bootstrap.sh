@@ -47,7 +47,9 @@ apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
 apt -y install libcaca-dev libmagickwand-dev libnatpmp-dev libopencv-core-dev libopencv-imgproc-dev libv4l-dev
 apt -y install libavcodec-dev libavformat-dev libswscale-dev libraspberrypi-dev
-apt -y install libdrm-dev
+apt -y install libdrm-dev\
+  libsdl2-mixer-dev libsdl2-ttf-dev\
+  libva-dev\
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi pipewire ximea
