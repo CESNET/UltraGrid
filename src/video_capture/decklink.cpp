@@ -640,10 +640,16 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                         deviceName = "(unable to get name)";
                 }
 		
+                char numeric_index[STR_LEN] = "";
+                if (full) {
+                        snprintf(numeric_index, sizeof numeric_index,
+                                 TBOLD("%d") ") ", get<int>(d));
+                }
 		// *** Print the model name of the DeckLink card
-                color_printf("\t" TBOLD("%c") ") " TBOLD("%6x") ") " TBOLD(
-                           TGREEN("%s")) "\n",
-                       get<char>(d), get<unsigned>(d), deviceName.c_str());
+                color_printf("\t" TBOLD("%c") ") %s" TBOLD("%6x") ") " TBOLD(
+                                 TGREEN("%s")) "\n",
+                             get<char>(d), numeric_index, get<unsigned>(d),
+                             deviceName.c_str());
 
 		// Increment the total number of DeckLink cards found
 		numDevices++;
