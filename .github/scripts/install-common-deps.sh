@@ -82,7 +82,7 @@ download_build_live555() {(
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
-                export CXXFLAGS=-DXLOCALE_NOT_USED
+                export CXXFLAGS="-DXLOCALE_NOT_USED -fPIC"
                 target=linux
         else
                 target=macosx
