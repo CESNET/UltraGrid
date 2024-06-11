@@ -19,6 +19,7 @@ set -- "$@" --enable-caca --enable-gl-display --enable-panogl_disp --enable-sdl 
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
 set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-text --enable-video-mixer --enable-zfec # extras (pp. etc)
 set -- "$@" --enable-drm
+set -- "$@" --enable-rtsp-server
 if [ "$ARCH" = arm64 ]; then
         set -- "$@" --enable-vulkan
 fi

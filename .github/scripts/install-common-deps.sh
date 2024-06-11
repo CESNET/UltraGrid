@@ -82,7 +82,7 @@ download_build_live555() {
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
-                target=linux-64bit
+                target=linux
         else
                 target=macosx
         fi
