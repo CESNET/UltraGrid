@@ -75,13 +75,14 @@ install_juice() {
 )
 }
 
-download_build_live555() {
+download_build_live555() {(
         if is_win; then
                 target=mingw
                 PATH=/usr/bin:$PATH
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
+                export CXXFLAGS=-DXLOCALE_NOT_USED
                 target=linux
         else
                 target=macosx
@@ -92,10 +93,11 @@ download_build_live555() {
         git checkout 35c375
         ./genMakefiles "$target"
 
-        make -j "$(nproc)"  CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-        is_win && pacman -Rs --noconfirm binutils
-        cd ..
-}
+        make -j "$(nproc)"
+        if is_win; then
+                pacman -Rs --noconfirm binutils
+        fi
+)}
 
 install_live555() {(
         if [ ! -d live555 ]; then
