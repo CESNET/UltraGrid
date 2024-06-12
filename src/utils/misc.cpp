@@ -53,6 +53,7 @@
 #include <sstream>
 #include <string>
 
+#include "compat/strings.h" // sterror_s
 #include "debug.h"
 #include "utils/macros.h"
 #include "utils/misc.h"

@@ -1,8 +1,8 @@
 /**
- * @file   compat/strings.h
+ * @file   compat/time.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * compatibility header for strcasecmp. strerror_s
+ * time-related compatibility header
  */
 /*
  * Copyright (c) 2024 CESNET
@@ -37,32 +37,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef _WIN32
-#ifndef strcasecmp
-#include <string.h>
-#define strcasecmp _stricmp
-#endif
-#else // ! defined _WIN32
-#include <strings.h>
-#endif // _WIN32
+#ifndef COMPAT_MISC_H_7C0E2D4B_7D55_4107_918B_7BF2BEB92428
+#define COMPAT_MISC_H_7C0E2D4B_7D55_4107_918B_7BF2BEB92428
 
-#ifdef __cplusplus
-#define COMPAT_MISC_EXT_C extern "C"
-#else
-#define COMPAT_MISC_EXT_C extern
-#endif
+#include <time.h>
 
-// strerror_s
-#ifndef _WIN32
 #ifndef __STDC_LIB_EXT1__
-#if ! defined __gnu_linux__ // XSI version on non-glibc
-#define strerror_s(buf, bufsz, errnum) strerror_r(errnum, buf, bufsz)
-#else // use the XSI variant from glibc (strerror_r is either GNU or XSI)
-COMPAT_MISC_EXT_C int __xpg_strerror_r(int errcode, char *buffer, size_t length);
-#define strerror_s(buf, bufsz, errnum) __xpg_strerror_r(errnum, buf, bufsz)
+#ifdef _WIN32
+#define gmtime_s(timer, buf) gmtime_s(buf, timer)
+#define localtime_s(timer, buf) localtime_s(buf, timer)
+#else
+#define gmtime_s gmtime_r
+#define localtime_s localtime_r
 #endif
 #endif // ! defined __STDC_LIB_EXT1__
-#endif // ! defined _WIN32
 
-#undef COMPAT_MISC_EXT_C
-
+#endif // !defined COMPAT_MISC_H_7C0E2D4B_7D55_4107_918B_7BF2BEB92428

@@ -35,22 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define WANT_MKDIR
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <dirent.h>
+#include <errno.h>            // for errno, EEXIST
 #include <limits.h>
 #include <stdbool.h>
+#include <stdlib.h>           // for NULL, free, calloc, strtol
 #include <sys/types.h>
 #include <time.h>
 
 #include "export.h"
 
 #include "audio/export.h"
+#define WANT_MKDIR
+#include "compat/misc.h"      // for mkdir
+#include "compat/time.h"      // for localtime_s
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"

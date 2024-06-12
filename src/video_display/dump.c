@@ -44,6 +44,7 @@
 
 #include <stdint.h>
 
+#include "compat/time.h"
 #include "debug.h"
 #include "export.h"
 #include "host.h"

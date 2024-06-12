@@ -67,6 +67,7 @@
 #include <thread>
 #include <utility>
 
+#include "compat/time.h"
 #include "debug.h"
 #include "host.h"
 #include "keyboard_control.h"
