@@ -46,7 +46,7 @@
 
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "compat/misc.h"
+#include "compat/strings.h" // strdupa
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/macros.h"

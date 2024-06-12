@@ -43,7 +43,7 @@
 
 #include "capture_filter.h"
 
-#include "compat/misc.h"
+#include "compat/strings.h"    // for strdupa
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"

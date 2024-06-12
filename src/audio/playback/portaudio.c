@@ -59,7 +59,7 @@ struct device_info;
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
-#include "compat/misc.h" // strdupa
+#include "compat/strings.h"          // for  strdupa
 #include "debug.h"
 #include "host.h"                    // for get_commandline_param, INIT_NOERR
 #include "lib_common.h"

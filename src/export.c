@@ -40,6 +40,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>           // for NULL, free, calloc, strtol
+#include <string.h>           // for strdup
 #include <sys/types.h>
 #include <time.h>
 

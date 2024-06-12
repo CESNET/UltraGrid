@@ -46,7 +46,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
-#include "compat/misc.h"
+#include "compat/strings.h"      // strdupa
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"

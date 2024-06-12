@@ -61,7 +61,7 @@
 #include "audio/codec.h"
 #include "audio/audio_filter.h"
 #include "audio/utils.h"
-#include "compat/misc.h"
+#include "compat/strings.h"  // strdupa
 #include "compat/platform_pipe.h"
 #include "debug.h"
 #include "keyboard_control.h"

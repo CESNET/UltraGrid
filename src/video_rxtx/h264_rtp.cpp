@@ -50,7 +50,7 @@
 #include <cstring>
 #include <memory>
 
-#include "compat/misc.h"
+#include "compat/strings.h" // strdupa
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

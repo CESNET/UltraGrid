@@ -2,7 +2,7 @@
  * @file   compat/strings.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * compatibility header for strcasecmp. strerror_s
+ * compatibility header for strcasecmp. strdup, strerror_s
  */
 /*
  * Copyright (c) 2024 CESNET
@@ -37,9 +37,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
+#define COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
+  
+#include <string.h>
+
 #ifdef _WIN32
 #ifndef strcasecmp
-#include <string.h>
 #define strcasecmp _stricmp
 #endif
 #else // ! defined _WIN32
@@ -64,5 +68,12 @@ COMPAT_MISC_EXT_C int __xpg_strerror_r(int errcode, char *buffer, size_t length)
 #endif // ! defined __STDC_LIB_EXT1__
 #endif // ! defined _WIN32
 
+// strdupa is defined as a macro
+#include <string.h>
+#ifndef strdupa
+#define strdupa(s) (char *) memcpy(alloca(strlen(s) + 1), s, strlen(s) + 1)
+#endif // defined strdupa
+
 #undef COMPAT_MISC_EXT_C
 
+#endif // ! defined COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12

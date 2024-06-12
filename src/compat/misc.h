@@ -41,12 +41,6 @@
 #ifndef COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 #define COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 
-// strdupa is defined as a macro
-#include <string.h>
-#ifndef strdupa
-#define strdupa(s) (char *) memcpy(alloca(strlen(s) + 1), s, strlen(s) + 1)
-#endif // defined strdupa
-
 #ifdef WANT_MKDIR
 #ifdef _WIN32
 #include <direct.h>
