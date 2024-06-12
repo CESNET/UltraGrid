@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2023 CESNET z.s.p.o.
+ * Copyright (c) 2017-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 
 #include <dirent.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -51,6 +52,7 @@
 
 #include "audio/export.h"
 #include "debug.h"
+#include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
@@ -73,6 +75,7 @@ struct exporter {
         pthread_mutex_t lock;
 
         long long int limit; ///< number of video frames to record, -1 == unlimited (default)
+        bool exit_on_limit;
 };
 
 static bool create_dir(struct exporter *s);
@@ -87,12 +90,15 @@ static void new_msg(struct module *mod) {
 static void usage() {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(
-            TRED("--record") "[=<dir>[:limit=<n>][:noaudio][:novideo][:"
-            "override][:paused]] ") "\n" "\t" TBOLD(TRED("-E") "[<dir>[:<opts>]]")
-            "\n\t" TBOLD("--record=help | -Ehelp") "\n");
+            TRED("--record") "[=<dir>[:limit=<n>[:exit_on_limit]][:noaudio]"
+            "[:novideo][:override][:paused]] ") "\n" "\t" TBOLD(TRED("-E")
+            "[<dir>[:<opts>]]") "\n\t" TBOLD("--record=help | -Ehelp") "\n");
         color_printf("where\n");
-        color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at most <n> video frames\n");
-        color_printf(TERM_BOLD "\toverride" TERM_RESET "          - export even if it would override existing files in the given directory\n");
+        color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at "
+                     " most <n> video frames (with optional exit)\n");
+        color_printf(TERM_BOLD "\toverride" TERM_RESET
+                               "          - export even if it would override "
+                               "existing files in the given directory\n");
         color_printf(TERM_BOLD "\tnoaudio | novideo" TERM_RESET " - do not export audio/video\n");
         color_printf(TERM_BOLD "\tpaused" TERM_RESET "            - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
 }
@@ -117,6 +123,8 @@ static bool parse_options(struct exporter *s, char *save_ptr, bool *should_expor
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong limit: %s!\n", item + strlen("limit="));
                                 return false;
                         }
+                } else if (strcmp(item, "exit_on_limit") == 0) {
+                        s->exit_on_limit = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
                         return false;
@@ -362,6 +370,9 @@ void export_video(struct exporter *s, struct video_frame *frame)
                 if (--s->limit == 0) {
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stopping export - limit reached.\n");
                         disable_export(s);
+                        if (s->exit_on_limit) {
+                                exit_uv(0);
+                        }
                 }
         }
         pthread_mutex_unlock(&s->lock);
