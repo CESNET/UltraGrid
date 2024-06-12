@@ -1091,8 +1091,8 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 /**
  * @returns list of DeckLink devices sorted (indexed) by topological ID
  *          If no topological ID is reported, use UINT_MAX (and lower vals)
- * @param[out] com_initialized  pointer to be passed to decklnk_uninitialize
- (keeps information if COM needs to be unintialized)
+ * @param verbose - print errors
+ * @param natural_sort - use the (old) natural sort as given by the iterator
  * @note
  Each call of this function should be followed by com_uninitialize() when done
  with DeckLink. No BMD stuff originating from this function call
@@ -1103,7 +1103,7 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
  * be destroyed after decklink_uninitialize()).
  */
 std::vector<bmd_dev>
-bmd_get_sorted_devices(bool *com_initialized, bool verbose)
+bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
 {
         IDeckLinkIterator *deckLinkIterator =
             create_decklink_iterator(com_initialized, verbose);
@@ -1139,9 +1139,11 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose)
                 std::get<int>(it) = idx++;
         }
         deckLinkIterator->Release();
-        std::sort(out.begin(), out.end(), [](bmd_dev &a, bmd_dev &b) {
-                return std::get<unsigned>(a) < std::get<unsigned>(b);
-        });
+        if (!natural_sort) {
+                std::sort(out.begin(), out.end(), [](bmd_dev &a, bmd_dev &b) {
+                        return std::get<unsigned>(a) < std::get<unsigned>(b);
+                });
+        }
         // assign new indices
         char new_idx = 'a';
         for (auto &d : out) {
@@ -1152,4 +1154,6 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose)
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
+ADD_TO_PARAM(BMD_NAT_SORT, "* " BMD_NAT_SORT "\n"
+                "  Use the old BMD device sorting.\n");
 

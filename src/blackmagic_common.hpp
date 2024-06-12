@@ -162,6 +162,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
 
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
+#define BMD_NAT_SORT "bmd-sort-natural"
 
 template <typename T>
 bool decklink_supports_codec(T *deckLink, BMDPixelFormat pf);
@@ -184,8 +185,9 @@ void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
  */
 using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
                            unsigned, int, char>;
-std::vector<bmd_dev>
-bmd_get_sorted_devices(bool *com_initialized, bool verbose = true);
+std::vector<bmd_dev> bmd_get_sorted_devices(bool *com_initialized,
+                                            bool  verbose      = true,
+                                            bool  natural_sort = false);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

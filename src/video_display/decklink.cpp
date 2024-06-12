@@ -632,22 +632,30 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         bool com_initialized = false;
         
         // Enumerate all cards in this system
-        for (auto &d : bmd_get_sorted_devices(&com_initialized, true)) {
+        const bool natural_sort =
+            get_commandline_param(BMD_NAT_SORT) != nullptr;
+        for (auto &d :
+             bmd_get_sorted_devices(&com_initialized, true, natural_sort)) {
                 IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
                         deviceName = "(unable to get name)";
                 }
 
-                char numeric_index[STR_LEN] = "";
-                if (full) {
-                        snprintf(numeric_index, sizeof numeric_index,
-                                 TBOLD("%d") ") ", get<int>(d));
+                char index[STR_LEN] = "";
+                if (!natural_sort) {
+                        snprintf(index, sizeof index,
+                                 TBOLD("%c") ") ", get<char>(d));
+                }
+                if (full || natural_sort) {
+                        snprintf(index + strlen(index),
+                                 sizeof index - strlen(index), TBOLD("%d") ") ",
+                                 get<int>(d));
                 }
                 // *** Print the model name of the DeckLink card
-                color_printf("\t" TBOLD("%c") ") %s" TBOLD("%6x") ") " TBOLD(
+                color_printf("\t%s" TBOLD("%6x") ") " TBOLD(
                                  TGREEN("%s")) "\n",
-                             get<char>(d), numeric_index, get<unsigned>(d),
+                             index, get<unsigned>(d),
                              deviceName.c_str());
                 if (full) {
                         print_output_modes(deckLink, query_prop_fcc);
