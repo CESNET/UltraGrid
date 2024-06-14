@@ -64,6 +64,7 @@
 #include "cuda_wrapper.h"
 #include "cuda_wrapper/kernels.hpp"
 #endif
+#include "compat/strings.h" // strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -97,7 +98,8 @@
 
 /// number of frames that encoder encodes at moment
 #define DEFAULT_TILE_LIMIT 1
-#define DEFAULT_MEM_LIMIT 1000000000LLU
+#define DEFAULT_CPU_MEM_LIMIT  0 ///< unimplemented, should be 0
+#define DEFAULT_CUDA_MEM_LIMIT 1000000000LLU
 
 using std::condition_variable;
 using std::mutex;
@@ -132,8 +134,71 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
 };
 #endif
 
+struct cmpto_j2k_technology {
+        const char *name;
+        size_t default_mem_limit;
+        bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
+                         size_t mem_limit, unsigned int tile_limit);
+};
+
+constexpr struct cmpto_j2k_technology technology_cpu = {
+        "CPU", DEFAULT_CPU_MEM_LIMIT,
+        [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
+           unsigned int tile_limit) {
+                CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(
+                             ctx_cfg, CMPTO_J2K_ENC_CPU_DEFAULT, mem_limit,
+                             tile_limit),
+                         "Setting CPU device", return false);
+                return true;
+        },
+};
+
+constexpr struct cmpto_j2k_technology technology_cuda = {
+        "CUDA", DEFAULT_CUDA_MEM_LIMIT,
+        [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
+           unsigned int tile_limit) {
+                for (unsigned int i = 0; i < cuda_devices_count; ++i) {
+                        CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(
+                                     ctx_cfg, cuda_devices[i], mem_limit,
+                                     tile_limit),
+                                 "Setting CUDA device", return false);
+                }
+                return true;
+        },
+};
+
+static const struct cmpto_j2k_technology *
+get_default_technology()
+{
+        const struct cmpto_version *version = cmpto_j2k_enc_get_version();
+        if (version == nullptr) {
+                return nullptr;
+        }
+        if ((version->technology & CMPTO_TECHNOLOGY_CUDA) != 0) {
+                return &technology_cuda;
+        }
+        if ((version->technology & CMPTO_TECHNOLOGY_CPU) != 0) {
+                return &technology_cpu;
+        }
+        return nullptr;
+}
+
+static const struct cmpto_j2k_technology *
+get_technology(const char *name)
+{
+        if (strcasecmp(name, "cuda") == 0) {
+                return &technology_cuda;
+        }
+        if (strcasecmp(name, "cpu") == 0) {
+                return &technology_cpu;
+        }
+        MSG(ERROR, "Unknown/unsupported technology: %s\n", name);
+        return nullptr;
+}
+
 struct state_video_compress_j2k {
         struct module module_data{};
+        const struct cmpto_j2k_technology *tech = get_default_technology();
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate = 0; ///< bitrate in bits per second
@@ -145,7 +210,7 @@ struct state_video_compress_j2k {
         unsigned int max_in_frames =
             DEFAULT_POOL_SIZE; ///< max number of frames between push and pop
         double        quality    = DEFAULT_QUALITY;
-        long long int mem_limit  = DEFAULT_MEM_LIMIT;
+        long long int mem_limit  = -1;
         unsigned int  tile_limit = DEFAULT_TILE_LIMIT;
 
         unsigned int in_frames{};   ///< number of currently encoding frames
@@ -212,6 +277,11 @@ ADD_TO_PARAM(
 static void
 set_pool(struct state_video_compress_j2k *s, bool have_gpu_preprocess)
 {
+        if (s->tech == &technology_cpu) {
+                s->pool = video_frame_pool(s->max_in_frames,
+                                           default_data_allocator());
+                return;
+        }
 #ifdef HAVE_CUDA
         s->pool_in_device_memory = false;
         if (cuda_devices_count > 1) {
@@ -264,18 +334,16 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                 s->configured = false;
         }
 
-        if (get_commandline_param(CPU_CONV_PARAM) != nullptr) {
+        if (s->tech == &technology_cpu ||
+            get_commandline_param(CPU_CONV_PARAM) != nullptr) {
                 cuda_convert_func = nullptr;
         }
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg),
                  "Context configuration create", return false);
-        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                CHECK_OK(
-                    cmpto_j2k_enc_ctx_cfg_add_cuda_device(
-                        ctx_cfg, cuda_devices[i], s->mem_limit, s->tile_limit),
-                    "Setting CUDA device", return false);
+        if (!s->tech->add_device(ctx_cfg, s->mem_limit, s->tile_limit)) {
+                return false;
         }
         if (cuda_convert_func != nullptr) {
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_set_preprocessor_cuda(
@@ -458,13 +526,47 @@ struct {
         const bool is_boolean;
         const char *placeholder;
 } usage_opts[] = {
-        {"Bitrate", "quality", "Target bitrate", ":rate=", false, "70M"},
-        {"Quality", "quant_coeff", "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY), ":quality=", false, TOSTRING(DEFAULT_QUALITY)},
-        {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false, TOSTRING(DEFAULT_MEM_LIMIT)},
-        {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false, TOSTRING(DEFAULT_TILE_LIMIT)},
-        {"Pool size", "pool_size", "Total number of tiles encoder can hold at moment (same meaning as above), default: " TOSTRING(DEFAULT_POOL_SIZE) ", should be greater than <t>", ":pool_size=", false, TOSTRING(DEFAULT_POOL_SIZE)},
-        {"Use MCT", "mct", "use MCT", ":mct", true, ""},
+        { "Technology", "technology", "technology to use",
+          ":technology=", false, "gpu" },
+        { "Bitrate", "quality", "Target bitrate", ":rate=", false, "70M" },
+        { "Quality", "quant_coeff",
+          "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY),
+          ":quality=", false, TOSTRING(DEFAULT_QUALITY) },
+        { "Mem limit", "mem_limit",
+          "device memory limit (in bytes), default: " TOSTRING(
+              DEFAULT_CUDA_MEM_LIMIT) " (CUDA) / " TOSTRING(DEFAULT_CPU_MEM_LIMIT) " (CPU)",
+          ":mem_limit=", false, TOSTRING(DEFAULT_CUDA_MEM_LIMIT) },
+        { "Tile limit", "tile_limit",
+          "Number of images/tiles encoded at moment (less to reduce latency, "
+          "more to increase performance, 0 means infinity), default: " TOSTRING(
+              DEFAULT_TILE_LIMIT),
+          ":tile_limit=", false, TOSTRING(DEFAULT_TILE_LIMIT) },
+        { "Pool size", "pool_size",
+          "Total number of tiles encoder can hold at moment (same meaning as "
+          "above), default: " TOSTRING(
+              DEFAULT_POOL_SIZE) ", should be greater than <t>",
+          ":pool_size=", false, TOSTRING(DEFAULT_POOL_SIZE) },
+        { "Use MCT", "mct", "use MCT", ":mct", true, "" },
 };
+
+static void
+print_cmpto_j2k_technologies()
+{
+        const struct cmpto_version *version = cmpto_j2k_enc_get_version();
+        if (version == nullptr) {
+                return;
+        }
+        color_printf("\nAvailable technologies:\n");
+        if ((version->technology & CMPTO_TECHNOLOGY_CPU) != 0U) {
+                color_printf("\t" TBOLD("- CPU") "\n");
+        }
+        if ((version->technology & CMPTO_TECHNOLOGY_CUDA) != 0U) {
+                color_printf("\t" TBOLD("- CUDA") "\n");
+        }
+        if ((version->technology & CMPTO_TECHNOLOGY_OPENCL) != 0U) {
+                color_printf("\t" TBOLD("- OpenCL") " (unsupported)\n");
+        }
+}
 
 static void usage() {
         col() << "J2K compress usage:\n";
@@ -503,6 +605,8 @@ static void usage() {
         color_printf(
             "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
             cuda_supported);
+
+        print_cmpto_j2k_technologies();
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
@@ -532,6 +636,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 tmp = NULL;
                 if (IS_KEY_PREFIX(item, "rate")) {
                         ASSIGN_CHECK_VAL(s->rate, strchr(item, '=') + 1, 1);
+                } else if (IS_KEY_PREFIX(item, "technology")) {
+                        s->tech = get_technology(strchr(item, '=') + 1);
                 } else if (IS_KEY_PREFIX(item, "quality")) {
                         s->quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
@@ -554,6 +660,16 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         if (s->quality < 0.0 || s->quality > 1.0) {
                 LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
                 goto error;
+        }
+
+        if (s->tech == nullptr) {
+                MSG(ERROR, "No supported technology!\n");
+                return nullptr;
+        }
+        MSG(INFO, "Using technology: %s\n", s->tech->name);
+
+        if (s->mem_limit == -1) {
+                s->mem_limit = s->tech->default_mem_limit;
         }
 
         module_init_default(&s->module_data);
