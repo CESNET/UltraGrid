@@ -69,6 +69,7 @@
 #include "module.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"            // for IS_KEY_PREFIX, TOSTRING
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
 #include "utils/video_frame_pool.h"
@@ -509,17 +510,17 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         char *save_ptr, *item;
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
-                if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
+                if (IS_KEY_PREFIX(item, "rate")) {
                         ASSIGN_CHECK_VAL(s->rate, strchr(item, '=') + 1, 1);
-                } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
+                } else if (IS_KEY_PREFIX(item, "quality")) {
                         s->quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
                         s->mct = strcasecmp("mct", item) == 0 ? 1 : 0;
-                } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
+                } else if (IS_KEY_PREFIX(item, "mem_limit")) {
                         ASSIGN_CHECK_VAL(s->mem_limit, strchr(item, '=') + 1, 1);
-                } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
+                } else if (IS_KEY_PREFIX(item, "tile_limit")) {
                         ASSIGN_CHECK_VAL(s->tile_limit, strchr(item, '=') + 1, 0);
-                } else if (strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
+                } else if (IS_KEY_PREFIX(item, "pool_size")) {
                         ASSIGN_CHECK_VAL(s->max_in_frames, strchr(item, '=') + 1, 1);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
