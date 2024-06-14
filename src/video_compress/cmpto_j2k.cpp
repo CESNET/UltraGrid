@@ -138,16 +138,16 @@ struct cmpto_j2k_technology {
         const char *name;
         size_t default_mem_limit;
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
-                         size_t mem_limit, unsigned int tile_limit);
+                           size_t mem_limit, unsigned int tile_limit,
+                           int thread_count);
 };
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
         "CPU", DEFAULT_CPU_MEM_LIMIT,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
-           unsigned int tile_limit) {
-                CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(
-                             ctx_cfg, CMPTO_J2K_ENC_CPU_DEFAULT, mem_limit,
-                             tile_limit),
+           unsigned int tile_limit, int thread_count) {
+                CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(ctx_cfg, thread_count,
+                                                       mem_limit, tile_limit),
                          "Setting CPU device", return false);
                 return true;
         },
@@ -156,7 +156,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
 constexpr struct cmpto_j2k_technology technology_cuda = {
         "CUDA", DEFAULT_CUDA_MEM_LIMIT,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
-           unsigned int tile_limit) {
+           unsigned int tile_limit, int /* thread_count */) {
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(
                                      ctx_cfg, cuda_devices[i], mem_limit,
@@ -209,6 +209,7 @@ struct state_video_compress_j2k {
         // settings
         unsigned int max_in_frames =
             DEFAULT_POOL_SIZE; ///< max number of frames between push and pop
+        int thread_count = CMPTO_J2K_ENC_CPU_DEFAULT;
         double        quality    = DEFAULT_QUALITY;
         long long int mem_limit  = -1;
         unsigned int  tile_limit = DEFAULT_TILE_LIMIT;
@@ -342,7 +343,8 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg),
                  "Context configuration create", return false);
-        if (!s->tech->add_device(ctx_cfg, s->mem_limit, s->tile_limit)) {
+        if (!s->tech->add_device(ctx_cfg, s->mem_limit, s->tile_limit,
+                                 s->thread_count)) {
                 return false;
         }
         if (cuda_convert_func != nullptr) {
@@ -546,6 +548,8 @@ struct {
           "above), default: " TOSTRING(
               DEFAULT_POOL_SIZE) ", should be greater than <t>",
           ":pool_size=", false, TOSTRING(DEFAULT_POOL_SIZE) },
+        { "Thread count", "thread_cnt", "number of encoder threads (CPU only)",
+              ":thread_cnt=", false, TOSTRING(CMPTO_J2K_ENC_CPU_DEFAULT)},
         { "Use MCT", "mct", "use MCT", ":mct", true, "" },
 };
 
@@ -648,6 +652,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         ASSIGN_CHECK_VAL(s->tile_limit, strchr(item, '=') + 1, 0);
                 } else if (IS_KEY_PREFIX(item, "pool_size")) {
                         ASSIGN_CHECK_VAL(s->max_in_frames, strchr(item, '=') + 1, 1);
+                } else if (IS_KEY_PREFIX(item, "thread_cnt")) {
+                        ASSIGN_CHECK_VAL(s->thread_count, strchr(item, '=') + 1, 0);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
                         return static_cast<module*>(INIT_NOERR);
