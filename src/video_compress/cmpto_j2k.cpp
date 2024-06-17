@@ -386,7 +386,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
                         quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
-                        mct = strcasecmp("mct", item) ? 1 : 0;
+                        mct = strcasecmp("mct", item) == 0 ? 1 : 0;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
                         ASSIGN_CHECK_VAL(mem_limit, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
