@@ -56,6 +56,7 @@
 #include <climits>
 #include <condition_variable>
 #include <mutex>
+#include <string>
 #include <utility>
 
 #include <cmpto_j2k_enc.h>
@@ -98,8 +99,6 @@
 
 /// number of frames that encoder encodes at moment
 #define DEFAULT_TILE_LIMIT 1
-#define DEFAULT_CPU_MEM_LIMIT  0 ///< unimplemented, should be 0
-#define DEFAULT_CUDA_MEM_LIMIT 1000000000LLU
 
 using std::condition_variable;
 using std::mutex;
@@ -143,7 +142,7 @@ struct cmpto_j2k_technology {
 };
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
-        "CPU", DEFAULT_CPU_MEM_LIMIT,
+        "CPU", 0, ///< unimplemented, should be 0
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int thread_count) {
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(ctx_cfg, thread_count,
@@ -154,7 +153,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
 };
 
 constexpr struct cmpto_j2k_technology technology_cuda = {
-        "CUDA", DEFAULT_CUDA_MEM_LIMIT,
+        "CUDA", 1000LLU * 1000 * 1000,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int /* thread_count */) {
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
@@ -523,7 +522,7 @@ start:
 struct {
         const char *label;
         const char *key;
-        const char *description;
+        std::string description;
         const char *opt_str;
         const bool is_boolean;
         const char *placeholder;
@@ -534,10 +533,11 @@ struct {
         { "Quality", "quant_coeff",
           "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY),
           ":quality=", false, TOSTRING(DEFAULT_QUALITY) },
-        { "Mem limit", "mem_limit",
-          "device memory limit (in bytes), default: " TOSTRING(
-              DEFAULT_CUDA_MEM_LIMIT) " (CUDA) / " TOSTRING(DEFAULT_CPU_MEM_LIMIT) " (CPU)",
-          ":mem_limit=", false, TOSTRING(DEFAULT_CUDA_MEM_LIMIT) },
+        { "Mem limit",  "mem_limit",
+         std::string("device memory limit (in bytes), default: ") +
+              std::to_string(technology_cuda.default_mem_limit) + " (CUDA) / " +
+              std::to_string(technology_cpu.default_mem_limit) + " (CPU)",
+         ":mem_limit=", false, TOSTRING(DEFAULT_CUDA_MEM_LIMIT) },
         { "Tile limit", "tile_limit",
           "Number of images/tiles encoded at moment (less to reduce latency, "
           "more to increase performance, 0 means infinity), default: " TOSTRING(
