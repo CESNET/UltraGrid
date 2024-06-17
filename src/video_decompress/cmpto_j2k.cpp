@@ -92,11 +92,9 @@ constexpr size_t DEFAULT_CPU_MEM_LIMIT       = 0;                         // Sho
 constexpr unsigned int DEFAULT_CPU_IMG_LIMIT = 0;                         // 0 for default, thread_count for max
 constexpr unsigned int MIN_CPU_IMG_LIMIT     = 0;                         // Min number of images encoded by the CPU at once
 
-#ifdef HAVE_CUDA
 // CUDA-specific Defaults
 constexpr int64_t DEFAULT_CUDA_MEM_LIMIT     = 1000000000;
 constexpr int     DEFAULT_CUDA_TILE_LIMIT    = 2;
-#endif // HAVE_CUDA
 
 using std::lock_guard;
 using std::min;
@@ -115,11 +113,21 @@ static void *decompress_j2k_worker(void *args);
  */ 
 enum j2k_decompress_platform {
         NONE = 0,
-        CPU = 1,
-#ifdef HAVE_CUDA
-        CUDA = 2,
-#endif // HAVE_CUDA
+        CPU  = CMPTO_TECHNOLOGY_CPU,
+        CUDA = CMPTO_TECHNOLOGY_CUDA
 };
+
+/**
+ * @fn supports_cmpto_technology
+ * @brief Check if Comprimato supports requested technology type
+ * @param cmpto_technology_type Technology type to check against
+ * @return True if supported, False if unsupported
+ */
+static bool supports_cmpto_technology(int cmpto_technology_type) {
+        const auto *version = cmpto_j2k_dec_get_version();
+
+        return (version == nullptr) ? false : (version->technology & cmpto_technology_type);
+}
 
 /*
  * Exceptions for state_decompress_j2k construction
@@ -146,21 +154,16 @@ struct state_decompress_j2k {
 
         unsigned long long int dropped{}; ///< number of dropped frames because queue was full
 
-#ifdef HAVE_CUDA
         // CUDA Defaults
         unsigned int    cuda_mem_limit      = DEFAULT_CUDA_MEM_LIMIT;
         unsigned int    cuda_tile_limit     = DEFAULT_CUDA_TILE_LIMIT;
 
         // Default Decompression Platform to Use
-        j2k_decompress_platform platform       = j2k_decompress_platform::CUDA;
-#else
-        // Default Decompression Platform to Use
-        j2k_decompress_platform platform       = j2k_decompress_platform::CPU;
-#endif
+        j2k_decompress_platform platform    = j2k_decompress_platform::NONE;
 
         // CPU Defaults
         unsigned int cpu_img_limit          = DEFAULT_CPU_IMG_LIMIT;
-        const size_t cpu_mem_limit          = DEFAULT_CPU_MEM_LIMIT;    // Should always be 0. Not yet implemented as of Cmpto v2.8.1
+        const size_t cpu_mem_limit          = DEFAULT_CPU_MEM_LIMIT;    // Should always be 0. Not yet implemented as of Cmpto v2.8.4
         signed int   cpu_thread_count       = DEFAULT_THREAD_COUNT;
 
         // General Defaults
@@ -221,13 +224,12 @@ static void print_dropped(unsigned long long int dropped, const j2k_decompress_p
                                 "image limit to increase the number of images decoded at one moment by adding parameter: --param j2k-dec-img-limit=#\n",
                                 MOD_NAME);
                 }
-#ifdef HAVE_CUDA
+
                 if (j2k_decompress_platform::CUDA == platform) {
                         log_msg_once(LOG_LEVEL_INFO, to_fourcc('J', '2', 'D', 'W'), "%s You may try to increase "
-                                "tile limit to increase the throughput by adding parameter: --param j2k-dec-tile-limit=4\n",
+                                "tile limit to increase the throughput by adding parameter: --param j2k-dec-tile-limit=#\n",
                                 MOD_NAME);
                 }
-#endif // HAVE_CUDA
         }
 }
 
@@ -295,7 +297,6 @@ next_image:
 /*
  * Command Line Parameters for state_decompress_j2k
  */
-#ifdef HAVE_CUDA
 // CUDA-specific Command Line Parameters
 ADD_TO_PARAM("j2k-dec-use-cuda", "* j2k-dec-use-cuda\n"
                                 "  use CUDA to decode images\n");
@@ -303,12 +304,9 @@ ADD_TO_PARAM("j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
                                 "  J2K max memory usage in bytes.\n");
 ADD_TO_PARAM("j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
                                 "  number of tiles decoded at moment (less to reduce latency, more to increase performance, 0 unlimited)\n");
-// Option to use CPU for image decompression only required if CUDA is also compiled.
-// Otherwise, CPU will be the default, with no need to explicity specify.
+// CPU-specific Command Line Parameters
 ADD_TO_PARAM("j2k-dec-use-cpu", "* j2k-dec-use-cpu\n"
                                 "  use the CPU to decode images\n");
-#endif // HAVE_CUDA
-// CPU-specific Command Line Parameters
 ADD_TO_PARAM("j2k-dec-cpu-thread-count", "* j2k-dec-cpu-thread-count=<threads>\n"
                                 "  number of threads to use on the CPU (0 means number of threads equal to all cores)\n");
 ADD_TO_PARAM("j2k-dec-img-limit", "* j2k-dec-img-limit=<limit>\n"
@@ -324,9 +322,46 @@ ADD_TO_PARAM("j2k-dec-encoder-queue", "* j2k-dec-encoder-queue=<len>\n"
  * @brief Parse Command Line Parameters and Initialize Struct Members
  */
 void state_decompress_j2k::parse_params() {
-#ifdef HAVE_CUDA
-        if (get_commandline_param("j2k-dec-use-cuda")) {
+        /**
+         * Confirm that system has some supported CMPTO_TECHNOLOGY_ type prior to parsing arguments. 
+         *  If it does, configure the preferred default platform and max_in_frames using priority below
+         *      1 - CUDA
+         *      2 - CPU  
+         * 
+         * If platform is not found set platform = j2k_decompress_platform::NONE
+         */
+
+        const auto supports_cpu  = supports_cmpto_technology(CMPTO_TECHNOLOGY_CPU);
+        const auto supports_cuda = supports_cmpto_technology(CMPTO_TECHNOLOGY_CUDA);
+
+        if (supports_cuda) {                                    // prefer CUDA decompress by default
                 platform = j2k_decompress_platform::CUDA;
+        } else if (supports_cpu) {                              // prefer CPU decompress by default
+                platform = j2k_decompress_platform::CPU;
+        } else {
+                log_msg(LOG_LEVEL_ERROR,
+                        "%s Unable to find supported CMPTO_TECHNOLOGY\n",
+                        MOD_NAME);
+                platform = j2k_decompress_platform::NONE;       // default to NONE
+        }
+
+        // CUDA-specific commandline_params
+        if (get_commandline_param("j2k-dec-use-cuda")) {
+                if (supports_cuda) {
+                        platform = j2k_decompress_platform::CUDA;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                "%s j2k-dec-use-cuda argument provided. CUDA decompress not supported.\n",
+                                MOD_NAME);
+
+                        // Check if CPU is default decompress
+                        //  If it is, create a log message to notify this will be used automatically
+                        if (j2k_decompress_platform::CPU == platform) {
+                                log_msg(LOG_LEVEL_INFO,
+                                        "%s Defaulting to CPU decompress\n",
+                                        MOD_NAME);
+                        }
+                }
         }
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
@@ -337,10 +372,16 @@ void state_decompress_j2k::parse_params() {
                 cuda_tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
         }
 
+        // CPU-specific commandline_params
         if (get_commandline_param("j2k-dec-use-cpu")) {
-                platform = j2k_decompress_platform::CPU;
+                if (supports_cpu) {
+                        platform = j2k_decompress_platform::CPU;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                "%s j2k-dec-use-cpu argument provided. CPU decompress not supported.\n",
+                                MOD_NAME);
+                }
         }
-#endif // HAVE_CUDA
 
         if (get_commandline_param("j2k-dec-cpu-thread-count")) {
                 cpu_thread_count = atoi(get_commandline_param("j2k-dec-cpu-thread-count"));
@@ -376,7 +417,7 @@ void state_decompress_j2k::parse_params() {
         }
 
         const auto *version = cmpto_j2k_dec_get_version();
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << " Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 }
 
 /**
@@ -390,18 +431,22 @@ bool state_decompress_j2k::initialize_j2k_dec_ctx() {
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
 
-#ifdef HAVE_CUDA
+        if (j2k_decompress_platform::NONE == platform) {
+                log_msg(LOG_LEVEL_ERROR, "%s No supported CMPTO_TECHNOLOGY found. Unable to create decompress context.\n", MOD_NAME);
+                return false;
+        }
+
         if (j2k_decompress_platform::CUDA == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Configuring for CUDA Decoding\n", MOD_NAME);
+                log_msg(LOG_LEVEL_INFO, "%s Using platform CUDA for decompress\n", MOD_NAME);
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], cuda_mem_limit, cuda_tile_limit),
                                         "Error setting CUDA device", return false);
                         log_msg(LOG_LEVEL_INFO, "%s Using CUDA Device %s\n", MOD_NAME, std::to_string(cuda_devices[i]).c_str());
                 }
         }
-#endif // HAVE_CUDA
+
         if (j2k_decompress_platform::CPU == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Configuring for CPU Decoding\n", MOD_NAME);
+                log_msg(LOG_LEVEL_INFO, "%s Using platform CPU for decompress\n", MOD_NAME);
 
                 // Confirm that cpu_thread_count != 0 (unlimited). If it does, cpu_img_limit can exceed thread_count
                 if (cpu_thread_count != DEFAULT_THREAD_COUNT && cpu_img_limit > static_cast<unsigned>(cpu_thread_count)) {
