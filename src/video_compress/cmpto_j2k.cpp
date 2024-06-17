@@ -100,7 +100,7 @@
 #define DEFAULT_CUDA_POOL_SIZE   4
 /// number of frames that encoder encodes at moment
 #define DEFAULT_CUDA_TILE_LIMIT  1
-#define DEFAULT_CUDA_MEM_LIMIT   1000000000ULLU
+#define DEFAULT_CUDA_MEM_LIMIT   1000000000LLU
 
 // Default General Settings
 #define DEFAULT_QUALITY          0.7
@@ -151,10 +151,8 @@ using cpu_allocator  = default_data_allocator;
  */
 enum j2k_compress_platform {
         NONE = 0,
-        CPU = 1,
-#ifdef HAVE_CUDA
-        CUDA = 2,
-#endif // HAVE_CUDA
+        CPU  = CMPTO_TECHNOLOGY_CPU,
+        CUDA = CMPTO_TECHNOLOGY_CUDA,
 };
 
 /** 
@@ -169,9 +167,7 @@ struct j2k_compress_platform_info_t {
 constexpr auto compress_platforms = std::array {
     j2k_compress_platform_info_t{"none", j2k_compress_platform::NONE},
     j2k_compress_platform_info_t{"cpu", j2k_compress_platform::CPU},
-#ifdef HAVE_CUDA
     j2k_compress_platform_info_t{"cuda", j2k_compress_platform::CUDA}
-#endif
 };
 
 /**
@@ -194,6 +190,18 @@ static j2k_compress_platform get_platform_from_name(std::string name) {
 }
 
 /**
+ * @fn supports_cmpto_technology
+ * @brief Check if Comprimato supports requested technology type
+ * @param cmpto_technology_type Technology type to check against
+ * @return True if supported, False if unsupported
+ */
+static bool supports_cmpto_technology(int cmpto_technology_type) {
+        const auto *version = cmpto_j2k_enc_get_version();
+
+        return (version == nullptr) ? false : (version->technology & cmpto_technology_type);
+}
+
+/**
  * Exceptions for state_video_compress_j2k construction
  */
 
@@ -205,6 +213,11 @@ struct HelpRequested : public std::exception {
 /// @brief InvalidArgument Exception
 struct InvalidArgument : public std::exception {
         InvalidArgument() = default;
+};
+
+/// @brief NoCmptoTechnologyFound Exception
+struct NoCmptoTechnologyFound : public std::exception {
+        NoCmptoTechnologyFound() = default;
 };
 
 /// @brief UnableToCreateJ2KEncoderCTX Exception
@@ -246,14 +259,9 @@ struct state_video_compress_j2k {
         unsigned long long cuda_mem_limit  = DEFAULT_CUDA_MEM_LIMIT;
         unsigned int       cuda_tile_limit = DEFAULT_CUDA_TILE_LIMIT;
 
-        // Platform to use by default
-#ifdef HAVE_CUDA
-        j2k_compress_platform platform      = j2k_compress_platform::CUDA;
-        unsigned int         max_in_frames = DEFAULT_CUDA_POOL_SIZE; ///< max number of frames between push and pop
-#else
-        j2k_compress_platform platform      = j2k_compress_platform::CPU;
-        unsigned int         max_in_frames = DEFAULT_CPU_POOL_SIZE;  ///< max number of frames between push and pop
-#endif
+        // j2k_compress_platform::NONE by default at initialization
+        j2k_compress_platform platform     = j2k_compress_platform::NONE;
+        unsigned int         max_in_frames = DEFAULT_CPU_POOL_SIZE; ///< max number of frames between push and pop
 
  private:
         void parse_fmt(const char* opts);
@@ -467,28 +475,25 @@ struct opts {
 constexpr opts general_opts[5] = {
         {"Bitrate", "quality", "Target bitrate", ":rate=", false},
         {"Quality", "quant_coeff", "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY), ":quality=", false},
-#ifdef HAVE_CUDA
-        {"Pool size", "pool_size", "Total number of frames encoder can hold at one moment. Should be greater than tile_limit. default: " TOSTRING(DEFAULT_POOL_SIZE), ":pool_size=", false},
-#else
-        {"Pool size", "pool_size", "Total number of frames encoder can hold at one moment. Should be greater than img_limit. default: " TOSTRING(DEFAULT_POOL_SIZE) , ":pool_size=", false},
-#endif
+        {"Pool size", "pool_size", "Total number of frames encoder can hold at one moment. Must be greater than tile_limit when platform=cuda and img_limit when platform=cpu. "\
+        "default: " TOSTRING(DEFAULT_POOL_SIZE), ":pool_size=", false},
         {"Use MCT", "mct", "Use MCT", ":mct", true},
         {"Lossless compression", "lossless", "Enable lossless compression. default: disabled", ":lossless", true}
 };
 
-#ifdef HAVE_CUDA
 constexpr opts cuda_opts[2] = {
         {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_CUDA_MEM_LIMIT), ":mem_limit=", false},
-        {"Tile limit", "tile_limit", "Number of tiles encoded at one moment by GPU (less to reduce latency, more to increase performance, 0 means infinity). default: " TOSTRING(DEFAULT_CUDA_TILE_LIMIT), ":tile_limit=", false},
+        {"Tile limit", "tile_limit", "Number of tiles encoded at one moment by GPU (less to reduce latency, more to increase performance, 0 is infinity). "\
+        "default: " TOSTRING(DEFAULT_CUDA_TILE_LIMIT), ":tile_limit=", false},
 };
+
 constexpr opts platform_opts[1] = {
-        {"Plaform", "platform", "Platform device for the encoder to use, default: cuda", ":platform=", false},
+        {"Plaform", "platform", "Platform device for the encoder to use", ":platform=", false},
 };
-#endif // HAVE_CUDA
 
 constexpr opts cpu_opts[2] = {
         {"Thread count", "thread_count", "Number of threads to use on the CPU. 0 is all available. default: " TOSTRING(DEFAULT_CPU_THREAD_COUNT), ":thread_count=", false},
-        {"Image limit", "img_limit", "Number of images which can be encoded at one moment by CPU. Maximum allowed limit is thread_count. 0 is default limit. default: " TOSTRING(DEFAULT_IMG_LIMIT), ":img_limit=", false},
+        {"Image limit", "img_limit", "Number of images that can be encoded at one moment by CPU. Max limit is thread_count. 0 is default limit. default: " TOSTRING(DEFAULT_IMG_LIMIT), ":img_limit=", false},
 };
 
 /**
@@ -497,14 +502,12 @@ constexpr opts cpu_opts[2] = {
  */
 static void usage() {
         col() << "J2K compress platform support:\n";
-        col() << "\tCPU .... yes\n";
-#ifdef HAVE_CUDA
-        col() << "\tCUDA ... yes\n";
-#else
-        col() << "\tCUDA ... no\n";
-#endif
+        const auto supports_cpu  = supports_cmpto_technology(CMPTO_TECHNOLOGY_CPU);
+        const auto supports_cuda = supports_cmpto_technology(CMPTO_TECHNOLOGY_CUDA);
 
-        col() << "J2K compress usage:\n";
+        col() << "\tCPU .... " << (supports_cpu  ? "yes" : "no")
+                               << (supports_cuda ? "\n" : "\t[default]\n");
+        col() << "\tCUDA ... " << (supports_cuda ? "yes\t[default]\n" : "no\n");
 
         auto show_syntax = [](const auto& options) {
                 for (const auto& opt : options) {
@@ -529,30 +532,37 @@ static void usage() {
                 }
         };
 
-#ifdef HAVE_CUDA
-        // CPU and CUDA Platforms Supported. Show platform= options
-        col() << TERM_BOLD << TRED("\t-c cmpto_j2k:platform=cuda");
-        show_syntax(cuda_opts);
-        show_syntax(general_opts);
-        col() << " [--cuda-device <c_index>]\n" << TERM_RESET;
-        col() << TERM_BOLD << TRED("\t-c cmpto_j2k:platform=cpu");
-        show_syntax(cpu_opts);
-        show_syntax(general_opts);
-#else // HAVE_CUDA
-        // Only CPU Platform Supported. No option to switch platform from default.
-        col() << TERM_BOLD << TRED("\t-c cmpto_j2k");
-        show_syntax(cpu_opts);
-        show_syntax(general_opts);
-#endif
+        col() << "J2K compress usage:\n";
+        if (supports_cuda) {
+                col() << TERM_BOLD << TRED("\t-c cmpto_j2k:platform=cuda");
+                show_syntax(cuda_opts);
+                show_syntax(general_opts);
+                col() << " [--cuda-device <c_index>]\n" << TERM_RESET;
+        }
+        if (supports_cpu) {
+                col() << TERM_BOLD << TRED("\t-c cmpto_j2k:platform=cpu");
+                show_syntax(cpu_opts);
+                show_syntax(general_opts);
+        }
+
         col() << "\n" << TERM_RESET;
         col() << "where:\n";
-#ifdef HAVE_CUDA
+
         show_arguments(platform_opts);
-        show_arguments(cuda_opts);
-        col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
-#endif // HAVE_CUDA
-        show_arguments(cpu_opts);
+        
+        if (supports_cuda) {
+                col() << "CUDA compress arguments:\n";
+                show_arguments(cuda_opts);
+                col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
+        }
+        if (supports_cpu) {
+                col() << "CPU compress arguments:\n";
+                show_arguments(cpu_opts);
+        }
+
+        col() << "General arguments:\n";
         show_arguments(general_opts);
+
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
@@ -580,6 +590,30 @@ static void usage() {
  * @throw InvalidArgument if argument provided isn't known
  */
 void state_video_compress_j2k::parse_fmt(const char* opts) {
+        const auto *version = cmpto_j2k_enc_get_version();
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+
+        /**
+         * Confirm that system has some supported CMPTO_TECHNOLOGY_ type prior to parsing arguments. 
+         *  If it does, configure the preferred default platform and max_in_frames using priority below
+         *      1 - CUDA
+         *      2 - CPU  
+         * 
+         * If platform is not found, throw NoCmptoTechnologyFound exception
+         */
+        if (supports_cmpto_technology(CMPTO_TECHNOLOGY_CUDA)) {         // prefer CUDA compress by default
+                platform      = j2k_compress_platform::CUDA;
+                max_in_frames = DEFAULT_CUDA_POOL_SIZE;
+        } else if (supports_cmpto_technology(CMPTO_TECHNOLOGY_CPU)) {   // prefer CPU compress by default
+                platform      = j2k_compress_platform::CPU;
+                max_in_frames = DEFAULT_CPU_POOL_SIZE;
+        } else {
+                log_msg(LOG_LEVEL_ERROR,
+                        "%s Unable to find supported CMPTO_TECHNOLOGY\n",
+                        MOD_NAME);
+                throw NoCmptoTechnologyFound();
+        }
+
         auto split_arguments = [](std::string args, std::string delimiter) {
                 auto token = std::string{};
                 auto pos   = size_t{0};
@@ -605,9 +639,6 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
         if (args.empty()) {
                 return;
         }
-
-        const auto *version = cmpto_j2k_enc_get_version();
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
         const char* item = "";
 
@@ -637,6 +668,13 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                         if (j2k_compress_platform::NONE == platform) {
                                 log_msg(LOG_LEVEL_ERROR,
                                         "%s Unable to find requested encoding platform: \"%s\"\n",
+                                        MOD_NAME,
+                                        platform_name);
+                                throw InvalidArgument();
+                        }
+                        if (!supports_cmpto_technology(platform)) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        "%s Does not support requested encoding platform: \"%s\"\n",
                                         MOD_NAME,
                                         platform_name);
                                 throw InvalidArgument();
@@ -747,10 +785,11 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
                         cpu_img_limit);
         }
 
-#ifdef HAVE_CUDA
         if (j2k_compress_platform::CUDA == platform) {
                 log_msg(LOG_LEVEL_INFO, "%s Configuring for CUDA\n", MOD_NAME);
-                pool = std::make_unique<video_frame_pool>(max_in_frames, cuda_allocator());
+
+                pool = std::make_unique<video_frame_pool>(max_in_frames, allocator());
+
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(
                                         ctx_cfg,
@@ -761,7 +800,6 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
                                 return false);
                 }
         }
-#endif // HAVE_CUDA
 
         CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &context), "Context create",
                         return false);
@@ -804,6 +842,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *opts
         } catch (InvalidArgument const& e) {
                 return NULL;
         } catch (UnableToCreateJ2KEncoderCTX const& e) {
+                return NULL;
+        } catch (NoCmptoTechnologyFound const& e) {
                 return NULL;
         } catch (...) {
                 return NULL;
@@ -905,9 +945,7 @@ static compress_module_info get_cmpto_j2k_module_info(){
                 }
         };
 
-#ifdef HAVE_CUDA
         add_module_options(cuda_opts);
-#endif // HAVE_CUDA
         add_module_options(cpu_opts);
         add_module_options(general_opts);
 
