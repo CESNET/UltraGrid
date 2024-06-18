@@ -139,10 +139,9 @@ struct cmpto_j2k_enc_cuda_host_buffer_data_allocator
                 return new cmpto_j2k_enc_cuda_host_buffer_data_allocator(*this);
         }
 };
-using allocator      = cmpto_j2k_enc_cuda_host_buffer_data_allocator;
 using cuda_allocator = cmpto_j2k_enc_cuda_host_buffer_data_allocator;
 #else
-using allocator      = default_data_allocator;
+using cuda_allocator = default_data_allocator;
 #endif
 using cpu_allocator  = default_data_allocator;
 
@@ -769,7 +768,7 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
 
         if (j2k_compress_platform::CUDA == platform) {
                 MSG(INFO, "Configuring for CUDA\n");
-                pool = std::make_unique<video_frame_pool>(max_in_frames, allocator());
+                pool = std::make_unique<video_frame_pool>(max_in_frames, cuda_allocator());
 
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(
