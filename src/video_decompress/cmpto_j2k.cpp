@@ -217,7 +217,7 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
 
 static void print_dropped(unsigned long long int dropped, const j2k_decompress_platform& platform) {
         if (dropped % 10 == 1) {
-                log_msg(LOG_LEVEL_WARNING, "%s Some frames (%llu) dropped.\n", MOD_NAME, dropped);
+                MSG(WARNING, "Some frames (%llu) dropped.\n", dropped);
 
                 if (j2k_decompress_platform::CPU == platform) {
                         log_msg_once(LOG_LEVEL_INFO, to_fourcc('J', '2', 'D', 'W'), "%s You may try to increase "
@@ -262,7 +262,7 @@ next_image:
 			const char * decoding_error = "";
 			CHECK_OK(cmpto_j2k_dec_img_get_error(img, &decoding_error), "get error status",
 					decoding_error = "(failed)");
-			log_msg(LOG_LEVEL_ERROR, "Image decoding failed: %s\n", decoding_error);
+                        MSG(ERROR, "Image decoding failed: %s\n", decoding_error);
                         continue;
                 }
 
@@ -339,9 +339,7 @@ void state_decompress_j2k::parse_params() {
         } else if (supports_cpu) {                              // prefer CPU decompress by default
                 platform = j2k_decompress_platform::CPU;
         } else {
-                log_msg(LOG_LEVEL_ERROR,
-                        "%s Unable to find supported CMPTO_TECHNOLOGY\n",
-                        MOD_NAME);
+                MSG(ERROR, "Unable to find supported CMPTO_TECHNOLOGY\n");
                 platform = j2k_decompress_platform::NONE;       // default to NONE
         }
 
@@ -350,16 +348,12 @@ void state_decompress_j2k::parse_params() {
                 if (supports_cuda) {
                         platform = j2k_decompress_platform::CUDA;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR,
-                                "%s j2k-dec-use-cuda argument provided. CUDA decompress not supported.\n",
-                                MOD_NAME);
+                        MSG(ERROR, "j2k-dec-use-cuda argument provided. CUDA decompress not supported.\n");
 
                         // Check if CPU is default decompress
                         //  If it is, create a log message to notify this will be used automatically
                         if (j2k_decompress_platform::CPU == platform) {
-                                log_msg(LOG_LEVEL_INFO,
-                                        "%s Defaulting to CPU decompress\n",
-                                        MOD_NAME);
+                                MSG(INFO, "Defaulting to CPU decompress\n");
                         }
                 }
         }
@@ -377,9 +371,7 @@ void state_decompress_j2k::parse_params() {
                 if (supports_cpu) {
                         platform = j2k_decompress_platform::CPU;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR,
-                                "%s j2k-dec-use-cpu argument provided. CPU decompress not supported.\n",
-                                MOD_NAME);
+                        MSG(ERROR, "j2k-dec-use-cpu argument provided. CPU decompress not supported.\n");
                 }
         }
 
@@ -389,8 +381,7 @@ void state_decompress_j2k::parse_params() {
                 // Confirm cpu_thread_count between MIN_CPU_THREAD_COUNT + 1 (0)
                 if (cpu_thread_count <= MIN_CPU_THREAD_COUNT) {
                         // Implementing this requires the creation of executor threads.
-                        log_msg(LOG_LEVEL_INFO, "%s j2k-dec-cpu-thread-count must be 0 or higher. Setting to min allowed 0\n",
-                                MOD_NAME);
+                        MSG(ERROR, "j2k-dec-cpu-thread-count must be 0 or higher. Setting to min allowed 0\n");
                         cpu_thread_count = 0;
                 }
         }
@@ -404,10 +395,9 @@ void state_decompress_j2k::parse_params() {
 
                 // Confirm cpu_img_limit between MIN_CPU_IMG_LIMIT
                 if (cpu_img_limit < MIN_CPU_IMG_LIMIT) {
-                        log_msg(LOG_LEVEL_INFO, "%s j2k-dec-img-limit below min allowed of %i. Setting to min allowed %i\n",
-                                MOD_NAME,
-                                MIN_CPU_IMG_LIMIT,
-                                MIN_CPU_IMG_LIMIT);
+                        MSG(INFO, "j2k-dec-img-limit below min allowed of %i. Setting to min allowed %i\n",
+                            MIN_CPU_IMG_LIMIT,
+                            MIN_CPU_IMG_LIMIT);
                         cpu_img_limit = MIN_CPU_IMG_LIMIT;
                 }
         }
@@ -417,7 +407,7 @@ void state_decompress_j2k::parse_params() {
         }
 
         const auto *version = cmpto_j2k_dec_get_version();
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << " Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+        MSG(INFO, "Using code version: %s\n", (version == nullptr ? "(unknown)" : version->name));
 }
 
 /**
@@ -432,28 +422,26 @@ bool state_decompress_j2k::initialize_j2k_dec_ctx() {
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
 
         if (j2k_decompress_platform::NONE == platform) {
-                log_msg(LOG_LEVEL_ERROR, "%s No supported CMPTO_TECHNOLOGY found. Unable to create decompress context.\n", MOD_NAME);
+                MSG(ERROR, "No supported CMPTO_TECHNOLOGY found. Unable to create decompress context.\n");
                 return false;
         }
 
         if (j2k_decompress_platform::CUDA == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Using platform CUDA for decompress\n", MOD_NAME);
+                MSG(INFO, "Using platform CUDA for decompress\n");
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], cuda_mem_limit, cuda_tile_limit),
                                         "Error setting CUDA device", return false);
-                        log_msg(LOG_LEVEL_INFO, "%s Using CUDA Device %s\n", MOD_NAME, std::to_string(cuda_devices[i]).c_str());
+                        MSG(INFO, "Using CUDA Device %s\n", std::to_string(cuda_devices[i]).c_str());
                 }
         }
 
         if (j2k_decompress_platform::CPU == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Using platform CPU for decompress\n", MOD_NAME);
-
+                MSG(INFO, "Using platform CPU for decompress\n");
                 // Confirm that cpu_thread_count != 0 (unlimited). If it does, cpu_img_limit can exceed thread_count
                 if (cpu_thread_count != DEFAULT_THREAD_COUNT && cpu_img_limit > static_cast<unsigned>(cpu_thread_count)) {
-                        log_msg(LOG_LEVEL_INFO, "%s j2k-dec-img-limit set to %i. Lowering to match to match j2k-dec-cpu-thread-count (%i)\n",
-                                MOD_NAME,
-                                cpu_img_limit,
-                                cpu_thread_count);
+                        MSG(INFO, "j2k-dec-img-limit set to %i. Lowering to match to match j2k-dec-cpu-thread-count (%i)\n",
+                            cpu_img_limit,
+                            cpu_thread_count);
                         cpu_img_limit = cpu_thread_count;
                 }
 
@@ -465,10 +453,9 @@ bool state_decompress_j2k::initialize_j2k_dec_ctx() {
                         "Error configuring the CPU",
                         return false);
 
-                log_msg(LOG_LEVEL_INFO, "%s Using %s threads on the CPU. Image Limit set to %i.\n",
-                        MOD_NAME,
-                        (cpu_thread_count == 0 ? "all available" : std::to_string(cpu_thread_count).c_str()),
-                        cpu_img_limit);
+                MSG(INFO, "Using %s threads on the CPU. Image Limit set to %i.\n",
+                    (cpu_thread_count == 0 ? "all available" : std::to_string(cpu_thread_count).c_str()),
+                    cpu_img_limit);
         }
 
         CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &this->decoder),
@@ -598,7 +585,7 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
         struct cmpto_j2k_dec_comp_info comp_info[3];
         if (cmpto_j2k_dec_cstream_get_img_info(buffer, len, &info) != CMPTO_OK ||
                         cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 0, &comp_info[0]) != CMPTO_OK) {
-                log_msg(LOG_LEVEL_ERROR, "J2K Failed to get image or first component info.\n");
+                MSG(ERROR, "J2K Failed to get image or first component info.\n");
                 return DECODER_NO_FRAME;
         }
 
@@ -607,7 +594,7 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
         if (info.comp_count == 3) {
                 if (cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 1, &comp_info[1]) != CMPTO_OK ||
                                 cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 2, &comp_info[2]) != CMPTO_OK) {
-                        log_msg(LOG_LEVEL_ERROR, "J2K Failed to get componentt 1 or 2 info.\n");
+                        MSG(ERROR, "J2K Failed to get component 1 or 2 info.\n");
                         return DECODER_NO_FRAME;
                 }
                 if (comp_info[0].sampling_factor_x == 1 && comp_info[0].sampling_factor_y == 1 &&
@@ -715,7 +702,7 @@ static void j2k_decompress_done(void *state)
 
         cmpto_j2k_dec_ctx_stop(s->decoder);
         pthread_join(s->thread_id, NULL);
-        log_msg(LOG_LEVEL_VERBOSE, "[J2K dec.] Decoder stopped.\n");
+        MSG(VERBOSE, "Decoder stopped.\n");
 
         cmpto_j2k_dec_cfg_destroy(s->settings);
         cmpto_j2k_dec_ctx_destroy(s->decoder);

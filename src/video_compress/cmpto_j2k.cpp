@@ -80,8 +80,8 @@
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
-                log_msg(LOG_LEVEL_ERROR, "[J2K enc.] %s: %s\n", \
-                                err_msg, cmpto_j2k_enc_get_last_error()); \
+                MSG(ERROR, "%s: %s\n", \
+                    err_msg, cmpto_j2k_enc_get_last_error()); \
                 action_fail;\
         } \
 } while(0)
@@ -347,7 +347,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         }
 
         if(!found){
-                log_msg(LOG_LEVEL_ERROR, "[J2K] Failed to find suitable pixel format\n");
+                MSG(ERROR, "Failed to find suitable pixel format\n");
                 return false;
         }
 
@@ -440,7 +440,7 @@ start:
                 const char * encoding_error = "";
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
                                 encoding_error = "(failed)");
-                log_msg(LOG_LEVEL_ERROR, "Image encoding failed: %s\n", encoding_error);
+                MSG(ERROR, "Image encoding failed: %s\n", encoding_error);
                 goto start;
         }
         struct custom_data *udata = nullptr;
@@ -591,7 +591,7 @@ static void usage() {
  */
 void state_video_compress_j2k::parse_fmt(const char* opts) {
         const auto *version = cmpto_j2k_enc_get_version();
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+        MSG(INFO, "Using codec version: %s\n", (version == nullptr ? "(unknown)" : version->name));
 
         /**
          * Confirm that system has some supported CMPTO_TECHNOLOGY_ type prior to parsing arguments. 
@@ -608,9 +608,7 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                 platform      = j2k_compress_platform::CPU;
                 max_in_frames = DEFAULT_CPU_POOL_SIZE;
         } else {
-                log_msg(LOG_LEVEL_ERROR,
-                        "%s Unable to find supported CMPTO_TECHNOLOGY\n",
-                        MOD_NAME);
+                MSG(ERROR, "Unable to find supported CMPTO_TECHNOLOGY\n");
                 throw NoCmptoTechnologyFound();
         }
 
@@ -666,17 +664,11 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                         const char *const platform_name = strchr(item, '=') + 1;
                         platform = get_platform_from_name(platform_name);
                         if (j2k_compress_platform::NONE == platform) {
-                                log_msg(LOG_LEVEL_ERROR,
-                                        "%s Unable to find requested encoding platform: \"%s\"\n",
-                                        MOD_NAME,
-                                        platform_name);
+                                MSG(ERROR, "Unable to find requested encoding platform: \"%s\"\n", platform_name);
                                 throw InvalidArgument();
                         }
                         if (!supports_cmpto_technology(platform)) {
-                                log_msg(LOG_LEVEL_ERROR,
-                                        "%s Does not support requested encoding platform: \"%s\"\n",
-                                        MOD_NAME,
-                                        platform_name);
+                                MSG(ERROR, "Does not support requested encoding platform: \"%s\"\n", platform_name);
                                 throw InvalidArgument();
                         }
 
@@ -702,9 +694,7 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                 } else if (IS_KEY_PREFIX(item, "quality"))      {       // :quality=
                         quality = std::stod(strchr(item, '=') + 1);
                         if (quality < 0.0 || quality > 1.0) {
-                                log_msg(LOG_LEVEL_ERROR,
-                                        "%s Quality should be in interval [0-1]\n",
-                                        MOD_NAME);
+                                MSG(ERROR, "Quality should be in interval [0-1]\n");
                                 throw InvalidArgument();
                         }
 
@@ -716,9 +706,7 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                         mct = strcasecmp("mct", item) ? 1 : 0;
 
                 } else {
-                        log_msg(LOG_LEVEL_ERROR,
-                                "%s Unable to find option: \"%s\"\n",
-                                MOD_NAME, item);
+                        MSG(ERROR, "Unable to find option: \"%s\"\n", item);
                         throw InvalidArgument();
                 }
         }
@@ -733,21 +721,16 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                  *  Set img_limit = thread_count if exeeded
                  */
                 if (cpu_thread_count != CMPTO_J2K_ENC_CPU_DEFAULT && cpu_thread_count < static_cast<int>(cpu_img_limit)) {
-                        log_msg(LOG_LEVEL_INFO,
-                                "%s img_limit (%i) exceeds thread_count. Lowering to img_limit to %i to match thread_count.\n",
-                                MOD_NAME,
-                                cpu_img_limit,
-                                cpu_thread_count);
+                        MSG(INFO, "img_limit (%i) exceeds thread_count. Lowering img_limit to %i to match thread_count.\n",
+                            cpu_img_limit,
+                            cpu_thread_count);
                         cpu_img_limit = cpu_thread_count;
                 }
 
                 // If pool_size was manually set, ignore this check.
                 // Otherwise, if it was not set, confirm that max_in_frames matches DEFAULT_CPU_POOL_SIZE
                 if (!is_pool_size_manually_configured && max_in_frames != DEFAULT_CPU_POOL_SIZE) {
-                        log_msg(LOG_LEVEL_DEBUG,
-                                "%s max_in_frames set to CPU default: %i",
-                                MOD_NAME,
-                                DEFAULT_CPU_POOL_SIZE);
+                        MSG(DEBUG, "max_in_frames set to CPU default: %i", DEFAULT_CPU_POOL_SIZE);
                         max_in_frames = DEFAULT_CPU_POOL_SIZE;
                 }
         }
@@ -767,9 +750,9 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
                         return false);
 
         if (j2k_compress_platform::CPU == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Configuring for CPU\n", MOD_NAME);
+                MSG(INFO, "Configuring for CPU\n");
                 pool = std::make_unique<video_frame_pool>(max_in_frames, cpu_allocator());
-                // for (unsigned int i = 0; i < cpu_count ; )
+                
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(
                                 ctx_cfg,
                                 cpu_thread_count,
@@ -778,16 +761,14 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
                         "Setting CPU device",
                         return false);
 
-                log_msg(LOG_LEVEL_INFO, "%s Using %s threads on CPU. Thread Count = %i, Image Limit = %i\n",
-                        MOD_NAME,
-                        (cpu_thread_count == 0 ? "all available" : std::to_string(cpu_thread_count).c_str()),
-                        cpu_thread_count,
-                        cpu_img_limit);
+                MSG(INFO, "Using %s threads on CPU. Thread Count = %i, Image Limit = %i\n",
+                    (cpu_thread_count == 0 ? "all available" : std::to_string(cpu_thread_count).c_str()),
+                    cpu_thread_count,
+                    cpu_img_limit);
         }
 
         if (j2k_compress_platform::CUDA == platform) {
-                log_msg(LOG_LEVEL_INFO, "%s Configuring for CUDA\n", MOD_NAME);
-
+                MSG(INFO, "Configuring for CUDA\n");
                 pool = std::make_unique<video_frame_pool>(max_in_frames, allocator());
 
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
