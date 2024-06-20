@@ -1,9 +1,12 @@
 /*
- * FILE:    rtsp/BasicRTSPOnlyServer.hh
+ * FILE:    rtsp/ultragrid_rtsp.cpp
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ *          Martin Pulec     <pulec@cesnet.cz>
+ *          Jakub Kováč      <xkovac5@mail.muni.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2010-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -42,45 +45,41 @@
  *
  */
 
-#ifndef _BASIC_RTSP_ONLY_SERVER_HH
-#define _BASIC_RTSP_ONLY_SERVER_HH
+#include "rtsp/ultragrid_rtsp.hh"
+#include "rtsp/UltragridRTSPServer.hh"
 
-#include <RTSPServer.hh>
-#include <BasicUsageEnvironment.hh>
-#include "rtsp/rtsp_utils.h"
-#include "audio/types.h"
-#include "module.h"
+ultragrid_rtsp::ultragrid_rtsp(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+        int audio_sample_rate, int audio_channels, int rtp_video_port, int rtp_audio_port)
+        : thread_running(false) {
+    rtsp_server = std::make_unique<UltragridRTSPServer>(rtsp_port, mod, media_type, audio_codec, audio_sample_rate, audio_channels, rtp_video_port, rtp_audio_port);
+}
 
+ultragrid_rtsp::~ultragrid_rtsp() {
+    stop_server();
+}
 
+int ultragrid_rtsp::start_server() {
+    if (thread_running)
+        return 1;
+    server_stop_flag = 0;
 
-class BasicRTSPOnlyServer {
-private:
-    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+    int ret;
+    ret = pthread_create(&server_thread, NULL, ultragrid_rtsp::server_runner, this);
+    thread_running = (ret == 0) ? true : false;
+    return ret;
+}
 
-public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
-    static BasicRTSPOnlyServer* getInstance();
+void ultragrid_rtsp::stop_server() {
+    server_stop_flag = 1;
 
-    int init_server();
+    if (thread_running) {
+        pthread_join(server_thread, NULL);
+        thread_running = false;
+    }
+}
 
-    static void *start_server(void *args);
-
-    int update_server();
-
-private:
-
-    static BasicRTSPOnlyServer* srvInstance;
-    int fPort;
-    struct module *mod;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port; //server rtp port
-    int rtp_port_audio; //server rtp port
-    RTSPServer* rtspServer;
-    UsageEnvironment* env;
-};
-
-#endif
+void* ultragrid_rtsp::server_runner(void* args) {
+    ultragrid_rtsp* server_instance = (ultragrid_rtsp*) args;
+    server_instance->rtsp_server->serverRunner(&server_instance->server_stop_flag);
+    return NULL;
+}

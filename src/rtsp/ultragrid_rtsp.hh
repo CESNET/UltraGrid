@@ -1,9 +1,12 @@
 /*
- * FILE:    rtsp/c_basicRTSPOnlyServer.cpp
+ * FILE:    rtsp/ultragrid_rtsp.h
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ *          Martin Pulec     <pulec@cesnet.cz>
+ *          Jakub Kováč      <xkovac5@mail.muni.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2010-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -41,42 +44,54 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "rtsp/c_basicRTSPOnlyServer.h"
-#include "rtsp/BasicRTSPOnlyServer.hh"
 
-int c_start_server(rtsp_serv_t* server){
-    int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType, server->audio_codec, server->audio_sample_rate, server->audio_channels, server->audio_bps, server->rtp_port, server->rtp_port_audio);
-    srv->init_server();
-    ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
-    if (ret == 0){
-        server->run = TRUE;
-    } else {
-        server->run = FALSE;
-    }
-    return ret;
-}
+#ifndef ULTRAGRID_RTSP_HH
+#define ULTRAGRID_RTSP_HH
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
-    rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
-    server->port = port;
-    server->mod = mod;
-    server->watch = 0;
-    server->run = FALSE;
-    server->avType = avType;
-    server->audio_codec = audio_codec;
-    server->audio_sample_rate = audio_sample_rate;
-    server->audio_channels = audio_channels;
-    server->audio_bps = audio_bps;
-    server->rtp_port = rtp_port;
-    server->rtp_port_audio = rtp_port_audio;
-    return server;
-}
+#include <pthread.h>
+#include "rtsp/rtsp_utils.h"
+#include "audio/types.h"
+#include "module.h"
 
-void c_stop_server(rtsp_serv_t* server){
-    server->watch = 1;
-    if (server->run){
-        pthread_join(server->server_th, NULL);
-    }
-}
+class UltragridRTSPServer;
 
+class ultragrid_rtsp {
+public:
+    /** 
+     * @param rtsp_port The caller is responsible for ensuring the port is available.
+     *                  If set as 0, the server will use the default value.
+    */
+    ultragrid_rtsp(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+            int audio_sample_rate, int audio_channels, int rtp_video_port, int rtp_audio_port);
+    /**
+     * Stops server and frees any allocated memory
+    */
+    ~ultragrid_rtsp();
+
+    /**
+     * Copy constructor and copy assignment operator do not make sense in this context
+    */
+    ultragrid_rtsp(const ultragrid_rtsp&) = delete;
+    ultragrid_rtsp& operator=(const ultragrid_rtsp&) = delete;
+
+    /**
+     * Start server in new thread
+     * 
+     * @retval 0    New thread created and server started successfully
+    */
+    int start_server();
+    /**
+     * @note can be started again by calling start_server
+    */
+    void stop_server();
+
+private:
+    static void* server_runner(void* args);
+
+    pthread_t server_thread;
+    bool thread_running;
+    char server_stop_flag; // 0 server can run, 1 server should stop
+    std::unique_ptr<UltragridRTSPServer> rtsp_server; // pointer to avoid name clashes with live555
+};
+
+#endif // ULTRAGRID_RTSP_HH
