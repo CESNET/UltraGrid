@@ -37,7 +37,6 @@ install_ndi() {(
         installer=./Install*NDI*sh
         yes | PAGER="cat" $installer
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
-        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
 )}
 
 # TODO: needed only for U20.04, remove after upgrading to U22.04

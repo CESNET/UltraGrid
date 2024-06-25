@@ -59,8 +59,6 @@ install_ndi() {(
         installer=/private/var/tmp/Install_NDI_SDK_Apple.pkg
         sudo installer -pkg $installer -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
-        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt |
-                sudo tee /usr/local/include/ndi_version.h
 )
         NDI_LIB=/Library/NDI/lib/macOS
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
