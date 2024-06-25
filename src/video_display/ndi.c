@@ -141,6 +141,7 @@ static void usage()
         printf("\twhere\n");
         color_printf(TERM_BOLD "\t\tname\n" TERM_RESET "\t\t\tthe name of the server\n");
         color_printf(TERM_BOLD "\t\taudio_level\n" TERM_RESET "\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
+        color_printf("\n");
 }
 
 /**
@@ -227,6 +228,8 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open NDI library!\n");
                         THROW(FAIL);
                 }
+
+                printf("%s\n", s->NDIlib->version());
 
                 if (!s->NDIlib->initialize()) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize NDI library!\n");

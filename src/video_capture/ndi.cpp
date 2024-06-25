@@ -166,7 +166,6 @@ static void show_help(struct vidcap_state_ndi *s) {
         }
         cout << "\n";
         s->NDIlib->find_destroy(pNDI_find);
-        printf("NDI version %s\n", s->NDIlib->version());
 }
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
@@ -181,6 +180,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
+        printf("NDI version %s\n", s->NDIlib->version());
+
         // Not required, but "correct" (see the SDK documentation)
         if (!s->NDIlib->initialize()) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
