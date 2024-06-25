@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,12 +42,14 @@
  * the structs and check the original constructors.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
+#include <assert.h>           // for assert
+#include <limits.h>           // for INT_MAX
+#include <stdbool.h>          // for true, false, bool
+#include <stdint.h>           // for uint16_t, uintptr_t, uint8_t, int16_t
+#include <stdio.h>            // for printf, snprintf
+#include <stdlib.h>           // for NULL, free, size_t, calloc, malloc, strtol
+#include <string.h>           // for memcpy, strlen, strncpy, strstr, strcmp
+#include <strings.h>          // for strcasecmp
 
 #include "audio/types.h"
 #include "audio/utils.h"

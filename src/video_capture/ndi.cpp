@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,15 +42,12 @@
  * delimits host and port)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <algorithm>
 #include <array>
+#include <cassert>                 // for assert
 #include <chrono>
+#include <climits>                 // for INT_MAX
+#include <cmath>                   // for log, pow
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -59,6 +56,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/usleep.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "ndi_common.h"
