@@ -525,6 +525,10 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
+        if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");
+        }
+
         int output_channels = decoder->channel_remapping ?
                         decoder->channel_map.max_output + 1: input_channels;
         audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
