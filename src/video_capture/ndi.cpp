@@ -119,8 +119,13 @@ struct vidcap_state_ndi {
 
 static void show_help(struct vidcap_state_ndi *s) {
         col() << "Usage:\n"
-                "\t" << SBOLD(SRED("-t ndi") << "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive] | -t ndi:help[:extra_ips=<ip>]") << "\n" <<
-                "where\n";
+                 "\t"
+              << SBOLD(SRED("-t ndi")
+                       << "[:name=<n>][:url=<u>][:audio_level=<l>][:"
+                          "bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:"
+                          "progressive]")
+              << "\n\t" << SBOLD("-t ndi:help[:extra_ips=<ip>]") "\n"
+              << "where\n";
 
         col() << TBOLD("\tname\n") <<
                 "\t\tname of the NDI source in form "
