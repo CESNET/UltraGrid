@@ -58,7 +58,7 @@ set -- \
 # shellcheck disable=SC2034
 for n in $(seq $#); do
         # if not installed, add on the back of positional parameters
-        if ! brew list "$1" >/dev/null; then
+        if ! brew list "$1" 2>/dev/null; then
                 set -- "$@" "$1"
         fi
         shift # remove from the front
