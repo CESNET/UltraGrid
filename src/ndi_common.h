@@ -52,7 +52,13 @@
 #include "utils/macros.h" // MAX, MERGE, TOSTRING
 
 #ifndef USE_NDI_VERSION
-#define USE_NDI_VERSION 5
+#define USE_NDI_VERSION 6
+#endif
+
+#if USE_NDI_VERSION >= 6
+#define NDI_API_VERSION 5
+#else
+#define NDI_API_VERSION USE_NDI_VERSION
 #endif
 
 #ifdef __linux__
@@ -63,9 +69,9 @@
 #else
 #define FALLBACK_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
 #endif
-#define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(USE_NDI_VERSION) "_load"
+#define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(NDI_API_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
-typedef MAKE_NDI_LIB_NAME(USE_NDI_VERSION) NDIlib_t;
+typedef MAKE_NDI_LIB_NAME(NDI_API_VERSION) NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
 
 static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
