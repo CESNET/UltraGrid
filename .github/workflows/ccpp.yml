@@ -62,7 +62,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
     - name: Cache NDI
       id: cache-ndi
       uses: actions/cache@main
@@ -71,7 +71,7 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
@@ -150,7 +150,7 @@ jobs:
       id: etags
       run: |
         echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)" >> $GITHUB_OUTPUT
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)" >> $GITHUB_OUTPUT
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Set environment
       run: . .github/scripts/environment.sh
@@ -184,7 +184,7 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
+      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
     - name: configure
@@ -240,7 +240,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe)" >> $GITHUB_OUTPUT
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe)" >> $GITHUB_OUTPUT
     - name: Set environment
       run: .github/scripts/environment.sh
@@ -255,7 +255,7 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe' -o 'C:\ndi.exe'
+      run: curl 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe' -o 'C:\ndi.exe'
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main

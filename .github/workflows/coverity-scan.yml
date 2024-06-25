@@ -46,7 +46,7 @@ jobs:
       if: ${{ env.coverity_token }}
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
     - name: Cache NDI
       if: ${{ env.coverity_token }}
       id: cache-ndi
@@ -56,7 +56,7 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: ${{ env.coverity_token }} && steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
 
     - name: bootstrap
       run: |
