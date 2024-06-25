@@ -60,16 +60,8 @@ install_ndi() {(
         sudo installer -pkg $installer -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
 )
-        NDI_LIB=/Library/NDI/lib/macOS
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
-        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }\
--s $NDI_LIB"
-        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
-        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+\
-$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
-        printf '%b' "CPATH=$CPATH\nDYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS\n\
-LIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> \
-"$GITHUB_ENV"
+        printf '%b' "CPATH=$CPATH\n" >> "$GITHUB_ENV"
 }
 
 install_soundfont() {(
