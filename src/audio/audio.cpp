@@ -203,7 +203,7 @@ static void audio_channel_map_usage(void)
 {
         printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
         printf("\t                                to output audio channels comma-separated\n");
-        printf("\t                                list of channel mapping\n");
+        printf("\t                                list of channel mapping (receiver only)\n");
         printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
         printf("\t                                    0:0    - play only first channel\n");
         printf("\t                                    0:0,:1 - sets second channel to\n");
