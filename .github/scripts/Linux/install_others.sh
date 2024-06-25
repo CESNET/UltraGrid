@@ -32,9 +32,6 @@ install_gpujpeg() {(
 
 # Install NDI
 install_ndi() {(
-        if [ ! -f "Install_NDI_SDK_Linux.tar.gz" ]; then # it should be already cached in a CI step
-                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
-        fi
         tar -xzf Install_NDI_SDK_Linux.tar.gz
         # shellcheck disable=SC2125
         installer=./Install*NDI*sh
