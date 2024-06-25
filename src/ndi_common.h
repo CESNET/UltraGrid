@@ -111,6 +111,7 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         const char *lib_cand[3] = {getenv(NDILIB_REDIST_FOLDER) ? getenv(NDILIB_REDIST_FOLDER) : "",
                                    "/usr/local/lib", FALLBACK_NDI_PATH};
         void *hNDILib = NULL;
+        const char *last_err = "(none)";
         for (unsigned int i = 0; i < sizeof lib_cand / sizeof lib_cand[0]; i++) {
                 if (i > 0) {
                         log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n",
@@ -128,7 +129,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                 if (hNDILib) {
                         break;
                 }
-                log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
+                last_err = dlerror();
+                log_msg(LOG_LEVEL_WARNING,
+                        "[NDI] Failed to open the library: %s\n", last_err);
         }
 
         // The main NDI entry point for dynamic loading if we got the library
@@ -139,7 +142,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
 
         // If we failed to load the library then we tell people to re-install it
         if (!NDIlib_load) {       // Unload the library if we loaded it
-                log_msg(LOG_LEVEL_ERROR, "[NDI] Failed to open the library: %s\n", dlerror());
+                log_msg(LOG_LEVEL_ERROR,
+                        "[NDI] Failed to open the library: %s\n", last_err);
+
                 if (strlen(NDILIB_REDIST_URL) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "[NDI] Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application.\n");
                 } else { // NDILIB_REDIST_URL is set to "" in Linux
