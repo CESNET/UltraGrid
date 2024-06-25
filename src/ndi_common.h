@@ -3,7 +3,7 @@
  * @author Martin Pulec      <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2024 CESNET
  * All rights reserved.
  *
  * Using sample code from NDI.
@@ -171,8 +171,12 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_printf(TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available from http://ndi.tv/\n" \
-                        u8"NDI® is a registered trademark of NewTek, Inc.\n\n" TERM_RESET); int not_defined_function
+        color_printf( \
+            TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available " \
+                                   u8"from https://ndi.video/\n" \
+                                   u8"NDI® is a registered trademark of " \
+                                   u8"Vizrt NDI AB.\n\n" TERM_RESET); \
+        int not_defined_function
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 
