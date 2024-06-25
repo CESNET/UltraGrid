@@ -63,11 +63,8 @@ install_glfw() {(
 
 # Install NDI
 install_ndi() {(
+        # installer downloaed by cache step
         installer=/private/var/tmp/Install_NDI_SDK_Apple.pkg
-        if [ ! -f $installer ]; then
-                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_\
-SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
-        fi
         sudo installer -pkg $installer -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt |
