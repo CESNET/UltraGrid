@@ -143,7 +143,7 @@ static void show_help(struct vidcap_state_ndi *s) {
                 " - fastest (UYVY), " << TBOLD(<< NDIlib_recv_color_format_best <<) << " - best (default, P216/UYVY)\n"
                 "\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n";
         col() << TBOLD("\textra_ips\n") <<
-                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\". Can be used if mDNS discovery is not usable.\n";
+                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\". Can be used if DNS-SD is not usable.\n";
         col() << TBOLD("\tprogressive\n") <<
                 "\t\tprefer progressive capture for interlaced input\n"
                 "\n";
