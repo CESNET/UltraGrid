@@ -429,7 +429,9 @@ void * vidcap_testcard2_thread(void *arg)
                 }
         }
         if(!font) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to load any usable font (last font tried: %s)!\n", TTF_GetError());
+                MSG(ERROR,
+                    "Unable to load any usable font! Last font tried %s: %s\n",
+                    font_path, TTF_GetError());
                 EXIT_THREAD
         }
         MSG(INFO, "Using font: %s\n", font_path);
