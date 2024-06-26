@@ -1650,6 +1650,7 @@ AC_ARG_ENABLE(testcard-extras,
     [testcard_extras_req=$build_default]
     )
 
+FOUND_SDL_TTF=no
 testcard2_req=auto
 testcard_sdl_ttf_req=auto
 
@@ -3502,7 +3503,8 @@ RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
 RESULT=`add_column "$RESULT" "Spout" $spout $?`
 RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
-RESULT=`add_column "$RESULT" "Testcard extras" $testcard2 $?`
+RESULT=`add_column "$RESULT" "Testcard extras (TTF: $FOUND_SDL_TTF)" \
+$testcard2 $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
 RESULT=`end_section "$RESULT"`
 
