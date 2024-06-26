@@ -85,7 +85,12 @@
 static const char * const font_candidates[] = { "cour.ttf", };
 #elif defined __APPLE__
 #define DEFAULT_FONT_DIR "/System/Library/Fonts"
-static const char * const font_candidates[] = { "Monaco.ttf", "Geneva.ttf", "Keyboard.ttf", };
+static const char *const font_candidates[] = {
+        "Monaco.ttf",
+        "Monaco.dfont",
+        "Geneva.ttf",
+        "Keyboard.ttf",
+};
 #else
 #define DEFAULT_FONT_DIR "/usr/share/fonts"
 static const char *const font_candidates[] = {
