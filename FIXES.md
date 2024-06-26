@@ -1,3 +1,9 @@
+#### 1.9.4
+
+* new GPUJPEG compat
+* build fixes
+* miscellaneous fixes, but no high severity
+
 #### 1.9.3
 
 * fixed crashes in edge cases
