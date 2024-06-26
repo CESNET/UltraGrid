@@ -417,17 +417,22 @@ void * vidcap_testcard2_thread(void *arg)
         }
 
         const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
+        char font_path[MAX_PATH_SIZE] = "";
         for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
-                char font_path[MAX_PATH_SIZE] = "";
                 strncpy(font_path, font_dir, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
                 font = TTF_OpenFont(font_path, FONT_HEIGHT);
+                if (font == NULL) {
+                        MSG(VERBOSE, "Tried font %s: %s\n", font_path,
+                            TTF_GetError());
+                }
         }
         if(!font) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to load any usable font (last font tried: %s)!\n", TTF_GetError());
                 EXIT_THREAD
         }
+        MSG(INFO, "Using font: %s\n", font_path);
 
 #endif
         /// @note R12l has pixel block size 8 pixels, so the below won't work for that pixfmt
