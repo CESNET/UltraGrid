@@ -3456,6 +3456,7 @@ RESULT=`add_column "$RESULT" "caca" $caca $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
+RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File" $file $?`
 RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
@@ -3463,6 +3464,7 @@ RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
 RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
 RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
+RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
@@ -3471,8 +3473,6 @@ RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
-RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
-RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
