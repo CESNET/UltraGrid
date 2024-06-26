@@ -6,7 +6,7 @@
  * Merge to mainline testcard.
  */
 /*
- * Copyright (c) 2011-2023 CESNET z.s.p.o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,24 +38,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "host.h"
- 
-#include "debug.h"
-#include "lib_common.h"
-#include "tv.h"
-#include "utils/fs.h"
-#include "utils/macros.h"
-#include "utils/thread.h"
-#include "utils/color_out.h"
-#include "video.h"
-#include "video_capture.h"
-#include "testcard_common.h"
-#include "compat/platform_semaphore.h"
-#include <stdio.h>
-#include <stdlib.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL2
+#endif // defined HAVE_CONFIG_H
+
+#include <assert.h>                     // for assert
+#include <ctype.h>                      // for isdigit
+#include <errno.h>                      // for errno
+#include <limits.h>                     // for SHRT_MAX
+#include <math.h>                       // for sin, M_PI
+#include <pthread.h>                    // for pthread_mutex_lock, pthread_m...
+#include <stdbool.h>                    // for false, true, bool
+#include <stddef.h>                     // for ptrdiff_t
+#include <stdint.h>                     // for uint32_t
+#include <stdio.h>                      // for NULL, fprintf, printf, stderr
+#include <stdlib.h>                     // for free, rand, malloc, calloc, atoi
+#include <string.h>                     // for strchr, strtok_r, strlen, memcpy
+#include <time.h>                       // for time
+
 #ifdef HAVE_LIBSDL_TTF
 #ifdef HAVE_SDL2
 #include <SDL2/SDL_ttf.h>
@@ -63,10 +63,24 @@
 #include <SDL/SDL_ttf.h>
 #endif
 #endif
-#include "audio/types.h"
-#include <pthread.h>
-#include <time.h>
-#include <limits.h>
+
+#include "audio/types.h"                // for audio_frame
+#include "compat/platform_semaphore.h"  // for platform_sem_post, platform_s...
+#include "debug.h"                      // for log_msg, LOG_LEVEL_ERROR, LOG...
+#include "host.h"                       // for exit_uv, audio_capture_channels
+#include "lib_common.h"                 // for REGISTER_MODULE, library_class
+#include "testcard_common.h"            // for testcard_rect, testcard_conve...
+#include "tv.h"                         // for tv_diff, tv_add_usec, tv_diff...
+#include "types.h"                      // for video_desc, RGBA, video_frame
+#include "utils/color_out.h"            // for color_printf, TBOLD, TRED
+#include "utils/fs.h"                   // for MAX_PATH_SIZE
+#include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
+#include "utils/thread.h"               // for set_thread_name
+#include "video.h"                      // for get_video_desc_from_string
+#include "video_capture.h"              // for VIDCAP_INIT_FAIL, VIDCAP_INIT...
+#include "video_capture_params.h"       // for vidcap_params_get_fmt, vidcap...
+#include "video_codec.h"                // for vc_get_linesize, vc_get_datalen
+#include "video_frame.h"                // for parse_fps, vf_alloc_desc, vf_...
 
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 s->audio.ch_count * BUFFER_SEC)
@@ -300,33 +314,33 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                s->grab_audio = TRUE;
+                s->grab_audio = 1;
                 if(configure_audio(s) != 0) {
-                        s->grab_audio = FALSE;
+                        s->grab_audio = 0;
                         fprintf(stderr, "[testcard2] Disabling audio output. "
                                         "\n");
                 }
         } else {
-                s->grab_audio = FALSE;
+                s->grab_audio = 0;
         }
 
         s->count = 0;
         s->audio_remained = 0.0;
         s->seconds_tone_played = 0.0;
-        s->play_audio_frame = FALSE;
+        s->play_audio_frame = 0;
 
         platform_sem_init(&s->semaphore, 0, 0);
         printf("Testcard capture set to %dx%d\n", s->desc.width, s->desc.height);
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                s->grab_audio = TRUE;
+                s->grab_audio = 1;
                 if(configure_audio(s) != 0) {
-                        s->grab_audio = FALSE;
+                        s->grab_audio = 0;
                         fprintf(stderr, "[testcard] Disabling audio output. "
                                         "SDL-mixer missing, running on Mac or other problem.");
                 }
         } else {
-                s->grab_audio = FALSE;
+                s->grab_audio = 0;
         }
         
         if(!s->grab_audio) {
@@ -509,14 +523,14 @@ next_frame:
                         usleep(sleep_time);
                 } else {
                         if((++s->count) % ((int) s->desc.fps * 5) == 0) {
-                                s->play_audio_frame = TRUE;
+                                s->play_audio_frame = 1;
                         }
                         ++stat_count_prev;
                         goto next_frame;
                 }
                 
                 if((++s->count) % ((int) s->desc.fps * 5) == 0) {
-                        s->play_audio_frame = TRUE;
+                        s->play_audio_frame = 1;
                 }
                 pthread_mutex_lock(&s->lock);
                 while (s->data != NULL) {
@@ -551,7 +565,7 @@ static void grab_audio(struct testcard_state2 *s)
         double seconds = tv_diff(curr_time, s->last_audio_time);
         if(s->play_audio_frame) {
                 s->seconds_tone_played = 0.0;
-                s->play_audio_frame = FALSE;
+                s->play_audio_frame = 0;
         }
         
         s->audio.data_len = ((int)((seconds + s->audio_remained) * AUDIO_SAMPLE_RATE));
