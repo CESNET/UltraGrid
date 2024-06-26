@@ -130,7 +130,8 @@ static void process_rr(struct rtp *session, rtp_event * e)
                 }
                 if(packet_count < 1) packet_count = 1;
 
-                log_msg(LOG_LEVEL_INFO, "Receiver of 0x%08x reports RTT=%d usec, loss %.2f%% (out of %d packets)\n",
+                log_msg(LOG_LEVEL_INFO,
+                        "RR of 0x%08x: RTT=%d usec, loss %.2f%% (of %d pkts)\n",
                         r->ssrc, RTT, fract_lost, packet_count);
         }
 }
