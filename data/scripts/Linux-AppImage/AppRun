@@ -245,7 +245,8 @@ get_custom_firejail_rules() {
         if expr "$*" : '.*screen' >/dev/null; then
                 printf " --ignore=noroot"
         elif firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
-                printf " --dbus-system=none"
+                printf " --dbus-system=filter \
+--dbus-system.talk=org.freedesktop.Avahi"
         fi
 
         if ! expr "$*" : '.*/mnt' >/dev/null &&
