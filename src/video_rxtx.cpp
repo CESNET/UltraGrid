@@ -113,7 +113,6 @@ static void should_exit_video_rxtx(void *state) {
 
 video_rxtx::~video_rxtx() {
         join();
-        unregister_should_exit_callback(m_parent, should_exit_video_rxtx, this);
         if (!m_poisoned && m_compression) {
                 send(NULL);
                 compress_pop(m_compression);
@@ -139,6 +138,7 @@ void video_rxtx::join() {
         }
         send(NULL); // pass poisoned pill
         pthread_join(m_thread_id, NULL);
+        unregister_should_exit_callback(m_parent, should_exit_video_rxtx, this);
         m_joined = true;
 }
 
