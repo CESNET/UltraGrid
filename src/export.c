@@ -105,6 +105,9 @@ static void usage() {
 static bool
 parse_options(struct exporter *s, const char *ccfg, bool *should_export)
 {
+        if (ccfg == NULL) {
+                return true;
+        }
         char buf[STR_LEN];
         snprintf(buf, sizeof buf, "%s", ccfg);
         char *cfg = buf;
@@ -149,16 +152,10 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
         pthread_mutex_init(&s->lock, NULL);
         s->limit = -1;
 
-        if (cfg) {
-                if (strcmp(cfg, "help") == 0) {
-                        usage();
-                        export_destroy(s);
-                        return NULL;
-                }
-                if (!parse_options(s, cfg, &should_export)) {
-                        HANDLE_ERROR
-                }
-        } else {
+        if (!parse_options(s, cfg, &should_export)) {
+                HANDLE_ERROR
+        }
+        if (s->dir == NULL) {
                 s->dir_auto = true;
         }
 
