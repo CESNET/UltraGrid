@@ -102,9 +102,15 @@ static void usage() {
         color_printf(TERM_BOLD "\tpaused" TERM_RESET "            - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
 }
 
-static bool parse_options(struct exporter *s, char *save_ptr, bool *should_export) {
+static bool
+parse_options(struct exporter *s, const char *ccfg, bool *should_export)
+{
+        char buf[STR_LEN];
+        snprintf(buf, sizeof buf, "%s", ccfg);
+        char *cfg = buf;
+        char *save_ptr = NULL;
         char *item = NULL;
-        while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+        while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
                 if (strstr(item, "help") == item) {
                         usage();
                         return false;
@@ -124,10 +130,13 @@ static bool parse_options(struct exporter *s, char *save_ptr, bool *should_expor
                         }
                 } else if (strcmp(item, "exit_on_limit") == 0) {
                         s->exit_on_limit = true;
+                } else if (s->dir == NULL && cfg != NULL) {
+                        s->dir = strdup(item);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
                         return false;
                 }
+                cfg = NULL;
         }
         return true;
 }
@@ -146,13 +155,7 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                         export_destroy(s);
                         return NULL;
                 }
-                s->dir = strdup(cfg);
-                char *save_ptr = NULL;
-                char *item = strtok_r(s->dir, ":", &save_ptr); // skip the dir
-                if (item == NULL) {
-                        HANDLE_ERROR
-                }
-                if (!parse_options(s, save_ptr, &should_export)) {
+                if (!parse_options(s, cfg, &should_export)) {
                         HANDLE_ERROR
                 }
         } else {
