@@ -930,13 +930,13 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
         if (rshift == 0 && gshift == 8 && bshift == 16) {
                 is_simd_compat = true;
                 shuf = _mm_setr_epi8(0, 1, 2, 0xff, 3, 4, 5, 0xff, 6, 7, 8, 0xff, 9, 10, 11, 0xff);
-        } else if (rshift == 16 && gshift == 8 && bshift && 0) {
+        } else if (rshift == 16 && gshift == 8 && bshift == 0) {
                 is_simd_compat = true;
                 shuf = _mm_setr_epi8(2, 1, 0, 0xff, 5, 4, 3, 0xff, 8, 7, 6, 0xff, 11, 10, 9, 0xff);
         }
 
         if (is_simd_compat) {
-                OPTIMIZED_FOR (x = 0; x <= dst_len - 16; x += 16) {
+                OPTIMIZED_FOR (x = 0; x <= dst_len - 32; x += 16) {
                         loaded = _mm_lddqu_si128((const __m128i_u *) src);
                         loaded = _mm_shuffle_epi8(loaded, shuf);
                         loaded = _mm_or_si128(loaded, alpha_mask_sse);
