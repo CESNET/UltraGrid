@@ -723,7 +723,6 @@ static void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char *
         }
 }
 
-#ifndef __SSSE3__
 /**
  * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
  *
@@ -771,7 +770,6 @@ static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const
                 *dst_c++ = (in >> bshift) & 0xff;
         }
 }
-#endif // ! defined __SSSE3__
 
 /**
  * @brief Converts from AGBR to RGB
@@ -813,6 +811,23 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
         vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, SRC_RSHIFT, SRC_GSHIFT,
                                       SRC_BSHIFT);
 #endif
+}
+
+void
+vc_copylineBGRAtoRGB(unsigned char *__restrict dst,
+                     const unsigned char *__restrict src2, int dst_len,
+                     int rshift, int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        enum {
+                SRC_RSHIFT = 16,
+                SRC_GSHIFT = 8,
+                SRC_BSHIFT = 0,
+        };
+        vc_copylineRGBAtoRGBwithShift(dst, src2, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
 }
 
 /**
