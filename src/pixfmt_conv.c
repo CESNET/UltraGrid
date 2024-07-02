@@ -888,6 +888,8 @@ void vc_copylineUYVYtoGrayscale(unsigned char * __restrict dst, const unsigned c
 void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
 
+        int x = 0;
+
 
 #ifdef __SSSE3__
         __m128i alpha_mask_sse = _mm_set1_epi32(0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift));
@@ -905,8 +907,6 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
                 is_simd_compat = true;
                 shuf = _mm_setr_epi8(2, 1, 0, 0xff, 5, 4, 3, 0xff, 8, 7, 6, 0xff, 11, 10, 9, 0xff);
         }
-
-        int x = 0;
 
         if (is_simd_compat) {
                 OPTIMIZED_FOR (x = 0; x <= dst_len - 16; x += 16) {
