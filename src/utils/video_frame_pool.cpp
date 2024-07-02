@@ -74,9 +74,9 @@ void video_frame_pool::reconfigure(struct video_desc new_desc, size_t new_size) 
 }
 
 std::shared_ptr<video_frame> video_frame_pool::get_frame() {
-        assert(m_generation != 0);
         struct video_frame *ret = NULL;
         std::unique_lock<std::mutex> lk(m_lock);
+        assert(m_generation != 0);
         if (!m_free_frames.empty()) {
                 ret = m_free_frames.front();
                 m_free_frames.pop();
