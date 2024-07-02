@@ -785,9 +785,9 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(gshift);
         UNUSED(bshift);
         enum {
-                SRC_RSHIFT = 16,
-                SRC_GSHIFT = 8,
-                SRC_BSHIFT = 0,
+                SRC_RSHIFT = 24,
+                SRC_GSHIFT = 16,
+                SRC_BSHIFT = 8,
         };
 #ifdef __SSSE3__
         __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
