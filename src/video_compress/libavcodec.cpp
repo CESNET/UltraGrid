@@ -1947,8 +1947,7 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
                                                preset);
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
-                //pred-struct=1 is low-latency mode
-                if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "pred-struct=1:tile-columns=2:tile-rows=2", 0)) {
+                if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "tile-columns=2:tile-rows=2", 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set svtav1-params for SVT", ret);
                 }
 #else
