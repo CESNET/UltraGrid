@@ -779,11 +779,33 @@ static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const
  */
 void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {
+#ifdef __SSSE3__
+        __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
+        __m128i loaded;
+        int x;
+        for (x = 0; x <= dst_len - 12; x += 12) {
+                loaded = _mm_lddqu_si128((const __m128i_u *) src2);
+                loaded = _mm_shuffle_epi8(loaded, shuf);
+                _mm_storeu_si128((__m128i_u *)dst2, loaded);
+
+                src2 += 16;
+                dst2 += 12;
+        }
+
+        rshift = 16; gshift = 8; bshift = 0;
+        uint8_t *dst_c = (uint8_t *) dst2;
+        for (; x <= dst_len - 3; x += 3) {
+		register uint32_t in = *src2++;
+                *dst_c++ = (in >> rshift) & 0xff;
+                *dst_c++ = (in >> gshift) & 0xff;
+                *dst_c++ = (in >> bshift) & 0xff;
+        }
+#else
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-
-        vc_copylineRGBAtoRGBwithShift(dst2, src2, dst_len, 16, 8, 0);
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 16, 8, 0);
+#endif
 }
 
 /**
@@ -792,10 +814,33 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char *
  */
 static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
+#ifdef __SSSE3__
+        __m128i shuf = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 0xff, 0xff, 0xff, 0xff);
+        __m128i loaded;
+        int x;
+        for (x = 0; x <= dst_len - 12; x += 12) {
+                loaded = _mm_lddqu_si128((const __m128i_u *) src);
+                loaded = _mm_shuffle_epi8(loaded, shuf);
+                _mm_storeu_si128((__m128i_u *)dst, loaded);
+
+                src += 16;
+                dst += 12;
+        }
+
+        rshift = 0; gshift = 8; bshift = 16;
+        uint8_t *dst_c = (uint8_t *) dst;
+        for (; x <= dst_len - 3; x += 3) {
+		register uint32_t in = *src++;
+                *dst_c++ = (in >> rshift) & 0xff;
+                *dst_c++ = (in >> gshift) & 0xff;
+                *dst_c++ = (in >> bshift) & 0xff;
+        }
+#else
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
         vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
+#endif
 }
 
 /**
@@ -842,11 +887,44 @@ void vc_copylineUYVYtoGrayscale(unsigned char * __restrict dst, const unsigned c
  */
 void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
+
+
+#ifdef __SSSE3__
+        __m128i alpha_mask_sse = _mm_set1_epi32(0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift));
+        __m128i shuf;
+
+        // common shifts are 0 8 16 (RGB) or 16 8 0 (BGR)
+        // generalized solution would be too complex and not faster
+        __m128i loaded;
+        bool is_simd_compat = false;
+
+        if (rshift == 0 && gshift == 8 && bshift == 16) {
+                is_simd_compat = true;
+                shuf = _mm_setr_epi8(0, 1, 2, 0xff, 3, 4, 5, 0xff, 6, 7, 8, 0xff, 9, 10, 11, 0xff);
+        } else if (rshift == 16 && gshift == 8 && bshift && 0) {
+                is_simd_compat = true;
+                shuf = _mm_setr_epi8(2, 1, 0, 0xff, 5, 4, 3, 0xff, 8, 7, 6, 0xff, 11, 10, 9, 0xff);
+        }
+
+        int x = 0;
+
+        if (is_simd_compat) {
+                OPTIMIZED_FOR (x = 0; x <= dst_len - 16; x += 16) {
+                        loaded = _mm_lddqu_si128((const __m128i_u *) src);
+                        loaded = _mm_shuffle_epi8(loaded, shuf);
+                        loaded = _mm_or_si128(loaded, alpha_mask_sse);
+                        _mm_storeu_si128((__m128i_u *)dst, loaded);
+                        src += 12;
+                        dst += 16;
+                }
+        }
+#endif
+
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
+        OPTIMIZED_FOR (; x <= dst_len - 4; x += 4) {
                 r = *src++;
                 g = *src++;
                 b = *src++;
