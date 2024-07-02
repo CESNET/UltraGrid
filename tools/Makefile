@@ -1,4 +1,4 @@
-FLAGS ?= -O2 -g -msse4.1
+FLAGS ?= -O2 -g
 SRCDIR ?= ..
 COMMON_FLAGS = $(FLAGS) -D_GNU_SOURCE -I$(SRCDIR)/src/
 MKDIR_P = mkdir -p
