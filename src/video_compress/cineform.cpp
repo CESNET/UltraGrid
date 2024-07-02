@@ -365,6 +365,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 }
                 std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->precompress_desc), vf_free);
                 video_frame *dummy_ptr = dummy.get();
+                vf_clear(dummy_ptr);
 
                 s->stop = true;
                 s->frame_queue.push(std::move(dummy));
