@@ -788,7 +788,7 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
         __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
         __m128i loaded;
         int x;
-        for (x = 0; x <= dst_len - 12; x += 12) {
+        for (x = 0; x <= dst_len - 24; x += 12) {
                 loaded = _mm_lddqu_si128((const __m128i_u *) src);
                 loaded = _mm_shuffle_epi8(loaded, shuf);
                 _mm_storeu_si128((__m128i_u *)dst, loaded);
@@ -823,7 +823,7 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
         __m128i shuf = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 0xff, 0xff, 0xff, 0xff);
         __m128i loaded;
         int x;
-        for (x = 0; x <= dst_len - 12; x += 12) {
+        for (x = 0; x <= dst_len - 24; x += 12) {
                 loaded = _mm_lddqu_si128((const __m128i_u *) src);
                 loaded = _mm_shuffle_epi8(loaded, shuf);
                 _mm_storeu_si128((__m128i_u *)dst, loaded);
