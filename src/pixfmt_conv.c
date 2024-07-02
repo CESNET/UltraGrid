@@ -784,6 +784,11 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
+        enum {
+                SRC_RSHIFT = 16,
+                SRC_GSHIFT = 8,
+                SRC_BSHIFT = 0,
+        };
 #ifdef __SSSE3__
         __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
         __m128i loaded;
@@ -797,16 +802,16 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
                 dst += 12;
         }
 
-        rshift = 16; gshift = 8; bshift = 0;
         uint8_t *dst_c = (uint8_t *) dst;
         for (; x <= dst_len - 3; x += 3) {
 		register uint32_t in = *(const uint32_t *) src;
-                *dst_c++ = (in >> rshift) & 0xff;
-                *dst_c++ = (in >> gshift) & 0xff;
-                *dst_c++ = (in >> bshift) & 0xff;
+                *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
         }
 #else
-        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 16, 8, 0);
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
 #endif
 }
 
@@ -819,6 +824,11 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
+        enum {
+                SRC_RSHIFT = 0,
+                SRC_GSHIFT = 8,
+                SRC_BSHIFT = 16,
+        };
 #ifdef __SSSE3__
         __m128i shuf = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 0xff, 0xff, 0xff, 0xff);
         __m128i loaded;
@@ -832,16 +842,16 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
                 dst += 12;
         }
 
-        rshift = 0; gshift = 8; bshift = 16;
         uint8_t *dst_c = (uint8_t *) dst;
         for (; x <= dst_len - 3; x += 3) {
 		register uint32_t in = * (const uint32_t *) src;
-                *dst_c++ = (in >> rshift) & 0xff;
-                *dst_c++ = (in >> gshift) & 0xff;
-                *dst_c++ = (in >> bshift) & 0xff;
+                *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
         }
 #else
-        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
 #endif
 }
 
