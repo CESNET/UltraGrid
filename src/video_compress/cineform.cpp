@@ -337,10 +337,11 @@ static video_frame *get_copy(struct state_video_compress_cineform *s, video_fram
         auto *dst = (unsigned char *) ret->tiles[0].data;
         int dst_sign = 1;
         if (s->precompress_desc.color_spec == RGB) { // upside down
-                dst += static_cast<size_t>(dst_linesize) * frame->tiles[0].height - 1;
+                dst += static_cast<size_t>(dst_linesize) *
+                       (frame->tiles[0].height - 1);
                 dst_sign = -1;
         }
-        for (long int i = 0; i < frame->tiles[0].height; ++i) {
+        for (long int i = 0; i < (long int) frame->tiles[0].height; ++i) {
                 s->dec(dst + dst_sign * i * dst_linesize, (unsigned char *) frame->tiles[0].data + i * src_linesize, dst_linesize, 16, 8, 0);
         }
 
