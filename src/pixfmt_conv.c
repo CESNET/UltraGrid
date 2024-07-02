@@ -777,7 +777,7 @@ static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
-void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {
 #ifdef __SSSE3__
         __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
@@ -786,14 +786,14 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char *
         for (x = 0; x <= dst_len - 12; x += 12) {
                 loaded = _mm_lddqu_si128((const __m128i_u *) src2);
                 loaded = _mm_shuffle_epi8(loaded, shuf);
-                _mm_storeu_si128((__m128i_u *)dst2, loaded);
+                _mm_storeu_si128((__m128i_u *)dst, loaded);
 
                 src2 += 16;
-                dst2 += 12;
+                dst += 12;
         }
 
         rshift = 16; gshift = 8; bshift = 0;
-        uint8_t *dst_c = (uint8_t *) dst2;
+        uint8_t *dst_c = (uint8_t *) dst;
         for (; x <= dst_len - 3; x += 3) {
 		register uint32_t in = *src2++;
                 *dst_c++ = (in >> rshift) & 0xff;
