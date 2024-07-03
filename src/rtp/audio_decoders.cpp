@@ -597,6 +597,7 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
                 char *out = nullptr;
                 int out_len = 0;
                 if (decoder->fec_state->decode(c.first.data(), c.first.size(), &out, &out_len, c.second)) {
+                        assert(out_len >= (int) sizeof(audio_payload_hdr_t));
                         if (!desc) {
                                 uint32_t quant_sample_rate = 0;
                                 uint32_t audio_tag = 0;
