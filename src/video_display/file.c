@@ -809,7 +809,7 @@ worker(void *arg)
         AVFrame            *tmp_aud_frm    = NULL;
         AVPacket           *pkt            = av_packet_alloc();
 
-        while (!s->should_exit) {
+        while (1) {
                 pthread_mutex_lock(&s->lock);
                 while (s->audio.aud_frm == NULL && s->video.vid_frm == NULL &&
                        !s->should_exit) {
