@@ -139,6 +139,11 @@ struct state_alsa_playback {
 
 static void audio_play_alsa_write_frame(void *state, const struct audio_frame *frame);
 
+/**
+ * @todo
+ * the file /proc/sys/kernel/sched_latency_ns is no longer present
+ * in current Linuxes - remove the function?
+ */
 static long get_sched_latency_ns(void)
 {
         const char *proc_file = "/proc/sys/kernel/sched_latency_ns";
