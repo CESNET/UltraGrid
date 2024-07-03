@@ -1776,9 +1776,9 @@ static bool display_decklink_reconfigure_audio(void *state, int quant_samples, i
         assert(quant_samples == 16 || quant_samples == 32);
         
         const int bps = quant_samples / 8;
+        const unique_lock<mutex> lk(s->audio_reconf_lock);
         if (bps != s->aud_desc.bps || sample_rate != s->aud_desc.sample_rate ||
             channels != s->aud_desc.ch_count) {
-                const unique_lock<mutex> lk(s->audio_reconf_lock);
                 s->aud_desc = {quant_samples / 8, sample_rate, channels,
                                AC_PCM};
                 s->audio_reconfigure = true;
