@@ -325,6 +325,11 @@ struct module *get_matching_child(struct module *node, const char *const_path)
         return NULL;
 }
 
+/**
+ * Dumps modules' tree.
+ * @important no module in the tree should be locked (although currently
+ * recursive mutexes are used, so it will work if locked from same thread)
+ */
 void dump_tree(struct module *root_node, int indent) {
         for(int i = 0; i < indent; ++i)
                 putchar(' ');
@@ -336,6 +341,7 @@ void dump_tree(struct module *root_node, int indent) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
+        module_mutex_unlock(&root_node->lock);
 }
 
 void
