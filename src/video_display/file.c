@@ -809,8 +809,8 @@ worker(void *arg)
         AVFrame            *tmp_aud_frm    = NULL;
         AVPacket           *pkt            = av_packet_alloc();
 
-        pthread_mutex_lock(&s->lock);
         while (!s->should_exit) {
+                pthread_mutex_lock(&s->lock);
                 while (s->audio.aud_frm == NULL && s->video.vid_frm == NULL &&
                        !s->should_exit) {
                         pthread_cond_wait(&s->cv, &s->lock);
@@ -854,7 +854,6 @@ worker(void *arg)
                         vf_free(vid_frm);
                         vid_frm = NULL;
                 }
-                pthread_mutex_lock(&s->lock);
         }
         vf_free(vid_frm);
         av_frame_free(&aud_frm);
