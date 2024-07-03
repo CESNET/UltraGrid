@@ -152,7 +152,9 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                                 dxt_encoder_create(DXT_TYPE_DXT1_YUV, frame->tiles[0].width, frame->tiles[0].height, format,
                                                 s->gl_context.legacy);
                 }
-                data_len = dxt_get_size(frame->tiles[0].width, frame->tiles[0].height, DXT_TYPE_DXT1);
+                data_len =
+                    dxt_get_size(frame->tiles[0].width, frame->tiles[0].height,
+                                 DXT_TYPE_DXT1_YUV);
         } else if(s->color_spec == DXT5){
                 for(int i = 0; i < (int) frame->tile_count; ++i) {
                         s->encoder[i] =
