@@ -303,14 +303,37 @@ expr,kill,ps,sed,seq,sh,tput,tr,tty,uname"
         fi
 }
 
+# run only if Firejail is used to workaround not restored TIO by UG if FJ kills
+# the UG process prematurelly; otherwise not needed (exec is used)
+fj_sigaction() {
+        trap '' TERM # inhibit following signal to ourselves
+        if ps -o cmd >/dev/null 2>&1; then
+                pgid=$(ps -o pgid= -p $$ | tr -d ' ')
+        else # MSW dowsn't have "ps -o"
+                pgid=$$
+        fi
+        if [ $$ -eq "$pgid" ]; then
+                kill -- -$$
+        else
+                echo "pgid $pgid not pid of the script ($$), not sending kill" \
+                        >&2
+        fi
+        trap - INT TERM
+        wait
+        stty "$stty_orig"
+        echo "Restored TIO" >&2
+}
+
 run() {
         tool=$1
         shift
         setup_firejail "$tool"
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
+                stty_orig=$(stty -g)
+                trap fj_sigaction INT TERM
                 # shellcheck disable=SC2046 # intentional
-                eval exec $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
+                eval $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
         else
                 exec "$DIR/usr/bin/$tool" "$@"
         fi
