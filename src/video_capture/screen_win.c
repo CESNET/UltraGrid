@@ -358,8 +358,23 @@ static bool is_library_registered() {
 }
 
 static int register_screen_cap_rec_library(bool is_elevated) {
-        HMODULE screen_cap_lib = NULL;
-        CHECK_NOT_NULL(screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return -1);
+        HMODULE screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll");
+        if(!screen_cap_lib){
+                DWORD err_code = GetLastError();
+
+                char buf[512] = "";
+                FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                NULL,
+                                err_code,
+                                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                buf,
+                                sizeof(buf),
+                                NULL);
+
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load screen capture dll. Error code: %x (%s)\n", err_code, buf);
+
+                return -1;
+        }
         func register_filter;
         CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(screen_cap_lib, "DllRegisterServer"), FreeLibrary(screen_cap_lib); return -1);
         HRESULT res = register_filter();
