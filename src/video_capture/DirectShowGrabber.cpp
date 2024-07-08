@@ -1051,6 +1051,15 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	res = s->filterGraph->QueryInterface(IID_IMediaControl, (void **) &s->mediaControl);
         HANDLE_ERR("Cannot find media control interface");
 
+	if(get_friendly_name(s->moniker).find("OBS Virtual") != std::string::npos){
+		IMediaFilter *pMediaFilter;
+		res = s->filterGraph->QueryInterface(IID_IMediaFilter, (void **) &pMediaFilter);
+		HANDLE_ERR("Cannot find media filter interface");
+
+		log_msg(LOG_LEVEL_WARNING, MOD_NAME "OBS virtual camera detected. Setting sync source to NULL!\n");
+		pMediaFilter->SetSyncSource(NULL);
+	}
+
 	FILTER_STATE fs;
 	res = s->mediaControl->Run();
 	while ((res = s->mediaControl->GetState(500, (OAFilterState*) &fs)) != VFW_S_CANT_CUE && !(res == S_OK && fs == State_Running)) {
