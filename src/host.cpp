@@ -44,10 +44,12 @@
 #include "config_win32.h"
 #endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <execinfo.h>
 #include <fcntl.h>
-#endif // defined _WIN32
+#endif // !defined _WIN32
 
 #if __GLIBC__ == 2 && __GLIBC_MINOR__ < 27
 #include <sys/syscall.h>
@@ -465,6 +467,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         // warn in W10 "legacy" terminal emulators
         if (getenv("TERM") == nullptr &&
+            _isatty(fileno(stdout)) &&
             get_windows_build() < BUILD_WINDOWS_11_OR_LATER &&
             (win_has_ancestor_process("powershell.exe") ||
              win_has_ancestor_process("cmd.exe")) &&
