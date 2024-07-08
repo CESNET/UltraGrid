@@ -802,7 +802,7 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * 
 
         uint8_t *dst_c = (uint8_t *) dst;
         for (; x <= dst_len - 3; x += 3) {
-		register uint32_t in = *(const uint32_t *) src;
+                register uint32_t in = *(const uint32_t *) (const void *) src;
                 *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
                 *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
                 *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
@@ -859,7 +859,7 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
 
         uint8_t *dst_c = (uint8_t *) dst;
         for (; x <= dst_len - 3; x += 3) {
-		register uint32_t in = * (const uint32_t *) src;
+                register uint32_t in = *(const uint32_t *) (const void *) src;
                 *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
                 *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
                 *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
@@ -936,7 +936,7 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
         }
 
         if (is_simd_compat) {
-                OPTIMIZED_FOR (x = 0; x <= dst_len - 32; x += 16) {
+                for (x = 0; x <= dst_len - 32; x += 16) {
                         loaded = _mm_lddqu_si128((const __m128i_u *) src);
                         loaded = _mm_shuffle_epi8(loaded, shuf);
                         loaded = _mm_or_si128(loaded, alpha_mask_sse);
