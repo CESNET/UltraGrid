@@ -48,14 +48,20 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "config.h"            // for HAVE_TERMIOS_H
 #endif // HAVE_CONFIG_H
 
+#include <cassert>             // for assert
+#include <cctype>              // for isdigit, islower, isprint
+#include <chrono>              // for milliseconds
 #include <climits>
+#include <cmath>
 #include <condition_variable>
-#include <cstdint>
+#include <csignal>             // for sigaction, sigemptyset, sa_handle
+#include <cstdio>              // for printf, sscanf, EOF, fgets, perror
+#include <cstdlib>             // for free, atexit, strtoll
+#include <cstring>             // for strlen, strchr, strcpy, strstr, memset
+#include <ctime>               // for strftime, time, time_t, tm
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -67,18 +73,26 @@
 #include <thread>
 #include <utility>
 
-#include "compat/time.h"
+#ifdef _WIN32
+#include <winsock2.h>          // for FD_ISSET, FD_SET, select, FD_ZERO, fd_set
+#else
+#include <sys/select.h>        // for FD_ISSET, FD_SET, select, FD_ZERO, fd_set
+#endif
+
+#include "compat/time.h"       // for gmtime_s, localtime_s
 #include "debug.h"
 #include "host.h"
 #include "keyboard_control.h"
 #include "messaging.h"
+#include "module.h"
+#include "types.h"             // for video_desc
 #include "utils/color_out.h"
 #include "utils/thread.h"
 #include "video.h"
 
 #ifdef HAVE_TERMIOS_H
-#include <unistd.h>
 #include <termios.h>
+#include <unistd.h>
 #else
 #include <conio.h>
 #endif
@@ -88,8 +102,21 @@ static bool set_tio();
 #define CONFIG_FILE "ug-key-map.txt"
 #define MOD_NAME "[key control] "
 
-using namespace std;
-using namespace std::chrono;
+using std::chrono::milliseconds; // _WIN32 only
+using std::cout;
+using std::dec;                // _WIN32 only
+using std::endl;
+using std::hex;
+using std::istringstream;
+using std::lock_guard;
+using std::make_pair;
+using std::mutex;
+using std::setw;
+using std::setfill;            // _WIN32 only
+using std::string;
+using std::stringstream;
+using std::thread;
+using std::unique_lock;
 
 #ifdef HAVE_TERMIOS_H
 static bool signal_catched = false;

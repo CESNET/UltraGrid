@@ -38,13 +38,15 @@
 #ifndef keyboard_control_h_
 #define keyboard_control_h_
 
-#include "host.h"
-#include "module.h"
 #include "utils/macros.h"
 
-#ifdef __cplusplus
+struct module;
 
+#ifndef __cplusplus
+#include <stddef.h>        // for size_t
+#else
 #include <cinttypes>
+#include <cstddef>         // for size_t
 #include <memory>
 
 class keyboard_control {
