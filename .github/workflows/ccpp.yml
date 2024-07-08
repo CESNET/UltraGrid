@@ -331,6 +331,7 @@ jobs:
           for exe in "$DESTDIR"/*exe; do data/scripts/get_dll_depends.sh "$exe" | while read -r n; do cp "$n" "$DESTDIR"; done; done
           if command -v windeployqt-qt6 >/dev/null; then windeployqt-qt6 "$DESTDIR/uv-qt.exe"; else windeployqt "$DESTDIR/uv-qt.exe"; fi
           cp -r data/Windows/* "$DESTDIR"
+          data/scripts/get_dll_depends.sh "$DESTDIR/screen-capture-recorder-x64.dll" | while read -r n; do cp "$n" "$DESTDIR"; done
     - name: make dist-check
       run: PATH= /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe
     - name: Upload Release Asset

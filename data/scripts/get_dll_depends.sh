@@ -26,7 +26,9 @@ find_dll() {
 
 is_not_system_dll() {
         win_match=$(expr "$1" : '^/c/[Ww]indows')
-        test "$win_match" -eq 0
+        # MS visual c++ redistributable 2010 for screen recorder
+        redist_match=$(expr "$1" : '.*MSVCR100.*')
+        test "$win_match" -eq 0 -o "$redist_match" -ne 0
 }
 
 if [ $# -eq 0 ]; then
