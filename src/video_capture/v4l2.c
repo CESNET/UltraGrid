@@ -344,6 +344,26 @@ next_device:
         }
 }
 
+#ifdef HAVE_LIBV4LCONVERT
+static uint32_t get_ug_to_v4l2(codec_t ug_codec) {
+        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
+                if (v4l2_ug_map[i].ug_codec == ug_codec) {
+                        return v4l2_ug_map[i].v4l2_fcc;
+                }
+        }
+        return 0;
+}
+#endif
+
+static codec_t get_v4l2_to_ug(uint32_t fcc) {
+        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
+                if (v4l2_ug_map[i].v4l2_fcc == fcc) {
+                        return v4l2_ug_map[i].ug_codec;
+                }
+        }
+        return VIDEO_CODEC_NONE;
+}
+
 static void write_mode(struct mode *m,
                 int width, int height,
                 unsigned tpf_num, unsigned tpf_denom,
@@ -352,16 +372,21 @@ static void write_mode(struct mode *m,
         double fps = (double) tpf_denom / tpf_num;
         char codec[5];
         write_fcc(codec, pixelformat);
+
+        codec_t ug_codec = get_v4l2_to_ug(pixelformat);
+        bool force_rgb = is_codec_opaque(ug_codec) || codec_is_planar(ug_codec) || ug_codec == VIDEO_CODEC_NONE;
+
         snprintf(m->name, sizeof(m->name), "%dx%d %.2f fps %4s",
                         width, height, fps, codec);
 
         snprintf(m->id, sizeof(m->id), "{"
                         "\"codec\":\"%.4s\", "
                         "\"size\":\"%dx%d\", "
-                        "\"tpf\":\"%u/%u\" }",
+                        "\"tpf\":\"%u/%u\", "
+                        "\"force_rgb\":\"%c\"}",
                         codec,
                         width, height,
-                        tpf_num, tpf_denom);
+                        tpf_num, tpf_denom, force_rgb ? 't' : 'f');
 }
 
 static void vidcap_v4l2_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -454,27 +479,6 @@ next_device:
         }
         *available_cards = cards;
         *count = card_count;
-}
-
-
-#ifdef HAVE_LIBV4LCONVERT
-static uint32_t get_ug_to_v4l2(codec_t ug_codec) {
-        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
-                if (v4l2_ug_map[i].ug_codec == ug_codec) {
-                        return v4l2_ug_map[i].v4l2_fcc;
-                }
-        }
-        return 0;
-}
-#endif
-
-static codec_t get_v4l2_to_ug(uint32_t fcc) {
-        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
-                if (v4l2_ug_map[i].v4l2_fcc == fcc) {
-                        return v4l2_ug_map[i].ug_codec;
-                }
-        }
-        return VIDEO_CODEC_NONE;
 }
 
 static _Bool v4l2_cap_verify_params(_Bool permissive, const struct v4l2_format *req_format, const struct v4l2_format *actual_format, struct v4l2_streamparm *req_stream_params, struct v4l2_streamparm *actual_stream_params)
