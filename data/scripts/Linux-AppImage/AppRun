@@ -40,6 +40,9 @@ usage() {
         printf "\t${bold}${red}%s${reset} ${bold}-h | --help | --fullhelp${reset}\n" "$ARGV0"
         printf "\t\tprints this help (extended version with ${bold}--fullhelp${reset})\n"
         printf "\n"
+        printf "\t${bold}${red}%s${reset} ${bold}--ug-help${reset}\n" "$ARGV0"
+        printf "\t\tprints UltraGrid help (as '-h' if it weren't run from AppImage)\n"
+        printf "\n"
         printf "\t${bold}${red}%s${reset} ${bold}-m|--man [uv|hd-rum-transcode]${reset}\n" "$ARGV0"
         printf "\t\tprints manual page\n"
         printf "\n"
@@ -361,6 +364,8 @@ elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
 elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
         usage
         exit 0
+elif [ "$1" = "--ug-help" ]; then
+        run uv -h
 elif [ "$1" = "--fullhelp" ]; then
         usage
         usage_aux
