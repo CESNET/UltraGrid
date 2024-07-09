@@ -136,8 +136,19 @@ constexpr const char *DEFAULT_NVENC_RC      = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE    = "ull";
 constexpr const char *DEFAULT_QSV_PRESET    = "medium";
 constexpr const char *DEFAULT_QSV_RC        = "vbr";
-constexpr double      DEFAULT_X264_X265_CRF = 22.0;
 constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
+
+double
+get_default_crf(const char *codec_name)
+{
+        if (strstr(codec_name, "libx26") == codec_name) {
+                return 22.0;
+        }
+        if (strcmp(codec_name, "libsvtav1") == 0) {
+                return 35.0; // 35 is libsvtav1 default
+        }
+        return 0;
+}
 
 struct setparam_param {
         setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
@@ -826,7 +837,6 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
 {
-        bool is_x264_x265 = strstr(s->codec_ctx->codec->name, "libx26") == s->codec_ctx->codec->name;
         bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
         bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
 
@@ -850,11 +860,12 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
              s->params.requested_bpp == 0.0)) {
                 set_cqp(s->codec_ctx, s->params.requested_cqp);
         } else if (s->params.requested_crf >= 0.0 ||
-                   (is_x264_x265 && s->params.requested_bitrate == 0 &&
+                   (get_default_crf(s->codec_ctx->codec->name) != 0 &&
+                    s->params.requested_bitrate == 0 &&
                     s->params.requested_bpp == 0.0)) {
                 const double crf = s->params.requested_crf >= 0.0
                                        ? s->params.requested_crf
-                                       : DEFAULT_X264_X265_CRF;
+                                       : get_default_crf(s->codec_ctx->codec->name);
                 if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
                 }
