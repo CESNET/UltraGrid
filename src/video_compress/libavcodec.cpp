@@ -789,7 +789,8 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::c
 template<typename T, bool log_err = false>
 static inline bool check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
         string val_str;
-        if constexpr (std::is_same_v<T, const char *>) {
+        if constexpr (std::is_same_v<T, char *> ||
+                      std::is_same_v<T, const char *>) {
                 val_str = val;
         } else {
                 val_str = to_string(val);
@@ -1948,8 +1949,17 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                                                preset);
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
                 //pred-struct=1 is low-latency mode
-                check_av_opt_set(codec_ctx->priv_data, "svtav1-params",
-                                 "pred-struct=1:fast-decode=1:tile-columns=2:tile-rows=2");
+                char params[STR_LEN] = "pred-struct=1:";
+                if (param->requested_bitrate > 0) {
+                        params[0] = '\0'; // do not set pred-struct for VBR
+                        MSG(WARNING, "Bitrate setting for SVT AV1 is not "
+                                     "recommended since it increases latency, "
+                                     "use CRF/CQP if possible\n");
+                }
+                snprintf(params + strlen(params),
+                         sizeof params - strlen(params), "%s",
+                         "fast-decode=1:tile-columns=2:tile-rows=2");
+                check_av_opt_set(codec_ctx->priv_data, "svtav1-params", params);
 #else
                 // tile_columns and tile_rows are log2 values
                 for (auto const &val : { "tile_columns", "tile_rows" }) {
