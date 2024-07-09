@@ -76,6 +76,7 @@ struct vidcap_dshow_state {
 	int modeNumber;
 	struct video_desc desc;
 	bool convert_YUYV_RGB; ///< @todo check - currently newer set
+	bool no_sync_source;
 	convert_t convert;
 
 	struct video_frame *frame;
@@ -249,6 +250,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	s->returnBuffer = NULL;
 	s->convert_buffer = NULL;
 	s->convert_YUYV_RGB = false;
+	s->no_sync_source = false;
 	yuv_clamp = NULL;
 
 	s->graphBuilder = NULL;
@@ -527,6 +529,7 @@ vidcap_dshow_probe_internal(device_info **available_cards, int *count,
                 HANDLE_ERR("Cannot remove capture filter from filter graph");
                 captureFilter->Release();
                 s->moniker->Release();
+                dev_add_option(&cards[card_count - 1], "Force no sync source", "Only use if capture is stuck", "no_sync_source", ":no_sync_source", true);
 	}
 	cleanup(s);
         *available_cards = cards;
@@ -632,6 +635,8 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 				s->modeNumber = atoi(token);
 			} else if (strcmp(token, "RGB") == 0) {
 				s->desc.color_spec = BGR;
+			} else if (strcmp(token, "no_sync_source") == 0) {
+				s->no_sync_source = true;
 			} else {
 				MSG(ERROR, "Unknown argument: %s\n", token);
 				return false;
@@ -878,6 +883,11 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		}
 	}
 
+        if(get_friendly_name(s->moniker).find("OBS Virtual") != std::string::npos){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "OBS virtual camera detected. Force setting sync source to NULL!\n");
+                s->no_sync_source = true;
+        }
+
         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Capturing from device: "
                               << get_friendly_name(s->moniker) << "\n";
 
@@ -1093,12 +1103,11 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	res = s->filterGraph->QueryInterface(IID_IMediaControl, (void **) &s->mediaControl);
         HANDLE_ERR("Cannot find media control interface");
 
-	if(get_friendly_name(s->moniker).find("OBS Virtual") != std::string::npos){
+	if(s->no_sync_source){
 		IMediaFilter *pMediaFilter;
 		res = s->filterGraph->QueryInterface(IID_IMediaFilter, (void **) &pMediaFilter);
 		HANDLE_ERR("Cannot find media filter interface");
-
-		log_msg(LOG_LEVEL_WARNING, MOD_NAME "OBS virtual camera detected. Setting sync source to NULL!\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Setting sync source to NULL\n");
 		pMediaFilter->SetSyncSource(NULL);
 	}
 
