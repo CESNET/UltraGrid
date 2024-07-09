@@ -1831,17 +1831,6 @@ static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_pa
         // interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
 }
 
-void set_forced_idr(AVCodecContext *codec_ctx, int value)
-{
-        assert(value <= 9);
-        array<char, 2> force_idr_val{};
-        force_idr_val[0] = '0' + value;
-
-        if (int ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val.data(), 0)) {
-                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set Forced IDR", ret);
-        }
-}
-
 static void configure_aom_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         auto && usage = get_map_val_or_default<string, string>(param->lavc_opts, "usage", "realtime");
@@ -1865,7 +1854,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 }
         }
 
-        set_forced_idr(codec_ctx, 1);
+        check_av_opt_set(codec_ctx->priv_data, "forced-idr", 1);
 #ifdef PATCHED_FF_NVENC_NO_INFINITE_GOP
         const bool patched_ff = true;
 #else
@@ -1918,8 +1907,8 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
 {
         // see FFMPEG modules' sources for semantics
         if (codec_ctx->codec_id != AV_CODEC_ID_AV1) {
-                set_forced_idr(
-                    codec_ctx,
+                check_av_opt_set(
+                    codec_ctx->priv_data, "forced-idr",
                     strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
         }
 
