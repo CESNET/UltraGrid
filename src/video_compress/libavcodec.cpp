@@ -830,9 +830,8 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
                 codec_ctx->global_quality = cqp;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting QSV global_quality to " << cqp <<  "\n";
         } else {
-                if (check_av_opt_set<int>(codec_ctx->priv_data, "qp", cqp, "CQP")) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
-                }
+                check_av_opt_set<int, true>(codec_ctx->priv_data, "qp", cqp,
+                                            "CQP");
         }
 }
 
@@ -867,9 +866,8 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 const double crf = s->params.requested_crf >= 0.0
                                        ? s->params.requested_crf
                                        : get_default_crf(s->codec_ctx->codec->name);
-                if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
-                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
-                }
+                check_av_opt_set<double, true>(s->codec_ctx->priv_data, "crf",
+                                               crf, "CRF");
         } else if (strcmp(s->codec_ctx->codec->name, "libopenh264") != 0) {
                 set_bitrate = true;
         }
