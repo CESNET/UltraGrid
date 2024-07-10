@@ -1955,10 +1955,23 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                 //pred-struct=1 is low-latency mode
                 char params[STR_LEN] = "pred-struct=1:";
                 if (param->requested_bitrate > 0) {
-                        params[0] = '\0'; // do not set pred-struct for VBR
-                        MSG(WARNING, "Bitrate setting for SVT AV1 is not "
-                                     "recommended since it increases latency, "
-                                     "use CRF/CQP if possible\n");
+                        if (param->requested_crf == -1) {
+                                params[0] =
+                                    '\0'; // do not set pred-struct for VBR
+                                MSG(WARNING,
+                                    "Bitrate setting without crf for SVT AV1 "
+                                    "is not recommended since it increases "
+                                    "latency, prefer CRF/CQP if possible\n");
+                                MSG(WARNING,
+                                    "However, you can specify _both_ crf and "
+                                    "bitrate options to set bitrate limit.\n");
+                        } else {
+                                codec_ctx->rc_max_rate = param->requested_bitrate;
+                                codec_ctx->bit_rate = 0;
+                                MSG(INFO,
+                                    "Setting rc_max_rate to %" PRId64 "\n",
+                                    codec_ctx->rc_max_rate);
+                        }
                 }
                 snprintf(params + strlen(params),
                          sizeof params - strlen(params), "%s",
