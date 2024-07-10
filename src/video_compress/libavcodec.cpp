@@ -536,7 +536,9 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         s->params.requested_bitrate =
                             unit_evaluate(strchr(item, '=') + 1, nullptr);
-                        assert(s->params.requested_bitrate >= 0);
+                        if (s->params.requested_bitrate < 0) {
+                                return -1;
+                        }
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
                         s->params.requested_bpp =
