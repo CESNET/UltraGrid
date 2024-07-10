@@ -840,38 +840,41 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
         bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
 
-        double avg_bpp; // average bit per pixel
-        avg_bpp = s->params.requested_bpp > 0.0
-                      ? s->params.requested_bpp
+        // make a copy because set_param callbacks may adjust parameters
+        struct setparam_param params = s->params;
+
+        // average bit per pixel
+        const double avg_bpp = params.requested_bpp > 0.0
+                      ? params.requested_bpp
                       : codec_params[ug_codec].avg_bpp;
 
         bool set_bitrate = false;
         int_fast64_t bitrate =
-            s->params.requested_bitrate > 0
-                ? s->params.requested_bitrate
-                : desc.width * desc.height * avg_bpp * desc.fps;
+            params.requested_bitrate > 0
+                ? params.requested_bitrate
+                : (long long) (desc.width * desc.height * avg_bpp * desc.fps);
 
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
-        if (s->params.requested_cqp >= 0 ||
-            ((is_vaapi || is_mjpeg) && s->params.requested_crf == -1.0 &&
-             s->params.requested_bitrate == 0 &&
-             s->params.requested_bpp == 0.0)) {
-                set_cqp(s->codec_ctx, s->params.requested_cqp);
-        } else if (s->params.requested_crf >= 0.0 ||
+        if (params.requested_cqp >= 0 ||
+            ((is_vaapi || is_mjpeg) && params.requested_crf == -1.0 &&
+             params.requested_bitrate == 0 &&
+             params.requested_bpp == 0.0)) {
+                set_cqp(s->codec_ctx, params.requested_cqp);
+        } else if (params.requested_crf >= 0.0 ||
                    (get_default_crf(s->codec_ctx->codec->name) != 0 &&
-                    s->params.requested_bitrate == 0 &&
-                    s->params.requested_bpp == 0.0)) {
-                const double crf = s->params.requested_crf >= 0.0
-                                       ? s->params.requested_crf
+                    params.requested_bitrate == 0 &&
+                    params.requested_bpp == 0.0)) {
+                const double crf = params.requested_crf >= 0.0
+                                       ? params.requested_crf
                                        : get_default_crf(s->codec_ctx->codec->name);
                 check_av_opt_set<double, true>(s->codec_ctx->priv_data, "crf",
                                                crf, "CRF");
         } else if (strcmp(s->codec_ctx->codec->name, "libopenh264") != 0) {
                 set_bitrate = true;
         }
-        if (set_bitrate || s->params.requested_bitrate > 0) {
+        if (set_bitrate || params.requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
@@ -888,9 +891,12 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->pix_fmt = pix_fmt;
         s->codec_ctx->bits_per_raw_sample = min<int>(get_bits_per_component(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
-        codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
-        set_codec_thread_mode(s->codec_ctx, &s->params);
-        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1 ? 16 : DEFAULT_SLICE_COUNT);
+        codec_params[ug_codec].set_param(s->codec_ctx, &params);
+        set_codec_thread_mode(s->codec_ctx, &params);
+        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(
+            params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1
+                               ? 16
+                               : DEFAULT_SLICE_COUNT);
 
         // set user supplied parameters
         for (auto const &item : s->lavc_opts) {
