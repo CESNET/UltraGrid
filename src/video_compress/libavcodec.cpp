@@ -795,6 +795,11 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 set_bitrate = true;
         }
         if (set_bitrate || s->requested_bitrate > 0) {
+                if (strcmp(s->codec_ctx->codec->name, "libsvtav1") == 0) {
+                        MSG(ERROR, "libsvtav1 with bitrate (or without "
+                                   "parameters) will likely fail in init, use "
+                                   "crf/cqp option instead.\n");
+                }
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
