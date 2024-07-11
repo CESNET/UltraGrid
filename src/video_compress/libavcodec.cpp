@@ -182,6 +182,7 @@ static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
+static void print_codec_aux_usage(string const &name);
 static bool show_coder_help(string const &name, bool encoder = true);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 void usage(bool full);
@@ -2120,6 +2121,15 @@ show_coder_help(string const &name, bool encoder)
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
         }
+        print_codec_aux_usage(name);
+        color_printf("\n");
+        return true;
+}
+
+/// @brief print UG-specific documentation for given codec name
+static void
+print_codec_aux_usage(string const &name)
+{
         if (name == "libx264" || name == "libx265") {
                 col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
@@ -2144,8 +2154,6 @@ show_coder_help(string const &name, bool encoder)
                         "\n\t  - use SVT AV1 in VBR mode with 3 Mbps (not "
                         "recommended at the moment, increases latency)\n");
         }
-        color_printf("\n");
-        return true;
 }
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
