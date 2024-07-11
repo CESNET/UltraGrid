@@ -1921,14 +1921,13 @@ static void configure_rav1e(AVCodecContext *codec_ctx, struct setparam_param * /
         check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "64");
 }
 
-static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void
+configure_svt_hevc_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
-        if (codec_ctx->codec_id != AV_CODEC_ID_AV1) {
-                check_av_opt_set(
-                    codec_ctx->priv_data, "forced-idr",
-                    strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
-        }
+        check_av_opt_set(
+            codec_ctx->priv_data, "forced-idr",
+            strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "la_depth", 0);
@@ -1945,49 +1944,48 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<const char *>(codec_ctx->priv_data,
                                                        "preset", "11");
                 }
-        } else if ("libsvtav1"s == codec_ctx->codec->name) {
-                const char *preset =
-                    param->desc.width * param->desc.height * param->desc.fps <=
-                            FLW_THRESH
-                        ? "9"
-                        : "11";
-                check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
-                                               preset);
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
-                //pred-struct=1 is low-latency mode
-                char params[STR_LEN] = "pred-struct=1:";
-                if (param->requested_bitrate > 0) {
-                        if (param->requested_crf == -1 && param->requested_cqp == -1) {
-                                params[0] =
-                                    '\0'; // do not set pred-struct for VBR
-                                MSG(WARNING,
-                                    "Bitrate setting without crf/cqp for SVT "
-                                    "AV1 is not recommended since it increases "
-                                    "latency, prefer CRF or CQP mode if "
-                                    "possible.\n");
-                                MSG(WARNING,
-                                    "However, you can specify _both_ crf/cqp "
-                                    "and bitrate options to set bitrate "
-                                    "limit.\n");
-                        } else {
-                                codec_ctx->rc_max_rate = param->requested_bitrate;
-                                codec_ctx->bit_rate = 0;
-                                MSG(INFO,
-                                    "Setting rc_max_rate to %" PRId64 "\n",
-                                    codec_ctx->rc_max_rate);
-                        }
-                }
-                snprintf(params + strlen(params),
-                         sizeof params - strlen(params), "%s",
-                         "fast-decode=1:tile-columns=2:tile-rows=2");
-                check_av_opt_set(codec_ctx->priv_data, "svtav1-params", params);
-#else
-                // tile_columns and tile_rows are log2 values
-                for (auto const &val : { "tile_columns", "tile_rows" }) {
-                        check_av_opt_set<int>(codec_ctx->priv_data, val, 2, "tile dimensions for SVT AV1");
-                }
-#endif
         }
+}
+
+static void
+configure_svt_av1(AVCodecContext *codec_ctx, struct setparam_param *param) {
+        const char *preset =
+            param->desc.width * param->desc.height * param->desc.fps <=
+                    FLW_THRESH
+                ? "9"
+                : "11";
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
+        // pred-struct=1 is low-latency mode
+        char params[STR_LEN] = "pred-struct=1:";
+        if (param->requested_bitrate > 0) {
+                if (param->requested_crf == -1 && param->requested_cqp == -1) {
+                        params[0] = '\0'; // do not set pred-struct for VBR
+                        MSG(WARNING,
+                            "Bitrate setting without crf/cqp for SVT "
+                            "AV1 is not recommended since it increases "
+                            "latency, prefer CRF or CQP mode if "
+                            "possible.\n");
+                        MSG(WARNING, "However, you can specify _both_ crf/cqp "
+                                     "and bitrate options to set bitrate "
+                                     "limit.\n");
+                } else {
+                        codec_ctx->rc_max_rate = param->requested_bitrate;
+                        codec_ctx->bit_rate    = 0;
+                        MSG(INFO, "Setting rc_max_rate to %" PRId64 "\n",
+                            codec_ctx->rc_max_rate);
+                }
+        }
+        snprintf(params + strlen(params), sizeof params - strlen(params), "%s",
+                 "fast-decode=1:tile-columns=2:tile-rows=2");
+        check_av_opt_set(codec_ctx->priv_data, "svtav1-params", params);
+#else
+        // tile_columns and tile_rows are log2 values
+        for (auto const &val : { "tile_columns", "tile_rows" }) {
+                check_av_opt_set<int>(codec_ctx->priv_data, val, 2,
+                                      "tile dimensions for SVT AV1");
+        }
+#endif
 }
 
 void
@@ -2036,8 +2034,10 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_aom_av1(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "librav1e") == 0) {
                 configure_rav1e(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "libsvtav1") == 0) {
+                configure_svt_av1(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
-                configure_svt(codec_ctx, param);
+                configure_svt_hevc_vp9(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "libopenh264") == 0) {
                 configure_libopenh264(codec_ctx, param);
         } else {
