@@ -445,7 +445,9 @@ void usage(bool full) {
                 col() << "\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
 
         }
-        col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options, works on decoders as well (also use keyword \"encoder\").\n";
+        col() << "\nUse '" << SBOLD("-c lavc:enc=<enc>:help")
+              << "' to display encoder specific options/examples; works\nfor "
+                 "decoders as well (use the keyword \"enc[oder]\", anyways).\n";
         col() << "\n";
         col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
         const char *swscale = "no";
@@ -2112,6 +2114,24 @@ void show_encoder_help(string const &name) {
         }
         if (name == "hevc_qsv" || name == "h264_qsv") {
                 col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << ", " << SBOLD("qvbr") << " or " << SBOLD("vbr") << "\n";
+        }
+        if (name == "libsvtav1") {
+                color_printf("\nIf using " TBOLD("svtav1-params") ", the option "
+                        "separator (':') must be replaced with '\\:'.\n"
+                        "It is also recommended to consult its default value "
+                        "(see UG output for the encoder).\n");
+                color_printf("\nExamples:\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1")
+                        "\n\t  - use SVT AV1 with default RC CRF 35\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:crf=30")
+                        "\n\t  - use SVT AV1 with CRF=30\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:cqp=30")
+                        "\n\t  - use SVT AV1 with QP=30\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:crf=35:bitr=3M")
+                        "\n\t  - use SVT AV1 with QP=35 and Maximum Bitrate 3 Mbps\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:bitr=3M")
+                        "\n\t  - use SVT AV1 in VBR mode with 3 Mbps (not "
+                        "recommended at the moment, increases latency)\n");
         }
 }
 
