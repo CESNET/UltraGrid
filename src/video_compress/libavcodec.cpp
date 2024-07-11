@@ -182,7 +182,7 @@ static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
-static void show_encoder_help(string const &name);
+static bool show_coder_help(string const &name, bool encoder = true);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 void usage(bool full);
 static void cleanup(struct state_video_compress_libav *s);
@@ -487,7 +487,7 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
                 return;
         }
         if (!req_encoder.empty()) {
-                show_encoder_help(req_encoder);
+                show_coder_help(req_encoder);
                 return;
         }
         usage(full);
@@ -2068,19 +2068,30 @@ get_opt_default_value(const AVOption *opt)
         }
 }
 
-void show_encoder_help(string const &name) {
-        col() << "Options for " << SBOLD(name) << ":\n";
-        auto *codec = avcodec_find_encoder_by_name(name.c_str());
-        if (codec == nullptr) {
-                codec = avcodec_find_decoder_by_name(name.c_str());
+/// @aram encoder - if bool, print for both encoder and decoder
+static bool
+show_coder_help(string const &name, bool encoder)
+{
+        bool dec_found = true;
+        if (encoder) {
+                dec_found = show_coder_help(name, false);
         }
+        const auto *codec = encoder
+                                ? avcodec_find_encoder_by_name(name.c_str())
+                                : avcodec_find_decoder_by_name(name.c_str());
         if (codec == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
-                return;
+                if (!dec_found) {
+                        MSG(ERROR,
+                            "Unable to find neither encoder nor decoder %s!\n",
+                            name.c_str());
+                }
+                return false;
         }
+        col() << "Options for " << SBOLD(name) << " "
+              << (encoder ? "encoder" : "decoder") << ":\n";
         const auto *opt = codec->priv_class->option;
         if (opt == nullptr) {
-                return;
+                return true;
         }
         while (opt->name != nullptr) {
                 string default_val;
@@ -2133,6 +2144,8 @@ void show_encoder_help(string const &name) {
                         "\n\t  - use SVT AV1 in VBR mode with 3 Mbps (not "
                         "recommended at the moment, increases latency)\n");
         }
+        color_printf("\n");
+        return true;
 }
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
