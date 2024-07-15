@@ -1067,11 +1067,13 @@ vidcap_rtsp_done(void *state) {
     free(s->vrtsp_state.control);
     free(s->artsp_state.control);
 
-    rtsp_teardown(s->curl, s->uri);
+    if (s->curl != NULL) {
+        rtsp_teardown(s->curl, s->uri);
 
-    curl_easy_cleanup(s->curl);
-    curl_global_cleanup();
-    s->curl = NULL;
+        curl_easy_cleanup(s->curl);
+        curl_global_cleanup();
+        s->curl = NULL;
+    }
 
     pthread_mutex_destroy(&s->lock);
     pthread_cond_destroy(&s->keepalive_cv);
