@@ -420,6 +420,28 @@ void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out
         }
 }
 
+void remux_and_mix_channel(char *out, const char *in, int bps, int frames, int in_stream_channels, int out_stream_channels, int in_channel, int out_channel, double scale)
+{
+        int i;
+
+        assert (bps <= 4);
+
+        out += out_channel * bps;
+        in += in_channel * bps;
+
+        for(i = 0; i < frames; i++) {
+                int32_t in_value = format_from_in_bps(in, bps);
+                int32_t out_value = format_from_in_bps(out, bps);
+
+                int32_t new_value = (double)in_value * scale + out_value;
+
+                format_to_out_bps(out, bps, new_value);
+
+                in += in_stream_channels * bps;
+                out += out_stream_channels * bps;
+        }
+}
+
 template<int BPS>
 static double get_avg_volume_helper(const char *data, int sample_count, int stream_channels, int pos_in_stream)
 {
