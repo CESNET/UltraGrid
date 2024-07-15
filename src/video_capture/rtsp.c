@@ -3,7 +3,7 @@
  *           Martin German <martin.german@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2023 CESNET
+ * Copyright (c) 2015-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -269,11 +269,13 @@ keep_alive_thread(void *arg){
         gettimeofday(&tp, NULL);
         struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
         pthread_mutex_lock(&s->lock);
-        while (!s->should_exit) {
-            if (pthread_cond_timedwait(&s->keepalive_cv, &s->lock,
-                                       &timeout) == ETIMEDOUT) {
-                break;
-            }
+        int rc = 0;
+        while (!s->should_exit && rc != ETIMEDOUT) {
+            rc = pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
+        }
+        if (s->should_exit) {
+            pthread_mutex_unlock(&s->lock);
+            break;
         }
         pthread_mutex_unlock(&s->lock);
 
