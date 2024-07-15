@@ -65,7 +65,8 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtsp/rtsp_utils.h"
-#include "utils/macros.h"
+#include "utils/color_out.h"       // for color_printf, TBOLD
+#include "utils/macros.h"          // for MIN, STR_LEN
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
 
@@ -149,9 +150,6 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc);
 
 static void *
 vidcap_rtsp_thread(void *args);
-
-static void
-show_help(void);
 
 void getNewLine(const char* buffer, int* i, char* line);
 
@@ -251,13 +249,21 @@ struct rtsp_state {
 };
 
 static void
-show_help() {
-    printf("[rtsp] usage:\n");
-    printf("\t-t rtsp:<uri>[:rtp_rx_port=<port>][:decompress]\n");
-    printf("\t\t <uri> - RTSP server URI\n");
-    printf("\t\t <port> - receiver port number \n");
-    printf(
-        "\t\t decompress - decompress the stream (default: disabled)\n\n");
+show_help(bool full) {
+    color_printf(TBOLD("RTSP client") " usage:\n");
+    color_printf("\t" TBOLD(TRED("-t rtsp:<uri>") "[:decompress]"));
+    if (full) {
+        color_printf(TBOLD("[:rtp_rx_port=<port>]"));
+    }
+    color_printf("\n\t" TBOLD("-t rtsp:[full]help") "\n");
+    color_printf("\noptions:\n");
+    color_printf("\t " TBOLD("<uri>") " - RTSP server URI\n");
+    printf("\t " TBOLD("decompress") " - decompress the stream "
+            "(default: disabled)\n");
+    if (full) {
+        printf("\t " TBOLD("<port>") " - video RTP receiver port number\n");
+    }
+    color_printf("\n");
 }
 
 static void *
@@ -452,17 +458,16 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 }
 
 #define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, MOD_NAME msg); \
-                    free(tmp); \
                     vidcap_rtsp_done(s); \
-                    show_help(); \
+                    show_help(false); \
                     return VIDCAP_INIT_FAIL
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
-    if (vidcap_params_get_fmt(params)
-        && strcmp(vidcap_params_get_fmt(params), "help") == 0)
-    {
-        show_help();
+    char fmt[STR_LEN];
+    snprintf(fmt, sizeof fmt,  "%s", vidcap_params_get_fmt(params));
+    if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+        show_help(strcmp(fmt, "fullhelp") == 0);
         return VIDCAP_INIT_NOERR;
     }
 
@@ -501,7 +506,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.h264_offset_len = 0;
 
     s->curl = NULL;
-    char *fmt = NULL;
 
     pthread_mutex_init(&s->lock, NULL);
     pthread_cond_init(&s->keepalive_cv, NULL);
@@ -509,16 +513,15 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
     pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
 
-    char *tmp, *item;
-    fmt = strdup(vidcap_params_get_fmt(params));
-    tmp = fmt;
+    char *tmp = fmt;
+    char *item = NULL;
     strcpy(s->uri, "rtsp://");
 
     s->vrtsp_state.desc.tile_count = 1;
 
     bool in_uri = true;
-    while ((item = strtok_r(fmt, ":", &save_ptr))) {
-        fmt = NULL;
+    while ((item = strtok_r(tmp, ":", &save_ptr))) {
+        tmp = NULL;
         bool option_given = true;
         if (strstr(item, "rtp_rx_port=") == item) {
             s->vrtsp_state.port = atoi(strchr(item, '=') + 1);
@@ -548,8 +551,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
             in_uri = false;
         }
     }
-    free(tmp);
-    tmp = NULL;
 
     //re-check parameters
     if (strcmp(s->uri, "rtsp://") == 0) {
