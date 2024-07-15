@@ -253,7 +253,7 @@ struct rtsp_state {
 static void
 show_help() {
     printf("[rtsp] usage:\n");
-    printf("\t-t rtsp:<uri>[:rtp_rx_port=<port>][:decompress][size=<width>x<height>]\n");
+    printf("\t-t rtsp:<uri>[:rtp_rx_port=<port>][:decompress]\n");
     printf("\t\t <uri> - RTSP server URI\n");
     printf("\t\t <port> - receiver port number \n");
     printf(
@@ -515,8 +515,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     strcpy(s->uri, "rtsp://");
 
     s->vrtsp_state.desc.tile_count = 1;
-    s->vrtsp_state.desc.width = DEFAULT_VIDEO_FRAME_WIDTH/2;
-    s->vrtsp_state.desc.height = DEFAULT_VIDEO_FRAME_HEIGHT/2;
 
     bool in_uri = true;
     while ((item = strtok_r(fmt, ":", &save_ptr))) {
@@ -527,10 +525,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         } else if (strcmp(item, "decompress") == 0) {
             s->vrtsp_state.decompress = TRUE;
         } else if (strstr(item, "size=")) {
-            assert(strchr(item, 'x') != NULL);
-            item = strchr(item, '=') + 1;
-            s->vrtsp_state.desc.width = atoi(item);
-            s->vrtsp_state.desc.height = atoi(strchr(item, 'x') + 1);
+            MSG(WARNING, "size= parameter is not used! Will be removed in "
+                "future!\n");
         } else {
             option_given = false;
             if (in_uri) {
