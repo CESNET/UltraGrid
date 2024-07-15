@@ -477,11 +477,15 @@ check_uri(size_t uri_len, char *uri)
         return false;
     }
     char *authority = uri + strlen(rtsp_uri_pref);
-    if (strchr(authority, ':') == NULL) {
+    char *host = authority;
+    if (strchr(authority, '@') != NULL) { // skip userinfo
+        host = strchr(authority, '@') + 1;
+    }
+    if (strchr(host, ':') == NULL) {
         char *path = NULL;
-        if (strchr(authority, '/') != NULL) { // store path
-            path = strdup(strchr(authority, '/') + 1);
-            *strchr(authority, '/') = '\0';
+        if (strchr(host, '/') != NULL) { // store path
+            path = strdup(strchr(host, '/') + 1);
+            *strchr(host, '/') = '\0';
         }
         snprintf(uri + strlen(uri), uri_len - strlen(uri), ":%d",
                  DEFAULT_RTSP_PORT);
