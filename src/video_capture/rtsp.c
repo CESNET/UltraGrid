@@ -260,13 +260,28 @@ show_help(bool full) {
         color_printf(TBOLD("[:rtp_rx_port=<port>]"));
     }
     color_printf("\n\t" TBOLD("-t rtsp:[full]help") "\n");
-    color_printf("\noptions:\n");
+    color_printf("\nOptions:\n");
     color_printf("\t " TBOLD("<uri>") " - RTSP server URI\n");
     printf("\t " TBOLD("decompress") " - decompress the stream "
             "(default: disabled)\n");
     if (full) {
         printf("\t " TBOLD("<port>") " - video RTP receiver port number\n");
     }
+    color_printf("\nExamples:\n");
+    color_printf("\t" TBOLD("uv -t rtsp://192.168.0.30/mystream") "\n");
+    color_printf("\t" TBOLD("uv -t rtsp://[fe80::30]/mystream") "\n");
+    color_printf("\t\t- capture streem on implict port (554)\n");
+    color_printf("\t"
+        TBOLD("uv -t rtsp://192.168.0.20:8554/mystream") "\n");
+    color_printf("\t\t- capture streem on port 8554 (optionally with "
+        "authentization)\n");
+    color_printf("\t"
+        TBOLD("uv -t rtsp://user:pass@[fe80::30]/mystream") "\n");
+    color_printf("\t\t- capture streem on default port with authentization\n");
+    color_printf(
+        "\t" TBOLD("uv -t rtsp://192.168.0.20/mystream:decompress") "\n");
+    color_printf("\t\t- same as first case but decompress the stream "
+        "(to allow to use a different compression)\n");
     color_printf("\n");
 }
 
