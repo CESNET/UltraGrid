@@ -88,6 +88,10 @@
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
+enum {
+    DEFAULT_RTSP_PORT = 554,
+};
+
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C, action_fail) \
     { \
@@ -457,6 +461,40 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     }
 }
 
+/**
+ * @brief check URI validity + append port if not given
+ *
+ * If port is not given in the URI, 554 (default) is appended (after
+ * authority, before the path if there is any).
+ *
+ * Resulting URI is written to output.
+ */
+static bool
+check_uri(size_t uri_len, char *uri)
+{
+    const char *rtsp_uri_pref = "rtsp://";
+    if (strcmp(uri, rtsp_uri_pref) == 0) {
+        return false;
+    }
+    char *authority = uri + strlen(rtsp_uri_pref);
+    if (strchr(authority, ':') == NULL) {
+        char *path = NULL;
+        if (strchr(authority, '/') != NULL) { // store path
+            path = strdup(strchr(authority, '/') + 1);
+            *strchr(authority, '/') = '\0';
+        }
+        snprintf(uri + strlen(uri), uri_len - strlen(uri), ":%d",
+                 DEFAULT_RTSP_PORT);
+        if (path != NULL) {
+            snprintf(uri + strlen(uri), uri_len - strlen(uri), "/%s",
+                     path);
+            free(path);
+        }
+    }
+    MSG(INFO, "Using URI %s\n", uri);
+    return true;
+}
+
 #define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, MOD_NAME msg); \
                     vidcap_rtsp_done(s); \
                     show_help(false); \
@@ -553,7 +591,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     }
 
     //re-check parameters
-    if (strcmp(s->uri, "rtsp://") == 0) {
+    if (!check_uri(sizeof s->uri, s->uri)) {
         INIT_FAIL("No URI given!\n");
     }
 
