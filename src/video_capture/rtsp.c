@@ -476,6 +476,7 @@ check_uri(size_t uri_len, char *uri)
 {
     const char *rtsp_uri_pref = "rtsp://";
     if (strcmp(uri, rtsp_uri_pref) == 0) {
+        MSG(ERROR, "No URI given!\n");
         return false;
     }
     char *authority = uri + strlen(rtsp_uri_pref);
@@ -483,7 +484,7 @@ check_uri(size_t uri_len, char *uri)
     if (strchr(authority, '@') != NULL) { // skip userinfo
         host = strchr(authority, '@') + 1;
     }
-    if (strchr(host, ':') == NULL) {
+    if (strchr(host, ':') == NULL) { // add port 554
         char *path = NULL;
         if (strchr(host, '/') != NULL) { // store path
             path = strdup(strchr(host, '/') + 1);
@@ -496,15 +497,26 @@ check_uri(size_t uri_len, char *uri)
                      path);
             free(path);
         }
+    } else {
+        char *port = strchr(host, ':') + 1;
+        char *endptr = NULL;
+        strtol(port, &endptr, 10);
+        if (endptr == port) {
+            MSG(ERROR, "Non-numeric port \"%s\" (wrong option?)\n", port);
+            return false;
+        }
+        if (strchr(port, ':') != NULL) {
+            MSG(WARNING, "Colon in URI path - possibly wrong option?\n");
+        }
     }
     MSG(INFO, "Using URI %s\n", uri);
     return true;
 }
 
-#define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, MOD_NAME msg); \
+#define FAIL_SHOW_HELP \
                     vidcap_rtsp_done(s); \
                     show_help(false); \
-                    return VIDCAP_INIT_FAIL
+                    return VIDCAP_INIT_FAIL;
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
@@ -588,7 +600,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                 }
                 strncat(s->uri, item, sizeof s->uri - strlen(s->uri) - 1);
             } else {
-                INIT_FAIL("Unknown option\n");
+                MSG(ERROR, "Unknown option: %s\n", item);
+                FAIL_SHOW_HELP
             }
         }
         if (option_given) {
@@ -598,7 +611,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     //re-check parameters
     if (!check_uri(sizeof s->uri, s->uri)) {
-        INIT_FAIL("No URI given!\n");
+        FAIL_SHOW_HELP
     }
 
     s->vrtsp_state.device = rtp_init_if("localhost", s->vrtsp_state.mcast_if, s->vrtsp_state.port, 0, s->vrtsp_state.ttl, s->vrtsp_state.rtcp_bw,
