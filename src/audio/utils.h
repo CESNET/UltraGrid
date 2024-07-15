@@ -164,6 +164,24 @@ struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_si
 int parse_audio_format(const char *str, struct audio_desc *ret);
 
 #ifdef __cplusplus
+struct channel_map {
+        ~channel_map();
+
+        int **map = nullptr; // index is source channel, content is output channels
+        int *sizes = nullptr;
+        int *contributors = nullptr; // count of contributing channels to output
+        int size = 0;
+        int max_output = -1;
+
+        bool validate();
+        void compute_contributors();
+};
+
+bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg);
+
+#endif
+
+#ifdef __cplusplus
 }
 #endif
 
