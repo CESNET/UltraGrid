@@ -47,13 +47,15 @@
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  */
 
+#include <assert.h>                // for assert
+#include <errno.h>                 // for ETIMEDOUT
 #include <pthread.h>
-#include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>                // for uint8_t, uint32_t
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <time.h>                  // for timespec
 
 #include "audio/types.h"
 #include "config.h"
@@ -159,8 +161,6 @@ void getNewLine(const char* buffer, int* i, char* line);
 
 void
 rtsp_keepalive(void *state);
-
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *);
 
 static void vidcap_rtsp_done(void *state);
 
@@ -299,8 +299,10 @@ keep_alive_thread(void *arg){
     return NULL;
 }
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats) {
-    UNUSED(stats);
+static int
+decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
+                   struct pbuf_stats *stats)
+{    UNUSED(stats);
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
     struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
@@ -308,7 +310,7 @@ int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_
         return decode_frame_h264(cdata,decode_data);
     } else {
         error_msg("Wrong Payload type: %u\n", pckt->pt);
-        return FALSE;
+        return 0;
     }
 }
 
@@ -568,7 +570,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         if (strstr(item, "rtp_rx_port=") == item) {
             s->vrtsp_state.port = atoi(strchr(item, '=') + 1);
         } else if (strcmp(item, "decompress") == 0) {
-            s->vrtsp_state.decompress = TRUE;
+            s->vrtsp_state.decompress = true;
         } else if (strstr(item, "size=")) {
             MSG(WARNING, "size= parameter is not used! Will be removed in "
                 "future!\n");
@@ -1080,7 +1082,7 @@ vidcap_rtsp_done(void *state) {
 
     pthread_mutex_lock(&s->lock);
     pthread_mutex_lock(&s->vrtsp_state.lock);
-    s->should_exit = TRUE;
+    s->should_exit = true;
     pthread_mutex_unlock(&s->vrtsp_state.lock);
     pthread_mutex_unlock(&s->lock);
 
