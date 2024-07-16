@@ -264,7 +264,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
         char *fec = strdup(fec_const);
         bool ret = true;
 
-        char *fec_cfg = NULL;
+        const char *fec_cfg = "";
         if(strchr(fec, ':')) {
                 char *delim = strchr(fec, ':');
                 *delim = '\0';
@@ -282,7 +282,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 tx->fec_scheme = FEC_NONE;
         } else if(strcasecmp(fec, "mult") == 0) {
                 tx->fec_scheme = FEC_MULT;
-                assert(fec_cfg);
+                assert(strlen(fec_cfg) > 0);
                 tx->mult_count = (unsigned int) atoi(fec_cfg);
                 assert(tx->mult_count <= FEC_MAX_MULT);
         } else if(strcasecmp(fec, "LDGM") == 0) {
@@ -290,9 +290,11 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         fprintf(stderr, "LDGM is not currently supported for audio!\n");
                         ret = false;
                 } else {
-                        if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
-                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
-                                                fec_cfg ? fec_cfg : "");
+                        if (strlen(fec_cfg) == 0 ||
+                            (strlen(fec_cfg) > 0 &&
+                             strchr(fec_cfg, '%') == nullptr)) {
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg),
+                                         "LDGM cfg %s", fec_cfg);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
@@ -300,7 +302,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 }
         } else if(strcasecmp(fec, "RS") == 0) {
                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
-                                fec_cfg ? fec_cfg : "");
+                                fec_cfg);
                 tx->fec_scheme = FEC_RS;
         } else if(strcasecmp(fec, "help") == 0) {
                 color_printf("Usage:\n");
