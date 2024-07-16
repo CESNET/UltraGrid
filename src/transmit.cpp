@@ -146,6 +146,7 @@ struct tx {
         int32_t avg_len_last;
 
         enum fec_type fec_scheme;
+        bool fec_dup_1st_pkt;
         int mult_count;
 
         int last_fragment;
@@ -263,6 +264,17 @@ static bool set_fec(struct tx *tx, const char *fec_const)
 {
         char *fec = strdup(fec_const);
         bool ret = true;
+        bool req_1st_pkt_dup = true;
+
+        // handle  ...[:]nodup
+        char *end = fec + MAX(strlen(fec), 5) - 5;
+        if (strcmp(end, "nodup") == 0) {
+                req_1st_pkt_dup = true;
+                *end            = '\0';
+                if (end > fec) { // ':'
+                        end[-1] = '\0';
+                }
+        }
 
         const char *fec_cfg = "";
         if(strchr(fec, ':')) {
@@ -286,6 +298,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 tx->mult_count = (unsigned int) atoi(fec_cfg);
                 assert(tx->mult_count <= FEC_MAX_MULT);
         } else if(strcasecmp(fec, "LDGM") == 0) {
+                tx->fec_dup_1st_pkt = req_1st_pkt_dup;
                 if(tx->media_type == TX_MEDIA_AUDIO) {
                         fprintf(stderr, "LDGM is not currently supported for audio!\n");
                         ret = false;
@@ -301,19 +314,25 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         tx->fec_scheme = FEC_LDGM;
                 }
         } else if(strcasecmp(fec, "RS") == 0) {
+                tx->fec_dup_1st_pkt = req_1st_pkt_dup;
                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
                                 fec_cfg);
                 tx->fec_scheme = FEC_RS;
         } else if(strcasecmp(fec, "help") == 0) {
                 color_printf("Usage:\n");
                 color_printf("\t" TBOLD("-f [A:|V:]{mult:count|ldgm[:params]|"
-                             "rs[:params]}") "\n");
+                             "rs[:params]}[:nodup]") "\n");
                 color_printf("\nIf neither A: or V: is speciefied, FEC is set "
                              "to the video (backward compat).\n\n");
                 ret = false;
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
                 ret = false;
+        }
+
+        if (tx->fec_dup_1st_pkt) {
+                MSG(VERBOSE, "Duplicating 1st packet of every frame for better "
+                             "error resiliency.\n");
         }
 
         if (ret) {
@@ -706,7 +725,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         pos += packet_sizes.at(i);
                 }
         }
-        if (frame->fec_params.type != FEC_NONE) { // dup 1st pkt with RS/LDGM
+        if (tx->fec_dup_1st_pkt) { // dup 1st pkt with RS/LDGM
                 mult_pkt_cnt += 1;
                 memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
                 rtp_hdr_packet[1] = htonl(0);
