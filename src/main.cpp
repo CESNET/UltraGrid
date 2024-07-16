@@ -518,6 +518,7 @@ struct ug_options {
                 .codec_cfg = nullptr,
                 .filter_cfg = ""
         };
+        std::string audio_filter_cfg;
         // NULL terminated array of capture devices
         struct vidcap_params *vidcap_params_head = vidcap_params_allocate();
         struct vidcap_params *vidcap_params_tail = vidcap_params_head;
@@ -885,7 +886,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'i':
-                        opt->audio.filter_cfg = optarg;
+                        if(!opt->audio_filter_cfg.empty()){
+                                opt->audio_filter_cfg += "#";
+                        }
+                        opt->audio_filter_cfg += optarg;
                         break;
                 case OPT_ECHO_CANCELLATION:
                         opt->audio.echo_cancellation = true;
@@ -987,6 +991,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         return -EXIT_FAIL_USAGE;
                 }
         }
+
+        opt->audio.filter_cfg = opt->audio_filter_cfg.data();
 
         argc -= optind;
         argv += optind;
