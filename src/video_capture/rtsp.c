@@ -43,7 +43,7 @@
  * @file
  * Example stream to test can be generated with:
  *
- *     docker run --rm -it --network=host aler9/rtsp-simple-server
+ *     docker run --rm -it --network=host bluenviron/mediamtx
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  */
 
