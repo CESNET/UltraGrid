@@ -71,29 +71,13 @@ install_rav1e() {(
                 /usr/local/lib/pkgconfig/rav1e.pc
 )}
 
-# FFmpeg master needs at least v1.3.238 as for 23th Aug '23
-install_vulkan() {(
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
-        mkdir Vulkan-Headers/build
-        cd Vulkan-Headers/build
-        cmake ..
-        sudo make install
-        cd ../..
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
-        mkdir Vulkan-Loader/build
-        cd Vulkan-Loader/build
-        cmake ..
-        cmake --build . --parallel "$(nproc)"
-        sudo make install
-)}
-
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi pipewire rav1e vulkan ximea
+        set -- gpujpeg ndi pipewire rav1e ximea
 fi
 
 if [ $show_help ]; then

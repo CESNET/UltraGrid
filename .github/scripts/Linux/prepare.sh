@@ -30,6 +30,7 @@ sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
+sudo apt install libvulkan-dev
 
 (
         . /etc/os-release
