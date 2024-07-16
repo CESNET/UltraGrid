@@ -294,9 +294,13 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 tx->fec_scheme = FEC_NONE;
         } else if(strcasecmp(fec, "mult") == 0) {
                 tx->fec_scheme = FEC_MULT;
-                assert(strlen(fec_cfg) > 0);
-                tx->mult_count = (unsigned int) atoi(fec_cfg);
-                assert(tx->mult_count <= FEC_MAX_MULT);
+                tx->mult_count = atoi(fec_cfg);
+                if (tx->mult_count <= 0 || tx->mult_count > FEC_MAX_MULT) {
+                        MSG(ERROR,
+                            "mult count must be between 1 and %d (%d given)!\n",
+                            FEC_MAX_MULT, tx->mult_count);
+                        ret = false;
+                }
         } else if(strcasecmp(fec, "LDGM") == 0) {
                 tx->fec_dup_1st_pkt = req_1st_pkt_dup;
                 if(tx->media_type == TX_MEDIA_AUDIO) {
