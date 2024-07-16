@@ -48,11 +48,12 @@ sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
 sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
 # FFmpeg deps
-sudo add-apt-repository ppa:savoury1/vlc3 # new x265
+sudo add-apt-repository ppa:savoury1/ffmpeg4 # openh264, new x265
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086 # intentional
-sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
+sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
+        libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
 sudo apt install qtbase5-dev
