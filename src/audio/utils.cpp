@@ -752,6 +752,7 @@ bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
                 }
                 if(!isdigit(strchr(item, ':')[1])) {
                         log_msg(LOG_LEVEL_ERROR, "Audio destination channel not entered!\n");
+                        free(tmp);
                         return false;
                 }
                 int dst = atoi(strchr(item, ':') + 1);
@@ -766,14 +767,14 @@ bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
                 }
         }
 
+        free(tmp);
+        tmp = NULL;
+
         if (!channel_map->validate()) {
                 log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
                 return false;
         }
         channel_map->compute_contributors();
-
-        free(tmp);
-        tmp = NULL;
 
         return true;
 }
