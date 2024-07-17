@@ -152,7 +152,17 @@ libavcodec.so" | grep "$1" | grep -v 'not found' | awk '{print $3}'
                 libva_libs=$libva_libs:$libvdpau_lib
         fi
 
+        S_LD_PRELOAD=$LD_PRELOAD
         export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
+
+        # check if lavc still binds with system libva
+        if LD_LIBRARY_PATH=$n_ld_library_path LD_BIND_NOW=1 LD_WARN=1 \
+                        LD_TRACE_LOADED_OBJECTS=1 "$LOADER" \
+                        "$AI_LIBAVCODEC_LIB" 2>&1 |
+                        grep -q 'undefined symbol'; then
+                LD_PRELOAD=$S_LD_PRELOAD
+                return 1
+        fi
 }
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
