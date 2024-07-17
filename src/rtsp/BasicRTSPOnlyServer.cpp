@@ -42,6 +42,7 @@
  *
  */
 
+#include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
 
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
@@ -137,9 +138,17 @@ int BasicRTSPOnlyServer::init_server() {
 
                rtspServer->addServerMediaSession(sms);
 
-               char* url = rtspServer->rtspURL(sms);
-               *env << "\n[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
-               delete[] url;
+               *env << "\n";
+               if (weHaveAnIPv4Address(*env)) {
+                   char* url = rtspServer->ipv4rtspURL(sms);
+                   *env << "[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
+                   delete[] url;
+               }
+               if (weHaveAnIPv6Address(*env)) {
+                   char* url = rtspServer->ipv6rtspURL(sms);
+                   *env << "[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
+                   delete[] url;
+               }
 
     return 0;
 }

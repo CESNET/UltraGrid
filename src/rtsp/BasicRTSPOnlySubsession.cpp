@@ -93,40 +93,41 @@ BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {
 }
 
 char const* BasicRTSPOnlySubsession::sdpLines(int addressFamily) {
-	(void) addressFamily;
 	if (fSDPLines == NULL) {
-		setSDPLines();
+                setSDPLines(addressFamily);
 	}
 	return fSDPLines;
 }
 
-void BasicRTSPOnlySubsession::setSDPLines() {
+void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 	//TODO: should be more dynamic
+        const char *ip_ver_list_addr =
+            addressFamily == AF_INET ? "4 0.0.0.0" : "6 ::";
+
 	//VStream
 	if (avType == video || avType == av) {
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
 		uint8_t rtpPayloadType = 96;
-		AddressString ipAddressStr(0);
 		char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
 		//char const* auxSDPLine = "";
 
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
-				"c=IN IP4 %s\r\n"
+				"c=IN IP%s\r\n"
 				"b=AS:%u\r\n"
 				"a=rtcp:%d\r\n"
 				"%s"
 				"a=control:%s\r\n";
 		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
 				+ 3 /* max char len */
-				+ strlen(ipAddressStr.val()) + 20 /* max int len */
+				+ strlen(ip_ver_list_addr) + 20 /* max int len */
 				+ strlen(rtpmapLine) + strlen(trackId());
 		char* sdpLines = new char[sdpFmtSize];
 
 		snprintf(sdpLines, sdpFmtSize, sdpFmt, mediaType, // m= <media>
 				rtp_port,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
-				ipAddressStr.val(), // c= address
+				ip_ver_list_addr, // c= address
 				estBitrate, // b=AS:<bandwidth>
 				rtp_port + 1,
 				rtpmapLine, // a=rtpmap:... (if present)
@@ -139,7 +140,6 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 	if (avType == audio || avType == av) {
 		unsigned estBitrate = 384;
 		char const* mediaType = "audio";
-		AddressString ipAddressStr(0);
 
                 char rtpmapLine[STR_LEN];
 		//char const* auxSDPLine = "";
@@ -147,14 +147,14 @@ void BasicRTSPOnlySubsession::setSDPLines() {
                     audio_codec, audio_sample_rate, audio_channels, rtpmapLine);
 
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
-				"c=IN IP4 %s\r\n"
+				"c=IN IP%s\r\n"
 				"b=AS:%u\r\n"
 				"a=rtcp:%d\r\n"
 				"%s"
 				"a=control:%s\r\n";
 		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
 				+ 3 /* max char len */
-				+ strlen(ipAddressStr.val()) + 20 /* max int len */
+				+ strlen(ip_ver_list_addr) + 20 /* max int len */
 				+ strlen(rtpmapLine) + strlen(trackId());
 		char* sdpLines = new char[sdpFmtSize];
 
@@ -162,7 +162,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				mediaType, // m= <media>
 				rtp_port_audio,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
-				ipAddressStr.val(), // c= address
+				ip_ver_list_addr, // c= address
 				estBitrate, // b=AS:<bandwidth>
 				rtp_port_audio + 1,
 				rtpmapLine, // a=rtpmap:... (if present)
@@ -187,9 +187,6 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Port rtcp(rtp_port + 1);
 		serverRTCPPort = rtcp;
 
-		if (fSDPLines == NULL) {
-			setSDPLines();
-		}
 		delete Vdestination;
 		Vdestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);
@@ -200,9 +197,6 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Port rtcp(rtp_port_audio + 1);
 		serverRTCPPort = rtcp;
 
-		if (fSDPLines == NULL) {
-			setSDPLines();
-		}
 		delete Adestination;
 		Adestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);

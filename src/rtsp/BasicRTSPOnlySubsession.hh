@@ -147,7 +147,7 @@ protected:
 
 private:
 
-    void setSDPLines();
+    void setSDPLines(int addressFamily);
 
     MAYBE_UNUSED_ATTRIBUTE Boolean fReuseFirstSource;
     MAYBE_UNUSED_ATTRIBUTE void* fLastStreamToken;
