@@ -48,9 +48,12 @@
 #include <RTSPServer.hh>
 #include <GroupsockHelper.hh>
 
+#include "debug.h"                // for MSG
 #include "messaging.h"
 #include "utils/macros.h"
 #include "utils/sdp.h"
+
+#define MOD_NAME "[RTSP] "
 
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
@@ -165,6 +168,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 
 		fSDPLines = sdpLines;
 	}
+	MSG(VERBOSE, "SDP:\n%s\n", fSDPLines);
 }
 
 void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */,
