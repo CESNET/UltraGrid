@@ -316,7 +316,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 	if (Adestination != NULL) {
 		if (avType == audio || avType == av) {
 			char pathA[1024];
-			delete Vdestination;
+			delete Adestination;
 			Adestination = NULL;
 			memset(pathA, 0, sizeof(pathA));
 			enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
