@@ -61,7 +61,7 @@
 
 class Destinations {
 public:
-    Destinations(struct in_addr const& destAddr,
+    Destinations(struct sockaddr_storage const& destAddr,
         Port const& rtpDestPort,
         Port const& rtcpDestPort)
 : isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort),
@@ -75,7 +75,7 @@ public:
 
 public:
     Boolean isTCP;
-    struct in_addr addr;
+    struct sockaddr_storage addr;
     Port rtpPort;
     Port rtcpPort;
     int tcpSocketNum;

@@ -44,6 +44,7 @@
  */
 
 #include "rtsp/BasicRTSPOnlySubsession.hh"
+#include <cassert>
 #include <BasicUsageEnvironment.hh>
 #include <RTSPServer.hh>
 #include <GroupsockHelper.hh>
@@ -51,6 +52,7 @@
 #include "debug.h"                // for MSG
 #include "messaging.h"
 #include "utils/macros.h"
+#include "utils/net.h"
 #include "utils/sdp.h"
 
 #define MOD_NAME "[RTSP] "
@@ -188,11 +190,8 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
-		struct in_addr destinationAddr;
-                destinationAddr.s_addr =
-                    ((const sockaddr_in *) &clientAddress)->sin_addr.s_addr;
 		delete Vdestination;
-		Vdestination = new Destinations(destinationAddr, clientRTPPort,
+		Vdestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);
 	}
 	if (avType == audio || avType == av) {
@@ -204,11 +203,8 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
-		struct in_addr destinationAddr;
-                destinationAddr.s_addr =
-                    ((const sockaddr_in *) &clientAddress)->sin_addr.s_addr;
 		delete Adestination;
-		Adestination = new Destinations(destinationAddr, clientRTPPort,
+		Adestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);
 	}
 }
@@ -241,7 +237,13 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			strncpy(msgV2->receiver, inet_ntoa(Vdestination->addr),
+                        char host[IN6_MAX_ASCII_LEN + 1];
+                        const int ret =
+                            getnameinfo((struct sockaddr *) &Vdestination->addr,
+                                        sizeof Vdestination->addr, host,
+                                        sizeof host, nullptr, 0, NI_NUMERICHOST);
+                        assert(ret == 0);
+			strncpy(msgV2->receiver, host,
 					sizeof(msgV2->receiver) - 1);
 			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
@@ -271,7 +273,13 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgA2 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			strncpy(msgA2->receiver, inet_ntoa(Adestination->addr),
+                        char host[IN6_MAX_ASCII_LEN + 1];
+                        const int ret =
+                            getnameinfo((struct sockaddr *) &Adestination->addr,
+                                        sizeof Adestination->addr, host,
+                                        sizeof host, nullptr, 0, NI_NUMERICHOST);
+                        assert(ret == 0);
+                        strncpy(msgA2->receiver, host,
 					sizeof(msgA2->receiver) - 1);
 			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
 
