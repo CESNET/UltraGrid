@@ -1,9 +1,12 @@
 /*
- * FILE:    rtsp/c_basicRTSPOnlyServer.h
+ * FILE:    rtsp/UltragridRTSPServer.hh
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ *          Martin Pulec     <pulec@cesnet.cz>
+ *          Jakub Kováč      <xkovac5@mail.muni.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2010-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -41,50 +44,53 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef C_BASIC_RTSP_ONLY_SERVER_H
-#define C_BASIC_RTSP_ONLY_SERVER_H
-#endif
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#ifndef ULTRAGRID_RTSP_SERVER_HH
+#define ULTRAGRID_RTSP_SERVER_HH
 
-#include <pthread.h>
-#include "control_socket.h"
-#include "module.h"
-#include "debug.h"
+#include <RTSPServer.hh>
+#include <BasicUsageEnvironment.hh>
 #include "rtsp/rtsp_utils.h"
 #include "audio/types.h"
+#include "module.h"
 
+/**
+ * Implements these RTSP methods:
+ * DESCRIBE - creates media description in SDP protocol format
+ * PLAY - begins stream by changing IP address and port to reciever, simmilar to control port
+ * TEARDOWN - end stream by changing IP address and port to localhost
+*/
+class UltragridRTSPServer {
+public:
+    UsageEnvironment* env;
 
-#ifdef __cplusplus
-#define EXTERNC extern "C"
-#else
-#define EXTERNC
-#endif
+    UltragridRTSPServer(unsigned int rtsp_port, struct module* mod, rtsp_media_type_t media_type, audio_codec_t audio_codec,
+        int audio_sample_rate, int audio_channels, int rtp_video_port, int rtp_audio_port);
+    ~UltragridRTSPServer();
 
-EXTERNC typedef struct rtsp_serv {
-	unsigned int port;
-	struct module *mod;
-	pthread_t server_th;
-    uint8_t watch;
-    uint8_t run;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port;  //server rtp port
-    int rtp_port_audio;
-} rtsp_serv_t;
+    /**
+     * starts and then runs the server
+     * returns control after serverStopFlag has been set to 1
+     * 
+     * @param serverStopFlag if set to 0 server is running, when changed to 1 server stops
+    */
+    void serverRunner(char* serverStopFlag);
 
-EXTERNC int c_start_server(rtsp_serv_t* server);
+    /**
+     * Copy constructor and copy assignment operator do not make sense in this context
+    */
+    UltragridRTSPServer(const UltragridRTSPServer&) = delete;
+    UltragridRTSPServer& operator=(const UltragridRTSPServer&) = delete;
 
-EXTERNC void c_stop_server(rtsp_serv_t* server);
+private:
+    /**
+     * @note Copied as is from live555/testProgs/announceURL.hh.
+     */
+    static void announceURL(RTSPServer* rtspServer, ServerMediaSession* sms);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+    RTSPServer* rtspServer;
+};
 
-#undef EXTERNC
+typedef UltragridRTSPServer BasicRTSPOnlyServer; // kept for legacy maintanance
 
+#endif // ULTRAGRID_RTSP_SERVER_HH

@@ -1516,8 +1516,7 @@ livemedia=no
 livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
-[  --enable-rtsp-server    enables RTSP server support (default is auto)]
-[                          Requires: live555 (<= 2015)],
+[  --enable-rtsp-server    enables RTSP server support (default is auto)],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=$build_default]
     )
@@ -1535,13 +1534,8 @@ if test $rtsp_server_req != no; then
         CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
                            #include <liveMedia.hh>
-                           #include <liveMedia_version.hh>
-                           ]], [[
-                                #if LIVEMEDIA_LIBRARY_VERSION_INT > 1438905600
-                                #error "Unsuppored live555 version (too new)"
-                                #endif
-                                ]]
-                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found or wrong version (< 2015 needed)"; FOUND_LIVE_H=no])
+                           ]]
+                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found"; FOUND_LIVE_H=no])
         CPPFLAGS=$SAVED_CPPFLAGS
         AC_LANG_POP(C++)
         if test $FOUND_LIVE_H = yes
@@ -1550,7 +1544,7 @@ if test $rtsp_server_req != no; then
                 CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
                 CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-                RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
+                RTSP_SERVER_OBJ="src/rtsp/ultragrid_rtsp.o src/rtsp/UltragridRTSPServer.o src/rtsp/UltragridRTSPSubsession.o src/video_rxtx/h264_rtp.o"
                 add_module video_rxtx_h264 "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
                 rtsp_server=yes
                 livemedia=yes
