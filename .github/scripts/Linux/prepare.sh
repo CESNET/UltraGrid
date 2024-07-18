@@ -27,7 +27,6 @@ sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
-sudo apt install libvulkan-dev
 
 (
         . /etc/os-release
@@ -54,7 +53,7 @@ sudo add-apt-repository ppa:savoury1/ffmpeg4 # openh264, new x265
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
-        libopenh264-dev
+        libopenh264-dev libvulkan-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
 sudo apt install qtbase5-dev
