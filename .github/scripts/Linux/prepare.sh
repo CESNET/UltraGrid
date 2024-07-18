@@ -39,7 +39,7 @@ sudo apt install uuid-dev # Cineform
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
 )
 
-get_build_deps_excl() { # $2 - pattern to exclude
+get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (BRE alternation)
         apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
 }
 sudo apt build-dep libsdl2
@@ -51,7 +51,7 @@ sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 # FFmpeg deps
 sudo add-apt-repository ppa:savoury1/ffmpeg4 # openh264, new x265
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev\|libva-dev')
+ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libva-dev')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
         libopenh264-dev libvulkan-dev
