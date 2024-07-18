@@ -778,7 +778,8 @@ init_rtsp(struct rtsp_state *s) {
 
     my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
-    my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE,
+                        log_level >= LOG_LEVEL_DEBUG ? 1L : 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, &s, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_HEADERFUNCTION, print_rtsp_header, goto error);
