@@ -94,10 +94,40 @@ enum {
     DEFAULT_RTSP_PORT = 554,
 };
 
+static const char *int_to_str(int i) {
+    _Thread_local static char buf[100];
+    snprintf(buf, sizeof buf, "%d", i);
+    return buf;
+}
+
+static const char *long_to_str(long l) {
+    _Thread_local static char buf[100];
+    snprintf(buf, sizeof buf, "%ld", l);
+    return buf;
+}
+
+static const char *pointer_to_str(void *p) {
+    _Thread_local static char buf[100];
+    snprintf(buf, sizeof buf, "%p", p);
+    return buf;
+}
+
+static const char *cstr_identity(const char *c) {
+    return c;
+}
+
+#define get_s(X) \
+        _Generic((X), \
+            int: int_to_str, \
+            long: long_to_str, \
+            const char *: cstr_identity, \
+            default: pointer_to_str)(X)
+
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C, action_fail) \
     { \
         CURLcode res = CURLE_OK; \
+        MSG(VERBOSE, "Setting " #B " to %s\n", get_s(C)); \
         if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
