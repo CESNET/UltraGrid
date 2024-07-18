@@ -1,5 +1,4 @@
 # Causes crash on U22.04 (see https://github.com/CESNET/UltraGrid/releases/download/v1.7/UltraGrid-1.7-x86_64.AppImage)
 libgdk-3.so.0
 # Rocky Linux 9
-libgnutls.so.30
 libgdk_pixbuf-2.0.so.0
