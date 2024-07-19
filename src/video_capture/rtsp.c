@@ -1041,28 +1041,35 @@ rtsp_get_parameters(CURL *curl, const char *uri) {
     return 1;
 }
 
+static void
+rtsp_set_user_pass(CURL *curl, char *user_pass)
+{
+        char *save_ptr = NULL;
+        char *user     = strtok_r(user_pass, ":", &save_ptr);
+        assert(user != NULL);
+        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return);
+        char *pass = strtok_r(NULL, ":", &save_ptr);
+        if (pass != NULL)  {
+            return;
+        }
+        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return);
+}
+
 /**
  * send RTSP OPTIONS request
  */
 static int
 rtsp_options(CURL *curl, const char *uri) {
-    char control[1501] = "",
-         user[1501] = "",
-         pass[1501] = "",
-         *strtoken;
+    char control[1501] = "";
 
     verbose_msg("\n[rtsp] OPTIONS %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
 
     sscanf(uri, "rtsp://%1500s", control);
-    strtoken = strtok(control, ":");
-    assert(strtoken != NULL);
-    strncpy(user, strtoken, sizeof user - 1);
-    strtoken = strtok(NULL, "@");
-    if (strtoken != NULL) {
-        strncpy(pass, strtoken, sizeof pass - 1);
-        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return -1);
-        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return -1);
+
+    if (strchr(control, '@') != NULL) {
+        *strchr(control, '@') = '\0';
+        rtsp_set_user_pass(curl, control);
     }
 
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
