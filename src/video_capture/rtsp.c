@@ -133,6 +133,7 @@ static const char *cstr_identity(const char *c) {
 #define my_curl_easy_perform(A, action_fail) \
     { \
         CURLcode res = CURLE_OK; \
+        MSG(VERBOSE, "Performing cURL operation(s)\n"); \
         if ((res = curl_easy_perform((A))) != CURLE_OK){ \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "[%s] curl_easy_perform(%s) failed: %s (%d)\n", __func__, #A, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
