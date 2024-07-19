@@ -193,9 +193,11 @@ void debug_dump(const void *lp, int len)
                 /* display each character as hex value */
                 for (i = start, j = 0; j < 16; p++, i++, j++) {
                         if (i < len) {
-                                snprintf(tmpBuf, sizeof tmpBuf, "%02X ", ((int)(*p) & 0xFF));
+                                snprintf(tmpBuf, sizeof tmpBuf, "%02X", ((int)(*p) & 0xFF));
                                 strcat(Buff, tmpBuf);
                         } else
+                                strcat(Buff, " ");
+                        if (j % 2 == 1) /* space between groups of 2 */
                                 strcat(Buff, " ");
                         if (j == 7)     /* space between groups of 8 */
                                 strcat(Buff, " ");
