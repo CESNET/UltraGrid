@@ -94,12 +94,6 @@ enum {
     DEFAULT_RTSP_PORT = 554,
 };
 
-static const char *int_to_str(int i) {
-    _Thread_local static char buf[100];
-    snprintf(buf, sizeof buf, "%d", i);
-    return buf;
-}
-
 static const char *long_to_str(long l) {
     _Thread_local static char buf[100];
     snprintf(buf, sizeof buf, "%ld", l);
@@ -118,8 +112,9 @@ static const char *cstr_identity(const char *c) {
 
 #define get_s(X) \
         _Generic((X), \
-            int: int_to_str, \
+            int: long_to_str, \
             long: long_to_str, \
+            char *: cstr_identity, \
             const char *: cstr_identity, \
             default: pointer_to_str)(X)
 
