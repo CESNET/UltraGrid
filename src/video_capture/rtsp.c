@@ -119,10 +119,10 @@ static const char *cstr_identity(const char *c) {
             default: pointer_to_str)(X)
 
 /* error handling macros */
-#define my_curl_easy_setopt(A, B, C, action_fail) \
+#define my_curl_easy_setopt_ex(l, A, B, C, action_fail) \
     { \
         CURLcode res = CURLE_OK; \
-        MSG(VERBOSE, "Setting " #B " to %s\n", get_s(C)); \
+        log_msg(l, MOD_NAME "Setting " #B " to %s\n", get_s(C)); \
         if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
@@ -130,16 +130,21 @@ static const char *cstr_identity(const char *c) {
         } \
     }
 
-#define my_curl_easy_perform(A, action_fail) \
+#define my_curl_easy_perform_ex(l, A, action_fail) \
     { \
         CURLcode res = CURLE_OK; \
-        MSG(VERBOSE, "Performing cURL operation(s)\n"); \
+        log_msg(l, "Performing cURL operation(s)\n"); \
         if ((res = curl_easy_perform((A))) != CURLE_OK){ \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "[%s] curl_easy_perform(%s) failed: %s (%d)\n", __func__, #A, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
             action_fail; \
         } \
     }
+
+#define my_curl_easy_setopt(A, B, C, action_fail) \
+        my_curl_easy_setopt_ex(LOG_LEVEL_VERBOSE, A, B, C, action_fail)
+#define my_curl_easy_perform(A, action_fail) \
+        my_curl_easy_perform_ex(LOG_LEVEL_VERBOSE, A, action_fail)
 
 struct rtsp_state;
 struct audio_rtsp_state;
@@ -331,7 +336,7 @@ keep_alive_thread(void *arg){
         pthread_mutex_unlock(&s->lock);
 
         // actual keepalive
-        verbose_msg(MOD_NAME "GET PARAMETERS %s:\n", s->uri);
+        MSG(DEBUG, "GET PARAMETERS %s:\n", s->uri);
         if (rtsp_get_parameters(s->curl, s->uri) == 0) {
             s->should_exit = TRUE;
             exit_uv(1);
@@ -762,7 +767,7 @@ static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *
         int code = atoi(buffer + strlen("RTSP/1.0 "));
         s->rtsp_error_occurred = code != 200;
     }
-    if (log_level >= LOG_LEVEL_VERBOSE || s->rtsp_error_occurred) {
+    if (log_level >= LOG_LEVEL_DEBUG || s->rtsp_error_occurred) {
         log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
     }
     return nitems;
@@ -1028,10 +1033,11 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
  */
 static int
 rtsp_get_parameters(CURL *curl, const char *uri) {
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
+    my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_STREAM_URI,
+        uri, return -1);
+    my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
-    my_curl_easy_perform(curl, return 0);
+    my_curl_easy_perform_ex(LOG_LEVEL_DEBUG, curl, return 0);
     return 1;
 }
 
