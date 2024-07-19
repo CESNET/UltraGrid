@@ -121,9 +121,9 @@ static const char *cstr_identity(const char *c) {
 /* error handling macros */
 #define my_curl_easy_setopt_ex(l, A, B, C, action_fail) \
     { \
-        CURLcode res = CURLE_OK; \
         log_msg(l, MOD_NAME "Setting " #B " to %s\n", get_s(C)); \
-        if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
+        const CURLcode res = curl_easy_setopt((A), (B), (C)); \
+        if (res != CURLE_OK) { \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
             action_fail; \
@@ -132,9 +132,9 @@ static const char *cstr_identity(const char *c) {
 
 #define my_curl_easy_perform_ex(l, A, action_fail) \
     { \
-        CURLcode res = CURLE_OK; \
         log_msg(l, "Performing cURL operation(s)\n"); \
-        if ((res = curl_easy_perform((A))) != CURLE_OK){ \
+        const CURLcode res = curl_easy_perform((A)); \
+        if (res != CURLE_OK) { \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "[%s] curl_easy_perform(%s) failed: %s (%d)\n", __func__, #A, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
             action_fail; \
