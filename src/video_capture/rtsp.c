@@ -282,6 +282,7 @@ struct rtsp_state {
     pthread_cond_t keepalive_cv;
 
     _Bool rtsp_error_occurred;
+    bool setup_completed;
     _Bool sps_pps_emitted; ///< emit SPS/PPS once first to reduce decoding errors
 };
 
@@ -825,12 +826,12 @@ init_rtsp(struct rtsp_state *s) {
     //http://curl.haxx.se/libcurl/c/curl_easy_perform.html
 
     /* request server options */
-    if (!rtsp_options(s->curl, s->uri)) {
+    if (!rtsp_options(s->curl, s->uri) || s->rtsp_error_occurred) {
         goto error;
     }
 
     /* request session description and write response to sdp file */
-    if (!rtsp_describe(s->curl, s->uri, sdp_file)) {
+    if (!rtsp_describe(s->curl, s->uri, sdp_file) || s->rtsp_error_occurred) {
         goto error;
     }
 
@@ -881,6 +882,7 @@ init_rtsp(struct rtsp_state *s) {
             goto error;
         }
     }
+    s->setup_completed = true;
 
     /* get start nal size attribute from sdp file */
     len_nals = get_nals(sdp_file, (char *) s->vrtsp_state.h264_offset_buffer, (int *) &s->vrtsp_state.desc.width, (int *) &s->vrtsp_state.desc.height);
@@ -1184,7 +1186,9 @@ vidcap_rtsp_done(void *state) {
     free(s->artsp_state.control);
 
     if (s->curl != NULL) {
-        rtsp_teardown(s->curl, s->uri);
+        if (s->setup_completed) {
+            rtsp_teardown(s->curl, s->uri);
+        }
 
         curl_easy_cleanup(s->curl);
         curl_global_cleanup();
