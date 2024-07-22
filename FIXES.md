@@ -1,3 +1,11 @@
+#### 1.9.5
+
+* CI: updated dependencies (x265, NDI6 et al.)
+* libsvtav1 - hint to use crf instead of bitrate (more comprehensive enhancement in the development version)
+* rtsp client freeze fix
+* fixed capture from OBS virtual cam in Windows
+* fixes some (rare) crashes
+
 #### 1.9.4
 
 * new GPUJPEG compat
