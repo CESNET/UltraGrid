@@ -79,6 +79,7 @@
 #include <curl/curl.h>
 
 #define KEEPALIVE_INTERVAL_S 5
+#define MAGIC to_fourcc('R', 'T', 'S', 'c')
 #define MOD_NAME  "[rtsp] "
 #define VERSION_STR  "V1.0"
 
@@ -232,6 +233,7 @@ struct audio_rtsp_state {
 };
 
 struct rtsp_state {
+    uint32_t magic;
     CURL *curl;
     char uri[1024];
     rtps_types_t avType;
@@ -485,6 +487,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     int len = -1;
     char *save_ptr = NULL;
+    s->magic = MAGIC;
     s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
 
     s->addr = "127.0.0.1";
@@ -663,6 +666,7 @@ static CURL *init_curl() {
 static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *userdata) {
     int aggregate_size = size * nitems;
     struct rtsp_state *s = (struct rtsp_state *) userdata;
+    assert(s->magic == MAGIC);
     if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), (size_t) aggregate_size)) == 0) {
         int code = atoi(buffer + strlen("RTSP/1.0 "));
         s->rtsp_error_occurred = code != 200;
@@ -711,7 +715,7 @@ init_rtsp(struct rtsp_state *s) {
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
     my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
-    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, &s, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, s, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_HEADERFUNCTION, print_rtsp_header, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_URL, s->uri, goto error);
 
