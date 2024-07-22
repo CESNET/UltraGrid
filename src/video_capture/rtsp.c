@@ -867,7 +867,9 @@ init_rtsp(struct rtsp_state *s) {
             goto error;
         }
     }
-    if (strlen(s->artsp_state.codec) == 0 && strlen(s->vrtsp_state.codec) == 0){
+    if (s->vrtsp_state.desc.color_spec == VIDEO_CODEC_NONE) {
+        // audio not checked - the implementation seems incomplete
+        MSG(ERROR, "No usable/supported video stream found!\n");
         goto error;
     }
     else{
@@ -1049,7 +1051,7 @@ rtsp_set_user_pass(CURL *curl, char *user_pass)
         assert(user != NULL);
         my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return);
         char *pass = strtok_r(NULL, ":", &save_ptr);
-        if (pass != NULL)  {
+        if (pass == NULL)  {
             return;
         }
         my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return);
