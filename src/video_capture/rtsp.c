@@ -151,11 +151,11 @@ struct audio_rtsp_state;
 struct video_rtsp_state;
 
 /* send RTSP GET_PARAMETERS request */
-static int
+static bool
 rtsp_get_parameters(CURL *curl, const char *uri);
 
 /* send RTSP OPTIONS request */
-static int
+static bool
 rtsp_options(CURL *curl, const char *uri);
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
@@ -163,15 +163,15 @@ static bool
 rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp);
 
 /* send RTSP SETUP request */
-static int
+static bool
 rtsp_setup(CURL *curl, const char *uri, const char *transport);
 
 /* send RTSP PLAY request */
-static int
+static bool
 rtsp_play(CURL *curl, const char *uri, const char *range);
 
 /* send RTSP TEARDOWN request */
-static int
+static void
 rtsp_teardown(CURL *curl, const char *uri);
 
 static int
@@ -337,7 +337,7 @@ keep_alive_thread(void *arg){
 
         // actual keepalive
         MSG(DEBUG, "GET PARAMETERS %s:\n", s->uri);
-        if (rtsp_get_parameters(s->curl, s->uri) == 0) {
+        if (!rtsp_get_parameters(s->curl, s->uri)) {
             s->should_exit = TRUE;
             exit_uv(1);
         }
@@ -821,7 +821,7 @@ init_rtsp(struct rtsp_state *s) {
     //http://curl.haxx.se/libcurl/c/curl_easy_perform.html
 
     /* request server options */
-    if(rtsp_options(s->curl, s->uri)==0){
+    if (!rtsp_options(s->curl, s->uri)) {
         goto error;
     }
 
@@ -853,7 +853,7 @@ init_rtsp(struct rtsp_state *s) {
         strcat(uri, "/");
         strcat(uri, s->vrtsp_state.control);
         verbose_msg(MOD_NAME " V URI = %s\n", uri);
-        if (rtsp_setup(s->curl, uri, Vtransport) == 0) {
+        if (!rtsp_setup(s->curl, uri, Vtransport)) {
             goto error;
         }
     }
@@ -863,7 +863,7 @@ init_rtsp(struct rtsp_state *s) {
         strcat(uri, "/");
         strcat(uri, s->artsp_state.control);
         verbose_msg(MOD_NAME " A URI = %s\n", uri);
-        if (rtsp_setup(s->curl, uri, Atransport) == 0) {
+        if (!rtsp_setup(s->curl, uri, Atransport)) {
             goto error;
         }
     }
@@ -873,7 +873,7 @@ init_rtsp(struct rtsp_state *s) {
         goto error;
     }
     else{
-        if(rtsp_play(s->curl, s->uri, range)==0){
+        if (!rtsp_play(s->curl, s->uri, range)) {
             goto error;
         }
     }
@@ -1033,14 +1033,14 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
 /**
  * send RTSP GET PARAMS request
  */
-static int
+static bool
 rtsp_get_parameters(CURL *curl, const char *uri) {
     my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_STREAM_URI,
-        uri, return -1);
+        uri, return false);
     my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
-    my_curl_easy_perform_ex(LOG_LEVEL_DEBUG, curl, return 0);
-    return 1;
+        (long )CURL_RTSPREQ_GET_PARAMETER, return false);
+    my_curl_easy_perform_ex(LOG_LEVEL_DEBUG, curl, return false);
+    return true;
 }
 
 static void
@@ -1060,12 +1060,12 @@ rtsp_set_user_pass(CURL *curl, char *user_pass)
 /**
  * send RTSP OPTIONS request
  */
-static int
+static bool
 rtsp_options(CURL *curl, const char *uri) {
     char control[1501] = "";
 
     verbose_msg("\n[rtsp] OPTIONS %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
 
     sscanf(uri, "rtsp://%1500s", control);
 
@@ -1074,10 +1074,11 @@ rtsp_options(CURL *curl, const char *uri) {
         rtsp_set_user_pass(curl, control);
     }
 
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_OPTIONS,
+                        return false);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
@@ -1100,44 +1101,44 @@ rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
 /**
  * send RTSP SETUP request
  */
-static int
+static bool
 rtsp_setup(CURL *curl, const char *uri, const char *transport) {
     verbose_msg("\n[rtsp] SETUP %s\n", uri);
     verbose_msg(MOD_NAME "\t TRANSPORT %s\n", transport);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return false);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_SETUP,
+                        return false);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
  * send RTSP PLAY request
  */
-static int
+static bool
 rtsp_play(CURL *curl, const char *uri, const char *range) {
     UNUSED(range);
     verbose_msg("\n[rtsp] PLAY %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY, return -1);
-
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_PLAY,
+                        return false);
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
  * send RTSP TEARDOWN request
  */
-static int
+static void
 rtsp_teardown(CURL *curl, const char *uri) {
     verbose_msg("\n[rtsp] TEARDOWN %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_TEARDOWN, return -1);
+        (long )CURL_RTSPREQ_TEARDOWN, return);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return);
 }
 
 static void vidcap_rtsp_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
