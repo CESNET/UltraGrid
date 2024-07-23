@@ -479,10 +479,23 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
+            if (frame->tiles[0].width != 0) {
+                    MSG(VERBOSE, "Setting the stream size to %ux%u\n",
+                        frame->tiles[0].width, frame->tiles[0].height);
+                    s->vrtsp_state.desc.width  = frame->tiles[0].width;
+                    s->vrtsp_state.desc.height = frame->tiles[0].height;
+            }
             frame->color_spec      = s->vrtsp_state.desc.color_spec;
             frame->fps             = s->vrtsp_state.desc.fps;
             frame->tiles[0].width  = s->vrtsp_state.desc.width;
             frame->tiles[0].height = s->vrtsp_state.desc.height;
+            if (frame->tiles[0].width == 0) {
+                    MSG(WARNING,
+                        "Dropped zero-sized frame - the size was not published "
+                        "in RTSP, waiting for first SPS...\n");
+                    vf_free(frame);
+                    return NULL;
+            }
 
             if(s->vrtsp_state.h264_offset_len>0 && frame->frame_type == INTRA){
                     memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
