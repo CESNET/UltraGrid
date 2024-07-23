@@ -429,10 +429,10 @@ vidcap_rtsp_thread(void *arg) {
  * only next would be displayed).
  */
 static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
+    s->sps_pps_emitted = 1;
     if (s->vrtsp_state.h264_offset_len == 0) {
         return NULL;
     }
-    s->sps_pps_emitted = 1;
     struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
     memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
     frame->tiles[0].data_len = s->vrtsp_state.h264_offset_len;
