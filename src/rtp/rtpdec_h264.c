@@ -61,6 +61,8 @@
 /// type was 1-23 representing H.264 NAL type
 #define H264_NAL   32
 
+#define MOD_NAME "[rtpdec_h264] "
+
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
@@ -244,6 +246,12 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
             cdata = orig;
             if(frame->frame_type == INTRA){
                 total_length+=data->offset_len;
+            }
+            if ((unsigned) total_length > frame->tiles[0].data_len) {
+                    MSG(ERROR,
+                        "Buffer overflow - needed %d bytes, buffer has just %u B!\n",
+                        total_length, frame->tiles[0].data_len);
+                    return false;
             }
             frame->tiles[0].data_len = total_length;
             dst = (unsigned char *) frame->tiles[0].data + total_length;
