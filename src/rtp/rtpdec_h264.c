@@ -97,6 +97,12 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     return type;
 }
 
+/**
+ * @param pass  0 - extracts frame metadata (type; width height if SPS present)
+ * and computes required out buffer length;
+ *              1 - copy NAL units to output buffer separated by start codes
+ * ([0,]0,0,1i; Annex-B)
+ */
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
     int fu_length = 0;
     uint8_t nal = data[0];
@@ -247,13 +253,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
             if(frame->frame_type == INTRA){
                 total_length+=data->offset_len;
             }
-            if ((unsigned) total_length > frame->tiles[0].data_len) {
-                    MSG(ERROR,
-                        "Buffer overflow - needed %d bytes, buffer has just %u B!\n",
-                        total_length, frame->tiles[0].data_len);
-                    return false;
-            }
             frame->tiles[0].data_len = total_length;
+            assert(frame->tiles[0].data == NULL);
+            frame->tiles[0].data = malloc(total_length);
+            frame->callbacks.data_deleter = vf_data_deleter;
             dst = (unsigned char *) frame->tiles[0].data + total_length;
         }
 

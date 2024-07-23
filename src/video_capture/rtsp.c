@@ -370,7 +370,7 @@ vidcap_rtsp_thread(void *arg) {
 
     time_ns_t start_time = get_time_in_ns();
 
-    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
+    struct video_frame *frame = vf_alloc(1);
 
     while (!s->should_exit) {
         time_ns_t curr_time = get_time_in_ns();
@@ -402,7 +402,7 @@ vidcap_rtsp_thread(void *arg) {
                     }
                     if (s->vrtsp_state.out_frame == NULL) {
                         s->vrtsp_state.out_frame = frame;
-                        frame = vf_alloc_desc_data(s->vrtsp_state.desc); // alloc new
+                        frame = vf_alloc(1); // alloc new
                         if (s->vrtsp_state.boss_waiting)
                             pthread_cond_signal(&s->vrtsp_state.boss_cv);
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
@@ -478,6 +478,11 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             s->vrtsp_state.out_frame = NULL;
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
+
+            frame->color_spec      = s->vrtsp_state.desc.color_spec;
+            frame->fps             = s->vrtsp_state.desc.fps;
+            frame->tiles[0].width  = s->vrtsp_state.desc.width;
+            frame->tiles[0].height = s->vrtsp_state.desc.height;
 
             if(s->vrtsp_state.h264_offset_len>0 && frame->frame_type == INTRA){
                     memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
