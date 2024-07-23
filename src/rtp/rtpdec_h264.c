@@ -51,19 +51,13 @@
 #include "debug.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"
+#include "rtp/rtpenc_h264.h"    // for get_nalu_name
 #include "rtp/rtpdec_h264.h"
 #include "types.h"              // for tile, video_frame, frame_type
 #include "utils/h264_stream.h"
 #include "utils/bs.h"
 #include "video_frame.h"
 
-// NAL values >23 are invalid in H.264 codestream but used by RTP
-#define RTP_STAP_A 24
-#define RTP_STAP_B 25
-#define RTP_MTAP16 26
-#define RTP_MTAP24 27
-#define RTP_FU_A   28
-#define RTP_FU_B   29
 /// type was 1-23 representing H.264 NAL type
 #define H264_NAL   32
 

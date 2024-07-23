@@ -67,6 +67,16 @@ enum nal_type {
         NAL_HEVC_AUD = 35,
 };
 
+/// NAL values >23 are invalid in H.264 codestream but used by RTP
+enum aux_nal_types {
+        RTP_STAP_A = 24,
+        RTP_STAP_B = 25,
+        RTP_MTAP16 = 26,
+        RTP_MTAP24 = 27,
+        RTP_FU_A   = 28,
+        RTP_FU_B   = 29,
+};
+
 struct video_frame;
 
 struct decode_data_h264 {
