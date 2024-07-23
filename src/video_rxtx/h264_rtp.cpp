@@ -46,6 +46,7 @@
  * version from 7th Aug 2015).
  */
 
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -116,26 +117,27 @@ void h264_rtp_video_rxtx::join()
 
 static void rtps_server_usage(){
         printf("\n[RTSP SERVER] usage:\n");
-        color_printf("\t" TBOLD("--video-protocol rtsp[=port:number]") "\n");
+        color_printf("\t" TBOLD("--video-protocol rtsp[:port=number]") "\n");
         printf("\t\tdefault rtsp server port number: 8554\n\n");
 }
 
-static int get_rtsp_server_port(const char *cconfig) {
-        char *save_ptr = NULL;
-        char *config = strdupa(cconfig);
-        char *tok = strtok_r(config, ":", &save_ptr);
-        if (!tok || strcmp(tok,"port") != 0) {
+static int get_rtsp_server_port(const char *config) {
+        if (strncmp(config, "port:", 5) != 0 &&
+            strncmp(config, "port=", 5) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, check usage.\n");
                 rtps_server_usage();
                 return -1;
         }
-        if (!(tok = strtok_r(NULL, ":", &save_ptr))) {
+        if (strlen(config) == 5) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a port number.\n");
                 rtps_server_usage();
                 return -1;
         }
-        int port = atoi(tok);
-        if (port < 0 || port > 65535) {
+        if (config[4] == ':') {
+                MSG(WARNING, "deprecated usage - use port=number, not port:number!\n");
+        }
+        int port = atoi(config + 5);
+        if (port < 0 || port > 65535 || !isdigit(config[5])) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
                 rtps_server_usage();
                 return -1;
