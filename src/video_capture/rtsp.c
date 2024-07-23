@@ -468,6 +468,10 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         return VIDCAP_INIT_NOERR;
     }
 
+    MSG(WARNING, "There are some important improvements in the development "
+                 "(continuous) version of UltraGrid so in case of problems it "
+                 "is advised to try those");
+
     if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
         log_msg(LOG_LEVEL_ERROR, "Audio is not entirely implemented in RTSP. "
                 "Please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
