@@ -78,7 +78,8 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
     uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
-    log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
+    log_msg(LOG_LEVEL_DEBUG2, "NAL type %s (%d; nri: %d)\n",
+            get_nalu_name(type), (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
         fill_coded_frame_from_sps(frame, data, data_len);
