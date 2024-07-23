@@ -40,17 +40,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
+#include <assert.h>             // for assert
+#include <stdbool.h>            // for false, true
+#include <stdint.h>             // for uint8_t, uint32_t, uint16_t
+#include <stdlib.h>             // for free, malloc, NULL
+#include <string.h>             // for memcpy
+
+#include "compat/htonl.h"       // for ntohs
 #include "debug.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/rtpdec_h264.h"
+#include "types.h"              // for tile, video_frame, frame_type
 #include "utils/h264_stream.h"
 #include "utils/bs.h"
 #include "video_frame.h"
@@ -146,14 +148,14 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
-                    return FALSE;
+                    return false;
                 }
                 data += nal_size;
                 data_len -= nal_size;
 
                 if (data_len < 0) {
                     error_msg("Consumed more bytes than we got! (%d)\n", data_len);
-                    return FALSE;
+                    return false;
                 }
 
             }
@@ -174,7 +176,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
         case RTP_MTAP24:
         case RTP_FU_B:
             error_msg("Unhandled NAL type %d\n", type);
-            return FALSE;
+            return false;
         case RTP_FU_A:
             data++;
             data_len--;
@@ -221,14 +223,14 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 }
             } else {
                 error_msg("Too short data for FU-A H264 RTP packet\n");
-                return FALSE;
+                return false;
             }
             break;
         default:
             error_msg("Unknown NAL type %d\n", type);
-            return FALSE;
+            return false;
     }
-    return TRUE;
+    return true;
 }
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
@@ -256,14 +258,14 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
             rtp_packet *pckt = cdata->data;
 
             if (!decode_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
-                return FALSE;
+                return false;
             }
 
             cdata = cdata->nxt;
         }
     }
 
-    return TRUE;
+    return true;
 }
 
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len){
