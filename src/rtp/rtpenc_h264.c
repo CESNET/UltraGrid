@@ -136,6 +136,8 @@ const char *
 get_nalu_name(int type)
 {
         switch ((enum nal_type) type) {
+        case NAL_H264_NON_IDR:
+                return "H264 non-IDR";
         case NAL_H264_IDR:
                 return "H264 IDR";
         case NAL_H264_SEI:

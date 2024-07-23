@@ -55,6 +55,7 @@ enum {
 
 enum nal_type {
         // H.264
+        NAL_H264_NON_IDR = 1,
         NAL_H264_IDR = 5,
         NAL_H264_SEI = 6,
         NAL_H264_SPS = 7,
