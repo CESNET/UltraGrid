@@ -448,8 +448,9 @@ AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 # CUDA lookup order:
 # 1) --with-cuda
 # 2) CUDA_DIRECTORY env variable
-# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
-# 4) default CUDA path
+# 3) CUDA_PATH env variable
+# 4) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
+# 5) default CUDA path
 
 CUDA_COMPUTE_ARGS=""
 CUDA_COMPILER=""
@@ -459,7 +460,9 @@ CUDA_LIB=
 NVCC=
 CUDA_LIB_PATH=
 FOUND_CUDA=no
-CUDA_PATH=$CUDA_DIRECTORY
+if test -n "$CUDA_DIRECTORY"; then
+        CUDA_PATH=$CUDA_DIRECTORY
+fi
 
 AC_ARG_ENABLE(cuda,
               AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
