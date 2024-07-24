@@ -270,6 +270,7 @@ struct rtsp_state {
     uint32_t magic;
     CURL *curl;
     char uri[1024];
+    char base_url[1024]; ///< for control URLs with relative path; '/' included
     rtps_types_t avType;
     const char *addr;
     char *sdp;
@@ -682,6 +683,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     if (!check_uri(sizeof s->uri, s->uri)) {
         FAIL_SHOW_HELP
     }
+    snprintf(s->base_url, sizeof s->base_url, "%s/", s->uri); // default
 
     s->vrtsp_state.device = rtp_init_if("localhost", s->vrtsp_state.mcast_if, s->vrtsp_state.port, 0, s->vrtsp_state.ttl, s->vrtsp_state.rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state.participants, 0, false);
@@ -795,6 +797,48 @@ static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *
         log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
     }
     return nitems;
+}
+
+/// currently only searches for Content-Base or Content-Location header
+static size_t
+process_rtsp_describe_header(char *buffer, size_t size, size_t nitems,
+                             void *userdata)
+{
+        const size_t ret = print_rtsp_header(buffer, size, nitems, userdata);
+        struct rtsp_state *s        = userdata;
+        char              *save_ptr = NULL;
+        // doc for CURLOPT_HEADERFUNCTION is unclear if buffer is
+        // NULL-terminated -  one place says so, another not, so do it for sure
+        char dup[CURL_MAX_HTTP_HEADER];
+        memcpy(dup, buffer, MIN(nitems * size, sizeof dup));
+        dup[MIN(sizeof dup - 1, nitems * size)] = '\0';
+
+        char *item = strtok_r(dup, " ", &save_ptr);
+        if (item == NULL) {
+                return ret;
+        }
+        if ((strcasecmp(item, "Content-Base:") != 0 &&
+             strcasecmp(item, "Content-Location:") != 0)) {
+                return ret;
+        }
+        item = strtok_r(NULL, " ", &save_ptr);
+        if (item == NULL) {
+                return ret;
+        }
+        snprintf(s->base_url, sizeof s->base_url - 1, "%s", item);
+        char *end = (s->base_url + strlen(s->base_url)) - 1;
+        // trim \r,\n
+        while (end >= s->base_url && (*end == '\r' || *end == '\n')) {
+                *end = '\0';
+                --end;
+        }
+        // append '/' if needed
+        if (end >= s->base_url && *end != '/') {
+                *end++ = '/';
+                *end++ = '\0';
+        }
+        MSG(VERBOSE, "Using base URL from headers: %s\n", s->base_url);
+        return ret;
 }
 
 /**
@@ -927,10 +971,10 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
         int advertised_pt = -1;
 
         while (fgets(line, sizeof line, sdp_file) != NULL) {
-                char buf[1001];
+                char buf[2001];
                 int  pt = 0;
                 // m=video 0 RTP/AVP 96
-                if (sscanf(line, "m=%1000s %*d RTP/AVP %d", buf, &pt) == 2) {
+                if (sscanf(line, "m=%2000s %*d RTP/AVP %d", buf, &pt) == 2) {
                         advertised_pt = pt;
                         if (strcmp(buf, "audio") == 0) {
                                 media = MEDIA_AUDIO;
@@ -954,14 +998,14 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                         continue; // either on session level or unkown media
                 }
 
-                if (sscanf(line, "a=control:%1000s", buf) == 1) {
+                if (sscanf(line, "a=control:%2000s", buf) == 1) {
                         const char *rtsp_scheme = "rtsp://";
                         if (strncasecmp(buf, rtsp_scheme,
                                         strlen(rtsp_scheme)) != 0) {
                                 char relative_url[sizeof buf];
                                 strcpy(relative_url, buf);
-                                snprintf(buf, sizeof buf, "%s/%s",
-                                         rtspState->uri, relative_url);
+                                snprintf(buf, sizeof buf, "%s%s",
+                                         rtspState->base_url, relative_url);
                         }
                         *(media == MEDIA_AUDIO
                               ? &rtspState->artsp_state.control
@@ -969,7 +1013,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                         continue;
                 }
                 /// a=rtpmap:96 H264/90000
-                if (sscanf(line, "a=rtpmap:%d %1000[^/]", &pt, buf) == 2) {
+                if (sscanf(line, "a=rtpmap:%d %2000[^/]", &pt, buf) == 2) {
                         if (pt != advertised_pt) {
                                 MSG(WARNING,
                                     "media packet type %d doesn't match "
@@ -1066,12 +1110,16 @@ static bool
 rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
     verbose_msg("\n[rtsp] DESCRIBE %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, return false);
+    my_curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION,
+                        process_rtsp_describe_header, return false);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_DESCRIBE, return false);
 
     my_curl_easy_perform(curl, return false);
 
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, return false);
+    my_curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, print_rtsp_header,
+                        return false);
     rewind(sdp_fp);
     return true;
 }
