@@ -58,7 +58,8 @@
 #include <time.h>                  // for timespec
 
 #include "audio/types.h"
-#include "config.h"
+#include "config.h"                // for PACKAGE_BUGREPORT
+#include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -178,8 +179,8 @@ rtsp_teardown(CURL *curl, const char *uri);
 static int
 get_nals(FILE *sdp_file, char *nals, int *width, int *height);
 
-bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state);
-
+static bool setup_codecs_and_controls_from_sdp(FILE              *sdp_file,
+                                               struct rtsp_state *rtspState);
 static int
 init_rtsp(struct rtsp_state *s);
 
@@ -263,6 +264,8 @@ struct audio_rtsp_state {
     volatile bool worker_waiting;
     pthread_cond_t boss_cv;
     volatile bool boss_waiting;
+
+    int pt;
 };
 
 struct rtsp_state {
@@ -871,20 +874,14 @@ init_rtsp(struct rtsp_state *s) {
     }
     if (strcmp(s->vrtsp_state.codec, "H264") == 0){
         s->vrtsp_state.desc.color_spec = H264;
-        char uri[strlen(s->uri) + 1 + strlen(s->vrtsp_state.control) + 1];
-        strcpy(uri, s->uri);
-        strcat(uri, "/");
-        strcat(uri, s->vrtsp_state.control);
+        const char *uri = s->vrtsp_state.control;
         verbose_msg(MOD_NAME " V URI = %s\n", uri);
         if (!rtsp_setup(s->curl, uri, Vtransport)) {
             goto error;
         }
     }
     if (strcmp(s->artsp_state.codec, "PCMU") == 0){
-        char uri[strlen(s->uri) + 1 + strlen(s->artsp_state.control) + 1];
-        strcpy(uri, s->uri);
-        strcat(uri, "/");
-        strcat(uri, s->artsp_state.control);
+        const char *uri = s->vrtsp_state.control;
         verbose_msg(MOD_NAME " A URI = %s\n", uri);
         if (!rtsp_setup(s->curl, uri, Atransport)) {
             goto error;
@@ -918,108 +915,86 @@ error:
 
 #define LEN 10
 
-bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
-    struct rtsp_state *rtspState;
-    rtspState = (struct rtsp_state *) state;
+static bool
+setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
+{
+        char line[STR_LEN];
 
-    int n=0;
-    char* tmpBuff;
-    int countT = 0;
-    int countC = 0;
-    char codecs[2][LEN] = { { 0 } };
-    char tracks[2][LEN] = { { 0 } };
+        enum {
+                MEDIA_NONE,
+                MEDIA_AUDIO,
+                MEDIA_VIDEO,
+        } media = MEDIA_NONE;
 
-    fseek(sdp_file, 0, SEEK_END);
-    long fileSize = ftell(sdp_file);
-    if (fileSize < 0) {
-            perror("RTSP ftell");
-            return false;
-    }
-    rewind(sdp_file);
+        int advertised_pt = -1;
 
-    bool ret = true;
-    char *line = (char*) malloc(1024);
-    char *buffer = malloc(fileSize + 1);
-    do {
-        unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
-        if (ferror(sdp_file)){
-            perror(MOD_NAME "SDP file read failed");
-            ret = false;
-            break;
-        }
-        buffer[readResult] = '\0';
-
-        while (buffer[n] != '\0'){
-            getNewLine(buffer,&n,line);
-            sscanf(line, " a = control: %*s");
-            tmpBuff = strstr(line, "track");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
-                    //debug_msg("track = %s\n",tmpBuff);
-                    strncpy(tracks[countT], tmpBuff, sizeof tracks[countT] - 1);
-                    tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
-                    countT++;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
+        while (fgets(line, sizeof line, sdp_file) != NULL) {
+                char buf[1001];
+                int  pt = 0;
+                // m=video 0 RTP/AVP 96
+                if (sscanf(line, "m=%1000s %*d RTP/AVP %d", buf, &pt) == 2) {
+                        advertised_pt = pt;
+                        if (strcmp(buf, "audio") == 0) {
+                                media = MEDIA_AUDIO;
+                        } else if (strcmp(buf, "video") == 0) {
+                                media = MEDIA_VIDEO;
+                        } else {
+                                media = MEDIA_NONE;
+                                MSG(VERBOSE, "Unknown media: %s\n", buf);
+                                continue;
+                        }
+                        if ((media == MEDIA_AUDIO &&
+                             rtspState->artsp_state.pt != 0) ||
+                            rtspState->vrtsp_state.pt != 0) {
+                                MSG(WARNING, "Multiple media of same type, "
+                                             "using last one...");
+                        }
+                        continue;
                 }
-            }
-            tmpBuff=NULL;
-            int pt = 0;
-            sscanf(line, " a=rtpmap:%d %*s", &pt);
-            tmpBuff = strstr(line, "H264");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                    //debug_msg("codec = %s\n",tmpBuff);
-                    strncpy(codecs[countC],tmpBuff,4);
-                    codecs[countC][4] = '\0';
-                    countC++;
-                    if (pt == 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
-                        ret = false;
-                        break;
-                    }
-                    rtspState->vrtsp_state.pt = pt;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+
+                if (media == MEDIA_NONE) {
+                        continue; // either on session level or unkown media
                 }
-            }
-            tmpBuff=NULL;
-            sscanf(line, " a=rtpmap:97 %*s");
-            tmpBuff = strstr(line, "PCMU");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                    //debug_msg("codec = %s\n",tmpBuff);
-                    strncpy(codecs[countC],tmpBuff,4);
-                    codecs[countC][4] = '\0';
-                    countC++;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+
+                if (sscanf(line, "a=control:%1000s", buf) == 1) {
+                        const char *rtsp_scheme = "rtsp://";
+                        if (strncasecmp(buf, rtsp_scheme,
+                                        strlen(rtsp_scheme)) != 0) {
+                                char relative_url[sizeof buf];
+                                strcpy(relative_url, buf);
+                                snprintf(buf, sizeof buf, "%s/%s",
+                                         rtspState->uri, relative_url);
+                        }
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.control
+                              : &rtspState->vrtsp_state.control) = strdup(buf);
+                        continue;
                 }
-            }
-
-            if(countT > 1 && countC > 1) break;
+                /// a=rtpmap:96 H264/90000
+                if (sscanf(line, "a=rtpmap:%d %1000[^/]", &pt, buf) == 2) {
+                        if (pt != advertised_pt) {
+                                MSG(WARNING,
+                                    "media packet type %d doesn't match "
+                                    "media advertised PT %d!\n",
+                                    pt, advertised_pt);
+                        }
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.codec
+                              : &rtspState->vrtsp_state.codec) = strdup(buf);
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.pt
+                              : &rtspState->vrtsp_state.pt) = pt;
+                }
         }
-        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[0],codecs[0]);
-        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
 
-        for(int p=0;p<2;p++){
-            if(strncmp(codecs[p],"H264",4)==0){
-                rtspState->vrtsp_state.codec = "H264";
-                free(rtspState->vrtsp_state.control);
-                rtspState->vrtsp_state.control = strdup(tracks[p]);
-
-            }if(strncmp(codecs[p],"PCMU",4)==0){
-                rtspState->artsp_state.codec = "PCMU";
-                free(rtspState->artsp_state.control);
-                rtspState->artsp_state.control = strdup(tracks[p]);
-            }
-        }
-    } while(0);
-
-    free(line);
-    free(buffer);
-    rewind(sdp_file);
-    return ret;
+        verbose_msg(MOD_NAME "AUDIO TRACK = %s FOR CODEC = %s\n",
+                    rtspState->artsp_state.control,
+                    rtspState->artsp_state.codec);
+        verbose_msg(MOD_NAME "VIDEO TRACK = %s FOR CODEC = %s\n",
+                    rtspState->vrtsp_state.control,
+                    rtspState->vrtsp_state.codec);
+        rewind(sdp_file);
+        return true;
 }
 
 void getNewLine(const char* buffer, int* i, char* line){

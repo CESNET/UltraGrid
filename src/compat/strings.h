@@ -46,6 +46,9 @@
 #ifndef strcasecmp
 #define strcasecmp _stricmp
 #endif
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif // ! defined strncasecmp
 #else // ! defined _WIN32
 #include <strings.h>
 #endif // _WIN32
