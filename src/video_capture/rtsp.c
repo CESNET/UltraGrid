@@ -283,7 +283,6 @@ struct rtsp_state {
     pthread_mutex_t lock;
     pthread_cond_t keepalive_cv;
 
-    _Bool rtsp_error_occurred;
     bool setup_completed;
     _Bool sps_pps_emitted; ///< emit SPS/PPS once first to reduce decoding errors
 };
@@ -789,14 +788,16 @@ static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *
     int aggregate_size = size * nitems;
     struct rtsp_state *s = (struct rtsp_state *) userdata;
     assert(s->magic == MAGIC);
+    bool error_occured = false;
     if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), (size_t) aggregate_size)) == 0) {
         int code = atoi(buffer + strlen("RTSP/1.0 "));
-        s->rtsp_error_occurred = code != 200;
+        error_occured = code != 200;
     }
-    if (log_level >= LOG_LEVEL_DEBUG || s->rtsp_error_occurred) {
-        log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
+    if (log_level >= LOG_LEVEL_DEBUG || error_occured) {
+        log_msg(error_occured ? LOG_LEVEL_ERROR : log_level,
+                MOD_NAME "%.*s", aggregate_size, buffer);
     }
-    return nitems;
+    return error_occured ? CURL_WRITEFUNC_ERROR : nitems;
 }
 
 /// currently only searches for Content-Base or Content-Location header
@@ -889,12 +890,12 @@ init_rtsp(struct rtsp_state *s) {
     //http://curl.haxx.se/libcurl/c/curl_easy_perform.html
 
     /* request server options */
-    if (!rtsp_options(s->curl, s->uri) || s->rtsp_error_occurred) {
+    if (!rtsp_options(s->curl, s->uri)) {
         goto error;
     }
 
     /* request session description and write response to sdp file */
-    if (!rtsp_describe(s->curl, s->uri, sdp_file) || s->rtsp_error_occurred) {
+    if (!rtsp_describe(s->curl, s->uri, sdp_file)) {
         goto error;
     }
 
