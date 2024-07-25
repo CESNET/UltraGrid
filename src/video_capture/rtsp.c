@@ -92,6 +92,11 @@
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
+// compat
+#ifndef CURL_WRITEFUNC_ERROR
+#define CURL_WRITEFUNC_ERROR 0xFFFFFFFF
+#endif
+
 enum {
     DEFAULT_RTSP_PORT = 554,
 };
