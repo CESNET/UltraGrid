@@ -40,7 +40,7 @@ download_build_aja() {
         export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
-                -DAJANTV2_DISABLE_PLUGINS=ON  -DAJANTV2_BUILD_SHARED=ON \
+                -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=Release -Blibajantv2/build -Slibajantv2
         cmake --build libajantv2/build --config Release -j "$(nproc)"
 }
