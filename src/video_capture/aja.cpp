@@ -5,7 +5,7 @@
  * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -489,7 +489,7 @@ AJAStatus vidcap_state_aja::SetupHDMI()
                 CHECK_RET_FAIL(mDevice.SetReference (::NTV2InputSourceToReferenceSource(mInputSource)));
 
         // configure hdmi with 2.0 support
-        if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && !mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+        if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && !mDevice.features().CanDoHDMIQuadRasterConversion()) {
                 //	Set two sample interleave
                 CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(true, mInputChannel));
 
@@ -517,7 +517,7 @@ AJAStatus vidcap_state_aja::SetupHDMI()
                         CHECK_RET_FAIL(mDevice.Connect(GetFrameBufferInputXptFromChannel((NTV2Channel) (offset / 2) /* inChannel */, offset % 2 == 1 /* inIsBInput */),
                                         GetTSIMuxOutputXptFromChannel((NTV2Channel) (offset / 2), offset % 2 == 1 /* inLinkB */)));
                 }
-        } else if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+        } else if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && mDevice.features().CanDoHDMIQuadRasterConversion()) {
                 CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(false, mInputChannel));
                 for (unsigned offset = 0; offset < 4; ++offset) {
                         NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
