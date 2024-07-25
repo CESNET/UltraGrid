@@ -94,7 +94,7 @@
 #include "aja_common.h" // should be included last (overrides log_msg etc.)
 
 #define DEFAULT_MAX_FRAME_QUEUE_LEN 1
-#define MODULE_NAME "[AJA display] "
+#define MOD_NAME "[AJA display] "
 /**
  * The maximum number of bytes of 48KHz audio that can be transferred for two frames.
  * Worst case, assuming 16 channels of audio (max), 4 bytes per sample, and 67 msec per frame
@@ -132,7 +132,7 @@ using std::unordered_map;
 using std::vector;
 
 #define CHECK_EX(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
-        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME << (msg) << "\n";\
         action_failed;\
 }\
 } while(0)
@@ -230,7 +230,7 @@ display::display(struct configuration &conf)
         bool canDoMultiChannel = NTV2DeviceCanDoMultiFormat(mDeviceID);
         if (!canDoMultiChannel) {
                 if (conf.doMultiChannel != 0) {
-                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Device " << conf.deviceId << " cannot simultaneously handle different video formats.\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Device " << conf.deviceId << " cannot simultaneously handle different video formats.\n";
                 }
                 mDoMultiChannel = false;
         } else {
@@ -253,7 +253,7 @@ display::display(struct configuration &conf)
 
         if (mOutputChannel == NTV2_CHANNEL_INVALID) {
                 if (!NTV2_OUTPUT_DEST_IS_SDI(mConf.outputDestination)) {
-                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Non-SDI destination detected - we will use "
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Non-SDI destination detected - we will use "
                                 "probably channel 1. Consider passing \"channel\" option (see help).\n";
                 }
 
@@ -324,7 +324,7 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetVideoFormat (mVideoFormat, false, false, chan)) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot set format "
                                 << NTV2VideoFormatToString(mVideoFormat)
                                 << " for output " << chan << "\n";
                         return AJA_STATUS_FAIL;
@@ -336,7 +336,7 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID)) {
                         if (mConf.forceOutputColorSpace && mOutIsRGB != ::IsRGBFormat(mPixelFormat)) {
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Not enough CSCs found, found " << ::NTV2DeviceGetNumCSCs (mDeviceID) << " CSCs, "
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Not enough CSCs found, found " << ::NTV2DeviceGetNumCSCs (mDeviceID) << " CSCs, "
                                         "overriding output color spec preference.\n";
                         }
                         mOutIsRGB = ::IsRGBFormat(mPixelFormat);
@@ -354,14 +354,14 @@ AJAStatus display::SetUpVideo ()
         //      If the device doesn't support it, fall back to 8-bit YCbCr...
         if (!::NTV2DeviceCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
         {
-                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Device cannot handle '" << ::NTV2FrameBufferFormatString (mPixelFormat) << "'\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Device cannot handle '" << ::NTV2FrameBufferFormatString (mPixelFormat) << "'\n";
                 return AJA_STATUS_FAIL;
         }
 
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetFrameBufferFormat (chan, mPixelFormat)) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot set format "
                                 << NTV2FrameBufferFormatString(mPixelFormat)
                                 << " for output " << mOutputChannel + i << "\n";
                         return AJA_STATUS_FAIL;
@@ -376,7 +376,7 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.EnableChannel(chan)) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot enable channel "
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot enable channel "
                                 <<  chan << "\n";
                         return AJA_STATUS_FAIL;
                 }
@@ -552,7 +552,7 @@ void display::RouteOutputSignal ()
                                                         "Connect from CSC", NOOP);
                                 }
                         } else {
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Routing for " << NTV2OutputDestinationToString(mConf.outputDestination)
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Routing for " << NTV2OutputDestinationToString(mConf.outputDestination)
                                        << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
                                 CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), fbIsRGB ? cscVidOutXpt : fsVidOutXpt),
                                                 "Connect from CSC or frame store", NOOP);
@@ -663,10 +663,10 @@ void display::process_frames()
                                 int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
                                 int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
                                 if (latency_ms > 135) {
-                                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Buffer length: " << latency_ms << " ms, possible wrap-around.\n";
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Buffer length: " << latency_ms << " ms, possible wrap-around.\n";
                                         mAudioOutLastAddress = ((val + (SAMPLE_RATE / 1000) * 70 /* ms */ * BPS * channels) % mAudioOutWrapAddress) / 128 * 128;
                                 } else {
-                                        LOG(LOG_LEVEL_DEBUG) << MODULE_NAME "Audio latency: " << latency_ms << "\n";
+                                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Audio latency: " << latency_ms << "\n";
                                 }
 
                                 int len = min<int>(mAudioLen, mAudioOutWrapAddress - mAudioOutLastAddress); // length to the wrap-around
@@ -701,9 +701,9 @@ bool display::Putf(struct video_frame *frame, long long flags) {
         unique_lock<mutex> lk(frames_lock);
         // PUTF_BLOCKING is not currently honored
         if (frames.size() > max_frame_queue_len) {
-                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Frame dropped!\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Frame dropped!\n";
                 if (++mFramesDiscarded % 20 == 0) {
-                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << mFramesDiscarded << " frames discarded - try to increase buffer count or set \"novsync\" (see \"-d aja:help\" for details).\n";
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << mFramesDiscarded << " frames discarded - try to increase buffer count or set \"novsync\" (see \"-d aja:help\" for details).\n";
                 }
                 vf_free(frame);
                 return false;
@@ -719,7 +719,7 @@ void aja::display::print_stats() {
         auto now = steady_clock::now();
         double seconds = duration<double>(now - mT0).count();
         if (seconds > 5) {
-                LOG(LOG_LEVEL_INFO) << MODULE_NAME << mFrames << " frames in "
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << mFrames << " frames in "
                         << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
                 mFrames = 0;
                 mT0 = now;
@@ -881,7 +881,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
         }
 
         if (desc.tile_count != 1 && desc.tile_count != 4) {
-                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported tile count: " << desc.tile_count << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported tile count: " << desc.tile_count << "\n";
                 return false;
         }
 
@@ -895,7 +895,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
                                 desc.height, desc.width, interlaced, false, true);
         }
         if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN) {
-                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported resolution"
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported resolution"
 #ifndef _MSC_VER
                         ": " << desc
 #endif
@@ -915,7 +915,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
         try {
                 s->Init();
         } catch (runtime_error &e) {
-                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Reconfiguration failed: " << e.what() << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Reconfiguration failed: " << e.what() << "\n";
                 s->desc = {};
                 return false;
         }
@@ -939,7 +939,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 } else if (strstr(item, "buffers=") == item) {
                         conf.bufLen = atoi(item + strlen("buffers="));
                         if (conf.bufLen <= 0) {
-                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Buffers must be positive!\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Buffers must be positive!\n";
                                 return nullptr;
                         }
                 } else if (strcmp("clear-routing", item) == 0) {
@@ -957,7 +957,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                                 dest = (NTV2OutputDestination) ((int) dest + 1);
                         }
                         if (dest == NTV2_OUTPUTDESTINATION_INVALID) {
-                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown destination: " << connection << "!\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unknown destination: " << connection << "!\n";
                                 return nullptr;
                         }
                 } else if (strstr(item, "channel=") != nullptr) {
@@ -978,7 +978,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 } else if (strcasecmp(item, "smpte-range") == 0 || strcasecmp(item, "full-range") == 0) {
                         conf.smpteRange = strcasecmp(item, "smpte-range") == 0;
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unknown option: " << item << "\n";
                         return nullptr;
                 }
                 tmp = nullptr;
@@ -989,7 +989,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 auto *s = new ugaja::display(conf);
                 return s;
         } catch (runtime_error &e) {
-                LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
         }
 
         return nullptr;
@@ -1082,7 +1082,7 @@ LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame
         lock_guard<mutex> lk(s->mAudioLock);
         int len = NTV2_AUDIOSIZE_MAX - s->mAudioLen;
         if (frame->data_len > len) {
-                LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Audio buffer overrun!\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Audio buffer overrun!\n";
         } else {
                 len = frame->data_len;
         }
