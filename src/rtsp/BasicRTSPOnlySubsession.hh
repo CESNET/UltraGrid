@@ -102,11 +102,11 @@ protected:
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
         struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
-    virtual ~BasicRTSPOnlySubsession();
+     ~BasicRTSPOnlySubsession() override;
 
-    virtual char const* sdpLines(int addressFamily);
+    char const* sdpLines(int addressFamily) override;
 
-    virtual void getStreamParameters(unsigned clientSessionId,
+    void getStreamParameters(unsigned clientSessionId,
         struct sockaddr_storage const &clientAddress,
         Port const& clientRTPPort,
         Port const& clientRTCPPort,
@@ -119,16 +119,16 @@ protected:
         Boolean& isMulticast,
         Port& serverRTPPort,
         Port& serverRTCPPort,
-        void*& streamToken);
+        void*& streamToken) override;
 
-    virtual void startStream(unsigned clientSessionId, void* streamToken,
+    void startStream(unsigned clientSessionId, void* streamToken,
         TaskFunc* rtcpRRHandler, void* rtcpRRHandlerClientData,
         unsigned short& rtpSeqNum,
         unsigned& rtpTimestamp,
         ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
-        void* serverRequestAlternativeByteHandlerClientData);
+        void* serverRequestAlternativeByteHandlerClientData) override;
 
-    virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+    void deleteStream(unsigned clientSessionId, void*& streamToken) override;
 
 #if LIVEMEDIA_LIBRARY_VERSION_INT >= 1701302400 // 2023.11.30
     void getRTPSinkandRTCP(void*, RTPSink*&, RTCPInstance*&) override {}
