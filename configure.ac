@@ -1821,6 +1821,13 @@ then
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         if test "$lavc_cuda_conv_req" != no && test "$FOUND_CUDA" = yes &&
                         test "$system" != MacOSX; then
+                lavc_cuda=yes
+        fi
+        if test "$lavc_cuda" = yes && test "$system" = Windows &&
+                        test -z "$INCLUDE"; then
+                lavc_cuda=no
+        fi
+        if test "$lavc_cuda" = yes; then
                 AC_DEFINE([HAVE_LAVC_CUDA_CONV], [1], [Build with lavc CUDA conversions])
                 to_lavc_cuda_obj=src/libavcodec/to_lavc_vid_conv_cuda.o
                 LIBAVCODEC_VIDEO="$LIBAVCODEC_VIDEO $to_lavc_cuda_obj src/libavcodec/from_lavc_vid_conv_cuda.o"
