@@ -190,8 +190,6 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc);
 static void *
 vidcap_rtsp_thread(void *args);
 
-void getNewLine(const char* buffer, int* i, char* line);
-
 void
 rtsp_keepalive(void *state);
 
@@ -997,25 +995,6 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
         return true;
 }
 
-void getNewLine(const char* buffer, int* i, char* line){
-    int j=0;
-    while(buffer[*i] != '\n' && buffer[*i] != '\0'){
-        j++;
-        (*i)++;
-    }
-    if(buffer[*i] == '\n'){
-        j++;
-        (*i)++;
-    }
-
-    if(j>0){
-        memcpy(line,buffer+(*i)-j,j);
-        if (line[j - 1] == '\r') {
-            line[j - 1] = '\0';
-        }
-    }
-    line[j] = '\0';
-}
 /**
  * Initializes decompressor if required by decompress flag
  */
