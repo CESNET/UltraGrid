@@ -45,7 +45,7 @@ cmd //Q //C call "$vssetup" "&&" cl //std:c++latest //EHsc //LD //D_XKEYCHECK_H 
       src/aja_common.cpp  aja_capture.cpp aja_display.cpp \
       src/video_capture/aja_win32_utils.cpp  src/video_capture_params.cpp \
       src/utils/config_file.cpp  src/utils/video_frame_pool.cpp \
-      libajantv2/build/ajantv2/Release/ajantv2.lib advapi32.lib Netapi32.lib \
+      libajantv2/build/ajantv2/Release/ajantv2*.lib advapi32.lib Netapi32.lib \
       Shell32.lib Shlwapi.lib user32.lib winmm.lib //Feaja
 
 cp aja.lib /usr/local/lib

@@ -50,8 +50,9 @@ install_aja() {(
                 download_build_aja
         fi
         if is_win; then
-                cp libajantv2/build/ajantv2/Release/ajantv2.dll /usr/local/bin/
-                cp libajantv2/build/ajantv2/Release/ajantv2.lib /usr/local/lib/
+                cd libajantv2/build/ajantv2/Release
+                cp ajantv2*.dll /usr/local/bin/
+                cp ajantv2*.lib /usr/local/lib/
         else
                 sudo cmake --install libajantv2/build
         fi
