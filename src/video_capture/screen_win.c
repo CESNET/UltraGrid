@@ -361,17 +361,8 @@ static int register_screen_cap_rec_library(bool is_elevated) {
         HMODULE screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll");
         if(!screen_cap_lib){
                 DWORD err_code = GetLastError();
-
-                char buf[512] = "";
-                FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                NULL,
-                                err_code,
-                                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                buf,
-                                sizeof(buf),
-                                NULL);
-
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load screen capture dll. Error code: %x (%s)\n", err_code, buf);
+                MSG(ERROR, "Failed to load screen capture dll: %ld - %s\n",
+                    err_code, get_win32_error(err_code));
 
                 return -1;
         }
