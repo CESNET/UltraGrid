@@ -353,7 +353,6 @@ void vidcap_state_aja::Init()
         //      Using a reference to the discovered device list,
         //      and the index number of the device of interest (mDeviceIndex),
         //      get information about that particular device...
-        NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [mDeviceIndex]);
         if (!mDevice.Open (mDeviceIndex))
                 throw string("Unable to open device.");
 
@@ -1058,10 +1057,18 @@ static void show_help() {
         printf("Available devices:\n");
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                col() << "\t"  << SBOLD(i) << ") " << SBOLD(info.deviceIdentifier) << ". " << info;
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
+
+                col() << "\t" << SBOLD(i) << ") "
+                      << SBOLD(device.GetDisplayName()) << ". "
+                      << device.GetDescription() << "\n";
+                const NTV2DeviceID deviceID = device.GetBaseDeviceID();
                 NTV2VideoFormatSet fmt_set;
-                if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
+                if (NTV2DeviceGetSupportedVideoFormats(deviceID, fmt_set)) {
                         col() << SUNDERLINE("\tAvailable formats:");
                         for (auto fmt : fmt_set) {
                                 if (fmt != *fmt_set.begin()) {
@@ -1073,8 +1080,8 @@ static void show_help() {
                         col() << "\n";
                 }
                 NTV2FrameBufferFormatSet pix_fmts;
-                if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
-                        if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(info.deviceID, NTV2_FBF_10BIT_YCBCR)) {
+                if (NTV2DeviceGetSupportedPixelFormats(deviceID, pix_fmts)) {
+                        if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(deviceID, NTV2_FBF_10BIT_YCBCR)) {
                                 pix_fmts.insert(NTV2_FBF_10BIT_YCBCR); // workaround NTV2 bug
                         }
                         col() << SUNDERLINE("\tAvailable pixel formats:");
@@ -1096,7 +1103,7 @@ static void show_help() {
                         }
                         col() << "\n";
                 }
-                col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
+                col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (deviceID) << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
                 col() << SUNDERLINE("\tno devices found") "\n";
@@ -1164,7 +1171,11 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
 
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
                 card_count += 1;
                 cards = (struct device_info *)
                         realloc(cards, card_count * sizeof(struct device_info));
@@ -1172,7 +1183,7 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
                 snprintf(cards[card_count - 1].dev, sizeof cards[card_count - 1].dev,
                                 ":device=%d", i);
                 snprintf(cards[card_count - 1].name, sizeof cards[card_count - 1].name,
-                                "AJA %s", info.deviceIdentifier.c_str());
+                                "AJA %s", device.GetDisplayName().c_str());
                 snprintf(cards[card_count - 1].extra, sizeof cards[card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
         }

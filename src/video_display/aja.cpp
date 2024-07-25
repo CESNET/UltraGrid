@@ -786,8 +786,15 @@ void aja::display::show_help() {
 
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                col() << "\t" << SBOLD(i) << ") " << SBOLD(info.deviceIdentifier) << ". " << info;
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
+
+                col() << "\t" << SBOLD(i) << ") "
+                      << SBOLD(device.GetDisplayName()) << ". "
+                      << device.GetDescription() << "\n";
                 col() << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
@@ -829,8 +836,14 @@ LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *coun
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 snprintf((*available_cards)[i].dev, sizeof (*available_cards)[i].dev, ":device=%d", i);
                 snprintf((*available_cards)[i].extra, sizeof (*available_cards)[i].extra, "\"embeddedAudioAvailable\":\"t\"");
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                strncpy((*available_cards)[i].name, info.deviceIdentifier.c_str(), sizeof (*available_cards)[0].name - 1);
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
+                strncpy((*available_cards)[i].name,
+                        device.GetDisplayName().c_str(),
+                        sizeof(*available_cards)[0].name - 1);
                 (*available_cards)[i].repeatable = false;
         }
 }
