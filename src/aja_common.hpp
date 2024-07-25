@@ -1,9 +1,9 @@
 /**
- * @file   aja_common.h
+ * @file   aja_common.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,11 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
 #include <map>
 #include <ntv2enums.h>
 
 #include "types.h"
+
+class CNTV2Card;
 
 #ifdef _MSC_VER
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
@@ -80,6 +81,8 @@ vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __re
 void
 vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
                 int gshift, int bshift);
+
+void print_aja_device_details(CNTV2Card *device);
 
 #ifdef __cplusplus
 }

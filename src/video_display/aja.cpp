@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,7 +91,7 @@
 #include "video_display.h"
 #include "video.h"
 
-#include "aja_common.h" // should be included last (overrides log_msg etc.)
+#include "aja_common.hpp" // should be included last (overrides log_msg etc.)
 
 #define DEFAULT_MAX_FRAME_QUEUE_LEN 1
 #define MOD_NAME "[AJA display] "
@@ -793,8 +793,8 @@ void aja::display::show_help() {
                 }
 
                 col() << "\t" << SBOLD(i) << ") "
-                      << SBOLD(device.GetDisplayName()) << ". "
-                      << device.GetDescription() << "\n";
+                      << SBOLD(device.GetDisplayName());
+                print_aja_device_details(&device);
                 col() << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {

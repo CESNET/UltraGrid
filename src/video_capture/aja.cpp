@@ -113,7 +113,7 @@
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 
-#include "aja_common.h"
+#include "aja_common.hpp"
 
 #define MOD_NAME "[AJA cap.] "
 
@@ -1064,8 +1064,8 @@ static void show_help() {
                 }
 
                 col() << "\t" << SBOLD(i) << ") "
-                      << SBOLD(device.GetDisplayName()) << ". "
-                      << device.GetDescription() << "\n";
+                      << SBOLD(device.GetDisplayName());
+                print_aja_device_details(&device);
                 const NTV2DeviceID deviceID = device.GetBaseDeviceID();
                 NTV2VideoFormatSet fmt_set;
                 if (NTV2DeviceGetSupportedVideoFormats(deviceID, fmt_set)) {

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,15 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "config_msvc.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "config_msvc.h" // coompat - __attribute__ etc.
 
-#include "aja_common.h"
+#include <cinttypes>                 // for PRIx64
+#include <cstdint>                   // for uint64_t
+#include <cstdio>                    // for printf
+#include <ntv2card.h>                // for CNTV2Card
+
+#include "aja_common.hpp"
+#include "utils/color_out.h"         // for color_printf, TUNDERLINE
 
 #ifndef BYTE_SWAP
 #ifdef WORDS_BIGENDIAN
@@ -159,3 +163,24 @@ vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __re
         }
 }
 
+void
+print_aja_device_details(CNTV2Card *device)
+{
+        printf("\t%s\n", device->GetDescription().c_str());
+
+        color_printf("\t" TUNDERLINE("Device ID:") " 0x%08x\n",
+                     device->GetBaseDeviceID());
+
+        ULWord dev_pci_id = 0;
+        device->GetPCIDeviceID(dev_pci_id);
+        color_printf("\t" TUNDERLINE("Device PCI ID:") " 0x%08x\n", dev_pci_id);
+
+        uint64_t serial_nr = device->GetSerialNumber();
+        color_printf("\t" TUNDERLINE("Serial Number:") " 0x%" PRIx64 "\n",
+                     serial_nr);
+
+        color_printf("\t" TUNDERLINE("Video Inputs:") " %hu\n",
+                     device->features().GetNumVideoInputs());
+        printf("\t" TUNDERLINE("Video Outputs:") " %hu\n",
+               device->features().GetNumVideoOutputs());
+}
