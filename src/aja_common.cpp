@@ -46,8 +46,8 @@
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #include <ntv2card.h>                // for CNTV2Card
 
-#include "aja_common.hpp"
 #include "utils/color_out.h"         // for color_printf, TUNDERLINE
+#include "aja_common.hpp" // include after color_out to override its stuff for MSVC
 
 #ifndef BYTE_SWAP
 #ifdef WORDS_BIGENDIAN

@@ -46,8 +46,13 @@ class CNTV2Card;
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
 #define color_printf printf
 #undef LOG
+#include <iostream>
 #define LOG(level) if (level > log_level) ; else std::cerr
 #define col() std::cout
+#undef TUNDERLINE
+#define TUNDERLINE(x) x
+#undef SUNDERLINE
+#define SUNDERLINE(x) x
 #endif
 
 // compat
