@@ -43,6 +43,7 @@
 #include <cinttypes>                 // for PRIx64
 #include <cstdint>                   // for uint64_t
 #include <cstdio>                    // for printf
+#pragma GCC diagnostic ignored "-Wcast-qual"
 #include <ntv2card.h>                // for CNTV2Card
 
 #include "aja_common.hpp"
