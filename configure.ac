@@ -498,7 +498,10 @@ then
                                 # MSVS 14.0 has it otherwhere
                                 cl_lib_path=$(realpath "$(dirname "$(command -v "$CL")")"/../lib)
                         fi
-                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L\"$cl_lib_path\""
+                        DEFAULT_LIB_P=$($LINKER --verbose 2>&1 | awk \
+'BEGIN { ORS="" } /InstalledDir: / { print $2 }')/../lib
+                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L$DEFAULT_LIB_P"
+                        CUDA_LIB="$CUDA_LIB -L\"$cl_lib_path\""
                         FOUND_CUDA=yes
                 fi
         else
