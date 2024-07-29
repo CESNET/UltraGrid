@@ -3300,7 +3300,7 @@ if test -n "$req_files" && test "$req_files" != all; then
         OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /g')"
 fi
 
-if test "$build_default" != no || test $req_files = all; then
+if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
