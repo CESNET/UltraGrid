@@ -39,6 +39,9 @@
 #define BLACKMAGIC_COMMON_HPP
 
 #ifdef _WIN32
+#include <winsock2.h> // needs to be included prior to windows.h which will be
+                      // included by foolowing include; wsock2.h needed for
+                      // htonl used by vcap/vdisp
 #include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
 #else
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
