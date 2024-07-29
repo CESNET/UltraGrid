@@ -30,7 +30,7 @@ CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = $(COND_SILENCE)mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@ @DEFS@ -g
 LDFLAGS      =  @LDFLAGS@
-LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
+LIBS         += @LIBS@ @CUDA_LIB@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir)/src -I$(srcdir)/test \
                 @INC@
 CUDA_INC      = @CUDA_INC@ -Isrc -I$(srcdir)/src

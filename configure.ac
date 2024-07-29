@@ -584,7 +584,6 @@ fi
 if test "$FOUND_CUDA" = yes; then
           AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
           OBJS="$OBJS src/cuda_wrapper.o"
-          LIBS="$LIBS $CUDA_LIB"
           if test $system != Windows; then
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
@@ -608,6 +607,7 @@ fi
 ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
 
 AC_SUBST(CUDA_INC)
+AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
