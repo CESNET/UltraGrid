@@ -235,10 +235,8 @@ struct video_rtsp_state {
     pthread_cond_t boss_cv;
     volatile bool boss_waiting;
 
-    unsigned int h264_offset_len;
+    struct decode_data_h264 decode_data;
     unsigned char *h264_offset_buffer;
-
-    int pt;
 };
 
 struct audio_rtsp_state {
@@ -393,12 +391,9 @@ vidcap_rtsp_thread(void *arg) {
             struct pdb_e *cp = pdb_iter_init(s->vrtsp_state.participants, &it);
 
             while (cp != NULL) {
-                struct decode_data_h264 d;
-                d.frame = frame;
-                d.offset_len = s->vrtsp_state.h264_offset_len;
-                d.video_pt = s->vrtsp_state.pt;
+                s->vrtsp_state.decode_data.frame = frame;
                 if (pbuf_decode(cp->playout_buffer, curr_time,
-                            decode_frame_by_pt, &d))
+                            decode_frame_by_pt, &s->vrtsp_state.decode_data))
                 {
                     pthread_mutex_lock(&s->vrtsp_state.lock);
                     while (s->vrtsp_state.out_frame != NULL && !s->should_exit) {
@@ -436,12 +431,13 @@ vidcap_rtsp_thread(void *arg) {
  */
 static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
     s->sps_pps_emitted = 1;
-    if (s->vrtsp_state.h264_offset_len == 0) {
+    if (s->vrtsp_state.decode_data.offset_len == 0) {
         return NULL;
     }
     struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
-    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
-    frame->tiles[0].data_len = s->vrtsp_state.h264_offset_len;
+    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer,
+           s->vrtsp_state.decode_data.offset_len);
+    frame->tiles[0].data_len = s->vrtsp_state.decode_data.offset_len;
     frame->callbacks.dispose = vf_free;
     return frame;
 }
@@ -503,8 +499,11 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                     return NULL;
             }
 
-            if(s->vrtsp_state.h264_offset_len>0 && frame->frame_type == INTRA){
-                    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
+            if (s->vrtsp_state.decode_data.offset_len > 0 &&
+                frame->frame_type == INTRA) {
+                    memcpy(frame->tiles[0].data,
+                           s->vrtsp_state.h264_offset_buffer,
+                           s->vrtsp_state.decode_data.offset_len);
             }
 
             if (s->vrtsp_state.decompress) {
@@ -633,7 +632,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.participants = pdb_init(0);
 
     s->vrtsp_state.h264_offset_buffer = (unsigned char *) malloc(2048);
-    s->vrtsp_state.h264_offset_len = 0;
+    s->vrtsp_state.decode_data.offset_len = 0;
 
     s->curl = NULL;
 
@@ -736,7 +735,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         vidcap_rtsp_done(s);
         return VIDCAP_INIT_FAIL;
     }else{
-        s->vrtsp_state.h264_offset_len = len;
+        s->vrtsp_state.decode_data.offset_len = len;
     }
 
     //TODO fps should be autodetected, now reset and controlled at vidcap_grab function
@@ -993,7 +992,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                         }
                         if ((media == MEDIA_AUDIO &&
                              rtspState->artsp_state.pt != 0) ||
-                            rtspState->vrtsp_state.pt != 0) {
+                            rtspState->vrtsp_state.decode_data.video_pt != 0) {
                                 MSG(WARNING, "Multiple media of same type, "
                                              "using last one...");
                         }
@@ -1031,7 +1030,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                               : &rtspState->vrtsp_state.codec) = strdup(buf);
                         *(media == MEDIA_AUDIO
                               ? &rtspState->artsp_state.pt
-                              : &rtspState->vrtsp_state.pt) = pt;
+                              : &rtspState->vrtsp_state.decode_data.video_pt) = pt;
                 }
         }
 
