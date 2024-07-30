@@ -78,9 +78,11 @@ enum aux_nal_types {
         RTP_FU_B   = 29,
 };
 
+struct coded_data;
 struct video_frame;
 
 struct decode_data_h264 {
+        int (*decode)(struct coded_data *cdata, void *decode_data);
         struct video_frame *frame;
         int offset_len;
         int video_pt;

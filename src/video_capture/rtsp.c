@@ -359,12 +359,11 @@ decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
     struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
-    if (pckt->pt == d->video_pt) {
-        return decode_frame_h264(cdata,decode_data);
-    } else {
+    if (pckt->pt != d->video_pt) {
         error_msg("Wrong Payload type: %u\n", pckt->pt);
         return 0;
     }
+    return d->decode(cdata, decode_data);
 }
 
 static void *
@@ -919,8 +918,14 @@ init_rtsp(struct rtsp_state *s) {
     if (!setup_codecs_and_controls_from_sdp(sdp_file, s)) {
         goto error;
     }
-    if (strcmp(s->vrtsp_state.codec, "H264") == 0){
-        s->vrtsp_state.desc.color_spec = H264;
+    if (strlen(s->vrtsp_state.codec) > 0) {
+        s->vrtsp_state.desc.color_spec =
+            get_codec_from_name(s->vrtsp_state.codec);
+        if (s->vrtsp_state.desc.color_spec == VC_NONE) {
+            MSG(ERROR, "Codec %s not known to UltraGrid!\n",
+                s->vrtsp_state.codec);
+            goto error;
+        }
         const char *uri = s->vrtsp_state.control;
         verbose_msg(MOD_NAME " V URI = %s\n", uri);
         if (!rtsp_setup(s->curl, uri, Vtransport)) {
@@ -934,15 +939,16 @@ init_rtsp(struct rtsp_state *s) {
             goto error;
         }
     }
-    if (s->vrtsp_state.desc.color_spec == VIDEO_CODEC_NONE) {
-        // audio not checked - the implementation seems incomplete
-        MSG(ERROR, "No usable/supported video stream found!\n");
+    if (s->vrtsp_state.desc.color_spec == H264) {
+        s->vrtsp_state.decode_data.decode = decode_frame_h264;
+    } else {
+        MSG(ERROR, "Video codec %s not yet supported by UG.\n",
+            get_codec_name(s->vrtsp_state.desc.color_spec));
         goto error;
     }
-    else{
-        if (!rtsp_play(s->curl, s->uri, range)) {
-            goto error;
-        }
+
+    if (!rtsp_play(s->curl, s->uri, range)) {
+        goto error;
     }
     s->setup_completed = true;
 
