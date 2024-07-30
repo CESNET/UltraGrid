@@ -322,8 +322,6 @@ fj_sigaction() {
         trap '' TERM # inhibit following signal to ourselves
         if ps -o cmd >/dev/null 2>&1; then
                 pgid=$(ps -o pgid= -p $$ | tr -d ' ')
-        else # MSW dowsn't have "ps -o"
-                pgid=$$
         fi
         if [ $$ -eq "$pgid" ]; then
                 kill -- -$$
