@@ -1504,7 +1504,8 @@ if test "$rtsp_req" != no; then
                 CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o \
+src/rtp/rtpdec_h264.o src/rtp/rtpdec_jpeg.o src/utils/jpeg_writer.o"
                 add_module vidcap_rtsp "$RTSP_OBJ" "$RTSP_LIBS"
                 rtsp=yes
         fi

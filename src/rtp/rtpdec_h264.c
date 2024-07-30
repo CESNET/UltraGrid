@@ -237,8 +237,8 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
 }
 
 static void
-write_sps_pps(struct video_frame *frame, struct decode_data_h264 *decode_data) {
-        memcpy(frame->tiles[0].data, decode_data->h264_offset_buffer,
+write_sps_pps(struct video_frame *frame, struct decode_data_rtsp *decode_data) {
+        memcpy(frame->tiles[0].data, decode_data->h264.offset_buffer,
                decode_data->offset_len);
 }
 
@@ -251,7 +251,7 @@ write_sps_pps(struct video_frame *frame, struct decode_data_h264 *decode_data) {
  */
 struct video_frame *
 get_sps_pps_frame(const struct video_desc *desc,
-             struct decode_data_h264 *decode_data)
+             struct decode_data_rtsp *decode_data)
 {
         if (decode_data->offset_len == 0) {
                 return NULL;
@@ -268,7 +268,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
 
     int total_length = 0;
 
-    struct decode_data_h264 *data = (struct decode_data_h264 *) decode_data;
+    struct decode_data_rtsp *data = decode_data;
     struct video_frame *frame = data->frame;
     frame->frame_type = BFRAME;
 

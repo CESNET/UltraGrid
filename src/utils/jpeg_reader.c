@@ -122,6 +122,13 @@ static const uint8_t chm_ac_symbols[] = {
         0xf9, 0xfa,
 };
 
+const struct huffman_table default_huffman_tables[4] = {
+        { lum_dc_codelens, lum_dc_symbols },
+        { lum_ac_codelens, lum_ac_symbols },
+        { chm_dc_codelens, chm_dc_symbols },
+        { chm_ac_codelens, chm_ac_symbols },
+};
+
 enum jpeg_marker_code {
         JPEG_MARKER_SOF0  = 0xc0,
         JPEG_MARKER_SOF1  = 0xc1,

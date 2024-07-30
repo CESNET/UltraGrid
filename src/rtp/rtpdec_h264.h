@@ -81,13 +81,22 @@ enum aux_nal_types {
 struct coded_data;
 struct video_frame;
 
-struct decode_data_h264 {
+struct decode_data_rtsp {
         int (*decode)(struct coded_data *cdata, void *decode_data);
         struct video_frame *frame;
         int offset_len;
         int video_pt;
 
-        unsigned char h264_offset_buffer[2048];
+        // codec specific
+        union {
+                struct {
+                        /// SPS/PPS headers extracted from RTSP
+                        unsigned char offset_buffer[2048];
+                } h264;
+                struct {
+                        char *dqt_start;
+                } jpeg;
+        };
 };
 
 struct coded_data;
@@ -100,7 +109,7 @@ struct video_desc;
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
-                                      struct decode_data_h264 *decode_data);
+                                      struct decode_data_rtsp *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 
 #ifdef __cplusplus

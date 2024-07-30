@@ -45,6 +45,7 @@
  *
  *     docker run --rm -it --network=host bluenviron/mediamtx
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
+ *     ffmpeg -re -f lavfi -i smptebars=s=1280x720 -vcodec mjpeg -huffman 0 -f rtsp rtsp://localhost:8554/mystream
  */
 
 #include <assert.h>                // for assert
@@ -67,6 +68,7 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
+#include "rtp/rtpdec_jpeg.h"
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/macros.h"          // for MIN, STR_LEN
@@ -235,7 +237,7 @@ struct video_rtsp_state {
     pthread_cond_t boss_cv;
     volatile bool boss_waiting;
 
-    struct decode_data_h264 decode_data;
+    struct decode_data_rtsp decode_data;
 };
 
 struct audio_rtsp_state {
@@ -357,7 +359,7 @@ decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
 {    UNUSED(stats);
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
-    struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
+    struct decode_data_rtsp *d = decode_data;
     if (pckt->pt != d->video_pt) {
         error_msg("Wrong Payload type: %u\n", pckt->pt);
         return 0;
@@ -910,12 +912,14 @@ init_rtsp(struct rtsp_state *s) {
         s->vrtsp_state.decode_data.decode = decode_frame_h264;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
-            (char *) s->vrtsp_state.decode_data.h264_offset_buffer,
+            (char *) s->vrtsp_state.decode_data.h264.offset_buffer,
             (int *) &s->vrtsp_state.desc.width,
             (int *) &s->vrtsp_state.desc.height);
         s->vrtsp_state.decode_data.offset_len = len_nals;
         MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
             "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+    } else if (s->vrtsp_state.desc.color_spec == JPEG) {
+        s->vrtsp_state.decode_data.decode = decode_frame_jpeg;
     } else {
         MSG(ERROR, "Video codec %s not yet supported by UG.\n",
             get_codec_name(s->vrtsp_state.desc.color_spec));
