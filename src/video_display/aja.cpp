@@ -852,16 +852,12 @@ LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *coun
  * format is a quad-link format
  */
 static bool display_aja_is_quad_format(NTV2VideoFormat fmt) {
-#if (AJA_NTV2_SDK_VERSION_MAJOR > 15 || (AJA_NTV2_SDK_VERSION_MAJOR == 15 && AJA_NTV2_SDK_VERSION_MINOR >= 2))
         if ((fmt >= NTV2_FORMAT_FIRST_4K_DEF_FORMAT && fmt < NTV2_FORMAT_END_4K_DEF_FORMATS)
                         || (fmt >= NTV2_FORMAT_FIRST_4K_DEF_FORMAT2 && fmt < NTV2_FORMAT_END_4K_DEF_FORMATS2)
                         || (fmt >= NTV2_FORMAT_FIRST_UHD2_DEF_FORMAT && fmt < NTV2_FORMAT_END_UHD2_DEF_FORMATS)
                         || (fmt >= NTV2_FORMAT_FIRST_UHD2_FULL_DEF_FORMAT && fmt < NTV2_FORMAT_END_UHD2_FULL_DEF_FORMATS)) {
                 return true;
         }
-#else
-        (void) fmt;
-#endif
         return false;
 }
 

@@ -93,20 +93,12 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif // defined __GNUC__
-#if AJA_NTV2_SDK_VERSION_MAJOR >= 13
 #include "ajabase/common/types.h"
 #include "ajabase/common/videotypes.h"
 #include "ajabase/common/circularbuffer.h"
 #include "ajabase/system/process.h"
 #include "ajabase/system/systemtime.h"
 #include "ajabase/system/thread.h"
-#else
-#include "ajastuff/common/videotypes.h"
-#include "ajastuff/common/circularbuffer.h"
-#include "ajastuff/system/process.h"
-#include "ajastuff/system/systemtime.h"
-#include "ajastuff/system/thread.h"
-#endif
 
 #include "ntv2utils.h"
 #include "ntv2devicefeatures.h"
@@ -598,21 +590,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 CHECK_OK(mDevice.SetSDITransmitEnable (mInputChannel, false), "Cannot disable SDI transmit", NOOP);
 
                 //      Give the input circuit some time (~10 frames) to lock onto the input signal...
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,5)
-                for (int i = 0; i < 10; i++) {
-                        CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel), "Cannot wait for VBI", NOOP);
-                }
-#else
                 CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10), "Cannot wait for VBI", NOOP);
-#endif
         }
 
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
-                mTimeCodeSource = ::NTV2ChannelToTimecodeSource (mInputChannel);
-#else
                 mTimeCodeSource = ::NTV2InputSourceToTimecodeIndex(mInputSource);
-#endif
         else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
                 mTimeCodeSource = NTV2_TCINDEX_LTC1;
         else
@@ -721,11 +703,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
                 return AJA_STATUS_SUCCESS;
         }
         //      Have the audio system capture audio from the designated device input...
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
-        mDevice.SetAudioSystemInputSource (mAudioSystem, mInputSource);
-#else
         CHECK_OK(mDevice.SetAudioSystemInputSource(mAudioSystem, mAudioSource, ::NTV2InputSourceToEmbeddedAudioInput(mInputSource)), string("Cannot set audio input source: ") + NTV2AudioSourceToString(mAudioSource), NOOP);
-#endif
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
         mAudio.ch_count = *aja_audio_capture_channels > 0 ? *aja_audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
