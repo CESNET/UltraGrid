@@ -463,7 +463,9 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
-            if (frame->tiles[0].width != 0) {
+            if (frame->tiles[0].width != 0 &&
+                s->vrtsp_state.desc.width != frame->tiles[0].width &&
+                s->vrtsp_state.desc.height != frame->tiles[0].height) {
                     MSG(VERBOSE, "Setting the stream size to %ux%u\n",
                         frame->tiles[0].width, frame->tiles[0].height);
                     s->vrtsp_state.desc.width  = frame->tiles[0].width;
