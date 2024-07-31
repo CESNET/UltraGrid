@@ -236,7 +236,6 @@ struct video_rtsp_state {
     volatile bool boss_waiting;
 
     struct decode_data_h264 decode_data;
-    unsigned char *h264_offset_buffer;
 };
 
 struct audio_rtsp_state {
@@ -434,10 +433,9 @@ static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
         return NULL;
     }
     struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
-    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer,
-           s->vrtsp_state.decode_data.offset_len);
     frame->tiles[0].data_len = s->vrtsp_state.decode_data.offset_len;
     frame->callbacks.dispose = vf_free;
+    write_sps_pps(frame, &s->vrtsp_state.decode_data);
     return frame;
 }
 
@@ -448,7 +446,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-    if (!s->sps_pps_emitted) {
+    if (s->vrtsp_state.desc.color_spec == H264 && !s->sps_pps_emitted) {
         return emit_sps_pps(s);
     }
 
@@ -496,13 +494,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                         "in RTSP, waiting for first SPS...\n");
                     vf_free(frame);
                     return NULL;
-            }
-
-            if (s->vrtsp_state.decode_data.offset_len > 0 &&
-                frame->frame_type == INTRA) {
-                    memcpy(frame->tiles[0].data,
-                           s->vrtsp_state.h264_offset_buffer,
-                           s->vrtsp_state.decode_data.offset_len);
             }
 
             if (s->vrtsp_state.decompress) {
@@ -629,7 +620,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     s->vrtsp_state.participants = pdb_init(0);
 
-    s->vrtsp_state.h264_offset_buffer = (unsigned char *) malloc(2048);
     s->vrtsp_state.decode_data.offset_len = 0;
 
     s->curl = NULL;
@@ -937,7 +927,7 @@ init_rtsp(struct rtsp_state *s) {
         s->vrtsp_state.decode_data.decode = decode_frame_h264;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
-            (char *) s->vrtsp_state.h264_offset_buffer,
+            (char *) s->vrtsp_state.decode_data.h264_offset_buffer,
             (int *) &s->vrtsp_state.desc.width,
             (int *) &s->vrtsp_state.desc.height);
         s->vrtsp_state.decode_data.offset_len = len_nals;
@@ -1208,7 +1198,6 @@ vidcap_rtsp_done(void *state) {
         rtp_done(s->vrtsp_state.device);
     }
 
-    if(s->vrtsp_state.h264_offset_buffer!=NULL) free(s->vrtsp_state.h264_offset_buffer);
     vf_free(s->vrtsp_state.out_frame);
     free(s->vrtsp_state.control);
     free(s->artsp_state.control);

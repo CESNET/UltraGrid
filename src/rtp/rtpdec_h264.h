@@ -86,6 +86,8 @@ struct decode_data_h264 {
         struct video_frame *frame;
         int offset_len;
         int video_pt;
+
+        unsigned char h264_offset_buffer[2048];
 };
 
 struct coded_data;
@@ -96,6 +98,7 @@ struct coded_data;
         ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
+void write_sps_pps(struct video_frame *frame, struct decode_data_h264 *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 
 #ifdef __cplusplus

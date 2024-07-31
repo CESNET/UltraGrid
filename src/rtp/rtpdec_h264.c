@@ -236,6 +236,12 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
     return true;
 }
 
+void
+write_sps_pps(struct video_frame *frame, struct decode_data_h264 *decode_data) {
+        memcpy(frame->tiles[0].data, decode_data->h264_offset_buffer,
+               decode_data->offset_len);
+}
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
     struct coded_data *orig = cdata;
 
@@ -269,6 +275,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
 
             cdata = cdata->nxt;
         }
+    }
+
+    if (frame->frame_type == INTRA) {
+        write_sps_pps(frame, data);
     }
 
     return true;
