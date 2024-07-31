@@ -47,18 +47,15 @@
 
 #include <RTSPServer.hh>
 #include <BasicUsageEnvironment.hh>
-#include "rtsp/rtsp_utils.h"
-#include "audio/types.h"
-#include "module.h"
 
-
+#include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
 
 class BasicRTSPOnlyServer {
 private:
-    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+    BasicRTSPOnlyServer(struct rtsp_server_parameters params);
 
 public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+    static BasicRTSPOnlyServer* initInstance(struct rtsp_server_parameters params);
     static BasicRTSPOnlyServer* getInstance();
 
     int init_server();
@@ -70,15 +67,7 @@ public:
 private:
 
     static BasicRTSPOnlyServer* srvInstance;
-    int fPort;
-    struct module *mod;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port; //server rtp port
-    int rtp_port_audio; //server rtp port
+    struct rtsp_server_parameters params;
     RTSPServer* rtspServer;
     UsageEnvironment* env;
 };

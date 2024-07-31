@@ -485,7 +485,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
             if (s->vrtsp_state.decompress) {
                 struct video_desc curr_desc = video_desc_from_frame(frame);
-                curr_desc.color_spec = H264;
                 if (!video_desc_eq(s->vrtsp_state.decompress_desc, curr_desc)) {
                     decompress_done(s->vrtsp_state.sd);
                     if (init_decompressor(&s->vrtsp_state, curr_desc) == 0) {

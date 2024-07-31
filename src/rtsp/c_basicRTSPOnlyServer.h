@@ -43,7 +43,6 @@
  */
 #ifndef C_BASIC_RTSP_ONLY_SERVER_H
 #define C_BASIC_RTSP_ONLY_SERVER_H
-#endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -65,26 +64,31 @@
 #define EXTERNC
 #endif
 
+struct rtsp_server_parameters {
+        unsigned int   rtsp_port;
+        struct module *parent;
+        rtps_types_t   avType;
+        audio_codec_t  audio_codec;
+        int            audio_sample_rate;
+        int            audio_channels;
+        int            audio_bps;
+        int            rtp_port;  //server rtp port
+        int            rtp_port_audio;
+};
+
 EXTERNC typedef struct rtsp_serv {
-	unsigned int port;
-	struct module *mod;
+	struct rtsp_server_parameters params;
 	pthread_t server_th;
     uint8_t watch;
     uint8_t run;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port;  //server rtp port
-    int rtp_port_audio;
 } rtsp_serv_t;
 
 EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+EXTERNC rtsp_serv_t* init_rtsp_server(struct rtsp_server_parameters params);
 
 #undef EXTERNC
 
+#endif // defined C_BASIC_RTSP_ONLY_SERVER_H

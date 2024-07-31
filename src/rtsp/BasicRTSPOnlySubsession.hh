@@ -50,6 +50,7 @@
 
 #include <liveMedia_version.hh>
 
+#include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
 #include "rtsp/rtsp_utils.h"
 #include "audio/types.h"
 #include "module.h"
@@ -94,13 +95,12 @@ public:
     static BasicRTSPOnlySubsession*
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
-        struct module *mod,
-        rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+        rtps_types_t avType, struct rtsp_server_parameters);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+        rtps_types_t avType, struct rtsp_server_parameters);
 
      ~BasicRTSPOnlySubsession() override;
 
@@ -152,14 +152,8 @@ private:
     MAYBE_UNUSED_ATTRIBUTE Boolean fReuseFirstSource;
     MAYBE_UNUSED_ATTRIBUTE void* fLastStreamToken;
     char fCNAME[100];
-    struct module *fmod;
     rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port; //server rtp port
-    int rtp_port_audio; //server rtp port
+    struct rtsp_server_parameters rtsp_params;
 };
 
 

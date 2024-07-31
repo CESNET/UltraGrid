@@ -72,12 +72,19 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                 int rtsp_port) :
         rtp_video_rxtx(params)
 {
-        m_rtsp_server = init_rtsp_server(rtsp_port,
-                        static_cast<struct module *>(params.at("parent").ptr),
-                        static_cast<rtps_types_t>(params.at("avType").l),
-                        static_cast<audio_codec_t>(params.at("audio_codec").l),
-                        params.at("audio_sample_rate").i, params.at("audio_channels").i,
-                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i);
+        struct rtsp_server_parameters rtsp_params = {
+                (unsigned) rtsp_port,
+                static_cast<struct module *>(params.at("parent").ptr),
+                static_cast<rtps_types_t>(params.at("avType").l),
+                static_cast<audio_codec_t>(params.at("audio_codec").l),
+                params.at("audio_sample_rate").i,
+                params.at("audio_channels").i,
+                params.at("audio_bps").i,
+                params.at("rx_port").i,
+                params.at("a_rx_port").i
+        };
+
+        m_rtsp_server = init_rtsp_server(rtsp_params);
         c_start_server(m_rtsp_server);
 }
 
