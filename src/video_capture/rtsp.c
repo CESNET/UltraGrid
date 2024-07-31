@@ -186,7 +186,7 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height);
 
 static bool setup_codecs_and_controls_from_sdp(FILE              *sdp_file,
                                                struct rtsp_state *rtspState);
-static int
+static bool
 init_rtsp(struct rtsp_state *s);
 
 static int
@@ -615,7 +615,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->artsp_state.control = strdup("");
     s->artsp_state.control = strdup("");
 
-    int len = -1;
     char *save_ptr = NULL;
     s->magic = MAGIC;
     s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
@@ -728,13 +727,9 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     verbose_msg(MOD_NAME "\t  port: %d\n", s->vrtsp_state.port);
     verbose_msg(MOD_NAME "\t  decompress: %d\n\n",s->vrtsp_state.decompress);
 
-    len = init_rtsp(s);
-
-    if(len < 0){
+    if (!init_rtsp(s)) {
         vidcap_rtsp_done(s);
         return VIDCAP_INIT_FAIL;
-    }else{
-        s->vrtsp_state.decode_data.offset_len = len;
     }
 
     //TODO fps should be autodetected, now reset and controlled at vidcap_grab function
@@ -848,17 +843,16 @@ process_rtsp_describe_header(char *buffer, size_t size, size_t nitems,
 /**
  * Initializes rtsp state and internal parameters
  */
-static int
+static bool
 init_rtsp(struct rtsp_state *s) {
     /* initialize curl */
     s->curl = init_curl();
 
     if (!s->curl) {
-        return -1;
+        return false;
     }
 
     const char *range = "0.000-";
-    int len_nals = -1;
     verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
     verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
     verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
@@ -941,6 +935,14 @@ init_rtsp(struct rtsp_state *s) {
     }
     if (s->vrtsp_state.desc.color_spec == H264) {
         s->vrtsp_state.decode_data.decode = decode_frame_h264;
+        /* get start nal size attribute from sdp file */
+        const int len_nals  = get_nals(sdp_file,
+            (char *) s->vrtsp_state.h264_offset_buffer,
+            (int *) &s->vrtsp_state.desc.width,
+            (int *) &s->vrtsp_state.desc.height);
+        s->vrtsp_state.decode_data.offset_len = len_nals;
+        MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
+            "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
     } else {
         MSG(ERROR, "Video codec %s not yet supported by UG.\n",
             get_codec_name(s->vrtsp_state.desc.color_spec));
@@ -952,18 +954,13 @@ init_rtsp(struct rtsp_state *s) {
     }
     s->setup_completed = true;
 
-    /* get start nal size attribute from sdp file */
-    len_nals = get_nals(sdp_file, (char *) s->vrtsp_state.h264_offset_buffer, (int *) &s->vrtsp_state.desc.width, (int *) &s->vrtsp_state.desc.height);
-
-    verbose_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
-
     fclose(sdp_file);
-    return len_nals;
+    return true;
 
 error:
     if(sdp_file)
             fclose(sdp_file);
-    return -1;
+    return false;
 }
 
 #define LEN 10
