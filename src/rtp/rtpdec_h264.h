@@ -95,6 +95,7 @@ struct decode_data_rtsp {
                 } h264;
                 struct {
                         char *dqt_start;
+                        int   not_first_run; ///< decrease verbosity next time
                 } jpeg;
         };
 };

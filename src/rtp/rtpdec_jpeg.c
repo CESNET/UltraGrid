@@ -74,7 +74,7 @@ enum {
 };
 
 static unsigned
-parse_restart_interval(unsigned char **pckt_data)
+parse_restart_interval(unsigned char **pckt_data, int verbose_adj)
 {
         const uint16_t rst_int   = GET_2BYTE(pckt_data);
         const uint16_t tmp       = GET_2BYTE(pckt_data);
@@ -82,20 +82,21 @@ parse_restart_interval(unsigned char **pckt_data)
         const unsigned l         = (tmp >> 14) & 0x1;
         const unsigned rst_count = tmp & 0x3FFFU;
 
-        MSG(VERBOSE, "JPEG rst int=%" PRIu16 " f=%u l=%u count=%u\n", rst_int,
-            f, l, rst_count);
+        MSG(VERBOSE + verbose_adj,
+            "JPEG rst int=%" PRIu16 " f=%u l=%u count=%u\n", rst_int, f, l,
+            rst_count);
 
         return rst_int;
 }
 
 static void
-parse_quant_tables(char *dqt_start, unsigned char **pckt_data)
+parse_quant_tables(char *dqt_start, unsigned char **pckt_data, int verbose_adj)
 {
         uint8_t  mbz       = GET_BYTE(pckt_data);
         uint8_t  precision = GET_BYTE(pckt_data);
         uint16_t length    = GET_2BYTE(pckt_data);
 
-        MSG(VERBOSE,
+        MSG(VERBOSE + verbose_adj,
             "JPEG quant hdr mbz=%" PRIu8 " prec=%" PRIu8 " len=%" PRIu16 "\n",
             mbz, precision, length);
 
@@ -122,7 +123,7 @@ parse_quant_tables(char *dqt_start, unsigned char **pckt_data)
 
 static char *
 create_jpeg_frame(struct video_frame *frame, unsigned char **pckt_data,
-                  char **dqt_start)
+                  char **dqt_start, int verbose_adj)
 {
         struct jpeg_writer_data info = { 0 };
 
@@ -136,13 +137,14 @@ create_jpeg_frame(struct video_frame *frame, unsigned char **pckt_data,
         info.width = frame->tiles[0].width = width * RTP_SZ_MULTIPLIER;
         info.height = frame->tiles[0].height = height * RTP_SZ_MULTIPLIER;
 
-        MSG(VERBOSE,
+        MSG(VERBOSE + verbose_adj,
             "JPEG type_spec=%" PRIu8 " type=%" PRIu8 " q=%" PRIu8
             " width=%d height=%d\n",
             type_spec, type, q, frame->tiles[0].width, frame->tiles[0].height);
 
         if ((type & RTP_TYPE_RST_BIT) != 0) {
-                info.restart_interval = parse_restart_interval(pckt_data);
+                info.restart_interval =
+                    parse_restart_interval(pckt_data, verbose_adj);
                 type &= ~RTP_TYPE_RST_BIT;
         }
         assert(type == 0 || type == 1);
@@ -200,15 +202,16 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 const unsigned off = ntohl(hdr) & 0xFFFFFFU;
                 if (frame->tiles[0].width == 0) {
                         char *hdr_end = create_jpeg_frame(
-                            frame, &pckt_data, &dec_data->jpeg.dqt_start);
+                            frame, &pckt_data, &dec_data->jpeg.dqt_start,
+                            dec_data->jpeg.not_first_run);
                         dec_data->offset_len =
                             (int) (hdr_end - frame->tiles[0].data);
                 } else {
                         skip_jpeg_headers(&pckt_data);
                 }
                 if (off == 0) { // for q=255, 1st pckt contains tables
-                        parse_quant_tables(dec_data->jpeg.dqt_start,
-                                           &pckt_data);
+                        parse_quant_tables(dec_data->jpeg.dqt_start, &pckt_data,
+                                           dec_data->jpeg.not_first_run);
                         quant_tables_present = true;
                 }
 
@@ -234,6 +237,8 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
         char *buffer = frame->tiles[0].data + frame->tiles[0].data_len;
         jpeg_writer_write_eoi(&buffer);
         frame->tiles[0].data_len = buffer - frame->tiles[0].data;
+
+        dec_data->jpeg.not_first_run = 1;
 
         return true;
 }
