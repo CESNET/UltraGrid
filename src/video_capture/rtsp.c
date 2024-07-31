@@ -420,25 +420,6 @@ vidcap_rtsp_thread(void *arg) {
     return NULL;
 }
 
-/**
- * This is not mandatory and is merely an optimization - we can emit PPS/SPS
- * early (otherwise it is prepended only to IDR frames). The aim is to allow
- * the receiver to probe the format while allowing it to reconfigure, it can
- * then display the following IDR (otherwise it would be used to probe and the
- * only next would be displayed).
- */
-static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
-    s->sps_pps_emitted = 1;
-    if (s->vrtsp_state.decode_data.offset_len == 0) {
-        return NULL;
-    }
-    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
-    frame->tiles[0].data_len = s->vrtsp_state.decode_data.offset_len;
-    frame->callbacks.dispose = vf_free;
-    write_sps_pps(frame, &s->vrtsp_state.decode_data);
-    return frame;
-}
-
 static struct video_frame *
 vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
@@ -447,7 +428,9 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     *audio = NULL;
 
     if (s->vrtsp_state.desc.color_spec == H264 && !s->sps_pps_emitted) {
-        return emit_sps_pps(s);
+        s->sps_pps_emitted = 1;
+        return get_sps_pps_frame(&s->vrtsp_state.desc,
+                                 &s->vrtsp_state.decode_data);
     }
 
     if(pthread_mutex_trylock(&s->vrtsp_state.lock)==0){

@@ -236,10 +236,31 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
     return true;
 }
 
-void
+static void
 write_sps_pps(struct video_frame *frame, struct decode_data_h264 *decode_data) {
         memcpy(frame->tiles[0].data, decode_data->h264_offset_buffer,
                decode_data->offset_len);
+}
+
+/**
+ * This is not mandatory and is merely an optimization - we can emit PPS/SPS
+ * early (otherwise it is prepended only to IDR frames). The aim is to allow
+ * the receiver to probe the format while allowing it to reconfigure, it can
+ * then display the following IDR (otherwise it would be used to probe and the
+ * only next would be displayed).
+ */
+struct video_frame *
+get_sps_pps_frame(const struct video_desc *desc,
+             struct decode_data_h264 *decode_data)
+{
+        if (decode_data->offset_len == 0) {
+                return NULL;
+        }
+        struct video_frame *frame = vf_alloc_desc_data(*desc);
+        frame->tiles[0].data_len  = decode_data->offset_len;
+        frame->callbacks.dispose  = vf_free;
+        write_sps_pps(frame, decode_data);
+        return frame;
 }
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
