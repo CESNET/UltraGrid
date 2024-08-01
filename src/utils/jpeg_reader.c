@@ -799,7 +799,9 @@ bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hd
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG type - sampling horizontal: %d, %d, %d; vertical: %d, %d, %d\n", i.sampling_factor_h[0], i.sampling_factor_h[1], i.sampling_factor_h[2], i.sampling_factor_v[0], i.sampling_factor_v[1], i.sampling_factor_v[2]);
                 if (arr_eq3(i.sampling_factor_v, a222) && arr_eq3(i.sampling_factor_h, a211)) {
-                        fprintf(stderr, "Try \"-c libavcodec:subsampling=420\"\n");
+                        MSG(ERROR, "FFmpeg-generated JPEG 4:2:2 is "
+                                   "incompatible with RFC 2435.\n");
+                        MSG(WARNING, "Try \"-c lavc:subs=420\"\n");
                 }
                 return false;
         }
