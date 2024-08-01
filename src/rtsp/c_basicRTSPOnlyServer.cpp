@@ -64,6 +64,9 @@ c_start_server(struct rtsp_server_parameters params)
 }
 
 void c_stop_server(rtsp_serv_t* server){
+    if (server == nullptr) {
+        return;
+    }
     server->watch = 1;
     pthread_join(server->server_th, nullptr);
 }

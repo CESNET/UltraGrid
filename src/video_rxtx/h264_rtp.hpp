@@ -46,6 +46,10 @@
 #include "video_rxtx.hpp"
 #include "video_rxtx/rtp.hpp"
 
+struct rtp;
+struct tx;
+struct video_frame;
+
 class h264_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
@@ -57,7 +61,9 @@ private:
                 return NULL;
         }
         struct rtsp_server_parameters rtsp_params;
-        rtsp_serv_t *m_rtsp_server;
+        rtsp_serv_t                  *m_rtsp_server = nullptr;
+        void (*tx_send_std)(struct tx *tx_session, struct video_frame *frame,
+                            struct rtp *rtp_session);
 };
 
 #endif // VIDEO_RXTX_H264_RTP_H_

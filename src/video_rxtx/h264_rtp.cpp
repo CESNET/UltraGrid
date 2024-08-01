@@ -75,19 +75,27 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
         rtsp_params.rtp_port = params.at("rx_port").i;  //server rtp port
         rtsp_params.rtp_port_audio = params.at("a_rx_port").i;
         rtsp_params.video_codec = H264;
-
-        m_rtsp_server = c_start_server(rtsp_params);
 }
 
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        if (tx_frame->color_spec != H264) {
-                MSG(ERROR,
-                    "codecs other than H.264 currently not supported, got %s\n",
-                    get_codec_name(tx_frame->color_spec));
+        if (m_rtsp_server == nullptr) {
+                if (tx_frame->color_spec == H264) {
+                        tx_send_std = tx_send_h264;
+                } else {
+                        MSG(ERROR,
+                            "codecs other than H.264 currently not "
+                            "supported, got %s\n",
+                            get_codec_name(tx_frame->color_spec));
+                        return;
+                }
+                rtsp_params.video_codec = tx_frame->color_spec;
+                m_rtsp_server = c_start_server(rtsp_params);
         }
-        tx_send_h264(m_tx, tx_frame.get(), m_network_device);
+
+        tx_send_std(m_tx, tx_frame.get(), m_network_device);
+
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
