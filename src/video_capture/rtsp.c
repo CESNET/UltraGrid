@@ -209,7 +209,7 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
  * @struct rtsp_state
  */
 struct video_rtsp_state {
-    const char *codec;
+    char codec[SHORT_STR];
 
     struct video_desc desc;
     struct video_frame *out_frame;
@@ -245,7 +245,7 @@ struct audio_rtsp_state {
     struct audio_frame audio;
     int play_audio_frame;
 
-    const char *codec;
+    char codec[SHORT_STR];
 
     struct timeval last_audio_time;
     unsigned int grab_audio:1;
@@ -588,8 +588,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     }
 
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
-    s->vrtsp_state.codec = "";
-    s->artsp_state.codec = "";
+    s->vrtsp_state.codec[0] = '\0';
+    s->artsp_state.codec[0] = '\0';
     s->artsp_state.control = strdup("");
     s->artsp_state.control = strdup("");
 
@@ -893,8 +893,6 @@ init_rtsp(struct rtsp_state *s) {
         s->vrtsp_state.desc.color_spec = get_codec_from_pt_rtpmap(
             s->vrtsp_state.decode_data.video_pt, s->vrtsp_state.codec);
         if (s->vrtsp_state.desc.color_spec == VC_NONE) {
-            MSG(ERROR, "Codec %s not known to UltraGrid!\n",
-                s->vrtsp_state.codec);
             goto error;
         }
         const char *uri = s->vrtsp_state.control;
@@ -1007,15 +1005,18 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                 }
                 /// a=rtpmap:96 H264/90000
                 if (sscanf(line, "a=rtpmap:%d %2000[^/]", &pt, buf) == 2) {
+                        char *codec = media == MEDIA_AUDIO
+                              ? rtspState->artsp_state.codec
+                              : rtspState->vrtsp_state.codec;
                         if (pt != advertised_pt) {
                                 MSG(WARNING,
                                     "media packet type %d doesn't match "
                                     "media advertised PT %d!\n",
                                     pt, advertised_pt);
+                                snprintf(codec, SHORT_STR, "?");
                         }
-                        *(media == MEDIA_AUDIO
-                              ? &rtspState->artsp_state.codec
-                              : &rtspState->vrtsp_state.codec) = strdup(buf);
+                        snprintf(codec + strlen(codec),
+                                 SHORT_STR - strlen(codec), "%s", buf);
                 }
         }
 

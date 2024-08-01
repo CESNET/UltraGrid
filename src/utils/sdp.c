@@ -586,13 +586,39 @@ int sdp_set_options(const char *opts) {
     return 0;
 }
 
+/**
+ * @brief get UG video codec to given params
+ *
+ * rtpmap values are preferred than PT if mapping is correct
+ */
 codec_t
 get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
 {
+        // prefer PT type (if assigned) if codec is in form "?H264" (the mapping
+        // was incorrect), otherwise prefer the value from rtpmap
+        bool prefer_pt = false;
+        if (rtpmap_codec_name[0] == '?') {
+                rtpmap_codec_name += 1;
+                prefer_pt = true;
+        }
+
+        codec_t c = VC_NONE;
+        if (strlen(rtpmap_codec_name) > 1) {
+                c = get_codec_from_name(rtpmap_codec_name);
+                if (c == VC_NONE) {
+                        MSG(WARNING, "Codec %s not known to UltraGrid!\n",
+                            rtpmap_codec_name);
+                }
+        }
+
+        if (!prefer_pt && c != VC_NONE) {
+            return c;
+        }
         if (pt == PT_JPEG) {
                 return JPEG;
         }
-        return get_codec_from_name(rtpmap_codec_name);
+        MSG(WARNING, "No mapping of PT=%d to video coddec in UG!\n", pt);
+        return VC_NONE;
 }
 
 /* vim: set expandtab sw=4 : */
