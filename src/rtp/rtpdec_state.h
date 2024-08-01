@@ -42,59 +42,29 @@
  *
  */
 
-#ifndef _RTP_DEC_H264_H
-#define _RTP_DEC_H264_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-enum {
-        NAL_H264_MIN = 1,
-        NAL_H264_MAX = 23,
-};
-
-enum nal_type {
-        // H.264
-        NAL_H264_NON_IDR = 1,
-        NAL_H264_IDR = 5,
-        NAL_H264_SEI = 6,
-        NAL_H264_SPS = 7,
-        NAL_H264_PPS = 8,
-        NAL_H264_AUD = 9,
-        // HEVC
-        NAL_HEVC_VPS = 32,
-        NAL_HEVC_SPS = 33,
-        NAL_HEVC_PPS = 34,
-        NAL_HEVC_AUD = 35,
-};
-
-/// NAL values >23 are invalid in H.264 codestream but used by RTP
-enum aux_nal_types {
-        RTP_STAP_A = 24,
-        RTP_STAP_B = 25,
-        RTP_MTAP16 = 26,
-        RTP_MTAP24 = 27,
-        RTP_FU_A   = 28,
-        RTP_FU_B   = 29,
-};
+#ifndef RTP_RTPDEC_STATE_H_1712C4BC_F5CA_44DE_AF8B_EB2996D0E8A5
+#define RTP_RTPDEC_STATE_H_1712C4BC_F5CA_44DE_AF8B_EB2996D0E8A5
 
 struct coded_data;
-struct decode_data_rtsp;
-struct video_desc;
+struct video_frame;
 
-#define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
-#define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
-#define NALU_HDR_GET_TYPE(nal, is_hevc) \
-        ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
+struct decode_data_rtsp {
+        int (*decode)(struct coded_data *cdata, void *decode_data);
+        struct video_frame *frame;
+        int offset_len;
+        int video_pt;
 
-int decode_frame_h264(struct coded_data *cdata, void *decode_data);
-struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
-                                      struct decode_data_rtsp *decode_data);
-int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
+        // codec specific
+        union {
+                struct {
+                        /// SPS/PPS headers extracted from RTSP
+                        unsigned char offset_buffer[2048];
+                } h264;
+                struct {
+                        char *dqt_start;
+                        int   not_first_run; ///< decrease verbosity next time
+                } jpeg;
+        };
+};
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif // defined RTP_RTPDEC_STATE_H_1712C4BC_F5CA_44DE_AF8B_EB2996D0E8A5

@@ -54,7 +54,7 @@
 #include "debug.h"              // for LOG_LEVEL_VERBOSE, MSG, log_msg_once
 #include "rtp/pbuf.h"           // for coded_data
 #include "rtp/rtp.h"            // for rtp_packet
-#include "rtp/rtpdec_h264.h"    // for decode_data_rtsp
+#include "rtp/rtpdec_state.h"   // for decode_data_rtsp
 #include "types.h"              // for tile, video_frame, video_frame_callbacks
 #include "utils/jpeg_writer.h"  // for jpeg_writer_data, JPEG_QUANT_SIZE, jpeg_wr...
 #include "utils/macros.h"       // for MAX, to_fourcc

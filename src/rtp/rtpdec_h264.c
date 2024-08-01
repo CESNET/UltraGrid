@@ -53,6 +53,7 @@
 #include "rtp/pbuf.h"
 #include "rtp/rtpenc_h264.h"    // for get_nalu_name
 #include "rtp/rtpdec_h264.h"
+#include "rtp/rtpdec_state.h"
 #include "types.h"              // for tile, video_frame, frame_type
 #include "utils/h264_stream.h"
 #include "utils/bs.h"

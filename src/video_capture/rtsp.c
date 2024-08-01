@@ -69,6 +69,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpdec_jpeg.h"
+#include "rtp/rtpdec_state.h"
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/macros.h"          // for MIN, STR_LEN
