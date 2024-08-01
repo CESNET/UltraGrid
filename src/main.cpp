@@ -1524,16 +1524,16 @@ int main(int argc, char *argv[])
         } catch (ug_no_error const &e) {
                 exit_uv(0);
         } catch (ug_runtime_error const &e) {
-                cerr << e.what() << endl;
+                LOG(LOG_LEVEL_ERROR) << e.what() << "\n";
                 exit_uv(e.get_code());
         } catch (runtime_error const &e) {
-                cerr << e.what() << endl;
+                LOG(LOG_LEVEL_ERROR) << e.what() << "\n";
                 exit_uv(EXIT_FAILURE);
         } catch (exception const &e) {
-                cerr << e.what() << endl;
+                LOG(LOG_LEVEL_ERROR) << e.what() << "\n";
                 exit_uv(EXIT_FAILURE);
         } catch (string const &str) {
-                cerr << str << endl;
+                LOG(LOG_LEVEL_ERROR) << str << "\n";
                 exit_uv(EXIT_FAILURE);
         } catch (int i) {
                 exit_uv(i);
