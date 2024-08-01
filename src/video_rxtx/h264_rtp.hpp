@@ -56,6 +56,7 @@ private:
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return NULL;
         }
+        struct rtsp_server_parameters rtsp_params;
         rtsp_serv_t *m_rtsp_server;
 };
 

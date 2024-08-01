@@ -98,6 +98,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 
 	//VStream
 	if (avType == video || avType == av) {
+		assert(rtsp_params.video_codec == H264);
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
 		uint8_t rtpPayloadType = 96;

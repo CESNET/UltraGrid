@@ -65,17 +65,16 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                 int rtsp_port) :
         rtp_video_rxtx(params)
 {
-        struct rtsp_server_parameters rtsp_params = {
-                (unsigned) rtsp_port,
-                static_cast<struct module *>(params.at("parent").ptr),
-                static_cast<rtps_types_t>(params.at("avType").l),
-                static_cast<audio_codec_t>(params.at("audio_codec").l),
-                params.at("audio_sample_rate").i,
-                params.at("audio_channels").i,
-                params.at("audio_bps").i,
-                params.at("rx_port").i,
-                params.at("a_rx_port").i
-        };
+        rtsp_params.rtsp_port = (unsigned) rtsp_port;
+        rtsp_params.parent = static_cast<struct module *>(params.at("parent").ptr);
+        rtsp_params.avType = static_cast<rtps_types_t>(params.at("avType").l);
+        rtsp_params.audio_codec = static_cast<audio_codec_t>(params.at("audio_codec").l);
+        rtsp_params.audio_sample_rate = params.at("audio_sample_rate").i;
+        rtsp_params.audio_channels = params.at("audio_channels").i;
+        rtsp_params.audio_bps = params.at("audio_bps").i;
+        rtsp_params.rtp_port = params.at("rx_port").i;  //server rtp port
+        rtsp_params.rtp_port_audio = params.at("a_rx_port").i;
+        rtsp_params.video_codec = H264;
 
         m_rtsp_server = c_start_server(rtsp_params);
 }

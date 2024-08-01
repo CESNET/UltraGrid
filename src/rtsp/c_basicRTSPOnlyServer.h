@@ -74,6 +74,7 @@ struct rtsp_server_parameters {
         int            audio_bps;
         int            rtp_port;  //server rtp port
         int            rtp_port_audio;
+        codec_t        video_codec;
 };
 
 EXTERNC typedef struct rtsp_serv {
