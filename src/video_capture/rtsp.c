@@ -72,6 +72,7 @@
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/macros.h"          // for MIN, STR_LEN
+#include "utils/sdp.h"             // for get_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
 
@@ -888,9 +889,9 @@ init_rtsp(struct rtsp_state *s) {
     if (!setup_codecs_and_controls_from_sdp(sdp_file, s)) {
         goto error;
     }
-    if (strlen(s->vrtsp_state.codec) > 0) {
-        s->vrtsp_state.desc.color_spec =
-            get_codec_from_name(s->vrtsp_state.codec);
+    if (s->vrtsp_state.decode_data.video_pt > -1) {
+        s->vrtsp_state.desc.color_spec = get_codec_from_pt_rtpmap(
+            s->vrtsp_state.decode_data.video_pt, s->vrtsp_state.codec);
         if (s->vrtsp_state.desc.color_spec == VC_NONE) {
             MSG(ERROR, "Codec %s not known to UltraGrid!\n",
                 s->vrtsp_state.codec);
@@ -946,6 +947,9 @@ error:
 static bool
 setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
 {
+        rtspState->artsp_state.pt =
+            rtspState->vrtsp_state.decode_data.video_pt = -1;
+
         char line[STR_LEN];
 
         enum {
@@ -958,7 +962,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
 
         while (fgets(line, sizeof line, sdp_file) != NULL) {
                 char buf[2001];
-                int  pt = 0;
+                int pt = -1;
                 // m=video 0 RTP/AVP 96
                 if (sscanf(line, "m=%2000s %*d RTP/AVP %d", buf, &pt) == 2) {
                         advertised_pt = pt;
@@ -972,11 +976,14 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                                 continue;
                         }
                         if ((media == MEDIA_AUDIO &&
-                             rtspState->artsp_state.pt != 0) ||
-                            rtspState->vrtsp_state.decode_data.video_pt != 0) {
+                             rtspState->artsp_state.pt != -1) ||
+                            rtspState->vrtsp_state.decode_data.video_pt != -1) {
                                 MSG(WARNING, "Multiple media of same type, "
                                              "using last one...");
                         }
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.pt
+                              : &rtspState->vrtsp_state.decode_data.video_pt) = pt;
                         continue;
                 }
 
@@ -1009,18 +1016,17 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                         *(media == MEDIA_AUDIO
                               ? &rtspState->artsp_state.codec
                               : &rtspState->vrtsp_state.codec) = strdup(buf);
-                        *(media == MEDIA_AUDIO
-                              ? &rtspState->artsp_state.pt
-                              : &rtspState->vrtsp_state.decode_data.video_pt) = pt;
                 }
         }
 
-        verbose_msg(MOD_NAME "AUDIO TRACK = %s FOR CODEC = %s\n",
+        verbose_msg(MOD_NAME "AUDIO TRACK = %s FOR CODEC = %s PT = %d\n",
                     rtspState->artsp_state.control,
-                    rtspState->artsp_state.codec);
-        verbose_msg(MOD_NAME "VIDEO TRACK = %s FOR CODEC = %s\n",
+                    rtspState->artsp_state.codec,
+                    rtspState->artsp_state.pt);
+        verbose_msg(MOD_NAME "VIDEO TRACK = %s FOR CODEC = %s PT = %d\n",
                     rtspState->vrtsp_state.control,
-                    rtspState->vrtsp_state.codec);
+                    rtspState->vrtsp_state.codec,
+                    rtspState->vrtsp_state.decode_data.video_pt);
         rewind(sdp_file);
         return true;
 }

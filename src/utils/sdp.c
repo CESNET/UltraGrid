@@ -72,6 +72,7 @@
 #include "utils/macros.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
+#include "video_codec.h"      // for get_codec_from_name
 #ifdef SDP_HTTP
 #define EWS_DISABLE_SNPRINTF_COMPAT
 #include "EmbeddableWebServer.h"
@@ -585,5 +586,13 @@ int sdp_set_options(const char *opts) {
     return 0;
 }
 
+codec_t
+get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
+{
+        if (pt == PT_JPEG) {
+                return JPEG;
+        }
+        return get_codec_from_name(rtpmap_codec_name);
+}
 
 /* vim: set expandtab sw=4 : */
