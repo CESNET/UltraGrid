@@ -79,10 +79,16 @@ static double toRadian(double deg){
 
 static void show_help()
 {
-        printf("Vrworks 360 video stitcher\n");
-        printf("Usage\n");
-        printf("\t-t gpustitch -t <dev1_config> -t <dev2_config> ....]\n");
-        printf("\t\twhere devn_config is a complete configuration string of device involved in stitching\n");
+        color_printf("Gpustitch video stitcher\n");
+        color_printf("Stitches a 360 degree panorama from multiple cameras\n");
+        color_printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t gpustitch" TERM_FG_RESET ":rig_spec=<filepath>[:width=<w>][:blend_algo=<multiband|feather>][:multiband_levels=<n>][:feather_width=<w>][:tiled] -t <dev1_config> -t <dev2_config> ....\n");
+        color_printf(TERM_BOLD"\t\t<devn_config>" TERM_RESET " - a complete configuration string of device involved in stitching\n");
+        color_printf(TERM_BOLD"\t\t<rig_spec>" TERM_RESET " - file containing rig calibration parameters\n");
+        color_printf(TERM_BOLD"\t\t<blend_algo>" TERM_RESET " - algorithm for seam blending. Multiband is nicer but slower\n");
+        color_printf(TERM_BOLD"\t\t<multiband_levels>" TERM_RESET " - number of levels to use when multiband blending is used (default: 4)\n");
+        color_printf(TERM_BOLD"\t\t<feather_width>" TERM_RESET " - blending width when feather blending is used (default: 30)\n");
+        color_printf(TERM_BOLD"\t\ttiled" TERM_RESET " - Use if input is a tiled image from one capture device\n");
 
 }
 
