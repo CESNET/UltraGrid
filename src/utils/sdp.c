@@ -83,7 +83,6 @@
 enum {
     DEFAULT_SDP_HTTP_PORT = 8554,
     MAX_STREAMS = 2,
-    STR_LENGTH = 2048,
 };
 
 bool autorun;
@@ -96,9 +95,9 @@ static char sdp_filename[MAX_PATH_SIZE];
 static struct sdp *sdp_state = NULL;
 
 struct stream_info {
-    char media_info[STR_LENGTH];
-    char rtpmap[STR_LENGTH];
-    char fmtp[STR_LENGTH];
+    char media_info[STR_LEN];
+    char rtpmap[STR_LEN];
+    char fmtp[STR_LEN];
 };
 
 struct sdp {
@@ -109,11 +108,11 @@ struct sdp {
 #endif // defined SDP_HTTP
     pthread_t http_server_thr;
     int ip_version;
-    char version[STR_LENGTH];
-    char origin[STR_LENGTH];
-    char session_name[STR_LENGTH];
-    char connection[STR_LENGTH];
-    char times[STR_LENGTH];
+    char version[STR_LEN];
+    char origin[STR_LEN];
+    char session_name[STR_LEN];
+    char connection[STR_LEN];
+    char times[STR_LEN];
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
     int audio_index;
@@ -221,7 +220,7 @@ static void start() {
  */
 int
 get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
-                        char *rtpmapLine)
+                        char rtpmapLine[STR_LEN])
 {
     int pt = PT_DynRTP_Type97; // default
 
@@ -492,7 +491,7 @@ static void print_http_path(struct sdp *sdp) {
                 size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
                 getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
 
-                char recv_str[STR_LENGTH];
+                char recv_str[STR_LEN];
                 if (autorun) {
                     snprintf(recv_str, sizeof recv_str, "ANY receiver");
                 } else {
