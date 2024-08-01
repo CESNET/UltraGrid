@@ -54,6 +54,7 @@
 #include "utils/macros.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
+#include "video_codec.h"          // for get_codec_name
 
 #define MOD_NAME "[RTSP] "
 
@@ -98,14 +99,18 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 
 	//VStream
 	if (avType == video || avType == av) {
-		assert(rtsp_params.video_codec == H264);
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
-		uint8_t rtpPayloadType = 96;
-		char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
+                char rtpmapLine[STR_LEN];
+                const int rtpPayloadType = get_video_rtp_pt_rtpmap(
+                    rtsp_params.video_codec, rtpmapLine);
+                if (rtpPayloadType < 0) {
+                        MSG(ERROR, "Unsupported video codec %s!\n",
+                            get_codec_name(rtsp_params.video_codec));
+                }
 		//char const* auxSDPLine = "";
 
-		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
+		char const* const sdpFmt = "m=%s %u RTP/AVP %d\r\n"
 				"c=IN IP%s\r\n"
 				"b=AS:%u\r\n"
 				"a=rtcp:%d\r\n"
@@ -127,7 +132,6 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 				trackId()); // a=control:<track-id>
 
 		fSDPLines = sdpLines;
-		free(rtpmapLine);
 	}
 	//AStream
 	if (avType == audio || avType == av) {

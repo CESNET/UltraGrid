@@ -222,6 +222,7 @@ int
 get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
                         char rtpmapLine[STR_LEN])
 {
+    rtpmapLine[0] = '\0';
     int pt = PT_DynRTP_Type97; // default
 
     if (sample_rate == kHz48 && channels == 1 &&
@@ -290,6 +291,22 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     return 0;
 }
 
+int
+get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
+{
+    rtpmapLine[0] = '\0';
+    if (codec == JPEG || codec == MJPG) {
+        return PT_JPEG;
+    }
+    if (codec != H264) {
+        return -2;
+    }
+
+    snprintf(rtpmapLine, STR_LEN, "a=rtpmap:%d H264/90000\r\n",
+             PT_DynRTP_Type96);
+    return PT_DynRTP_Type96;
+}
+
 /**
  * @retval  0 ok
  * @retval -1 too much streams
@@ -297,8 +314,10 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
  */
 int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata)
 {
-    if (codec != H264 && codec != JPEG && codec != MJPG) {
-        return -2;
+    char rtpmap[STR_LEN];
+    const int pt = get_video_rtp_pt_rtpmap(codec, rtpmap);
+    if (pt < 0) {
+        return pt;
     }
     if (!sdp_state) {
         sdp_state = new_sdp(ipv6, sdp_receiver);
@@ -316,13 +335,8 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
     sdp_state->video_index = index;
     snprintf(sdp_state->stream[index].media_info,
              sizeof sdp_state->stream[index].media_info,
-             "m=video %d RTP/AVP %d\r\n", port,
-             codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
-    if (codec == H264) {
-        snprintf(sdp_state->stream[index].rtpmap,
-                 sizeof sdp_state->stream[index].rtpmap,
-                 "a=rtpmap:%d H264/90000\r\n", PT_DynRTP_Type96);
-    }
+             "m=video %d RTP/AVP %d\r\n", port, pt);
+    snprintf_ch(sdp_state->stream[index].rtpmap, "%s", rtpmap);
 
     sdp_state->video_set = true;
     start();

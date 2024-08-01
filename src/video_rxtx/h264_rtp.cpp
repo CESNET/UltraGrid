@@ -83,9 +83,12 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         if (m_rtsp_server == nullptr) {
                 if (tx_frame->color_spec == H264) {
                         tx_send_std = tx_send_h264;
+                } else if (tx_frame->color_spec == JPEG ||
+                           tx_frame->color_spec == MJPG) {
+                        tx_send_std = tx_send_jpeg;
                 } else {
                         MSG(ERROR,
-                            "codecs other than H.264 currently not "
+                            "codecs other than H.264 and JPEG currently not "
                             "supported, got %s\n",
                             get_codec_name(tx_frame->color_spec));
                         return;
