@@ -234,10 +234,11 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
         pt = PT_MPA;
     }
 
-    if (pt != PT_DynRTP_Type97) { // skip rtpmap creation
-        rtpmapLine[0] = '\0';
-        return pt;
-    }
+    // skip rtpmap creation could be skipped for static PT, optionally added
+    // if (pt != PT_DynRTP_Type97) {
+    //     rtpmapLine[0] = '\0';
+    //     return pt;
+    // }
 
     const int sdp_ch_count =
         codec == AC_OPUS ? 2 : channels; // RFC 7587 enforces 2 for Opus
@@ -251,6 +252,9 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
         break;
     case AC_OPUS:
         sdp_codec_name = "opus";
+        break;
+    case AC_MP3: // rtpmap is optional for MPA
+        sdp_codec_name = "MPA";
         break;
     default:
         abort();
@@ -296,16 +300,27 @@ int
 get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
 {
     rtpmapLine[0] = '\0';
-    if (codec == JPEG || codec == MJPG) {
-        return PT_JPEG;
-    }
-    if (codec != H264) {
-        return -2;
+    int pt = -1;
+    const char *rtpmap_codec = NULL;
+    switch (codec) {
+    case JPEG:
+    case MJPG:
+            pt           = PT_JPEG;
+            rtpmap_codec = "JPEG";
+            break;
+    case H264:
+            pt           = PT_DynRTP_Type96;
+            rtpmap_codec = "H264";
+            break;
+    default:
+            return -2;
     }
 
-    snprintf(rtpmapLine, STR_LEN, "a=rtpmap:%d H264/90000\r\n",
-             PT_DynRTP_Type96);
-    return PT_DynRTP_Type96;
+    assert(pt >= 0);
+    assert(rtpmap_codec != NULL);
+    snprintf(rtpmapLine, STR_LEN, "a=rtpmap:%d %s/90000\r\n",
+             pt, rtpmap_codec);
+    return pt;
 }
 
 /**
