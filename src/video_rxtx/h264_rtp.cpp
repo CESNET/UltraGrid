@@ -38,13 +38,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @file
- * @note
- * Currently incompatible with upstream version of live555. Works with older
- * version from https://github.com/xanview/live555/, commit 35c375 (live555
- * version from 7th Aug 2015).
- */
 
 #include <cctype>
 #include <cstdlib>
@@ -84,8 +77,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                 params.at("a_rx_port").i
         };
 
-        m_rtsp_server = init_rtsp_server(rtsp_params);
-        c_start_server(m_rtsp_server);
+        m_rtsp_server = c_start_server(rtsp_params);
 }
 
 void

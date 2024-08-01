@@ -41,34 +41,30 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#include <cassert>
+
 #include "rtsp/c_basicRTSPOnlyServer.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
 
-int c_start_server(rtsp_serv_t* server){
+rtsp_serv_t *
+c_start_server(struct rtsp_server_parameters params)
+{
+    auto* server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
+    server->params = params;
+    server->watch = 0;
+
     int ret;
     BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->params);
     srv->init_server();
     ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
-    if (ret == 0){
-        server->run = TRUE;
-    } else {
-        server->run = FALSE;
-    }
-    return ret;
-}
+    assert(ret == 0);
 
-rtsp_serv_t* init_rtsp_server(struct rtsp_server_parameters params) {
-    rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
-    server->params = params;
-    server->watch = 0;
-    server->run = FALSE;
     return server;
 }
 
 void c_stop_server(rtsp_serv_t* server){
     server->watch = 1;
-    if (server->run){
-        pthread_join(server->server_th, NULL);
-    }
+    pthread_join(server->server_th, nullptr);
 }
 

@@ -80,14 +80,11 @@ EXTERNC typedef struct rtsp_serv {
 	struct rtsp_server_parameters params;
 	pthread_t server_th;
     uint8_t watch;
-    uint8_t run;
 } rtsp_serv_t;
 
-EXTERNC int c_start_server(rtsp_serv_t* server);
+EXTERNC rtsp_serv_t *c_start_server(struct rtsp_server_parameters params);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
-
-EXTERNC rtsp_serv_t* init_rtsp_server(struct rtsp_server_parameters params);
 
 #undef EXTERNC
 
