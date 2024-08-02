@@ -2,9 +2,6 @@
 /**
  * @file   rtp/rtpdec_jpeg.c
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @todo
- * * handle precision=1 (?)
  */
 /*
  * Copyright (c) 2024 CESNET
@@ -109,7 +106,7 @@ parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
         }
 
         assert(length == JPEG_QUANT_SIZE || length == 2 * JPEG_QUANT_SIZE);
-        assert(precision == 0);
+        assert(precision == 0); // 8-bit JPEG should not use 16 bit tables
 
         uint8_t(*quant_table)[JPEG_QUANT_SIZE] =
             dec->jpeg.quantization_tables[q];
@@ -151,12 +148,19 @@ create_jpeg_frame(struct video_frame *frame, unsigned char **pckt_data,
             " width=%d height=%d\n",
             type_spec, type, q, frame->tiles[0].width, frame->tiles[0].height);
 
+        if ((type & ~(RTP_TYPE_RST_BIT | 1)) != 0) { // 0,1,64,65
+                MSG(ERROR,
+                    "Only RFC 2534 defined JPEG types are currently supported "
+                    "but got %d! Please report",
+                    type);
+                return NULL;
+        }
+
         if ((type & RTP_TYPE_RST_BIT) != 0) {
                 info.restart_interval =
                     parse_restart_interval(pckt_data, verbose_adj);
                 type &= ~RTP_TYPE_RST_BIT;
         }
-        assert(type == 0 || type == 1);
         info.subsampling = type;
 
         if (type_spec != 0) {
@@ -270,6 +274,9 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                         char *hdr_end = create_jpeg_frame(
                             frame, &pckt_data, &dec_data->jpeg.dqt_start,
                             dec_data->jpeg.not_first_run);
+                        if (hdr_end == NULL) {
+                                return false;
+                        }
                         dec_data->offset_len =
                             (int) (hdr_end - frame->tiles[0].data);
                 } else {
