@@ -43,6 +43,7 @@
  */
 
 #include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
+#include <cassert>
 
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
@@ -87,10 +88,9 @@ BasicRTSPOnlyServer::getInstance(){
 int
 BasicRTSPOnlyServer::init_server()
 {
-    if (env != NULL || rtspServer != NULL || mod == NULL ||
-        avType <= none || avType > rtsp_av_type_last) {
-        exit(1);
-    }
+    assert(env == nullptr && rtspServer == nullptr);
+    assert(mod != nullptr);
+    assert(avType > none && avType <= rtsp_av_type_last);
 
     //setting livenessTimeoutTask
     unsigned reclamationTestSeconds = 60;
