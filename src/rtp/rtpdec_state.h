@@ -45,8 +45,18 @@
 #ifndef RTP_RTPDEC_STATE_H_1712C4BC_F5CA_44DE_AF8B_EB2996D0E8A5
 #define RTP_RTPDEC_STATE_H_1712C4BC_F5CA_44DE_AF8B_EB2996D0E8A5
 
+#include <stdbool.h>            // for bool
+#include <stdint.h>             // for uint8_t
+
+#include "utils/jpeg_writer.h"  // for JPEG_QUANT_SIZE
+
 struct coded_data;
 struct video_frame;
+
+enum {
+        JPEG_QUANT_TAB_COUNT = 256,
+        JPEG_Q_TAB_COUNT     = 2, // for RFC 2435 defined JPEG Types
+};
 
 struct decode_data_rtsp {
         int (*decode)(struct coded_data *cdata, void *decode_data);
@@ -61,6 +71,10 @@ struct decode_data_rtsp {
                         unsigned char offset_buffer[2048];
                 } h264;
                 struct {
+                        uint8_t quantization_tables[JPEG_QUANT_TAB_COUNT]
+                                                   [JPEG_Q_TAB_COUNT]
+                                                   [JPEG_QUANT_SIZE];
+                        bool  quantization_table_set[JPEG_QUANT_TAB_COUNT];
                         char *dqt_start;
                         int   not_first_run; ///< decrease verbosity next time
                 } jpeg;

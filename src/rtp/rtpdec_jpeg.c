@@ -4,7 +4,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @todo
- * * handle predefined (0-127) and custom static (128-254) quantization tables
+ * * handle predefined (0-127) quantization tables
  * * handle precision=1 (?)
  * * error meesage for zero-len quantization tables
  */
@@ -68,6 +68,7 @@
         *(data) += sizeof(uint16_t)
 
 enum {
+        QUANT_TAB_T_FIRST_STATIC = 128,
         QUANT_TAB_T_DYN   = 255, ///< Q=255
         RTP_SZ_MULTIPLIER = 8,   ///< size in RTP hdr is /8
         RTP_TYPE_RST_BIT  = 64,  ///< indicates presence of RST markers
@@ -90,20 +91,31 @@ parse_restart_interval(unsigned char **pckt_data, int verbose_adj)
 }
 
 static void
-parse_quant_tables(char *dqt_start, unsigned char **pckt_data, int verbose_adj)
+parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
+                   int q)
 {
+        assert (q >= QUANT_TAB_T_FIRST_STATIC);
+
         uint8_t  mbz       = GET_BYTE(pckt_data);
         uint8_t  precision = GET_BYTE(pckt_data);
         uint16_t length    = GET_2BYTE(pckt_data);
 
-        MSG(VERBOSE + verbose_adj,
+        MSG(VERBOSE + dec->jpeg.not_first_run,
             "JPEG quant hdr mbz=%" PRIu8 " prec=%" PRIu8 " len=%" PRIu16 "\n",
             mbz, precision, length);
+
+        if (dec->jpeg.quantization_table_set[q] || // already set
+            length == 0) { // quantization table not included in this frame
+                *pckt_data += length;
+                return;
+        }
 
         assert(length == JPEG_QUANT_SIZE || length == 2 * JPEG_QUANT_SIZE);
         assert(precision == 0);
 
-        uint8_t quant_table[2][JPEG_QUANT_SIZE];
+        uint8_t(*quant_table)[JPEG_QUANT_SIZE] =
+            dec->jpeg.quantization_tables[q];
+
         memcpy(quant_table[0], *pckt_data, sizeof quant_table[0]);
         *pckt_data += sizeof quant_table[0];
         if (length == 2 * JPEG_QUANT_SIZE) {
@@ -117,8 +129,7 @@ parse_quant_tables(char *dqt_start, unsigned char **pckt_data, int verbose_adj)
                              "Single quantization table includedd (len=64)!\n");
                 memcpy(quant_table[1], quant_table[0], sizeof quant_table[1]);
         }
-
-        jpeg_writer_fill_dqt(dqt_start, quant_table);
+        dec->jpeg.quantization_table_set[q] = true;
 }
 
 static char *
@@ -157,8 +168,6 @@ create_jpeg_frame(struct video_frame *frame, unsigned char **pckt_data,
                              type_spec);
         }
 
-        assert(q == QUANT_TAB_T_DYN); // TODO(mpulec): see TODO in file docu
-
         frame->callbacks.data_deleter = vf_data_deleter;
         frame->tiles[0].data =
             calloc(1, 1000 + 3 * info.width * info.height * 2);
@@ -175,14 +184,11 @@ skip_jpeg_headers(unsigned char **pckt_data)
 {
         *pckt_data += sizeof(uint32_t); // skip type_spec + offset
         uint8_t type = GET_BYTE(pckt_data);
-        uint8_t q    = GET_BYTE(pckt_data);
-        *pckt_data += 2; // skip Width, Height
+        *pckt_data += 3; // skip Q, Width, Height
 
         if ((type & RTP_TYPE_RST_BIT) != 0) { // skip Restart Marker header
                 *pckt_data += sizeof(uint32_t);
         }
-
-        assert(q == QUANT_TAB_T_DYN); // TODO(mpulec): see TODO in file docu
 }
 
 int
@@ -191,7 +197,9 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
         struct decode_data_rtsp *dec_data = decode_data;
 
         struct video_frame *frame = dec_data->frame;
-        bool quant_tables_present = false;
+        // table with Q=255 must be always (re)set
+        dec_data->jpeg.quantization_table_set[QUANT_TAB_T_DYN] = false;
+        uint8_t q = -1;
 
         while (cdata != NULL) {
                 rtp_packet *pckt = cdata->data;
@@ -200,6 +208,7 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 uint32_t hdr = 0;
                 memcpy(&hdr, pckt_data, sizeof hdr);
                 const unsigned off = ntohl(hdr) & 0xFFFFFFU;
+                memcpy(&q, pckt_data + 5, sizeof q);
                 if (frame->tiles[0].width == 0) {
                         char *hdr_end = create_jpeg_frame(
                             frame, &pckt_data, &dec_data->jpeg.dqt_start,
@@ -209,10 +218,9 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 } else {
                         skip_jpeg_headers(&pckt_data);
                 }
-                if (off == 0) { // for q=255, 1st pckt contains tables
-                        parse_quant_tables(dec_data->jpeg.dqt_start, &pckt_data,
-                                           dec_data->jpeg.not_first_run);
-                        quant_tables_present = true;
+                // for q>=128, 1st pckt contains tables
+                if (off == 0 && q >= QUANT_TAB_T_FIRST_STATIC) {
+                        parse_quant_tables(dec_data, &pckt_data, q);
                 }
 
                 const long payload_hdr_len =
@@ -228,11 +236,15 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 cdata = cdata->nxt;
         }
 
-        if (!quant_tables_present) {
-                MSG(WARNING, "Dropping frame - missing quantization tables "
-                             "(1st packet missing)!\n");
+        if (!dec_data->jpeg.quantization_table_set[q]) {
+                MSG(WARNING,
+                    "Dropping frame - missing quantization tables for Q=%d!\n",
+                    q);
                 return false;
         }
+
+        jpeg_writer_fill_dqt(dec_data->jpeg.dqt_start,
+                             dec_data->jpeg.quantization_tables[q]);
 
         char *buffer = frame->tiles[0].data + frame->tiles[0].data_len;
         jpeg_writer_write_eoi(&buffer);
