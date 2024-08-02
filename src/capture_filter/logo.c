@@ -51,6 +51,7 @@
 #include "utils/macros.h"
 #include "utils/pam.h"
 #include "video_codec.h"
+#include "video_frame.h"     // for VIDEO_FRAME_DISPOSE
 
 struct module;
 
@@ -161,10 +162,21 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 state;
         decoder_t decoder, coder;
         decoder = get_decoder_from_to(in->color_spec, RGB);
+        if (decoder == NULL) {
+                MSG(ERROR, "Cannot find decoder from %s to RGB!\n",
+                    get_codec_name(in->color_spec));
+                VIDEO_FRAME_DISPOSE(in);
+                return NULL;
+        }
         coder = get_decoder_from_to(RGB, in->color_spec);
+        if (coder == NULL) {
+                MSG(ERROR, "Cannot find encoder from %s to RGB!\n",
+                    get_codec_name(in->color_spec));
+                VIDEO_FRAME_DISPOSE(in);
+                return NULL;
+        }
         int rect_x = s->x;
         int rect_y = s->y;
-        assert(coder != NULL && decoder != NULL);
 
         if (decoder == NULL || coder == NULL)
                 return in;
