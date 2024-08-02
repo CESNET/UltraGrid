@@ -595,7 +595,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     char *save_ptr = NULL;
     s->magic = MAGIC;
-    s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
+    s->avType = none;
 
     s->addr = "127.0.0.1";
     s->vrtsp_state.device = NULL;

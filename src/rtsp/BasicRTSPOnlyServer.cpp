@@ -46,6 +46,7 @@
 
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
+#include "rtsp/rtsp_utils.h"
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
@@ -83,9 +84,11 @@ BasicRTSPOnlyServer::getInstance(){
     return NULL;
 }
 
-int BasicRTSPOnlyServer::init_server() {
-    
-    if (env != NULL || rtspServer != NULL || mod == NULL || (avType >= NUM_RTSP_FORMATS && avType < 0)){
+int
+BasicRTSPOnlyServer::init_server()
+{
+    if (env != NULL || rtspServer != NULL || mod == NULL ||
+        avType <= none || avType > rtsp_av_type_last) {
         exit(1);
     }
 
