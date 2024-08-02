@@ -261,6 +261,8 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
         // table with Q=255 must be always (re)set
         dec_data->jpeg.quantization_table_set[QUANT_TAB_T_DYN] = false;
         uint8_t q = -1;
+        unsigned received_bytes = 0;
+        unsigned frame_max_len = 0; // off + data_len
 
         while (cdata != NULL) {
                 rtp_packet *pckt = cdata->data;
@@ -293,9 +295,8 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 const unsigned frame_off = off + dec_data->offset_len;
                 memcpy(frame->tiles[0].data + frame_off, pckt_data, data_len);
 
-                const unsigned end_pos = frame_off + data_len;
-                frame->tiles[0].data_len =
-                    MAX(frame->tiles[0].data_len, end_pos);
+                received_bytes += data_len;
+                frame_max_len = MAX(frame_max_len, off + data_len);
 
                 cdata = cdata->nxt;
         }
@@ -317,9 +318,15 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
         jpeg_writer_fill_dqt(dec_data->jpeg.dqt_start,
                              dec_data->jpeg.quantization_tables[q]);
 
-        char *buffer = frame->tiles[0].data + frame->tiles[0].data_len;
-        jpeg_writer_write_eoi(&buffer);
-        frame->tiles[0].data_len = buffer - frame->tiles[0].data;
+        char *frame_end =
+            frame->tiles[0].data + dec_data->offset_len + frame_max_len;
+        jpeg_writer_write_eoi(&frame_end);
+        frame->tiles[0].data_len = frame_end - frame->tiles[0].data;
+
+        if (received_bytes != frame_max_len) {
+                MSG(DEBUG, "Frame incomplete - expected %u bytes, got %u B!\n",
+                    frame_max_len, received_bytes);
+        }
 
         dec_data->jpeg.not_first_run = 1;
 
