@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2022 CESNET z.s.p.o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+
+#include <assert.h>          // for assert
+#include <stdbool.h>         // for false, bool, true
+#include <stdio.h>           // for printf, fprintf, stderr
+#include <stdlib.h>          // for free, NULL, malloc, atoi, calloc
+#include <string.h>          // for strlen, strtok_r, strdup
 
 #include "capture_filter.h"
+#include "compat/strings.h"  // for strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"     // for get_decoder_from_to, decoder_t, vc_copyl...
+#include "types.h"           // for video_frame, tile, RGB
 #include "utils/macros.h"
 #include "utils/pam.h"
-#include "video.h"
 #include "video_codec.h"
+
+struct module;
 
 #define MOD_NAME "[logo] "
 
