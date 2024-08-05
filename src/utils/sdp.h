@@ -66,6 +66,8 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
 
 codec_t get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name);
 
+void sdp_print_supported_codecs(void);
+
 #ifdef __cplusplus
 }
 #endif

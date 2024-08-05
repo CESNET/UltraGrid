@@ -53,6 +53,7 @@
 #include "transmit.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video.h"
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
@@ -129,12 +130,7 @@ static void rtps_server_usage(){
         color_printf("\t" TBOLD("-x rtsp[:port=number]") "\n");
         printf("\t\tdefault rtsp server port number: 8554\n\n");
 
-        /// see audio_tx_send_standard()
-        color_printf("Supported audio codecs: " TBOLD("MP3") ", " TBOLD(
-            "Opus") ", " TBOLD("PCMA") " (A-law), " TBOLD("PCMU") " (u-law)\n");
-        color_printf(
-            "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
-        color_printf("\n");
+        sdp_print_supported_codecs();
 }
 
 static int get_rtsp_server_port(const char *config) {

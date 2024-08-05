@@ -578,6 +578,8 @@ int sdp_set_options(const char *opts) {
         color_printf("\t" TBOLD("uv " TRED("--protocol sdp") "[:autorun][:file=<name>|no][:port=<http_port>]") "\n");
         color_printf("where:\n");
         color_printf("\t" TBOLD("autorun") " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n");
+        color_printf("\n");
+        sdp_print_supported_codecs();
         return 1;
     }
 
@@ -634,6 +636,17 @@ get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
         }
         MSG(WARNING, "No mapping of PT=%d to video coddec in UG!\n", pt);
         return VC_NONE;
+}
+
+void
+sdp_print_supported_codecs(void)
+{
+        /// see audio_tx_send_standard()
+        color_printf("Supported audio codecs: " TBOLD("MP3") ", " TBOLD(
+            "Opus") ", " TBOLD("PCMA") " (A-law), " TBOLD("PCMU") " (u-law)\n");
+        color_printf(
+            "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+        color_printf("\n");
 }
 
 /* vim: set expandtab sw=4 : */
