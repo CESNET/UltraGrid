@@ -609,7 +609,7 @@ int sdp_set_options(const char *opts) {
  * rtpmap values are preferred than PT if mapping is correct
  */
 codec_t
-get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
+get_video_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
 {
         // prefer PT type (if assigned) if codec is in form "?H264" (the mapping
         // was incorrect), otherwise prefer the value from rtpmap

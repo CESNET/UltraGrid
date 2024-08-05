@@ -73,7 +73,7 @@
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/macros.h"          // for MIN, STR_LEN
-#include "utils/sdp.h"             // for get_codec_from_pt_rtpmap
+#include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
 
@@ -897,7 +897,7 @@ init_rtsp(struct rtsp_state *s) {
         goto error;
     }
     if (s->vrtsp_state.decode_data.video_pt > -1) {
-        s->vrtsp_state.desc.color_spec = get_codec_from_pt_rtpmap(
+        s->vrtsp_state.desc.color_spec = get_video_codec_from_pt_rtpmap(
             s->vrtsp_state.decode_data.video_pt, s->vrtsp_state.codec);
         if (s->vrtsp_state.desc.color_spec == VC_NONE) {
             goto error;

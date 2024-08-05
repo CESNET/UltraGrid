@@ -64,7 +64,7 @@ int get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN]);
 int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec, address_callback_t addr_callback, void *addr_callback_udata);
 int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata);
 
-codec_t get_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name);
+codec_t get_video_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name);
 
 void sdp_print_supported_codecs(void);
 
