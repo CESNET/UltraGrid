@@ -87,7 +87,7 @@ parse_restart_interval(unsigned char **pckt_data, int verbose_adj)
 
 static void
 parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
-                   int q)
+                   const unsigned char *end, int q)
 {
         assert (q >= QUANT_TAB_T_FIRST_STATIC);
 
@@ -107,6 +107,17 @@ parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
 
         assert(length == JPEG_QUANT_SIZE || length == 2 * JPEG_QUANT_SIZE);
         assert(precision == 0); // 8-bit JPEG should not use 16 bit tables
+
+        const ptrdiff_t remaining_bytes = end - *pckt_data;
+        if (length > remaining_bytes) {
+                MSG(ERROR,
+                    "Bogus JPEG packet (q table len %" PRIu16
+                    " > %td remaining bytes! "
+                    "Dropping packet...\n",
+                    length, remaining_bytes);
+                *pckt_data += remaining_bytes;;
+                return;
+        }
 
         uint8_t(*quant_table)[JPEG_QUANT_SIZE] =
             dec->jpeg.quantization_tables[q];
@@ -286,7 +297,9 @@ decode_frame_jpeg(struct coded_data *cdata, void *decode_data)
                 }
                 // for q>=128, 1st pckt contains tables
                 if (off == 0 && q >= QUANT_TAB_T_FIRST_STATIC) {
-                        parse_quant_tables(dec_data, &pckt_data, q);
+                        const unsigned char *end =
+                            (unsigned char *) pckt->data + pckt->data_len;
+                        parse_quant_tables(dec_data, &pckt_data, end, q);
                 }
 
                 const long payload_hdr_len =
