@@ -7,7 +7,6 @@ typedef enum {
         video             = 1 << 1,
         av                = audio | video,
         rtsp_av_type_last = av,
-}rtps_types_t;
-
+} rtsp_types_t;
 
 #endif

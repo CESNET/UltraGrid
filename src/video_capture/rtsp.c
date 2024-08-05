@@ -277,7 +277,7 @@ struct rtsp_state {
     CURL *curl;
     char uri[1024];
     char base_url[1024]; ///< for control URLs with relative path; '/' included
-    rtps_types_t avType;
+    rtsp_types_t avType;
     const char *addr;
     char *sdp;
 

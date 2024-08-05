@@ -60,13 +60,13 @@
 
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
-		Boolean reuseFirstSource, rtps_types_t avType,
+		Boolean reuseFirstSource, rtsp_types_t avType,
 		struct rtsp_server_parameters params) {
 	return new BasicRTSPOnlySubsession(env, reuseFirstSource, avType, params);
 }
 
 BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
-		Boolean reuseFirstSource, rtps_types_t avType,
+		Boolean reuseFirstSource, rtsp_types_t avType,
 		struct rtsp_server_parameters params) :
 		ServerMediaSubsession(env), fSDPLines(NULL), fReuseFirstSource(
 				reuseFirstSource), fLastStreamToken(NULL),

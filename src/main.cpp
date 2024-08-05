@@ -1447,7 +1447,7 @@ int main(int argc, char *argv[])
                 params["a_tx_port"].i = opt.audio.send_port;
 
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
-                        rtps_types_t avType;
+                        rtsp_types_t avType;
                         if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0 && (strcmp("none",opt.audio.send_cfg) != 0)) avType = av; //AVStream
                         else if((strcmp("none",opt.audio.send_cfg) != 0)) avType = audio; //AStream
                         else if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head))) avType = video; //VStream

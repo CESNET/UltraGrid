@@ -67,7 +67,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 {
         rtsp_params.rtsp_port = (unsigned) rtsp_port;
         rtsp_params.parent = static_cast<struct module *>(params.at("parent").ptr);
-        rtsp_params.avType = static_cast<rtps_types_t>(params.at("avType").l);
+        rtsp_params.avType = static_cast<rtsp_types_t>(params.at("avType").l);
         rtsp_params.audio_codec = static_cast<audio_codec_t>(params.at("audio_codec").l);
         rtsp_params.audio_sample_rate = params.at("audio_sample_rate").i;
         rtsp_params.audio_channels = params.at("audio_channels").i;

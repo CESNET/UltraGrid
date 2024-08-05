@@ -67,7 +67,7 @@
 struct rtsp_server_parameters {
         unsigned int   rtsp_port;
         struct module *parent;
-        rtps_types_t   avType;
+        rtsp_types_t   avType;
         audio_codec_t  audio_codec;
         int            audio_sample_rate;
         int            audio_channels;
