@@ -324,6 +324,12 @@ show_help(bool full) {
     color_printf("\t\t- same as first case but decompress the stream "
         "(to allow to use a different compression)\n");
     color_printf("\n");
+
+    color_printf(
+        "Supported audio codecs: none (support is currently broken/WIP)\n");
+    color_printf(
+        "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+    color_printf("\n");
 }
 
 static void *

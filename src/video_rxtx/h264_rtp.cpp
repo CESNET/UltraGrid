@@ -126,8 +126,15 @@ void h264_rtp_video_rxtx::join()
 
 static void rtps_server_usage(){
         printf("\n[RTSP SERVER] usage:\n");
-        color_printf("\t" TBOLD("--video-protocol rtsp[:port=number]") "\n");
+        color_printf("\t" TBOLD("-x rtsp[:port=number]") "\n");
         printf("\t\tdefault rtsp server port number: 8554\n\n");
+
+        /// see audio_tx_send_standard()
+        color_printf("Supported audio codecs: " TBOLD("MP3") ", " TBOLD(
+            "Opus") ", " TBOLD("PCMA") " (A-law), " TBOLD("PCMU") " (u-law)\n");
+        color_printf(
+            "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+        color_printf("\n");
 }
 
 static int get_rtsp_server_port(const char *config) {
