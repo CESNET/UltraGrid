@@ -83,7 +83,7 @@ BasicRTSPOnlyServer::init_server()
 {
     assert(env == nullptr && rtspServer == nullptr);
     assert(params.parent != nullptr);
-    assert(params.avType > none && params.avType <= rtsp_av_type_last);
+    assert(params.avType > none && params.avType <= rtsp_av_type_both);
 
     //setting livenessTimeoutTask
     unsigned reclamationTestSeconds = 60;

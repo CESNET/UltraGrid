@@ -72,6 +72,7 @@ BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 				reuseFirstSource), fLastStreamToken(NULL),
 		rtsp_params(params)
 {
+	assert(avType == audio || avType == video);
 	Vdestination = NULL;
 	Adestination = NULL;
 	gethostname(fCNAME, sizeof fCNAME);
@@ -98,7 +99,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
             addressFamily == AF_INET ? "4 0.0.0.0" : "6 ::";
 
 	//VStream
-	if (avType == video || avType == av) {
+	if (avType == video) {
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
                 char rtpmapLine[STR_LEN];
@@ -134,7 +135,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 		fSDPLines = sdpLines;
 	}
 	//AStream
-	if (avType == audio || avType == av) {
+	if (avType == audio) {
 		unsigned estBitrate = 384;
 		char const* mediaType = "audio";
 
@@ -179,7 +180,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		struct sockaddr_storage& /*destinationAddress*/, uint8_t& /*destinationTTL*/,
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
-	if (avType == video || avType == av) {
+	if (avType == video) {
 		Port rtp(rtsp_params.rtp_port);
 		serverRTPPort = rtp;
 		Port rtcp(rtsp_params.rtp_port + 1);
@@ -189,7 +190,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Vdestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);
 	}
-	if (avType == audio || avType == av) {
+	if (avType == audio) {
 		Port rtp(rtsp_params.rtp_port_audio);
 		serverRTPPort = rtp;
 		Port rtcp(rtsp_params.rtp_port_audio + 1);
@@ -210,7 +211,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 	struct response *resp = NULL;
 
 	if (Vdestination != NULL) {
-		if (avType == video || avType == av) {
+		if (avType == video) {
 			char pathV[1024];
 
 			memset(pathV, 0, sizeof(pathV));
@@ -245,7 +246,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 	}
 
 	if (Adestination != NULL) {
-		if (avType == audio || avType == av) {
+		if (avType == audio) {
 			char pathA[1024];
 
 			memset(pathA, 0, sizeof(pathA));
@@ -285,7 +286,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 		void*& /* streamToken */) {
 	if (Vdestination != NULL) {
-		if (avType == video || avType == av) {
+		if (avType == video) {
 			char pathV[1024];
 			delete Vdestination;
 			Vdestination = NULL;
@@ -314,7 +315,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 	}
 
 	if (Adestination != NULL) {
-		if (avType == audio || avType == av) {
+		if (avType == audio) {
 			char pathA[1024];
 			delete Adestination;
 			Adestination = NULL;
