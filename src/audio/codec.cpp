@@ -46,7 +46,7 @@
 
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "compat/strings.h" // strdupa
+#include "compat/strings.h" // strdup, strcasecmp
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/macros.h"
@@ -388,6 +388,12 @@ get_audio_codec(const char *codec)
                 if (strcasecmp(it.second.name, codec) == 0) {
                         return it.first;
                 }
+        }
+        if (strcasecmp(codec, "PCMA") == 0) {
+                return AC_ALAW;
+        }
+        if (strcasecmp(codec, "PCMU") == 0) {
+                return AC_MULAW;
         }
         return AC_NONE;
 }
