@@ -49,6 +49,7 @@
 #include <RTSPServer.hh>
 #include <GroupsockHelper.hh>
 
+#include "audio/codec.h"          // get_name_to_audio_codec
 #include "debug.h"                // for MSG
 #include "messaging.h"
 #include "utils/macros.h"
@@ -60,13 +61,14 @@
 
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
-		Boolean reuseFirstSource, rtsp_types_t avType,
+		Boolean reuseFirstSource, rtsp_types_t avType, int rtpPort,
 		struct rtsp_server_parameters params) {
-	return new BasicRTSPOnlySubsession(env, reuseFirstSource, avType, params);
+        return new BasicRTSPOnlySubsession(env, reuseFirstSource, avType,
+                                           rtpPort, params);
 }
 
 BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
-		Boolean reuseFirstSource, rtsp_types_t avType,
+		Boolean reuseFirstSource, rtsp_types_t avType, int rtpPort,
 		struct rtsp_server_parameters params) :
 		ServerMediaSubsession(env), fSDPLines(NULL), fReuseFirstSource(
 				reuseFirstSource), fLastStreamToken(NULL),
@@ -77,6 +79,7 @@ BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 	Adestination = NULL;
 	gethostname(fCNAME, sizeof fCNAME);
 	this->avType = avType;
+	this->rtpPort = rtpPort;
 	fCNAME[sizeof fCNAME - 1] = '\0';
 }
 
@@ -85,6 +88,17 @@ BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {
 	delete Adestination;
 	delete Vdestination;
 }
+
+const static struct media_spec {
+        unsigned    estBitrate;
+        const char *mname;
+} media_params[] = {
+        { 0,    nullptr }, // none
+        { 384,  "audio" },
+        { 5000, "video" },
+};
+static_assert(audio == 1); // ensure the above mapping is correct
+static_assert(video == 2);
 
 char const* BasicRTSPOnlySubsession::sdpLines(int addressFamily) {
 	if (fSDPLines == NULL) {
@@ -98,77 +112,44 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
         const char *ip_ver_list_addr =
             addressFamily == AF_INET ? "4 0.0.0.0" : "6 ::";
 
-	//VStream
-	if (avType == video) {
-		unsigned estBitrate = 5000;
-		char const* mediaType = "video";
-                char rtpmapLine[STR_LEN];
-                const int rtpPayloadType = get_video_rtp_pt_rtpmap(
-                    rtsp_params.video_codec, rtpmapLine);
-                if (rtpPayloadType < 0) {
-                        MSG(ERROR, "Unsupported video codec %s!\n",
-                            get_codec_name(rtsp_params.video_codec));
-                }
-		//char const* auxSDPLine = "";
+        const struct media_spec *mspec = &media_params[avType];
+        char rtpmapLine[STR_LEN];
+        int rtpPayloadType = avType == audio
+                  ? get_audio_rtp_pt_rtpmap(
+                      rtsp_params.audio_codec, rtsp_params.audio_sample_rate,
+                      rtsp_params.audio_channels, rtpmapLine)
+                  : get_video_rtp_pt_rtpmap(rtsp_params.video_codec, rtpmapLine);
+        if (rtpPayloadType < 0) {
+                MSG(ERROR, "Unsupported %s codec %s!\n", mspec[avType].mname,
+                    avType == audio
+                        ? get_name_to_audio_codec(rtsp_params.audio_codec)
+                        : get_codec_name(rtsp_params.video_codec));
+        }
+        //char const* auxSDPLine = "";
 
-		char const* const sdpFmt = "m=%s %u RTP/AVP %d\r\n"
-				"c=IN IP%s\r\n"
-				"b=AS:%u\r\n"
-				"a=rtcp:%d\r\n"
-				"%s"
-				"a=control:%s\r\n";
-		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
-				+ 3 /* max char len */
-				+ strlen(ip_ver_list_addr) + 20 /* max int len */
-				+ strlen(rtpmapLine) + strlen(trackId());
-		char* sdpLines = new char[sdpFmtSize];
+        char const *const sdpFmt = "m=%s %u RTP/AVP %d\r\n"
+                                   "c=IN IP%s\r\n"
+                                   "b=AS:%u\r\n"
+                                   "a=rtcp:%d\r\n"
+                                   "%s"
+                                   "a=control:%s\r\n";
+        unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mspec->mname) +
+                              5   /* max short len */
+                              + 3 /* max char len */
+                              + strlen(ip_ver_list_addr) + 20 /* max int len */
+                              + strlen(rtpmapLine) + strlen(trackId());
+        char *sdpLines = new char[sdpFmtSize];
 
-		snprintf(sdpLines, sdpFmtSize, sdpFmt, mediaType, // m= <media>
-				rtsp_params.rtp_port_video,//fPortNumForSDP, // m= <port>
-				rtpPayloadType, // m= <fmt list>
-				ip_ver_list_addr, // c= address
-				estBitrate, // b=AS:<bandwidth>
-				rtsp_params.rtp_port_video + 1,
-				rtpmapLine, // a=rtpmap:... (if present)
-				trackId()); // a=control:<track-id>
+        snprintf(sdpLines, sdpFmtSize, sdpFmt, mspec->mname, // m= <media>
+                 rtpPort,         // fPortNumForSDP, // m= <port>
+                 rtpPayloadType,    // m= <fmt list>
+                 ip_ver_list_addr,  // c= address
+                 mspec->estBitrate, // b=AS:<bandwidth>
+                 rtpPort + 1,
+                 rtpmapLine, // a=rtpmap:... (if present)
+                 trackId()); // a=control:<track-id>
 
-		fSDPLines = sdpLines;
-	}
-	//AStream
-	if (avType == audio) {
-		unsigned estBitrate = 384;
-		char const* mediaType = "audio";
-
-                char rtpmapLine[STR_LEN];
-		//char const* auxSDPLine = "";
-                const uint8_t rtpPayloadType = get_audio_rtp_pt_rtpmap(
-                    rtsp_params.audio_codec, rtsp_params.audio_sample_rate,
-                    rtsp_params.audio_channels, rtpmapLine);
-
-		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
-				"c=IN IP%s\r\n"
-				"b=AS:%u\r\n"
-				"a=rtcp:%d\r\n"
-				"%s"
-				"a=control:%s\r\n";
-		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
-				+ 3 /* max char len */
-				+ strlen(ip_ver_list_addr) + 20 /* max int len */
-				+ strlen(rtpmapLine) + strlen(trackId());
-		char* sdpLines = new char[sdpFmtSize];
-
-		snprintf(sdpLines, sdpFmtSize, sdpFmt,
-				mediaType, // m= <media>
-				rtsp_params.rtp_port_audio,//fPortNumForSDP, // m= <port>
-				rtpPayloadType, // m= <fmt list>
-				ip_ver_list_addr, // c= address
-				estBitrate, // b=AS:<bandwidth>
-				rtsp_params.rtp_port_audio + 1,
-				rtpmapLine, // a=rtpmap:... (if present)
-				trackId()); // a=control:<track-id>
-
-		fSDPLines = sdpLines;
-	}
+        fSDPLines = sdpLines;
 	MSG(VERBOSE, "SDP:\n%s\n", fSDPLines);
 }
 

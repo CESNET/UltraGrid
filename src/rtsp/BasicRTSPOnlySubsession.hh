@@ -95,12 +95,12 @@ public:
     static BasicRTSPOnlySubsession*
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
-        rtsp_types_t avType, struct rtsp_server_parameters);
+        rtsp_types_t avType, int rtpPort, struct rtsp_server_parameters);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        rtsp_types_t avType, struct rtsp_server_parameters);
+        rtsp_types_t avType, int rtpPort, struct rtsp_server_parameters);
 
      ~BasicRTSPOnlySubsession() override;
 
@@ -153,6 +153,7 @@ private:
     MAYBE_UNUSED_ATTRIBUTE void* fLastStreamToken;
     char fCNAME[100];
     rtsp_types_t avType;
+    int          rtpPort;
     struct rtsp_server_parameters rtsp_params;
 };
 

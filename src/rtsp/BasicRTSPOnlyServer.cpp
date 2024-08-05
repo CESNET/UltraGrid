@@ -118,11 +118,11 @@ BasicRTSPOnlyServer::init_server()
 
     if ((params.avType & audio) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, audio, params));
+            *env, True, audio, params.rtp_port_audio, params));
     }
     if ((params.avType & video) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, video, params));
+            *env, True, video, params.rtp_port_video, params));
     }
 
                rtspServer->addServerMediaSession(sms);
