@@ -121,7 +121,6 @@
 #define MOD_NAME                "[main] "
 #define PORT_BASE               5004
 
-#define DEFAULT_AUDIO_FEC       "none"
 static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
@@ -495,6 +494,10 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
 struct ug_options {
         ug_options() {
                 vidcap_params_set_device(vidcap_params_head, "none");
+                // will be adjusted later
+                audio.recv_port = -1;
+                audio.send_port = -1;
+                audio.codec_cfg = "PCM";
         }
         ~ug_options() {
                 while  (vidcap_params_head != nullptr) {
@@ -503,21 +506,7 @@ struct ug_options {
                         vidcap_params_head = next;
                 }
         }
-        struct audio_options audio = {
-                .host = nullptr,
-                .recv_port = -1,
-                .send_port = -1,
-                .recv_cfg = "none",
-                .send_cfg = "none",
-                .proto = "ultragrid_rtp",
-                .proto_cfg = "",
-                .fec_cfg = DEFAULT_AUDIO_FEC,
-                .channel_map = nullptr,
-                .scale = "mixauto",
-                .echo_cancellation = false,
-                .codec_cfg = nullptr,
-                .filter_cfg = ""
-        };
+        struct audio_options audio;
         std::string audio_filter_cfg;
         // NULL terminated array of capture devices
         struct vidcap_params *vidcap_params_head = vidcap_params_allocate();

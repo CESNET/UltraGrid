@@ -49,6 +49,9 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#define DEFAULT_AUDIO_FEC       "none"
+#define DEFAULT_AUDIO_SCALE     "mixauto"
+
 #define AUDIO_PROTOCOLS "JACK, rtsp, sdp or ultragrid_rtp" // available audio protocols
 #define PORT_AUDIO              5006
 
@@ -69,9 +72,9 @@ struct audio_options {
         const char *send_cfg = "none";
         const char *proto = "ultragrid_rtp";
         const char *proto_cfg = "";
-        const char *fec_cfg = "none";
+        const char *fec_cfg = DEFAULT_AUDIO_FEC;
         char *channel_map = nullptr;
-        const char *scale = "none";
+        const char *scale = DEFAULT_AUDIO_SCALE;
         bool echo_cancellation = false;
         const char *codec_cfg = "PCM";
         const char *filter_cfg = "";
