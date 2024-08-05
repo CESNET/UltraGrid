@@ -226,7 +226,7 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
     rtpmapLine[0] = '\0';
     int pt = PT_DynRTP_Type97; // default
 
-    if (sample_rate == kHz48 && channels == 1 &&
+    if (sample_rate == kHz8 && channels == 1 &&
         (codec == AC_ALAW || codec == AC_MULAW)) {
         pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
     }
