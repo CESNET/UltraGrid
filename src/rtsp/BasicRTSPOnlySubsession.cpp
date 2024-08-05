@@ -52,6 +52,7 @@
 #include "audio/codec.h"          // get_name_to_audio_codec
 #include "debug.h"                // for MSG
 #include "messaging.h"
+#include "module.h"               // for module_class, append_message...
 #include "utils/macros.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
@@ -70,9 +71,8 @@ BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
 BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 		Boolean reuseFirstSource, rtsp_types_t avType, int rtpPort,
 		struct rtsp_server_parameters params) :
-		ServerMediaSubsession(env), fSDPLines(NULL), fReuseFirstSource(
-				reuseFirstSource), fLastStreamToken(NULL),
-		rtsp_params(params)
+		ServerMediaSubsession(env), fReuseFirstSource(reuseFirstSource),
+		fLastStreamToken(nullptr), rtsp_params(params)
 {
 	assert(avType == audio || avType == video);
 	Vdestination = NULL;
@@ -81,6 +81,11 @@ BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 	this->avType = avType;
 	this->rtpPort = rtpPort;
 	fCNAME[sizeof fCNAME - 1] = '\0';
+
+	// print (preliminary) SDP
+	setSDPLines(AF_UNSPEC);
+	delete[] fSDPLines;
+	fSDPLines = nullptr;
 }
 
 BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {
@@ -109,8 +114,22 @@ char const* BasicRTSPOnlySubsession::sdpLines(int addressFamily) {
 
 void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 	//TODO: should be more dynamic
-        const char *ip_ver_list_addr =
-            addressFamily == AF_INET ? "4 0.0.0.0" : "6 ::";
+        const char *ip_ver_list_addr = nullptr;
+        const char *control  = trackId();
+        switch (addressFamily) {
+        case AF_INET:
+                ip_ver_list_addr = "4 0.0.0.0";
+                break;
+        case AF_INET6:
+                ip_ver_list_addr = "6 ::";
+                break;
+        case AF_UNSPEC:
+                ip_ver_list_addr = "<VER> <TO_BE_FILLED>";
+                control = "<CONTROL>"; // is null here
+                break;
+        default:
+                abort();
+        }
 
         const struct media_spec *mspec = &media_params[avType];
         char rtpmapLine[STR_LEN];
@@ -137,7 +156,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
                               5   /* max short len */
                               + 3 /* max char len */
                               + strlen(ip_ver_list_addr) + 20 /* max int len */
-                              + strlen(rtpmapLine) + strlen(trackId());
+                              + strlen(rtpmapLine) + strlen(control);
         char *sdpLines = new char[sdpFmtSize];
 
         snprintf(sdpLines, sdpFmtSize, sdpFmt, mspec->mname, // m= <media>
@@ -147,10 +166,11 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
                  mspec->estBitrate, // b=AS:<bandwidth>
                  rtpPort + 1,
                  rtpmapLine, // a=rtpmap:... (if present)
-                 trackId()); // a=control:<track-id>
+                 control); // a=control:<track-id>
 
         fSDPLines = sdpLines;
-	MSG(VERBOSE, "SDP:\n%s\n", fSDPLines);
+        MSG(VERBOSE, "SDP%s:\n%s\n",
+            addressFamily == AF_UNSPEC ? " (preliminary)" : "", fSDPLines);
 }
 
 void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */,

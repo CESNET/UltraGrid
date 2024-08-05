@@ -52,9 +52,6 @@
 
 #include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
 #include "rtsp/rtsp_utils.h"
-#include "audio/types.h"
-#include "module.h"
-#include "control_socket.h"
 
 // #ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH
 // #include <OnDemandServerMediaSubsession.hh>
