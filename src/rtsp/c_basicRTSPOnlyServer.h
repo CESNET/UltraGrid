@@ -72,7 +72,7 @@ struct rtsp_server_parameters {
         int            audio_sample_rate;
         int            audio_channels;
         int            audio_bps;
-        int            rtp_port;  //server rtp port
+        int            rtp_port_video;  //server rtp port
         int            rtp_port_audio;
         codec_t        video_codec;
 };

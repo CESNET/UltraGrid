@@ -73,7 +73,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
         rtsp_params.audio_sample_rate = params.at("audio_sample_rate").i;
         rtsp_params.audio_channels = params.at("audio_channels").i;
         rtsp_params.audio_bps = params.at("audio_bps").i;
-        rtsp_params.rtp_port = params.at("rx_port").i;  //server rtp port
+        rtsp_params.rtp_port_video = params.at("rx_port").i;  //server rtp port
         rtsp_params.rtp_port_audio = params.at("a_rx_port").i;
         rtsp_params.video_codec = H264;
 

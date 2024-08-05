@@ -124,11 +124,11 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 		char* sdpLines = new char[sdpFmtSize];
 
 		snprintf(sdpLines, sdpFmtSize, sdpFmt, mediaType, // m= <media>
-				rtsp_params.rtp_port,//fPortNumForSDP, // m= <port>
+				rtsp_params.rtp_port_video,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
 				ip_ver_list_addr, // c= address
 				estBitrate, // b=AS:<bandwidth>
-				rtsp_params.rtp_port + 1,
+				rtsp_params.rtp_port_video + 1,
 				rtpmapLine, // a=rtpmap:... (if present)
 				trackId()); // a=control:<track-id>
 
@@ -181,9 +181,9 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
 	if (avType == video) {
-		Port rtp(rtsp_params.rtp_port);
+		Port rtp(rtsp_params.rtp_port_video);
 		serverRTPPort = rtp;
-		Port rtcp(rtsp_params.rtp_port + 1);
+		Port rtcp(rtsp_params.rtp_port_video + 1);
 		serverRTCPPort = rtcp;
 
 		delete Vdestination;
@@ -298,7 +298,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 			//CHANGE DST PORT
 			struct msg_sender *msgV1 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			msgV1->tx_port = rtsp_params.rtp_port;
+			msgV1->tx_port = rtsp_params.rtp_port_video;
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
 			struct response *resp;
 			resp = send_message(rtsp_params.parent, pathV, (struct message *) msgV1);
