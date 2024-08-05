@@ -56,6 +56,7 @@
 #define PORT_AUDIO              5006
 
 #include "audio/types.h"
+#include "host.h" // common_opt
 #include "module.h"
 #include "tv.h"
 
@@ -81,12 +82,8 @@ struct audio_options {
 };
 
 int audio_init(struct state_audio **state, struct module *parent,
-                struct audio_options *opt,
-                const char *encryption,
-                int force_ip_version, const char *mcast_iface,
-                long long int bitrate, volatile int *audio_delay,
-                time_ns_t start_time,
-                int mtu, int ttl, struct exporter *exporter);
+               const struct audio_options *opt,
+               const struct common_opts   *common);
 #endif
 
 #ifdef __cplusplus

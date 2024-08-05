@@ -87,6 +87,8 @@ struct ug_input_state  : public frame_recv_delegate {
 
         std::chrono::steady_clock::time_point t0;
         int frames;
+
+        struct common_opts common = { COMMON_OPTS_INIT };
 };
 
 void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
@@ -163,7 +165,6 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "pipe", cfg, 0, NULL, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
-        time_ns_t start_time = get_time_in_ns();
         map<string, param_u> params;
 
         // common
@@ -173,18 +174,13 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         params["rxtx_mode"].i = MODE_RECEIVER;
 
         //RTP
-        params["mtu"].i = 9000; // doesn't matter anyway...
+        params["common"].ptr = &s->common;
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
         params["receiver"].str = "localhost";
         params["rx_port"].i = port;
         params["tx_port"].i = 0;
-        params["force_ip_version"].i = 0;
-        params["mcast_if"].str = NULL;
         params["fec"].str = "none";
-        params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
-        params["start_time"].ll = start_time;
-        params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;
@@ -208,8 +204,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         .echo_cancellation = false,
                         .codec_cfg = "PCM"
                 };
-                if (audio_init(&s->audio, vidcap_params_get_parent(cap_params), &opt, nullptr, 0, nullptr, RATE_UNLIMITED,
-                                nullptr, start_time, 1500, -1, nullptr) != 0) {
+                if (audio_init(&s->audio, vidcap_params_get_parent(cap_params), &opt, &s->common) != 0) {
                         delete s;
                         return VIDCAP_INIT_FAIL;
                 }

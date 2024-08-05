@@ -106,7 +106,7 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
+                uint32_t ts = (curr_time - m_common.start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_device, curr_time);
                 rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 

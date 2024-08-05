@@ -57,6 +57,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_display/pipe.hpp"
+#include "video_rxtx.hpp"                         // for param_u, video_rxtx
 #include "video_rxtx/ultragrid_rtp.hpp"
 
 #include "utils/profile_timer.hpp"
@@ -94,6 +95,8 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         void worker();
 
         struct capture_filter *capture_filter_state;
+
+        struct common_opts common = { COMMON_OPTS_INIT };
 };
 
 void state_transcoder_decompress::frame_arrived(struct video_frame *f, struct audio_frame *a)
@@ -179,6 +182,8 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         s = new state_transcoder_decompress();
 
         s->recompress = recompress;
+        s->common.force_ip_version = force_ip_version;
+        s->common.start_time = get_time_in_ns();
 
         char cfg[128] = "";
         int ret;
@@ -209,17 +214,13 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["rxtx_mode"].i = MODE_RECEIVER;
 
         //RTP
-        params["mtu"].i = 9000; // doesn't matter anyway...
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
         params["receiver"].str = "localhost";
         params["rx_port"].i = 0;
         params["tx_port"].i = 0;
-        params["force_ip_version"].b = force_ip_version;
-        params["mcast_if"].str = NULL;
+        params["common"].ptr = &s->common;
         params["fec"].str = "none";
-        params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
-        params["start_time"].ll = get_time_in_ns();
         params["video_delay"].vptr = 0;
 
         // UltraGrid RTP

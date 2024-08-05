@@ -68,8 +68,8 @@ using std::string;
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
                 m_rxtx_mode(params.at("rxtx_mode").i),
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
-                m_frames_sent(0ull), m_compression(nullptr),
-                m_exporter(static_cast<struct exporter *>(params.at("exporter").ptr)),
+                m_frames_sent(0ull),
+                m_common(*static_cast<struct common_opts const *>(params.at("common").cptr)),
                 m_thread_id(), m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
@@ -190,7 +190,7 @@ void *video_rxtx::sender_loop() {
                         break;
                 }
 
-                export_video(m_exporter, tx_frame.get());
+                export_video(m_common.exporter, tx_frame.get());
 
                 send_frame(std::move(tx_frame));
                 m_frames_sent += 1;

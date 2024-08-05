@@ -85,7 +85,6 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
 {
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
         m_display_device = (struct display *) params.at("display_device").ptr;
-        m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
 
         if (get_commandline_param("decoder-use-codec") != nullptr && "help"s == get_commandline_param("decoder-use-codec")) {
@@ -155,7 +154,7 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
                 time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
+                uint32_t ts = (curr_time - m_common.start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_device, curr_time);
                 rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 
@@ -189,8 +188,10 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 m_recv_port_number = msg->new_rx_port;
                                 m_network_device = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if, m_requested_ttl);
+                                                m_send_port_number, m_participants,
+                                                m_common.force_ip_version,
+                                                m_common.mcast_if,
+                                                m_common.ttl);
                                 if (m_network_device == nullptr) {
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to change RX port to %d\n", msg->new_rx_port);
                                         r = new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
@@ -258,7 +259,7 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 
         if(state) {
                 state->decoder = video_decoder_init(&m_receiver_mod, m_decoder_mode,
-                                d, m_requested_encryption);
+                                d, m_common.encryption);
 
                 if(!state->decoder) {
                         fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
@@ -297,7 +298,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (m_start_time - curr_time) / 100'000 * 9; // at 90000 Hz
+                uint32_t ts = (m_common.start_time - curr_time) / 100'000 * 9; // at 90000 Hz
 
                 rtp_update(m_network_device, curr_time);
                 rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);

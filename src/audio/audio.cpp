@@ -114,7 +114,7 @@ struct audio_network_parameters {
         int send_port = 0;
         struct pdb *participants = 0;
         int force_ip_version = 0;
-        char *mcast_if = nullptr;
+        const char *mcast_if;
         int ttl = -1;
 };
 
@@ -172,7 +172,7 @@ struct state_audio {
         struct exporter *exporter = nullptr;
         int resample_to = 0;
 
-        char *requested_encryption = nullptr;
+        struct common_opts opts;
 
         int audio_tx_mode = 0;
 
@@ -274,12 +274,8 @@ sdp_change_address_callback(void *udata, const char *address)
  * @retval >0 success but no state was created (eg. help printed)
  */
 int audio_init(struct state_audio **ret, struct module *parent,
-                struct audio_options *opt,
-                const char *encryption,
-                int force_ip_version, const char *mcast_iface,
-                long long int bitrate, volatile int *audio_delay,
-                time_ns_t start_time,
-                int mtu, int ttl, struct exporter *exporter)
+               const struct audio_options *opt,
+               const struct common_opts   *common)
 {
         char *tmp, *unused = NULL;
         char *addr;
@@ -300,7 +296,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 return 1;
         }
         
-        struct state_audio *s = new state_audio(parent, start_time);
+        struct state_audio *s = new state_audio(parent, common->start_time);
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
@@ -308,7 +304,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
-        s->exporter = exporter;
+        s->exporter = common->exporter;
 
         if (opt->echo_cancellation) {
 #ifdef HAVE_SPEEXDSP
@@ -336,13 +332,11 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 }
         }
 
-        if(encryption) {
-                s->requested_encryption = strdup(encryption);
-        }
+        s->opts = *common;
         
         assert(opt->host != nullptr);
         tmp = strdup(opt->host);
-        s->audio_participants = pdb_init(audio_delay);
+        s->audio_participants = pdb_init(&audio_offset);
         addr = strtok_r(tmp, ",", &unused);
         assert(addr != nullptr);
 
@@ -350,10 +344,10 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_network_parameters.recv_port = opt->recv_port;
         s->audio_network_parameters.send_port = opt->send_port;
         s->audio_network_parameters.participants = s->audio_participants;
-        s->audio_network_parameters.force_ip_version = force_ip_version;
-        s->audio_network_parameters.mcast_if = mcast_iface
-                ? strdup(mcast_iface) : NULL;
-        s->audio_network_parameters.ttl = ttl;
+        s->audio_network_parameters.force_ip_version = common->force_ip_version;
+        s->audio_network_parameters.mcast_if =
+            strlen(s->opts.mcast_if) > 0 ? s->opts.mcast_if : nullptr;
+        s->audio_network_parameters.ttl = s->opts.ttl;
         free(tmp);
 
         if (strcmp(opt->send_cfg, "none") != 0) {
@@ -371,7 +365,9 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         retval = ret;
                         goto error;
                 }
-                s->tx_session = tx_init(s->audio_sender_module.get(), mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
+                s->tx_session = tx_init(
+                    s->audio_sender_module.get(), common->mtu, TX_MEDIA_AUDIO,
+                    opt->fec_cfg, common->encryption, 0 /* unused */);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
                         goto error;
@@ -554,10 +550,8 @@ void audio_done(struct state_audio *s)
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
-        free(s->requested_encryption);
 
         free(s->audio_network_parameters.addr);
-        free(s->audio_network_parameters.mcast_if);
 
         audio_codec_done(s->audio_encoder);
 
@@ -681,7 +675,11 @@ static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
         auto *dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
         assert(dec_state != NULL);
         dec_state->enabled = true;
-        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
+        dec_state->pbuf_data.decoder =
+            (struct state_audio_decoder *) audio_decoder_init(
+                s->audio_channel_map, s->audio_scale, s->opts.encryption,
+                (audio_playback_ctl_t) audio_playback_ctl,
+                s->audio_playback_device, s->audio_receiver_module.get());
         if (!dec_state->pbuf_data.decoder) {
                 free(dec_state);
                 return NULL;

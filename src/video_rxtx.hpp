@@ -38,11 +38,11 @@
 #ifndef VIDEO_RXTX_H_
 #define VIDEO_RXTX_H_
 
-#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
 
+#include "host.h"
 #include "module.h"
 
 #define VIDEO_RXTX_ABI_VERSION 3
@@ -55,6 +55,10 @@ struct video_frame;
 
 class video_rxtx;
 
+/**
+ * @todo
+ * get rid of this altogether and pass 2 structs (common + video_rxtx opts)
+ */
 union param_u {
         void          *ptr;
         const void    *cptr;
@@ -99,6 +103,8 @@ protected:
         int m_rxtx_mode;
         struct module *m_parent;
         unsigned long long int m_frames_sent;
+        struct common_opts m_common;
+
 private:
         void start();
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept = 0;
@@ -109,9 +115,8 @@ private:
                 return NULL;
         }
 
-        struct compress_state *m_compression;
+        struct compress_state *m_compression = nullptr;
         pthread_mutex_t m_lock;
-        struct exporter *m_exporter;
 
         pthread_t m_thread_id;
         bool m_poisoned, m_joined;

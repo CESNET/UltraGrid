@@ -498,6 +498,7 @@ struct ug_options {
                 audio.recv_port = -1;
                 audio.send_port = -1;
                 audio.codec_cfg = "PCM";
+                common.mtu = 0;
         }
         ~ug_options() {
                 while  (vidcap_params_head != nullptr) {
@@ -506,6 +507,8 @@ struct ug_options {
                         vidcap_params_head = next;
                 }
         }
+        struct common_opts common = { COMMON_OPTS_INIT };
+
         struct audio_options audio;
         std::string audio_filter_cfg;
         // NULL terminated array of capture devices
@@ -515,7 +518,6 @@ struct ug_options {
         const char *display_cfg = "";
         const char *requested_video_fec = "none";
         int port_base = PORT_BASE;
-        int requested_ttl = -1;
         int video_rx_port = -1, video_tx_port = -1;
 
         bool should_export = false;
@@ -527,17 +529,11 @@ struct ug_options {
         enum video_mode decoder_mode = VIDEO_NORMAL;
         const char *requested_compression = nullptr;
 
-        int force_ip_version = 0;
-
-        const char *requested_mcast_if = NULL;
-
-        unsigned requested_mtu = 0;
         const char *postprocess = NULL;
         const char *requested_display = "none";
         const char *requested_receiver = nullptr;
-        const char *requested_encryption = NULL;
 
-        long long int bitrate = RATE_DEFAULT;
+        long long int bitrate = RATE_DEFAULT; // video
         bool is_client = false;
         bool is_server = false;
 
@@ -767,9 +763,13 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         break;
                 case 'm':
-                        opt->requested_mtu = atoi(optarg);
-                        if (opt->requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt->requested_mtu);
+                        opt->common.mtu = atoi(optarg);
+                        if (opt->common.mtu < 576 &&
+                            optarg[strlen(optarg) - 1] != '!') {
+                                log_msg(LOG_LEVEL_WARNING,
+                                        "MTU %1$u seems to be too low, use "
+                                        "\"%1$u!\" to force.\n",
+                                        opt->common.mtu);
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
@@ -852,7 +852,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         break;
                 case '4':
                 case '6':
-                        opt->force_ip_version = ch - '0';
+                        opt->common.force_ip_version = ch - '0';
                         break;
                 case 'U':
                         opt->audio.channel_map = optarg;
@@ -892,7 +892,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case OPT_MCAST_IF:
-                        opt->requested_mcast_if = optarg;
+                        snprintf_ch(opt->common.mcast_if, "%s", optarg);
                         break;
                 case OPT_AUDIO_HOST:
                         opt->audio.host = optarg;
@@ -924,7 +924,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         vidcap_params_set_capture_filter(opt->vidcap_params_tail, optarg);
                         break;
                 case 'e':
-                        opt->requested_encryption = optarg;
+                        snprintf_ch(opt->common.encryption, "%s", optarg);
                         break;
                 case OPT_CONTROL_PORT:
                         if (!parse_control_port(optarg, opt)) {
@@ -972,7 +972,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->is_server = true;
                         break;
                 case 'T':
-                        opt->requested_ttl = stoi(optarg);
+                        opt->common.ttl = stoi(optarg);
                         break;
                 case '?':
                 default:
@@ -1066,7 +1066,7 @@ static int adjust_params(struct ug_options *opt) {
 
         if (!is_ipv6_supported()) {
                 LOG(LOG_LEVEL_WARNING) << "IPv6 support missing, setting IPv4-only mode.\n";
-                opt->force_ip_version = 4;
+                opt->common.force_ip_version = 4;
         }
 
         // default values for different RXTX protocols
@@ -1221,10 +1221,11 @@ static int adjust_params(struct ug_options *opt) {
         if (is_host_loopback(opt->requested_receiver)
                         && (opt->video_rx_port == opt->video_tx_port || opt->video_tx_port == 0)
                         && (opt->audio.recv_port == opt->audio.send_port || opt->audio.send_port == 0)) {
-                opt->requested_mtu = opt->requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt->requested_mtu;
+                opt->common.mtu = opt->common.mtu == 0 ? min(RTP_MAX_MTU, 65535)
+                                                       : opt->common.mtu;
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt->bitrate;
         } else {
-                opt->requested_mtu = opt->requested_mtu == 0 ? 1500 : opt->requested_mtu;
+                opt->common.mtu = opt->common.mtu == 0 ? 1500 : opt->common.mtu;
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_DYNAMIC : opt->bitrate;
         }
 
@@ -1258,7 +1259,6 @@ int main(int argc, char *argv[])
              capture_thread_started = false;
         unsigned display_flags = 0;
         struct control_state *control = NULL;
-        struct exporter *exporter = NULL;
         int ret;
 
         time_ns_t start_time = get_time_in_ns();
@@ -1302,7 +1302,7 @@ int main(int argc, char *argv[])
                 col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
                 col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
                 col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-                col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
+                col() << TBOLD("MTU              : ") << opt.common.mtu << " B\n";
                 col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
                 col() << TBOLD("Audio codec      : ")
                       << get_name_to_audio_codec(ac_params.codec) << "\n";
@@ -1312,13 +1312,14 @@ int main(int argc, char *argv[])
                 col() << "\n";
         }
 
-        exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
-        if (!exporter) {
+        opt.common.exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
+        if (!opt.common.exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
                 EXIT(EXIT_FAILURE);
         }
 
-        if (control_init(opt.control_port, opt.connection_type, &control, &uv.root_module, opt.force_ip_version) != 0) {
+        if (control_init(opt.control_port, opt.connection_type, &control,
+                         &uv.root_module, opt.common.force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
@@ -1332,11 +1333,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        ret = audio_init (&uv.audio, &uv.root_module, &opt.audio,
-                        opt.requested_encryption,
-                        opt.force_ip_version, opt.requested_mcast_if,
-                        opt.bitrate, &audio_offset, start_time,
-                        opt.requested_mtu, opt.requested_ttl, exporter);
+        ret = audio_init(&uv.audio, &uv.root_module, &opt.audio, &opt.common);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
                 goto cleanup;
@@ -1394,7 +1391,6 @@ int main(int argc, char *argv[])
 
                 // common
                 params["parent"].ptr = &uv.root_module;
-                params["exporter"].ptr = exporter;
                 params["compression"].str = opt.requested_compression;
                 params["rxtx_mode"].i = opt.video_rxtx_mode;
 
@@ -1405,19 +1401,13 @@ int main(int argc, char *argv[])
                 params["display_device"].ptr = (opt.video_rxtx_mode & MODE_RECEIVER) != 0U ? uv.display_device : nullptr;
 
                 //RTP
-                params["mtu"].i = opt.requested_mtu;
-                params["ttl"].i = opt.requested_ttl;
+                params["common"].cptr = &opt.common;
                 params["receiver"].str = opt.requested_receiver;
                 params["rx_port"].i = opt.video_rx_port;
                 params["tx_port"].i = opt.video_tx_port;
-                params["force_ip_version"].i = opt.force_ip_version;
-                params["mcast_if"].str = opt.requested_mcast_if;
-                params["mtu"].i = opt.requested_mtu;
                 params["fec"].str = opt.requested_video_fec;
-                params["encryption"].str = opt.requested_encryption;
                 params["bitrate"].ll = opt.bitrate;
                 params["start_time"].ll = start_time;
-                params["video_delay"].vptr = (volatile void *) &video_offset;
 
                 // UltraGrid RTP
                 params["decoder_mode"].l = (long) opt.decoder_mode;
@@ -1546,7 +1536,7 @@ cleanup:
         if (uv.state_video_rxtx)
                 uv.state_video_rxtx->join();
 
-        export_destroy(exporter);
+        export_destroy(opt.common.exporter);
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);

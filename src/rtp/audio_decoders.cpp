@@ -273,7 +273,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
-        if (encryption) {
+        if (strlen(encryption) > 0) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
