@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,8 @@
  * algorightms are currently GCM (default) and CBC.
  */
 
+#include "crypto/openssl_encrypt.h"
+
 #include <assert.h>           // for assert
 #include <stdint.h>           // for uint32_t
 #include <stdlib.h>           // for free, abort, calloc
@@ -71,12 +73,15 @@
 #include <openssl/rand.h>
 #endif
 
+#include "compat/strings.h"   // for strncasecmp
 #include "crypto/crc.h"
 #include "crypto/md5.h"
-#include "crypto/openssl_encrypt.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"  // for color_printf, TBOLD
+#include "utils/macros.h"     // for STR_LEN, snprintf_ch
 
+#define DEFAULT_CIPHER_MODE MODE_AES128_GCM
 #define GCM_TAG_LEN 16
 #define MOD_NAME "[encrypt] "
 
@@ -89,24 +94,24 @@ struct openssl_encrypt {
 
 const struct {
         enum openssl_mode mode;
+        const char *name;
         const EVP_CIPHER *(*get_cipher)(void);
 } ciphers[] = {
 #if defined HAVE_EVP_AES_128_CFB128
-        { MODE_AES128_CFB, EVP_aes_128_cfb128 },
+        { MODE_AES128_CFB, "cfb", EVP_aes_128_cfb128 },
 #endif
 #if defined HAVE_EVP_AES_128_CTR
-        { MODE_AES128_CTR, EVP_aes_128_ctr    },
+        { MODE_AES128_CTR, "ctr", EVP_aes_128_ctr    },
 #endif
 #if defined HAVE_EVP_AES_128_ECB
-        { MODE_AES128_ECB, EVP_aes_128_ecb    },
+        { MODE_AES128_ECB, "ecb", EVP_aes_128_ecb    },
 #endif
-        { MODE_AES128_CBC, EVP_aes_128_cbc    },
+        { MODE_AES128_CBC, "cbc", EVP_aes_128_cbc    },
 
-        { MODE_AES128_GCM, EVP_aes_128_gcm    },
+        { MODE_AES128_GCM, "gcm", EVP_aes_128_gcm    },
 };
 
 const void *get_cipher(enum openssl_mode mode) {
-        assert(mode != MODE_AES128_NONE);
         for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
                 if (ciphers[i].mode == mode) {
                         return ciphers[i].get_cipher();
@@ -115,17 +120,58 @@ const void *get_cipher(enum openssl_mode mode) {
         return NULL;
 }
 
-static int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
-                enum openssl_mode mode)
+static void
+usage(void)
 {
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD("-e <passphrase>[:cipher=<c>]") "\n");
+        color_printf("\nAvailable ciphers:\n");
+        for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
+                color_printf("\t- " TBOLD("%s") "\n", ciphers[i].name);
+        }
+}
+
+static enum openssl_mode
+get_cipher_from_str(char *str)
+{
+        char *tok = strstr(str, ":cipher=");
+        assert(tok != NULL);
+        char *cipher = strchr(tok, '=') + 1;
+        *tok = '\0';
+        for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
+                if (strcasecmp(ciphers[i].name, cipher) == 0) {
+                        return ciphers[i].mode;
+                }
+        }
+        MSG(ERROR, "Unknown/unsuppoted/not compiled cipher %s!\n", cipher);
+        return MODE_AES128_NONE;
+}
+
+static int
+openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase)
+{
+        enum openssl_mode mode = DEFAULT_CIPHER_MODE;
+
         struct openssl_encrypt *s = (struct openssl_encrypt *)
                 calloc(1, sizeof(struct openssl_encrypt));
+
+        if (strcmp(passphrase, "help") == 0) {
+                usage();
+                return 1;
+        }
+
+        char pass[STR_LEN];
+        snprintf_ch(pass, "%s", passphrase);
+
+        if (strstr(passphrase, ":cipher=")) {
+                mode = get_cipher_from_str(pass);
+        }
 
         MD5CTX context;
 
         MD5Init(&context);
-        MD5Update(&context, (const unsigned char *) passphrase,
-                        strlen(passphrase));
+        MD5Update(&context, (const unsigned char *) pass,
+                        strlen(pass));
         MD5Final(s->key_hash, &context);
 
         s->cipher = get_cipher(mode);
@@ -199,11 +245,18 @@ static int openssl_get_overhead(struct openssl_encrypt *s)
                 + (s->mode == MODE_AES128_ECB ? 15 : 0 /* padding */);
 }
 
+static enum openssl_mode
+openssl_get_cipher(struct openssl_encrypt *encryption)
+{
+        return encryption->mode;
+}
+
 static const struct openssl_encrypt_info functions = {
         openssl_encrypt_init,
         openssl_encrypt_destroy,
         openssl_encrypt,
         openssl_get_overhead,
+        openssl_get_cipher,
 };
 
 REGISTER_MODULE(openssl_encrypt, &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);

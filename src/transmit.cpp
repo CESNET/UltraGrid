@@ -104,8 +104,6 @@
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
 
-#define DEFAULT_CIPHER_MODE MODE_AES128_GCM
-
 using std::array;
 using std::vector;
 
@@ -245,7 +243,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         return NULL;
                 }
                 if (tx->enc_funcs->init(&tx->encryption,
-                                        encryption, DEFAULT_CIPHER_MODE) != 0) {
+                                        encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize encryption\n");
                         module_done(&tx->mod);
                         return NULL;
@@ -707,7 +705,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         if (tx->encryption) {
                 hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
-                rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] = htonl(DEFAULT_CIPHER_MODE << 24);
+                rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] =
+                    htonl(tx->enc_funcs->get_cipher(tx->encryption) << 24);
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
@@ -862,7 +861,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 hdrs_len += sizeof(crypto_payload_hdr_t) +
                             tx->enc_funcs->get_overhead(tx->encryption);
                 rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] =
-                    htonl(DEFAULT_CIPHER_MODE << 24);
+                    htonl(tx->enc_funcs->get_cipher(tx->encryption) << 24);
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
