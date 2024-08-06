@@ -47,13 +47,15 @@
  * algorightms are currently GCM (default) and CBC.
  */
 
+#include <assert.h>           // for assert
+#include <stdint.h>           // for uint32_t
+#include <stdlib.h>           // for free, abort, calloc
+#include <string.h>           // for NULL, memcpy, strcmp, strlen
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif
 
-#include <string.h>
 #ifdef HAVE_WOLFSSL
 #define OPENSSL_EXTRA
 #define WC_NO_HARDEN
@@ -85,31 +87,30 @@ struct openssl_encrypt {
         unsigned char key_hash[16];
 };
 
-const void *get_cipher(enum openssl_mode mode) {
-        switch (mode) {
-               case MODE_AES128_NONE:
-                       abort();
-               case MODE_AES128_CFB:
+const struct {
+        enum openssl_mode mode;
+        const EVP_CIPHER *(*get_cipher)(void);
+} ciphers[] = {
 #if defined HAVE_EVP_AES_128_CFB128
-                       return EVP_aes_128_cfb128();
+        { MODE_AES128_CFB, EVP_aes_128_cfb128 },
 #endif
-                       break;
-               case MODE_AES128_CTR:
 #if defined HAVE_EVP_AES_128_CTR
-                       return EVP_aes_128_ctr();
+        { MODE_AES128_CTR, EVP_aes_128_ctr    },
 #endif
-                       break;
-               case MODE_AES128_ECB:
 #if defined HAVE_EVP_AES_128_ECB
-                       return EVP_aes_128_ecb();
+        { MODE_AES128_ECB, EVP_aes_128_ecb    },
 #endif
-                       break;
-               case MODE_AES128_CBC:
-                       return EVP_aes_128_cbc();
-                       break;
-               case MODE_AES128_GCM:
-                       return EVP_aes_128_gcm();
-                       break;
+        { MODE_AES128_CBC, EVP_aes_128_cbc    },
+
+        { MODE_AES128_GCM, EVP_aes_128_gcm    },
+};
+
+const void *get_cipher(enum openssl_mode mode) {
+        assert(mode != MODE_AES128_NONE);
+        for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
+                if (ciphers[i].mode == mode) {
+                        return ciphers[i].get_cipher();
+                }
         }
         return NULL;
 }
