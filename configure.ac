@@ -320,7 +320,7 @@ remove_mwindows() {
 ## @param $2  feature feature found
 ## @param $3  error message
 AC_DEFUN([ENSURE_FEATURE_PRESENT], [
-if test "$1" = yes && test "$2" = no; then
+if { test "$1" != no && test "$1" != auto ;} && test "$2" = no; then
         AC_MSG_ERROR([$3]);
 fi
 ])
@@ -925,7 +925,7 @@ if test "$bluefish444_req" != no; then
         CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 fi
 
-ENSURE_FEATURE_PRESENT([$bluefish44_req], [$bluefish444], [Bluefish444 not found])
+ENSURE_FEATURE_PRESENT([$bluefish444_req], [$bluefish444], [Bluefish444 not found])
 
 # -------------------------------------------------------------------------------------------------
 # AJA stuff
