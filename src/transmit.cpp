@@ -755,6 +755,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 ? sizeof(fec_payload_hdr_t)
                                 : sizeof(video_payload_hdr_t),
                             encrypted_data);
+                        if (data_len <= 0) {
+                                return;
+                        }
                         data = encrypted_data;
                 }
 
@@ -888,6 +891,9 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                             (char *) rtp_hdr,
                             rtp_hdr_len - sizeof(crypto_payload_hdr_t),
                             encrypted_data);
+                        if (data_len <= 0) {
+                                return;
+                        }
                         data = encrypted_data;
                 }
 
