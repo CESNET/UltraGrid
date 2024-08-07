@@ -181,6 +181,8 @@ struct state_audio {
         bool muted_sender = false;
 
         size_t recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
+
+        struct video_rxtx *vrxtx = nullptr;
 };
 
 /** 
@@ -1177,8 +1179,8 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
 }
 
 void
-audio_register_display_callbacks(struct state_audio            *s,
-                                 struct audio_display_callbacks callbacks)
+audio_register_aux_data(struct state_audio          *s,
+                        struct additional_audio_data data)
 {
         struct state_sdi_playback *sdi_playback;
         if(!audio_playback_get_display_flags(s->audio_playback_device))
@@ -1186,10 +1188,11 @@ audio_register_display_callbacks(struct state_audio            *s,
         
         sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_display_callbacks(
-            sdi_playback, callbacks.udata,
-            (void (*)(void *, const struct audio_frame *)) callbacks.putf,
-            (bool (*)(void *, int, int, int)) callbacks.reconfigure,
-            (bool (*)(void *, int, void *, size_t *)) callbacks.get_property);
+            sdi_playback, data.display_callbacks.udata,
+            (void (*)(void *, const struct audio_frame *)) data.display_callbacks.putf,
+            (bool (*)(void *, int, int, int)) data.display_callbacks.reconfigure,
+            (bool (*)(void *, int, void *, size_t *)) data.display_callbacks.get_property);
+        s->vrxtx = data.vrxtx;
 }
 
 unsigned int audio_get_display_flags(struct state_audio *s)

@@ -56,7 +56,7 @@ struct rtp;
 struct fec;
 
 class rtp_video_rxtx : public video_rxtx {
-        friend class video_rxtx;
+        friend struct video_rxtx;
 public:
         rtp_video_rxtx(std::map<std::string, param_u> const &params);
         virtual ~rtp_video_rxtx();

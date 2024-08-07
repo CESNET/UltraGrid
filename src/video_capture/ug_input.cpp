@@ -209,11 +209,14 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         return VIDCAP_INIT_FAIL;
                 }
 
-                struct audio_display_callbacks callbacks = {
-                        s->display, display_put_audio_frame,
-                        display_reconfigure_audio, display_ctl_property
+                struct additional_audio_data aux_aud_data = {
+                        { s->display, display_put_audio_frame,
+                         display_reconfigure_audio, display_ctl_property
+
+                        },
+                        s->video_rxtx.get()
                 };
-                audio_register_display_callbacks(s->audio, callbacks);
+                audio_register_aux_data(s->audio, aux_aud_data);
 
                 audio_start(s->audio);
         }

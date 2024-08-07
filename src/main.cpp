@@ -1480,11 +1480,12 @@ int main(int argc, char *argv[])
                 }
 
                 if(audio_get_display_flags(uv.audio)) {
-                        struct audio_display_callbacks callbacks = {
-                                uv.display_device, display_put_audio_frame,
-                                display_reconfigure_audio, display_ctl_property
+                        struct additional_audio_data aux = {
+                                { uv.display_device, display_put_audio_frame,
+                                 display_reconfigure_audio, display_ctl_property },
+                                uv.state_video_rxtx,
                         };
-                        audio_register_display_callbacks(uv.audio, callbacks);
+                        audio_register_aux_data(uv.audio, aux);
                 }
 
                 if (opt.requested_capabilities != nullptr) {

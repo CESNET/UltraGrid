@@ -99,14 +99,18 @@ struct audio_frame * sdi_get_frame(void *state);
 void sdi_put_frame(void *state, struct audio_frame *frame);
 
 struct display;
-struct audio_display_callbacks {
-        void *udata;
-        void (*putf)(struct display *, const struct audio_frame *);
-        bool (*reconfigure)(struct display *, int, int, int);
-        bool (*get_property)(struct display *, int, void *, size_t *);
+struct video_rxtx;
+struct additional_audio_data {
+        struct {
+                void *udata;
+                void (*putf)(struct display *, const struct audio_frame *);
+                bool (*reconfigure)(struct display *, int, int, int);
+                bool (*get_property)(struct display *, int, void *, size_t *);
+        } display_callbacks;
+        struct video_rxtx *vrxtx;
 };
-void audio_register_display_callbacks(struct state_audio            *s,
-                                      struct audio_display_callbacks callbacks);
+void audio_register_aux_data(struct state_audio          *s,
+                             struct additional_audio_data data);
 
 struct audio_frame * audio_get_frame(struct state_audio *s);
 

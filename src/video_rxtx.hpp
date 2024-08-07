@@ -53,8 +53,6 @@ struct video_compress;
 struct exporter;
 struct video_frame;
 
-class video_rxtx;
-
 /**
  * @todo
  * get rid of this altogether and pass 2 structs (common + video_rxtx opts)
@@ -72,10 +70,10 @@ union param_u {
 
 struct video_rxtx_info {
         const char *long_name;
-        class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
+        struct video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
-class video_rxtx {
+struct video_rxtx {
 public:
         virtual ~video_rxtx();
         void send(std::shared_ptr<struct video_frame>);
