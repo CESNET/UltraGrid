@@ -1182,16 +1182,19 @@ void
 audio_register_aux_data(struct state_audio          *s,
                         struct additional_audio_data data)
 {
-        struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_get_display_flags(s->audio_playback_device))
-                return;
-        
-        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
-        sdi_register_display_callbacks(
-            sdi_playback, data.display_callbacks.udata,
-            (void (*)(void *, const struct audio_frame *)) data.display_callbacks.putf,
-            (bool (*)(void *, int, int, int)) data.display_callbacks.reconfigure,
-            (bool (*)(void *, int, void *, size_t *)) data.display_callbacks.get_property);
+        if (audio_playback_get_display_flags(s->audio_playback_device) != 0U) {
+                auto *sdi_playback = (struct state_sdi_playback *)
+                    audio_playback_get_state_pointer(s->audio_playback_device);
+                sdi_register_display_callbacks(
+                    sdi_playback, data.display_callbacks.udata,
+                    (void (*)(void *, const struct audio_frame *))
+                        data.display_callbacks.putf,
+                    (bool (*)(void *, int, int,
+                              int)) data.display_callbacks.reconfigure,
+                    (bool (*)(void *, int, void *,
+                              size_t *)) data.display_callbacks.get_property);
+        }
+
         s->vrxtx = data.vrxtx;
 }
 
