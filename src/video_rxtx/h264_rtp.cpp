@@ -77,7 +77,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
         rtsp_params.rtp_port_audio = params.at("a_rx_port").i;
         rtsp_params.video_codec = H264;
 
-        if ((rtsp_params.avType & video) == 0U) {
+        if ((rtsp_params.avType & rtsp_type_video) == 0U) {
                 m_rtsp_server = c_start_server(rtsp_params);
         }
 }

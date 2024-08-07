@@ -1423,15 +1423,15 @@ int main(int argc, char *argv[])
                 params["a_rx_port"].i = opt.audio.recv_port;
 
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
-                        rtsp_types_t avType = none;
+                        rtsp_types_t avType = rtsp_type_none;
                         if ((strcmp("none", opt.audio.send_cfg) != 0)) {
-                                avType = (rtsp_types_t) (avType | audio); // AStream
+                                avType = (rtsp_types_t) (avType | rtsp_type_audio); // AStream
                         }
                         if (strcmp("none", vidcap_params_get_driver(
                                                opt.vidcap_params_head)) != 0) {
-                                avType = (rtsp_types_t) (avType | video); // VStream
+                                avType = (rtsp_types_t) (avType | rtsp_type_video); // VStream
                         }
-                        if (avType == none) {
+                        if (avType == rtsp_type_none) {
                                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
                         }
 

@@ -83,7 +83,7 @@ BasicRTSPOnlyServer::init_server()
 {
     assert(env == nullptr && rtspServer == nullptr);
     assert(params.parent != nullptr);
-    assert(params.avType > none && params.avType <= rtsp_av_type_both);
+    assert(params.avType > rtsp_type_none && params.avType <= rtsp_av_type_both);
 
     //setting livenessTimeoutTask
     unsigned reclamationTestSeconds = 60;
@@ -116,13 +116,13 @@ BasicRTSPOnlyServer::init_server()
                    "UltraGrid RTSP server enabling standard transport",
                    "UltraGrid RTSP server");
 
-    if ((params.avType & audio) != 0) {
+    if ((params.avType & rtsp_type_audio) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, audio, params.rtp_port_audio, params));
+            *env, True, rtsp_type_audio, params.rtp_port_audio, params));
     }
-    if ((params.avType & video) != 0) {
+    if ((params.avType & rtsp_type_video) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, video, params.rtp_port_video, params));
+            *env, True, rtsp_type_video, params.rtp_port_video, params));
     }
 
                rtspServer->addServerMediaSession(sms);

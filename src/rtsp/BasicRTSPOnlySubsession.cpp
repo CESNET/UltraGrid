@@ -74,7 +74,7 @@ BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 		ServerMediaSubsession(env), fReuseFirstSource(reuseFirstSource),
 		fLastStreamToken(nullptr), rtsp_params(params)
 {
-	assert(avType == audio || avType == video);
+	assert(avType == rtsp_type_audio || avType == rtsp_type_video);
 	Vdestination = NULL;
 	Adestination = NULL;
 	gethostname(fCNAME, sizeof fCNAME);
@@ -102,8 +102,8 @@ const static struct media_spec {
         { 384,  "audio" },
         { 5000, "video" },
 };
-static_assert(audio == 1); // ensure the above mapping is correct
-static_assert(video == 2);
+static_assert(rtsp_type_audio == 1); // ensure the above mapping is correct
+static_assert(rtsp_type_video == 2);
 
 char const* BasicRTSPOnlySubsession::sdpLines(int addressFamily) {
 	if (fSDPLines == NULL) {
@@ -133,14 +133,14 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
 
         const struct media_spec *mspec = &media_params[avType];
         char rtpmapLine[STR_LEN];
-        int rtpPayloadType = avType == audio
+        int rtpPayloadType = avType == rtsp_type_audio
                   ? get_audio_rtp_pt_rtpmap(
                       rtsp_params.audio_codec, rtsp_params.audio_sample_rate,
                       rtsp_params.audio_channels, rtpmapLine)
                   : get_video_rtp_pt_rtpmap(rtsp_params.video_codec, rtpmapLine);
         if (rtpPayloadType < 0) {
                 MSG(ERROR, "Unsupported %s codec %s!\n", mspec[avType].mname,
-                    avType == audio
+                    avType == rtsp_type_audio
                         ? get_name_to_audio_codec(rtsp_params.audio_codec)
                         : get_codec_name(rtsp_params.video_codec));
         }
@@ -181,7 +181,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		struct sockaddr_storage& /*destinationAddress*/, uint8_t& /*destinationTTL*/,
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
-	if (avType == video) {
+	if (avType == rtsp_type_video) {
 		Port rtp(rtsp_params.rtp_port_video);
 		serverRTPPort = rtp;
 		Port rtcp(rtsp_params.rtp_port_video + 1);
@@ -191,7 +191,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Vdestination = new Destinations(clientAddress, clientRTPPort,
 				clientRTCPPort);
 	}
-	if (avType == audio) {
+	if (avType == rtsp_type_audio) {
 		Port rtp(rtsp_params.rtp_port_audio);
 		serverRTPPort = rtp;
 		Port rtcp(rtsp_params.rtp_port_audio + 1);
@@ -212,7 +212,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 	struct response *resp = NULL;
 
 	if (Vdestination != NULL) {
-		if (avType == video) {
+		if (avType == rtsp_type_video) {
 			char pathV[1024];
 
 			memset(pathV, 0, sizeof(pathV));
@@ -247,7 +247,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 	}
 
 	if (Adestination != NULL) {
-		if (avType == audio) {
+		if (avType == rtsp_type_audio) {
 			char pathA[1024];
 
 			memset(pathA, 0, sizeof(pathA));
@@ -287,7 +287,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 		void*& /* streamToken */) {
 	if (Vdestination != NULL) {
-		if (avType == video) {
+		if (avType == rtsp_type_video) {
 			char pathV[1024];
 			delete Vdestination;
 			Vdestination = NULL;
@@ -316,7 +316,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 	}
 
 	if (Adestination != NULL) {
-		if (avType == audio) {
+		if (avType == rtsp_type_audio) {
 			char pathA[1024];
 			delete Adestination;
 			Adestination = NULL;
