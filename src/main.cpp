@@ -1423,7 +1423,6 @@ int main(int argc, char *argv[])
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = opt.audio.recv_port;
-                params["a_tx_port"].i = opt.audio.send_port;
 
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
                         rtsp_types_t avType = none;
