@@ -209,11 +209,11 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         return VIDCAP_INIT_FAIL;
                 }
 
-                audio_register_display_callbacks(s->audio,
-                                s->display,
-                                (void (*)(void *, const struct audio_frame *)) display_put_audio_frame,
-                                (bool (*)(void *, int, int, int)) display_reconfigure_audio,
-                                (bool (*)(void *, int, void *, size_t *)) display_ctl_property);
+                struct audio_display_callbacks callbacks = {
+                        s->display, display_put_audio_frame,
+                        display_reconfigure_audio, display_ctl_property
+                };
+                audio_register_display_callbacks(s->audio, callbacks);
 
                 audio_start(s->audio);
         }
