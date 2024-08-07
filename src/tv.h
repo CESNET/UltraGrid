@@ -45,6 +45,10 @@
 #ifndef TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 #define TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef __cplusplus
 #include <cstdint>
 #include <ctime>
