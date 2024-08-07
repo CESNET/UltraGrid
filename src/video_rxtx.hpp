@@ -94,7 +94,6 @@ public:
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         static void list(bool full);
         std::string m_port_id;
-        bool m_should_exit = false;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
         void check_sender_messages();
@@ -104,6 +103,7 @@ protected:
         struct module *m_parent;
         unsigned long long int m_frames_sent;
         struct common_opts m_common;
+        bool m_should_exit = false;
 
 private:
         void start();
@@ -114,6 +114,7 @@ private:
         virtual struct response *process_sender_message(struct msg_sender *) {
                 return NULL;
         }
+        static void should_exit(void *state);
 
         struct compress_state *m_compression = nullptr;
         pthread_mutex_t m_lock;

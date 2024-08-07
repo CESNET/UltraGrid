@@ -106,7 +106,7 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default")
         }
 }
 
-static void should_exit_video_rxtx(void *state) {
+void video_rxtx::should_exit(void *state) {
         video_rxtx *s = (video_rxtx *) state;
         s->m_should_exit = true;
 }
@@ -123,7 +123,7 @@ video_rxtx::~video_rxtx() {
 }
 
 void video_rxtx::start() {
-        register_should_exit_callback(m_parent, should_exit_video_rxtx, this);
+        register_should_exit_callback(m_parent, video_rxtx::should_exit, this);
         if (pthread_create
                         (&m_thread_id, NULL, video_rxtx::sender_thread,
                          (void *) this) != 0) {
@@ -138,7 +138,7 @@ void video_rxtx::join() {
         }
         send(NULL); // pass poisoned pill
         pthread_join(m_thread_id, NULL);
-        unregister_should_exit_callback(m_parent, should_exit_video_rxtx, this);
+        unregister_should_exit_callback(m_parent, video_rxtx::should_exit, this);
         m_joined = true;
 }
 
