@@ -1414,14 +1414,6 @@ int main(int argc, char *argv[])
                 // SAGE + RTSP
                 params["opts"].str = opt.video_protocol_opts;
 
-                // RTSP
-                params["audio_codec"].l = ac_params.codec;
-                params["audio_sample_rate"].i =
-                    IF_NOT_NULL_ELSE(ac_params.sample_rate, kHz48);
-                params["audio_channels"].i = audio_capture_channels;
-                params["audio_bps"].i = 2;
-                params["a_rx_port"].i = opt.audio.recv_port;
-
                 if (strcmp(opt.video_protocol, "rtsp") == 0) {
                         rtsp_types_t avType = rtsp_type_none;
                         if ((strcmp("none", opt.audio.send_cfg) != 0)) {

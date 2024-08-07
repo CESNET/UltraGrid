@@ -89,6 +89,7 @@
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/worker.h"
+#include "video_rxtx.hpp"               // for video_rxtx
 
 using std::array;
 using std::fixed;
@@ -1066,10 +1067,31 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
         return rate_hi > 0 ? rate_hi : rate_lo;
 }
 
+static void
+set_audio_spec_to_vrxtx(struct video_rxtx *vrxtx, audio_frame2 *compressed_frm,
+                        struct rtp *netdev, bool *audio_spec_to_vrxtx_set)
+{
+        if (*audio_spec_to_vrxtx_set) {
+                return;
+        }
+
+        *audio_spec_to_vrxtx_set = true;
+
+        const struct audio_desc desc    = compressed_frm->get_desc();
+        const int               rx_port = rtp_get_udp_rx_port(netdev);
+
+        MSG(VERBOSE, "Setting audio desc %s, rx port=%d to RXTX.\n",
+            audio_desc_to_cstring(desc), rx_port);
+
+        assert(vrxtx != nullptr);
+        vrxtx->set_audio_spec(&desc, rx_port);
+}
+
 static void *audio_sender_thread(void *arg)
 {
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
+        bool audio_spec_to_vrxtx_set = false;
         struct audio_frame *buffer = NULL;
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
@@ -1155,6 +1177,10 @@ static void *audio_sender_thread(void *arg)
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_standard(s->tx_session, s->audio_network_device, &compressed);
                                     uncompressed = NULL;
+                                    set_audio_spec_to_vrxtx(
+                                        s->vrxtx, &compressed,
+                                        s->audio_network_device,
+                                        &audio_spec_to_vrxtx_set);
                             }
                         }
 #ifdef HAVE_JACK_TRANS

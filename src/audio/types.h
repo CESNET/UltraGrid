@@ -161,6 +161,7 @@ public:
         void reset();
         void set_timestamp(int64_t ts);
         [[nodiscard]] int get_bps() const;
+        [[nodiscard]] struct audio_desc get_desc() const;
         [[nodiscard]] audio_codec_t get_codec() const;
         [[nodiscard]] char *get_data(int channel);
         [[nodiscard]] const char *get_data(int channel) const;

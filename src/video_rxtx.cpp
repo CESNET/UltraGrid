@@ -61,6 +61,8 @@
 #include "video_display.h"
 #include "video_rxtx.hpp"
 
+#define MOD_NAME "[vrxtx] "
+
 using std::map;
 using std::shared_ptr;
 using std::string;
@@ -220,3 +222,9 @@ void video_rxtx::list(bool full)
         list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, full);
 }
 
+void
+video_rxtx::set_audio_spec(const struct audio_desc * /* desc */,
+                           int /* audio_rx_port */)
+{
+        MSG(INFO, "video RXTX not h264_rtp, not setting audio...\n");
+}

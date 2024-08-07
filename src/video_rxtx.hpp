@@ -47,6 +47,7 @@
 
 #define VIDEO_RXTX_ABI_VERSION 3
 
+struct audio_desc;
 struct display;
 struct module;
 struct video_compress;
@@ -91,6 +92,7 @@ public:
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         static void list(bool full);
+        virtual void set_audio_spec(const struct audio_desc *desc, int audio_rx_port);
         std::string m_port_id;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);

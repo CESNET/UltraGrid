@@ -135,13 +135,13 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
         char rtpmapLine[STR_LEN];
         int rtpPayloadType = avType == rtsp_type_audio
                   ? get_audio_rtp_pt_rtpmap(
-                      rtsp_params.audio_codec, rtsp_params.audio_sample_rate,
-                      rtsp_params.audio_channels, rtpmapLine)
+                      rtsp_params.adesc.codec, rtsp_params.adesc.sample_rate,
+                      rtsp_params.adesc.ch_count, rtpmapLine)
                   : get_video_rtp_pt_rtpmap(rtsp_params.video_codec, rtpmapLine);
         if (rtpPayloadType < 0) {
                 MSG(ERROR, "Unsupported %s codec %s!\n", mspec[avType].mname,
                     avType == rtsp_type_audio
-                        ? get_name_to_audio_codec(rtsp_params.audio_codec)
+                        ? get_name_to_audio_codec(rtsp_params.adesc.codec)
                         : get_codec_name(rtsp_params.video_codec));
         }
         //char const* auxSDPLine = "";

@@ -40,6 +40,8 @@
  */
 
 #include <cctype>
+#include <cstdint>            // for uint32_t
+#include <cstdio>             // for printf
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -49,12 +51,13 @@
 #include "host.h"
 #include "lib_common.h"
 #include "rtp/rtp.h"
-#include "rtp/rtpenc_h264.h"
+#include "rtsp/rtsp_utils.h"  // for rtsp_types_t
 #include "transmit.h"
 #include "tv.h"
+#include "types.h"            // for video_frame, H264, JPEG, MJPG
 #include "utils/color_out.h"
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
-#include "video.h"
+#include "video_codec.h"      // for get_codec_name
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
 
@@ -69,37 +72,50 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
         rtsp_params.rtsp_port = (unsigned) rtsp_port;
         rtsp_params.parent = static_cast<struct module *>(params.at("parent").ptr);
         rtsp_params.avType = static_cast<rtsp_types_t>(params.at("avType").l);
-        rtsp_params.audio_codec = static_cast<audio_codec_t>(params.at("audio_codec").l);
-        rtsp_params.audio_sample_rate = params.at("audio_sample_rate").i;
-        rtsp_params.audio_channels = params.at("audio_channels").i;
-        rtsp_params.audio_bps = params.at("audio_bps").i;
         rtsp_params.rtp_port_video = params.at("rx_port").i;  //server rtp port
-        rtsp_params.rtp_port_audio = params.at("a_rx_port").i;
-        rtsp_params.video_codec = H264;
+}
 
-        if ((rtsp_params.avType & rtsp_type_video) == 0U) {
-                m_rtsp_server = c_start_server(rtsp_params);
+/**
+ * this function is used to configure ther RTSP server either
+ * for video-only or using both audio and video. For audio-only
+ * RTSP server, the server is run directly from
+ * h264_rtp_video_rxtx::set_audio_spec().
+ */
+void
+h264_rtp_video_rxtx::configure_rtsp_server_video()
+{
+        assert((rtsp_params.avType & rtsp_type_video) != 0);
+        if (rtsp_params.video_codec == H264) {
+                tx_send_std = tx_send_h264;
+        } else if (rtsp_params.video_codec == JPEG ||
+                   rtsp_params.video_codec == MJPG) {
+                tx_send_std = tx_send_jpeg;
+        } else {
+                MSG(ERROR,
+                    "codecs other than H.264 and JPEG currently not "
+                    "supported, got %s\n",
+                    get_codec_name(rtsp_params.video_codec));
+                return;
         }
+
+        if ((rtsp_params.avType & rtsp_type_audio) != 0) {
+                if (!audio_params_set) {
+                        MSG(INFO, "Waiting for audio specs...\n");
+                        return;
+                }
+        }
+        m_rtsp_server = c_start_server(rtsp_params);
 }
 
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         if (m_rtsp_server == nullptr) {
-                if (tx_frame->color_spec == H264) {
-                        tx_send_std = tx_send_h264;
-                } else if (tx_frame->color_spec == JPEG ||
-                           tx_frame->color_spec == MJPG) {
-                        tx_send_std = tx_send_jpeg;
-                } else {
-                        MSG(ERROR,
-                            "codecs other than H.264 and JPEG currently not "
-                            "supported, got %s\n",
-                            get_codec_name(tx_frame->color_spec));
-                        return;
-                }
                 rtsp_params.video_codec = tx_frame->color_spec;
-                m_rtsp_server = c_start_server(rtsp_params);
+                configure_rtsp_server_video();
+        }
+        if (m_rtsp_server == nullptr) {
+                return;
         }
 
         tx_send_std(m_tx, tx_frame.get(), m_network_device);
@@ -127,6 +143,19 @@ void h264_rtp_video_rxtx::join()
 {
         c_stop_server(m_rtsp_server);
         video_rxtx::join();
+}
+
+void
+h264_rtp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
+                                    int                      audio_rx_port)
+{
+        rtsp_params.adesc = *desc;
+        rtsp_params.rtp_port_audio = audio_rx_port;
+        audio_params_set = true;
+
+        if ((rtsp_params.avType & rtsp_type_video) == 0U) {
+                m_rtsp_server = c_start_server(rtsp_params);
+        }
 }
 
 static void rtps_server_usage(){
