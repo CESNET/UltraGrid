@@ -1395,8 +1395,6 @@ int main(int argc, char *argv[])
                 params["rxtx_mode"].i = opt.video_rxtx_mode;
 
                 // iHDTV
-                params["argc"].i = argc;
-                params["argv"].ptr = argv;
                 params["capture_device"].ptr = (opt.video_rxtx_mode & MODE_SENDER) != 0U ? uv.capture_device : nullptr;
                 params["display_device"].ptr = (opt.video_rxtx_mode & MODE_RECEIVER) != 0U ? uv.display_device : nullptr;
 
