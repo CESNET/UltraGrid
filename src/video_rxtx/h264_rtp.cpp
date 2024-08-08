@@ -210,7 +210,7 @@ static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> con
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
-        "H264 standard",
+        "RTP standard (using RTSP)",
         create_video_rxtx_h264_std
 };
 
