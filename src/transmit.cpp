@@ -77,6 +77,7 @@
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
+#include "types.h"
 #include "utils/jpeg_reader.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
@@ -946,12 +947,19 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
 
+        enum {
+                PCMA_U_BPS = 1, // data BPS - get_bps() is 2 to expand to 16-bit
+                                // format on the receiver. The semantic of 2 is
+                                // the same as for other codecs like Opus to
+                                // asses the decmopressed sample size.
+        };
 	// Configure the right Payload type,
-	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
+	// 8000 Hz, 1 channel PCMU/A is the ITU-T G.711 standard
 	// Other channels or Hz goes to DynRTP-Type97
 	int pt = PT_DynRTP_Type97;
-	if (buffer->get_channel_count() == 1 && buffer->get_sample_rate() == 8000) {
-		if (buffer->get_codec() == AC_MULAW)
+        if (buffer->get_channel_count() == 1 &&
+            buffer->get_sample_rate() == kHz8) {
+                if (buffer->get_codec() == AC_MULAW)
 			pt = PT_ITU_T_G711_PCMU;
 		else if (buffer->get_codec() == AC_ALAW)
 			pt = PT_ITU_T_G711_PCMA;
@@ -965,8 +973,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
         if (pt == PT_ITU_T_G711_PCMU ||
             pt == PT_ITU_T_G711_PCMA) { // we may split the data into more
                                         // packets, compute chunk size
-                int frame_size =
-                    buffer->get_channel_count() * buffer->get_bps();
+                const int frame_size = buffer->get_channel_count() * PCMA_U_BPS;
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
                 // The sizes for the different channels must be the same.
                 for (int i = 1; i < buffer->get_channel_count(); i++) {
@@ -996,7 +1003,13 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                         memcpy(tx->tmp_packet + 4, buffer->get_data(0), pkt_len);
                 } else { // interleave
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
-                                remux_channel(tx->tmp_packet, buffer->get_data(ch) + pos / buffer->get_channel_count(), buffer->get_bps(), pkt_len / buffer->get_channel_count(), 1, buffer->get_channel_count(), 0, ch);
+                                remux_channel(
+                                    tx->tmp_packet,
+                                    buffer->get_data(ch) +
+                                        pos / buffer->get_channel_count(),
+                                    PCMA_U_BPS,
+                                    pkt_len / buffer->get_channel_count(), 1,
+                                    buffer->get_channel_count(), 0, ch);
                         }
                 }
 
