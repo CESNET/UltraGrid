@@ -162,7 +162,9 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 }
 
-h264_sdp_video_rxtx::~h264_sdp_video_rxtx()
+void
+h264_sdp_video_rxtx::set_audio_spec(const struct audio_desc * /* desc */,
+                                    int /* audio_rx_port */)
 {
 }
 

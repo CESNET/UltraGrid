@@ -51,13 +51,14 @@
 class h264_sdp_video_rxtx : public rtp_video_rxtx {
 public:
         h264_sdp_video_rxtx(std::map<std::string, param_u> const &);
-        virtual ~h264_sdp_video_rxtx();
+        ~h264_sdp_video_rxtx() override = default;
 private:
         static void change_address_callback(void *udata, const char *address);
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
-                return NULL;
+                return nullptr;
         }
+        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port) override;
         void sdp_add_video(codec_t codec);
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;
