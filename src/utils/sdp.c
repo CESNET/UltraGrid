@@ -508,14 +508,17 @@ static void print_http_path(struct sdp *sdp) {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
     if (get_local_addresses(addrs, &len, sdp->ip_version)) {
-        bool found_public_ip = false;
+        bool found_preferred_addr = false;
+#define PREFERRED_ADDR(addr) \
+    (!is_addr_loopback((struct sockaddr *) (addr)) && \
+     !is_addr_linklocal((struct sockaddr *) (addr)))
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
-            if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
-                found_public_ip = true;
+            if (PREFERRED_ADDR(&addrs[i])) {
+                found_preferred_addr = true;
             }
         }
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
-            if (!found_public_ip || (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i]))) {
+            if (!found_preferred_addr || PREFERRED_ADDR(&addrs[i])) {
                 char hostname[256];
                 bool ipv6 = addrs[i].ss_family == AF_INET6;
                 size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
