@@ -966,13 +966,14 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
         } else if (buffer->get_codec() == AC_MP3) {
                 pt = PT_MPA;
         }
+        const bool is_pcma_u =
+            buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW;
 
 	int data_len = buffer->get_data_len(0); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
-        if (pt == PT_ITU_T_G711_PCMU ||
-            pt == PT_ITU_T_G711_PCMA) { // we may split the data into more
-                                        // packets, compute chunk size
+        if (is_pcma_u) { // we may split the data into more packets, compute
+                         //  chunk size
                 const int frame_size = buffer->get_channel_count() * PCMA_U_BPS;
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
                 // The sizes for the different channels must be the same.
