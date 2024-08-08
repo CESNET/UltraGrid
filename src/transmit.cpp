@@ -953,21 +953,20 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                                 // the same as for other codecs like Opus to
                                 // asses the decmopressed sample size.
         };
+        const bool is_pcma_u =
+            buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW;
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel PCMU/A is the ITU-T G.711 standard
 	// Other channels or Hz goes to DynRTP-Type97
 	int pt = PT_DynRTP_Type97;
-        if (buffer->get_channel_count() == 1 &&
+        if (is_pcma_u && buffer->get_channel_count() == 1 &&
             buffer->get_sample_rate() == kHz8) {
-                if (buffer->get_codec() == AC_MULAW)
-			pt = PT_ITU_T_G711_PCMU;
-		else if (buffer->get_codec() == AC_ALAW)
-			pt = PT_ITU_T_G711_PCMA;
-        } else if (buffer->get_codec() == AC_MP3) {
+                pt = buffer->get_codec() == AC_MULAW ? PT_ITU_T_G711_PCMU
+                                                     : PT_ITU_T_G711_PCMA;
+        }
+        if (buffer->get_codec() == AC_MP3) {
                 pt = PT_MPA;
         }
-        const bool is_pcma_u =
-            buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW;
 
 	int data_len = buffer->get_data_len(0); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
