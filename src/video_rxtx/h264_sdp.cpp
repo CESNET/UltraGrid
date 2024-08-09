@@ -85,7 +85,7 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 
         constexpr enum module_class path_sender[] = { MODULE_CLASS_SENDER,
                                                       MODULE_CLASS_NONE };
-        sdp_send_change_address_message(get_root_module(s->m_parent),
+        sdp_send_change_address_message(get_root_module(s->m_common.parent),
                                         path_sender, address);
 }
 
@@ -121,7 +121,8 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 		strncpy(msg->config_string, DEFAULT_SDP_COMPRESSION, sizeof(msg->config_string) - 1);
 
 		const char *path = "sender.compress";
-		auto resp = send_message(get_root_module(m_parent), path, (struct message *) msg);
+                auto *resp = send_message(get_root_module(m_common.parent), path,
+                                         (struct message *) msg);
 		free_response(resp);
 		m_sent_compress_change = true;
 		return;

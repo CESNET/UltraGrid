@@ -100,7 +100,6 @@ protected:
         struct module m_sender_mod;
         struct module m_receiver_mod;
         int m_rxtx_mode;
-        struct module *m_parent;
         unsigned long long int m_frames_sent;
         struct common_opts m_common;
         bool m_should_exit = false;

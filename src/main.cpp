@@ -1312,6 +1312,8 @@ int main(int argc, char *argv[])
                 col() << "\n";
         }
 
+        opt.common.parent = &uv.root_module;
+
         opt.common.exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
         if (!opt.common.exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
@@ -1333,7 +1335,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        ret = audio_init(&uv.audio, &uv.root_module, &opt.audio, &opt.common);
+        ret = audio_init(&uv.audio, &opt.audio, &opt.common);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
                 goto cleanup;
@@ -1390,7 +1392,6 @@ int main(int argc, char *argv[])
                 map<string, param_u> params;
 
                 // common
-                params["parent"].ptr = &uv.root_module;
                 params["compression"].str = opt.requested_compression;
                 params["rxtx_mode"].i = opt.video_rxtx_mode;
 

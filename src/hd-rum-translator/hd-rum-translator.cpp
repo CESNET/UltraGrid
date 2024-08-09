@@ -342,10 +342,12 @@ static int create_output_port(struct hd_rum_translator_state *s,
         }
         s->replicas.push_back(rep);
 
+        struct common_opts com_opts = *common;
+        com_opts.parent = &rep->mod;
         rep->type = compression ? replica::type_t::RECOMPRESS : replica::type_t::USE_SOCK;
-        int idx = recompress_add_port(s->recompress, &rep->mod,
+        int idx = recompress_add_port(s->recompress,
                 addr, compression ? compression : "none",
-                0, tx_port, common, fec, bitrate);
+                0, tx_port, &com_opts, fec, bitrate);
         if (idx < 0) {
             fprintf(stderr, "Initializing output port '%s' compression failed!\n", addr);
 

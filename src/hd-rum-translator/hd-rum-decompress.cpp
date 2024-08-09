@@ -208,7 +208,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         map<string, param_u> params;
 
         // common
-        params["parent"].ptr = parent;
+        s->common.parent = parent;
         params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;

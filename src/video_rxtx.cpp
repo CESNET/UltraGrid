@@ -69,18 +69,17 @@ using std::string;
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
                 m_rxtx_mode(params.at("rxtx_mode").i),
-                m_parent(static_cast<struct module *>(params.at("parent").ptr)),
                 m_frames_sent(0ull),
                 m_common(*static_cast<struct common_opts const *>(params.at("common").cptr)),
                 m_thread_id(), m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
-        module_register(&m_sender_mod, static_cast<struct module *>(params.at("parent").ptr));
+        module_register(&m_sender_mod, m_common.parent);
 
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
-        module_register(&m_receiver_mod, static_cast<struct module *>(params.at("parent").ptr));
+        module_register(&m_receiver_mod, m_common.parent);
 
         try {
                 int ret = compress_init(&m_sender_mod, static_cast<const char *>(params.at("compression").ptr),
@@ -125,10 +124,10 @@ video_rxtx::~video_rxtx() {
 }
 
 void video_rxtx::start() {
-        register_should_exit_callback(m_parent, video_rxtx::should_exit, this);
-        if (pthread_create
-                        (&m_thread_id, NULL, video_rxtx::sender_thread,
-                         (void *) this) != 0) {
+        register_should_exit_callback(m_common.parent, video_rxtx::should_exit,
+                                      this);
+        if (pthread_create(&m_thread_id, NULL, video_rxtx::sender_thread,
+                           (void *) this) != 0) {
                 throw string("Unable to create sender thread!\n");
         }
         m_joined = false;
@@ -140,7 +139,7 @@ void video_rxtx::join() {
         }
         send(NULL); // pass poisoned pill
         pthread_join(m_thread_id, NULL);
-        unregister_should_exit_callback(m_parent, video_rxtx::should_exit, this);
+        unregister_should_exit_callback(m_common.parent, video_rxtx::should_exit, this);
         m_joined = true;
 }
 

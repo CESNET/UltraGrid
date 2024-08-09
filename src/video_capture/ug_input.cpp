@@ -168,7 +168,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         map<string, param_u> params;
 
         // common
-        params["parent"].ptr = vidcap_params_get_parent(cap_params);
+        s->common.parent = vidcap_params_get_parent(cap_params);
         params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
@@ -204,7 +204,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         .echo_cancellation = false,
                         .codec_cfg = "PCM"
                 };
-                if (audio_init(&s->audio, vidcap_params_get_parent(cap_params), &opt, &s->common) != 0) {
+                if (audio_init(&s->audio, &opt, &s->common) != 0) {
                         delete s;
                         return VIDCAP_INIT_FAIL;
                 }

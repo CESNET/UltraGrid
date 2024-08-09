@@ -74,7 +74,7 @@ using namespace std;
 
 struct recompress_output_port {
         recompress_output_port() = default;
-        recompress_output_port(struct module *parent,
+        recompress_output_port(
                 std::string host, unsigned short rx_port,
                 unsigned short tx_port, const struct common_opts *common,
                 const char *fec, long long bitrate);
@@ -106,7 +106,7 @@ struct state_recompress {
         std::vector<std::pair<std::string, int>> index_to_port;
 };
 
-recompress_output_port::recompress_output_port(struct module *parent,
+recompress_output_port::recompress_output_port(
                 std::string host, unsigned short rx_port,
                 unsigned short tx_port, const struct common_opts *common,
                 const char *fec, long long bitrate) :
@@ -118,7 +118,6 @@ recompress_output_port::recompress_output_port(struct module *parent,
         std::map<std::string, param_u> params;
 
         // common
-        params["parent"].ptr = parent;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_SENDER;
 
@@ -203,7 +202,7 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
         return index_in_worker;
 }
 
-int recompress_add_port(struct state_recompress *s, struct module *parent_rep,
+int recompress_add_port(struct state_recompress *s,
 		const char *host, const char *compress, unsigned short rx_port,
                 unsigned short tx_port, const struct common_opts *common,
                 const char *fec, long long bitrate)
@@ -211,7 +210,7 @@ int recompress_add_port(struct state_recompress *s, struct module *parent_rep,
         recompress_output_port port;
 
         try{
-                port = recompress_output_port(parent_rep, host, rx_port, tx_port,
+                port = recompress_output_port(host, rx_port, tx_port,
                                 common, fec, bitrate);
         } catch(...) {
                 return -1;

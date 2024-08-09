@@ -70,7 +70,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
         rtp_video_rxtx(params)
 {
         rtsp_params.rtsp_port = (unsigned) rtsp_port;
-        rtsp_params.parent = static_cast<struct module *>(params.at("parent").ptr);
+        rtsp_params.parent = m_common.parent;;
         rtsp_params.avType = static_cast<rtsp_types_t>(params.at("avType").l);
         rtsp_params.rtp_port_video = params.at("rx_port").i;  //server rtp port
 }

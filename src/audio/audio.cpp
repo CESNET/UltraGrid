@@ -276,7 +276,7 @@ sdp_change_address_callback(void *udata, const char *address)
  * @retval <0 error occured
  * @retval >0 success but no state was created (eg. help printed)
  */
-int audio_init(struct state_audio **ret, struct module *parent,
+int audio_init(struct state_audio **ret,
                const struct audio_options *opt,
                const struct common_opts   *common)
 {
@@ -298,8 +298,9 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 audio_scale_usage();
                 return 1;
         }
-        
-        struct state_audio *s = new state_audio(parent, common->start_time);
+
+        struct state_audio *s =
+            new state_audio(common->parent, common->start_time);
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
@@ -424,7 +425,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                                   IF_NOT_NULL_ELSE(params.sample_rate, kHz48),
                                   audio_capture_channels, params.codec,
                                   sdp_change_address_callback,
-                                  get_root_module(parent)) != 0) {
+                                  get_root_module(common->parent)) != 0) {
                         MSG(ERROR,"Cannot add audio to SDP!\n");
                         goto error;
                 }
@@ -463,7 +464,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 goto error;
         }
 
-        register_should_exit_callback(parent, should_exit_audio, s);
+        register_should_exit_callback(common->parent, should_exit_audio, s);
 
         *ret = s;
         return 0;

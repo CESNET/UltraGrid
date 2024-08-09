@@ -170,6 +170,7 @@ void hang_signal_handler(int sig);
 #endif
 
 struct common_opts {
+        struct module   *parent;
         char             encryption[STR_LEN];
         char             mcast_if[STR_LEN];
         int              mtu;
@@ -178,6 +179,7 @@ struct common_opts {
         struct exporter *exporter;
         time_ns_t        start_time;
 #define COMMON_OPTS_INIT \
+        /* .parent = */ NULL, \
         /* .encryption = */ "", /* .mcast_if = */ "", /* .mtu = */ 1500, \
         /* .ttl = */ -1,  /* .force_ip_version = */ 0, /* .exporter = */ NULL, \
         /* .start_time = */  get_time_in_ns(),

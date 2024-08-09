@@ -81,7 +81,7 @@ struct audio_options {
         const char *filter_cfg = "";
 };
 
-int audio_init(struct state_audio **state, struct module *parent,
+int audio_init(struct state_audio **state,
                const struct audio_options *opt,
                const struct common_opts   *common);
 #endif

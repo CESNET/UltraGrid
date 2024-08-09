@@ -92,7 +92,8 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
                 throw ug_no_error();
         }
 
-        m_control = (struct control_state *) get_module(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), "control");
+        m_control = (struct control_state *) get_module(
+            get_root_module(m_common.parent), "control");
 }
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
