@@ -24,7 +24,9 @@ install_gpujpeg() {(
         ./ext-deps/bootstrap_gpujpeg.sh -d
         mkdir ext-deps/gpujpeg/build
         cd ext-deps/gpujpeg/build
-        cmake -DBUILD_OPENGL=OFF ..
+        cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CUDA_ARCHITECTURES=35 \
+                -DBUILD_OPENGL=OFF ..
         cmake --build . --parallel "$(nproc)"
         sudo cmake --install .
         sudo ldconfig
