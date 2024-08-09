@@ -187,6 +187,7 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 0)
         struct gpujpeg_parameters params;
         gpujpeg_set_default_parameters(&params);
+        params.restart_interval = 0; // workaround for broken GPUJPEG from 2024-04 to 2024-08
         params.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
 	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, &params, NULL) != 0) {
 #else
