@@ -65,6 +65,7 @@
 #include "audio/utils.h"
 #include "compat/strings.h"  // strdupa
 #include "compat/platform_pipe.h"
+#include "cuda_wrapper.h"
 #include "debug.h"
 #include "keyboard_control.h"
 #include "lib_common.h"
@@ -196,6 +197,11 @@ void common_cleanup(struct init_data *init)
 
 #ifdef _WIN32
         WSACleanup();
+#endif
+
+#if defined CUDA_DEVICE_RESET
+        // to allow "cuda-memcheck --leak-check full"
+        cuda_wrapper_device_reset();
 #endif
 }
 

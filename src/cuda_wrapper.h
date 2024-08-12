@@ -67,6 +67,7 @@ int cuda_wrapper_set_device(int index);
 int cuda_wrapper_get_last_error(void);
 const char * cuda_wrapper_get_error_string(int error);
 void cuda_wrapper_print_devices_info(void);
+void cuda_wrapper_device_reset(void);
 
 #ifdef __cplusplus
 }

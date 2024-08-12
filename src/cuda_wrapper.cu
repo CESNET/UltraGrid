@@ -164,3 +164,11 @@ void cuda_wrapper_print_devices_info(void)
     }
 }
 
+void
+cuda_wrapper_device_reset(void)
+{
+        // to allow "cuda-memcheck --leak-check full"
+        if (cudaDeviceReset() != cudaSuccess) {
+                fprintf(stderr, "cudaDeviceReset failed!\n");
+        }
+}
