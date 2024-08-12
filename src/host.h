@@ -177,9 +177,9 @@ struct common_opts {
         struct exporter *exporter;
         time_ns_t        start_time;
 #define COMMON_OPTS_INIT \
-        /* .parent = */ NULL, \
+        /* .parent = */ 0, \
         /* .encryption = */ "", /* .mcast_if = */ "", /* .mtu = */ 1500, \
-        /* .ttl = */ -1,  /* .force_ip_version = */ 0, /* .exporter = */ NULL, \
+        /* .ttl = */ -1,  /* .force_ip_version = */ 0, /* .exporter = */ 0, \
         /* .start_time = */  get_time_in_ns(),
 };
 
