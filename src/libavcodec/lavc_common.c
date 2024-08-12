@@ -132,17 +132,6 @@ static inline int av_to_uv_log(int level) {
         return level + 1;
 }
 
-static inline int uv_to_av_log(int level) {
-        level *= 8;
-        if (level == 8 * LOG_LEVEL_QUIET) {
-                return level - 8;
-        }
-        if (level <= 8 * LOG_LEVEL_NOTICE) { // LOG_LEVEL_NOTICE maps to AV_LOG_INFO
-                return level;
-        }
-        return level - 8;
-}
-
 /**
  * Filters out annoying messages that should not be passed to UltraGrid logger,
  * eg. complains on JPEG APP markers that FFmpeg decoder almost doesn't use.
@@ -187,33 +176,28 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
 }
 
 #ifdef HAVE_CONFIG_H // built inside UG
-ADD_TO_PARAM("lavcd-log-level",
-                "* lavcd-log-level=<num>[U][D]\n"
-                "  Set libavcodec log level (FFmpeg range semantics, unless 'U' suffix, then UltraGrid)\n"
+ADD_TO_PARAM("lavc-log-level",
+                "* lavc-log-level=<num>\n"
+                "  Set libavcodec log level (FFmpeg range semantics, bypasses UG logger)\n"
                 " - 'D' - use FFmpeg default log handler\n");
 #endif
 /// Sets specified log level either given explicitly or from UG-wide log_level
 void ug_set_av_logging() {
-        av_log_set_level(uv_to_av_log(log_level));
-        av_log_set_callback(av_log_ug_callback);
         const char *param = NULL;
 #ifdef HAVE_CONFIG_H // built inside UG
-        param = get_commandline_param("lavcd-log-level");
+        param = get_commandline_param("lavc-log-level");
 #endif
         if (param == NULL) {
+                av_log_set_callback(av_log_ug_callback);
                 return;
         }
         char *endptr = NULL;
-        int av_log_level = strtol(param, &endptr, 10);
-        if (endptr != param) {
-                if (strchr(endptr, 'U') != NULL) {
-                        av_log_level = uv_to_av_log(av_log_level);
-                }
-                av_log_set_level(av_log_level);
+        const long av_log_level = strtol(param, &endptr, 10);
+        if (av_log_level < AV_LOG_QUIET || av_log_level > AV_LOG_TRACE ||
+            endptr == param) {
+                MSG(ERROR, "Wrong log level for FFmpeg '%s'\n", param);
         }
-        if (strchr(endptr, 'D') != NULL) {
-                av_log_set_callback(av_log_default_callback);
-        }
+        av_log_set_level((int) av_log_level);
 }
 
 /// @returns subsampling in 'JabA' format (compatible with @ref get_subsamping)
