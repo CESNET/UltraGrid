@@ -20,15 +20,10 @@ install_ximea() {
 }
 
 install_gpujpeg() {(
-        cd "$GITHUB_WORKSPACE"
-        ./ext-deps/bootstrap_gpujpeg.sh -d
-        mkdir ext-deps/gpujpeg/build
-        cd ext-deps/gpujpeg/build
-        cmake -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CUDA_ARCHITECTURES=35 \
-                -DBUILD_OPENGL=OFF ..
-        cmake --build . --parallel "$(nproc)"
-        sudo cmake --install .
+        curl -LO https://github.com/CESNET/GPUJPEG/releases/download/\
+continuous/GPUJPEG-Linux.tar.xz
+        tar xaf GPUJPEG-Linux.tar.xz
+        sudo cp -r GPUJPEG/* /usr/local/
         sudo ldconfig
 )}
 
