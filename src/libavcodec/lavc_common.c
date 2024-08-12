@@ -122,14 +122,17 @@ bool libav_codec_has_extradata(codec_t codec) {
 }
 
 static inline int av_to_uv_log(int level) {
-        level /= 8;
-        if (level <= 0) { // av_quiet + av_panic
-                return level + 1;
+        enum {
+                AV_TO_UV_MULT = 8, // FF uses multiples of 8
+        };
+        if (level <= AV_LOG_PANIC) {   // AV_LOG_QUIET(-8) -> LOG_LEVEL_QUIET(0)
+                level += AV_TO_UV_MULT;// AV_LOG_PANIC(0) -> LOG_LEVEL_FATAL(1)
         }
-        if (level <= 3) {
-                return level;
+        // AV_LOG_FATAL(8), ERROR and WARNING map directly to UG counterparts /8
+        if (level >= AV_LOG_INFO) {     // AV_LOG_INFO(32) -> LOG_LEVEL_INFO(5)
+                level += AV_TO_UV_MULT; // and so on for the rest
         }
-        return level + 1;
+        return level / AV_TO_UV_MULT;
 }
 
 /**
