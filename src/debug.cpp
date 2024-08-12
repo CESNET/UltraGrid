@@ -366,6 +366,24 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 }
 #endif
 
+/**
+ * @brief prints the error with the advice to report the bug
+ *
+ * @param msg the message to be printed, can be prefixed with particular
+ * MOD_NAME. Should end with either ' ' or '\n' (what fits the caller better).
+ */
+void
+bug_msg(int level, const char *msg)
+{
+        log_msg(level,
+                "%sPlease report a bug"
+#ifdef PACKAGE_BUGREPORT
+                " to " PACKAGE_BUGREPORT
+#endif // defined PACKAGE_BUGREPORT
+                " if you reach here.\n",
+                msg);
+}
+
 Log_output::Log_output(){
         last_msg.reserve(initial_buf_size);
         interactive = color_output_init();

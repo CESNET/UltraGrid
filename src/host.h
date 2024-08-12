@@ -72,8 +72,6 @@
  * of module was successful but no state was created (eg. when driver had displayed help). */
 #define INIT_NOERR          ((void*)1) // NOLINT (cppcoreguidelines-pro-type-cstyle-cast)
 
-#define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
-
 #ifdef __cplusplus
 extern "C" {
 #endif

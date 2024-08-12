@@ -334,7 +334,8 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 		desc.fps = 10000000.0/infoHeader->AvgTimePerFrame;
 		if (infoHeader->dwInterlaceFlags & AMINTERLACE_IsInterlaced) {
 			if (infoHeader->dwInterlaceFlags & AMINTERLACE_1FieldPerSample) {
-				LOG(LOG_LEVEL_WARNING) << MOD_NAME "1 Field Per Sample is not supported! " BUG_MSG "\n";
+                                bug_msg(LOG_LEVEL_WARNING, MOD_NAME
+                                        "1 Field Per Sample is not supported! ");
 			} else {
 				desc.interlacing = INTERLACED_MERGED;
 			}
