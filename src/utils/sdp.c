@@ -487,8 +487,8 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
  * the SDP (using static packet type)
  */
 static void
-print_std_rtp_urls(struct sdp *sdp, bool ipv6) {
-    const char *const bind_addr = ipv6 ? "[::]" : "0.0.0.0";
+print_std_rtp_urls(struct sdp *sdp) {
+    const char *const bind_addr = sdp->ip_version == 6 ? "[::]" : "0.0.0.0";
     int               port      = 0;
     int               pt        = 0;
     if (sdp->audio_index >= 0) {
@@ -540,9 +540,11 @@ static void print_http_path(struct sdp *sdp) {
                     "http://%s%s%s:%u/%s\n",
                     recv_str, ipv6 ? "[" : "", hostname, ipv6 ? "]" : "",
                     portInHostOrder, SDP_FILE);
-                print_std_rtp_urls(sdp, ipv6);
             }
         }
+    }
+    if (!autorun) {
+        print_std_rtp_urls(sdp);
     }
 }
 
