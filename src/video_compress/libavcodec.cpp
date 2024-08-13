@@ -1636,10 +1636,48 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * 
         }
 }
 
-static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+/// check and possibly fix incorrect slices and threads combination for MJPEG
+static void
+mjpeg_adjust_param(struct setparam_param *param)
+{
+        char warn[STR_LEN];
+        warn[0] = '\0';
+        if (param->slices == 1) {
+                if (param->thread_mode.empty()) {
+                        snprintf_ch(warn, "MJPEG requested slice=1, "
+                                          "setting thread count=1");
+                        param->thread_mode = "1";
+                } else if (strtol(param->thread_mode.c_str(), nullptr, 10) !=
+                           1) {
+                        snprintf_ch(warn, "slice=1 with thread count!=1 not "
+                                          "recommended");
+                }
+        } else if (strtol(param->thread_mode.c_str(), nullptr, 10) == 1) {
+                if (param->slices == -1) {
+                        snprintf_ch(warn, "MJPEG requested threads=1, "
+                                          "setting slices=1");
+                        param->slices = 1;
+                } else if (param->slices > 1) {
+                        snprintf_ch(warn, "slice>1 with thread count=1 not "
+                                          "recommended");
+                }
+        }
+
+        if (strlen(warn) == 0) {
+                return;
+        }
+        MSG(WARNING,
+            "%s. If seems that FFmpeg JPEG encoder requires "
+            "both slice and threads to be 1, if any of it "
+            "is or the JPEG is broken.\n",
+            warn);
+}
+
+static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
+                mjpeg_adjust_param(param);
         }
         if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
