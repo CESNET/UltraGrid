@@ -173,7 +173,7 @@ struct state_audio {
         struct exporter *exporter = nullptr;
         int resample_to = 0;
 
-        struct common_opts opts;
+        struct common_opts opts{};
 
         int audio_tx_mode = 0;
 

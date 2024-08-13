@@ -69,7 +69,7 @@ private:
         std::atomic<bool>             audio_params_set = false;
         rtsp_serv_t                  *m_rtsp_server    = nullptr;
         void (*tx_send_std)(struct tx *tx_session, struct video_frame *frame,
-                            struct rtp *rtp_session);
+                            struct rtp *rtp_session) = nullptr;
 };
 
 #endif // VIDEO_RXTX_H264_RTP_H_
