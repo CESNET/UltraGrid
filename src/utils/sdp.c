@@ -490,18 +490,19 @@ static void
 print_std_rtp_urls(struct sdp *sdp, bool ipv6) {
     const char *const bind_addr = ipv6 ? "[::]" : "0.0.0.0";
     int               port      = 0;
-    if (sdp->audio_index >= 0 &&
-        sdp->stream[sdp->audio_index].rtpmap[0] == '\0') {
-        if (sscanf(sdp_state->stream[sdp->audio_index].media_info, "%*[^ ] %d",
-                   &port) == 1) {
+    int               pt        = 0;
+    if (sdp->audio_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp->audio_index].media_info,
+                   "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
+            pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "audio can be played directly with rtp://%s:%d\n",
                 bind_addr, port);
         }
     }
-    if (sdp->video_index >= 0 &&
-        sdp->stream[sdp->video_index].rtpmap[0] == '\0') {
-        if (sscanf(sdp_state->stream[sdp->video_index].media_info, "%*[^ ] %d",
-                   &port) == 1) {
+    if (sdp->video_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp->video_index].media_info,
+                    "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
+            pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "video can be played directly with rtp://%s:%d\n",
                 bind_addr, port);
         }
