@@ -165,21 +165,17 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (decoder == NULL) {
                 MSG(ERROR, "Cannot find decoder from %s to RGB!\n",
                     get_codec_name(in->color_spec));
-                VIDEO_FRAME_DISPOSE(in);
-                return NULL;
         }
         coder = get_decoder_from_to(RGB, in->color_spec);
         if (coder == NULL) {
                 MSG(ERROR, "Cannot find encoder from %s to RGB!\n",
                     get_codec_name(in->color_spec));
-                VIDEO_FRAME_DISPOSE(in);
-                return NULL;
         }
-        int rect_x = s->x;
-        int rect_y = s->y;
-
         if (decoder == NULL || coder == NULL)
                 return in;
+
+        int rect_x = s->x;
+        int rect_y = s->y;
 
         if (rect_x < 0 || rect_x + s->width > in->tiles[0].width) {
                 rect_x = in->tiles[0].width - s->width;
