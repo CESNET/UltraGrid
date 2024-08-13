@@ -63,6 +63,7 @@
 #include "video_rxtx.hpp"
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPEG:safe"
+#define MOD_NAME "[vrxtx/sdp] "
 
 using std::cout;
 using std::exception;
@@ -169,10 +170,26 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 }
 
-void
-h264_sdp_video_rxtx::set_audio_spec(const struct audio_desc * /* desc */,
-                                    int /* audio_rx_port */)
+static void
+sdp_change_address_callback(void *udata, const char *address)
 {
+        const enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
+                                                  MODULE_CLASS_SENDER,
+                                                  MODULE_CLASS_NONE };
+        sdp_send_change_address_message((module *) udata, path_sender, address);
+}
+
+void
+h264_sdp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
+                                    int /* audio_rx_port */, int audio_tx_port, bool ipv6)
+{
+        if (sdp_add_audio(ipv6, audio_tx_port,
+                          desc->sample_rate,
+                          desc->ch_count, desc->codec,
+                          sdp_change_address_callback,
+                          get_root_module(m_common.parent)) != 0) {
+                MSG(ERROR, "Cannot add audio to SDP!\n");
+        }
 }
 
 static video_rxtx *create_video_rxtx_h264_sdp(std::map<std::string, param_u> const &params)

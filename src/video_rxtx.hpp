@@ -92,7 +92,9 @@ public:
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         static void list(bool full);
-        virtual void set_audio_spec(const struct audio_desc *desc, int audio_rx_port);
+        virtual void set_audio_spec(const struct audio_desc *desc,
+                                    int audio_rx_port, int audio_tx_port,
+                                    bool ipv6);
         std::string m_port_id;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);

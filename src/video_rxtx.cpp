@@ -223,7 +223,8 @@ void video_rxtx::list(bool full)
 
 void
 video_rxtx::set_audio_spec(const struct audio_desc * /* desc */,
-                           int /* audio_rx_port */)
+                           int /* audio_rx_port */, int /* audio_tx_port */,
+                           bool /* ipv6 */)
 {
         MSG(INFO, "video RXTX not h264_rtp, not setting audio...\n");
 }

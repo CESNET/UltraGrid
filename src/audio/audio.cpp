@@ -263,13 +263,6 @@ sdp_send_change_address_message(struct module           *root,
         free_response(resp);
 }
 
-static void
-sdp_change_address_callback(void *udata, const char *address)
-{
-        enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-        sdp_send_change_address_message((module*) udata, path_sender, address);
-}
-
 /**
  * take care that addrs can also be comma-separated list of addresses !
  * @retval  0 state succesfully initialized
@@ -415,20 +408,6 @@ int audio_init(struct state_audio **ret,
                 audio_playback_ctl(s->audio_playback_device,
                                    AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
                                    &s->audio_network_device, &len);
-        }
-
-        if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
-                const audio_codec_params params =
-                    parse_audio_codec_params(opt->codec_cfg);
-                if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device),
-                                  opt->send_port,
-                                  IF_NOT_NULL_ELSE(params.sample_rate, kHz48),
-                                  audio_capture_channels, params.codec,
-                                  sdp_change_address_callback,
-                                  get_root_module(common->parent)) != 0) {
-                        MSG(ERROR,"Cannot add audio to SDP!\n");
-                        goto error;
-                }
         }
 
         if ((s->audio_tx_mode & MODE_SENDER) != 0U || "help"s == opt->codec_cfg) {
@@ -1070,7 +1049,7 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
 
 static void
 set_audio_spec_to_vrxtx(struct video_rxtx *vrxtx, audio_frame2 *compressed_frm,
-                        struct rtp *netdev, bool *audio_spec_to_vrxtx_set)
+                        struct rtp *netdev, int tx_port, bool *audio_spec_to_vrxtx_set)
 {
         if (*audio_spec_to_vrxtx_set) {
                 return;
@@ -1085,7 +1064,7 @@ set_audio_spec_to_vrxtx(struct video_rxtx *vrxtx, audio_frame2 *compressed_frm,
             audio_desc_to_cstring(desc), rx_port);
 
         assert(vrxtx != nullptr);
-        vrxtx->set_audio_spec(&desc, rx_port);
+        vrxtx->set_audio_spec(&desc, rx_port, tx_port, rtp_is_ipv6(netdev));
 }
 
 static void *audio_sender_thread(void *arg)
@@ -1181,6 +1160,7 @@ static void *audio_sender_thread(void *arg)
                                     set_audio_spec_to_vrxtx(
                                         s->vrxtx, &compressed,
                                         s->audio_network_device,
+                                        s->audio_network_parameters.send_port,
                                         &audio_spec_to_vrxtx_set);
                             }
                         }

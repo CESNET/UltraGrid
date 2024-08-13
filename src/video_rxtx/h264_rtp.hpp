@@ -58,7 +58,9 @@ public:
         h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
         virtual ~h264_rtp_video_rxtx();
         void join() override;
-        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port) override;
+        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
+                            int audio_tx_port, bool ipv6) override;
+
 private:
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {

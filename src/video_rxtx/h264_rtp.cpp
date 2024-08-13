@@ -147,7 +147,8 @@ void h264_rtp_video_rxtx::join()
 
 void
 h264_rtp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
-                                    int                      audio_rx_port)
+                                    int  audio_rx_port, int /* audio_tx_port */,
+                                    bool /* ipv6 */)
 {
         rtsp_params.adesc = *desc;
         rtsp_params.rtp_port_audio = audio_rx_port;

@@ -60,7 +60,8 @@ private:
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
                 return nullptr;
         }
-        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port) override;
+        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
+                            int audio_tx_port, bool ipv6) override;
         void sdp_add_video(codec_t codec);
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;
