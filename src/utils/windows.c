@@ -189,7 +189,10 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
         int ret = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /* NULL-terminated */, res, sizeof res - 1, NULL, NULL);
         if (ret == 0) {
                 if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: Insufficient buffer length %zd, please report to %s!\n", sizeof res, PACKAGE_BUGREPORT);
+                        bug_msg(
+                            LOG_LEVEL_ERROR,
+                            "win_wstr_to_str: Insufficient buffer length %zd. ",
+                            sizeof res);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s\n", get_win32_error(GetLastError()));
                 }

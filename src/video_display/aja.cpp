@@ -39,9 +39,6 @@
  * The use of ping-pong buffer technique is based on NTV2LLBurn.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"                      // for PACKAGE_BUGREPORT
-#endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
 #include "debug.h"
@@ -552,8 +549,12 @@ void display::RouteOutputSignal ()
                                                         "Connect from CSC", NOOP);
                                 }
                         } else {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Routing for " << NTV2OutputDestinationToString(mConf.outputDestination)
-                                       << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
+                                bug_msg(LOG_LEVEL_WARNING,
+                                        MOD_NAME
+                                        "Routing for %s may be incorrect. ",
+                                        NTV2OutputDestinationToString(
+                                            mConf.outputDestination)
+                                            .c_str());
                                 CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), fbIsRGB ? cscVidOutXpt : fsVidOutXpt),
                                                 "Connect from CSC or frame store", NOOP);
                         }

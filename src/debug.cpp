@@ -373,15 +373,21 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
  * MOD_NAME. Should end with either ' ' or '\n' (what fits the caller better).
  */
 void
-bug_msg(int level, const char *msg)
+bug_msg(int level, const char *format, ...)
 {
-        log_msg(level,
+        char fmt_adj[STR_LEN];
+        snprintf_ch(fmt_adj,
                 "%sPlease report a bug"
 #ifdef PACKAGE_BUGREPORT
                 " to " PACKAGE_BUGREPORT
 #endif // defined PACKAGE_BUGREPORT
                 " if you reach here.\n",
-                msg);
+                format);
+
+        va_list ap;
+        va_start(ap, format);
+        log_vprintf(level, fmt_adj, ap);
+        va_end(ap);
 }
 
 Log_output::Log_output(){

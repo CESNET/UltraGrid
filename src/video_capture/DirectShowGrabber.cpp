@@ -575,10 +575,12 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 						s->desc.color_spec = get_ug_from_subtype_name(token);
 					}
 					if (s->desc.color_spec == VIDEO_CODEC_NONE) {
-						log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported video format: %s. "
-                                                                "Please contact us via %s if you need support for this codec.\n",
-                                                                token, PACKAGE_BUGREPORT);
-						return false;
+                                                bug_msg(LOG_LEVEL_ERROR,
+                                                        MOD_NAME
+                                                        "Unsupported video "
+                                                        "format: %s. ",
+                                                        token);
+                                                return false;
 					}
 				}
 				break;

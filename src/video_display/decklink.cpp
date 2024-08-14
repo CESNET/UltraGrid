@@ -76,7 +76,6 @@
 #include "blackmagic_common.hpp"
 #include "compat/htonl.h"
 #include "compat/strings.h"
-#include "config.h"                              // for PACKAGE_BUGREPORT
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -870,7 +869,11 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 if (dominance == bmdLowerFieldFirst ||
                                                 dominance == bmdUpperFieldFirst) {
 					if (dominance == bmdLowerFieldFirst) {
-						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Lower field first format detected, fields can be switched! If so, please report a bug to " PACKAGE_BUGREPORT "\n");
+                                                bug_msg(
+                                                    LOG_LEVEL_WARNING, MOD_NAME
+                                                    "Lower field first format "
+                                                    "detected, fields can be "
+                                                    "switched! ");
 					}
                                         interlaced = true;
                                 } else { // progressive, psf, unknown

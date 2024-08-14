@@ -37,7 +37,6 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
@@ -57,9 +56,9 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 
-#ifdef WORDS_BIGENDIAN
-#error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
-#endif // WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#error "This code will not run with a big-endian machine. Please report a bug if you reach here."
+#endif //  __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 
 using std::clamp;
 using std::max;

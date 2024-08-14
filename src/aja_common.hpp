@@ -44,6 +44,9 @@ class CNTV2Card;
 
 #ifdef _MSC_VER
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+#define bug_msg(x, ...) \
+        log_msg(x, __VA_ARGS__); \
+        log_msg(x, " Please report a bug if you reach here.\n")
 #define color_printf printf
 #undef LOG
 #include <iostream>
