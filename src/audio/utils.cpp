@@ -56,9 +56,8 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#error "This code will not run with a big-endian machine. Please report a bug if you reach here."
-#endif //  __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
+              "The code below assumes little endianness.");
 
 using std::clamp;
 using std::max;
