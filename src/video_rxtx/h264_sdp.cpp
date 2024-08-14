@@ -39,22 +39,28 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "video_rxtx/h264_sdp.hpp"
+
+#include <cstdint>               // for uint32_t
+#include <cstdlib>               // for abort
+#include <cstring>               // for strncpy
+#include <exception>             // for exception
 #include <iostream>
 
 #include "audio/audio.h"
+#include "audio/types.h"         // for audio_desc
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"           // for msg_change_compress_data, free_response
 #include "module.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h" // PCMA/PCMU packet types
-#include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/sdp.h"
+#include "video_codec.h"         // for is_codec_opaque
 #include "video_rxtx.hpp"
-#include "video_rxtx/h264_sdp.hpp"
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPEG:safe"
 

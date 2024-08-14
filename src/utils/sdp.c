@@ -47,6 +47,8 @@
  *   modules want also to use EmbeddableWebServer)
  */
 
+#include "utils/sdp.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -63,6 +65,9 @@
 #endif
 
 #include "audio/types.h"
+#include "compat/htonl.h"         // for htons, htonl
+#include "compat/strings.h"       // for strcasecmp
+#include "config.h"               // for SDP_HTTP
 #include "debug.h"
 #include "rtp/rtp_types.h"
 #include "types.h"
@@ -71,7 +76,6 @@
 #include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/net.h"
-#include "utils/sdp.h"
 #include "video_codec.h"      // for get_codec_from_name
 #ifdef SDP_HTTP
 #define EWS_DISABLE_SNPRINTF_COMPAT
