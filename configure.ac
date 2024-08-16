@@ -170,6 +170,7 @@ fi
 
 if test $system = Windows; then
 	LIBS="$LIBS -lsetupapi -lws2_32 -liphlpapi -lole32 -loleaut32"
+	LIBS="$LIBS -ldbghelp"
 	AC_CHECK_FUNCS(SetThreadDescription)
 fi
 

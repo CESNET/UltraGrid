@@ -41,7 +41,10 @@
 #include <objbase.h>
 #include <tlhelp32.h>
 #include <vfwmsgs.h>
-#include "debug.h"
+#include <dbghelp.h>
+#include <io.h>
+
+#include "utils/macros.h"
 #endif // defined _WIN32
 
 #include "debug.h"
@@ -287,6 +290,37 @@ get_windows_build()
             osVersionInfo.dwMajorVersion, osVersionInfo.dwMinorVersion,
             osVersionInfo.dwBuildNumber);
         return osVersionInfo.dwBuildNumber;
+}
+
+void
+print_stacktrace_win()
+{
+        void          *stack[100];
+        unsigned short frames;
+        SYMBOL_INFO   *symbol;
+        HANDLE         process;
+
+        process = GetCurrentProcess();
+        SymInitialize(process, NULL, TRUE);
+
+        frames = CaptureStackBackTrace(0, 100, stack, NULL);
+        symbol =
+            (SYMBOL_INFO *) malloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char));
+        symbol->MaxNameLen   = 255;
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+        char backtrace_msg[] = "Backtrace:\n";
+        _write(STDERR_FILENO, backtrace_msg, strlen(backtrace_msg));
+        for (unsigned short i = 0; i < frames; i++) {
+                SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
+                char buf[STR_LEN];
+                snprintf_ch(buf, "%i: %s - 0x%0llX\n", frames - i - 1, symbol->Name,
+                       symbol->Address);
+                _write(STDERR_FILENO, buf, strlen(buf));
+
+        }
+
+        free(symbol);
 }
 
 #endif // defined _WIN32

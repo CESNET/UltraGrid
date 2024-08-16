@@ -87,6 +87,7 @@ const char *get_win32_error(DWORD error);
 const char *win_wstr_to_str(const wchar_t *wstr);
 bool win_has_ancestor_process(const char *name);
 unsigned long get_windows_build(void);
+void print_stacktrace_win(void);
 #endif // defined _WIN32
 
 #ifdef __cplusplus

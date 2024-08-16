@@ -1191,7 +1191,9 @@ bool running_in_debugger(){
 static void
 print_backtrace()
 {
-#ifndef _WIN32
+#ifdef _WIN32
+        print_stacktrace_win();
+#else
         // print to a temporary file to avoid interleaving from multiple
         // threads
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 27)
