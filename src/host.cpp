@@ -199,6 +199,7 @@ struct init_data {
 static void print_param_doc(void);
 static bool validate_param(const char *param);
 
+static bool unexpected_exit_called = true; // check for unexpected exit()
 void common_cleanup(struct init_data *init)
 {
         if (init) {
@@ -223,6 +224,8 @@ void common_cleanup(struct init_data *init)
         // to allow "cuda-memcheck --leak-check full"
         cuda_wrapper_device_reset();
 #endif
+
+        unexpected_exit_called = false;
 }
 
 ADD_TO_PARAM("stdout-buf",
@@ -422,6 +425,13 @@ tok_in_argv(char **argv, const char *tok)
         return false;
 }
 
+static void echeck_unexpected_exit(void ) {
+        if (!unexpected_exit_called) {
+                return;
+        }
+        fprintf(stderr, "exit() called unexpectedly! Maybe by some library?\n");
+}
+
 struct init_data *common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -520,6 +530,8 @@ struct init_data *common_preinit(int argc, char *argv[])
 #ifdef HAVE_FEC_INIT
         fec_init();
 #endif
+
+        atexit(echeck_unexpected_exit);
 
         return new init_data{ std::move(init) };
 }
