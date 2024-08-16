@@ -377,11 +377,11 @@ show_help(struct vidcap_dshow_state *s, const char *help_str)
 		int i = 0;
 		// iterate over all capabilities
 		while (strlen(cards[n].modes[i].id) > 0) {
+			fputs(i == 0 ? "" : i % 2 == 0 ? "\n" : "\t", stdout);
 			int mode_idx = -1;
 			sscanf(cards[n].modes[i].id, "{\"mode\":\"%d", &mode_idx);
 			UG_ASSERT_NO_FATAL(mode_idx != -1);
 			printf("    Mode %2d: %s", mode_idx, cards[n].modes[i].name);
-			putchar(i % 2 == 1 ? '\n' : '\t');
 			++i;
 		}
 
@@ -390,7 +390,7 @@ show_help(struct vidcap_dshow_state *s, const char *help_str)
 	deleter = IF_NOT_NULL_ELSE(deleter, (void (*)(void *)) free);
 	deleter(cards);
 
-	printf("Mode flags:\n");
+	printf("%sMode flags:\n", short_h ? "\n" : "");
         printf("C - codec not natively supported by UG%s\n\n",
                full_h ? "; F - video format is "
                       "not supported"
