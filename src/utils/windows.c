@@ -314,10 +314,9 @@ print_stacktrace_win()
         for (unsigned short i = 0; i < frames; i++) {
                 SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
                 char buf[STR_LEN];
-                snprintf_ch(buf, "%i: %s - 0x%0llX\n", frames - i - 1, symbol->Name,
-                       symbol->Address);
+                snprintf_ch(buf, "%i (%p): %s - 0x%0llX\n", frames - i - 1,
+                            stack[i], symbol->Name, symbol->Address);
                 _write(STDERR_FILENO, buf, strlen(buf));
-
         }
 
         free(symbol);
