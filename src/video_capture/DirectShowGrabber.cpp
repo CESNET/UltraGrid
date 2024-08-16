@@ -347,9 +347,13 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 	return desc;
 }
 
-static void show_help(struct vidcap_dshow_state *s, bool full) {
-	printf("dshow grabber options:\n");
-	col() << SBOLD("\t-t dshow:[full]help") << "\n";
+static void
+show_help(struct vidcap_dshow_state *s, const char *help_str)
+{
+        const bool short_h = strcmp(help_str, "shorthelp") == 0;
+        const bool full_h  = strcmp(help_str, "fullhelp") == 0;
+        printf("dshow grabber options:\n");
+        col() << SBOLD("\t-t dshow:[full|short]help") << "\n";
 	col() << SBOLD(SRED("\t-t dshow") << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]") "\n";
 	col() << "\t    Flag " << SBOLD("RGB") << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
@@ -361,12 +365,15 @@ static void show_help(struct vidcap_dshow_state *s, bool full) {
         device_info *cards = nullptr;
         int count = 0;
         void (*deleter)(void *) = NULL;
-        vidcap_dshow_probe_internal(&cards, &count, &deleter, full);
+        vidcap_dshow_probe_internal(&cards, &count, &deleter, full_h);
 
 	// Enumerate all capture devices
 	for (int n = 0; n < count; ++n) {
 		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n + 1, cards[n].name);
 
+		if (short_h) {
+			continue;
+		}
 		int i = 0;
 		// iterate over all capabilities
 		while (strlen(cards[n].modes[i].id) > 0) {
@@ -385,7 +392,7 @@ static void show_help(struct vidcap_dshow_state *s, bool full) {
 
 	printf("Mode flags:\n");
         printf("C - codec not natively supported by UG%s\n\n",
-               full ? "; F - video format is "
+               full_h ? "; F - video format is "
                       "not supported"
                     : "\n(use ':fullhelp' to see also unsupported modes)");
 }
@@ -836,10 +843,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	InitializeConditionVariable(&s->grabWaitCV);
 	InitializeCriticalSection(&s->returnBufferCS);
 
-        if (strcmp(vidcap_params_get_fmt(params), "help") == 0 ||
-            strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                show_help(
-                    s, strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0);
+        if (strstr(vidcap_params_get_fmt(params), "help") != nullptr) {
+                show_help(s, vidcap_params_get_fmt(params));
 		cleanup(s);
 		return VIDCAP_INIT_NOERR;
 	}
