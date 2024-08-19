@@ -891,7 +891,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                         realloc(cards, *card_count * sizeof(struct device_info));
                 memset(&cards[*card_count - 1], 0, sizeof(struct device_info));
                 snprintf(cards[*card_count - 1].dev, sizeof cards[*card_count - 1].dev,
-                                ":device=%u", get<unsigned>(d));
+                                ":device=%6x", get<unsigned>(d));
                 snprintf(cards[*card_count - 1].name, sizeof cards[*card_count - 1].name,
                                 "%s", deviceName.c_str());
                 snprintf(cards[*card_count - 1].extra, sizeof cards[*card_count - 1].extra,
