@@ -1160,6 +1160,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 
                 dev_add_option(&(*available_cards)[*count - 1], "3D", "3D", "3D", ":3D", true);
                 dev_add_option(&(*available_cards)[*count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
+                dev_add_option(&(*available_cards)[*count - 1], "HDR", "Can be one of: SDR, HDR, PQ, HLG or int 0-7", "hdr", ":HDR=", false);
         }
 
         decklink_uninitialize(&com_initialized);
