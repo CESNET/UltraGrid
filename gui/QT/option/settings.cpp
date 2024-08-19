@@ -198,6 +198,7 @@ const static struct{
 	const char *parent;
 	const char *limit;
 } optionList[] = {
+	{"extraOpts", Option::StringOpt, "", "", false, "", ""},
 	{"video.source", Option::StringOpt, " -t ", "", false, "", ""},
 	{"video.source.embeddedAudioAvailable", Option::SilentOpt, "", "", false, "", ""},
 	{"testcard.width", Option::StringOpt, ":", "", false, "video.source", "testcard"},
@@ -298,8 +299,10 @@ std::string Settings::getControlPort() const{
 std::string Settings::getLaunchParams() const{
 	std::string out;
 
+	out += getOption("extraOpts").getLaunchOption();
+
 	if(getOption("preview").isEnabled()){
-		out += "--capture-filter preview";
+		out += " --capture-filter preview";
 		out += ":key=" + getSessRndKey();
 	}
 
@@ -345,6 +348,8 @@ std::string Settings::getLaunchParams() const{
 
 std::string Settings::getPreviewParams() const{
 	std::string out;
+
+	out += getOption("extraOpts").getLaunchOption();
 
 	out += " --capture-filter preview";
 	out += ":key=" + getSessRndKey();

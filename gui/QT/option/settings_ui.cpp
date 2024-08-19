@@ -171,6 +171,7 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
+	addControl(new LineEditUi(ui->extraOptsLineEdit, settings, "extraOpts"));
 	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
 
 	addDeviceTabs();
