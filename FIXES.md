@@ -1,3 +1,9 @@
+#### 1.9.6
+
+* fixed not working GPUJPEG decoder
+* vcap/rtsp small fixes; but mainly advised to use the development build
+because of plenty of changes/fixes that are not to be backported
+
 #### 1.9.5
 
 * CI: updated dependencies (x265, NDI6 et al.)
