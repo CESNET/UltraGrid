@@ -1831,7 +1831,8 @@ then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         if test "$lavc_cuda_conv_req" != no && test "$FOUND_CUDA" = yes &&
-                        test "$system" != MacOSX; then
+                        test "$system" != MacOSX && test "$nvcc_major" -ge 9
+        then
                 lavc_cuda=yes
         fi
         if test "$lavc_cuda" = yes && test "$system" = Windows &&
