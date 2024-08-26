@@ -75,6 +75,7 @@
 #include "types.h"             // for video_desc, pixfmt_desc, R12L, RGBA
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/parallel_conv.h"
 #include "video_codec.h"       // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
 
@@ -135,11 +136,9 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         int dst_len = vc_get_linesize(width, R12L);
         decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L);
 
-        for(unsigned i = 0; i < height; i++){
-                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len, 0, 0, 0);
-                src_buffer += src_pitch;
-                dst_buffer += dst_len;
-        }
+        parallel_pix_conv((int) height, (char *) dst_buffer, dst_len,
+                          (const char *) src_buffer, src_pitch,
+                          vc_copylineRG48toR12L, 0);
 }
 
 static void print_dropped(unsigned long long int dropped) {
