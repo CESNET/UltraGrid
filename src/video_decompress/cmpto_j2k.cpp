@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,24 +56,27 @@
  * another stream, which, however, creates a new decoder).
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <algorithm>           // for min
+#include <cassert>             // for assert
+#include <cmpto_j2k_dec.h>     // for cmpto_sample_format_type, cmpto_j2k_de...
+#include <cstdint>             // for int64_t
+#include <cstdlib>             // for free, atoi, malloc, abort
+#include <cstring>             // for size_t, NULL, memcpy
+#include <mutex>               // for mutex, lock_guard, unique_lock
+#include <ostream>             // for operator<<, basic_ostream, char_traits
+#include <pthread.h>           // for pthread_create, pthread_join, pthread_t
+#include <queue>               // for queue
+#include <utility>             // for pair
+
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"       // for get_decoder_from_to, decoder_t
+#include "types.h"             // for video_desc, pixfmt_desc, R12L, RGBA
 #include "utils/macros.h"
 #include "utils/misc.h"
-#include "video.h"
+#include "video_codec.h"       // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
-
-#include <cmpto_j2k_dec.h>
-
-#include <mutex>
-#include <queue>
-#include <utility>
 
 constexpr const int DEFAULT_TILE_LIMIT = 2;
 /// maximal size of queue for decompressed frames
@@ -83,7 +86,12 @@ constexpr const int DEFAULT_MAX_IN_FRAMES = 4;
 constexpr const int64_t DEFAULT_MEM_LIMIT = 1000000000LL;
 constexpr const char *MOD_NAME = "[J2K dec.] ";
 
-using namespace std;
+using std::lock_guard;
+using std::min;
+using std::mutex;
+using std::pair;
+using std::queue;
+using std::unique_lock;
 
 struct state_decompress_j2k {
         state_decompress_j2k(unsigned int mqs, unsigned int mif)
