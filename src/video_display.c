@@ -66,6 +66,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "tv.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/thread.h"
@@ -465,30 +466,42 @@ bool display_reconfigure(struct display *d, struct video_desc desc, enum video_m
         return rc;
 }
 
-static void restrict_returned_codecs(codec_t *display_codecs,
-                size_t *display_codecs_count, codec_t *pp_codecs,
-                int pp_codecs_count)
+/**
+ * Returns (in display_codecs and _count) the acceptable input
+ * codecs for the vo_postprocess filter that will be converted to
+ * codec accepted by the display.
+ */
+static void
+restrict_returned_codecs(struct vo_postprocess_state *postprocess,
+                         codec_t *display_codecs, size_t *display_codecs_count,
+                         codec_t *pp_codecs, size_t pp_codecs_count)
 {
-        int i;
+        codec_t new_disp_codecs[VC_COUNT];
+        size_t  new_disp_codec_count = 0;
 
-        for (i = 0; i < (int) *display_codecs_count; ++i) {
-                int j;
+        for (unsigned i = 0; i < pp_codecs_count; ++i) {
+                const struct video_desc in_desc          = { 1920,         1080,
+                                                             pp_codecs[i], 30,
+                                                             PROGRESSIVE,  1 };
+                vo_postprocess_reconfigure(postprocess, in_desc);
+                int               out_display_mode = 0; // unused
+                int               out_frames_count = 0; // "
+                struct video_desc out_desc         = { 0 };
+                vo_postprocess_get_out_desc(postprocess, &out_desc,
+                                            &out_display_mode,
+                                            &out_frames_count);
+                assert(out_desc.color_spec != VC_NONE);
 
-                int found = FALSE;
-
-                for (j = 0; j < pp_codecs_count; ++j) {
-                        if(display_codecs[i] == pp_codecs[j]) {
-                                found = TRUE;
+                for (unsigned j = 0; j < *display_codecs_count; ++j) {
+                        if (display_codecs[j] == out_desc.color_spec) {
+                                new_disp_codecs[new_disp_codec_count++] =
+                                    in_desc.color_spec;
                         }
                 }
-
-                if(!found) {
-                        memmove(&display_codecs[i], (const void *) &display_codecs[i + 1],
-                                        sizeof(codec_t) * (*display_codecs_count - i - 1));
-                        --*display_codecs_count;
-                        --i;
-                }
         }
+        *display_codecs_count = new_disp_codec_count;
+        memcpy(display_codecs, new_disp_codecs,
+               new_disp_codec_count * sizeof(codec_t));
 }
 
 /**
@@ -534,8 +547,10 @@ bool display_ctl_property(struct display *d, int property, void *val, size_t *le
 
                                 }
                                 pp_codecs_count = nlen / sizeof(codec_t);
-                                restrict_returned_codecs(display_codecs, &display_codecs_count,
-                                                pp_codecs, pp_codecs_count);
+                                restrict_returned_codecs(
+                                    d->postprocess, display_codecs,
+                                    &display_codecs_count, pp_codecs,
+                                    pp_codecs_count);
                         }
                         nlen = display_codecs_count * sizeof(codec_t);
                         if (nlen <= *len) {
