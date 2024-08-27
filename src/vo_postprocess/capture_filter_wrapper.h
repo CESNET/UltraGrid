@@ -44,12 +44,17 @@
 #define CAPTURE_FILTER_WRAPPER_H_4106D5BE_4B1D_4367_B506_67B358514C50
 
 #include <assert.h>
+#include <stdint.h>
 
 #include "capture_filter.h"
+#include "utils/macros.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#define CFW_MAGIC to_fourcc('V', 'P', 'C', 'F')
+
 struct vo_pp_capture_filter_wrapper {
+        uint32_t magic;
         void *state;           ///< capture filter state
         vo_postprocess_get_property_t get_property;
         struct video_frame *f;
@@ -65,6 +70,7 @@ static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         }\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) \
                         calloc(1, sizeof(struct vo_pp_capture_filter_wrapper));\
+        s->magic = CFW_MAGIC;\
         s->state = state;\
         s->get_property = get_prop_callb;\
         return s;\

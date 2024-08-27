@@ -41,17 +41,22 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <stdint.h>
+
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
+#include "utils/macros.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
 
+#define MAGIC to_fourcc('C', 'F', 'C', 'P')
 #define MOD_NAME "[change pixfmt cap. f.] "
 
 struct state_capture_filter_change_pixfmt {
+        uint32_t magic;
         codec_t to_codec;
         void *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
@@ -68,6 +73,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         }
 
         struct state_capture_filter_change_pixfmt *s = calloc(1, sizeof(struct state_capture_filter_change_pixfmt));
+        s->magic = MAGIC;
         s->to_codec = get_codec_from_name(cfg);
         if (!s->to_codec) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n", cfg);
