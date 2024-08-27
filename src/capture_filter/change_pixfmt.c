@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,22 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <stdbool.h>                                // for false, bool, true
+#include <stdint.h>                                 // for uint32_t
+#include <stdio.h>                                  // for printf
+#include <stdlib.h>                                 // for free, NULL, calloc
+#include <string.h>                                 // for memcpy, strcmp
 
-#include <stdint.h>
-
-#include "capture_filter.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/color_out.h"
-#include "video.h"
-#include "video_codec.h"
-#include "utils/macros.h"
-#include "vo_postprocess/capture_filter_wrapper.h"
+#include "capture_filter.h"                         // for CAPTURE_FILTER_AB...
+#include "debug.h"                                  // for log_msg, LOG_LEVE...
+#include "lib_common.h"                             // for REGISTER_MODULE
+#include "pixfmt_conv.h"                            // for get_decoder_from_to
+#include "types.h"                                  // for tile, video_frame
+#include "utils/color_out.h"                        // for color_printf, TER...
+#include "utils/macros.h"                           // for to_fourcc
+#include "video_codec.h"                            // for vc_get_linesize
+#include "video_frame.h"                            // for vf_alloc_desc
+#include "vo_postprocess.h"                         // for VO_PP_PROPERTY_CO...
+#include "vo_postprocess/capture_filter_wrapper.h"  // for ADD_VO_PP_CAPTURE...
+struct module;
 
 #define MAGIC to_fourcc('C', 'F', 'C', 'P')
 #define MOD_NAME "[change pixfmt cap. f.] "
