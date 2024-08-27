@@ -134,7 +134,7 @@ static const struct capture_filter_info capture_filter_change_pixfmt = {
 };
 
 // coverity[leaked_storage:SUPPRESS]
-ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done, vo_pp_set_out_buffer)
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done, vo_pp_set_out_buffer, NULL)
 REGISTER_MODULE(change_pixfmt, &capture_filter_change_pixfmt, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
 

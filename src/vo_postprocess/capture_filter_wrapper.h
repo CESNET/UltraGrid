@@ -51,12 +51,13 @@
 
 struct vo_pp_capture_filter_wrapper {
         void *state;           ///< capture filter state
+        vo_postprocess_get_property_t get_property;
         struct video_frame *f;
 };
 
 #define CF_WRAPPER_MERGE(a,b)  a##b
 
-#define ADD_VO_PP_CAPTURE_FILTER_WRAPPER(name, init, filter, done, set_out_buf) \
+#define ADD_VO_PP_CAPTURE_FILTER_WRAPPER(name, init, filter, done, set_out_buf, get_prop_callb) \
 static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         void *state;\
         if (init(NULL, cfg, &state) != 0) {\
@@ -65,6 +66,7 @@ static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) \
                         calloc(1, sizeof(struct vo_pp_capture_filter_wrapper));\
         s->state = state;\
+        s->get_property = get_prop_callb;\
         return s;\
 }\
 \
@@ -75,11 +77,11 @@ static bool CF_WRAPPER_MERGE(vo_pp_reconfigure_, name)(void *state, struct video
 }\
 \
 static bool CF_WRAPPER_MERGE(vo_pp_get_property_, name)(void *state, int property, void *val, size_t *len) {\
-        UNUSED(state);\
-        UNUSED(property);\
-        UNUSED(val);\
-        UNUSED(len);\
-        return false;\
+        struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
+        if (s->get_property == 0) {\
+                return false;\
+        }\
+        return s->get_property(s->state, property, val, len);\
 }\
 static struct video_frame *CF_WRAPPER_MERGE(vo_pp_getf_, name)(void *state) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
