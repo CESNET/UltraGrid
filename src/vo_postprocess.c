@@ -268,7 +268,7 @@ bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, v
 
         if (simple_linked_list_size(s->postprocessors) == 1 || property == VO_PP_DOES_CHANGE_TILING_MODE) {
                 struct vo_postprocess_state_single *state = simple_linked_list_last(s->postprocessors);
-                return state->funcs->get_property(state, property, val, len);
+                return state->funcs->get_property(state->state, property, val, len);
         }
 
         /** @todo
@@ -277,7 +277,7 @@ bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, v
          */
         if (property == VO_PP_PROPERTY_CODECS) {
                 struct vo_postprocess_state_single *state = simple_linked_list_first(s->postprocessors);
-                return state->funcs->get_property(state, property, val, len);
+                return state->funcs->get_property(state->state, property, val, len);
         }
 
         return false;
