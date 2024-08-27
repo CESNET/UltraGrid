@@ -84,6 +84,7 @@ static bool CF_WRAPPER_MERGE(vo_pp_reconfigure_, name)(void *state, struct video
 \
 static bool CF_WRAPPER_MERGE(vo_pp_get_property_, name)(void *state, int property, void *val, size_t *len) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
+        assert(s->magic == CFW_MAGIC);\
         if (s->get_property == 0) {\
                 return false;\
         }\
