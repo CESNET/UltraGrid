@@ -133,8 +133,37 @@ static const struct capture_filter_info capture_filter_change_pixfmt = {
         .filter = filter,
 };
 
+static bool
+change_pixfmt_vo_pp_get_property(void *state, int property, void *val, size_t *len)
+{
+        if (property != VO_PP_PROPERTY_CODECS) {
+                return false;
+        }
+
+        struct state_capture_filter_change_pixfmt *s = state;
+        const size_t alloc_len = *len;
+        *len = 0;
+        for (codec_t c = VC_FIRST; c < VC_END; ++c)  {
+                decoder_t decoder = get_decoder_from_to(c, s->to_codec);
+                if (decoder == NULL) {
+                        continue;
+                }
+                if (*len + sizeof c > alloc_len) {
+                        MSG(ERROR, "Insufficient size %zd for get_property!\n",
+                            alloc_len);
+                        return false;
+                }
+                memcpy((char*) val + *len, &c, sizeof c);
+                *len += sizeof c;
+        }
+        return true;
+}
+
 // coverity[leaked_storage:SUPPRESS]
-ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done, vo_pp_set_out_buffer, NULL)
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done,
+                                 vo_pp_set_out_buffer,
+                                 change_pixfmt_vo_pp_get_property)
+
 REGISTER_MODULE(change_pixfmt, &capture_filter_change_pixfmt, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
 
