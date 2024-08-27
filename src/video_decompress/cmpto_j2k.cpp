@@ -48,12 +48,6 @@
  *   (which is asynchronous, thus non-blocking)
  * - then queue (filled by thread in first point) is checked - if it is
  *   non-empty, frame is copied to framebufffer. If not false is returned.
- *
- * @todo
- * Reconfiguration isn't entirely correct - on reconfigure, all frames
- * should be dropped and not copied to framebuffer. However this is usually
- * not an issue because dynamic video change is rare (except switching to
- * another stream, which, however, creates a new decoder).
  */
 
 #include <algorithm>           // for min
@@ -68,6 +62,7 @@
 #include <queue>               // for queue
 #include <utility>             // for pair
 
+#include "cuda_wrapper/kernels.hpp"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -92,11 +87,17 @@ using std::min;
 using std::mutex;
 using std::pair;
 using std::queue;
+using std::stoi;
 using std::unique_lock;
+
+static void
+j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
 
 struct state_decompress_j2k {
         state_decompress_j2k(unsigned int mqs, unsigned int mif)
                 : max_queue_size(mqs), max_in_frames(mif) {}
+        long long int req_mem_limit = DEFAULT_MEM_LIMIT;
+        unsigned int req_tile_limit = DEFAULT_TILE_LIMIT;
         cmpto_j2k_dec_ctx *decoder{};
         cmpto_j2k_dec_cfg *settings{};
 
@@ -220,21 +221,8 @@ ADD_TO_PARAM("j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
                                 "  max number of frames held by encoder\n");
 static void * j2k_decompress_init(void)
 {
-        struct state_decompress_j2k *s = NULL;
-        long long int mem_limit = DEFAULT_MEM_LIMIT;
-        unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int queue_len = DEFAULT_MAX_QUEUE_SIZE;
         unsigned int encoder_in_frames = DEFAULT_MAX_IN_FRAMES;
-        int ret;
-
-        if (get_commandline_param("j2k-dec-mem-limit")) {
-                mem_limit = unit_evaluate(
-                    get_commandline_param("j2k-dec-mem-limit"), nullptr);
-        }
-
-        if (get_commandline_param("j2k-dec-tile-limit")) {
-                tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
-        }
 
         if (get_commandline_param("j2k-dec-queue-len")) {
                 queue_len = atoi(get_commandline_param("j2k-dec-queue-len"));
@@ -244,57 +232,57 @@ static void * j2k_decompress_init(void)
                 encoder_in_frames = atoi(get_commandline_param("j2k-dec-encoder-queue"));
         }
 
+        auto *s = new state_decompress_j2k(queue_len, encoder_in_frames);
+        if (get_commandline_param("j2k-dec-mem-limit") != nullptr) {
+                s->req_mem_limit = unit_evaluate(
+                    get_commandline_param("j2k-dec-mem-limit"), nullptr);
+        }
+
+        if (get_commandline_param("j2k-dec-tile-limit") != nullptr) {
+                s->req_tile_limit = stoi(get_commandline_param("j2k-dec-tile-limit"));
+        }
+
         const auto *version = cmpto_j2k_dec_get_version();
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
-        s = new state_decompress_j2k(queue_len, encoder_in_frames);
-
-        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
-        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, tile_limit),
-                                "Error setting CUDA device", goto error);
-        }
-
-        CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &s->decoder), "Error initializing context",
-                        goto error);
-
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_destroy(ctx_cfg), "Destroy cfg", NOOP);
-
-        CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings), "Error creating configuration",
-                        goto error);
-
-        ret = pthread_create(&s->thread_id, NULL, decompress_j2k_worker, (void *) s);
-        assert(ret == 0 && "Unable to create thread");
-
         return s;
-
-error:
-        if (!s) {
-                return NULL;
-        }
-        if (s->settings) {
-                cmpto_j2k_dec_cfg_destroy(s->settings);
-        }
-        if (s->decoder) {
-                cmpto_j2k_dec_ctx_destroy(s->decoder);
-        }
-        delete s;
-        return NULL;
 }
+
+static void
+r12l_postprocessor_get_sz(
+    void */*postprocessor*/, void */*img_custom_data*/, size_t /*img_custom_data_size*/,
+    int size_x, int size_y, struct cmpto_j2k_dec_comp_format */*comp_formats*/,
+    int comp_count, size_t *temp_buffer_size, size_t *output_buffer_size)
+{
+        assert(comp_count == 3);
+        *temp_buffer_size = 0; // no temp buffer required
+        *output_buffer_size = vc_get_datalen(size_x, size_y, R12L);
+}
+#ifdef HAVE_CUDA
+const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
+    postprocess_rg48_to_r12l;
+#else
+const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
+    nullptr;
+#endif
 
 static struct {
         codec_t ug_codec;
         enum cmpto_sample_format_type cmpto_sf;
+        // CPU postprocess
         void (*convert)(unsigned char *dst_buffer, unsigned char *src_buffer, unsigned int width, unsigned int height);
+        // GPU postprocess
+        cmpto_j2k_dec_postprocessor_size_callback_cuda size_callback;
+        cmpto_j2k_dec_postprocessor_run_callback_cuda run_callback;
 } codecs[] = {
-        {UYVY, CMPTO_422_U8_P1020, nullptr},
-        {v210, CMPTO_422_U10_V210, nullptr},
-        {RGB, CMPTO_444_U8_P012, nullptr},
-        {BGR, CMPTO_444_U8_P210, nullptr},
-        {RGBA, CMPTO_444_U8_P012Z, nullptr},
-        {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
-        {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
+        { UYVY, CMPTO_422_U8_P1020,               nullptr,      nullptr, nullptr               },
+        { v210, CMPTO_422_U10_V210,               nullptr,      nullptr, nullptr               },
+        { RGB,  CMPTO_444_U8_P012,                nullptr,      nullptr, nullptr               },
+        { BGR,  CMPTO_444_U8_P210,                nullptr,      nullptr, nullptr               },
+        { RGBA, CMPTO_444_U8_P012Z,               nullptr,      nullptr, nullptr               },
+        { R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr,      nullptr, nullptr               },
+        { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
+         r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
@@ -308,17 +296,40 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 return true;
         }
 
+        j2k_decompress_cleanup_common(s);
+
         if (out_codec == R12L) {
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Decoding to 12-bit RGB.\n";
         }
 
         enum cmpto_sample_format_type cmpto_sf = (cmpto_sample_format_type) 0;
 
+        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg = nullptr;
+        CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
+        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
+                             ctx_cfg, cuda_devices[i], s->req_mem_limit,
+                             s->req_tile_limit),
+                         "Error setting CUDA device", return false);
+        }
+
         for(const auto &codec : codecs){
-                if(codec.ug_codec == out_codec){
-                        cmpto_sf = codec.cmpto_sf;
+                if(codec.ug_codec != out_codec){
+                        continue;
+                }
+                cmpto_sf = codec.cmpto_sf;
+                if (codec.run_callback != nullptr) {
+                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
+                                     ctx_cfg, nullptr, nullptr,
+                                     codec.size_callback, codec.run_callback),
+                                 "add postprocessor", return false);
+                } else {
                         s->convert = codec.convert;
-                        break;
+                        if (s->convert != nullptr) {
+                                MSG(WARNING,
+                                    "Compiled without CUDA, pixfmt conv will "
+                                    "be processed on CPU...\n");
+                        }
                 }
         }
 
@@ -327,6 +338,14 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 get_codec_name(out_codec) << "\n";
                 abort();
         }
+
+        CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &s->decoder),
+                 "Error initializing context", return false);
+
+        CHECK_OK(cmpto_j2k_dec_ctx_cfg_destroy(ctx_cfg), "Destroy cfg", NOOP);
+
+        CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings),
+                 "Error creating configuration", return false);
 
         if (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16)) {
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
@@ -360,6 +379,9 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         s->desc = desc;
         s->out_codec = out_codec;
         s->pitch = pitch;
+
+        int ret = pthread_create(&s->thread_id, NULL, decompress_j2k_worker, (void *) s);
+        assert(ret == 0 && "Unable to create thread");
 
         return true;
 }
@@ -489,16 +511,21 @@ static int j2k_decompress_get_property(void *state, int property, void *val, siz
         return ret;
 }
 
-static void j2k_decompress_done(void *state)
+static void
+j2k_decompress_cleanup_common(struct state_decompress_j2k *s)
 {
-        struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
-
         cmpto_j2k_dec_ctx_stop(s->decoder);
         pthread_join(s->thread_id, NULL);
         log_msg(LOG_LEVEL_VERBOSE, "[J2K dec.] Decoder stopped.\n");
 
-        cmpto_j2k_dec_cfg_destroy(s->settings);
-        cmpto_j2k_dec_ctx_destroy(s->decoder);
+        if (s->settings != nullptr) {
+                cmpto_j2k_dec_cfg_destroy(s->settings);
+                s->settings = nullptr;
+        }
+        if (s->decoder != nullptr) {
+                cmpto_j2k_dec_ctx_destroy(s->decoder);
+                s->decoder = nullptr;
+        }
 
         while (s->decompressed_frames.size() > 0) {
                 auto decoded = s->decompressed_frames.front();
@@ -506,6 +533,13 @@ static void j2k_decompress_done(void *state)
                 free(decoded.first);
         }
 
+        s->convert = nullptr;
+}
+
+static void j2k_decompress_done(void *state)
+{
+        auto *s = (struct state_decompress_j2k *) state;
+        j2k_decompress_cleanup_common(s);
         delete s;
 }
 

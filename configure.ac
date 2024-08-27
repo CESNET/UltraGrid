@@ -3088,13 +3088,22 @@ if test $cmpto_j2k_req != no; then
         AC_CHECK_HEADER(cmpto_j2k_dec.h, FOUND_CMPTO_J2K_DEC_H=yes, FOUND_CMPTO_J2K_DEC_H=no)
         AC_CHECK_LIB(cmpto_j2k_enc, cmpto_j2k_enc_ctx_cfg_create, FOUND_CMPTO_J2K_ENC_L=yes, FOUND_CMPTO_J2K_ENC_L=no)
         AC_CHECK_LIB(cmpto_j2k_dec, cmpto_j2k_dec_ctx_cfg_create, FOUND_CMPTO_J2K_DEC_L=yes, FOUND_CMPTO_J2K_DEC_L=no)
-
-        if test "$FOUND_CMPTO_J2K_ENC_H" = yes && test "$FOUND_CMPTO_J2K_DEC_H" = yes && test "$FOUND_CMPTO_J2K_ENC_L" = yes && test "$FOUND_CMPTO_J2K_DEC_L" = yes
-        then
-                add_module vcompress_cmpto_j2k src/video_compress/cmpto_j2k.o -lcmpto_j2k_enc
-                add_module vdecompress_cmpto_j2k src/video_decompress/cmpto_j2k.o -lcmpto_j2k_dec
-                cmpto_j2k=yes
+fi
+if test "$cmpto_j2k_req" != no &&
+        test "$FOUND_CMPTO_J2K_ENC_H" = yes &&
+        test "$FOUND_CMPTO_J2K_DEC_H" = yes &&
+        test "$FOUND_CMPTO_J2K_ENC_L" = yes &&
+        test "$FOUND_CMPTO_J2K_DEC_L" = yes
+then
+        dec_objs=src/video_decompress/cmpto_j2k.o
+        if test "$FOUND_CUDA" = yes; then
+                dec_objs="$dec_objs src/cuda_wrapper/kernels.o"
+        else
+                UG_MSG_WARN([CUDA is recommended for optimal cmpto_j2k performance but not found])
         fi
+        add_module vcompress_cmpto_j2k src/video_compress/cmpto_j2k.o -lcmpto_j2k_enc
+        add_module vdecompress_cmpto_j2k "$dec_objs" -lcmpto_j2k_dec
+        cmpto_j2k=yes
 fi
 
 ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found!])
