@@ -111,7 +111,7 @@ struct cmpto_j2k_enc_cuda_host_buffer_data_allocator
                 }
                 return ptr;
         }
-        void deallocate(void *ptr) override { cuda_wrapper_free(ptr); }
+        void deallocate(void *ptr) override { cuda_wrapper_free_host(ptr); }
         [[nodiscard]] video_frame_pool_allocator *clone() const override
         {
                 return new cmpto_j2k_enc_cuda_host_buffer_data_allocator(*this);
