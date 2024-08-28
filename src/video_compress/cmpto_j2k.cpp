@@ -123,19 +123,13 @@ using allocator = default_data_allocator;
 #endif
 
 struct state_video_compress_j2k {
-        state_video_compress_j2k(long long int bitrate, unsigned int pool_size, int mct)
-            : rate(bitrate), mct(mct), pool(pool_size, allocator()),
-              max_in_frames(pool_size)
-        {
-        }
-
         struct module module_data{};
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
-        long long int rate; ///< bitrate in bits per second
-        int mct; // force use of mct - -1 means default
+        long long int rate = 0; ///< bitrate in bits per second
+        int mct = -1; // force use of mct - -1 means default
         video_frame_pool pool; ///< pool for frames allocated by us but not yet consumed by encoder
-        unsigned int max_in_frames; ///< max number of frames between push and pop
+        unsigned int max_in_frames = DEFAULT_POOL_SIZE; ///< max number of frames between push and pop
         unsigned int in_frames{};   ///< number of currently encoding frames
         mutex lock;
         condition_variable frame_popped;
@@ -366,14 +360,13 @@ static void usage() {
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
         double quality = DEFAULT_QUALITY;
-        int mct = -1;
-        long long int bitrate = 0;
         long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
-        unsigned int pool_size = DEFAULT_POOL_SIZE;
 
         const auto *version = cmpto_j2k_enc_get_version();
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+
+        auto *s = new state_video_compress_j2k();
 
         char *tmp = (char *) alloca(strlen(c_cfg) + 1);
         strcpy(tmp, c_cfg);
@@ -381,32 +374,32 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
-                        ASSIGN_CHECK_VAL(bitrate, strchr(item, '=') + 1, 1);
+                        ASSIGN_CHECK_VAL(s->rate, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
                         quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
-                        mct = strcasecmp("mct", item) == 0 ? 1 : 0;
+                        s->mct = strcasecmp("mct", item) == 0 ? 1 : 0;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
                         ASSIGN_CHECK_VAL(mem_limit, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
                         ASSIGN_CHECK_VAL(tile_limit, strchr(item, '=') + 1, 0);
                 } else if (strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
-                        ASSIGN_CHECK_VAL(pool_size, strchr(item, '=') + 1, 1);
+                        ASSIGN_CHECK_VAL(s->max_in_frames, strchr(item, '=') + 1, 1);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
                         return static_cast<module*>(INIT_NOERR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        return NULL;
+                        goto error;
                 }
         }
 
+        s->pool = video_frame_pool(s->max_in_frames, allocator());
+
         if (quality < 0.0 || quality > 1.0) {
                 LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
-                return nullptr;
+                goto error;
         }
-
-        auto *s = new state_video_compress_j2k(bitrate, pool_size, mct);
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
