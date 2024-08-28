@@ -174,6 +174,24 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
         src += 2;
 }
 
+#ifdef DEBUG
+#include <stdio.h>
+#define MEASURE_KERNEL_DURATION_START \
+        cudaEvent_t t0, t1; \
+        cudaEventCreate(&t0); \
+        cudaEventCreate(&t1); \
+        cudaEventRecord(t0, stream);
+#define MEASURE_KERNEL_DURATION_STOP \
+        cudaEventRecord(t1, stream); \
+        cudaEventSynchronize(t1); \
+        float elapsedTime = NAN; \
+        cudaEventElapsedTime(&elapsedTime, t0, t1); \
+        printf("elapsed time: %f\n", elapsedTime);
+#else
+#define MEASURE_KERNEL_DURATION_START
+#define MEASURE_KERNEL_DURATION_STOP
+#endif
+
 /**
  * @sa cmpto_j2k_dec_postprocessor_run_callback_cuda
  */
@@ -191,14 +209,20 @@ int postprocess_rg48_to_r12l(
     size_t /* temp_buffer_size */,
     void * output_buffer,
     size_t /* output_buffer_size */,
-    void * stream
+    void * vstream
 ) {
+        cudaStream_t stream = (cudaStream_t) vstream;
         dim3 threads_per_block(256);
         dim3 blocks((((size_x + 7) / 8) + 255) / 256, size_y);
+
+        MEASURE_KERNEL_DURATION_START
 
         kernel_rg48_to_r12l<<<blocks, threads_per_block, 0,
                               (cudaStream_t) stream>>>(
             (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x,
             size_y);
+
+        MEASURE_KERNEL_DURATION_STOP
+
         return 0;
 }
