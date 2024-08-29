@@ -44,8 +44,7 @@
  * the GPU encoder.
  *
  * @todo
- * - check multiple CUDA devices - now the data are always copied to
- * the first CUDA device
+ * - check support for multiple CUDA devices with CUDA buffers
  */
 
 #ifdef HAVE_CONFIG_H
@@ -220,13 +219,17 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
-        if (s->convertFunc == nullptr) {
+        if (s->convertFunc == nullptr && cuda_devices_count == 1) {
                 s->pool_in_device_memory = true;
                 s->pool = video_frame_pool(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
                         cuda_wrapper_malloc, cuda_wrapper_free>());
         } else {
+                if (cuda_devices_count > 1) {
+                        MSG(WARNING, "More than 1 CUDA device will use CPU "
+                                     "buffers. Please report...\n");
+                }
                 s->pool = video_frame_pool(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
@@ -437,10 +440,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, tile_limit),
                                 "Setting CUDA device", goto error);
-        }
-        if (cuda_devices_count > 1) {
-                MSG(WARNING, "More than one CUDA device is not tested and may "
-                             "not work. Please report...\n");
         }
 
         CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &s->context), "Context create",
