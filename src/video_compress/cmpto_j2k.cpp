@@ -142,23 +142,23 @@ struct state_video_compress_j2k {
         mutex lock;
         condition_variable frame_popped;
         video_desc saved_desc{};
-        video_desc precompress_desc{}; ///< pool properties
+        codec_t precompress_codec = VC_NONE;
         video_desc compressed_desc{};
-        void (*convertFunc)(video_frame *dst, video_frame *src){nullptr};
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
 static void j2k_compress_done(struct module *mod);
 
-static void R12L_to_RG48(video_frame *dst, video_frame *src){
+static void parallel_conv(video_frame *dst, video_frame *src){
         int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
         int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
 
-        decoder_t vc_copylineR12LtoRG48 = get_decoder_from_to(R12L, RG48);
-
+        decoder_t decoder =
+            get_decoder_from_to(src->color_spec, dst->color_spec);
+        assert(decoder != nullptr);
         parallel_pix_conv((int) src->tiles[0].height, dst->tiles[0].data,
                           dst_pitch, src->tiles[0].data, src_pitch,
-                          vc_copylineR12LtoRG48, 0);
+                          decoder, 0);
 }
 
 static struct {
@@ -172,7 +172,7 @@ static struct {
         {RGB, CMPTO_444_U8_P012, VIDEO_CODEC_NONE, nullptr},
         {RGBA, CMPTO_444_U8_P012Z, VIDEO_CODEC_NONE, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, VIDEO_CODEC_NONE, nullptr},
-        {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, R12L_to_RG48},
+        {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, nullptr},
 };
 
 static bool configure_with(struct state_video_compress_j2k *s, struct video_desc desc){
@@ -182,11 +182,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         for(const auto &codec : codecs){
                 if(codec.ug_codec == desc.color_spec){
                         sample_format = codec.cmpto_sf;
-                        s->convertFunc = codec.convertFunc;
-                        s->precompress_desc = desc;
-                        if(codec.convert_codec != VIDEO_CODEC_NONE){
-                                s->precompress_desc.color_spec = codec.convert_codec;
-                        }
+                        s->precompress_codec = codec.convert_codec;
                         found = true;
                         break;
                 }
@@ -219,7 +215,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
-        if (s->convertFunc == nullptr && cuda_devices_count == 1) {
+        if (s->precompress_codec == VC_NONE && cuda_devices_count == 1) {
                 s->pool_in_device_memory = true;
                 s->pool = video_frame_pool(
                     s->max_in_frames,
@@ -251,8 +247,8 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
         std::shared_ptr<video_frame> ret = s->pool.get_frame();
 
-        if (s->convertFunc) {
-                s->convertFunc(ret.get(), frame);
+        if (s->precompress_codec != VC_NONE) {
+                parallel_conv(ret.get(), frame);
         } else if (s->pool_in_device_memory) {
 #ifdef HAVE_CUDA
                 cuda_wrapper_set_device((int) cuda_devices[0]);
@@ -525,8 +521,14 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                 if (!ret) {
                         return;
                 }
-                s->pool.reconfigure(s->precompress_desc, vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec)
-                                * s->precompress_desc.height);
+                struct video_desc pool_desc = desc;
+                if (s->precompress_codec != VC_NONE) {
+                        pool_desc.color_spec = s->precompress_codec;
+                }
+                s->pool.reconfigure(
+                    pool_desc, (size_t) vc_get_linesize(pool_desc.width,
+                                                        pool_desc.color_spec) *
+                                   pool_desc.height);
         }
 
         assert(tx->tile_count == 1); // TODO
