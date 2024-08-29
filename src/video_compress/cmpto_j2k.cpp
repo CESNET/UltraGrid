@@ -456,7 +456,15 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         udata->frame.~shared_ptr<video_frame>();
 }
 
-#define HANDLE_ERROR_COMPRESS_PUSH if (img) cmpto_j2k_enc_img_destroy(img); return
+#define HANDLE_ERROR_COMPRESS_PUSH \
+        if (udata != nullptr) { \
+                udata->frame.~shared_ptr<video_frame>(); \
+        } \
+        if (img != nullptr) { \
+                cmpto_j2k_enc_img_destroy(img); \
+        } \
+        return
+
 static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
 {
         struct state_video_compress_j2k *s =
