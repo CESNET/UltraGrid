@@ -141,8 +141,8 @@ struct state_video_compress_j2k {
         unsigned int in_frames{};   ///< number of currently encoding frames
         mutex lock;
         condition_variable frame_popped;
-        video_desc saved_desc{}; ///< for pool reconfiguration
-        video_desc precompress_desc{};
+        video_desc saved_desc{};
+        video_desc precompress_desc{}; ///< pool properties
         video_desc compressed_desc{};
         void (*convertFunc)(video_frame *dst, video_frame *src){nullptr};
 };
