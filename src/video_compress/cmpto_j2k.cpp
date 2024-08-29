@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,10 @@
  * the GPU is powerful enough due to the fact that CUDA registers the new
  * buffers which is very slow and because of that the frames cumulate before
  * the GPU encoder.
+ *
+ * @todo
+ * - check multiple CUDA devices - now the data are always copied to
+ * the first CUDA device
  */
 
 #ifdef HAVE_CONFIG_H
@@ -87,6 +91,7 @@
 /// default max size of state_video_compress_j2k::pool and also value
 /// for state_video_compress_j2k::max_in_frames
 #define DEFAULT_POOL_SIZE 4
+
 /// number of frames that encoder encodes at moment
 #define DEFAULT_TILE_LIMIT 1
 #define DEFAULT_MEM_LIMIT 1000000000LLU
@@ -98,28 +103,27 @@ using std::shared_ptr;
 using std::unique_lock;
 
 #ifdef HAVE_CUDA
-struct cmpto_j2k_enc_cuda_host_buffer_data_allocator
+template <decltype(cuda_wrapper_malloc_host) alloc,
+          decltype(cuda_wrapper_free_host)   free>
+struct cmpto_j2k_enc_cuda_buffer_data_allocator
     : public video_frame_pool_allocator {
         void *allocate(size_t size) override
         {
                 void *ptr = nullptr;
                 if (CUDA_WRAPPER_SUCCESS !=
-                    cuda_wrapper_malloc_host(&ptr, size)) {
+                    alloc(&ptr, size)) {
                         MSG(ERROR, "Cannot allocate host buffer: %s\n",
                             cuda_wrapper_last_error_string());
                         return nullptr;
                 }
                 return ptr;
         }
-        void deallocate(void *ptr) override { cuda_wrapper_free_host(ptr); }
+        void deallocate(void *ptr) override { free(ptr); }
         [[nodiscard]] video_frame_pool_allocator *clone() const override
         {
-                return new cmpto_j2k_enc_cuda_host_buffer_data_allocator(*this);
+                return new cmpto_j2k_enc_cuda_buffer_data_allocator(*this);
         }
 };
-using allocator = cmpto_j2k_enc_cuda_host_buffer_data_allocator;
-#else
-using allocator = default_data_allocator;
 #endif
 
 struct state_video_compress_j2k {
@@ -128,6 +132,7 @@ struct state_video_compress_j2k {
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate = 0; ///< bitrate in bits per second
         int mct = -1; // force use of mct - -1 means default
+        bool pool_in_device_memory = false; ///< frames in pool are on GPU
         video_frame_pool pool; ///< pool for frames allocated by us but not yet consumed by encoder
         unsigned int max_in_frames = DEFAULT_POOL_SIZE; ///< max number of frames between push and pop
         unsigned int in_frames{};   ///< number of currently encoding frames
@@ -213,6 +218,24 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         "Setting MCT",
                         NOOP);
 
+        s->pool_in_device_memory = false;
+#ifdef HAVE_CUDA
+        if (s->convertFunc == nullptr) {
+                s->pool_in_device_memory = true;
+                s->pool = video_frame_pool(
+                    s->max_in_frames,
+                    cmpto_j2k_enc_cuda_buffer_data_allocator<
+                        cuda_wrapper_malloc, cuda_wrapper_free>());
+        } else {
+                s->pool = video_frame_pool(
+                    s->max_in_frames,
+                    cmpto_j2k_enc_cuda_buffer_data_allocator<
+                        cuda_wrapper_malloc_host, cuda_wrapper_free_host>());
+        }
+#else
+        s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
+#endif
+
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
         s->compressed_desc.tile_count = 1;
@@ -227,8 +250,17 @@ static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, vide
 
         if (s->convertFunc) {
                 s->convertFunc(ret.get(), frame);
+        } else if (s->pool_in_device_memory) {
+#ifdef HAVE_CUDA
+                cuda_wrapper_memcpy(ret->tiles[0].data, frame->tiles[0].data,
+                                    frame->tiles[0].data_len,
+                                    CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE);
+#else
+                abort(); // must not reach here
+#endif
         } else {
-                memcpy(ret->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+                memcpy(ret->tiles[0].data, frame->tiles[0].data,
+                       frame->tiles[0].data_len);
         }
 
         return ret;
@@ -394,8 +426,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 }
         }
 
-        s->pool = video_frame_pool(s->max_in_frames, allocator());
-
         if (quality < 0.0 || quality > 1.0) {
                 LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
                 goto error;
@@ -407,6 +437,10 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, tile_limit),
                                 "Setting CUDA device", goto error);
+        }
+        if (cuda_devices_count > 1) {
+                MSG(WARNING, "More than one CUDA device is not tested and may "
+                             "not work. Please report...\n");
         }
 
         CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &s->context), "Context create",
@@ -454,6 +488,14 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         (void) codestream; (void) custom_data_size; (void) codestream_size;
         auto *udata = static_cast<struct custom_data *>(custom_data);
         udata->frame.~shared_ptr<video_frame>();
+}
+
+static void
+release_cstream_cuda(void *img_custom_data, size_t img_custom_data_size,
+                      int /* device_id */, const void *samples, size_t samples_size)
+{
+        release_cstream(img_custom_data, img_custom_data_size, samples,
+                        samples_size);
 }
 
 #define HANDLE_ERROR_COMPRESS_PUSH \
@@ -508,10 +550,17 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
         vf_store_metadata(tx.get(), udata->metadata);
 
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, udata->frame->tiles[0].data,
-                                               udata->frame->tiles[0].data_len,
-                                               release_cstream),
-                 "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+        if (s->pool_in_device_memory) {
+                CHECK_OK(cmpto_j2k_enc_img_set_samples_cuda(
+                             img, cuda_devices[0], udata->frame->tiles[0].data,
+                             udata->frame->tiles[0].data_len, release_cstream_cuda),
+                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+        } else {
+                CHECK_OK(cmpto_j2k_enc_img_set_samples(
+                             img, udata->frame->tiles[0].data,
+                             udata->frame->tiles[0].data_len, release_cstream),
+                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+        }
 
         unique_lock<mutex> lk(s->lock);
         s->frame_popped.wait(lk, [s]{return s->in_frames < s->max_in_frames;});
