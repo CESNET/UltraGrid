@@ -70,6 +70,7 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/parallel_conv.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_compress.h"
@@ -153,15 +154,11 @@ static void R12L_to_RG48(video_frame *dst, video_frame *src){
         int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
         int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
 
-        unsigned char *s = (unsigned char *) src->tiles[0].data;
-        unsigned char *d = (unsigned char *) dst->tiles[0].data;
         decoder_t vc_copylineR12LtoRG48 = get_decoder_from_to(R12L, RG48);
 
-        for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copylineR12LtoRG48(d, s, dst_pitch, 0, 0, 0);
-                s += src_pitch;
-                d += dst_pitch;
-        }
+        parallel_pix_conv((int) src->tiles[0].height, dst->tiles[0].data,
+                          dst_pitch, src->tiles[0].data, src_pitch,
+                          vc_copylineR12LtoRG48, 0);
 }
 
 static struct {
