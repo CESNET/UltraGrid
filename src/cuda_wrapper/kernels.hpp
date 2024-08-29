@@ -59,4 +59,6 @@ int postprocess_rg48_to_r12l(
     void * stream
 );
 
+void preprocess_r12l_to_rg48(int width, int height, void *src, void *dst);
+
 #endif // defined CUDA_WRAPPER_KERNELS_HPP_1A3F7B57_EE91_4363_8D50_9CDDC60CB74F

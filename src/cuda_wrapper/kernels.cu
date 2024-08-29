@@ -176,20 +176,20 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
 
 #ifdef DEBUG
 #include <stdio.h>
-#define MEASURE_KERNEL_DURATION_START \
+#define MEASURE_KERNEL_DURATION_START(stream) \
         cudaEvent_t t0, t1; \
         cudaEventCreate(&t0); \
         cudaEventCreate(&t1); \
         cudaEventRecord(t0, stream);
-#define MEASURE_KERNEL_DURATION_STOP \
+#define MEASURE_KERNEL_DURATION_STOP(stream) \
         cudaEventRecord(t1, stream); \
         cudaEventSynchronize(t1); \
         float elapsedTime = NAN; \
         cudaEventElapsedTime(&elapsedTime, t0, t1); \
         printf("elapsed time: %f\n", elapsedTime);
 #else
-#define MEASURE_KERNEL_DURATION_START
-#define MEASURE_KERNEL_DURATION_STOP
+#define MEASURE_KERNEL_DURATION_START(stream)
+#define MEASURE_KERNEL_DURATION_STOP(stream)
 #endif
 
 /**
@@ -215,14 +215,128 @@ int postprocess_rg48_to_r12l(
         dim3 threads_per_block(256);
         dim3 blocks((((size_x + 7) / 8) + 255) / 256, size_y);
 
-        MEASURE_KERNEL_DURATION_START
+        MEASURE_KERNEL_DURATION_START(stream)
 
         kernel_rg48_to_r12l<<<blocks, threads_per_block, 0,
                               (cudaStream_t) stream>>>(
             (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x,
             size_y);
 
-        MEASURE_KERNEL_DURATION_STOP
+        MEASURE_KERNEL_DURATION_STOP(stream)
 
         return 0;
 }
+
+/// adapted variant of @ref vc_copylineR12LtoRG48
+__global__ void
+kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
+{
+        unsigned position_x = threadIdx.x + blockIdx.x * blockDim.x;
+        unsigned position_y = threadIdx.y + blockIdx.y * blockDim.y;
+        if (position_x > (size_x + 7) / 8) {
+                return;
+        }
+        // drop last block if not aligned (prevent OOB read from input)
+        if (position_y == size_y - 1 && position_x > size_x / 8) {
+                return;
+        }
+        uint8_t *dst = out + 2 * (position_y * 3 * size_x + position_x * 3 * 8);
+        uint8_t *src =
+            in + (position_y * ((size_x + 7) / 8) + position_x) * 36;
+
+        // 0
+        // R
+        *dst++ = src[0] << 4;
+        *dst++ = (src[1] << 4) | (src[0] >> 4);
+        // G
+        *dst++ = src[1] & 0xF0;
+        *dst++ = src[2];
+        // B
+        *dst++ = src[3] << 4;
+        *dst++ = (src[4 + 0] << 4) | (src[3] >> 4);
+
+        // 1
+        *dst++ = src[4 + 0] & 0xF0;
+        *dst++ = src[4 + 1];
+
+        *dst++ = src[4 + 2] << 4;
+        *dst++ = (src[4 + 3] << 4) | (src[4 + 2] >> 4);
+
+        *dst++ = src[4 + 3] & 0xF0;
+        *dst++ = src[8 + 0];
+
+        // 2
+        *dst++ = src[8 + 1] << 4;
+        *dst++ = (src[8 + 2] << 4) | (src[8 + 1] >> 4);
+
+        *dst++ = src[8 + 2] & 0xF0;
+        *dst++ = src[8 + 3];
+
+        *dst++ = src[12 + 0] << 4;
+        *dst++ = (src[12 + 1] << 4) | (src[12 + 0] >> 4);
+
+        // 3
+        *dst++ = src[12 + 1] & 0xF0;
+        *dst++ = src[12 + 2];
+
+        *dst++ = src[12 + 3] << 4;
+        *dst++ = (src[16 + 0] << 4) | (src[12 + 3] >> 4);
+
+        *dst++ = src[16 + 0] & 0xF0;
+        *dst++ = src[16 + 1];
+
+        // 4
+        *dst++ = src[16 + 2] << 4;
+        *dst++ = (src[16 + 3] << 4) | (src[16 + 2] >> 4);
+
+        *dst++ = src[16 + 3] & 0xF0;
+        *dst++ = src[20 + 0];
+
+        *dst++ = src[20 + 1] << 4;
+        *dst++ = (src[20 + 2] << 4) | (src[20 + 1] >> 4);
+
+        // 5
+        *dst++ = src[20 + 2] & 0xF0;
+        *dst++ = src[20 + 3];
+
+        *dst++ = src[24 + 0] << 4;
+        *dst++ = (src[24 + 1] << 4) | (src[24 + 0] >> 4);
+
+        *dst++ = src[24 + 1] & 0xF0;
+        *dst++ = src[24 + 2];
+
+        // 6
+        *dst++ = src[24 + 3] << 4;
+        *dst++ = (src[28 + 0] << 4) | (src[24 + 3] >> 4);
+
+        *dst++ = src[28 + 0] & 0xF0;
+        *dst++ = src[28 + 1];
+
+        *dst++ = src[28 + 2] << 4;
+        *dst++ = (src[28 + 3] << 4) | (src[28 + 2] >> 4);
+
+        // 7
+        *dst++ = src[28 + 3] & 0xF0;
+        *dst++ = src[32 + 0];
+
+        *dst++ = src[32 + 1] << 4;
+        *dst++ = (src[32 + 2] << 4) | (src[32 + 1] >> 4);
+
+        *dst++ = src[32 + 2] & 0xF0;
+        *dst++ = src[32 + 3];
+}
+
+void
+preprocess_r12l_to_rg48(int width, int height, void *src, void *dst)
+{
+        (void) width, (void) height, (void) src, (void) dst;
+        dim3 threads_per_block(256);
+        dim3 blocks((((width + 7) / 8) + 255) / 256, height);
+
+        MEASURE_KERNEL_DURATION_START(0)
+        kernel_r12l_to_rg48<<<blocks, threads_per_block>>>(
+            (uint8_t *) src, (uint8_t *) dst, width,
+            height);
+        MEASURE_KERNEL_DURATION_STOP(0)
+}
+
