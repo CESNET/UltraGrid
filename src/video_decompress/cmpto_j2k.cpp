@@ -62,6 +62,9 @@
 #include <queue>               // for queue
 #include <utility>             // for pair
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"            // for HAVE_CUDA
+#endif
 #include "cuda_wrapper/kernels.hpp"
 #include "debug.h"
 #include "host.h"
