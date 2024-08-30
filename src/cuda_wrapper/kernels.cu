@@ -37,8 +37,9 @@
 
 #include "kernels.hpp"
 
+#include <cstdint>
+#include <cstdio>
 #include <cuda_runtime_api.h>
-#include <stdint.h>
 
 /// modified vc_copylineRG48toR12L
 __global__ void
@@ -175,7 +176,11 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
 }
 
 #ifdef DEBUG
-#include <stdio.h>
+#define D_PRINTF printf
+#else
+#define D_PRINTF(...)
+#endif
+
 #define MEASURE_KERNEL_DURATION_START(stream) \
         cudaEvent_t t0, t1; \
         cudaEventCreate(&t0); \
@@ -186,11 +191,13 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
         cudaEventSynchronize(t1); \
         float elapsedTime = NAN; \
         cudaEventElapsedTime(&elapsedTime, t0, t1); \
-        printf("elapsed time: %f\n", elapsedTime);
-#else
-#define MEASURE_KERNEL_DURATION_START(stream)
-#define MEASURE_KERNEL_DURATION_STOP(stream)
-#endif
+        D_PRINTF("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        if (elapsedTime > 10.0) { \
+                fprintf( \
+                    stderr, \
+                    "Kernel in func %s duration %f > 10 ms, please report!\n", \
+                    __func__, elapsedTime); \
+        }
 
 /**
  * @sa cmpto_j2k_dec_postprocessor_run_callback_cuda
