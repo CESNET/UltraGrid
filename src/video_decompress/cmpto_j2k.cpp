@@ -547,22 +547,18 @@ static int j2k_decompress_get_priority(codec_t compression, struct pixfmt_desc i
         if (compression != J2K && compression != J2KR) {
                 return -1;
         }
-        switch (ugc) {
-                case VIDEO_CODEC_NONE:
-                        return 50; // probe
-                case UYVY:
-                case v210:
-                case RGB:
-                case BGR:
-                case RGBA:
-                case R10k:
-                case R12L:
+        if (ugc == VC_NONE) { // probe
+                return VDEC_PRIO_PROBE_HI;
+        }
+        bool codec_found = false;
+        for (const auto &codec : codecs) {
+                if (codec.ug_codec == ugc) {
+                        codec_found = true;
                         break;
-                default:
-                        return -1;
-        };
-        if (ugc == VIDEO_CODEC_NONE) {
-                return 50; // probe
+                }
+        }
+        if (!codec_found) {
+                return VDEC_PRIO_NA;
         }
         if (internal.depth == 0) { // fallback - internal undefined
                 return 800;
