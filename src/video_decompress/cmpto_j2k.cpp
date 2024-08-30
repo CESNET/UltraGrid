@@ -281,6 +281,7 @@ static struct {
         { BGR,  CMPTO_444_U8_P210,                nullptr,      nullptr, nullptr               },
         { RGBA, CMPTO_444_U8_P012Z,               nullptr,      nullptr, nullptr               },
         { R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr,      nullptr, nullptr               },
+        { RG48, CMPTO_444_U12_MSB16LE_P012,       nullptr,      nullptr, nullptr               },
         { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
          r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
