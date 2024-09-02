@@ -71,9 +71,11 @@
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.h"
 
-constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
+#define BLANK_USAGE "blank[=0x<AABBGGRR>]"
 #define MOD_NAME "[vid. patt. generator] "
+constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 constexpr int rg48_bpp = 6;
+
 
 using namespace std::string_literals;
 using std::copy;
@@ -303,6 +305,17 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
 class image_pattern_blank : public image_pattern {
         public:
                 explicit image_pattern_blank(string const &init) {
+                        if (init == "help"s) {
+                                color_printf("Testcard " TBOLD("blank") " usage:\n");
+                                color_printf("\t" TRED(TBOLD(
+                                    "-t testcard:patt=" BLANK_USAGE)) "\n");
+                                color_printf(
+                                    "\nLeading zeros can be omitted, eg. "
+                                    "`0xFF` produces a red pattern.\n");
+                                color_printf(
+                                    "Defaults to 0xFF000000.\n");
+                                throw 1;
+                        }
                         if (!init.empty()) {
                                 color = stoll(init, nullptr, 0);
                         }
@@ -742,7 +755,12 @@ video_pattern_generator_t
 video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
 {
         if (string(config) == "help") {
-                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>], diagonal*\n");
+                col() << "Pattern to use, one of: "
+                      << SBOLD(
+                             "bars, " BLANK_USAGE
+                             ", ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, "
+                             "gray, interlaced, noise, raw=0xXX[YYZZ..], "
+                             "smpte_bars, uv_plane[=<y_lvl>], diagonal*\n");
                 col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
