@@ -247,23 +247,32 @@ int postprocess_rg48_to_r12l(
 //   / , _/ / /  / __/  / /__/___/ > > / , _// (_ / /_  _// _  |
 //  /_/|_| /_/  /____/ /____/     /_/ /_/|_| \___/   /_/  \___/
 
-/// adapted variant of @ref vc_copylineR12LtoRG48
-__global__ void
-kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
+__device__ static void r12l_to_rg48_compute_blk(const uint8_t *src,
+                                                uint8_t       *dst);
+
+__global__ static void
+kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 {
         unsigned position_x = threadIdx.x + blockIdx.x * blockDim.x;
         unsigned position_y = threadIdx.y + blockIdx.y * blockDim.y;
         if (position_x > (size_x + 7) / 8) {
                 return;
         }
-        // drop last block if not aligned (prevent OOB read from input)
-        if (position_y == size_y - 1 && position_x > size_x / 8) {
+        // drop not aligned rest of the line
+        if (position_x > size_x / 8) {
                 return;
         }
         uint8_t *dst = out + 2 * (position_y * 3 * size_x + position_x * 3 * 8);
         uint8_t *src =
             in + (position_y * ((size_x + 7) / 8) + position_x) * 36;
 
+        r12l_to_rg48_compute_blk(src, dst);
+}
+
+/// adapted variant of @ref vc_copylineR12LtoRG48
+__device__ static void
+r12l_to_rg48_compute_blk(const uint8_t *src, uint8_t *dst)
+{
         // 0
         // R
         *dst++ = src[0] << 4;
@@ -355,8 +364,7 @@ preprocess_r12l_to_rg48(int width, int height, void *src, void *dst)
 
         MEASURE_KERNEL_DURATION_START(0)
         kernel_r12l_to_rg48<<<blocks, threads_per_block>>>(
-            (uint8_t *) src, (uint8_t *) dst, width,
-            height);
+            (uint8_t *) src, (uint8_t *) dst, width);
         MEASURE_KERNEL_DURATION_STOP(0)
 }
 
