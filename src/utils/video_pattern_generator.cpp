@@ -716,7 +716,8 @@ struct interlaced_video_pattern_generator : public video_pattern_generator {
                         rgba[i / 3 * 4 + 2] = rgb[i + 2];
                         rgba[i / 3 * 4 + 3] = 0xff;
                 }
-                data.resize(3 * h * linesize + 4 * linesize * (w / step));
+                data.resize(3 * h * linesize + 4 * linesize * (w / step) +
+                            MAX_PADDING);
                 testcard_convert_buffer(RGBA, color_spec, (unsigned char *) data.data(), (unsigned char *) rgba.data(), width, 3 * height + 4 * (width / step));
         }
         char *get_next() override {
