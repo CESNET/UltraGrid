@@ -425,16 +425,45 @@ class image_pattern_noise : public image_pattern {
         }
 };
 
-template<bool rows>
-class image_pattern_pixel_bars : public image_pattern
+struct image_pattern_pixel_bars : public image_pattern
 {
+        explicit image_pattern_pixel_bars(string const &config)
+        {
+                if (config.empty()) {
+                        return;
+                }
+                if (config == "help"s) {
+                        color_printf("\t" TBOLD("-t "
+                                                "testcard:patt=image_bars[="
+                                                "vert[ical]|hor[izontal]|diag[onal]]") "\n");
+                        throw 1;
+                }
+                const string prefix3 = config.substr(0,3);
+                if (prefix3 == "hor") {
+                        type = COLS;
+                } else if (prefix3 == "ver") {
+                        type = ROWS;
+                } else if (prefix3 != "dia") {
+                        throw ug_runtime_error(string("Wrong orientation: ") +
+                                               config);
+                }
+        }
+
+private:
+        enum { ROWS, COLS, DIAG } type = DIAG;
         enum generator_depth fill(int width, int height,
                                   unsigned char *data) override
         {
                 auto *ptr = reinterpret_cast<uint32_t *>(data);
                 for (int j = 0; j < height; j += 1) {
                         for (int i = 0; i < width; i += 1) {
-                                *ptr++ = rect_colors[(rows ? i : j) % COL_NUM];
+                                if (type == DIAG) {
+                                        *ptr++ = rect_colors[(i + j) % COL_NUM];
+                                } else {
+                                        *ptr++ =
+                                            rect_colors[(type == ROWS ? i : j) %
+                                                        COL_NUM];
+                                }
                         }
                 }
                 return generator_depth::bits8;
@@ -588,11 +617,8 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         if (pattern == "noise") {
                 return make_unique<image_pattern_noise>();
         }
-        if (pattern == "pixel_columns") {
-                return make_unique<image_pattern_pixel_bars<true>>();
-        }
-        if (pattern == "pixel_rows") {
-                return make_unique<image_pattern_pixel_bars<false>>();
+        if (pattern == "pixel_bars") {
+                return make_unique<image_pattern_pixel_bars>(params);
         }
         if (pattern == "raw") {
                 return make_unique<image_pattern_raw>(params);
@@ -799,7 +825,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                         "noise",
                         "raw=0xXX[YYZZ..]",
                         "smpte_bars",
-                        "pixel_columns/pixel_rows",
+                        "pixel_bars*",
                         "uv_plane[=<y_lvl>]",
                          }) {
                         col() << "\t- " << SBOLD(p) << "\n";
