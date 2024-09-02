@@ -94,8 +94,8 @@ using std::uniform_int_distribution;
 using std::vector;
 
 enum class generator_depth {
-        bits8,
-        bits16
+        bits8, ///< RGBA
+        bits16 ///< RG48
 };
 
 class image_pattern {
@@ -424,6 +424,21 @@ class image_pattern_noise : public image_pattern {
         }
 };
 
+class image_pattern_pixel_bars : public image_pattern
+{
+        enum generator_depth fill(int width, int height,
+                                  unsigned char *data) override
+        {
+                auto *ptr = reinterpret_cast<uint32_t *>(data);
+                for (int j = 0; j < height; j += 1) {
+                        for (int i = 0; i < width; i += 1) {
+                                *ptr++ = rect_colors[i % COL_NUM];
+                        }
+                }
+                return generator_depth::bits8;
+        }
+};
+
 class image_pattern_raw : public image_pattern {
         public:
                 explicit image_pattern_raw(string config) {
@@ -570,6 +585,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         }
         if (pattern == "noise") {
                 return make_unique<image_pattern_noise>();
+        }
+        if (pattern == "pixel_bars") {
+                return make_unique<image_pattern_pixel_bars>();
         }
         if (pattern == "raw") {
                 return make_unique<image_pattern_raw>(params);
@@ -760,7 +778,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                              "bars, " BLANK_USAGE
                              ", ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, "
                              "gray, interlaced, noise, raw=0xXX[YYZZ..], "
-                             "smpte_bars, uv_plane[=<y_lvl>], diagonal*\n");
+                             "smpte_bars, pixel_bars, uv_plane[=<y_lvl>], diagonal*\n");
                 col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
