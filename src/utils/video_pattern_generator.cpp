@@ -425,6 +425,7 @@ class image_pattern_noise : public image_pattern {
         }
 };
 
+template<bool rows>
 class image_pattern_pixel_bars : public image_pattern
 {
         enum generator_depth fill(int width, int height,
@@ -433,7 +434,7 @@ class image_pattern_pixel_bars : public image_pattern
                 auto *ptr = reinterpret_cast<uint32_t *>(data);
                 for (int j = 0; j < height; j += 1) {
                         for (int i = 0; i < width; i += 1) {
-                                *ptr++ = rect_colors[i % COL_NUM];
+                                *ptr++ = rect_colors[(rows ? i : j) % COL_NUM];
                         }
                 }
                 return generator_depth::bits8;
@@ -587,8 +588,11 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         if (pattern == "noise") {
                 return make_unique<image_pattern_noise>();
         }
-        if (pattern == "pixel_bars") {
-                return make_unique<image_pattern_pixel_bars>();
+        if (pattern == "pixel_columns") {
+                return make_unique<image_pattern_pixel_bars<true>>();
+        }
+        if (pattern == "pixel_rows") {
+                return make_unique<image_pattern_pixel_bars<false>>();
         }
         if (pattern == "raw") {
                 return make_unique<image_pattern_raw>(params);
@@ -795,7 +799,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                         "noise",
                         "raw=0xXX[YYZZ..]",
                         "smpte_bars",
-                        "pixel_bars",
+                        "pixel_columns/pixel_rows",
                         "uv_plane[=<y_lvl>]",
                          }) {
                         col() << "\t- " << SBOLD(p) << "\n";
