@@ -92,6 +92,7 @@ using std::stoi;
 using std::stoll;
 using std::string;
 using std::string_view;
+using std::to_string;
 using std::unique_ptr;
 using std::uniform_int_distribution;
 using std::vector;
@@ -688,6 +689,11 @@ struct interlaced_video_pattern_generator : public video_pattern_generator {
         interlaced_video_pattern_generator(int w, int h, codec_t color_spec)
                 : width(w), height(h), linesize(vc_get_linesize(width, color_spec))
         {
+                if (width % step != 0) {
+                        throw ug_runtime_error(
+                            string("[interlaced] width must be divisible by ") +
+                            std::to_string(step) + "!");
+                }
                 size_t rgb_linesize = vc_get_linesize(width, RGB);
                 vector<char> rgb(3 * h * rgb_linesize + 4 * (width / step) * rgb_linesize);
                 memset(rgb.data(), 255, h * rgb_linesize);
