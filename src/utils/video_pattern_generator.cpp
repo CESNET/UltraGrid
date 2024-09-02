@@ -772,22 +772,46 @@ private:
 video_pattern_generator_t
 video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
 {
+
         if (string(config) == "help") {
-                col() << "Pattern to use, one of: "
-                      << SBOLD(
-                             "bars, " BLANK_USAGE
-                             ", ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, "
-                             "gray, interlaced, noise, raw=0xXX[YYZZ..], "
-                             "smpte_bars, pixel_bars, uv_plane[=<y_lvl>], diagonal*\n");
-                col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
-                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+                col() << "Pattern to use, one of: \n";
+                for (const auto *p :
+                     {
+                        "bars",
+                        BLANK_USAGE,
+                        "diagonal*",
+                        "ebu_bars",
+                        "gradient[=0x<AABBGGRR>]",
+                        "gradient2*",
+                        "gray",
+                        "interlaced",
+                        "noise",
+                        "raw=0xXX[YYZZ..]",
+                        "smpte_bars",
+                        "pixel_bars",
+                        "uv_plane[=<y_lvl>]",
+                         }) {
+                        col() << "\t- " << SBOLD(p) << "\n";
+                }
+
+                col() << "\nNotes:\n";
+
+                col() << "\t- patterns " SBOLD("'gradient'") ", "
+                        SBOLD("'gradient2'") ", " SBOLD("'noise'") " and "
+                        SBOLD("'uv_plane'") " generate higher bit-depth "
+                        "patterns with";
+                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT;
+                     c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
                                 col() << " " << SBOLD(get_codec_name(c));
                         }
                 }
                 col() << "\n";
-                col() << "\t\t- pattern " << SBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
-                col() << "\t\t- patterns marked with " << SBOLD("'*'") " provide help as its option\n";
+                col() << "\t- pattern "
+                      << SBOLD("'raw'") " generates repeating sequence of given "
+                                      "bytes without any color conversion\n";
+                col() << "\t- patterns marked with "
+                      << SBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);
