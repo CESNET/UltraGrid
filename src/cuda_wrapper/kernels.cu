@@ -75,15 +75,16 @@
  * @todo fix the last block for widths not divisible by 8
  */
 __global__ void
-kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
+kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x)
 {
         unsigned position_x = threadIdx.x + blockIdx.x * blockDim.x;
         unsigned position_y = threadIdx.y + blockIdx.y * blockDim.y;
-        if (position_x > (size_x + 7) / 8) {
+        if (position_x >= (size_x + 7) / 8) {
                 return;
         }
-        // drop last block if not aligned (prevent OOB read from input)
-        if (position_y == size_y - 1 && position_x > size_x / 8) {
+        // drop last block if not complete (prevent overriding start of
+        // following line with junk and also possibly OOB access)
+        if (position_x > size_x / 8) {
                 return;
         }
         uint8_t *src = in + 2 * (position_y * 3 * size_x + position_x * 3 * 8);
@@ -234,8 +235,7 @@ int postprocess_rg48_to_r12l(
 
         kernel_rg48_to_r12l<<<blocks, threads_per_block, 0,
                               (cudaStream_t) stream>>>(
-            (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x,
-            size_y);
+            (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x);
 
         MEASURE_KERNEL_DURATION_STOP(stream)
 
