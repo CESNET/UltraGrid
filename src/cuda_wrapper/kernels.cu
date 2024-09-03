@@ -258,14 +258,19 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
         if (position_x >= (size_x + 7) / 8) {
                 return;
         }
-        // drop not aligned rest of the line
-        if (position_x == size_x / 8) {
-                return;
-        }
         uint8_t *dst = out + 2 * (position_y * 3 * size_x + position_x * 3 * 8);
         uint8_t *src =
             in + (position_y * ((size_x + 7) / 8) + position_x) * 36;
 
+        if (position_x == size_x / 8) {
+                // compute the last incomplete block
+                uint8_t tmp[48];
+                r12l_to_rg48_compute_blk(src, tmp);
+                for (unsigned i = 0; i < (size_x - position_x * 8) * 6; ++i) {
+                        dst[i] = tmp[i];
+                }
+                return;
+        }
         r12l_to_rg48_compute_blk(src, dst);
 }
 
