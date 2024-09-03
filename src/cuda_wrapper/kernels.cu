@@ -41,7 +41,39 @@
 #include <cstdio>
 #include <cuda_runtime_api.h>
 
-/// modified vc_copylineRG48toR12L
+#ifdef DEBUG
+#define D_PRINTF printf
+#else
+#define D_PRINTF(...)
+#endif
+
+#define MEASURE_KERNEL_DURATION_START(stream) \
+        cudaEvent_t t0, t1; \
+        cudaEventCreate(&t0); \
+        cudaEventCreate(&t1); \
+        cudaEventRecord(t0, stream);
+#define MEASURE_KERNEL_DURATION_STOP(stream) \
+        cudaEventRecord(t1, stream); \
+        cudaEventSynchronize(t1); \
+        float elapsedTime = NAN; \
+        cudaEventElapsedTime(&elapsedTime, t0, t1); \
+        D_PRINTF("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        if (elapsedTime > 10.0) { \
+                fprintf( \
+                    stderr, \
+                    "Kernel in func %s duration %f > 10 ms, please report!\n", \
+                    __func__, elapsedTime); \
+        }
+
+//    ___   _____  ____  ___      __     ___   ___   ___    __
+//   / _ \ / ___/ / / / ( _ ) ____\ \   / _ \ <  /  |_  |  / /
+//  / , _// (_ / /_  _// _  |/___/ > > / , _/ / /  / __/  / /__
+// /_/|_| \___/   /_/  \___/      /_/ /_/|_| /_/  /____/ /____/
+
+/**
+ * modified @ref vc_copylineRG48toR12L
+ * @todo fix the last block for widths not divisible by 8
+ */
 __global__ void
 kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
 {
@@ -175,30 +207,6 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x, unsigned size_y)
         src += 2;
 }
 
-#ifdef DEBUG
-#define D_PRINTF printf
-#else
-#define D_PRINTF(...)
-#endif
-
-#define MEASURE_KERNEL_DURATION_START(stream) \
-        cudaEvent_t t0, t1; \
-        cudaEventCreate(&t0); \
-        cudaEventCreate(&t1); \
-        cudaEventRecord(t0, stream);
-#define MEASURE_KERNEL_DURATION_STOP(stream) \
-        cudaEventRecord(t1, stream); \
-        cudaEventSynchronize(t1); \
-        float elapsedTime = NAN; \
-        cudaEventElapsedTime(&elapsedTime, t0, t1); \
-        D_PRINTF("%s elapsed time: %f ms\n", __func__, elapsedTime); \
-        if (elapsedTime > 10.0) { \
-                fprintf( \
-                    stderr, \
-                    "Kernel in func %s duration %f > 10 ms, please report!\n", \
-                    __func__, elapsedTime); \
-        }
-
 /**
  * @sa cmpto_j2k_dec_postprocessor_run_callback_cuda
  */
@@ -233,6 +241,11 @@ int postprocess_rg48_to_r12l(
 
         return 0;
 }
+
+//     ___   ___   ___    __      __     ___   _____  ____  ___
+//    / _ \ <  /  |_  |  / /  ____\ \   / _ \ / ___/ / / / ( _ )
+//   / , _/ / /  / __/  / /__/___/ > > / , _// (_ / /_  _// _  |
+//  /_/|_| /_/  /____/ /____/     /_/ /_/|_| \___/   /_/  \___/
 
 /// adapted variant of @ref vc_copylineR12LtoRG48
 __global__ void
