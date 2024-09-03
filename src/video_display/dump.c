@@ -164,7 +164,7 @@ static bool display_dump_reconfigure(void *state, struct video_desc desc)
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
         s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? TRUE : FALSE;
-        s->max_tile_data_len = MIN(8 * desc.width * desc.height, 1000000UL);
+        s->max_tile_data_len = MAX(8 * desc.width * desc.height, 1000000UL);
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
                 if (is_codec_opaque(desc.color_spec)) {
                         s->f->tiles[i].data_len = s->max_tile_data_len;
