@@ -178,6 +178,9 @@ void log_perror(int level, const char *msg)
  **/
 void debug_dump(const void *lp, int len)
 {
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
         const char *p;
         int i, j, start;
         char Buff[81];
