@@ -1221,7 +1221,9 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        OPTIMIZED_FOR (int x = 0; x < dst_len; x += OUT_BL_SZ) {
+        int x = 0;
+        OPTIMIZED_FOR(; x < dst_len - OUT_BL_SZ + 1; x += OUT_BL_SZ)
+        {
                 //0
                 //R
                 *dst++ = src[BYTE_SWAP(0)] << 4;
@@ -1305,6 +1307,14 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
 
                 src += 36;
         }
+        if (x == dst_len) {
+                return;
+        }
+        // compute last incomplete block if dst_len % OUT_BL_SZ != 0, not
+        // writting past the requested dst_len
+        unsigned char tmp_buf[OUT_BL_SZ];
+        vc_copylineR12LtoRG48(tmp_buf, src, OUT_BL_SZ, rshift, gshift, bshift);
+        memcpy(dst, tmp_buf, dst_len - x);
 }
 
 static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
