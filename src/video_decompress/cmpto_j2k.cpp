@@ -295,16 +295,20 @@ set_postprocess_convert(struct state_decompress_j2k  *s,
                         const struct conv_props      *codec)
 {
         if (codec->run_callback != nullptr) {
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
-                             ctx_cfg, nullptr, nullptr, codec->size_callback,
-                             codec->run_callback),
-                         "add postprocessor", return false);
-        } else {
-                s->convert = codec->convert;
-                if (s->convert != nullptr) {
-                        MSG(WARNING, "Compiled without CUDA, pixfmt conv will "
-                                     "be processed on CPU...\n");
+                if (cuda_devices_count == 1) {
+                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
+                                     ctx_cfg, nullptr, nullptr,
+                                     codec->size_callback, codec->run_callback),
+                                 "add postprocessor", return false);
+                        return true;
                 }
+                MSG(WARNING,
+                    "More than 1 CUDA device set, will use CPU conversion...\n");
+        }
+        s->convert = codec->convert;
+        if (s->convert != nullptr && codec->run_callback == nullptr) {
+                MSG(WARNING, "Compiled without CUDA, pixfmt conv will "
+                             "be processed on CPU...\n");
         }
         return true;
 }
