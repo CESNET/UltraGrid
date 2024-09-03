@@ -247,8 +247,8 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
                         cuda_wrapper_malloc, cuda_wrapper_free>());
         } else {
-                MSG(WARNING, "More than 1 CUDA device will use CPU buffers. "
-                             "Please report...\n");
+                MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
+                             "conversion...\n");
                 s->pool = video_frame_pool(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
