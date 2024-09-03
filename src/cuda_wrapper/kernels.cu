@@ -255,11 +255,11 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 {
         unsigned position_x = threadIdx.x + blockIdx.x * blockDim.x;
         unsigned position_y = threadIdx.y + blockIdx.y * blockDim.y;
-        if (position_x > (size_x + 7) / 8) {
+        if (position_x >= (size_x + 7) / 8) {
                 return;
         }
         // drop not aligned rest of the line
-        if (position_x > size_x / 8) {
+        if (position_x == size_x / 8) {
                 return;
         }
         uint8_t *dst = out + 2 * (position_y * 3 * size_x + position_x * 3 * 8);
