@@ -183,7 +183,7 @@ void debug_dump(const void *lp, int len)
         char Buff[81];
         char tmpBuf[10];
 
-        _dprintf("Dump of %d=%x bytes\n", len, len);
+        _dprintf("Dump of %d=%xh bytes\n", len, len);
         start = 0L;
         while (start < len) {
                 /* start line with pointer position key */
@@ -196,7 +196,7 @@ void debug_dump(const void *lp, int len)
                                 snprintf(tmpBuf, sizeof tmpBuf, "%02X", ((int)(*p) & 0xFF));
                                 strcat(Buff, tmpBuf);
                         } else
-                                strcat(Buff, " ");
+                                strcat(Buff, "  ");
                         if (j % 2 == 1) /* space between groups of 2 */
                                 strcat(Buff, " ");
                         if (j == 7)     /* space between groups of 8 */
