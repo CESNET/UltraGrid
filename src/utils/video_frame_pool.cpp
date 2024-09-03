@@ -89,8 +89,9 @@ std::shared_ptr<video_frame> video_frame_pool::get_frame() {
                 try {
                         ret = vf_alloc_desc(m_desc);
                         for (unsigned int i = 0; i < m_desc.tile_count; ++i) {
-                                ret->tiles[i].data = (char *)
-                                        m_allocator->allocate(m_max_data_len);
+                                ret->tiles[i].data =
+                                    (char *) m_allocator->allocate(
+                                        m_max_data_len + MAX_PADDING);
                                 if (ret->tiles[i].data == NULL) {
                                         throw std::runtime_error("Cannot allocate data");
                                 }
