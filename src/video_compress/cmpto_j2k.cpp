@@ -208,7 +208,8 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                 cuda_wrapper_free(s->cuda_conv_tmp_buf);
                 cuda_wrapper_malloc(
                     (void **) &s->cuda_conv_tmp_buf,
-                    vc_get_datalen(desc.width, desc.height, desc.color_spec));
+                    vc_get_datalen(desc.width, desc.height, desc.color_spec) +
+                        MAX_PADDING);
         }
 #endif
 
