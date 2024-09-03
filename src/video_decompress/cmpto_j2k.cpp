@@ -269,7 +269,7 @@ const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
     nullptr;
 #endif
 
-static struct {
+static const struct conv_props {
         codec_t ug_codec;
         enum cmpto_sample_format_type cmpto_sf;
         // CPU postprocess
@@ -288,6 +288,26 @@ static struct {
         { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
          r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
+
+static bool
+set_postprocess_convert(struct state_decompress_j2k  *s,
+                        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg,
+                        const struct conv_props      *codec)
+{
+        if (codec->run_callback != nullptr) {
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
+                             ctx_cfg, nullptr, nullptr, codec->size_callback,
+                             codec->run_callback),
+                         "add postprocessor", return false);
+        } else {
+                s->convert = codec->convert;
+                if (s->convert != nullptr) {
+                        MSG(WARNING, "Compiled without CUDA, pixfmt conv will "
+                                     "be processed on CPU...\n");
+                }
+        }
+        return true;
+}
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
@@ -322,18 +342,8 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                         continue;
                 }
                 cmpto_sf = codec.cmpto_sf;
-                if (codec.run_callback != nullptr) {
-                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
-                                     ctx_cfg, nullptr, nullptr,
-                                     codec.size_callback, codec.run_callback),
-                                 "add postprocessor", return false);
-                } else {
-                        s->convert = codec.convert;
-                        if (s->convert != nullptr) {
-                                MSG(WARNING,
-                                    "Compiled without CUDA, pixfmt conv will "
-                                    "be processed on CPU...\n");
-                        }
+                if (!set_postprocess_convert(s, ctx_cfg, &codec)) {
+                        return false;
                 }
         }
 
