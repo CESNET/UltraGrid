@@ -189,11 +189,21 @@ static struct {
 };
 
 static void
-set_pool(struct state_video_compress_j2k *s)
+set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
 {
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
         if (cuda_devices_count == 1) {
+                cuda_wrapper_set_device((int) cuda_devices[0]);
+
+                if (s->cuda_convert_func != nullptr) {
+                        cuda_wrapper_free(s->cuda_conv_tmp_buf);
+                        cuda_wrapper_malloc(
+                            (void **) &s->cuda_conv_tmp_buf,
+                            vc_get_datalen(desc.width, desc.height, desc.color_spec) +
+                                MAX_PADDING);
+                }
+
                 s->pool_in_device_memory = true;
                 s->pool                  = video_frame_pool(
                     s->max_in_frames,
@@ -226,17 +236,6 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                 }
         }
 
-#ifdef HAVE_CUDA
-        cuda_wrapper_set_device((int) cuda_devices[0]);
-        if (s->cuda_convert_func != nullptr) {
-                cuda_wrapper_free(s->cuda_conv_tmp_buf);
-                cuda_wrapper_malloc(
-                    (void **) &s->cuda_conv_tmp_buf,
-                    vc_get_datalen(desc.width, desc.height, desc.color_spec) +
-                        MAX_PADDING);
-        }
-#endif
-
         if(!found){
                 log_msg(LOG_LEVEL_ERROR, "[J2K] Failed to find suitable pixel format\n");
                 return false;
@@ -262,7 +261,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         "Setting MCT",
                         NOOP);
 
-        set_pool(s);
+        set_pool(s, desc);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
