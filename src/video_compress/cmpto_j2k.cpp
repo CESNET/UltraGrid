@@ -188,12 +188,22 @@ static struct {
         {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, r12l_to_rg48_cuda},
 };
 
+#define CPU_CONV_PARAM "j2k-enc-cpu-conv"
+ADD_TO_PARAM(
+    CPU_CONV_PARAM,
+    "* " CPU_CONV_PARAM "\n"
+    "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 static void
 set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
 {
+        const bool force_cpu_conv =
+            get_commandline_param(CPU_CONV_PARAM) != nullptr;
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
-        if (cuda_devices_count == 1) {
+        if (cuda_devices_count > 1) {
+                MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
+                             "conversion...\n");
+        } else if (!force_cpu_conv || s->cuda_convert_func == nullptr) {
                 cuda_wrapper_set_device((int) cuda_devices[0]);
 
                 if (s->cuda_convert_func != nullptr) {
@@ -211,8 +221,7 @@ set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
                                          cuda_wrapper_malloc, cuda_wrapper_free>());
                 return;
         }
-        MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
-                     "conversion...\n");
+        s->cuda_convert_func = nullptr; // either was 0 or force_cpu_conv
         s->pool = video_frame_pool(
             s->max_in_frames,
             cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,

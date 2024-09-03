@@ -289,12 +289,19 @@ static const struct conv_props {
          r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
 
+#define CPU_CONV_PARAM "j2k-dec-cpu-conv"
+ADD_TO_PARAM(
+    CPU_CONV_PARAM,
+    "* " CPU_CONV_PARAM "\n"
+    "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 static bool
 set_postprocess_convert(struct state_decompress_j2k  *s,
                         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg,
                         const struct conv_props      *codec)
 {
-        if (codec->run_callback != nullptr) {
+        const bool force_cpu_conv =
+            get_commandline_param(CPU_CONV_PARAM) != nullptr;
+        if (codec->run_callback != nullptr && !force_cpu_conv) {
                 if (cuda_devices_count == 1) {
                         CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
                                      ctx_cfg, nullptr, nullptr,
@@ -306,7 +313,8 @@ set_postprocess_convert(struct state_decompress_j2k  *s,
                     "More than 1 CUDA device set, will use CPU conversion...\n");
         }
         s->convert = codec->convert;
-        if (s->convert != nullptr && codec->run_callback == nullptr) {
+        if (s->convert != nullptr && codec->run_callback == nullptr &&
+            !force_cpu_conv) {
                 MSG(WARNING, "Compiled without CUDA, pixfmt conv will "
                              "be processed on CPU...\n");
         }
