@@ -426,9 +426,9 @@ class image_pattern_noise : public image_pattern {
         }
 };
 
-struct image_pattern_pixel_bars : public image_pattern
+struct image_pattern_strips : public image_pattern
 {
-        explicit image_pattern_pixel_bars(string const &config)
+        explicit image_pattern_strips(string const &config)
         {
                 for (int i = 0; i < COL_NUM; ++i) {
                         pattern[3 + i] = rect_colors[i];
@@ -445,7 +445,7 @@ struct image_pattern_pixel_bars : public image_pattern
                 if (config == "help"s) {
                         color_printf(
                             "\t" TBOLD("-t "
-                                       "testcard:patt=image_bars[=[vert|hor|"
+                                       "testcard:patt=strips[=[vert|hor|"
                                        "diag][,w[idth]=W]]") "\n");
                         throw 1;
                 }
@@ -472,7 +472,7 @@ struct image_pattern_pixel_bars : public image_pattern
 
         enum { ROWS, COLS, DIAG } type = DIAG;
         uint32_t pattern[3 + COL_NUM]  = { RGBA_WHITE, RGBA_BLACK, RGBA_GRAY };
-        int      fill_w                = 1;
+        int      fill_w                = 10;
         enum generator_depth fill(int width, int height,
                                   unsigned char *data) override
         {
@@ -637,14 +637,14 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         if (pattern == "noise") {
                 return make_unique<image_pattern_noise>();
         }
-        if (pattern == "pixel_bars") {
-                return make_unique<image_pattern_pixel_bars>(params);
-        }
         if (pattern == "raw") {
                 return make_unique<image_pattern_raw>(params);
         }
         if (pattern == "smpte_bars") {
                 return make_unique<image_pattern_smpte_bars>();
+        }
+        if (pattern == "strips") {
+                return make_unique<image_pattern_strips>(params);
         }
         if (pattern == "text") {
                 return make_unique<image_pattern_text>(params);
@@ -845,7 +845,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                         "noise",
                         "raw=0xXX[YYZZ..]",
                         "smpte_bars",
-                        "pixel_bars*",
+                        "strips*",
                         "uv_plane[=<y_lvl>]",
                          }) {
                         col() << "\t- " << SBOLD(p) << "\n";
