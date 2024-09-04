@@ -65,6 +65,7 @@
 #include "pixfmt_conv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "video.h"
@@ -433,37 +434,47 @@ struct image_pattern_pixel_bars : public image_pattern
                         return;
                 }
                 if (config == "help"s) {
-                        color_printf("\t" TBOLD("-t "
-                                                "testcard:patt=image_bars[="
-                                                "vert[ical]|hor[izontal]|diag[onal]]") "\n");
+                        color_printf(
+                            "\t" TBOLD("-t "
+                                       "testcard:patt=image_bars[=[vert|hor|"
+                                       "diag][,w[idth]=W]]") "\n");
                         throw 1;
                 }
-                const string prefix3 = config.substr(0,3);
-                if (prefix3 == "hor") {
-                        type = COLS;
-                } else if (prefix3 == "ver") {
-                        type = ROWS;
-                } else if (prefix3 != "dia") {
-                        throw ug_runtime_error(string("Wrong orientation: ") +
-                                               config);
+                char conf[STR_LEN];
+                snprintf_ch(conf, "%s", config.c_str());
+                char *tmp = conf;
+                char *endptr = nullptr;
+                while (char *item = strtok_r(tmp, ",", &endptr)) {
+                        tmp = nullptr;
+                        if (strncmp(item, "hor", 3) == 0) {
+                                type = COLS;
+                        } else if (strncmp(item, "ver", 3) == 0) {
+                                type = ROWS;
+                        } else if (strncmp(item, "dia", 3) == 0) {
+                                type = DIAG;
+                        } else if (IS_KEY_PREFIX(item, "width")) {
+                                fill_w = stoi(strchr(item, '=') + 1);
+                        } else {
+                                throw ug_runtime_error(
+                                    string("Wrong option: ") + config);
+                        }
                 }
         }
 
 private:
         enum { ROWS, COLS, DIAG } type = DIAG;
+        int fill_w = 1;
         enum generator_depth fill(int width, int height,
                                   unsigned char *data) override
         {
                 auto *ptr = reinterpret_cast<uint32_t *>(data);
                 for (int j = 0; j < height; j += 1) {
                         for (int i = 0; i < width; i += 1) {
-                                if (type == DIAG) {
-                                        *ptr++ = rect_colors[(i + j) % COL_NUM];
-                                } else {
-                                        *ptr++ =
-                                            rect_colors[(type == ROWS ? i : j) %
-                                                        COL_NUM];
-                                }
+                                const int col_idx = type == DIAG   ? i + j
+                                                    : type == ROWS ? i
+                                                                   : j;
+                                *ptr++ = rect_colors[(col_idx / fill_w) %
+                                                     COL_NUM];
                         }
                 }
                 return generator_depth::bits8;
