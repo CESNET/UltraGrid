@@ -430,6 +430,15 @@ struct image_pattern_pixel_bars : public image_pattern
 {
         explicit image_pattern_pixel_bars(string const &config)
         {
+                for (int i = 0; i < COL_NUM; ++i) {
+                        pattern[3 + i] = rect_colors[i];
+                }
+                parse_fmt(config);
+        }
+
+      private:
+        void parse_fmt(string const &config)
+        {
                 if (config.empty()) {
                         return;
                 }
@@ -461,9 +470,9 @@ struct image_pattern_pixel_bars : public image_pattern
                 }
         }
 
-private:
         enum { ROWS, COLS, DIAG } type = DIAG;
-        int fill_w = 1;
+        uint32_t pattern[3 + COL_NUM]  = { RGBA_WHITE, RGBA_BLACK, RGBA_GRAY };
+        int      fill_w                = 1;
         enum generator_depth fill(int width, int height,
                                   unsigned char *data) override
         {
@@ -473,8 +482,8 @@ private:
                                 const int col_idx = type == DIAG   ? i + j
                                                     : type == ROWS ? i
                                                                    : j;
-                                *ptr++ = rect_colors[(col_idx / fill_w) %
-                                                     COL_NUM];
+                                *ptr++ = pattern[(col_idx / fill_w) %
+                                                     ARR_COUNT(pattern)];
                         }
                 }
                 return generator_depth::bits8;
