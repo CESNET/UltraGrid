@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,26 +42,36 @@
  * - used format SND_PCM_FORMAT_S24_LE
  * - used "default" device for arbitrary number of channels
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
 
+#include <alloca.h>                // for alloca
 #include <alsa/asoundlib.h>
+#include <assert.h>                // for assert
+#include <errno.h>                 // for ENODEV, ENOENT, EPIPE, errno
+#include <fcntl.h>                 // for open, O_RDONLY
+#include <pthread.h>               // for pthread_mutex_t, pthread_t
+#include <stdbool.h>               // for false, bool, true
+#include <stdint.h>                // for uint32_t
+#include <stdio.h>                 // for printf
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>              // for gettimeofday, timeval
+#include <sys/types.h>             // for ssize_t
+#include <unistd.h>                // for close, read
 
 #include "alsa_common.h"
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "config.h"                // for DEBUG
 #include "debug.h"
+#include "host.h"                  // for get_commandline_param, ADD_TO_PARAM
 #include "lib_common.h"
 #include "tv.h"
+#include "types.h"                 // for device_info
 #include "utils/color_out.h"
 
-#define BUF_LEN_DEFAULT 60
-#define BUF_LEN_DEFAULT_SYNC 200 // default buffer len for sync API
+#define BUF_LEN_DEFAULT_MS      60
+#define BUF_LEN_DEFAULT_SYNC_MS 200 // default buffer len for sync API
 #define MOD_NAME "[ALSA play.] "
 #define SCRATCHPAD_SIZE (1024*1024)
 
@@ -432,6 +442,52 @@ static void write_fill(struct state_alsa_playback *s) {
 
 ADD_TO_PARAM("alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
+static void
+set_device_buffer(snd_pcm_t *handle, playback_mode_t playback_mode,
+                   snd_pcm_hw_params_t *params)
+{
+        enum {
+                REC_MIN_BUF_US = 5000,
+        };
+        unsigned int buf_len = 0;
+        int          buf_dir = -1;
+        const char  *buff_param = get_commandline_param("alsa-playback-buffer");
+
+        if (get_commandline_param("low-latency-audio") != NULL &&
+            buff_param == NULL) {
+                // set minimal value from the configuration space
+                CHECK_OK(snd_pcm_hw_params_set_buffer_time_first(
+                    handle, params, &buf_len, &buf_dir));
+                MSG(INFO, "ALSA driver buffer len set to: %lf ms\n",
+                    buf_len / US_IN_1MS_DBL);
+                if (buf_len <= REC_MIN_BUF_US) {
+                        MSG(WARNING,
+                            "ALSA driver buffer len less than %d usec seem to "
+                            "be too loow, consider using alsa-playback-buffer "
+                            "instead of low-latency-audio.",
+                            REC_MIN_BUF_US);
+                }
+                return;
+        }
+
+        if (buff_param != NULL) {
+                buf_len = atoi(buff_param);
+        } else {
+                buf_len = (playback_mode == SYNC ? BUF_LEN_DEFAULT_SYNC_MS
+                                                 : BUF_LEN_DEFAULT_MS) *
+                          US_IN_1MS;
+        }
+
+        const int rc = snd_pcm_hw_params_set_buffer_time_near(
+            handle, params, &buf_len, &buf_dir);
+        if (rc < 0) {
+                MSG(WARNING, "Warning - unable to set buffer to its size: %s\n",
+                    snd_strerror(rc));
+        }
+        MSG(INFO, "ALSA driver buffer len set to: %lf ms\n",
+            buf_len / US_IN_1MS_DBL);
+}
+
 ADD_TO_PARAM("alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
                                     "  ALSA playback period size in frames (default is device minimum) .\n");
 /**
@@ -575,40 +631,7 @@ static bool audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %lu frames (%lf ms)\n", s->period_size, (double) s->period_size / desc.sample_rate * 1000);
         }
 
-        unsigned int buf_len;
-        int buf_dir = -1;
-        if (get_commandline_param("low-latency-audio") != NULL &&
-            get_commandline_param("alsa-playback-buffer") == NULL) {
-                // set minimal value from the configuration space
-                CHECK_OK(snd_pcm_hw_params_set_buffer_time_first(s->handle, params, &buf_len, &buf_dir));
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
-                enum {
-                        REC_MIN_BUF = 5000,
-                };
-                if (buf_len <= REC_MIN_BUF) {
-                        MSG(WARNING,
-                            "ALSA driver buffer len less than %d usec seem to "
-                            "be too loow, consider using alsa-playback-buffer "
-                            "instead of low-latency-audio.",
-                            REC_MIN_BUF);
-                }
-        } else {
-                buf_len = (s->playback_mode == SYNC ? BUF_LEN_DEFAULT_SYNC : BUF_LEN_DEFAULT) * 1000;
-
-                const char *buff_str = get_commandline_param("alsa-playback-buffer");
-                if (buff_str) {
-                        buf_len = atoi(buff_str);
-                }
-
-                rc = snd_pcm_hw_params_set_buffer_time_near(s->handle, params, &buf_len, &buf_dir);
-                if (rc == 0) {
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
-                }
-                if (rc < 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
-                                        snd_strerror(rc));
-                }
-        }
+        set_device_buffer(s->handle, s->playback_mode, params);
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
