@@ -128,6 +128,9 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
     : public video_frame_pool_allocator {
         void *allocate(size_t size) override
         {
+                if (alloc == cuda_wrapper_malloc) {
+                        cuda_wrapper_set_device((int) cuda_devices[0]);
+                }
                 void *ptr = nullptr;
                 if (CUDA_WRAPPER_SUCCESS !=
                     alloc(&ptr, size)) {
@@ -415,6 +418,7 @@ static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, vide
                 s->convertFunc(ret.get(), frame);
         } else if (s->pool_in_device_memory) {
 #ifdef HAVE_CUDA
+                cuda_wrapper_set_device((int) cuda_devices[0]);
                 cuda_wrapper_memcpy(ret->tiles[0].data, frame->tiles[0].data,
                                     frame->tiles[0].data_len,
                                     CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE);
