@@ -344,6 +344,30 @@ static struct {
         {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, r12l_to_rg48_cuda},
 };
 
+static void
+set_pool(struct state_video_compress_j2k *s)
+{
+        s->pool_in_device_memory = false;
+#ifdef HAVE_CUDA
+        if (cuda_devices_count == 1) {
+                s->pool_in_device_memory = true;
+                s->pool                  = std::make_unique<video_frame_pool>(
+                    s->max_in_frames,
+                    cmpto_j2k_enc_cuda_buffer_data_allocator<
+                                         cuda_wrapper_malloc, cuda_wrapper_free>());
+                return;
+        }
+        MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
+                     "conversion...\n");
+        s->pool = std::make_unique<video_frame_pool>(
+            s->max_in_frames,
+            cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,
+                                                     cuda_wrapper_free_host>());
+#else
+        s->pool = std::make_unique<video_frame_pool>(s->max_in_frames, default_data_allocator());
+#endif
+}
+
 static bool configure_with(struct state_video_compress_j2k *s, struct video_desc desc){
         enum cmpto_sample_format_type sample_format;
         bool found = false;
@@ -394,25 +418,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         "Setting MCT",
                         NOOP);
 
-        s->pool_in_device_memory = false;
-#ifdef HAVE_CUDA
-        if (cuda_devices_count == 1) {
-                s->pool_in_device_memory = true;
-                s->pool = std::make_unique<video_frame_pool>(
-                    s->max_in_frames,
-                    cmpto_j2k_enc_cuda_buffer_data_allocator<
-                        cuda_wrapper_malloc, cuda_wrapper_free>());
-        } else {
-                MSG(WARNING, "More than 1 CUDA device will use CPU "
-                                "buffers. Please report...\n");
-                s->pool = std::make_unique<video_frame_pool>(
-                    s->max_in_frames,
-                    cmpto_j2k_enc_cuda_buffer_data_allocator<
-                        cuda_wrapper_malloc_host, cuda_wrapper_free_host>());
-        }
-#else
-        s->pool = std::make_unique<video_frame_pool>(s->max_in_frames, default_data_allocator());
-#endif
+        set_pool(s);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
