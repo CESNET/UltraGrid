@@ -62,7 +62,6 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "config.h"                // for DEBUG
 #include "debug.h"
 #include "host.h"                  // for get_commandline_param, ADD_TO_PARAM
 #include "lib_common.h"
@@ -989,11 +988,12 @@ static void audio_play_alsa_write_frame(void *state, const struct audio_frame *f
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
 
-#ifdef DEBUG
-        snd_pcm_sframes_t delay;
-        snd_pcm_delay(s->handle, &delay);
-        //fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
-#endif
+        if (log_level >= LOG_LEVEL_DEBUG2) {
+                snd_pcm_sframes_t delay = 0;
+                snd_pcm_delay(s->handle, &delay);
+                fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int) delay,
+                        (unsigned int) frame->sample_rate);
+        }
 
         int frames = frame->data_len / (frame->bps * frame->ch_count);
         rc = write_samples(s->handle, frame->data, frame->bps, frame->ch_count, frames, s->non_interleaved, s->playback_mode, s->scratchpad);
