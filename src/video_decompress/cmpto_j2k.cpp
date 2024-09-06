@@ -72,6 +72,10 @@
 #include <queue>
 #include <utility>
 
+ifdef HAVE_CONFIG_H
+#include "config.h"            // for HAVE_CUDA
+#endif
+#include "cuda_wrapper/kernels.hpp"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -79,6 +83,7 @@
 #include "types.h"             // for video_desc, pixfmt_desc, R12L, RGBA
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/parallel_conv.h"
 #include "video_codec.h" // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
 
@@ -90,6 +95,9 @@ using std::mutex;
 using std::pair;
 using std::queue;
 using std::unique_lock;
+
+static void
+j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
 
 #define NOOP ((void) 0)
 
@@ -220,11 +228,9 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         int dst_len = vc_get_linesize(width, R12L);
         decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L);
 
-        for(unsigned i = 0; i < height; i++){
-                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len, 0, 0, 0);
-                src_buffer += src_pitch;
-                dst_buffer += dst_len;
-        }
+        parallel_pix_conv((int) height, (char *) dst_buffer, dst_len,
+                          (const char *) src_buffer, src_pitch,
+                          vc_copylineRG48toR12L, 0);
 }
 
 static void print_dropped(unsigned long long int dropped, const j2k_decompress_platform& platform) {
@@ -375,7 +381,7 @@ void state_decompress_j2k::parse_params() {
         }
 
         if (get_commandline_param("j2k-dec-tile-limit")) {
-                cuda_tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
+                cuda_tile_limit = stoi(get_commandline_param("j2k-dec-tile-limit"));
         }
 
         // CPU-specific commandline_params
@@ -502,18 +508,43 @@ static void * j2k_decompress_init(void) {
         }
 }
 
+static void
+r12l_postprocessor_get_sz(
+    void */*postprocessor*/, void */*img_custom_data*/, size_t /*img_custom_data_size*/,
+    int size_x, int size_y, struct cmpto_j2k_dec_comp_format */*comp_formats*/,
+    int comp_count, size_t *temp_buffer_size, size_t *output_buffer_size)
+{
+        assert(comp_count == 3);
+        *temp_buffer_size = 0; // no temp buffer required
+        *output_buffer_size = vc_get_datalen(size_x, size_y, R12L);
+}
+
+#ifdef HAVE_CUDA
+const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
+    postprocess_rg48_to_r12l;
+#else
+const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
+    nullptr;
+#endif
+
 static struct {
         codec_t ug_codec;
         enum cmpto_sample_format_type cmpto_sf;
+        // CPU postprocess
         void (*convert)(unsigned char *dst_buffer, unsigned char *src_buffer, unsigned int width, unsigned int height);
+
+        // GPU postprocess
+        cmpto_j2k_dec_postprocessor_size_callback_cuda size_callback;
+        cmpto_j2k_dec_postprocessor_run_callback_cuda run_callback;
 } codecs[] = {
-        {UYVY, CMPTO_422_U8_P1020, nullptr},
-        {v210, CMPTO_422_U10_V210, nullptr},
-        {RGB, CMPTO_444_U8_P012, nullptr},
-        {BGR, CMPTO_444_U8_P210, nullptr},
-        {RGBA, CMPTO_444_U8_P012Z, nullptr},
-        {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
-        {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
+        { UYVY, CMPTO_422_U8_P1020,               nullptr,      nullptr, nullptr               },
+        { v210, CMPTO_422_U10_V210,               nullptr,      nullptr, nullptr               },
+        { RGB,  CMPTO_444_U8_P012,                nullptr,      nullptr, nullptr               },
+        { BGR,  CMPTO_444_U8_P210,                nullptr,      nullptr, nullptr               },
+        { RGBA, CMPTO_444_U8_P012Z,               nullptr,      nullptr, nullptr               },
+        { R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr,      nullptr, nullptr               },
+        { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
+         r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
@@ -527,17 +558,40 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 return true;
         }
 
+        j2k_decompress_cleanup_common(s);
+
         if (out_codec == R12L) {
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Decoding to 12-bit RGB.\n";
         }
 
         enum cmpto_sample_format_type cmpto_sf = (cmpto_sample_format_type) 0;
+        
+        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg = nullptr;
+        CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
+        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
+                             ctx_cfg, cuda_devices[i], s->req_mem_limit,
+                             s->req_tile_limit),
+                         "Error setting CUDA device", return false);
+        }
 
         for(const auto &codec : codecs){
-                if(codec.ug_codec == out_codec){
-                        cmpto_sf = codec.cmpto_sf;
+                if(codec.ug_codec != out_codec){
+                        continue;
+                }
+                cmpto_sf = codec.cmpto_sf;
+                if (codec.run_callback != nullptr) {
+                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
+                                     ctx_cfg, nullptr, nullptr,
+                                     codec.size_callback, codec.run_callback),
+                                 "add postprocessor", return false);
+                } else {
                         s->convert = codec.convert;
-                        break;
+                        if (s->convert != nullptr) {
+                                MSG(WARNING,
+                                    "Compiled without CUDA, pixfmt conv will "
+                                    "be processed on CPU...\n");
+                        }
                 }
         }
 
@@ -546,6 +600,14 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 get_codec_name(out_codec) << "\n";
                 abort();
         }
+
+        CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &s->decoder),
+                 "Error initializing context", return false);
+
+        CHECK_OK(cmpto_j2k_dec_ctx_cfg_destroy(ctx_cfg), "Destroy cfg", NOOP);
+
+        CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings),
+                 "Error creating configuration", return false);
 
         if (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16)) {
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
@@ -579,6 +641,9 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         s->desc = desc;
         s->out_codec = out_codec;
         s->pitch = pitch;
+
+        int ret = pthread_create(&s->thread_id, NULL, decompress_j2k_worker, (void *) s);
+        assert(ret == 0 && "Unable to create thread");
 
         return true;
 }
@@ -708,7 +773,8 @@ static int j2k_decompress_get_property(void *state, int property, void *val, siz
         return ret;
 }
 
-static void j2k_decompress_done(void *state)
+static void 
+j2k_decompress_cleanup_common(struct state_decompress_j2k *s)
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
@@ -716,8 +782,14 @@ static void j2k_decompress_done(void *state)
         pthread_join(s->thread_id, NULL);
         MSG(VERBOSE, "Decoder stopped.\n");
 
-        cmpto_j2k_dec_cfg_destroy(s->settings);
-        cmpto_j2k_dec_ctx_destroy(s->decoder);
+        if (s->settings != nullptr) {
+                cmpto_j2k_dec_cfg_destroy(s->settings);
+                s->settings = nullptr;
+        }
+        if (s->decoder != nullptr) {
+                cmpto_j2k_dec_ctx_destroy(s->decoder);
+                s->decoder = nullptr;
+        }
 
         while (s->decompressed_frames.size() > 0) {
                 auto decoded = s->decompressed_frames.front();
@@ -725,6 +797,13 @@ static void j2k_decompress_done(void *state)
                 free(decoded.first);
         }
 
+        s->convert = nullptr;
+}
+
+static void j2k_decompress_done(void *state)
+{
+        auto *s = (struct state_decompress_j2k *) state;
+        j2k_decompress_cleanup_common(s);
         delete s;
 }
 
@@ -732,22 +811,18 @@ static int j2k_decompress_get_priority(codec_t compression, struct pixfmt_desc i
         if (compression != J2K && compression != J2KR) {
                 return -1;
         }
-        switch (ugc) {
-                case VIDEO_CODEC_NONE:
-                        return 50; // probe
-                case UYVY:
-                case v210:
-                case RGB:
-                case BGR:
-                case RGBA:
-                case R10k:
-                case R12L:
+        if (ugc == VC_NONE) { // probe
+                return VDEC_PRIO_PROBE_HI;
+        }
+        bool codec_found = false;
+        for (const auto &codec : codecs) {
+                if (codec.ug_codec == ugc) {
+                        codec_found = true;
                         break;
-                default:
-                        return -1;
+                }
         };
-        if (ugc == VIDEO_CODEC_NONE) {
-                return 50; // probe
+        if (!codec_found) {
+                return VDEC_PRIO_NA;
         }
         if (internal.depth == 0) { // fallback - internal undefined
                 return 800;
