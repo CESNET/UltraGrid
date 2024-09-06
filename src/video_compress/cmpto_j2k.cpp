@@ -58,7 +58,6 @@
 #include <climits>
 #include <condition_variable>
 #include <mutex>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -341,6 +340,7 @@ static struct {
         {RGB, CMPTO_444_U8_P012, VIDEO_CODEC_NONE, nullptr},
         {RGBA, CMPTO_444_U8_P012Z, VIDEO_CODEC_NONE, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, VIDEO_CODEC_NONE, nullptr},
+        {RG48, CMPTO_444_U12_MSB16LE_P012, VC_NONE, nullptr},
         {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, r12l_to_rg48_cuda},
 };
 
