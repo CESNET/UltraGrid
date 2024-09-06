@@ -315,6 +315,8 @@ next_image:
 /*
  * Command Line Parameters for state_decompress_j2k
  */
+#define CPU_CONV_PARAM "j2k-dec-cpu-conv"
+
 // CUDA-specific Command Line Parameters
 ADD_TO_PARAM("j2k-dec-use-cuda", "* j2k-dec-use-cuda\n"
                                 "  use CUDA to decode images\n");
@@ -329,6 +331,8 @@ ADD_TO_PARAM("j2k-dec-cpu-thread-count", "* j2k-dec-cpu-thread-count=<threads>\n
                                 "  number of threads to use on the CPU (0 means number of threads equal to all cores)\n");
 ADD_TO_PARAM("j2k-dec-img-limit", "* j2k-dec-img-limit=<limit>\n"
                                 "  number of images which can be decoded at one moment (0 means default, thread-count is maximum limit)\n");
+ADD_TO_PARAM(CPU_CONV_PARAM, "* " CPU_CONV_PARAM "\n" 
+                           "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 // General Command Line Parameters
 ADD_TO_PARAM("j2k-dec-queue-len", "* j2k-dec-queue-len=<len>\n"
                                 "  max queue len\n");
@@ -527,7 +531,7 @@ const cmpto_j2k_dec_postprocessor_run_callback_cuda r12l_postprocess_cuda =
     nullptr;
 #endif
 
-static struct {
+static const struct conv_props {
         codec_t ug_codec;
         enum cmpto_sample_format_type cmpto_sf;
         // CPU postprocess
@@ -546,6 +550,33 @@ static struct {
         { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
          r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
+
+static bool
+set_postprocess_convert(struct state_decompress_j2k  *s,
+                        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg,
+                        const struct conv_props      *codec)
+{
+        const bool force_cpu_conv =
+            get_commandline_param(CPU_CONV_PARAM) != nullptr;
+        if (codec->run_callback != nullptr && !force_cpu_conv) {
+                if (cuda_devices_count == 1) {
+                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
+                                     ctx_cfg, nullptr, nullptr,
+                                     codec->size_callback, codec->run_callback),
+                                 "add postprocessor", return false);
+                        return true;
+                }
+                MSG(WARNING,
+                    "More than 1 CUDA device set, will use CPU conversion...\n");
+        }
+        s->convert = codec->convert;
+        if (s->convert != nullptr && codec->run_callback == nullptr &&
+            !force_cpu_conv) {
+                MSG(WARNING, "Compiled without CUDA, pixfmt conv will "
+                             "be processed on CPU...\n");
+        }
+        return true;
+}       
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
@@ -580,18 +611,8 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                         continue;
                 }
                 cmpto_sf = codec.cmpto_sf;
-                if (codec.run_callback != nullptr) {
-                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_set_postprocessor_cuda(
-                                     ctx_cfg, nullptr, nullptr,
-                                     codec.size_callback, codec.run_callback),
-                                 "add postprocessor", return false);
-                } else {
-                        s->convert = codec.convert;
-                        if (s->convert != nullptr) {
-                                MSG(WARNING,
-                                    "Compiled without CUDA, pixfmt conv will "
-                                    "be processed on CPU...\n");
-                        }
+                if (!set_postprocess_convert(s, ctx_cfg, &codec)) {
+                        return false;
                 }
         }
 
