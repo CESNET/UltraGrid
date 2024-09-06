@@ -3095,14 +3095,14 @@ if test "$cmpto_j2k_req" != no &&
         test "$FOUND_CMPTO_J2K_ENC_L" = yes &&
         test "$FOUND_CMPTO_J2K_DEC_L" = yes
 then
-        dec_objs=src/video_decompress/cmpto_j2k.o
+        kernels=
         if test "$FOUND_CUDA" = yes; then
-                dec_objs="$dec_objs src/cuda_wrapper/kernels.o"
+                kernels="src/cuda_wrapper/kernels.o"
         else
                 UG_MSG_WARN([CUDA is recommended for optimal cmpto_j2k performance but not found])
         fi
-        add_module vcompress_cmpto_j2k src/video_compress/cmpto_j2k.o -lcmpto_j2k_enc
-        add_module vdecompress_cmpto_j2k "$dec_objs" -lcmpto_j2k_dec
+        add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o $kernels" -lcmpto_j2k_enc
+        add_module vdecompress_cmpto_j2k "src/video_decompress/cmpto_j2k.o $kernels" -lcmpto_j2k_dec
         cmpto_j2k=yes
 fi
 
