@@ -701,7 +701,7 @@ void state_video_compress_j2k::parse_fmt(const char* opts) {
                         is_pool_size_manually_configured = true;
 
                 } else if (strcasecmp("mct", item) == 0) {             // :mct
-                        mct = strcasecmp("mct", item) ? 1 : 0;
+                        mct = strcasecmp("mct", item) == 0 ? 1 : 0;
 
                 } else {
                         MSG(ERROR, "Unable to find option: \"%s\"\n", item);
