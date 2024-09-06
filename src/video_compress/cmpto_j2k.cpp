@@ -421,10 +421,9 @@ start:
         struct cmpto_j2k_enc_img *img;
         int status;
         CHECK_OK(cmpto_j2k_enc_ctx_get_encoded_img(
-                                s->context,
-                                1,
-                                &img /* Set to NULL if encoder stopped */,
-                                &status), "Encode image", HANDLE_ERROR_COMPRESS_POP);
+                    s->context, 1, &img /* Set to NULL if encoder stopped */,
+                     &status),
+                 "Encode image pop", HANDLE_ERROR_COMPRESS_POP);
         {
                 unique_lock<mutex> lk(s->lock);
                 s->in_frames--;
@@ -895,8 +894,14 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         unique_lock<mutex> lk(s->lock);
         s->frame_popped.wait(lk, [s]{return s->in_frames < s->max_in_frames;});
         lk.unlock();
+        bool failed = false;
         CHECK_OK(cmpto_j2k_enc_img_encode(img, s->enc_settings),
-                        "Encode image", return);
+                        "Encode image push", failed = true);
+        if (failed) {
+                udata->frame.~shared_ptr<video_frame>();
+                cmpto_j2k_enc_img_destroy(img);
+                return;
+        }
         lk.lock();
         s->in_frames++;
         lk.unlock();
