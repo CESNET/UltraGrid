@@ -379,13 +379,17 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
-        if (s->convertFunc == nullptr) {
+        if (s->convertFunc == nullptr && cuda_devices_count == 1) {
                 s->pool_in_device_memory = true;
                 s->pool = std::make_unique<video_frame_pool>(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
                         cuda_wrapper_malloc, cuda_wrapper_free>());
         } else {
+                if (cuda_devices_count > 1) {
+                        MSG(WARNING, "More than 1 CUDA device will use CPU "
+                                     "buffers. Please report...\n");
+                }
                 s->pool = std::make_unique<video_frame_pool>(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
@@ -802,11 +806,6 @@ bool state_video_compress_j2k::initialize_j2k_enc_ctx() {
         if (j2k_compress_platform::CUDA == platform) {
                 MSG(INFO, "Configuring for CUDA\n");
                 pool = std::make_unique<video_frame_pool>(max_in_frames, cuda_allocator());
-
-                if (cuda_devices_count > 1) {
-                        MSG(WARNING, "More than one CUDA device is not tested and may "
-                                "not work. Please report...\n");
-                }
 
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(
