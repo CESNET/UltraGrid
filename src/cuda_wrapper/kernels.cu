@@ -72,15 +72,21 @@ extern volatile int log_level;
 /**
  * modified @ref vc_copylineRG48toR12L
  */
+template <typename load_t>
 __device__ static void
 rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
 {
-        // load the data from in to src_u32
-        auto *in_u32 = (uint32_t *) in;
-        uint32_t src_u32[12];
-        for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
-                src_u32[i] = in_u32[i];
-        }
+         // load the data from in to src_u32
+         auto    *in_t = (load_t *) in;
+         uint32_t src_u32[12];
+         for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
+                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4);
+                 if constexpr (sizeof(load_t) == 4) {
+                         src_u32[i] = in_t[i];
+                 } else {
+                         src_u32[i] = in_t[2 * i] | in_t[2 * i + 1] << 16;
+                 }
+         }
 
         uint32_t dst_u32[9];
         auto *dst = (uint8_t *) dst_u32;
@@ -209,6 +215,7 @@ rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
         }
 }
 
+template <typename load_t>
 __device__ static void
 rt48_to_r12l_compute_last_blk(uint8_t *src, uint8_t *dst, unsigned width)
 {
@@ -216,12 +223,13 @@ rt48_to_r12l_compute_last_blk(uint8_t *src, uint8_t *dst, unsigned width)
         for (unsigned i = 0; i < width * 6; ++i) {
                 tmp[i] = src[i];
         }
-        rt48_to_r12l_compute_blk(tmp, dst);
+        rt48_to_r12l_compute_blk<load_t>(tmp, dst);
 }
 
 /**
  * @todo fix the last block for widths not divisible by 8
  */
+template <typename load_t>
 __global__ static void
 kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x)
 {
@@ -236,11 +244,11 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x)
 
         // handle incomplete blocks
         if (position_x == size_x / 8) {
-                rt48_to_r12l_compute_last_blk(src, dst,
-                                              size_x - position_x * 8);
+                rt48_to_r12l_compute_last_blk<load_t>(src, dst,
+                                                      size_x - position_x * 8);
                 return;
         }
-        rt48_to_r12l_compute_blk(src, dst);
+        rt48_to_r12l_compute_blk<load_t>(src, dst);
 }
 
 /**
@@ -268,9 +276,24 @@ int postprocess_rg48_to_r12l(
 
         MEASURE_KERNEL_DURATION_START(stream)
 
-        kernel_rg48_to_r12l<<<blocks, threads_per_block, 0,
-                              (cudaStream_t) stream>>>(
-            (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x);
+        if (size_x % 2 == 0) {
+                kernel_rg48_to_r12l<uint32_t>
+                    <<<blocks, threads_per_block, 0, (cudaStream_t) stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_buffer,
+                        size_x);
+        } else {
+                thread_local bool warn_print;
+                if (!warn_print) {
+                        fprintf(stderr,
+                                "%s: Odd width %d px will use slower kernel!\n",
+                                __func__, size_x);
+                        warn_print = true;
+                }
+                kernel_rg48_to_r12l<uint16_t>
+                    <<<blocks, threads_per_block, 0, (cudaStream_t) stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_buffer,
+                        size_x);
+        }
 
         MEASURE_KERNEL_DURATION_STOP(stream)
 
