@@ -35,7 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>
 #include <dirent.h>
 #include <errno.h>            // for errno, EEXIST
 #include <limits.h>
@@ -341,7 +340,9 @@ static void process_messages(struct exporter *s) {
 
 void export_audio(struct exporter *s, struct audio_frame *frame)
 {
-        assert(s != NULL);
+        if(!s){
+                return;
+        }
 
         process_messages(s);
 
@@ -354,7 +355,9 @@ void export_audio(struct exporter *s, struct audio_frame *frame)
 
 void export_video(struct exporter *s, struct video_frame *frame)
 {
-        assert(s != NULL);
+        if(!s){
+                return;
+        }
 
         process_messages(s);
 
