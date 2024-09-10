@@ -588,11 +588,27 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
-        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
-                             ctx_cfg, cuda_devices[i], s->cuda_mem_limit,
-                             s->cuda_tile_limit),
-                         "Error setting CUDA device", return false);
+        if (j2k_decompress_platform::CUDA == s->platform) {
+                for (unsigned int i = 0; i < cuda_devices_count; ++i) {
+                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
+                                ctx_cfg, cuda_devices[i], s->cuda_mem_limit,
+                                s->cuda_tile_limit),
+                                "Error setting CUDA device", return false);
+                }
+        }
+
+        if (j2k_decompress_platform::CPU == s->platform) {
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cpu(
+                        ctx_cfg,
+                        s->cpu_thread_count,
+                        s->cpu_mem_limit,
+                        s->cpu_img_limit),
+                        "Error configuring the CPU",
+                        return false);
+
+                MSG(INFO, "Using %s threads on the CPU. Image Limit set to %i.\n",
+                    (s->cpu_thread_count == 0 ? "all available" : std::to_string(s->cpu_thread_count).c_str()),
+                    s->cpu_img_limit);
         }
 
 
