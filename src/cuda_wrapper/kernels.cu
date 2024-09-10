@@ -282,9 +282,11 @@ int postprocess_rg48_to_r12l(
 //   / , _/ / /  / __/  / /__/___/ > > / , _// (_ / /_  _// _  |
 //  /_/|_| /_/  /____/ /____/     /_/ /_/|_| \___/   /_/  \___/
 
+template <typename store_t>
 __device__ static void r12l_to_rg48_compute_blk(const uint8_t *src,
                                                 uint8_t       *dst);
 
+template <typename store_t>
 __global__ static void
 kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 {
@@ -300,16 +302,17 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
         if (position_x == size_x / 8) {
                 // compute the last incomplete block
                 alignas(uint32_t) uint8_t tmp[48];
-                r12l_to_rg48_compute_blk(src, tmp);
+                r12l_to_rg48_compute_blk<store_t>(src, tmp);
                 for (unsigned i = 0; i < (size_x - position_x * 8) * 6; ++i) {
                         dst[i] = tmp[i];
                 }
                 return;
         }
-        r12l_to_rg48_compute_blk(src, dst);
+        r12l_to_rg48_compute_blk<store_t>(src, dst);
 }
 
 /// adapted variant of @ref vc_copylineR12LtoRG48
+template <typename store_t>
 __device__ static void
 r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
 {
@@ -406,9 +409,15 @@ r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
         *dst++ = src[32 + 3];
 
         // store the result
-        auto *out_u32 = (uint32_t *) out;
+        auto *out_t = (store_t *) out;
         for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
-                out_u32[i] = dst_u32[i];
+                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4);
+                if constexpr (sizeof(store_t) == 4) {
+                        out_t[i] = dst_u32[i];
+                } else  {
+                        out_t[2 * i] = dst_u32[i] & 0xFFFFU;
+                        out_t[2 * i + 1] = dst_u32[i] >> 16;
+                }
         }
 }
 
@@ -420,8 +429,20 @@ preprocess_r12l_to_rg48(int width, int height, void *src, void *dst)
         dim3 blocks((((width + 7) / 8) + 255) / 256, height);
 
         MEASURE_KERNEL_DURATION_START(0)
-        kernel_r12l_to_rg48<<<blocks, threads_per_block>>>(
-            (uint8_t *) src, (uint8_t *) dst, width);
+        if (width % 2 == 0) {
+                kernel_r12l_to_rg48<uint32_t><<<blocks, threads_per_block>>>(
+                    (uint8_t *) src, (uint8_t *) dst, width);
+        } else {
+                thread_local bool warn_print;
+                if (!warn_print) {
+                        fprintf(stderr,
+                                "%s: Odd width %d px will use slower kernel!\n",
+                                __func__, width);
+                        warn_print = true;
+                }
+                kernel_r12l_to_rg48<uint16_t><<<blocks, threads_per_block>>>(
+                    (uint8_t *) src, (uint8_t *) dst, width);
+        }
         MEASURE_KERNEL_DURATION_STOP(0)
 }
 
