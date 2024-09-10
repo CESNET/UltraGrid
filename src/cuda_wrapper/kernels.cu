@@ -80,8 +80,9 @@ rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
          auto    *in_t = (load_t *) in;
          uint32_t src_u32[12];
          for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
-                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4);
-                 if constexpr (sizeof(load_t) == 4) {
+                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4,
+                               "Just uint{16,32} supported!");
+                 if (sizeof(load_t) == 4) {
                          src_u32[i] = in_t[i];
                  } else {
                          src_u32[i] = in_t[2 * i] | in_t[2 * i + 1] << 16;
@@ -434,10 +435,11 @@ r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
         // store the result
         auto *out_t = (store_t *) out;
         for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
-                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4);
-                if constexpr (sizeof(store_t) == 4) {
+                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4,
+                              "Just uint{16,32} supported!");
+                if (sizeof(store_t) == 4) {
                         out_t[i] = dst_u32[i];
-                } else  {
+                } else {
                         out_t[2 * i] = dst_u32[i] & 0xFFFFU;
                         out_t[2 * i + 1] = dst_u32[i] >> 16;
                 }
