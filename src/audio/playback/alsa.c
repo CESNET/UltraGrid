@@ -448,7 +448,7 @@ set_device_buffer(snd_pcm_t *handle, playback_mode_t playback_mode,
         enum {
                 REC_MIN_BUF_US = 5000,
         };
-        unsigned int buf_len = 0;
+        unsigned int buf_len_us = 0;
         int          buf_dir = -1;
         const char  *buff_param = get_commandline_param("alsa-playback-buffer");
 
@@ -456,10 +456,10 @@ set_device_buffer(snd_pcm_t *handle, playback_mode_t playback_mode,
             buff_param == NULL) {
                 // set minimal value from the configuration space
                 CHECK_OK(snd_pcm_hw_params_set_buffer_time_first(
-                    handle, params, &buf_len, &buf_dir));
+                    handle, params, &buf_len_us, &buf_dir));
                 MSG(INFO, "ALSA driver buffer len set to: %lf ms\n",
-                    buf_len / US_IN_1MS_DBL);
-                if (buf_len <= REC_MIN_BUF_US) {
+                    US_TO_MS((double) buf_len_us));
+                if (buf_len_us <= REC_MIN_BUF_US) {
                         MSG(WARNING,
                             "ALSA driver buffer len less than %d usec seem to "
                             "be too loow, consider using alsa-playback-buffer "
@@ -469,22 +469,19 @@ set_device_buffer(snd_pcm_t *handle, playback_mode_t playback_mode,
                 return;
         }
 
-        if (buff_param != NULL) {
-                buf_len = atoi(buff_param);
-        } else {
-                buf_len = (playback_mode == SYNC ? BUF_LEN_DEFAULT_SYNC_MS
-                                                 : BUF_LEN_DEFAULT_MS) *
-                          US_IN_1MS;
-        }
+        buf_len_us = buff_param != NULL ? atoi(buff_param)
+                                        : MS_TO_US(playback_mode == SYNC
+                                                       ? BUF_LEN_DEFAULT_SYNC_MS
+                                                       : BUF_LEN_DEFAULT_MS);
 
         const int rc = snd_pcm_hw_params_set_buffer_time_near(
-            handle, params, &buf_len, &buf_dir);
+            handle, params, &buf_len_us, &buf_dir);
         if (rc < 0) {
                 MSG(WARNING, "Warning - unable to set buffer to its size: %s\n",
                     snd_strerror(rc));
         }
         MSG(INFO, "ALSA driver buffer len set to: %lf ms\n",
-            buf_len / US_IN_1MS_DBL);
+            US_TO_MS((double) buf_len_us));
 }
 
 ADD_TO_PARAM("alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
