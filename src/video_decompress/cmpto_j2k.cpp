@@ -79,16 +79,15 @@
 #include "video_codec.h" // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
 
-constexpr const char *MOD_NAME = "[Cmpto J2K dec.]";
-
 using std::lock_guard;
 using std::min;
 using std::mutex;
 using std::pair;
 using std::queue;
+using std::stoi;
 using std::unique_lock;
 
-#define NOOP ((void) 0)
+constexpr const char *MOD_NAME = "[Cmpto J2K dec.]";
 
 // General Parameter Defaults
 constexpr int DEFAULT_MAX_QUEUE_SIZE         = 2;                         // maximal size of queue for decompressed frames
@@ -105,21 +104,21 @@ constexpr unsigned int MIN_CPU_IMG_LIMIT     = 0;                         // Min
 constexpr int64_t DEFAULT_CUDA_MEM_LIMIT     = 1000000000LL;
 constexpr int     DEFAULT_CUDA_TILE_LIMIT    = 2;
 
-using std::lock_guard;
-using std::min;
-using std::mutex;
-using std::pair;
-using std::queue;
-using std::stoi;
-using std::unique_lock;
-
-static void
-j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
+#define NOOP ((void) 0)
+#define CHECK_OK(cmd, err_msg, action_fail) do { \
+        int j2k_error = cmd; \
+        if (j2k_error != CMPTO_OK) {\
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << (err_msg) << ": " << cmpto_j2k_dec_get_last_error() << "\n"; \
+                action_fail;\
+        } \
+} while(0)
 
 /*
  * Function Predeclarations
  */
 static void *decompress_j2k_worker(void *args);
+static void j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
+
 
 /*
  * Platform to use for J2K Decompression
@@ -191,14 +190,6 @@ struct state_decompress_j2k {
         void parse_params();
         bool initialize_j2k_dec_ctx();
 };
-
-#define CHECK_OK(cmd, err_msg, action_fail) do { \
-        int j2k_error = cmd; \
-        if (j2k_error != CMPTO_OK) {\
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << (err_msg) << ": " << cmpto_j2k_dec_get_last_error() << "\n"; \
-                action_fail;\
-        } \
-} while(0)
 
 /**
  * @brief Default state_decompress_j2k Constructor
@@ -594,19 +585,11 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
-                             ctx_cfg, cuda_devices[i], s->req_mem_limit,
-                             s->req_tile_limit),
+                             ctx_cfg, cuda_devices[i], s->cuda_mem_limit,
+                             s->cuda_tile_limit),
                          "Error setting CUDA device", return false);
         }
 
-        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg = nullptr;
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
-        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
-                             ctx_cfg, cuda_devices[i], s->req_mem_limit,
-                             s->req_tile_limit),
-                         "Error setting CUDA device", return false);
-        }
 
         for(const auto &codec : codecs){
                 if(codec.ug_codec != out_codec){

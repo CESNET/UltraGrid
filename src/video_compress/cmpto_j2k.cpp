@@ -52,14 +52,14 @@
 #endif // HAVE_CONFIG_H
 
 #include <algorithm>
-#include <array>
-#include <cassert>
-#include <climits>
-#include <condition_variable>
-#include <mutex>
-#include <stdexcept>
-#include <string>
-#include <utility>
+#include <array>                
+#include <cassert>              
+#include <climits>              
+#include <condition_variable>   
+#include <mutex>                
+#include <stdexcept>            
+#include <string>               
+#include <utility>                      
 
 #include <cmpto_j2k_enc.h>
 
@@ -79,6 +79,11 @@
 #include "video.h"
 #include "video_compress.h"
 
+using std::condition_variable;
+using std::mutex;
+using std::shared_ptr;
+using std::unique_lock;
+
 #define MOD_NAME "[Cmpto J2K enc.] "
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -89,6 +94,15 @@
                 action_fail;\
         } \
 } while(0)
+
+#define HANDLE_ERROR_COMPRESS_PUSH \
+        if (udata != nullptr) { \
+                udata->frame.~shared_ptr<video_frame>(); \
+        } \
+        if (img != nullptr) { \
+                cmpto_j2k_enc_img_destroy(img); \
+        } \
+        return
 
 #define NOOP ((void) 0)
 
@@ -108,20 +122,13 @@
 
 // Default General Settings
 #define DEFAULT_QUALITY          0.7
+
+typedef void (*cuda_convert_func_t)(int width, int height, void *src, void *dst);
+
+#ifdef HAVE_CUDA
 /// default max size of state_video_compress_j2k::pool and also value
 /// for state_video_compress_j2k::max_in_frames
-#ifdef HAVE_CUDA
 #define DEFAULT_POOL_SIZE        DEFAULT_CUDA_POOL_SIZE
-#else
-#define DEFAULT_POOL_SIZE        DEFAULT_CPU_POOL_SIZE
-#endif
-
-using std::condition_variable;
-using std::mutex;
-using std::shared_ptr;
-using std::unique_lock;
-
-#ifdef HAVE_CUDA
 template <decltype(cuda_wrapper_malloc_host) alloc,
           decltype(cuda_wrapper_free_host)   free>
 struct cmpto_j2k_enc_cuda_buffer_data_allocator
@@ -147,15 +154,23 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
         }
 };
 
-using cuda_allocator = cmpto_j2k_enc_cuda_buffer_data_allocator;
+using cuda_allocator                        = cmpto_j2k_enc_cuda_buffer_data_allocator;
 const cuda_convert_func_t r12l_to_rg48_cuda = preprocess_r12l_to_rg48;
 #else
-using cuda_allocator = default_data_allocator;
+using cuda_allocator                        = default_data_allocator;
 const cuda_convert_func_t r12l_to_rg48_cuda = nullptr;
+
+/// default max size of state_video_compress_j2k::pool and also value
+/// for state_video_compress_j2k::max_in_frames
+#define DEFAULT_POOL_SIZE        DEFAULT_CPU_POOL_SIZE
 #endif
 using cpu_allocator  = default_data_allocator;
 
-typedef void (*cuda_convert_func_t)(int width, int height, void *src, void *dst);
+/*
+ * Function Predeclarations
+ */
+static void j2k_compressed_frame_dispose(struct video_frame *frame);
+static void j2k_compress_done(struct module *mod);
 
 /** 
  * @brief Platforms available for J2K Compression
@@ -283,9 +298,6 @@ struct state_video_compress_j2k {
         const size_t  cpu_mem_limit = 0;                // Not yet implemented as of v2.8.1. Must be 0.
 };
 
-static void j2k_compressed_frame_dispose(struct video_frame *frame);
-static void j2k_compress_done(struct module *mod);
-
 /**
  * @brief state_video_compress_j2k constructor to create from opts
  * @param parent Base Module Struct
@@ -323,12 +335,6 @@ static void parallel_conv(video_frame *dst, video_frame *src){
                           dst_pitch, src->tiles[0].data, src_pitch,
                           decoder, 0);
 }
-
-#ifdef HAVE_CUDA
-const cuda_convert_func_t r12l_to_rg48_cuda = preprocess_r12l_to_rg48;
-#else
-const cuda_convert_func_t r12l_to_rg48_cuda = nullptr;
-#endif
 
 static struct {
         codec_t ug_codec;
@@ -471,7 +477,7 @@ do_gpu_copy(struct state_video_compress_j2k *s,
 }
 
 static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
-        std::shared_ptr<video_frame> ret = s->pool.get_frame();
+        std::shared_ptr<video_frame> ret = s->pool->get_frame();
         if (s->pool_in_device_memory) {
                 do_gpu_copy(s, ret, frame);
         } else if (s->precompress_codec != VC_NONE) {
@@ -943,15 +949,6 @@ release_cstream_cuda(void *img_custom_data, size_t img_custom_data_size,
                         samples_size);
 }
 
-#define HANDLE_ERROR_COMPRESS_PUSH \
-        if (udata != nullptr) { \
-                udata->frame.~shared_ptr<video_frame>(); \
-        } \
-        if (img != nullptr) { \
-                cmpto_j2k_enc_img_destroy(img); \
-        } \
-        return
-
 static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
 {
         struct state_video_compress_j2k *s =
@@ -974,7 +971,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                 if (s->precompress_codec != VC_NONE) {
                         pool_desc.color_spec = s->precompress_codec;
                 }
-                s->pool.reconfigure(
+                s->pool->reconfigure(
                     pool_desc, (size_t) vc_get_linesize(pool_desc.width,
                                                         pool_desc.color_spec) *
                                    pool_desc.height);
