@@ -477,8 +477,9 @@ set_device_buffer(snd_pcm_t *handle, playback_mode_t playback_mode,
         const int rc = snd_pcm_hw_params_set_buffer_time_near(
             handle, params, &buf_len_us, &buf_dir);
         if (rc < 0) {
-                MSG(WARNING, "Warning - unable to set buffer to its size: %s\n",
-                    snd_strerror(rc));
+                MSG(WARNING,
+                    "Warning - unable to set buffer to its size %u us: %s\n",
+                    buf_len_us, snd_strerror(rc));
         }
         MSG(INFO, "ALSA driver buffer len set to: %lf ms\n",
             US_TO_MS((double) buf_len_us));
