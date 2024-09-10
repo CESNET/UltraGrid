@@ -41,11 +41,8 @@
 #include <cstdio>
 #include <cuda_runtime_api.h>
 
-#ifdef DEBUG
-#define D_PRINTF printf
-#else
-#define D_PRINTF(...)
-#endif
+extern volatile int log_level;
+#define LOG_LEVEL_DEBUG 7
 
 #define MEASURE_KERNEL_DURATION_START(stream) \
         cudaEvent_t t0, t1; \
@@ -57,7 +54,9 @@
         cudaEventSynchronize(t1); \
         float elapsedTime = NAN; \
         cudaEventElapsedTime(&elapsedTime, t0, t1); \
-        D_PRINTF("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        if (log_level >= LOG_LEVEL_DEBUG) { \
+                printf("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        } \
         if (elapsedTime > 10.0) { \
                 fprintf( \
                     stderr, \
