@@ -73,8 +73,19 @@ extern volatile int log_level;
  * modified @ref vc_copylineRG48toR12L
  */
 __device__ static void
-rt48_to_r12l_compute_blk(const uint8_t *src, uint8_t *dst)
+rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
 {
+        // load the data from in to src_u32
+        auto *in_u32 = (uint32_t *) in;
+        uint32_t src_u32[12];
+        for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
+                src_u32[i] = in_u32[i];
+        }
+
+        uint32_t dst_u32[9];
+        auto *dst = (uint8_t *) dst_u32;
+        auto *src = (uint8_t *) src_u32;
+
         // 0
         dst[0] = src[0] >> 4;
         dst[0] |= src[1] << 4;
@@ -190,12 +201,18 @@ rt48_to_r12l_compute_blk(const uint8_t *src, uint8_t *dst)
         dst[32 + 2] |= src[0] & 0xF0;
         dst[32 + 3] = src[1];
         src += 2;
+
+        // store the result
+        auto *out_u32 = (uint32_t *) out;
+        for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
+                out_u32[i] = dst_u32[i];
+        }
 }
 
 __device__ static void
 rt48_to_r12l_compute_last_blk(uint8_t *src, uint8_t *dst, unsigned width)
 {
-        uint8_t tmp[48];
+        alignas(uint32_t) uint8_t tmp[48];
         for (unsigned i = 0; i < width * 6; ++i) {
                 tmp[i] = src[i];
         }
