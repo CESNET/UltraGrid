@@ -1872,7 +1872,7 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
         time_ns_t t2 = get_time_in_ns();
         MSG(DEBUG2,
             "duration uv pixfmt change: %f ms, av format change: %f ms\n",
-            (t1 - t0) / NS_IN_MS_DBL, (t2 - t1) / NS_IN_MS_DBL);
+            NS_TO_MS((double) (t1 - t0)), NS_TO_MS((double) (t2 - t1)));
         return frame;
 };
 

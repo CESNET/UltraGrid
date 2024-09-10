@@ -245,7 +245,7 @@ static void *worker(void *arg)
                 struct video_frame *f = NULL;
                 struct timespec ts;
                 timespec_get(&ts, TIME_UTC);
-                ts_add_nsec(&ts, 200 * NS_IN_MS); // 200 ms
+                ts_add_nsec(&ts, MS_TO_NS(200LL)); // 200 ms
                 pthread_mutex_lock(&s->lock);
                 while (!s->f && !s->should_exit) {
                         pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &ts);
