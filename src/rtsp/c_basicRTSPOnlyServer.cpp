@@ -41,42 +41,33 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#include <cassert>
+
 #include "rtsp/c_basicRTSPOnlyServer.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
 
-int c_start_server(rtsp_serv_t* server){
+rtsp_serv_t *
+c_start_server(struct rtsp_server_parameters params)
+{
+    auto* server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
+    server->params = params;
+    server->watch = 0;
+
     int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType, server->audio_codec, server->audio_sample_rate, server->audio_channels, server->audio_bps, server->rtp_port, server->rtp_port_audio);
+    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->params);
     srv->init_server();
     ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
-    if (ret == 0){
-        server->run = TRUE;
-    } else {
-        server->run = FALSE;
-    }
-    return ret;
-}
+    assert(ret == 0);
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
-    rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
-    server->port = port;
-    server->mod = mod;
-    server->watch = 0;
-    server->run = FALSE;
-    server->avType = avType;
-    server->audio_codec = audio_codec;
-    server->audio_sample_rate = audio_sample_rate;
-    server->audio_channels = audio_channels;
-    server->audio_bps = audio_bps;
-    server->rtp_port = rtp_port;
-    server->rtp_port_audio = rtp_port_audio;
     return server;
 }
 
 void c_stop_server(rtsp_serv_t* server){
-    server->watch = 1;
-    if (server->run){
-        pthread_join(server->server_th, NULL);
+    if (server == nullptr) {
+        return;
     }
+    server->watch = 1;
+    pthread_join(server->server_th, nullptr);
 }
 

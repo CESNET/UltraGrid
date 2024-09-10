@@ -39,8 +39,10 @@
 #include <cassert>
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
+#include <climits>               // for UINT_MAX
 #include <condition_variable>
 #include <cstdio>                // for fprintf, stderr
+#include <cstdint>               // for int64_t, uint32_t
 #include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
 #include <iomanip>
 #include <map>
@@ -159,18 +161,18 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
 }
 
 /**
+ * @param[out] com_initialized  pointer to be passed to decklnk_uninitialize
+ (keeps information if COM needs to be unintialized)
  * @note
- * Each successful call (returning non-null pointer) of this function with coinit == true
+ * Each successful call (returning non-null pointer) of this function
  * should be followed by com_uninitialize() when done with DeckLink (not when releasing
  * IDeckLinkIterator!), typically on application shutdown.
  */
-IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose, bool coinit)
+IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose)
 {
         IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef _WIN32
-        if (coinit) {
-                com_initialize(com_initialized, "[BMD] ");
-        }
+        com_initialize(com_initialized, "[BMD] ");
         HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
         if (FAILED(result)) {
@@ -178,7 +180,6 @@ IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose,
                 deckLinkIterator = nullptr;
         }
 #else
-        UNUSED(coinit);
         *com_initialized = false;
         deckLinkIterator = CreateDeckLinkIteratorInstance();
 #endif
@@ -1087,6 +1088,72 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
               << " attribute for this device is " << SBOLD(oss.str()) << "\n";
 }
 
+/**
+ * @returns list of DeckLink devices sorted (indexed) by topological ID
+ *          If no topological ID is reported, use UINT_MAX (and lower vals)
+ * @param verbose - print errors
+ * @param natural_sort - use the (old) natural sort as given by the iterator
+ * @note
+ Each call of this function should be followed by com_uninitialize() when done
+ with DeckLink. No BMD stuff originating from this function call
+ (IDeckLinks) can be used after that and new call must be made.
+ * @note
+ * The returned IDeckLink instances are managed with the unique_ptr, so
+ * take care about the returned object lifetime (particularly not to
+ * be destroyed after decklink_uninitialize()).
+ */
+std::vector<bmd_dev>
+bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
+{
+        IDeckLinkIterator *deckLinkIterator =
+            create_decklink_iterator(com_initialized, verbose);
+        if (deckLinkIterator == nullptr) {
+                return {};
+        }
+
+        IDeckLink *deckLink = nullptr;
+        std::vector<bmd_dev> out;
+        int                  idx = 0;
+        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+                HRESULT                     result             = E_FAIL;
+                result =
+                    deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                             (void **) &deckLinkAttributes);
+                assert(result == S_OK);
+                int64_t id = 0;
+                result =
+                    deckLinkAttributes->GetInt(BMDDeckLinkTopologicalID, &id);
+                if (result != S_OK) {
+                        id = UINT_MAX - idx;
+                }
+                assert(id >= 0 && id <= UINT_MAX);
+                deckLinkAttributes->Release();
+
+                auto release = [](IDeckLink *d) { d->Release(); };
+                auto &it      = out.emplace_back(
+                    std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>{
+                        deckLink, release },
+                    0, 0, 0);
+                std::get<unsigned>(it) = id;
+                std::get<int>(it) = idx++;
+        }
+        deckLinkIterator->Release();
+        if (!natural_sort) {
+                std::sort(out.begin(), out.end(), [](bmd_dev &a, bmd_dev &b) {
+                        return std::get<unsigned>(a) < std::get<unsigned>(b);
+                });
+        }
+        // assign new indices
+        char new_idx = 'a';
+        for (auto &d : out) {
+                std::get<char>(d) = new_idx++;
+        }
+        return out;
+}
+
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
+ADD_TO_PARAM(BMD_NAT_SORT, "* " BMD_NAT_SORT "\n"
+                "  Use the old BMD device sorting.\n");
 

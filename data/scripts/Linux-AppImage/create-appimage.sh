@@ -120,7 +120,9 @@ while read -r x; do
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
 for n in $EXCLUDE_LIST; do
-        if [ "$n" = libjack.so.0 ]; then # JACK is currently handled in AppRun
+        # these dependencies preloaded by AppRun if found in system - include
+        # them for the cases when isn't
+        if [ "$n" = libjack.so.0 ] || [ "$n" = libpipewire-0.3.so.0 ]; then
                 continue
         fi
         if [ -f "$APPPREFIX/lib/$n" ]; then

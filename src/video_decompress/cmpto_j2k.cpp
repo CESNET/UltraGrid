@@ -48,12 +48,6 @@
  *   (which is asynchronous, thus non-blocking)
  * - then queue (filled by thread in first point) is checked - if it is
  *   non-empty, frame is copied to framebufffer. If not false is returned.
- *
- * @todo
- * Reconfiguration isn't entirely correct - on reconfigure, all frames
- * should be dropped and not copied to framebuffer. However this is usually
- * not an issue because dynamic video change is rare (except switching to
- * another stream, which, however, creates a new decoder).
  */
 
 #include <algorithm>           // for min
@@ -67,12 +61,8 @@
 #include <pthread.h>           // for pthread_create, pthread_join, pthread_t
 #include <queue>               // for queue
 #include <utility>             // for pair
-#include <algorithm>
-#include <mutex>
-#include <queue>
-#include <utility>
 
-ifdef HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"            // for HAVE_CUDA
 #endif
 #include "cuda_wrapper/kernels.hpp"
@@ -84,22 +74,20 @@ ifdef HAVE_CONFIG_H
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
+#include "video_codec.h"       // for vc_get_linesize, codec_is_a_rgb, get_b...
+#include "video_decompress.h"
 #include "video_codec.h" // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
-
-constexpr const char *MOD_NAME = "[Cmpto J2K dec.]";
 
 using std::lock_guard;
 using std::min;
 using std::mutex;
 using std::pair;
 using std::queue;
+using std::stoi;
 using std::unique_lock;
 
-static void
-j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
-
-#define NOOP ((void) 0)
+constexpr const char *MOD_NAME = "[Cmpto J2K dec.]";
 
 // General Parameter Defaults
 constexpr int DEFAULT_MAX_QUEUE_SIZE         = 2;                         // maximal size of queue for decompressed frames
@@ -113,20 +101,24 @@ constexpr unsigned int DEFAULT_CPU_IMG_LIMIT = 0;                         // 0 f
 constexpr unsigned int MIN_CPU_IMG_LIMIT     = 0;                         // Min number of images encoded by the CPU at once
 
 // CUDA-specific Defaults
-constexpr int64_t DEFAULT_CUDA_MEM_LIMIT     = 1000000000;
+constexpr int64_t DEFAULT_CUDA_MEM_LIMIT     = 1000000000LL;
 constexpr int     DEFAULT_CUDA_TILE_LIMIT    = 2;
 
-using std::lock_guard;
-using std::min;
-using std::mutex;
-using std::pair;
-using std::queue;
-using std::unique_lock;
+#define NOOP ((void) 0)
+#define CHECK_OK(cmd, err_msg, action_fail) do { \
+        int j2k_error = cmd; \
+        if (j2k_error != CMPTO_OK) {\
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << (err_msg) << ": " << cmpto_j2k_dec_get_last_error() << "\n"; \
+                action_fail;\
+        } \
+} while(0)
 
 /*
  * Function Predeclarations
  */
 static void *decompress_j2k_worker(void *args);
+static void j2k_decompress_cleanup_common(struct state_decompress_j2k *s);
+
 
 /*
  * Platform to use for J2K Decompression
@@ -159,7 +151,7 @@ struct UnableToCreateJ2KDecoderCTX : public std::exception {
 
 struct state_decompress_j2k {
         state_decompress_j2k();
-
+  
         cmpto_j2k_dec_ctx *decoder{};
         cmpto_j2k_dec_cfg *settings{};
 
@@ -198,14 +190,6 @@ struct state_decompress_j2k {
         void parse_params();
         bool initialize_j2k_dec_ctx();
 };
-
-#define CHECK_OK(cmd, err_msg, action_fail) do { \
-        int j2k_error = cmd; \
-        if (j2k_error != CMPTO_OK) {\
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << (err_msg) << ": " << cmpto_j2k_dec_get_last_error() << "\n"; \
-                action_fail;\
-        } \
-} while(0)
 
 /**
  * @brief Default state_decompress_j2k Constructor
@@ -536,7 +520,6 @@ static const struct conv_props {
         enum cmpto_sample_format_type cmpto_sf;
         // CPU postprocess
         void (*convert)(unsigned char *dst_buffer, unsigned char *src_buffer, unsigned int width, unsigned int height);
-
         // GPU postprocess
         cmpto_j2k_dec_postprocessor_size_callback_cuda size_callback;
         cmpto_j2k_dec_postprocessor_run_callback_cuda run_callback;
@@ -547,6 +530,7 @@ static const struct conv_props {
         { BGR,  CMPTO_444_U8_P210,                nullptr,      nullptr, nullptr               },
         { RGBA, CMPTO_444_U8_P012Z,               nullptr,      nullptr, nullptr               },
         { R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr,      nullptr, nullptr               },
+        { RG48, CMPTO_444_U12_MSB16LE_P012,       nullptr,      nullptr, nullptr               },
         { R12L, CMPTO_444_U12_MSB16LE_P012,       rg48_to_r12l,
          r12l_postprocessor_get_sz,                                      r12l_postprocess_cuda },
 };
@@ -576,7 +560,7 @@ set_postprocess_convert(struct state_decompress_j2k  *s,
                              "be processed on CPU...\n");
         }
         return true;
-}       
+}
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
@@ -601,10 +585,11 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
-                             ctx_cfg, cuda_devices[i], s->req_mem_limit,
-                             s->req_tile_limit),
+                             ctx_cfg, cuda_devices[i], s->cuda_mem_limit,
+                             s->cuda_tile_limit),
                          "Error setting CUDA device", return false);
         }
+
 
         for(const auto &codec : codecs){
                 if(codec.ug_codec != out_codec){
@@ -794,11 +779,9 @@ static int j2k_decompress_get_property(void *state, int property, void *val, siz
         return ret;
 }
 
-static void 
+static void
 j2k_decompress_cleanup_common(struct state_decompress_j2k *s)
 {
-        struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
-
         cmpto_j2k_dec_ctx_stop(s->decoder);
         pthread_join(s->thread_id, NULL);
         MSG(VERBOSE, "Decoder stopped.\n");
@@ -841,7 +824,7 @@ static int j2k_decompress_get_priority(codec_t compression, struct pixfmt_desc i
                         codec_found = true;
                         break;
                 }
-        };
+        }
         if (!codec_found) {
                 return VDEC_PRIO_NA;
         }

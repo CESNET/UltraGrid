@@ -76,7 +76,6 @@
 #include "blackmagic_common.hpp"
 #include "compat/htonl.h"
 #include "compat/strings.h"
-#include "config.h"                              // for PACKAGE_BUGREPORT
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -120,7 +119,30 @@ static bool display_decklink_reconfigure(void *state, struct video_desc desc);
                 }\
         } while (0)
 
-using namespace std;
+using hrc = std::chrono::high_resolution_clock;
+using namespace std::string_literals;
+using std::chrono::duration_cast;
+using std::chrono::seconds;
+using std::array;
+using std::atomic;
+using std::atomic_bool;
+using std::cout;
+using std::copy;
+using std::exception;
+using std::get;
+using std::invalid_argument;
+using std::lock_guard;
+using std::map;
+using std::mutex;
+using std::ostringstream;
+using std::out_of_range;
+using std::queue;
+using std::stod;
+using std::stoi;
+using std::string;
+using std::unique_lock;
+using std::unique_ptr;
+using std::vector;
 
 struct state_decklink;
 
@@ -141,9 +163,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
                 resync = INT64_MIN + 1,
         };
 
-        chrono::high_resolution_clock::time_point t0 =
-            chrono::high_resolution_clock::now();
-        uint64_t frames_dropped = 0;
+        hrc::time_point t0             = hrc::now();
+        uint64_t        frames_dropped = 0;
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
@@ -247,8 +268,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 
 void PlaybackDelegate::PrintStats()
 {
-        auto now = chrono::high_resolution_clock::now();
-        if (chrono::duration_cast<chrono::seconds>(now - t0).count() >= 5) {
+        auto now = hrc::now();
+        if (duration_cast<seconds>(now - t0).count() >= 5) {
                 LOG(LOG_LEVEL_VERBOSE)
                     << MOD_NAME << frames_late << " frames late, "
                     << frames_dropped << " dropped, " << frames_flushed
@@ -528,8 +549,6 @@ struct state_decklink {
 static void
 show_help(bool full, const char *query_prop_fcc = nullptr)
  {
-        IDeckLinkIterator*              deckLinkIterator;
-        IDeckLink*                      deckLink;
         int                             numDevices = 0;
 
         col() << "DeckLink display options:\n";
@@ -607,40 +626,47 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { col() << " " << SBOLD(get_codec_name(i.first)); } );
         cout << "\n";
 
-        col() << "\nDevices:\n";
+        col() << "Devices (idx, topological ID, name):\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
-        deckLinkIterator = create_decklink_iterator(&com_initialized, true);
-        if (deckLinkIterator == NULL) {
-                return;
-        }
         
         // Enumerate all cards in this system
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
+        const bool natural_sort =
+            get_commandline_param(BMD_NAT_SORT) != nullptr;
+        for (auto &d :
+             bmd_get_sorted_devices(&com_initialized, true, natural_sort)) {
+                IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
                 if (deviceName.empty()) {
                         deviceName = "(unable to get name)";
                 }
 
+                char index[STR_LEN] = "";
+                if (!natural_sort) {
+                        snprintf(index, sizeof index,
+                                 TBOLD("%c") ") ", get<char>(d));
+                }
+                if (full || natural_sort) {
+                        snprintf(index + strlen(index),
+                                 sizeof index - strlen(index), TBOLD("%d") ") ",
+                                 get<int>(d));
+                }
                 // *** Print the model name of the DeckLink card
-                col() << "\t" << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
+                color_printf("\t%s" TBOLD("%6x") ") " TBOLD(
+                                 TGREEN("%s")) "\n",
+                             index, get<unsigned>(d),
+                             deviceName.c_str());
                 if (full) {
                         print_output_modes(deckLink, query_prop_fcc);
                 }
 
                 // Increment the total number of DeckLink cards found
                 numDevices++;
-        
-                // Release the IDeckLink instance when we've finished with it to prevent leaks
-                deckLink->Release();
         }
 
         if (!full) {
                 col() << "(use \"" << SBOLD("fullhelp") << "\" to see device modes)\n";
         }
-
-        deckLinkIterator->Release();
 
         decklink_uninitialize(&com_initialized);
 
@@ -843,7 +869,11 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 if (dominance == bmdLowerFieldFirst ||
                                                 dominance == bmdUpperFieldFirst) {
 					if (dominance == bmdLowerFieldFirst) {
-						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Lower field first format detected, fields can be switched! If so, please report a bug to " PACKAGE_BUGREPORT "\n");
+                                                bug_msg(
+                                                    LOG_LEVEL_WARNING, MOD_NAME
+                                                    "Lower field first format "
+                                                    "detected, fields can be "
+                                                    "switched! ");
 					}
                                         interlaced = true;
                                 } else { // progressive, psf, unknown
@@ -1102,21 +1132,14 @@ PlaybackDelegate::Preroll(struct state_decklink *s)
 static void display_decklink_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         UNUSED(deleter);
-        IDeckLinkIterator*              deckLinkIterator;
-        IDeckLink*                      deckLink;
 
         *count = 0;
         *available_cards = nullptr;
 
         bool com_initialized = false;
-        deckLinkIterator = create_decklink_iterator(&com_initialized, false);
-        if (deckLinkIterator == NULL) {
-                return;
-        }
-
         // Enumerate all cards in this system
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
+        for (auto &d : bmd_get_sorted_devices(&com_initialized, false)) {
+                IDeckLink *deckLink = get<0>(d).get();
                 string deviceName = bmd_get_device_name(deckLink);
 		if (deviceName.empty()) {
 			deviceName = "(unknown)";
@@ -1126,7 +1149,9 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
-                snprintf((*available_cards)[*count - 1].dev, sizeof (*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
+                snprintf((*available_cards)[*count - 1].dev,
+                         sizeof(*available_cards)[*count - 1].dev, ":device=%6x",
+                         get<unsigned>(d));
                 snprintf((*available_cards)[*count - 1].extra, sizeof (*available_cards)[*count - 1].extra, "\"embeddedAudioAvailable\":\"t\"");
                 (*available_cards)[*count - 1].repeatable = false;
 
@@ -1135,12 +1160,9 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 
                 dev_add_option(&(*available_cards)[*count - 1], "3D", "3D", "3D", ":3D", true);
                 dev_add_option(&(*available_cards)[*count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
-
-                // Release the IDeckLink instance when we've finished with it to prevent leaks
-                deckLink->Release();
+                dev_add_option(&(*available_cards)[*count - 1], "HDR", "Can be one of: SDR, HDR, PQ, HLG or int 0-7", "hdr", ":HDR=", false);
         }
 
-        deckLinkIterator->Release();
         decklink_uninitialize(&com_initialized);
 }
 
@@ -1369,10 +1391,8 @@ set_audio_props(state_decklink         *s,
 
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         string                                          cardId("0");
-        int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
 
@@ -1409,32 +1429,35 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        // Initialize the DeckLink API
-        deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
-        if (!deckLinkIterator) {
-                display_decklink_done(s);
-                return nullptr;
-        }
-
         // Connect to the first DeckLink instance
-        IDeckLink    *deckLink;
-        while (deckLinkIterator->Next(&deckLink) == S_OK)
-        {
-                string deviceName = bmd_get_device_name(deckLink);
+        for (auto &d : bmd_get_sorted_devices(&s->com_initialized, true)) {
+                s->deckLink = get<0>(d).release(); // unmanage
+                string deviceName = bmd_get_device_name(s->deckLink);
 
                 if (!deviceName.empty() && deviceName == cardId) {
-                        s->deckLink = deckLink;
                         break;
                 }
-                if (isdigit(cardId.c_str()[0]) && dnum == atoi(cardId.c_str())) {
-                        s->deckLink = deckLink;
+                // topological ID
+                const unsigned long tid = strtoul(cardId.c_str(), nullptr, 16);
+                if (get<unsigned>(d) == tid) {
                         break;
+                }
+                // natural (old) index
+                if (isdigit(cardId.c_str()[0])) {
+                        if (atoi(cardId.c_str()) == get<int>(d)) {
+                                break;
+                        }
+                }
+                // new (character) index
+                if (cardId.length() == 1 && cardId[0] >= 'a') {
+                        if (cardId[0] == get<char>(d)) {
+                                break;
+                        }
                 }
 
-                deckLink->Release();
-                dnum++;
+                s->deckLink->Release();
+                s->deckLink = nullptr;
         }
-        deckLinkIterator->Release();
         if (s->deckLink == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId << " found\n";
                 display_decklink_done(s);
@@ -1757,9 +1780,9 @@ static bool display_decklink_reconfigure_audio(void *state, int quant_samples, i
         assert(quant_samples == 16 || quant_samples == 32);
         
         const int bps = quant_samples / 8;
+        const unique_lock<mutex> lk(s->audio_reconf_lock);
         if (bps != s->aud_desc.bps || sample_rate != s->aud_desc.sample_rate ||
             channels != s->aud_desc.ch_count) {
-                const unique_lock<mutex> lk(s->audio_reconf_lock);
                 s->aud_desc = {quant_samples / 8, sample_rate, channels,
                                AC_PCM};
                 s->audio_reconfigure = true;

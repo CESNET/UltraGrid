@@ -70,9 +70,6 @@ static enum af_result_code
 init(struct module *parent, const char *cfg, void **state)
 {
         (void) parent;
-        if (strlen(cfg) > 0) {
-                cfg++;
-        }
         if (strcmp(cfg, "help") == 0) {
                 usage();
                 return AF_HELP_SHOWN;

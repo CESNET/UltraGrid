@@ -25,27 +25,40 @@
  * Probe and help are almost similar - consolide common code.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
 
+#include <audiosessiontypes.h>    // for AUDCLNT_STREAMFLAGS_LOOPBACK, _AUDC...
 #include <audioclient.h>
+#include <basetsd.h>              // for HRESULT, UINT, LPWSTR, GUID, UINT32
+#include <cctype>                 // for isdigit
+#include <cstdio>                 // for mesnprintf
+#include <cstdlib>                // for realloc, atoi, malloc, mbtowc, free
+#include <cstring>                // for NULL, memset, strcmp, strlen, wcslen
+#include <combaseapi.h>           // for CoTaskMemFree, CoCreateInstance
+#include <guiddef.h>              // for IsEqualGUID
 #include <iomanip>
 #include <iostream>
-#include <mfapi.h>
+#include <ksmedia.h>              // for KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
+#include <mediaobj.h>             // for REFERENCE_TIME
+#include <mmeapi.h>               // for WAVEFORMATEX, WAVE_FORMAT_PCM
 #include <mmdeviceapi.h>
+#include <mmreg.h>                // for PWAVEFORMATEXTENSIBLE, WAVE_FORMAT_...
+#include <objbase.h>              // for STGM_READ
+#include <propidl.h>              // for PropVariantClear, PropVariantInit
+#include <propsys.h>              // for IPropertyStore
 #include <sstream>
 #include <string>
-#include <windows.h>
+#include <synchapi.h>             // for Sleep
+#include <winerror.h>             // for SUCCEEDED, S_OK, FAILED
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "debug.h"
+#include "host.h"                 // for audio_capture_channels, audio_captu...
 #include "lib_common.h"
+#include "types.h"                // for device_info
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h"         // for snprintf_ch
 #include "utils/windows.h"
 
 #define MOD_NAME "[WASAPI cap.] "
@@ -58,8 +71,11 @@
 const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
 const static GUID IDevice_FriendlyName = { 0xa45c254e, 0xdf1c, 0x4efd, { 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0 } };
 const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 };
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces" // not our issue - defined by Mingw-w64
 const GUID KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
 const GUID KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = { STATIC_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT };
+#pragma GCC diagnostic pop
 
 using std::cout;
 using std::ostringstream;

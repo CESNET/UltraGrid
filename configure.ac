@@ -170,6 +170,7 @@ fi
 
 if test $system = Windows; then
 	LIBS="$LIBS -lsetupapi -lws2_32 -liphlpapi -lole32 -loleaut32"
+	LIBS="$LIBS -ldbghelp"
 	AC_CHECK_FUNCS(SetThreadDescription)
 fi
 
@@ -320,7 +321,7 @@ remove_mwindows() {
 ## @param $2  feature feature found
 ## @param $3  error message
 AC_DEFUN([ENSURE_FEATURE_PRESENT], [
-if test "$1" = yes && test "$2" = no; then
+if { test "$1" != no && test "$1" != auto ;} && test "$2" = no; then
         AC_MSG_ERROR([$3]);
 fi
 ])
@@ -448,8 +449,9 @@ AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 # CUDA lookup order:
 # 1) --with-cuda
 # 2) CUDA_DIRECTORY env variable
-# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
-# 4) default CUDA path
+# 3) CUDA_PATH env variable
+# 4) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
+# 5) default CUDA path
 
 CUDA_COMPUTE_ARGS=""
 CUDA_COMPILER=""
@@ -459,7 +461,9 @@ CUDA_LIB=
 NVCC=
 CUDA_LIB_PATH=
 FOUND_CUDA=no
-CUDA_PATH=$CUDA_DIRECTORY
+if test -n "$CUDA_DIRECTORY"; then
+        CUDA_PATH=$CUDA_DIRECTORY
+fi
 
 AC_ARG_ENABLE(cuda,
               AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
@@ -495,12 +499,21 @@ then
                                 # MSVS 14.0 has it otherwhere
                                 cl_lib_path=$(realpath "$(dirname "$(command -v "$CL")")"/../lib)
                         fi
-                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L\"$cl_lib_path\""
+                        DEFAULT_LIB_P=$($LINKER --verbose 2>&1 | awk \
+'BEGIN { ORS="" } /InstalledDir: / { print $2 }')/../lib
+                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L$DEFAULT_LIB_P"
+                        CUDA_LIB="$CUDA_LIB -L\"$cl_lib_path\""
                         FOUND_CUDA=yes
                 fi
         else
                 FOUND_CUDA=yes
         fi
+	AC_MSG_CHECKING([CUDA Toolkit version - major])
+        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_major)
+	AC_MSG_CHECKING([CUDA Toolkit version - minor])
+        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_minor)
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
@@ -579,7 +592,6 @@ if test "$FOUND_CUDA" = yes; then
           AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
           OBJS="$OBJS src/cuda_wrapper.o"
           if test $system != Windows; then
-                  LIBS="$LIBS $CUDA_LIB"
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
@@ -602,6 +614,7 @@ fi
 ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
 
 AC_SUBST(CUDA_INC)
+AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
@@ -919,7 +932,7 @@ if test "$bluefish444_req" != no; then
         CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 fi
 
-ENSURE_FEATURE_PRESENT([$bluefish44_req], [$bluefish444], [Bluefish444 not found])
+ENSURE_FEATURE_PRESENT([$bluefish444_req], [$bluefish444], [Bluefish444 not found])
 
 # -------------------------------------------------------------------------------------------------
 # AJA stuff
@@ -1498,7 +1511,8 @@ if test "$rtsp_req" != no; then
                 CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o \
+src/rtp/rtpdec_h264.o src/rtp/rtpdec_jpeg.o src/utils/jpeg_writer.o"
                 add_module vidcap_rtsp "$RTSP_OBJ" "$RTSP_LIBS"
                 rtsp=yes
         fi
@@ -1517,7 +1531,7 @@ livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
 [  --enable-rtsp-server    enables RTSP server support (default is auto)]
-[                          Requires: live555 (<= 2015)],
+[                          Requires: live555],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=$build_default]
     )
@@ -1533,15 +1547,7 @@ if test $rtsp_server_req != no; then
         RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
         SAVED_CPPFLAGS=$CPPFLAGS
         CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                           #include <liveMedia.hh>
-                           #include <liveMedia_version.hh>
-                           ]], [[
-                                #if LIVEMEDIA_LIBRARY_VERSION_INT > 1438905600
-                                #error "Unsuppored live555 version (too new)"
-                                #endif
-                                ]]
-                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found or wrong version (< 2015 needed)"; FOUND_LIVE_H=no])
+        AC_CHECK_HEADER(liveMedia.hh, FOUND_LIVE_H=yes, FOUND_LIVE_H=no)
         CPPFLAGS=$SAVED_CPPFLAGS
         AC_LANG_POP(C++)
         if test $FOUND_LIVE_H = yes
@@ -1650,6 +1656,7 @@ AC_ARG_ENABLE(testcard-extras,
     [testcard_extras_req=$build_default]
     )
 
+FOUND_SDL_TTF=no
 testcard2_req=auto
 testcard_sdl_ttf_req=auto
 
@@ -1824,7 +1831,15 @@ then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         if test "$lavc_cuda_conv_req" != no && test "$FOUND_CUDA" = yes &&
-                        system != MacOSX; then
+                        test "$system" != MacOSX && test "$nvcc_major" -ge 9
+        then
+                lavc_cuda=yes
+        fi
+        if test "$lavc_cuda" = yes && test "$system" = Windows &&
+                        test -z "$INCLUDE"; then
+                lavc_cuda=no
+        fi
+        if test "$lavc_cuda" = yes; then
                 AC_DEFINE([HAVE_LAVC_CUDA_CONV], [1], [Build with lavc CUDA conversions])
                 to_lavc_cuda_obj=src/libavcodec/to_lavc_vid_conv_cuda.o
                 LIBAVCODEC_VIDEO="$LIBAVCODEC_VIDEO $to_lavc_cuda_obj src/libavcodec/from_lavc_vid_conv_cuda.o"
@@ -3073,13 +3088,22 @@ if test $cmpto_j2k_req != no; then
         AC_CHECK_HEADER(cmpto_j2k_dec.h, FOUND_CMPTO_J2K_DEC_H=yes, FOUND_CMPTO_J2K_DEC_H=no)
         AC_CHECK_LIB(cmpto_j2k_enc, cmpto_j2k_enc_ctx_cfg_create, FOUND_CMPTO_J2K_ENC_L=yes, FOUND_CMPTO_J2K_ENC_L=no)
         AC_CHECK_LIB(cmpto_j2k_dec, cmpto_j2k_dec_ctx_cfg_create, FOUND_CMPTO_J2K_DEC_L=yes, FOUND_CMPTO_J2K_DEC_L=no)
-
-        if test "$FOUND_CMPTO_J2K_ENC_H" = yes && test "$FOUND_CMPTO_J2K_DEC_H" = yes && test "$FOUND_CMPTO_J2K_ENC_L" = yes && test "$FOUND_CMPTO_J2K_DEC_L" = yes
-        then
-                add_module vcompress_cmpto_j2k src/video_compress/cmpto_j2k.o -lcmpto_j2k_enc
-                add_module vdecompress_cmpto_j2k src/video_decompress/cmpto_j2k.o -lcmpto_j2k_dec
-                cmpto_j2k=yes
+fi
+if test "$cmpto_j2k_req" != no &&
+        test "$FOUND_CMPTO_J2K_ENC_H" = yes &&
+        test "$FOUND_CMPTO_J2K_DEC_H" = yes &&
+        test "$FOUND_CMPTO_J2K_ENC_L" = yes &&
+        test "$FOUND_CMPTO_J2K_DEC_L" = yes
+then
+        kernels=
+        if test "$FOUND_CUDA" = yes; then
+                kernels="src/cuda_wrapper/kernels.o"
+        else
+                UG_MSG_WARN([CUDA is recommended for optimal cmpto_j2k performance but not found])
         fi
+        add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o $kernels" -lcmpto_j2k_enc
+        add_module vdecompress_cmpto_j2k "src/video_decompress/cmpto_j2k.o $kernels" -lcmpto_j2k_dec
+        cmpto_j2k=yes
 fi
 
 ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found!])
@@ -3297,7 +3321,7 @@ if test -n "$req_files" && test "$req_files" != all; then
         OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /g')"
 fi
 
-if test "$build_default" != no || test $req_files = all; then
+if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
@@ -3306,6 +3330,7 @@ if test "$build_default" != no || test $req_files = all; then
         src/audio/filter/controlport_stats.o
         src/audio/filter/silence.o
         src/audio/filter/playback.o
+        src/audio/filter/channel_remap.o
         src/capture_filter/change_pixfmt.o
         src/capture_filter/color.o
         src/capture_filter/display.o
@@ -3455,6 +3480,7 @@ RESULT=`add_column "$RESULT" "caca" $caca $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
+RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File" $file $?`
 RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
@@ -3462,6 +3488,7 @@ RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
 RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
 RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
+RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
@@ -3470,8 +3497,6 @@ RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
-RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
-RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
@@ -3502,7 +3527,8 @@ RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
 RESULT=`add_column "$RESULT" "Spout" $spout $?`
 RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
-RESULT=`add_column "$RESULT" "Testcard extras" $testcard2 $?`
+RESULT=`add_column "$RESULT" "Testcard extras (TTF: $FOUND_SDL_TTF)" \
+$testcard2 $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
 RESULT=`end_section "$RESULT"`
 

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2022 CESNET z.s.p.o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+
+#include <assert.h>          // for assert
+#include <stdbool.h>         // for false, bool, true
+#include <stdio.h>           // for printf, fprintf, stderr
+#include <stdlib.h>          // for free, NULL, malloc, atoi, calloc
+#include <string.h>          // for strlen, strtok_r, strdup
 
 #include "capture_filter.h"
+#include "compat/strings.h"  // for strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"     // for get_decoder_from_to, decoder_t, vc_copyl...
+#include "types.h"           // for video_frame, tile, RGB
 #include "utils/macros.h"
 #include "utils/pam.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"     // for VIDEO_FRAME_DISPOSE
+
+struct module;
 
 #define MOD_NAME "[logo] "
 
@@ -156,13 +162,20 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 state;
         decoder_t decoder, coder;
         decoder = get_decoder_from_to(in->color_spec, RGB);
+        if (decoder == NULL) {
+                MSG(ERROR, "Cannot find decoder from %s to RGB!\n",
+                    get_codec_name(in->color_spec));
+        }
         coder = get_decoder_from_to(RGB, in->color_spec);
-        int rect_x = s->x;
-        int rect_y = s->y;
-        assert(coder != NULL && decoder != NULL);
-
+        if (coder == NULL) {
+                MSG(ERROR, "Cannot find encoder from %s to RGB!\n",
+                    get_codec_name(in->color_spec));
+        }
         if (decoder == NULL || coder == NULL)
                 return in;
+
+        int rect_x = s->x;
+        int rect_y = s->y;
 
         if (rect_x < 0 || rect_x + s->width > in->tiles[0].width) {
                 rect_x = in->tiles[0].width - s->width;

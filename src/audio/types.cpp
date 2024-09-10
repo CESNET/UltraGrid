@@ -202,6 +202,14 @@ int audio_frame2::get_bps() const
         return desc.bps;
 }
 
+struct audio_desc audio_frame2::get_desc() const
+{
+        struct audio_desc ret = desc;
+        ret.ch_count =
+            get_channel_count(); // ch_count is not set in audio_frame2::desc
+        return ret;
+}
+
 audio_codec_t audio_frame2::get_codec() const
 {
         return desc.codec;

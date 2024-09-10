@@ -48,10 +48,10 @@
 #include <ServerMediaSession.hh>
 #endif
 
+#include <liveMedia_version.hh>
+
+#include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
 #include "rtsp/rtsp_utils.h"
-#include "audio/types.h"
-#include "module.h"
-#include "control_socket.h"
 
 // #ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH
 // #include <OnDemandServerMediaSubsession.hh>
@@ -59,7 +59,7 @@
 
 class Destinations {
 public:
-    Destinations(struct in_addr const& destAddr,
+    Destinations(struct sockaddr_storage const& destAddr,
         Port const& rtpDestPort,
         Port const& rtcpDestPort)
 : isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort),
@@ -73,7 +73,7 @@ public:
 
 public:
     Boolean isTCP;
-    struct in_addr addr;
+    struct sockaddr_storage addr;
     Port rtpPort;
     Port rtcpPort;
     int tcpSocketNum;
@@ -92,40 +92,49 @@ public:
     static BasicRTSPOnlySubsession*
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
-        struct module *mod,
-        rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+        rtsp_types_t avType, int rtpPort, struct rtsp_server_parameters);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
+        rtsp_types_t avType, int rtpPort, struct rtsp_server_parameters);
 
-    virtual ~BasicRTSPOnlySubsession();
+     ~BasicRTSPOnlySubsession() override;
 
-    virtual char const* sdpLines();
+    char const* sdpLines(int addressFamily) override;
 
-    virtual void getStreamParameters(unsigned clientSessionId,
-        netAddressBits clientAddress,
+    void getStreamParameters(unsigned clientSessionId,
+        struct sockaddr_storage const &clientAddress,
         Port const& clientRTPPort,
         Port const& clientRTCPPort,
         int tcpSocketNum,
         unsigned char rtpChannelId,
         unsigned char rtcpChannelId,
-        netAddressBits& destinationAddress,
+        TLSState *tlsState,
+        struct sockaddr_storage &destinationAddress,
         uint8_t& destinationTTL,
         Boolean& isMulticast,
         Port& serverRTPPort,
         Port& serverRTCPPort,
-        void*& streamToken);
+        void*& streamToken) override;
 
-    virtual void startStream(unsigned clientSessionId, void* streamToken,
+    void startStream(unsigned clientSessionId, void* streamToken,
         TaskFunc* rtcpRRHandler, void* rtcpRRHandlerClientData,
         unsigned short& rtpSeqNum,
         unsigned& rtpTimestamp,
         ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
-        void* serverRequestAlternativeByteHandlerClientData);
+        void* serverRequestAlternativeByteHandlerClientData) override;
 
-    virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+    void deleteStream(unsigned clientSessionId, void*& streamToken) override;
+
+#if LIVEMEDIA_LIBRARY_VERSION_INT >= 1701302400 // 2023.11.30
+    void getRTPSinkandRTCP(void*, RTPSink*&, RTCPInstance*&) override {}
+#else
+    void getRTPSinkandRTCP(void *, const RTPSink *&,
+                           const RTCPInstance *&) override
+    {
+    }
+#endif
 
 protected:
 
@@ -135,19 +144,14 @@ protected:
 
 private:
 
-    void setSDPLines();
+    void setSDPLines(int addressFamily);
 
     MAYBE_UNUSED_ATTRIBUTE Boolean fReuseFirstSource;
     MAYBE_UNUSED_ATTRIBUTE void* fLastStreamToken;
     char fCNAME[100];
-    struct module *fmod;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port; //server rtp port
-    int rtp_port_audio; //server rtp port
+    rtsp_types_t avType;
+    int          rtpPort;
+    struct rtsp_server_parameters rtsp_params;
 };
 
 

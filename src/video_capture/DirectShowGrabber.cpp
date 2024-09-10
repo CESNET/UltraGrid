@@ -76,6 +76,7 @@ struct vidcap_dshow_state {
 	int modeNumber;
 	struct video_desc desc;
 	bool convert_YUYV_RGB; ///< @todo check - currently newer set
+	bool no_sync_source;
 	convert_t convert;
 
 	struct video_frame *frame;
@@ -240,6 +241,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	s->desc.fps = DEFAULT_FPS;
 	s->desc.tile_count = 1;
 	s->desc.interlacing = PROGRESSIVE;
+	s->com_initialized = false;
 
 	s->frame = NULL;
 	s->grabBufferLen = 0;
@@ -248,6 +250,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	s->returnBuffer = NULL;
 	s->convert_buffer = NULL;
 	s->convert_YUYV_RGB = false;
+	s->no_sync_source = false;
 	yuv_clamp = NULL;
 
 	s->graphBuilder = NULL;
@@ -331,7 +334,8 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 		desc.fps = 10000000.0/infoHeader->AvgTimePerFrame;
 		if (infoHeader->dwInterlaceFlags & AMINTERLACE_IsInterlaced) {
 			if (infoHeader->dwInterlaceFlags & AMINTERLACE_1FieldPerSample) {
-				LOG(LOG_LEVEL_WARNING) << MOD_NAME "1 Field Per Sample is not supported! " BUG_MSG "\n";
+                                bug_msg(LOG_LEVEL_WARNING, MOD_NAME
+                                        "1 Field Per Sample is not supported! ");
 			} else {
 				desc.interlacing = INTERLACED_MERGED;
 			}
@@ -343,9 +347,13 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 	return desc;
 }
 
-static void show_help(struct vidcap_dshow_state *s, bool full) {
-	printf("dshow grabber options:\n");
-	col() << SBOLD("\t-t dshow:[full]help") << "\n";
+static void
+show_help(struct vidcap_dshow_state *s, const char *help_str)
+{
+        const bool short_h = strcmp(help_str, "shorthelp") == 0;
+        const bool full_h  = strcmp(help_str, "fullhelp") == 0;
+        printf("dshow grabber options:\n");
+        col() << SBOLD("\t-t dshow:[full|short]help") << "\n";
 	col() << SBOLD(SRED("\t-t dshow") << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]") "\n";
 	col() << "\t    Flag " << SBOLD("RGB") << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
@@ -357,20 +365,23 @@ static void show_help(struct vidcap_dshow_state *s, bool full) {
         device_info *cards = nullptr;
         int count = 0;
         void (*deleter)(void *) = NULL;
-        vidcap_dshow_probe_internal(&cards, &count, &deleter, full);
+        vidcap_dshow_probe_internal(&cards, &count, &deleter, full_h);
 
 	// Enumerate all capture devices
 	for (int n = 0; n < count; ++n) {
 		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n + 1, cards[n].name);
 
+		if (short_h) {
+			continue;
+		}
 		int i = 0;
 		// iterate over all capabilities
 		while (strlen(cards[n].modes[i].id) > 0) {
+			fputs(i == 0 ? "" : i % 2 == 0 ? "\n" : "\t", stdout);
 			int mode_idx = -1;
 			sscanf(cards[n].modes[i].id, "{\"mode\":\"%d", &mode_idx);
 			UG_ASSERT_NO_FATAL(mode_idx != -1);
 			printf("    Mode %2d: %s", mode_idx, cards[n].modes[i].name);
-			putchar(i % 2 == 1 ? '\n' : '\t');
 			++i;
 		}
 
@@ -379,9 +390,9 @@ static void show_help(struct vidcap_dshow_state *s, bool full) {
 	deleter = IF_NOT_NULL_ELSE(deleter, (void (*)(void *)) free);
 	deleter(cards);
 
-	printf("Mode flags:\n");
+	printf("%sMode flags:\n", short_h ? "\n" : "");
         printf("C - codec not natively supported by UG%s\n\n",
-               full ? "; F - video format is "
+               full_h ? "; F - video format is "
                       "not supported"
                     : "\n(use ':fullhelp' to see also unsupported modes)");
 }
@@ -502,9 +513,14 @@ vidcap_dshow_probe_internal(device_info **available_cards, int *count,
                                 continue;
                         }
 
+			codec_t ug_codec = get_ug_codec(&mediaType->subtype);
+			bool force_rgb = is_codec_opaque(ug_codec) || codec_is_planar(ug_codec) || ug_codec == VIDEO_CODEC_NONE;
+
 			snprintf(cards[card_count - 1].modes[mode_idx].id,
 					sizeof cards[card_count - 1].modes[mode_idx].id,
-					"{\"mode\":\"%d\"}", i);
+					"{\"mode\":\"%d\", "
+					"\"force_rgb\":\"%c\"}",
+					i, force_rgb ? 't' : 'f');
 			snprintf(cards[card_count - 1].modes[mode_idx].name,
 					sizeof cards[card_count - 1].modes[mode_idx].name,
 					"%s %ux%u @%0.2lf%s %s%s", GetSubtypeName(&mediaType->subtype),
@@ -521,6 +537,7 @@ vidcap_dshow_probe_internal(device_info **available_cards, int *count,
                 HANDLE_ERR("Cannot remove capture filter from filter graph");
                 captureFilter->Release();
                 s->moniker->Release();
+                dev_add_option(&cards[card_count - 1], "Force no sync source", "Only use if capture is stuck", "no_sync_source", ":no_sync_source", true);
 	}
 	cleanup(s);
         *available_cards = cards;
@@ -565,10 +582,12 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 						s->desc.color_spec = get_ug_from_subtype_name(token);
 					}
 					if (s->desc.color_spec == VIDEO_CODEC_NONE) {
-						log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported video format: %s. "
-                                                                "Please contact us via %s if you need support for this codec.\n",
-                                                                token, PACKAGE_BUGREPORT);
-						return false;
+                                                bug_msg(LOG_LEVEL_ERROR,
+                                                        MOD_NAME
+                                                        "Unsupported video "
+                                                        "format: %s. ",
+                                                        token);
+                                                return false;
 					}
 				}
 				break;
@@ -626,6 +645,8 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 				s->modeNumber = atoi(token);
 			} else if (strcmp(token, "RGB") == 0) {
 				s->desc.color_spec = BGR;
+			} else if (strcmp(token, "no_sync_source") == 0) {
+				s->no_sync_source = true;
 			} else {
 				MSG(ERROR, "Unknown argument: %s\n", token);
 				return false;
@@ -822,10 +843,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	InitializeConditionVariable(&s->grabWaitCV);
 	InitializeCriticalSection(&s->returnBufferCS);
 
-        if (strcmp(vidcap_params_get_fmt(params), "help") == 0 ||
-            strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                show_help(
-                    s, strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0);
+        if (strstr(vidcap_params_get_fmt(params), "help") != nullptr) {
+                show_help(s, vidcap_params_get_fmt(params));
 		cleanup(s);
 		return VIDCAP_INIT_NOERR;
 	}
@@ -871,6 +890,11 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			goto error;
 		}
 	}
+
+        if(get_friendly_name(s->moniker).find("OBS Virtual") != std::string::npos){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "OBS virtual camera detected. Force setting sync source to NULL!\n");
+                s->no_sync_source = true;
+        }
 
         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Capturing from device: "
                               << get_friendly_name(s->moniker) << "\n";
@@ -1086,6 +1110,14 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
 	res = s->filterGraph->QueryInterface(IID_IMediaControl, (void **) &s->mediaControl);
         HANDLE_ERR("Cannot find media control interface");
+
+	if(s->no_sync_source){
+		IMediaFilter *pMediaFilter;
+		res = s->filterGraph->QueryInterface(IID_IMediaFilter, (void **) &pMediaFilter);
+		HANDLE_ERR("Cannot find media filter interface");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Setting sync source to NULL\n");
+		pMediaFilter->SetSyncSource(NULL);
+	}
 
 	FILTER_STATE fs;
 	res = s->mediaControl->Run();

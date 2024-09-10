@@ -217,7 +217,7 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
 
         switch (s->desc.color_spec) {
         case RGB:
-                s->decode = vc_copylineABGRtoRGB;
+                s->decode = vc_copylineBGRAtoRGB;
                 break;
         case RGBA:
                 s->decode = vc_copylineRGBA;

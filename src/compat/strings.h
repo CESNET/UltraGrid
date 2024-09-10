@@ -2,7 +2,7 @@
  * @file   compat/strings.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * compatibility header for strcasecmp (only for now)
+ * compatibility header for strcasecmp. strdup, strerror_s
  */
 /*
  * Copyright (c) 2024 CESNET
@@ -37,11 +37,46 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
+#define COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
+  
+#include <string.h>
+
 #ifdef _WIN32
 #ifndef strcasecmp
-#include <string.h>
 #define strcasecmp _stricmp
 #endif
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif // ! defined strncasecmp
 #else // ! defined _WIN32
 #include <strings.h>
 #endif // _WIN32
+
+#ifdef __cplusplus
+#define COMPAT_MISC_EXT_C extern "C"
+#else
+#define COMPAT_MISC_EXT_C extern
+#endif
+
+// strerror_s
+#ifndef _WIN32
+#ifndef __STDC_LIB_EXT1__
+#if ! defined __gnu_linux__ // XSI version on non-glibc
+#define strerror_s(buf, bufsz, errnum) strerror_r(errnum, buf, bufsz)
+#else // use the XSI variant from glibc (strerror_r is either GNU or XSI)
+COMPAT_MISC_EXT_C int __xpg_strerror_r(int errcode, char *buffer, size_t length);
+#define strerror_s(buf, bufsz, errnum) __xpg_strerror_r(errnum, buf, bufsz)
+#endif
+#endif // ! defined __STDC_LIB_EXT1__
+#endif // ! defined _WIN32
+
+// strdupa is defined as a macro
+#include <string.h>
+#ifndef strdupa
+#define strdupa(s) (char *) memcpy(alloca(strlen(s) + 1), s, strlen(s) + 1)
+#endif // defined strdupa
+
+#undef COMPAT_MISC_EXT_C
+
+#endif // ! defined COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12

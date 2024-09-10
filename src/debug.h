@@ -101,6 +101,8 @@ bool parse_log_cfg(const char *conf_str,
 		bool *logger_skip_repeats,
 		enum log_timestamp_mode *show_timestamps);
 
+void bug_msg(int level, const char *format, ...) __attribute__((format (printf, 2, 3)));
+
 #ifdef __cplusplus
 }
 #endif

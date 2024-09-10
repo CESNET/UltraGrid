@@ -5,7 +5,7 @@
  * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,27 +93,19 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif // defined __GNUC__
-#if AJA_NTV2_SDK_VERSION_MAJOR >= 13
 #include "ajabase/common/types.h"
 #include "ajabase/common/videotypes.h"
 #include "ajabase/common/circularbuffer.h"
 #include "ajabase/system/process.h"
 #include "ajabase/system/systemtime.h"
 #include "ajabase/system/thread.h"
-#else
-#include "ajastuff/common/videotypes.h"
-#include "ajastuff/common/circularbuffer.h"
-#include "ajastuff/system/process.h"
-#include "ajastuff/system/systemtime.h"
-#include "ajastuff/system/thread.h"
-#endif
 
 #include "ntv2utils.h"
 #include "ntv2devicefeatures.h"
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 
-#include "aja_common.h"
+#include "aja_common.hpp"
 
 #define MOD_NAME "[AJA cap.] "
 
@@ -353,7 +345,6 @@ void vidcap_state_aja::Init()
         //      Using a reference to the discovered device list,
         //      and the index number of the device of interest (mDeviceIndex),
         //      get information about that particular device...
-        NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [mDeviceIndex]);
         if (!mDevice.Open (mDeviceIndex))
                 throw string("Unable to open device.");
 
@@ -489,7 +480,7 @@ AJAStatus vidcap_state_aja::SetupHDMI()
                 CHECK_RET_FAIL(mDevice.SetReference (::NTV2InputSourceToReferenceSource(mInputSource)));
 
         // configure hdmi with 2.0 support
-        if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && !mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+        if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && !mDevice.features().CanDoHDMIQuadRasterConversion()) {
                 //	Set two sample interleave
                 CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(true, mInputChannel));
 
@@ -517,7 +508,7 @@ AJAStatus vidcap_state_aja::SetupHDMI()
                         CHECK_RET_FAIL(mDevice.Connect(GetFrameBufferInputXptFromChannel((NTV2Channel) (offset / 2) /* inChannel */, offset % 2 == 1 /* inIsBInput */),
                                         GetTSIMuxOutputXptFromChannel((NTV2Channel) (offset / 2), offset % 2 == 1 /* inLinkB */)));
                 }
-        } else if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+        } else if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && mDevice.features().CanDoHDMIQuadRasterConversion()) {
                 CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(false, mInputChannel));
                 for (unsigned offset = 0; offset < 4; ++offset) {
                         NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
@@ -599,21 +590,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 CHECK_OK(mDevice.SetSDITransmitEnable (mInputChannel, false), "Cannot disable SDI transmit", NOOP);
 
                 //      Give the input circuit some time (~10 frames) to lock onto the input signal...
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,5)
-                for (int i = 0; i < 10; i++) {
-                        CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel), "Cannot wait for VBI", NOOP);
-                }
-#else
                 CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10), "Cannot wait for VBI", NOOP);
-#endif
         }
 
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
-                mTimeCodeSource = ::NTV2ChannelToTimecodeSource (mInputChannel);
-#else
                 mTimeCodeSource = ::NTV2InputSourceToTimecodeIndex(mInputSource);
-#endif
         else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
                 mTimeCodeSource = NTV2_TCINDEX_LTC1;
         else
@@ -722,11 +703,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
                 return AJA_STATUS_SUCCESS;
         }
         //      Have the audio system capture audio from the designated device input...
-#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
-        mDevice.SetAudioSystemInputSource (mAudioSystem, mInputSource);
-#else
         CHECK_OK(mDevice.SetAudioSystemInputSource(mAudioSystem, mAudioSource, ::NTV2InputSourceToEmbeddedAudioInput(mInputSource)), string("Cannot set audio input source: ") + NTV2AudioSourceToString(mAudioSource), NOOP);
-#endif
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
         mAudio.ch_count = *aja_audio_capture_channels > 0 ? *aja_audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
@@ -1058,10 +1035,18 @@ static void show_help() {
         printf("Available devices:\n");
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                col() << "\t"  << SBOLD(i) << ") " << SBOLD(info.deviceIdentifier) << ". " << info;
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
+
+                col() << "\t" << SBOLD(i) << ") "
+                      << SBOLD(device.GetDisplayName());
+                print_aja_device_details(&device);
+                const NTV2DeviceID deviceID = device.GetBaseDeviceID();
                 NTV2VideoFormatSet fmt_set;
-                if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
+                if (NTV2DeviceGetSupportedVideoFormats(deviceID, fmt_set)) {
                         col() << SUNDERLINE("\tAvailable formats:");
                         for (auto fmt : fmt_set) {
                                 if (fmt != *fmt_set.begin()) {
@@ -1073,8 +1058,8 @@ static void show_help() {
                         col() << "\n";
                 }
                 NTV2FrameBufferFormatSet pix_fmts;
-                if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
-                        if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(info.deviceID, NTV2_FBF_10BIT_YCBCR)) {
+                if (NTV2DeviceGetSupportedPixelFormats(deviceID, pix_fmts)) {
+                        if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(deviceID, NTV2_FBF_10BIT_YCBCR)) {
                                 pix_fmts.insert(NTV2_FBF_10BIT_YCBCR); // workaround NTV2 bug
                         }
                         col() << SUNDERLINE("\tAvailable pixel formats:");
@@ -1096,7 +1081,7 @@ static void show_help() {
                         }
                         col() << "\n";
                 }
-                col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
+                col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (deviceID) << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
                 col() << SUNDERLINE("\tno devices found") "\n";
@@ -1164,7 +1149,11 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
 
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
+                CNTV2Card device;
+                if (!CNTV2DeviceScanner::GetDeviceAtIndex(i, device)) {
+                        MSG(WARNING, "Cannot get device at index #%u!\n", i);
+                        continue;
+                }
                 card_count += 1;
                 cards = (struct device_info *)
                         realloc(cards, card_count * sizeof(struct device_info));
@@ -1172,7 +1161,7 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
                 snprintf(cards[card_count - 1].dev, sizeof cards[card_count - 1].dev,
                                 ":device=%d", i);
                 snprintf(cards[card_count - 1].name, sizeof cards[card_count - 1].name,
-                                "AJA %s", info.deviceIdentifier.c_str());
+                                "AJA %s", device.GetDisplayName().c_str());
                 snprintf(cards[card_count - 1].extra, sizeof cards[card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
         }

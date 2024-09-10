@@ -42,36 +42,32 @@
  *
  */
 
+#include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
+#include <cassert>
 
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
+#include "rtsp/rtsp_utils.h"
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
-BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
-    if(mod == NULL){
+BasicRTSPOnlyServer::BasicRTSPOnlyServer(struct rtsp_server_parameters params) {
+    if (params.parent == NULL) {
         exit(1);
     }
-    this->fPort = port;
-    this->mod = mod;
-    this->avType = avType;
-    this->audio_codec = audio_codec;
-    this->audio_sample_rate = audio_sample_rate;
-    this->audio_channels = audio_channels;
-    this->audio_bps = audio_bps;
-    this->rtp_port = rtp_port;
-    this->rtp_port_audio = rtp_port_audio;
+    this->params = params;
     this->rtspServer = NULL;
     this->env = NULL;
     this->srvInstance = this;
 }
 
 BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
+BasicRTSPOnlyServer::initInstance(struct rtsp_server_parameters params)
+{
     if (srvInstance != NULL){
         return srvInstance;
     }
-    return new BasicRTSPOnlyServer(port, mod, avType, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio);
+    return new BasicRTSPOnlyServer(params);
 }
 
 BasicRTSPOnlyServer* 
@@ -82,11 +78,12 @@ BasicRTSPOnlyServer::getInstance(){
     return NULL;
 }
 
-int BasicRTSPOnlyServer::init_server() {
-    
-    if (env != NULL || rtspServer != NULL || mod == NULL || (avType >= NUM_RTSP_FORMATS && avType < 0)){
-        exit(1);
-    }
+int
+BasicRTSPOnlyServer::init_server()
+{
+    assert(env == nullptr && rtspServer == nullptr);
+    assert(params.parent != nullptr);
+    assert(params.avType > rtsp_type_none && params.avType <= rtsp_av_type_both);
 
     //setting livenessTimeoutTask
     unsigned reclamationTestSeconds = 60;
@@ -103,11 +100,12 @@ int BasicRTSPOnlyServer::init_server() {
    // access to the server.
  #endif
 
-    if (fPort == 0){
-        fPort = 8554;
+    if (params.rtsp_port == 0) {
+        params.rtsp_port = 8554;
     }
 
-    rtspServer = RTSPServer::createNew(*env, fPort, authDB, reclamationTestSeconds);
+    rtspServer = RTSPServer::createNew(*env, params.rtsp_port, authDB,
+                                       reclamationTestSeconds);
     if (rtspServer == NULL) {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
         exit(1);
@@ -118,28 +116,28 @@ int BasicRTSPOnlyServer::init_server() {
                    "UltraGrid RTSP server enabling standard transport",
                    "UltraGrid RTSP server");
 
-               if(avType == av){
-                                  sms->addSubsession(BasicRTSPOnlySubsession
-                                                    ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
-                                  sms->addSubsession(BasicRTSPOnlySubsession
-                                                    ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
-               }else if(avType == audio){
-                   sms->addSubsession(BasicRTSPOnlySubsession
-                                     	 ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
-
-               }else if(avType == video){
-            	   sms->addSubsession(BasicRTSPOnlySubsession
-            			   	   	    	 ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
-               }else{
-            	   *env << "\n[RTSP Server] Error when trying to play stream type: \"" << avType << "\"\n";
-            	   exit(1);
-               }
+    if ((params.avType & rtsp_type_audio) != 0) {
+        sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
+            *env, True, rtsp_type_audio, params.rtp_port_audio, params));
+    }
+    if ((params.avType & rtsp_type_video) != 0) {
+        sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
+            *env, True, rtsp_type_video, params.rtp_port_video, params));
+    }
 
                rtspServer->addServerMediaSession(sms);
 
-               char* url = rtspServer->rtspURL(sms);
-               *env << "\n[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
-               delete[] url;
+               *env << "\n";
+               if (weHaveAnIPv4Address(*env)) {
+                   char* url = rtspServer->ipv4rtspURL(sms);
+                   *env << "[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
+                   delete[] url;
+               }
+               if (weHaveAnIPv6Address(*env)) {
+                   char* url = rtspServer->ipv6rtspURL(sms);
+                   *env << "[RTSP Server] Play this stream using the URL \"" << url << "\"\n";
+                   delete[] url;
+               }
 
     return 0;
 }

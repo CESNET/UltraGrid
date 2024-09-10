@@ -70,7 +70,7 @@ struct openssl_encrypt_info {
          * @retval     >0         state not created
          */
         int (*init)(struct openssl_encrypt **state,
-                        const char *passphrase, enum openssl_mode mode);
+                        const char *passphrase);
         /**
          * Destroys state
          */
@@ -99,6 +99,8 @@ struct openssl_encrypt_info {
          * @returns max overhead (must be <= MAX_CRYPTO_EXCEED)
          */
         int (*get_overhead)(struct openssl_encrypt *encryption);
+
+        enum openssl_mode (*get_cipher)(struct openssl_encrypt *encryption);
 };
 
 #endif // OPENSSL_ENCRYPT_H_

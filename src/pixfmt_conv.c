@@ -777,13 +777,57 @@ static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
-void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineABGRtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
+        enum {
+                SRC_RSHIFT = 24,
+                SRC_GSHIFT = 16,
+                SRC_BSHIFT = 8,
+        };
+#ifdef __SSSE3__
+        __m128i shuf = _mm_setr_epi8(3, 2, 1, 7, 6, 5, 11, 10, 9, 15, 14, 13, 0xff, 0xff, 0xff, 0xff);
+        __m128i loaded;
+        int x;
+        for (x = 0; x <= dst_len - 24; x += 12) {
+                loaded = _mm_lddqu_si128((const __m128i_u *) src);
+                loaded = _mm_shuffle_epi8(loaded, shuf);
+                _mm_storeu_si128((__m128i_u *)dst, loaded);
 
-        vc_copylineRGBAtoRGBwithShift(dst2, src2, dst_len, 16, 8, 0);
+                src += 16;
+                dst += 12;
+        }
+
+        uint8_t *dst_c = (uint8_t *) dst;
+        for (; x <= dst_len - 3; x += 3) {
+                register uint32_t in = *(const uint32_t *) (const void *) src;
+                *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
+        }
+#else
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
+#endif
+}
+
+void
+vc_copylineBGRAtoRGB(unsigned char *__restrict dst,
+                     const unsigned char *__restrict src2, int dst_len,
+                     int rshift, int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        enum {
+                SRC_RSHIFT = 16,
+                SRC_GSHIFT = 8,
+                SRC_BSHIFT = 0,
+        };
+        vc_copylineRGBAtoRGBwithShift(dst, src2, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
 }
 
 /**
@@ -795,7 +839,35 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
+        enum {
+                SRC_RSHIFT = 0,
+                SRC_GSHIFT = 8,
+                SRC_BSHIFT = 16,
+        };
+#ifdef __SSSE3__
+        __m128i shuf = _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 0xff, 0xff, 0xff, 0xff);
+        __m128i loaded;
+        int x;
+        for (x = 0; x <= dst_len - 24; x += 12) {
+                loaded = _mm_lddqu_si128((const __m128i_u *) src);
+                loaded = _mm_shuffle_epi8(loaded, shuf);
+                _mm_storeu_si128((__m128i_u *)dst, loaded);
+
+                src += 16;
+                dst += 12;
+        }
+
+        uint8_t *dst_c = (uint8_t *) dst;
+        for (; x <= dst_len - 3; x += 3) {
+                register uint32_t in = *(const uint32_t *) (const void *) src;
+                *dst_c++ = (in >> SRC_RSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_GSHIFT) & 0xff;
+                *dst_c++ = (in >> SRC_BSHIFT) & 0xff;
+        }
+#else
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, SRC_RSHIFT, SRC_GSHIFT,
+                                      SRC_BSHIFT);
+#endif
 }
 
 /**
@@ -842,11 +914,44 @@ void vc_copylineUYVYtoGrayscale(unsigned char * __restrict dst, const unsigned c
  */
 void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
+
+        int x = 0;
+
+
+#ifdef __SSSE3__
+        __m128i alpha_mask_sse = _mm_set1_epi32(0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift));
+        __m128i shuf;
+
+        // common shifts are 0 8 16 (RGB) or 16 8 0 (BGR)
+        // generalized solution would be too complex and not faster
+        __m128i loaded;
+        bool is_simd_compat = false;
+
+        if (rshift == 0 && gshift == 8 && bshift == 16) {
+                is_simd_compat = true;
+                shuf = _mm_setr_epi8(0, 1, 2, 0xff, 3, 4, 5, 0xff, 6, 7, 8, 0xff, 9, 10, 11, 0xff);
+        } else if (rshift == 16 && gshift == 8 && bshift == 0) {
+                is_simd_compat = true;
+                shuf = _mm_setr_epi8(2, 1, 0, 0xff, 5, 4, 3, 0xff, 8, 7, 6, 0xff, 11, 10, 9, 0xff);
+        }
+
+        if (is_simd_compat) {
+                for (x = 0; x <= dst_len - 32; x += 16) {
+                        loaded = _mm_lddqu_si128((const __m128i_u *) src);
+                        loaded = _mm_shuffle_epi8(loaded, shuf);
+                        loaded = _mm_or_si128(loaded, alpha_mask_sse);
+                        _mm_storeu_si128((__m128i_u *)dst, loaded);
+                        src += 12;
+                        dst += 16;
+                }
+        }
+#endif
+
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
+        OPTIMIZED_FOR (; x <= dst_len - 4; x += 4) {
                 r = *src++;
                 g = *src++;
                 b = *src++;
@@ -1221,7 +1326,9 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        OPTIMIZED_FOR (int x = 0; x < dst_len; x += OUT_BL_SZ) {
+        int x = 0;
+        OPTIMIZED_FOR(; x < dst_len - OUT_BL_SZ + 1; x += OUT_BL_SZ)
+        {
                 //0
                 //R
                 *dst++ = src[BYTE_SWAP(0)] << 4;
@@ -1305,6 +1412,14 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
 
                 src += 36;
         }
+        if (x == dst_len) {
+                return;
+        }
+        // compute last incomplete block if dst_len % OUT_BL_SZ != 0, not
+        // writting past the requested dst_len
+        unsigned char tmp_buf[OUT_BL_SZ];
+        vc_copylineR12LtoRG48(tmp_buf, src, OUT_BL_SZ, rshift, gshift, bshift);
+        memcpy(dst, tmp_buf, dst_len - x);
 }
 
 static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,

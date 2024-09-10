@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,15 +42,12 @@
  * delimits host and port)
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <algorithm>
 #include <array>
+#include <cassert>                 // for assert
 #include <chrono>
+#include <climits>                 // for INT_MAX
+#include <cmath>                   // for log, pow
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -59,6 +56,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/usleep.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "ndi_common.h"
@@ -66,10 +64,6 @@
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 #include "video_capture.h"
-
-#if __has_include(<ndi_version.h>)
-#include <ndi_version.h>
-#endif
 
 static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
 static constexpr const char *MOD_NAME = "[NDI cap.] ";
@@ -125,8 +119,13 @@ struct vidcap_state_ndi {
 
 static void show_help(struct vidcap_state_ndi *s) {
         col() << "Usage:\n"
-                "\t" << SBOLD(SRED("-t ndi") << "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive] | -t ndi:help[:extra_ips=<ip>]") << "\n" <<
-                "where\n";
+                 "\t"
+              << SBOLD(SRED("-t ndi")
+                       << "[:name=<n>][:url=<u>][:audio_level=<l>][:"
+                          "bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:"
+                          "progressive]")
+              << "\n\t" << SBOLD("-t ndi:help[:extra_ips=<ip>]") "\n"
+              << "where\n";
 
         col() << TBOLD("\tname\n") <<
                 "\t\tname of the NDI source in form "
@@ -143,7 +142,7 @@ static void show_help(struct vidcap_state_ndi *s) {
                 " - fastest (UYVY), " << TBOLD(<< NDIlib_recv_color_format_best <<) << " - best (default, P216/UYVY)\n"
                 "\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n";
         col() << TBOLD("\textra_ips\n") <<
-                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\". Can be used if mDNS discovery is not usable.\n";
+                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\". Can be used if DNS-SD is not usable.\n";
         col() << TBOLD("\tprogressive\n") <<
                 "\t\tprefer progressive capture for interlaced input\n"
                 "\n";
@@ -172,11 +171,6 @@ static void show_help(struct vidcap_state_ndi *s) {
         }
         cout << "\n";
         s->NDIlib->find_destroy(pNDI_find);
-#ifdef NDI_VERSION
-        cout << NDI_VERSION "\n";
-#elif defined USE_NDI_VERSION
-        cout << "NDI version " << USE_NDI_VERSION << "\n";
-#endif
 }
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
@@ -191,6 +185,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
+        printf("NDI version %s\n", s->NDIlib->version());
+
         // Not required, but "correct" (see the SDK documentation)
         if (!s->NDIlib->initialize()) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";

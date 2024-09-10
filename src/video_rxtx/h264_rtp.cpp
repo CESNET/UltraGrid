@@ -38,28 +38,26 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @file
- * @note
- * Currently incompatible with upstream version of live555. Works with older
- * version from https://github.com/xanview/live555/, commit 35c375 (live555
- * version from 7th Aug 2015).
- */
 
+#include <cctype>
+#include <cstdint>            // for uint32_t
+#include <cstdio>             // for printf
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 
-#include "compat/misc.h"
+#include "compat/strings.h" // strdupa
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "rtp/rtp.h"
-#include "rtp/rtpenc_h264.h"
+#include "rtsp/rtsp_utils.h"  // for rtsp_types_t
 #include "transmit.h"
 #include "tv.h"
+#include "types.h"            // for video_frame, H264, JPEG, MJPG
 #include "utils/color_out.h"
-#include "video.h"
+#include "utils/sdp.h"        // for sdp_print_supported_codecs
+#include "video_codec.h"      // for get_codec_name
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
 
@@ -71,27 +69,60 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
                 int rtsp_port) :
         rtp_video_rxtx(params)
 {
-        m_rtsp_server = init_rtsp_server(rtsp_port,
-                        static_cast<struct module *>(params.at("parent").ptr),
-                        static_cast<rtps_types_t>(params.at("avType").l),
-                        static_cast<audio_codec_t>(params.at("audio_codec").l),
-                        params.at("audio_sample_rate").i, params.at("audio_channels").i,
-                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i);
-        c_start_server(m_rtsp_server);
+        rtsp_params.rtsp_port = (unsigned) rtsp_port;
+        rtsp_params.parent = m_common.parent;;
+        rtsp_params.avType = static_cast<rtsp_types_t>(params.at("avType").l);
+        rtsp_params.rtp_port_video = params.at("rx_port").i;  //server rtp port
+}
+
+/**
+ * this function is used to configure ther RTSP server either
+ * for video-only or using both audio and video. For audio-only
+ * RTSP server, the server is run directly from
+ * h264_rtp_video_rxtx::set_audio_spec().
+ */
+void
+h264_rtp_video_rxtx::configure_rtsp_server_video()
+{
+        assert((rtsp_params.avType & rtsp_type_video) != 0);
+        if (rtsp_params.video_codec == H264) {
+                tx_send_std = tx_send_h264;
+        } else if (rtsp_params.video_codec == JPEG ||
+                   rtsp_params.video_codec == MJPG) {
+                tx_send_std = tx_send_jpeg;
+        } else {
+                MSG(ERROR,
+                    "codecs other than H.264 and JPEG currently not "
+                    "supported, got %s\n",
+                    get_codec_name(rtsp_params.video_codec));
+                return;
+        }
+
+        if ((rtsp_params.avType & rtsp_type_audio) != 0) {
+                if (!audio_params_set) {
+                        MSG(INFO, "Waiting for audio specs...\n");
+                        return;
+                }
+        }
+        m_rtsp_server = c_start_server(rtsp_params);
 }
 
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        if (tx_frame->color_spec != H264) {
-                MSG(ERROR,
-                    "codecs other than H.264 currently not supported, got %s\n",
-                    get_codec_name(tx_frame->color_spec));
+        if (m_rtsp_server == nullptr) {
+                rtsp_params.video_codec = tx_frame->color_spec;
+                configure_rtsp_server_video();
         }
-        tx_send_h264(m_tx, tx_frame.get(), m_network_device);
+        if (m_rtsp_server == nullptr) {
+                return;
+        }
+
+        tx_send_std(m_tx, tx_frame.get(), m_network_device);
+
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
+                uint32_t ts = (curr_time - m_common.start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_device, curr_time);
                 rtp_send_ctrl(m_network_device, ts, nullptr, curr_time);
 
@@ -114,28 +145,45 @@ void h264_rtp_video_rxtx::join()
         video_rxtx::join();
 }
 
-static void rtps_server_usage(){
-        printf("\n[RTSP SERVER] usage:\n");
-        color_printf("\t" TBOLD("--video-protocol rtsp[=port:number]") "\n");
-        printf("\t\tdefault rtsp server port number: 8554\n\n");
+void
+h264_rtp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
+                                    int  audio_rx_port, int /* audio_tx_port */,
+                                    bool /* ipv6 */)
+{
+        rtsp_params.adesc = *desc;
+        rtsp_params.rtp_port_audio = audio_rx_port;
+        audio_params_set = true;
+
+        if ((rtsp_params.avType & rtsp_type_video) == 0U) {
+                m_rtsp_server = c_start_server(rtsp_params);
+        }
 }
 
-static int get_rtsp_server_port(const char *cconfig) {
-        char *save_ptr = NULL;
-        char *config = strdupa(cconfig);
-        char *tok = strtok_r(config, ":", &save_ptr);
-        if (!tok || strcmp(tok,"port") != 0) {
+static void rtps_server_usage(){
+        printf("\n[RTSP SERVER] usage:\n");
+        color_printf("\t" TBOLD("-x rtsp[:port=number]") "\n");
+        printf("\t\tdefault rtsp server port number: 8554\n\n");
+
+        sdp_print_supported_codecs();
+}
+
+static int get_rtsp_server_port(const char *config) {
+        if (strncmp(config, "port:", 5) != 0 &&
+            strncmp(config, "port=", 5) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, check usage.\n");
                 rtps_server_usage();
                 return -1;
         }
-        if (!(tok = strtok_r(NULL, ":", &save_ptr))) {
+        if (strlen(config) == 5) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a port number.\n");
                 rtps_server_usage();
                 return -1;
         }
-        int port = atoi(tok);
-        if (port < 0 || port > 65535) {
+        if (config[4] == ':') {
+                MSG(WARNING, "deprecated usage - use port=number, not port:number!\n");
+        }
+        int port = atoi(config + 5);
+        if (port < 0 || port > 65535 || !isdigit(config[5])) {
                 log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
                 rtps_server_usage();
                 return -1;
@@ -163,7 +211,7 @@ static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> con
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
-        "H264 standard",
+        "RTP standard (using RTSP)",
         create_video_rxtx_h264_std
 };
 

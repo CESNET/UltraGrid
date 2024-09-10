@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,22 +42,26 @@
 #ifndef VIDEO_RXTX_H264_SDP_H_
 #define VIDEO_RXTX_H264_SDP_H_
 
+#include <map>                 // for map
+#include <memory>              // for shared_ptr
 #include <string>
 
-#include "utils/sdp.h"
-#include "video_rxtx.hpp"
+#include "types.h"             // for VIDEO_CODEC_NONE, codec_t, video_frame...
 #include "video_rxtx/rtp.hpp"
+union param_u;
 
 class h264_sdp_video_rxtx : public rtp_video_rxtx {
 public:
         h264_sdp_video_rxtx(std::map<std::string, param_u> const &);
-        virtual ~h264_sdp_video_rxtx();
+        ~h264_sdp_video_rxtx() override = default;
 private:
         static void change_address_callback(void *udata, const char *address);
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept override;
         virtual void *(*get_receiver_thread() noexcept)(void *arg) override {
-                return NULL;
+                return nullptr;
         }
+        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
+                            int audio_tx_port, bool ipv6) override;
         void sdp_add_video(codec_t codec);
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;

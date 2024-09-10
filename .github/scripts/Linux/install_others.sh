@@ -20,27 +20,20 @@ install_ximea() {
 }
 
 install_gpujpeg() {(
-        cd "$GITHUB_WORKSPACE"
-        ./ext-deps/bootstrap_gpujpeg.sh -d
-        mkdir ext-deps/gpujpeg/build
-        cd ext-deps/gpujpeg/build
-        cmake -DBUILD_OPENGL=OFF ..
-        cmake --build . --parallel "$(nproc)"
-        sudo cmake --install .
+        curl -LO https://github.com/CESNET/GPUJPEG/releases/download/\
+continuous/GPUJPEG-Linux.tar.xz
+        tar xaf GPUJPEG-Linux.tar.xz
+        sudo cp -r GPUJPEG/* /usr/local/
         sudo ldconfig
 )}
 
 # Install NDI
 install_ndi() {(
-        if [ ! -f "Install_NDI_SDK_Linux.tar.gz" ]; then # it should be already cached in a CI step
-                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
-        fi
         tar -xzf Install_NDI_SDK_Linux.tar.gz
         # shellcheck disable=SC2125
         installer=./Install*NDI*sh
         yes | PAGER="cat" $installer
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
-        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
 )}
 
 # TODO: needed only for U20.04, remove after upgrading to U22.04
@@ -75,29 +68,13 @@ install_rav1e() {(
                 /usr/local/lib/pkgconfig/rav1e.pc
 )}
 
-# FFmpeg master needs at least v1.3.238 as for 23th Aug '23
-install_vulkan() {(
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
-        mkdir Vulkan-Headers/build
-        cd Vulkan-Headers/build
-        cmake ..
-        sudo make install
-        cd ../..
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
-        mkdir Vulkan-Loader/build
-        cd Vulkan-Loader/build
-        cmake ..
-        cmake --build . --parallel "$(nproc)"
-        sudo make install
-)}
-
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi pipewire rav1e vulkan ximea
+        set -- gpujpeg ndi pipewire rav1e ximea
 fi
 
 if [ $show_help ]; then

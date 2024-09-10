@@ -1454,6 +1454,7 @@ static bool display_gl_check_gl_version() {
                 return false;
         }
         log_msg(LOG_LEVEL_INFO, MOD_NAME "OpenGL 2.0 is supported...\n");
+        MSG(VERBOSE, "Supported OpenGL version is %s.\n", version);
         return true;
 }
 

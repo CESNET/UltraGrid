@@ -115,6 +115,7 @@ void interleaved2noninterleaved_float(char **out, const char *in, int in_bps,
  * @return avareage volume
  */
 void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
+void remux_and_mix_channel(char *out, const char *in, int bps, int frames, int in_stream_channels, int out_stream_channels, int in_channel, int out_channel, double scale);
 double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
 
 /**
@@ -161,6 +162,24 @@ bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len);
 struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_size);
 
 int parse_audio_format(const char *str, struct audio_desc *ret);
+
+#ifdef __cplusplus
+struct channel_map {
+        ~channel_map();
+
+        int **map = nullptr; // index is source channel, content is output channels
+        int *sizes = nullptr;
+        int *contributors = nullptr; // count of contributing channels to output
+        int size = 0;
+        int max_output = -1;
+
+        bool validate();
+        void compute_contributors();
+};
+
+bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg);
+
+#endif
 
 #ifdef __cplusplus
 }

@@ -134,4 +134,10 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
                          CLAMP_FULL((b), (depth)) << (bshift)))
 /// @}
 
+#define MK_MONOCHROME(val) \
+        FORMAT_RGBA((val), (val), (val), 0, 8, 16, 0xFF000000, 8)
+#define RGBA_BLACK MK_MONOCHROME(0x00)
+#define RGBA_GRAY  MK_MONOCHROME(0x80)
+#define RGBA_WHITE MK_MONOCHROME(0xFF)
+
 #endif // !defined COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25

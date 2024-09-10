@@ -81,8 +81,9 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 m_requested_receiver           = msg->receiver;
                 m_network_device               = initialize_network(
                     m_requested_receiver.c_str(), m_recv_port_number,
-                    m_send_port_number, m_participants, m_force_ip_version,
-                    m_requested_mcast_if, m_requested_ttl);
+                    m_send_port_number, m_participants,
+                    m_common.force_ip_version,
+                    m_common.mcast_if, m_common.ttl);
                 if (m_network_device == nullptr) {
                         m_network_device     = old_device;
                         m_requested_receiver = std::move(old_receiver);
@@ -105,8 +106,9 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 }
                 m_network_device = initialize_network(
                     m_requested_receiver.c_str(), m_recv_port_number,
-                    m_send_port_number, m_participants, m_force_ip_version,
-                    m_requested_mcast_if, m_requested_ttl);
+                    m_send_port_number, m_participants,
+                    m_common.force_ip_version,
+                    m_common.mcast_if, m_common.ttl);
 
                 if (m_network_device == nullptr) {
                         m_network_device   = old_device;
@@ -161,8 +163,9 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 auto             *old_device = m_network_device;
                 m_network_device             = initialize_network(
                     m_requested_receiver.c_str(), m_recv_port_number,
-                    m_send_port_number, m_participants, m_force_ip_version,
-                    m_requested_mcast_if, m_requested_ttl);
+                    m_send_port_number, m_participants,
+                    m_common.force_ip_version,
+                    m_common.mcast_if, m_common.ttl);
                 if (m_network_device == nullptr) {
                         m_network_device = old_device;
                         MSG(ERROR, "Unable to change SSRC!\n");
@@ -189,29 +192,26 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_start_time(params.at("start_time").ll), m_video_desc{}
+        video_rxtx(params), m_fec_state(NULL), m_video_desc{}
 {
-        m_participants = pdb_init((volatile int *) params.at("video_delay").vptr);
+        m_participants = pdb_init(&video_offset);
         m_requested_receiver = params.at("receiver").str;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;
-        m_force_ip_version = params.at("force_ip_version").i;
-        m_requested_mcast_if = params.at("mcast_if").str;
-        m_requested_ttl = params.find("ttl") != params.end() ? params.at("ttl").i : -1;
 
         m_network_device = initialize_network(
             m_requested_receiver.c_str(), m_recv_port_number,
-            m_send_port_number, m_participants, m_force_ip_version,
-            m_requested_mcast_if, m_requested_ttl);
+            m_send_port_number, m_participants, m_common.force_ip_version,
+            m_common.mcast_if, m_common.ttl);
         if (m_network_device == nullptr) {
                 throw ug_runtime_error("Unable to open network",
                                        EXIT_FAIL_NETWORK);
         }
 
-        if ((m_tx = tx_init(&m_sender_mod,
-                                        params.at("mtu").i, TX_MEDIA_VIDEO,
+        if ((m_tx = tx_init(&m_sender_mod, m_common.mtu,
+                                        TX_MEDIA_VIDEO,
                                         params.at("fec").str,
-                                        params.at("encryption").str,
+                                        m_common.encryption,
                                         params.at("bitrate").ll)) == NULL) {
                 throw ug_runtime_error("Unable to initialize transmitter", EXIT_FAIL_TRANSMIT);
         }
@@ -276,6 +276,9 @@ struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,
         const bool multithreaded = false;
 #endif
 
+        if (strlen(mcast_if) == 0) {
+                mcast_if = nullptr;
+        }
         struct rtp *device =
             rtp_init_if(addr, mcast_if, recv_port, send_port, ttl, rtcp_bw,
                         FALSE, rtp_recv_callback, (uint8_t *) participants,

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2023 CESNET z.s.p.o.
+ * Copyright (c) 2017-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,22 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define WANT_MKDIR
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif /* HAVE_CONFIG_H */
-#include "config_unix.h"
-#include "config_win32.h"
-
+#include <assert.h>
 #include <dirent.h>
+#include <errno.h>            // for errno, EEXIST
 #include <limits.h>
+#include <stdbool.h>
+#include <stdlib.h>           // for NULL, free, calloc, strtol
+#include <string.h>           // for strdup
 #include <sys/types.h>
 #include <time.h>
 
 #include "export.h"
 
 #include "audio/export.h"
+#define WANT_MKDIR
+#include "compat/misc.h"      // for mkdir
+#include "compat/time.h"      // for localtime_s
 #include "debug.h"
+#include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
@@ -73,6 +75,7 @@ struct exporter {
         pthread_mutex_t lock;
 
         long long int limit; ///< number of video frames to record, -1 == unlimited (default)
+        bool exit_on_limit;
 };
 
 static bool create_dir(struct exporter *s);
@@ -87,19 +90,31 @@ static void new_msg(struct module *mod) {
 static void usage() {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(
-            TRED("--record") "[=<dir>[:limit=<n>][:noaudio][:novideo][:"
-            "override][:paused]] ") "\n" "\t" TBOLD(TRED("-E") "[<dir>[:<opts>]]")
-            "\n\t" TBOLD("--record=help | -Ehelp") "\n");
+            TRED("--record") "[=<dir>[:limit=<n>[:exit_on_limit]][:noaudio]"
+            "[:novideo][:override][:paused]] ") "\n" "\t" TBOLD(TRED("-E")
+            "[<dir>[:<opts>]]") "\n\t" TBOLD("--record=help | -Ehelp") "\n");
         color_printf("where\n");
-        color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at most <n> video frames\n");
-        color_printf(TERM_BOLD "\toverride" TERM_RESET "          - export even if it would override existing files in the given directory\n");
+        color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at "
+                     " most <n> video frames (with optional exit)\n");
+        color_printf(TERM_BOLD "\toverride" TERM_RESET
+                               "          - export even if it would override "
+                               "existing files in the given directory\n");
         color_printf(TERM_BOLD "\tnoaudio | novideo" TERM_RESET " - do not export audio/video\n");
         color_printf(TERM_BOLD "\tpaused" TERM_RESET "            - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
 }
 
-static bool parse_options(struct exporter *s, char *save_ptr, bool *should_export) {
+static bool
+parse_options(struct exporter *s, const char *ccfg, bool *should_export)
+{
+        if (ccfg == NULL) {
+                return true;
+        }
+        char buf[STR_LEN];
+        snprintf(buf, sizeof buf, "%s", ccfg);
+        char *cfg = buf;
+        char *save_ptr = NULL;
         char *item = NULL;
-        while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+        while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
                 if (strstr(item, "help") == item) {
                         usage();
                         return false;
@@ -117,10 +132,15 @@ static bool parse_options(struct exporter *s, char *save_ptr, bool *should_expor
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong limit: %s!\n", item + strlen("limit="));
                                 return false;
                         }
+                } else if (strcmp(item, "exit_on_limit") == 0) {
+                        s->exit_on_limit = true;
+                } else if (s->dir == NULL && cfg != NULL) {
+                        s->dir = strdup(item);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
                         return false;
                 }
+                cfg = NULL;
         }
         return true;
 }
@@ -133,22 +153,10 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
         pthread_mutex_init(&s->lock, NULL);
         s->limit = -1;
 
-        if (cfg) {
-                if (strcmp(cfg, "help") == 0) {
-                        usage();
-                        export_destroy(s);
-                        return NULL;
-                }
-                s->dir = strdup(cfg);
-                char *save_ptr = NULL;
-                char *item = strtok_r(s->dir, ":", &save_ptr); // skip the dir
-                if (item == NULL) {
-                        HANDLE_ERROR
-                }
-                if (!parse_options(s, save_ptr, &should_export)) {
-                        HANDLE_ERROR
-                }
-        } else {
+        if (!parse_options(s, cfg, &should_export)) {
+                HANDLE_ERROR
+        }
+        if (s->dir == NULL) {
                 s->dir_auto = true;
         }
 
@@ -333,9 +341,7 @@ static void process_messages(struct exporter *s) {
 
 void export_audio(struct exporter *s, struct audio_frame *frame)
 {
-        if(!s){
-                return;
-        }
+        assert(s != NULL);
 
         process_messages(s);
 
@@ -348,9 +354,7 @@ void export_audio(struct exporter *s, struct audio_frame *frame)
 
 void export_video(struct exporter *s, struct video_frame *frame)
 {
-        if(!s){
-                return;
-        }
+        assert(s != NULL);
 
         process_messages(s);
 
@@ -362,6 +366,9 @@ void export_video(struct exporter *s, struct video_frame *frame)
                 if (--s->limit == 0) {
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stopping export - limit reached.\n");
                         disable_export(s);
+                        if (s->exit_on_limit) {
+                                exit_uv(0);
+                        }
                 }
         }
         pthread_mutex_unlock(&s->lock);

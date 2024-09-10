@@ -9,7 +9,7 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/
 export LIBRARY_PATH=/usr/local/lib
 export INCLUDE='C:\msys64\clang64\include' # for MSVC (CUDA)
 export CUDA_FLAGS="--generate-code arch=compute_35,code=sm_35\
- -allow-unsupported-compiler"
+ -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH -allow-unsupported-compiler"
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
 if test -d "$CUDA_D"; then
@@ -46,7 +46,8 @@ PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
 m=$MINGW_PACKAGE_PREFIX
 $PACMAN_INSTALL automake autoconf git make pkgconf \
-        $m-gcc-compat $m-toolchain \
+        $m-clang $m-winpthreads-git \
+        $m-gcc-compat \
         unzip zip
 $PACMAN_INSTALL $m-asciidoc \
         $m-ffmpeg \

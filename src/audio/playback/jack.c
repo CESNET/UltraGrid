@@ -86,10 +86,10 @@ static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
         struct state_jack_playback *s = (struct state_jack_playback *) arg;
 
         if (s->jack_sample_rate != 0) {
-                log_msg(LOG_LEVEL_WARNING, "JACK sample rate changed from %d to %d. "
+                bug_msg(LOG_LEVEL_WARNING, "JACK sample rate changed from %d to %d. "
                                 "Runtime change is not supported in UG and will likely "
-                                "cause malfunctioning. If so, pleaser report to %s\n.",
-                                s->jack_sample_rate, nframes, PACKAGE_BUGREPORT);
+                                "cause malfunctioning. ",
+                                s->jack_sample_rate, nframes);
         } else {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Sample rate changed to: %d\n",
                                 nframes);

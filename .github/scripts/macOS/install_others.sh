@@ -55,26 +55,13 @@ install_glfw() {(
 
 # Install NDI
 install_ndi() {(
+        # installer downloaed by cache step
         installer=/private/var/tmp/Install_NDI_SDK_Apple.pkg
-        if [ ! -f $installer ]; then
-                curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_\
-SDK_v5_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
-        fi
         sudo installer -pkg $installer -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
-        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt |
-                sudo tee /usr/local/include/ndi_version.h
 )
-        NDI_LIB=/Library/NDI/lib/macOS
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
-        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }\
--s $NDI_LIB"
-        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
-        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+\
-$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
-        printf '%b' "CPATH=$CPATH\nDYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS\n\
-LIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> \
-"$GITHUB_ENV"
+        printf '%b' "CPATH=$CPATH\n" >> "$GITHUB_ENV"
 }
 
 install_soundfont() {(

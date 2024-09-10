@@ -40,7 +40,7 @@ download_build_aja() {
         export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
-                -DAJANTV2_DISABLE_PLUGINS=ON  -DAJANTV2_BUILD_SHARED=ON \
+                -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=Release -Blibajantv2/build -Slibajantv2
         cmake --build libajantv2/build --config Release -j "$(nproc)"
 }
@@ -50,8 +50,9 @@ install_aja() {(
                 download_build_aja
         fi
         if is_win; then
-                cp libajantv2/build/ajantv2/Release/ajantv2.dll /usr/local/bin/
-                cp libajantv2/build/ajantv2/Release/ajantv2.lib /usr/local/lib/
+                cd libajantv2/build/ajantv2/Release
+                cp ajantv2*.dll /usr/local/bin/
+                cp ajantv2*.lib /usr/local/lib/
         else
                 sudo cmake --install libajantv2/build
         fi
@@ -75,27 +76,25 @@ install_juice() {
 )
 }
 
-download_build_live555() {
+download_build_live555() {(
+        git clone --depth 1 https://github.com/xanview/live555/
+        cd live555
+
         if is_win; then
-                target=mingw
+                ./genMakefiles mingw
                 PATH=/usr/bin:$PATH
                 # ensure binutils ld is used (not lld)
                 pacman -Sy --noconfirm binutils
+                make -j "$(nproc)" CXX="c++ -DNO_GETIFADDRS -DNO_OPENSSL"
+                pacman -Rs --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
-                target=linux-64bit
+                ./genMakefiles linux-with-shared-libraries
+                make -j "$(nproc)"
         else
-                target=macosx
+                ./genMakefiles macosx-no-openssl
+                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
         fi
-
-        git clone https://github.com/xanview/live555/
-        cd live555
-        git checkout 35c375
-        ./genMakefiles "$target"
-
-        make -j "$(nproc)"  CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-        is_win && pacman -Rs --noconfirm binutils
-        cd ..
-}
+)}
 
 install_live555() {(
         if [ ! -d live555 ]; then

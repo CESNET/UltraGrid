@@ -3,7 +3,7 @@
  *           Martin German <martin.german@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2023 CESNET
+ * Copyright (c) 2015-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -43,20 +43,24 @@
  * @file
  * Example stream to test can be generated with:
  *
- *     docker run --rm -it --network=host aler9/rtsp-simple-server
+ *     docker run --rm -it --network=host bluenviron/mediamtx
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
+ *     ffmpeg -re -f lavfi -i smptebars=s=1280x720 -vcodec mjpeg -huffman 0 -f rtsp rtsp://localhost:8554/mystream
  */
 
+#include <assert.h>                // for assert
+#include <errno.h>                 // for ETIMEDOUT
 #include <pthread.h>
-#include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>                // for uint8_t, uint32_t
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <time.h>                  // for timespec
 
 #include "audio/types.h"
-#include "config.h"
+#include "config.h"                // for PACKAGE_BUGREPORT
+#include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -64,8 +68,12 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
+#include "rtp/rtpdec_jpeg.h"
+#include "rtp/rtpdec_state.h"
 #include "rtsp/rtsp_utils.h"
-#include "utils/macros.h"
+#include "utils/color_out.h"       // for color_printf, TBOLD
+#include "utils/macros.h"          // for MIN, STR_LEN
+#include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
 
@@ -79,6 +87,7 @@
 #include <curl/curl.h>
 
 #define KEEPALIVE_INTERVAL_S 5
+#define MAGIC to_fourcc('R', 'T', 'S', 'c')
 #define MOD_NAME  "[rtsp] "
 #define VERSION_STR  "V1.0"
 
@@ -87,37 +96,77 @@
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
+// compat
+#ifndef CURL_WRITEFUNC_ERROR
+#define CURL_WRITEFUNC_ERROR 0xFFFFFFFF
+#endif
+
+enum {
+    DEFAULT_RTSP_PORT = 554,
+};
+
+static const char *long_to_str(long l) {
+    _Thread_local static char buf[100];
+    snprintf(buf, sizeof buf, "%ld", l);
+    return buf;
+}
+
+static const char *pointer_to_str(void *p) {
+    _Thread_local static char buf[100];
+    snprintf(buf, sizeof buf, "%p", p);
+    return buf;
+}
+
+static const char *cstr_identity(const char *c) {
+    return c;
+}
+
+#define get_s(X) \
+        _Generic((X), \
+            int: long_to_str, \
+            long: long_to_str, \
+            char *: cstr_identity, \
+            const char *: cstr_identity, \
+            default: pointer_to_str)(X)
+
 /* error handling macros */
-#define my_curl_easy_setopt(A, B, C, action_fail) \
+#define my_curl_easy_setopt_ex(l, A, B, C, action_fail) \
     { \
-        CURLcode res = CURLE_OK; \
-        if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
+        log_msg(l, MOD_NAME "Setting " #B " to %s\n", get_s(C)); \
+        const CURLcode res = curl_easy_setopt((A), (B), (C)); \
+        if (res != CURLE_OK) { \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
             action_fail; \
         } \
     }
 
-#define my_curl_easy_perform(A, action_fail) \
+#define my_curl_easy_perform_ex(l, A, action_fail) \
     { \
-        CURLcode res = CURLE_OK; \
-        if ((res = curl_easy_perform((A))) != CURLE_OK){ \
+        log_msg(l, "Performing cURL operation(s)\n"); \
+        const CURLcode res = curl_easy_perform((A)); \
+        if (res != CURLE_OK) { \
             log_msg(LOG_LEVEL_ERROR, MOD_NAME "[%s] curl_easy_perform(%s) failed: %s (%d)\n", __func__, #A, curl_easy_strerror(res), res); \
             printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
             action_fail; \
         } \
     }
 
+#define my_curl_easy_setopt(A, B, C, action_fail) \
+        my_curl_easy_setopt_ex(LOG_LEVEL_VERBOSE, A, B, C, action_fail)
+#define my_curl_easy_perform(A, action_fail) \
+        my_curl_easy_perform_ex(LOG_LEVEL_VERBOSE, A, action_fail)
+
 struct rtsp_state;
 struct audio_rtsp_state;
 struct video_rtsp_state;
 
 /* send RTSP GET_PARAMETERS request */
-static int
+static bool
 rtsp_get_parameters(CURL *curl, const char *uri);
 
 /* send RTSP OPTIONS request */
-static int
+static bool
 rtsp_options(CURL *curl, const char *uri);
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
@@ -125,23 +174,23 @@ static bool
 rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp);
 
 /* send RTSP SETUP request */
-static int
+static bool
 rtsp_setup(CURL *curl, const char *uri, const char *transport);
 
 /* send RTSP PLAY request */
-static int
+static bool
 rtsp_play(CURL *curl, const char *uri, const char *range);
 
 /* send RTSP TEARDOWN request */
-static int
+static void
 rtsp_teardown(CURL *curl, const char *uri);
 
 static int
 get_nals(FILE *sdp_file, char *nals, int *width, int *height);
 
-bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state);
-
-static int
+static bool setup_codecs_and_controls_from_sdp(FILE              *sdp_file,
+                                               struct rtsp_state *rtspState);
+static bool
 init_rtsp(struct rtsp_state *s);
 
 static int
@@ -150,15 +199,8 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc);
 static void *
 vidcap_rtsp_thread(void *args);
 
-static void
-show_help(void);
-
-void getNewLine(const char* buffer, int* i, char* line);
-
 void
 rtsp_keepalive(void *state);
-
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *);
 
 static void vidcap_rtsp_done(void *state);
 
@@ -168,7 +210,7 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
  * @struct rtsp_state
  */
 struct video_rtsp_state {
-    const char *codec;
+    char codec[SHORT_STR];
 
     struct video_desc desc;
     struct video_frame *out_frame;
@@ -197,17 +239,14 @@ struct video_rtsp_state {
     pthread_cond_t boss_cv;
     volatile bool boss_waiting;
 
-    unsigned int h264_offset_len;
-    unsigned char *h264_offset_buffer;
-
-    int pt;
+    struct decode_data_rtsp decode_data;
 };
 
 struct audio_rtsp_state {
     struct audio_frame audio;
     int play_audio_frame;
 
-    const char *codec;
+    char codec[SHORT_STR];
 
     struct timeval last_audio_time;
     unsigned int grab_audio:1;
@@ -229,12 +268,16 @@ struct audio_rtsp_state {
     volatile bool worker_waiting;
     pthread_cond_t boss_cv;
     volatile bool boss_waiting;
+
+    int pt;
 };
 
 struct rtsp_state {
+    uint32_t magic;
     CURL *curl;
     char uri[1024];
-    rtps_types_t avType;
+    char base_url[1024]; ///< for control URLs with relative path; '/' included
+    rtsp_types_t avType;
     const char *addr;
     char *sdp;
 
@@ -246,18 +289,47 @@ struct rtsp_state {
     pthread_mutex_t lock;
     pthread_cond_t keepalive_cv;
 
-    _Bool rtsp_error_occurred;
+    bool setup_completed;
     _Bool sps_pps_emitted; ///< emit SPS/PPS once first to reduce decoding errors
 };
 
 static void
-show_help() {
-    printf("[rtsp] usage:\n");
-    printf("\t-t rtsp:<uri>[:rtp_rx_port=<port>][:decompress][size=<width>x<height>]\n");
-    printf("\t\t <uri> - RTSP server URI\n");
-    printf("\t\t <port> - receiver port number \n");
-    printf(
-        "\t\t decompress - decompress the stream (default: disabled)\n\n");
+show_help(bool full) {
+    color_printf(TBOLD("RTSP client") " usage:\n");
+    color_printf("\t" TBOLD(TRED("-t rtsp:<uri>") "[:decompress]"));
+    if (full) {
+        color_printf(TBOLD("[:rtp_rx_port=<port>]"));
+    }
+    color_printf("\n\t" TBOLD("-t rtsp:[full]help") "\n");
+    color_printf("\nOptions:\n");
+    color_printf("\t " TBOLD("<uri>") " - RTSP server URI\n");
+    printf("\t " TBOLD("decompress") " - decompress the stream "
+            "(default: disabled)\n");
+    if (full) {
+        printf("\t " TBOLD("<port>") " - video RTP receiver port number\n");
+    }
+    color_printf("\nExamples:\n");
+    color_printf("\t" TBOLD("uv -t rtsp://192.168.0.30/mystream") "\n");
+    color_printf("\t" TBOLD("uv -t rtsp://[fe80::30]/mystream") "\n");
+    color_printf("\t\t- capture streem on implict port (554)\n");
+    color_printf("\t"
+        TBOLD("uv -t rtsp://192.168.0.20:8554/mystream") "\n");
+    color_printf("\t\t- capture streem on port 8554 (optionally with "
+        "authentization)\n");
+    color_printf("\t"
+        TBOLD("uv -t rtsp://user:pass@[fe80::30]/mystream") "\n");
+    color_printf("\t\t- capture streem on default port with authentization\n");
+    color_printf(
+        "\t" TBOLD("uv -t rtsp://192.168.0.20/mystream:decompress") "\n");
+    color_printf("\t\t- same as first case but decompress the stream "
+        "(to allow to use a different compression)\n");
+    color_printf("\n");
+
+    color_printf(
+        "Supported audio codecs: none (support is currently broken/WIP)\n");
+    color_printf(
+        "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+    color_printf("\n");
 }
 
 static void *
@@ -269,17 +341,19 @@ keep_alive_thread(void *arg){
         gettimeofday(&tp, NULL);
         struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
         pthread_mutex_lock(&s->lock);
-        while (!s->should_exit) {
-            if (pthread_cond_timedwait(&s->keepalive_cv, &s->lock,
-                                       &timeout) == ETIMEDOUT) {
-                break;
-            }
+        int rc = 0;
+        while (!s->should_exit && rc != ETIMEDOUT) {
+            rc = pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
+        }
+        if (s->should_exit) {
+            pthread_mutex_unlock(&s->lock);
+            break;
         }
         pthread_mutex_unlock(&s->lock);
 
         // actual keepalive
-        verbose_msg(MOD_NAME "GET PARAMETERS %s:\n", s->uri);
-        if (rtsp_get_parameters(s->curl, s->uri) == 0) {
+        MSG(DEBUG, "GET PARAMETERS %s:\n", s->uri);
+        if (!rtsp_get_parameters(s->curl, s->uri)) {
             s->should_exit = TRUE;
             exit_uv(1);
         }
@@ -287,17 +361,18 @@ keep_alive_thread(void *arg){
     return NULL;
 }
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats) {
-    UNUSED(stats);
+static int
+decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
+                   struct pbuf_stats *stats)
+{    UNUSED(stats);
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
-    struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
-    if (pckt->pt == d->video_pt) {
-        return decode_frame_h264(cdata,decode_data);
-    } else {
+    struct decode_data_rtsp *d = decode_data;
+    if (pckt->pt != d->video_pt) {
         error_msg("Wrong Payload type: %u\n", pckt->pt);
-        return FALSE;
+        return 0;
     }
+    return d->decode(cdata, decode_data);
 }
 
 static void *
@@ -307,7 +382,7 @@ vidcap_rtsp_thread(void *arg) {
 
     time_ns_t start_time = get_time_in_ns();
 
-    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
+    struct video_frame *frame = vf_alloc(1);
 
     while (!s->should_exit) {
         time_ns_t curr_time = get_time_in_ns();
@@ -324,12 +399,9 @@ vidcap_rtsp_thread(void *arg) {
             struct pdb_e *cp = pdb_iter_init(s->vrtsp_state.participants, &it);
 
             while (cp != NULL) {
-                struct decode_data_h264 d;
-                d.frame = frame;
-                d.offset_len = s->vrtsp_state.h264_offset_len;
-                d.video_pt = s->vrtsp_state.pt;
+                s->vrtsp_state.decode_data.frame = frame;
                 if (pbuf_decode(cp->playout_buffer, curr_time,
-                            decode_frame_by_pt, &d))
+                            decode_frame_by_pt, &s->vrtsp_state.decode_data))
                 {
                     pthread_mutex_lock(&s->vrtsp_state.lock);
                     while (s->vrtsp_state.out_frame != NULL && !s->should_exit) {
@@ -339,7 +411,7 @@ vidcap_rtsp_thread(void *arg) {
                     }
                     if (s->vrtsp_state.out_frame == NULL) {
                         s->vrtsp_state.out_frame = frame;
-                        frame = vf_alloc_desc_data(s->vrtsp_state.desc); // alloc new
+                        frame = vf_alloc(1); // alloc new
                         if (s->vrtsp_state.boss_waiting)
                             pthread_cond_signal(&s->vrtsp_state.boss_cv);
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
@@ -358,25 +430,6 @@ vidcap_rtsp_thread(void *arg) {
     return NULL;
 }
 
-/**
- * This is not mandatory and is merely an optimization - we can emit PPS/SPS
- * early (otherwise it is prepended only to IDR frames). The aim is to allow
- * the receiver to probe the format while allowing it to reconfigure, it can
- * then display the following IDR (otherwise it would be used to probe and the
- * only next would be displayed).
- */
-static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
-    if (s->vrtsp_state.h264_offset_len == 0) {
-        return NULL;
-    }
-    s->sps_pps_emitted = 1;
-    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
-    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
-    frame->tiles[0].data_len = s->vrtsp_state.h264_offset_len;
-    frame->callbacks.dispose = vf_free;
-    return frame;
-}
-
 static struct video_frame *
 vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
@@ -384,8 +437,10 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-    if (!s->sps_pps_emitted) {
-        return emit_sps_pps(s);
+    if (s->vrtsp_state.desc.color_spec == H264 && !s->sps_pps_emitted) {
+        s->sps_pps_emitted = 1;
+        return get_sps_pps_frame(&s->vrtsp_state.desc,
+                                 &s->vrtsp_state.decode_data);
     }
 
     if(pthread_mutex_trylock(&s->vrtsp_state.lock)==0){
@@ -416,13 +471,28 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
-            if(s->vrtsp_state.h264_offset_len>0 && frame->frame_type == INTRA){
-                    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
+            if (frame->tiles[0].width != 0 &&
+                s->vrtsp_state.desc.width != frame->tiles[0].width &&
+                s->vrtsp_state.desc.height != frame->tiles[0].height) {
+                    MSG(VERBOSE, "Setting the stream size to %ux%u\n",
+                        frame->tiles[0].width, frame->tiles[0].height);
+                    s->vrtsp_state.desc.width  = frame->tiles[0].width;
+                    s->vrtsp_state.desc.height = frame->tiles[0].height;
+            }
+            frame->color_spec      = s->vrtsp_state.desc.color_spec;
+            frame->fps             = s->vrtsp_state.desc.fps;
+            frame->tiles[0].width  = s->vrtsp_state.desc.width;
+            frame->tiles[0].height = s->vrtsp_state.desc.height;
+            if (frame->tiles[0].width == 0) {
+                    MSG(WARNING,
+                        "Dropped zero-sized frame - the size was not published "
+                        "in RTSP, waiting for first SPS...\n");
+                    vf_free(frame);
+                    return NULL;
             }
 
             if (s->vrtsp_state.decompress) {
                 struct video_desc curr_desc = video_desc_from_frame(frame);
-                curr_desc.color_spec = H264;
                 if (!video_desc_eq(s->vrtsp_state.decompress_desc, curr_desc)) {
                     decompress_done(s->vrtsp_state.sd);
                     if (init_decompressor(&s->vrtsp_state, curr_desc) == 0) {
@@ -449,18 +519,67 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     }
 }
 
-#define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, MOD_NAME msg); \
-                    free(tmp); \
+/**
+ * @brief check URI validity + append port if not given
+ *
+ * If port is not given in the URI, 554 (default) is appended (after
+ * authority, before the path if there is any).
+ *
+ * Resulting URI is written to output.
+ */
+static bool
+check_uri(size_t uri_len, char *uri)
+{
+    const char *rtsp_uri_pref = "rtsp://";
+    if (strcmp(uri, rtsp_uri_pref) == 0) {
+        MSG(ERROR, "No URI given!\n");
+        return false;
+    }
+    char *authority = uri + strlen(rtsp_uri_pref);
+    char *host = authority;
+    if (strchr(authority, '@') != NULL) { // skip userinfo
+        host = strchr(authority, '@') + 1;
+    }
+    if (strchr(host, ':') == NULL) { // add port 554
+        char *path = NULL;
+        if (strchr(host, '/') != NULL) { // store path
+            path = strdup(strchr(host, '/') + 1);
+            *strchr(host, '/') = '\0';
+        }
+        snprintf(uri + strlen(uri), uri_len - strlen(uri), ":%d",
+                 DEFAULT_RTSP_PORT);
+        if (path != NULL) {
+            snprintf(uri + strlen(uri), uri_len - strlen(uri), "/%s",
+                     path);
+            free(path);
+        }
+    } else {
+        char *port = strchr(host, ':') + 1;
+        char *endptr = NULL;
+        strtol(port, &endptr, 10);
+        if (endptr == port) {
+            MSG(ERROR, "Non-numeric port \"%s\" (wrong option?)\n", port);
+            return false;
+        }
+        if (strchr(port, ':') != NULL) {
+            MSG(WARNING, "Colon in URI path - possibly wrong option?\n");
+        }
+    }
+    MSG(INFO, "Using URI %s\n", uri);
+    return true;
+}
+
+#define FAIL_SHOW_HELP \
                     vidcap_rtsp_done(s); \
-                    show_help(); \
-                    return VIDCAP_INIT_FAIL
+                    show_help(false); \
+                    return VIDCAP_INIT_FAIL;
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
-    if (vidcap_params_get_fmt(params)
-        && strcmp(vidcap_params_get_fmt(params), "help") == 0)
-    {
-        show_help();
+    char fmt[STR_LEN];
+    snprintf(fmt, sizeof fmt,  "%s", vidcap_params_get_fmt(params));
+    if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+        show_help(strcmp(fmt, "fullhelp") == 0);
         return VIDCAP_INIT_NOERR;
     }
 
@@ -476,14 +595,14 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     }
 
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
-    s->vrtsp_state.codec = "";
-    s->artsp_state.codec = "";
+    s->vrtsp_state.codec[0] = '\0';
+    s->artsp_state.codec[0] = '\0';
     s->artsp_state.control = strdup("");
     s->artsp_state.control = strdup("");
 
-    int len = -1;
     char *save_ptr = NULL;
-    s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
+    s->magic = MAGIC;
+    s->avType = rtsp_type_none;
 
     s->addr = "127.0.0.1";
     s->vrtsp_state.device = NULL;
@@ -495,11 +614,9 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     s->vrtsp_state.participants = pdb_init(0);
 
-    s->vrtsp_state.h264_offset_buffer = (unsigned char *) malloc(2048);
-    s->vrtsp_state.h264_offset_len = 0;
+    s->vrtsp_state.decode_data.offset_len = 0;
 
     s->curl = NULL;
-    char *fmt = NULL;
 
     pthread_mutex_init(&s->lock, NULL);
     pthread_cond_init(&s->keepalive_cv, NULL);
@@ -507,28 +624,23 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
     pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
 
-    char *tmp, *item;
-    fmt = strdup(vidcap_params_get_fmt(params));
-    tmp = fmt;
+    char *tmp = fmt;
+    char *item = NULL;
     strcpy(s->uri, "rtsp://");
 
     s->vrtsp_state.desc.tile_count = 1;
-    s->vrtsp_state.desc.width = DEFAULT_VIDEO_FRAME_WIDTH/2;
-    s->vrtsp_state.desc.height = DEFAULT_VIDEO_FRAME_HEIGHT/2;
 
     bool in_uri = true;
-    while ((item = strtok_r(fmt, ":", &save_ptr))) {
-        fmt = NULL;
+    while ((item = strtok_r(tmp, ":", &save_ptr))) {
+        tmp = NULL;
         bool option_given = true;
         if (strstr(item, "rtp_rx_port=") == item) {
             s->vrtsp_state.port = atoi(strchr(item, '=') + 1);
         } else if (strcmp(item, "decompress") == 0) {
-            s->vrtsp_state.decompress = TRUE;
+            s->vrtsp_state.decompress = true;
         } else if (strstr(item, "size=")) {
-            assert(strchr(item, 'x') != NULL);
-            item = strchr(item, '=') + 1;
-            s->vrtsp_state.desc.width = atoi(item);
-            s->vrtsp_state.desc.height = atoi(strchr(item, 'x') + 1);
+            MSG(WARNING, "size= parameter is not used! Will be removed in "
+                "future!\n");
         } else {
             option_given = false;
             if (in_uri) {
@@ -543,20 +655,20 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                 }
                 strncat(s->uri, item, sizeof s->uri - strlen(s->uri) - 1);
             } else {
-                INIT_FAIL("Unknown option\n");
+                MSG(ERROR, "Unknown option: %s\n", item);
+                FAIL_SHOW_HELP
             }
         }
         if (option_given) {
             in_uri = false;
         }
     }
-    free(tmp);
-    tmp = NULL;
 
     //re-check parameters
-    if (strcmp(s->uri, "rtsp://") == 0) {
-        INIT_FAIL("No URI given!\n");
+    if (!check_uri(sizeof s->uri, s->uri)) {
+        FAIL_SHOW_HELP
     }
+    snprintf(s->base_url, sizeof s->base_url, "%s/", s->uri); // default
 
     s->vrtsp_state.device = rtp_init_if("localhost", s->vrtsp_state.mcast_if, s->vrtsp_state.port, 0, s->vrtsp_state.ttl, s->vrtsp_state.rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state.participants, 0, false);
@@ -599,13 +711,9 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     verbose_msg(MOD_NAME "\t  port: %d\n", s->vrtsp_state.port);
     verbose_msg(MOD_NAME "\t  decompress: %d\n\n",s->vrtsp_state.decompress);
 
-    len = init_rtsp(s);
-
-    if(len < 0){
+    if (!init_rtsp(s)) {
         vidcap_rtsp_done(s);
         return VIDCAP_INIT_FAIL;
-    }else{
-        s->vrtsp_state.h264_offset_len = len;
     }
 
     //TODO fps should be autodetected, now reset and controlled at vidcap_grab function
@@ -661,30 +769,74 @@ static CURL *init_curl() {
 static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *userdata) {
     int aggregate_size = size * nitems;
     struct rtsp_state *s = (struct rtsp_state *) userdata;
+    assert(s->magic == MAGIC);
+    bool error_occured = false;
     if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), (size_t) aggregate_size)) == 0) {
         int code = atoi(buffer + strlen("RTSP/1.0 "));
-        s->rtsp_error_occurred = code != 200;
+        error_occured = code != 200;
     }
-    if (log_level >= LOG_LEVEL_VERBOSE || s->rtsp_error_occurred) {
-        log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
+    if (log_level >= LOG_LEVEL_DEBUG || error_occured) {
+        log_msg(error_occured ? LOG_LEVEL_ERROR : log_level,
+                MOD_NAME "%.*s", aggregate_size, buffer);
     }
-    return nitems;
+    return error_occured ? CURL_WRITEFUNC_ERROR : nitems;
+}
+
+/// currently only searches for Content-Base or Content-Location header
+static size_t
+process_rtsp_describe_header(char *buffer, size_t size, size_t nitems,
+                             void *userdata)
+{
+        const size_t ret = print_rtsp_header(buffer, size, nitems, userdata);
+        struct rtsp_state *s        = userdata;
+        char              *save_ptr = NULL;
+        // doc for CURLOPT_HEADERFUNCTION is unclear if buffer is
+        // NULL-terminated -  one place says so, another not, so do it for sure
+        char dup[CURL_MAX_HTTP_HEADER];
+        memcpy(dup, buffer, MIN(nitems * size, sizeof dup));
+        dup[MIN(sizeof dup - 1, nitems * size)] = '\0';
+
+        char *item = strtok_r(dup, " ", &save_ptr);
+        if (item == NULL) {
+                return ret;
+        }
+        if ((strcasecmp(item, "Content-Base:") != 0 &&
+             strcasecmp(item, "Content-Location:") != 0)) {
+                return ret;
+        }
+        item = strtok_r(NULL, " ", &save_ptr);
+        if (item == NULL) {
+                return ret;
+        }
+        snprintf(s->base_url, sizeof s->base_url - 1, "%s", item);
+        char *end = (s->base_url + strlen(s->base_url)) - 1;
+        // trim \r,\n
+        while (end >= s->base_url && (*end == '\r' || *end == '\n')) {
+                *end = '\0';
+                --end;
+        }
+        // append '/' if needed
+        if (end >= s->base_url && *end != '/') {
+                *end++ = '/';
+                *end++ = '\0';
+        }
+        MSG(VERBOSE, "Using base URL from headers: %s\n", s->base_url);
+        return ret;
 }
 
 /**
  * Initializes rtsp state and internal parameters
  */
-static int
+static bool
 init_rtsp(struct rtsp_state *s) {
     /* initialize curl */
     s->curl = init_curl();
 
     if (!s->curl) {
-        return -1;
+        return false;
     }
 
     const char *range = "0.000-";
-    int len_nals = -1;
     verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
     verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
     verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
@@ -707,9 +859,10 @@ init_rtsp(struct rtsp_state *s) {
 
     my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
-    my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE,
+                        log_level >= LOG_LEVEL_DEBUG ? 1L : 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
-    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, &s, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, s, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_HEADERFUNCTION, print_rtsp_header, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_URL, s->uri, goto error);
 
@@ -718,7 +871,7 @@ init_rtsp(struct rtsp_state *s) {
     //http://curl.haxx.se/libcurl/c/curl_easy_perform.html
 
     /* request server options */
-    if(rtsp_options(s->curl, s->uri)==0){
+    if (!rtsp_options(s->curl, s->uri)) {
         goto error;
     }
 
@@ -743,175 +896,149 @@ init_rtsp(struct rtsp_state *s) {
     if (!setup_codecs_and_controls_from_sdp(sdp_file, s)) {
         goto error;
     }
-    if (strcmp(s->vrtsp_state.codec, "H264") == 0){
-        s->vrtsp_state.desc.color_spec = H264;
-        char uri[strlen(s->uri) + 1 + strlen(s->vrtsp_state.control) + 1];
-        strcpy(uri, s->uri);
-        strcat(uri, "/");
-        strcat(uri, s->vrtsp_state.control);
+    if (s->vrtsp_state.decode_data.video_pt > -1) {
+        s->vrtsp_state.desc.color_spec = get_video_codec_from_pt_rtpmap(
+            s->vrtsp_state.decode_data.video_pt, s->vrtsp_state.codec);
+        if (s->vrtsp_state.desc.color_spec == VC_NONE) {
+            goto error;
+        }
+        const char *uri = s->vrtsp_state.control;
         verbose_msg(MOD_NAME " V URI = %s\n", uri);
-        if (rtsp_setup(s->curl, uri, Vtransport) == 0) {
+        if (!rtsp_setup(s->curl, uri, Vtransport)) {
             goto error;
         }
     }
     if (strcmp(s->artsp_state.codec, "PCMU") == 0){
-        char uri[strlen(s->uri) + 1 + strlen(s->artsp_state.control) + 1];
-        strcpy(uri, s->uri);
-        strcat(uri, "/");
-        strcat(uri, s->artsp_state.control);
+        const char *uri = s->vrtsp_state.control;
         verbose_msg(MOD_NAME " A URI = %s\n", uri);
-        if (rtsp_setup(s->curl, uri, Atransport) == 0) {
+        if (!rtsp_setup(s->curl, uri, Atransport)) {
             goto error;
         }
     }
-    if (strlen(s->artsp_state.codec) == 0 && strlen(s->vrtsp_state.codec) == 0){
+    if (s->vrtsp_state.desc.color_spec == H264) {
+        s->vrtsp_state.decode_data.decode = decode_frame_h264;
+        /* get start nal size attribute from sdp file */
+        const int len_nals  = get_nals(sdp_file,
+            (char *) s->vrtsp_state.decode_data.h264.offset_buffer,
+            (int *) &s->vrtsp_state.desc.width,
+            (int *) &s->vrtsp_state.desc.height);
+        s->vrtsp_state.decode_data.offset_len = len_nals;
+        MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
+            "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+    } else if (s->vrtsp_state.desc.color_spec == JPEG) {
+        s->vrtsp_state.decode_data.decode = decode_frame_jpeg;
+    } else {
+        MSG(ERROR, "Video codec %s not yet supported by UG.\n",
+            get_codec_name(s->vrtsp_state.desc.color_spec));
         goto error;
     }
-    else{
-        if(rtsp_play(s->curl, s->uri, range)==0){
-            goto error;
-        }
+
+    if (!rtsp_play(s->curl, s->uri, range)) {
+        goto error;
     }
-
-    /* get start nal size attribute from sdp file */
-    len_nals = get_nals(sdp_file, (char *) s->vrtsp_state.h264_offset_buffer, (int *) &s->vrtsp_state.desc.width, (int *) &s->vrtsp_state.desc.height);
-
-    verbose_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+    s->setup_completed = true;
 
     fclose(sdp_file);
-    return len_nals;
+    return true;
 
 error:
     if(sdp_file)
             fclose(sdp_file);
-    return -1;
+    return false;
 }
 
 #define LEN 10
 
-bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
-    struct rtsp_state *rtspState;
-    rtspState = (struct rtsp_state *) state;
+static bool
+setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
+{
+        rtspState->artsp_state.pt =
+            rtspState->vrtsp_state.decode_data.video_pt = -1;
 
-    int n=0;
-    char* tmpBuff;
-    int countT = 0;
-    int countC = 0;
-    char codecs[2][LEN] = { { 0 } };
-    char tracks[2][LEN] = { { 0 } };
+        char line[STR_LEN];
 
-    fseek(sdp_file, 0, SEEK_END);
-    long fileSize = ftell(sdp_file);
-    if (fileSize < 0) {
-            perror("RTSP ftell");
-            return false;
-    }
-    rewind(sdp_file);
+        enum {
+                MEDIA_NONE,
+                MEDIA_AUDIO,
+                MEDIA_VIDEO,
+        } media = MEDIA_NONE;
 
-    bool ret = true;
-    char *line = (char*) malloc(1024);
-    char *buffer = malloc(fileSize + 1);
-    do {
-        unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
-        if (ferror(sdp_file)){
-            perror(MOD_NAME "SDP file read failed");
-            ret = false;
-            break;
-        }
-        buffer[readResult] = '\0';
+        int advertised_pt = -1;
 
-        while (buffer[n] != '\0'){
-            getNewLine(buffer,&n,line);
-            sscanf(line, " a = control: %*s");
-            tmpBuff = strstr(line, "track");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
-                    //debug_msg("track = %s\n",tmpBuff);
-                    strncpy(tracks[countT], tmpBuff, sizeof tracks[countT] - 1);
-                    tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
-                    countT++;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
+        while (fgets(line, sizeof line, sdp_file) != NULL) {
+                char buf[2001];
+                int pt = -1;
+                // m=video 0 RTP/AVP 96
+                if (sscanf(line, "m=%2000s %*d RTP/AVP %d", buf, &pt) == 2) {
+                        advertised_pt = pt;
+                        if (strcmp(buf, "audio") == 0) {
+                                media = MEDIA_AUDIO;
+                        } else if (strcmp(buf, "video") == 0) {
+                                media = MEDIA_VIDEO;
+                        } else {
+                                media = MEDIA_NONE;
+                                MSG(VERBOSE, "Unknown media: %s\n", buf);
+                                continue;
+                        }
+                        if ((media == MEDIA_AUDIO &&
+                             rtspState->artsp_state.pt != -1) ||
+                            rtspState->vrtsp_state.decode_data.video_pt != -1) {
+                                MSG(WARNING, "Multiple media of same type, "
+                                             "using last one...");
+                        }
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.pt
+                              : &rtspState->vrtsp_state.decode_data.video_pt) = pt;
+                        continue;
                 }
-            }
-            tmpBuff=NULL;
-            int pt = 0;
-            sscanf(line, " a=rtpmap:%d %*s", &pt);
-            tmpBuff = strstr(line, "H264");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                    //debug_msg("codec = %s\n",tmpBuff);
-                    strncpy(codecs[countC],tmpBuff,4);
-                    codecs[countC][4] = '\0';
-                    countC++;
-                    if (pt == 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
-                        ret = false;
-                        break;
-                    }
-                    rtspState->vrtsp_state.pt = pt;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+
+                if (media == MEDIA_NONE) {
+                        continue; // either on session level or unkown media
                 }
-            }
-            tmpBuff=NULL;
-            sscanf(line, " a=rtpmap:97 %*s");
-            tmpBuff = strstr(line, "PCMU");
-            if(tmpBuff!=NULL){
-                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                    //debug_msg("codec = %s\n",tmpBuff);
-                    strncpy(codecs[countC],tmpBuff,4);
-                    codecs[countC][4] = '\0';
-                    countC++;
-                } else {
-                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+
+                if (sscanf(line, "a=control:%2000s", buf) == 1) {
+                        const char *rtsp_scheme = "rtsp://";
+                        if (strncasecmp(buf, rtsp_scheme,
+                                        strlen(rtsp_scheme)) != 0) {
+                                char relative_url[sizeof buf];
+                                strcpy(relative_url, buf);
+                                snprintf(buf, sizeof buf, "%s%s",
+                                         rtspState->base_url, relative_url);
+                        }
+                        *(media == MEDIA_AUDIO
+                              ? &rtspState->artsp_state.control
+                              : &rtspState->vrtsp_state.control) = strdup(buf);
+                        continue;
                 }
-            }
-
-            if(countT > 1 && countC > 1) break;
+                /// a=rtpmap:96 H264/90000
+                if (sscanf(line, "a=rtpmap:%d %2000[^/]", &pt, buf) == 2) {
+                        char *codec = media == MEDIA_AUDIO
+                              ? rtspState->artsp_state.codec
+                              : rtspState->vrtsp_state.codec;
+                        if (pt != advertised_pt) {
+                                MSG(WARNING,
+                                    "media packet type %d doesn't match "
+                                    "media advertised PT %d!\n",
+                                    pt, advertised_pt);
+                                snprintf(codec, SHORT_STR, "?");
+                        }
+                        snprintf(codec + strlen(codec),
+                                 SHORT_STR - strlen(codec), "%s", buf);
+                }
         }
-        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[0],codecs[0]);
-        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
 
-        for(int p=0;p<2;p++){
-            if(strncmp(codecs[p],"H264",4)==0){
-                rtspState->vrtsp_state.codec = "H264";
-                free(rtspState->vrtsp_state.control);
-                rtspState->vrtsp_state.control = strdup(tracks[p]);
-
-            }if(strncmp(codecs[p],"PCMU",4)==0){
-                rtspState->artsp_state.codec = "PCMU";
-                free(rtspState->artsp_state.control);
-                rtspState->artsp_state.control = strdup(tracks[p]);
-            }
-        }
-    } while(0);
-
-    free(line);
-    free(buffer);
-    rewind(sdp_file);
-    return ret;
+        verbose_msg(MOD_NAME "AUDIO TRACK = %s FOR CODEC = %s PT = %d\n",
+                    rtspState->artsp_state.control,
+                    rtspState->artsp_state.codec,
+                    rtspState->artsp_state.pt);
+        verbose_msg(MOD_NAME "VIDEO TRACK = %s FOR CODEC = %s PT = %d\n",
+                    rtspState->vrtsp_state.control,
+                    rtspState->vrtsp_state.codec,
+                    rtspState->vrtsp_state.decode_data.video_pt);
+        rewind(sdp_file);
+        return true;
 }
 
-void getNewLine(const char* buffer, int* i, char* line){
-    int j=0;
-    while(buffer[*i] != '\n' && buffer[*i] != '\0'){
-        j++;
-        (*i)++;
-    }
-    if(buffer[*i] == '\n'){
-        j++;
-        (*i)++;
-    }
-
-    if(j>0){
-        memcpy(line,buffer+(*i)-j,j);
-        if (line[j - 1] == '\r') {
-            line[j - 1] = '\0';
-        }
-    }
-    line[j] = '\0';
-}
 /**
  * Initializes decompressor if required by decompress flag
  */
@@ -928,43 +1055,52 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
 /**
  * send RTSP GET PARAMS request
  */
-static int
+static bool
 rtsp_get_parameters(CURL *curl, const char *uri) {
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_STREAM_URI,
+        uri, return false);
+    my_curl_easy_setopt_ex(LOG_LEVEL_DEBUG, curl, CURLOPT_RTSP_REQUEST,
+        (long )CURL_RTSPREQ_GET_PARAMETER, return false);
+    my_curl_easy_perform_ex(LOG_LEVEL_DEBUG, curl, return false);
+    return true;
+}
+
+static void
+rtsp_set_user_pass(CURL *curl, char *user_pass)
+{
+        char *save_ptr = NULL;
+        char *user     = strtok_r(user_pass, ":", &save_ptr);
+        assert(user != NULL);
+        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return);
+        char *pass = strtok_r(NULL, ":", &save_ptr);
+        if (pass == NULL)  {
+            return;
+        }
+        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return);
 }
 
 /**
  * send RTSP OPTIONS request
  */
-static int
+static bool
 rtsp_options(CURL *curl, const char *uri) {
-    char control[1501] = "",
-         user[1501] = "",
-         pass[1501] = "",
-         *strtoken;
+    char control[1501] = "";
 
     verbose_msg("\n[rtsp] OPTIONS %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
 
     sscanf(uri, "rtsp://%1500s", control);
-    strtoken = strtok(control, ":");
-    assert(strtoken != NULL);
-    strncpy(user, strtoken, sizeof user - 1);
-    strtoken = strtok(NULL, "@");
-    if (strtoken != NULL) {
-        strncpy(pass, strtoken, sizeof pass - 1);
-        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return -1);
-        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return -1);
+
+    if (strchr(control, '@') != NULL) {
+        *strchr(control, '@') = '\0';
+        rtsp_set_user_pass(curl, control);
     }
 
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_OPTIONS,
+                        return false);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
@@ -974,12 +1110,16 @@ static bool
 rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
     verbose_msg("\n[rtsp] DESCRIBE %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, return false);
+    my_curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION,
+                        process_rtsp_describe_header, return false);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_DESCRIBE, return false);
 
     my_curl_easy_perform(curl, return false);
 
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, return false);
+    my_curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, print_rtsp_header,
+                        return false);
     rewind(sdp_fp);
     return true;
 }
@@ -987,44 +1127,44 @@ rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
 /**
  * send RTSP SETUP request
  */
-static int
+static bool
 rtsp_setup(CURL *curl, const char *uri, const char *transport) {
     verbose_msg("\n[rtsp] SETUP %s\n", uri);
     verbose_msg(MOD_NAME "\t TRANSPORT %s\n", transport);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return -1);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return false);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_SETUP,
+                        return false);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
  * send RTSP PLAY request
  */
-static int
+static bool
 rtsp_play(CURL *curl, const char *uri, const char *range) {
     UNUSED(range);
     verbose_msg("\n[rtsp] PLAY %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return false);
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY, return -1);
-
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long) CURL_RTSPREQ_PLAY,
+                        return false);
+    my_curl_easy_perform(curl, return false);
+    return true;
 }
 
 /**
  * send RTSP TEARDOWN request
  */
-static int
+static void
 rtsp_teardown(CURL *curl, const char *uri) {
     verbose_msg("\n[rtsp] TEARDOWN %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_TEARDOWN, return -1);
+        (long )CURL_RTSPREQ_TEARDOWN, return);
 
-    my_curl_easy_perform(curl, return 0);
-    return 1;
+    my_curl_easy_perform(curl, return);
 }
 
 static void vidcap_rtsp_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
@@ -1039,7 +1179,7 @@ vidcap_rtsp_done(void *state) {
 
     pthread_mutex_lock(&s->lock);
     pthread_mutex_lock(&s->vrtsp_state.lock);
-    s->should_exit = TRUE;
+    s->should_exit = true;
     pthread_mutex_unlock(&s->vrtsp_state.lock);
     pthread_mutex_unlock(&s->lock);
 
@@ -1060,16 +1200,19 @@ vidcap_rtsp_done(void *state) {
         rtp_done(s->vrtsp_state.device);
     }
 
-    if(s->vrtsp_state.h264_offset_buffer!=NULL) free(s->vrtsp_state.h264_offset_buffer);
     vf_free(s->vrtsp_state.out_frame);
     free(s->vrtsp_state.control);
     free(s->artsp_state.control);
 
-    rtsp_teardown(s->curl, s->uri);
+    if (s->curl != NULL) {
+        if (s->setup_completed) {
+            rtsp_teardown(s->curl, s->uri);
+        }
 
-    curl_easy_cleanup(s->curl);
-    curl_global_cleanup();
-    s->curl = NULL;
+        curl_easy_cleanup(s->curl);
+        curl_global_cleanup();
+        s->curl = NULL;
+    }
 
     pthread_mutex_destroy(&s->lock);
     pthread_cond_destroy(&s->keepalive_cv);

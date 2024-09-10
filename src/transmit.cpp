@@ -77,6 +77,7 @@
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
+#include "types.h"
 #include "utils/jpeg_reader.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
@@ -103,8 +104,6 @@
 #define GET_STOPTIME { QueryPerformanceCounter(&stop); }
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
-
-#define DEFAULT_CIPHER_MODE MODE_AES128_GCM
 
 using std::array;
 using std::vector;
@@ -146,6 +145,7 @@ struct tx {
         int32_t avg_len_last;
 
         enum fec_type fec_scheme;
+        bool fec_dup_1st_pkt;
         int mult_count;
 
         int last_fragment;
@@ -235,7 +235,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         return NULL;
                 }
         }
-        if (encryption) {
+        if (strlen(encryption) > 0) {
                 tx->enc_funcs = static_cast<const struct openssl_encrypt_info *>(load_library("openssl_encrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
                 if (!tx->enc_funcs) {
@@ -244,7 +244,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         return NULL;
                 }
                 if (tx->enc_funcs->init(&tx->encryption,
-                                        encryption, DEFAULT_CIPHER_MODE) != 0) {
+                                        encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize encryption\n");
                         module_done(&tx->mod);
                         return NULL;
@@ -263,8 +263,19 @@ static bool set_fec(struct tx *tx, const char *fec_const)
 {
         char *fec = strdup(fec_const);
         bool ret = true;
+        bool req_1st_pkt_dup = true;
 
-        char *fec_cfg = NULL;
+        // handle  ...[:]nodup
+        char *end = fec + MAX(strlen(fec), 5) - 5;
+        if (strcmp(end, "nodup") == 0) {
+                req_1st_pkt_dup = true;
+                *end            = '\0';
+                if (end > fec) { // ':'
+                        end[-1] = '\0';
+                }
+        }
+
+        const char *fec_cfg = "";
         if(strchr(fec, ':')) {
                 char *delim = strchr(fec, ':');
                 *delim = '\0';
@@ -282,36 +293,49 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 tx->fec_scheme = FEC_NONE;
         } else if(strcasecmp(fec, "mult") == 0) {
                 tx->fec_scheme = FEC_MULT;
-                assert(fec_cfg);
-                tx->mult_count = (unsigned int) atoi(fec_cfg);
-                assert(tx->mult_count <= FEC_MAX_MULT);
+                tx->mult_count = atoi(fec_cfg);
+                if (tx->mult_count <= 0 || tx->mult_count > FEC_MAX_MULT) {
+                        MSG(ERROR,
+                            "mult count must be between 1 and %d (%d given)!\n",
+                            FEC_MAX_MULT, tx->mult_count);
+                        ret = false;
+                }
         } else if(strcasecmp(fec, "LDGM") == 0) {
+                tx->fec_dup_1st_pkt = req_1st_pkt_dup;
                 if(tx->media_type == TX_MEDIA_AUDIO) {
                         fprintf(stderr, "LDGM is not currently supported for audio!\n");
                         ret = false;
                 } else {
-                        if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
-                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
-                                                fec_cfg ? fec_cfg : "");
+                        if (strlen(fec_cfg) == 0 ||
+                            (strlen(fec_cfg) > 0 &&
+                             strchr(fec_cfg, '%') == nullptr)) {
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg),
+                                         "LDGM cfg %s", fec_cfg);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
                         tx->fec_scheme = FEC_LDGM;
                 }
         } else if(strcasecmp(fec, "RS") == 0) {
+                tx->fec_dup_1st_pkt = req_1st_pkt_dup;
                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
-                                fec_cfg ? fec_cfg : "");
+                                fec_cfg);
                 tx->fec_scheme = FEC_RS;
         } else if(strcasecmp(fec, "help") == 0) {
                 color_printf("Usage:\n");
                 color_printf("\t" TBOLD("-f [A:|V:]{mult:count|ldgm[:params]|"
-                             "rs[:params]}") "\n");
+                             "rs[:params]}[:nodup]") "\n");
                 color_printf("\nIf neither A: or V: is speciefied, FEC is set "
                              "to the video (backward compat).\n\n");
                 ret = false;
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
                 ret = false;
+        }
+
+        if (tx->fec_dup_1st_pkt) {
+                MSG(VERBOSE, "Duplicating 1st packet of every frame for better "
+                             "error resiliency.\n");
         }
 
         if (ret) {
@@ -682,18 +706,19 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         if (tx->encryption) {
                 hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
-                rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] = htonl(DEFAULT_CIPHER_MODE << 24);
+                rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] =
+                    htonl(tx->enc_funcs->get_cipher(tx->encryption) << 24);
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
         vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
-        const long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
+        long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
         const long packet_rate =
             get_packet_rate(tx, frame, (int) substream, mult_pkt_cnt);
 
         // initialize header array with values (except offset which is different among
         // different packts)
-        void *rtp_headers = malloc(mult_pkt_cnt * rtp_hdr_len);
+        void *rtp_headers = malloc((mult_pkt_cnt + 1) * rtp_hdr_len);
         uint32_t *rtp_hdr_packet = (uint32_t *) rtp_headers;
         for (int m = 0; m < tx->mult_count; ++m) {
                 unsigned pos = 0;
@@ -703,6 +728,11 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
                         pos += packet_sizes.at(i);
                 }
+        }
+        if (tx->fec_dup_1st_pkt) { // dup 1st pkt with RS/LDGM
+                mult_pkt_cnt += 1;
+                memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
+                rtp_hdr_packet[1] = htonl(0);
         }
 
         if (!tx->encryption) {
@@ -725,6 +755,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 ? sizeof(fec_payload_hdr_t)
                                 : sizeof(video_payload_hdr_t),
                             encrypted_data);
+                        if (data_len <= 0) {
+                                return;
+                        }
                         data = encrypted_data;
                 }
 
@@ -829,7 +862,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 hdrs_len += sizeof(crypto_payload_hdr_t) +
                             tx->enc_funcs->get_overhead(tx->encryption);
                 rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] =
-                    htonl(DEFAULT_CIPHER_MODE << 24);
+                    htonl(tx->enc_funcs->get_cipher(tx->encryption) << 24);
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
@@ -858,6 +891,9 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                             (char *) rtp_hdr,
                             rtp_hdr_len - sizeof(crypto_payload_hdr_t),
                             encrypted_data);
+                        if (data_len <= 0) {
+                                return;
+                        }
                         data = encrypted_data;
                 }
 
@@ -911,27 +947,33 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
 
+        enum {
+                PCMA_U_BPS = 1, // data BPS - get_bps() is 2 to expand to 16-bit
+                                // format on the receiver. The semantic of 2 is
+                                // the same as for other codecs like Opus to
+                                // asses the decmopressed sample size.
+        };
+        const bool is_pcma_u =
+            buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW;
 	// Configure the right Payload type,
-	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
+	// 8000 Hz, 1 channel PCMU/A is the ITU-T G.711 standard
 	// Other channels or Hz goes to DynRTP-Type97
 	int pt = PT_DynRTP_Type97;
-	if (buffer->get_channel_count() == 1 && buffer->get_sample_rate() == 8000) {
-		if (buffer->get_codec() == AC_MULAW)
-			pt = PT_ITU_T_G711_PCMU;
-		else if (buffer->get_codec() == AC_ALAW)
-			pt = PT_ITU_T_G711_PCMA;
-        } else if (buffer->get_codec() == AC_MP3) {
+        if (is_pcma_u && buffer->get_channel_count() == 1 &&
+            buffer->get_sample_rate() == kHz8) {
+                pt = buffer->get_codec() == AC_MULAW ? PT_ITU_T_G711_PCMU
+                                                     : PT_ITU_T_G711_PCMA;
+        }
+        if (buffer->get_codec() == AC_MP3) {
                 pt = PT_MPA;
         }
 
 	int data_len = buffer->get_data_len(0); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
-        if (pt == PT_ITU_T_G711_PCMU ||
-            pt == PT_ITU_T_G711_PCMA) { // we may split the data into more
-                                        // packets, compute chunk size
-                int frame_size =
-                    buffer->get_channel_count() * buffer->get_bps();
+        if (is_pcma_u) { // we may split the data into more packets, compute
+                         //  chunk size
+                const int frame_size = buffer->get_channel_count() * PCMA_U_BPS;
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
                 // The sizes for the different channels must be the same.
                 for (int i = 1; i < buffer->get_channel_count(); i++) {
@@ -961,7 +1003,13 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                         memcpy(tx->tmp_packet + 4, buffer->get_data(0), pkt_len);
                 } else { // interleave
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
-                                remux_channel(tx->tmp_packet, buffer->get_data(ch) + pos / buffer->get_channel_count(), buffer->get_bps(), pkt_len / buffer->get_channel_count(), 1, buffer->get_channel_count(), 0, ch);
+                                remux_channel(
+                                    tx->tmp_packet,
+                                    buffer->get_data(ch) +
+                                        pos / buffer->get_channel_count(),
+                                    PCMA_U_BPS,
+                                    pkt_len / buffer->get_channel_count(), 1,
+                                    buffer->get_channel_count(), 0, ch);
                         }
                 }
 

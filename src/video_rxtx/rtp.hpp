@@ -56,7 +56,7 @@ struct rtp;
 struct fec;
 
 class rtp_video_rxtx : public video_rxtx {
-        friend class video_rxtx;
+        friend struct video_rxtx;
 public:
         rtp_video_rxtx(std::map<std::string, param_u> const &params);
         virtual ~rtp_video_rxtx();
@@ -75,11 +75,7 @@ protected:
         std::string      m_requested_receiver;
         int              m_recv_port_number;
         int              m_send_port_number;
-        int              m_force_ip_version;
-        const char      *m_requested_mcast_if;
-        int              m_requested_ttl;
         fec             *m_fec_state;
-        time_ns_t        m_start_time;
         video_desc       m_video_desc;
 private:
         struct response *process_sender_message(struct msg_sender *msg) override;

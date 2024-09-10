@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,15 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "crypto/openssl_decrypt.h"
+
+#include <assert.h>                  // for assert
+#include <stdint.h>                  // for uint32_t
+#include <stdlib.h>                  // for calloc, free
+#include <string.h>                  // for NULL, memcpy, size_t, strstr
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-
-#include <string.h>
 #ifdef HAVE_WOLFSSL
 #define OPENSSL_EXTRA
 #define WC_NO_HARDEN
@@ -59,10 +61,10 @@
 
 #include "crypto/crc.h"
 #include "crypto/md5.h"
-#include "crypto/openssl_decrypt.h"
 #include "crypto/openssl_encrypt.h" // get_cipher
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/macros.h"            // for STR_LEN, snprintf_ch
 
 #define GCM_TAG_LEN 16
 #define MOD_NAME "[decrypt] "
@@ -82,11 +84,18 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
         struct openssl_decrypt *s =
                 calloc(1, sizeof(struct openssl_decrypt));
 
+        char pass[STR_LEN];
+        snprintf_ch(pass, "%s", passphrase);
+        // used only by encrypt, drop option
+        if (strstr(pass, ":cipher=")) {
+                 *strstr(pass, ":cipher=") = '\0';
+        }
+
         MD5CTX context;
 
         MD5Init(&context);
-        MD5Update(&context, (const unsigned char *) passphrase,
-                        strlen(passphrase));
+        MD5Update(&context, (const unsigned char *) pass,
+                        strlen(pass));
         MD5Final(s->key_hash, &context);
 
         s->ctx = EVP_CIPHER_CTX_new();

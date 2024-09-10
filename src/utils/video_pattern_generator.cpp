@@ -65,15 +65,18 @@
 #include "pixfmt_conv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.h"
 
-constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
+#define BLANK_USAGE "blank[=0x<AABBGGRR>]"
 #define MOD_NAME "[vid. patt. generator] "
+constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 constexpr int rg48_bpp = 6;
+
 
 using namespace std::string_literals;
 using std::copy;
@@ -87,13 +90,14 @@ using std::stoi;
 using std::stoll;
 using std::string;
 using std::string_view;
+using std::to_string;
 using std::unique_ptr;
 using std::uniform_int_distribution;
 using std::vector;
 
 enum class generator_depth {
-        bits8,
-        bits16
+        bits8, ///< RGBA
+        bits16 ///< RG48
 };
 
 class image_pattern {
@@ -303,6 +307,17 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
 class image_pattern_blank : public image_pattern {
         public:
                 explicit image_pattern_blank(string const &init) {
+                        if (init == "help"s) {
+                                color_printf("Testcard " TBOLD("blank") " usage:\n");
+                                color_printf("\t" TRED(TBOLD(
+                                    "-t testcard:patt=" BLANK_USAGE)) "\n");
+                                color_printf(
+                                    "\nLeading zeros can be omitted, eg. "
+                                    "`0xFF` produces a red pattern.\n");
+                                color_printf(
+                                    "Defaults to 0xFF000000.\n");
+                                throw 1;
+                        }
                         if (!init.empty()) {
                                 color = stoll(init, nullptr, 0);
                         }
@@ -408,6 +423,70 @@ class image_pattern_noise : public image_pattern {
                 uniform_int_distribution<> dist(0, 0xFFFF);
                 for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = dist(rand_gen); });
                 return generator_depth::bits16;
+        }
+};
+
+struct image_pattern_strips : public image_pattern
+{
+        explicit image_pattern_strips(string const &config)
+        {
+                for (int i = 0; i < COL_NUM; ++i) {
+                        pattern[3 + i] = rect_colors[i];
+                }
+                parse_fmt(config);
+        }
+
+      private:
+        void parse_fmt(string const &config)
+        {
+                if (config.empty()) {
+                        return;
+                }
+                if (config == "help"s) {
+                        color_printf(
+                            "\t" TBOLD("-t "
+                                       "testcard:patt=strips[=[vert|hor|"
+                                       "diag][,w[idth]=W]]") "\n");
+                        throw 1;
+                }
+                char conf[STR_LEN];
+                snprintf_ch(conf, "%s", config.c_str());
+                char *tmp = conf;
+                char *endptr = nullptr;
+                while (char *item = strtok_r(tmp, ",", &endptr)) {
+                        tmp = nullptr;
+                        if (strncmp(item, "hor", 3) == 0) {
+                                type = COLS;
+                        } else if (strncmp(item, "ver", 3) == 0) {
+                                type = ROWS;
+                        } else if (strncmp(item, "dia", 3) == 0) {
+                                type = DIAG;
+                        } else if (IS_KEY_PREFIX(item, "width")) {
+                                fill_w = stoi(strchr(item, '=') + 1);
+                        } else {
+                                throw ug_runtime_error(
+                                    string("Wrong option: ") + config);
+                        }
+                }
+        }
+
+        enum { ROWS, COLS, DIAG } type = DIAG;
+        uint32_t pattern[3 + COL_NUM]  = { RGBA_WHITE, RGBA_BLACK, RGBA_GRAY };
+        int      fill_w                = 10;
+        enum generator_depth fill(int width, int height,
+                                  unsigned char *data) override
+        {
+                auto *ptr = reinterpret_cast<uint32_t *>(data);
+                for (int j = 0; j < height; j += 1) {
+                        for (int i = 0; i < width; i += 1) {
+                                const int col_idx = type == DIAG   ? i + j
+                                                    : type == ROWS ? i
+                                                                   : j;
+                                *ptr++ = pattern[(col_idx / fill_w) %
+                                                     ARR_COUNT(pattern)];
+                        }
+                }
+                return generator_depth::bits8;
         }
 };
 
@@ -564,6 +643,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         if (pattern == "smpte_bars") {
                 return make_unique<image_pattern_smpte_bars>();
         }
+        if (pattern == "strips") {
+                return make_unique<image_pattern_strips>(params);
+        }
         if (pattern == "text") {
                 return make_unique<image_pattern_text>(params);
         }
@@ -689,6 +771,11 @@ struct interlaced_video_pattern_generator : public video_pattern_generator {
         interlaced_video_pattern_generator(int w, int h, codec_t color_spec)
                 : width(w), height(h), linesize(vc_get_linesize(width, color_spec))
         {
+                if (width % step != 0) {
+                        throw ug_runtime_error(
+                            string("[interlaced] width must be divisible by ") +
+                            std::to_string(step) + "!");
+                }
                 size_t rgb_linesize = vc_get_linesize(width, RGB);
                 vector<char> rgb(3 * h * rgb_linesize + 4 * (width / step) * rgb_linesize);
                 memset(rgb.data(), 255, h * rgb_linesize);
@@ -717,7 +804,8 @@ struct interlaced_video_pattern_generator : public video_pattern_generator {
                         rgba[i / 3 * 4 + 2] = rgb[i + 2];
                         rgba[i / 3 * 4 + 3] = 0xff;
                 }
-                data.resize(3 * h * linesize + 4 * linesize * (w / step));
+                data.resize(3 * h * linesize + 4 * linesize * (w / step) +
+                            MAX_PADDING);
                 testcard_convert_buffer(RGBA, color_spec, (unsigned char *) data.data(), (unsigned char *) rgba.data(), width, 3 * height + 4 * (width / step));
         }
         char *get_next() override {
@@ -741,17 +829,46 @@ private:
 video_pattern_generator_t
 video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
 {
+
         if (string(config) == "help") {
-                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>], diagonal*\n");
-                col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
-                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+                col() << "Pattern to use, one of: \n";
+                for (const auto *p :
+                     {
+                        "bars",
+                        BLANK_USAGE,
+                        "diagonal*",
+                        "ebu_bars",
+                        "gradient[=0x<AABBGGRR>]",
+                        "gradient2*",
+                        "gray",
+                        "interlaced",
+                        "noise",
+                        "raw=0xXX[YYZZ..]",
+                        "smpte_bars",
+                        "strips*",
+                        "uv_plane[=<y_lvl>]",
+                         }) {
+                        col() << "\t- " << SBOLD(p) << "\n";
+                }
+
+                col() << "\nNotes:\n";
+
+                col() << "\t- patterns " SBOLD("'gradient'") ", "
+                        SBOLD("'gradient2'") ", " SBOLD("'noise'") " and "
+                        SBOLD("'uv_plane'") " generate higher bit-depth "
+                        "patterns with";
+                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT;
+                     c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
                                 col() << " " << SBOLD(get_codec_name(c));
                         }
                 }
                 col() << "\n";
-                col() << "\t\t- pattern " << SBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
-                col() << "\t\t- patterns marked with " << SBOLD("'*'") " provide help as its option\n";
+                col() << "\t- pattern "
+                      << SBOLD("'raw'") " generates repeating sequence of given "
+                                      "bytes without any color conversion\n";
+                col() << "\t- patterns marked with "
+                      << SBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);

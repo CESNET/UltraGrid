@@ -42,10 +42,9 @@
  * the GPU is powerful enough due to the fact that CUDA registers the new
  * buffers which is very slow and because of that the frames cumulate before
  * the GPU encoder.
- * 
- *  * @todo
- * - check multiple CUDA devices - now the data are always copied to
- * the first CUDA device
+ *
+ * @todo
+ * - check support for multiple CUDA devices with CUDA buffers
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,14 +52,14 @@
 #endif // HAVE_CONFIG_H
 
 #include <algorithm>
-#include <array>
-#include <cassert>
-#include <climits>
-#include <condition_variable>
-#include <mutex>
-#include <stdexcept>
-#include <string>
-#include <utility>
+#include <array>                
+#include <cassert>              
+#include <climits>              
+#include <condition_variable>   
+#include <mutex>                
+#include <stdexcept>            
+#include <string>               
+#include <utility>                      
 
 #include <cmpto_j2k_enc.h>
 
@@ -80,6 +79,11 @@
 #include "video.h"
 #include "video_compress.h"
 
+using std::condition_variable;
+using std::mutex;
+using std::shared_ptr;
+using std::unique_lock;
+
 #define MOD_NAME "[Cmpto J2K enc.] "
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -90,6 +94,15 @@
                 action_fail;\
         } \
 } while(0)
+
+#define HANDLE_ERROR_COMPRESS_PUSH \
+        if (udata != nullptr) { \
+                udata->frame.~shared_ptr<video_frame>(); \
+        } \
+        if (img != nullptr) { \
+                cmpto_j2k_enc_img_destroy(img); \
+        } \
+        return
 
 #define NOOP ((void) 0)
 
@@ -109,20 +122,13 @@
 
 // Default General Settings
 #define DEFAULT_QUALITY          0.7
+
+typedef void (*cuda_convert_func_t)(int width, int height, void *src, void *dst);
+
+#ifdef HAVE_CUDA
 /// default max size of state_video_compress_j2k::pool and also value
 /// for state_video_compress_j2k::max_in_frames
-#ifdef HAVE_CUDA
 #define DEFAULT_POOL_SIZE        DEFAULT_CUDA_POOL_SIZE
-#else
-#define DEFAULT_POOL_SIZE        DEFAULT_CPU_POOL_SIZE
-#endif
-
-using std::condition_variable;
-using std::mutex;
-using std::shared_ptr;
-using std::unique_lock;
-
-#ifdef HAVE_CUDA
 template <decltype(cuda_wrapper_malloc_host) alloc,
           decltype(cuda_wrapper_free_host)   free>
 struct cmpto_j2k_enc_cuda_buffer_data_allocator
@@ -141,23 +147,30 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
                 }
                 return ptr;
         }
-
         void deallocate(void *ptr) override { free(ptr); }
-
         [[nodiscard]] video_frame_pool_allocator *clone() const override
         {
                 return new cmpto_j2k_enc_cuda_buffer_data_allocator(*this);
         }
 };
-using cuda_allocator = cmpto_j2k_enc_cuda_buffer_data_allocator;
+
+using cuda_allocator                        = cmpto_j2k_enc_cuda_buffer_data_allocator;
 const cuda_convert_func_t r12l_to_rg48_cuda = preprocess_r12l_to_rg48;
 #else
-using cuda_allocator = default_data_allocator;
+using cuda_allocator                        = default_data_allocator;
 const cuda_convert_func_t r12l_to_rg48_cuda = nullptr;
+
+/// default max size of state_video_compress_j2k::pool and also value
+/// for state_video_compress_j2k::max_in_frames
+#define DEFAULT_POOL_SIZE        DEFAULT_CPU_POOL_SIZE
 #endif
 using cpu_allocator  = default_data_allocator;
 
-typedef void (*cuda_convert_func_t)(int width, int height, void *src, void *dst);
+/*
+ * Function Predeclarations
+ */
+static void j2k_compressed_frame_dispose(struct video_frame *frame);
+static void j2k_compress_done(struct module *mod);
 
 /** 
  * @brief Platforms available for J2K Compression
@@ -285,9 +298,6 @@ struct state_video_compress_j2k {
         const size_t  cpu_mem_limit = 0;                // Not yet implemented as of v2.8.1. Must be 0.
 };
 
-static void j2k_compressed_frame_dispose(struct video_frame *frame);
-static void j2k_compress_done(struct module *mod);
-
 /**
  * @brief state_video_compress_j2k constructor to create from opts
  * @param parent Base Module Struct
@@ -320,12 +330,10 @@ static void parallel_conv(video_frame *dst, video_frame *src){
 
         decoder_t decoder =
             get_decoder_from_to(src->color_spec, dst->color_spec);
-        
         assert(decoder != nullptr);
-
         parallel_pix_conv((int) src->tiles[0].height, dst->tiles[0].data,
-                                dst_pitch, src->tiles[0].data, src_pitch,
-                                decoder, 0);
+                          dst_pitch, src->tiles[0].data, src_pitch,
+                          decoder, 0);
 }
 
 static struct {
@@ -344,7 +352,6 @@ static struct {
         {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, r12l_to_rg48_cuda},
 };
 
-
 #define CPU_CONV_PARAM "j2k-enc-cpu-conv"
 ADD_TO_PARAM(
     CPU_CONV_PARAM,
@@ -355,14 +362,14 @@ static void
 set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
 {
         const bool force_cpu_conv =
-                get_commandline_param(CPU_CONV_PARAM) != nullptr;
+            get_commandline_param(CPU_CONV_PARAM) != nullptr;
         s->pool_in_device_memory = false;
 #ifdef HAVE_CUDA
         if (cuda_devices_count > 1) {
                 MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
                              "conversion...\n");
         } else if (!force_cpu_conv || s->cuda_convert_func == nullptr) {
-             cuda_wrapper_set_device((int) cuda_devices[0]);
+                cuda_wrapper_set_device((int) cuda_devices[0]);
 
                 if (s->cuda_convert_func != nullptr) {
                         cuda_wrapper_free(s->cuda_conv_tmp_buf);
@@ -380,7 +387,6 @@ set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
                 return;
         }
         s->cuda_convert_func = nullptr; // either was 0 or force_cpu_conv
-        
         s->pool = std::make_unique<video_frame_pool>(
             s->max_in_frames,
             cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,
@@ -470,15 +476,13 @@ do_gpu_copy(struct state_video_compress_j2k *s,
 #endif
 }
 
-
 static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
         std::shared_ptr<video_frame> ret = s->pool->get_frame();
-
         if (s->pool_in_device_memory) {
                 do_gpu_copy(s, ret, frame);
         } else if (s->precompress_codec != VC_NONE) {
                 parallel_conv(ret.get(), frame);
-        else {
+        } else {
                 memcpy(ret->tiles[0].data, frame->tiles[0].data,
                        frame->tiles[0].data_len);
         }
@@ -516,7 +520,7 @@ start:
         struct cmpto_j2k_enc_img *img;
         int status;
         CHECK_OK(cmpto_j2k_enc_ctx_get_encoded_img(
-                    s->context, 1, &img /* Set to NULL if encoder stopped */,
+                     s->context, 1, &img /* Set to NULL if encoder stopped */,
                      &status),
                  "Encode image pop", HANDLE_ERROR_COMPRESS_POP);
         {
@@ -937,21 +941,13 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         udata->frame.~shared_ptr<video_frame>();
 }
 
-static void release_cstream_cuda(void *img_custom_data, size_t img_custom_data_size,
+static void
+release_cstream_cuda(void *img_custom_data, size_t img_custom_data_size,
                       int /* device_id */, const void *samples, size_t samples_size)
 {
         release_cstream(img_custom_data, img_custom_data_size, samples,
                         samples_size);
 }
-
-#define HANDLE_ERROR_COMPRESS_PUSH \
-        if (udata != nullptr) { \
-                udata->frame.~shared_ptr<video_frame>(); \
-        } \
-        if (img != nullptr) { \
-                cmpto_j2k_enc_img_destroy(img); \
-        } \
-        return
 
 static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
 {
@@ -972,11 +968,10 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         return;
                 }
                 struct video_desc pool_desc = desc;
-
                 if (s->precompress_codec != VC_NONE) {
                         pool_desc.color_spec = s->precompress_codec;
                 }
-                s->pool.reconfigure(
+                s->pool->reconfigure(
                     pool_desc, (size_t) vc_get_linesize(pool_desc.width,
                                                         pool_desc.color_spec) *
                                    pool_desc.height);
@@ -1005,21 +1000,15 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
         if (s->pool_in_device_memory) {
                 CHECK_OK(cmpto_j2k_enc_img_set_samples_cuda(
-                        img, cuda_devices[0], udata->frame->tiles[0].data,
-                        udata->frame->tiles[0].data_len, release_cstream_cuda),
-                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+                             img, cuda_devices[0], udata->frame->tiles[0].data,
+                             udata->frame->tiles[0].data_len, release_cstream_cuda),
+                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
         } else {
                 CHECK_OK(cmpto_j2k_enc_img_set_samples(
-                        img, udata->frame->tiles[0].data,
-                        udata->frame->tiles[0].data_len, release_cstream),
-                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
+                             img, udata->frame->tiles[0].data,
+                             udata->frame->tiles[0].data_len, release_cstream),
+                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
         }
-                
-
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, udata->frame->tiles[0].data,
-                                               udata->frame->tiles[0].data_len,
-                                               release_cstream),
-                 "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         unique_lock<mutex> lk(s->lock);
         s->frame_popped.wait(lk, [s]{return s->in_frames < s->max_in_frames;});

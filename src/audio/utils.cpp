@@ -37,7 +37,6 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
@@ -57,9 +56,8 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 
-#ifdef WORDS_BIGENDIAN
-#error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
-#endif // WORDS_BIGENDIAN
+static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
+              "The code below assumes little endianness.");
 
 using std::clamp;
 using std::max;
@@ -420,6 +418,28 @@ void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out
         }
 }
 
+void remux_and_mix_channel(char *out, const char *in, int bps, int frames, int in_stream_channels, int out_stream_channels, int in_channel, int out_channel, double scale)
+{
+        int i;
+
+        assert (bps <= 4);
+
+        out += out_channel * bps;
+        in += in_channel * bps;
+
+        for(i = 0; i < frames; i++) {
+                int32_t in_value = format_from_in_bps(in, bps);
+                int32_t out_value = format_from_in_bps(out, bps);
+
+                int32_t new_value = (double)in_value * scale + out_value;
+
+                format_to_out_bps(out, bps, new_value);
+
+                in += in_stream_channels * bps;
+                out += out_stream_channels * bps;
+        }
+}
+
 template<int BPS>
 static double get_avg_volume_helper(const char *data, int sample_count, int stream_channels, int pos_in_stream)
 {
@@ -689,4 +709,108 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
         }
         return 0;
 }
+
+
+bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
+        char *save_ptr = NULL;
+        char *item;
+        char *ptr;
+        char *tmp = ptr = strdup(cfg);
+
+        channel_map->size = 0;
+        while((item = strtok_r(ptr, ",", &save_ptr))) {
+                ptr = NULL;
+                // item is in format x1:y1
+                if(isdigit(item[0])) {
+                        channel_map->size = std::max(channel_map->size, atoi(item) + 1);
+                }
+        }
+
+        channel_map->map = (int **) malloc(channel_map->size * sizeof(int *));
+        channel_map->sizes = (int *) malloc(channel_map->size * sizeof(int));
+
+        /* default value, do not process */
+        for(int i = 0; i < channel_map->size; ++i) {
+                channel_map->map[i] = NULL;
+                channel_map->sizes[i] = 0;
+        }
+
+        free (tmp);
+        tmp = ptr = strdup(cfg);
+
+        while((item = strtok_r(ptr, ",", &save_ptr))) {
+                ptr = NULL;
+
+                assert(strchr(item, ':') != NULL);
+                int src;
+                if(isdigit(item[0])) {
+                        src = atoi(item);
+                } else {
+                        src = -1;
+                }
+                if(!isdigit(strchr(item, ':')[1])) {
+                        log_msg(LOG_LEVEL_ERROR, "Audio destination channel not entered!\n");
+                        free(tmp);
+                        return false;
+                }
+                int dst = atoi(strchr(item, ':') + 1);
+                if(src >= 0) {
+                        channel_map->sizes[src] += 1;
+                        if(channel_map->map[src] == NULL) {
+                                channel_map->map[src] = (int *) malloc(1 * sizeof(int));
+                        } else {
+                                channel_map->map[src] = (int *) realloc(channel_map->map[src], channel_map->sizes[src] * sizeof(int));
+                        }
+                        channel_map->map[src][channel_map->sizes[src] - 1] = dst;
+                }
+        }
+
+        free(tmp);
+        tmp = NULL;
+
+        if (!channel_map->validate()) {
+                log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
+                return false;
+        }
+        channel_map->compute_contributors();
+
+        return true;
+}
+
+channel_map::~channel_map(){
+        free(sizes);
+        for(int i = 0; i < size; ++i) {
+                free(map[i]);
+        }
+        free(map);
+        free(contributors);
+}
+
+bool channel_map::validate() {
+        for(int i = 0; i < size; ++i) {
+                for(int j = 0; j < sizes[i]; ++j) {
+                        if(map[i][j] < 0) {
+                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
+                                return false;
+                        }
+                }
+        }
+
+        return true;
+}
+
+void channel_map::compute_contributors() {
+        for (int i = 0; i < size; ++i) {
+                for (int j = 0; j < sizes[i]; ++j) {
+                        max_output = std::max(map[i][j], max_output);
+                }
+        }
+        contributors = (int *) calloc(max_output + 1, sizeof(int));
+        for (int i = 0; i < size; ++i) {
+                for (int j = 0; j < sizes[i]; ++j) {
+                        contributors[map[i][j]] += 1;
+                }
+        }
+}
+
 

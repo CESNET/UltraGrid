@@ -61,24 +61,25 @@
 #include "video_display.h"
 #include "video_rxtx.hpp"
 
+#define MOD_NAME "[vrxtx] "
+
 using std::map;
 using std::shared_ptr;
 using std::string;
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
                 m_rxtx_mode(params.at("rxtx_mode").i),
-                m_parent(static_cast<struct module *>(params.at("parent").ptr)),
-                m_frames_sent(0ull), m_compression(nullptr),
-                m_exporter(static_cast<struct exporter *>(params.at("exporter").ptr)),
+                m_frames_sent(0ull),
+                m_common(*static_cast<struct common_opts const *>(params.at("common").cptr)),
                 m_thread_id(), m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
-        module_register(&m_sender_mod, static_cast<struct module *>(params.at("parent").ptr));
+        module_register(&m_sender_mod, m_common.parent);
 
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
-        module_register(&m_receiver_mod, static_cast<struct module *>(params.at("parent").ptr));
+        module_register(&m_receiver_mod, m_common.parent);
 
         try {
                 int ret = compress_init(&m_sender_mod, static_cast<const char *>(params.at("compression").ptr),
@@ -106,14 +107,13 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default")
         }
 }
 
-static void should_exit_video_rxtx(void *state) {
+void video_rxtx::should_exit(void *state) {
         video_rxtx *s = (video_rxtx *) state;
         s->m_should_exit = true;
 }
 
 video_rxtx::~video_rxtx() {
         join();
-        unregister_should_exit_callback(m_parent, should_exit_video_rxtx, this);
         if (!m_poisoned && m_compression) {
                 send(NULL);
                 compress_pop(m_compression);
@@ -124,10 +124,10 @@ video_rxtx::~video_rxtx() {
 }
 
 void video_rxtx::start() {
-        register_should_exit_callback(m_parent, should_exit_video_rxtx, this);
-        if (pthread_create
-                        (&m_thread_id, NULL, video_rxtx::sender_thread,
-                         (void *) this) != 0) {
+        register_should_exit_callback(m_common.parent, video_rxtx::should_exit,
+                                      this);
+        if (pthread_create(&m_thread_id, NULL, video_rxtx::sender_thread,
+                           (void *) this) != 0) {
                 throw string("Unable to create sender thread!\n");
         }
         m_joined = false;
@@ -139,6 +139,7 @@ void video_rxtx::join() {
         }
         send(NULL); // pass poisoned pill
         pthread_join(m_thread_id, NULL);
+        unregister_should_exit_callback(m_common.parent, video_rxtx::should_exit, this);
         m_joined = true;
 }
 
@@ -190,7 +191,7 @@ void *video_rxtx::sender_loop() {
                         break;
                 }
 
-                export_video(m_exporter, tx_frame.get());
+                export_video(m_common.exporter, tx_frame.get());
 
                 send_frame(std::move(tx_frame));
                 m_frames_sent += 1;
@@ -220,3 +221,10 @@ void video_rxtx::list(bool full)
         list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, full);
 }
 
+void
+video_rxtx::set_audio_spec(const struct audio_desc * /* desc */,
+                           int /* audio_rx_port */, int /* audio_tx_port */,
+                           bool /* ipv6 */)
+{
+        MSG(INFO, "video RXTX not h264_rtp, not setting audio...\n");
+}

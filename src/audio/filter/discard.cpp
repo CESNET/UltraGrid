@@ -71,7 +71,7 @@ static void usage(){
 static af_result_code init(struct module *parent, const char *cfg, void **state){
         auto s = std::make_unique<state_discard>(parent);
 
-        if(strcmp(cfg, ":help") == 0){
+        if(strcmp(cfg, "help") == 0){
                 usage();
                 return AF_HELP_SHOWN;
         }

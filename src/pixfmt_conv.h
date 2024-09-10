@@ -101,6 +101,7 @@ decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates
 decoder_func_t vc_copylineRGBA;
 decoder_func_t vc_copylineToRGBA_inplace;
 decoder_func_t vc_copylineABGRtoRGB;
+decoder_func_t vc_copylineBGRAtoRGB;
 decoder_func_t vc_copylineRGBtoRGBA;
 decoder_func_t vc_copylineRGBtoUYVY_SSE;
 decoder_func_t vc_copylineRGBtoGrayscale_SSE;

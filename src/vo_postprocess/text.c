@@ -43,7 +43,7 @@
 
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"       // WAND7
 #include "config_unix.h"
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
@@ -229,8 +229,7 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
                 color_outline = "#EB8080FF";
                 colorspace = "UYVY";
         } else {
-                log_msg(LOG_LEVEL_ERROR, "[text vo_pp.] Codec not supported! Please report to "
-                                PACKAGE_BUGREPORT ".\n");
+                bug_msg(LOG_LEVEL_ERROR, "[text vo_pp.] Codec not supported! ");
                 return false;
         }
 

@@ -40,30 +40,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
+#include <assert.h>             // for assert
+#include <stdbool.h>            // for false, true
+#include <stdint.h>             // for uint8_t, uint32_t, uint16_t
+#include <stdlib.h>             // for free, malloc, NULL
+#include <string.h>             // for memcpy
+
+#include "compat/htonl.h"       // for ntohs
 #include "debug.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
+#include "rtp/rtpenc_h264.h"    // for get_nalu_name
 #include "rtp/rtpdec_h264.h"
+#include "rtp/rtpdec_state.h"
+#include "types.h"              // for tile, video_frame, frame_type
 #include "utils/h264_stream.h"
 #include "utils/bs.h"
 #include "video_frame.h"
 
-// NAL values >23 are invalid in H.264 codestream but used by RTP
-#define RTP_STAP_A 24
-#define RTP_STAP_B 25
-#define RTP_MTAP16 26
-#define RTP_MTAP24 27
-#define RTP_FU_A   28
-#define RTP_FU_B   29
 /// type was 1-23 representing H.264 NAL type
 #define H264_NAL   32
+
+#define MOD_NAME "[rtpdec_h264] "
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
@@ -82,7 +81,8 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
     uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
-    log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
+    log_msg(LOG_LEVEL_DEBUG2, "NAL type %s (%d; nri: %d)\n",
+            get_nalu_name(type), (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
         fill_coded_frame_from_sps(frame, data, data_len);
@@ -98,6 +98,12 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     return type;
 }
 
+/**
+ * @param pass  0 - extracts frame metadata (type; width height if SPS present)
+ * and computes required out buffer length;
+ *              1 - copy NAL units to output buffer separated by start codes
+ * ([0,]0,0,1i; Annex-B)
+ */
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
     int fu_length = 0;
     uint8_t nal = data[0];
@@ -146,14 +152,14 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
-                    return FALSE;
+                    return false;
                 }
                 data += nal_size;
                 data_len -= nal_size;
 
                 if (data_len < 0) {
                     error_msg("Consumed more bytes than we got! (%d)\n", data_len);
-                    return FALSE;
+                    return false;
                 }
 
             }
@@ -174,7 +180,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
         case RTP_MTAP24:
         case RTP_FU_B:
             error_msg("Unhandled NAL type %d\n", type);
-            return FALSE;
+            return false;
         case RTP_FU_A:
             data++;
             data_len--;
@@ -221,14 +227,41 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 }
             } else {
                 error_msg("Too short data for FU-A H264 RTP packet\n");
-                return FALSE;
+                return false;
             }
             break;
         default:
             error_msg("Unknown NAL type %d\n", type);
-            return FALSE;
+            return false;
     }
-    return TRUE;
+    return true;
+}
+
+static void
+write_sps_pps(struct video_frame *frame, struct decode_data_rtsp *decode_data) {
+        memcpy(frame->tiles[0].data, decode_data->h264.offset_buffer,
+               decode_data->offset_len);
+}
+
+/**
+ * This is not mandatory and is merely an optimization - we can emit PPS/SPS
+ * early (otherwise it is prepended only to IDR frames). The aim is to allow
+ * the receiver to probe the format while allowing it to reconfigure, it can
+ * then display the following IDR (otherwise it would be used to probe and the
+ * only next would be displayed).
+ */
+struct video_frame *
+get_sps_pps_frame(const struct video_desc *desc,
+             struct decode_data_rtsp *decode_data)
+{
+        if (decode_data->offset_len == 0) {
+                return NULL;
+        }
+        struct video_frame *frame = vf_alloc_desc_data(*desc);
+        frame->tiles[0].data_len  = decode_data->offset_len;
+        frame->callbacks.dispose  = vf_free;
+        write_sps_pps(frame, decode_data);
+        return frame;
 }
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
@@ -236,7 +269,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
 
     int total_length = 0;
 
-    struct decode_data_h264 *data = (struct decode_data_h264 *) decode_data;
+    struct decode_data_rtsp *data = decode_data;
     struct video_frame *frame = data->frame;
     frame->frame_type = BFRAME;
 
@@ -249,6 +282,9 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                 total_length+=data->offset_len;
             }
             frame->tiles[0].data_len = total_length;
+            assert(frame->tiles[0].data == NULL);
+            frame->tiles[0].data = malloc(total_length);
+            frame->callbacks.data_deleter = vf_data_deleter;
             dst = (unsigned char *) frame->tiles[0].data + total_length;
         }
 
@@ -256,14 +292,18 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
             rtp_packet *pckt = cdata->data;
 
             if (!decode_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
-                return FALSE;
+                return false;
             }
 
             cdata = cdata->nxt;
         }
     }
 
-    return TRUE;
+    if (frame->frame_type == INTRA) {
+        write_sps_pps(frame, data);
+    }
+
+    return true;
 }
 
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len){

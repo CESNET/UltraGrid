@@ -128,6 +128,7 @@ void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
 
 static void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
 	static_cast<Ui::UltragridWindow *>(opaque)->vuMeter->setVisible(opt.isEnabled());
+	static_cast<Ui::UltragridWindow *>(opaque)->vuMeterSend->setVisible(opt.isEnabled());
 }
 
 void SettingsUi::addCallbacks(){
@@ -170,6 +171,7 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
+	addControl(new LineEditUi(ui->extraOptsLineEdit, settings, "extraOpts"));
 	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
 
 	addDeviceTabs();

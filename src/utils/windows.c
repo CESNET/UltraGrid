@@ -41,15 +41,33 @@
 #include <objbase.h>
 #include <tlhelp32.h>
 #include <vfwmsgs.h>
-#include "debug.h"
+#include <dbghelp.h>
+#include <io.h>
+
+#include "utils/macros.h"
 #endif // defined _WIN32
 
+#include "debug.h"
 #include "utils/windows.h"
 
 #define MOD_NAME "[utils/win] "
 
+/**
+ * @param[out] com_initialize a pointer to a bool that will be passed to
+ * com_uninintialize(). The value should be initialized to false - the current
+ * logic can guard only one init/uninit so true is assumed bo be a repeated call.
+ * @param[in] err_prefix optional error prefix to be used for eventual error
+ * messges (may be NULL)
+ * @retval true  if either COM already initalized for this thread or this call
+ * initializes COM succesfully
+ * @retval false  COM could not have been initialized
+ */
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
+        if (*com_initialized) {
+                MSG(WARNING, "com_initialized should be initalized to false "
+                             "upon the call!\n");
+        }
 #ifdef _WIN32
         if (err_prefix == NULL) {
                 err_prefix = "";
@@ -174,7 +192,10 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
         int ret = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /* NULL-terminated */, res, sizeof res - 1, NULL, NULL);
         if (ret == 0) {
                 if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: Insufficient buffer length %zd, please report to %s!\n", sizeof res, PACKAGE_BUGREPORT);
+                        bug_msg(
+                            LOG_LEVEL_ERROR,
+                            "win_wstr_to_str: Insufficient buffer length %zd. ",
+                            sizeof res);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s\n", get_win32_error(GetLastError()));
                 }
@@ -269,6 +290,36 @@ get_windows_build()
             osVersionInfo.dwMajorVersion, osVersionInfo.dwMinorVersion,
             osVersionInfo.dwBuildNumber);
         return osVersionInfo.dwBuildNumber;
+}
+
+void
+print_stacktrace_win()
+{
+        void          *stack[100];
+        unsigned short frames;
+        SYMBOL_INFO   *symbol;
+        HANDLE         process;
+
+        process = GetCurrentProcess();
+        SymInitialize(process, NULL, TRUE);
+
+        frames = CaptureStackBackTrace(0, 100, stack, NULL);
+        symbol =
+            (SYMBOL_INFO *) malloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char));
+        symbol->MaxNameLen   = 255;
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+        char backtrace_msg[] = "Backtrace:\n";
+        _write(STDERR_FILENO, backtrace_msg, strlen(backtrace_msg));
+        for (unsigned short i = 0; i < frames; i++) {
+                SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
+                char buf[STR_LEN];
+                snprintf_ch(buf, "%i (%p): %s - 0x%0llX\n", frames - i - 1,
+                            stack[i], symbol->Name, symbol->Address);
+                _write(STDERR_FILENO, buf, strlen(buf));
+        }
+
+        free(symbol);
 }
 
 #endif // defined _WIN32

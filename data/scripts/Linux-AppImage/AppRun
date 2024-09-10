@@ -40,6 +40,9 @@ usage() {
         printf "\t${bold}${red}%s${reset} ${bold}-h | --help | --fullhelp${reset}\n" "$ARGV0"
         printf "\t\tprints this help (extended version with ${bold}--fullhelp${reset})\n"
         printf "\n"
+        printf "\t${bold}${red}%s${reset} ${bold}--ug-help${reset}\n" "$ARGV0"
+        printf "\t\tprints UltraGrid help (as '-h' if it weren't run from AppImage)\n"
+        printf "\n"
         printf "\t${bold}${red}%s${reset} ${bold}-m|--man [uv|hd-rum-transcode]${reset}\n" "$ARGV0"
         printf "\t\tprints manual page\n"
         printf "\n"
@@ -149,7 +152,17 @@ libavcodec.so" | grep "$1" | grep -v 'not found' | awk '{print $3}'
                 libva_libs=$libva_libs:$libvdpau_lib
         fi
 
+        S_LD_PRELOAD=$LD_PRELOAD
         export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
+
+        # check if lavc still binds with system libva
+        if LD_LIBRARY_PATH=$n_ld_library_path LD_BIND_NOW=1 LD_WARN=1 \
+                        LD_TRACE_LOADED_OBJECTS=1 "$LOADER" \
+                        "$AI_LIBAVCODEC_LIB" 2>&1 |
+                        grep -q 'undefined symbol'; then
+                LD_PRELOAD=$S_LD_PRELOAD
+                return 1
+        fi
 }
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
@@ -246,7 +259,8 @@ get_custom_firejail_rules() {
         if expr "$*" : '.*screen' >/dev/null; then
                 printf " --ignore=noroot"
         elif firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
-                printf " --dbus-system=none"
+                printf " --dbus-system=filter \
+--dbus-system.talk=org.freedesktop.Avahi"
         fi
 
         if ! expr "$*" : '.*/mnt' >/dev/null &&
@@ -302,14 +316,35 @@ expr,kill,ps,sed,seq,sh,tput,tr,tty,uname"
         fi
 }
 
+# run only if Firejail is used to workaround not restored TIO by UG if FJ kills
+# the UG process prematurelly; otherwise not needed (exec is used)
+fj_sigaction() {
+        trap '' TERM # inhibit following signal to ourselves
+        if ps -o cmd >/dev/null 2>&1; then
+                pgid=$(ps -o pgid= -p $$ | tr -d ' ')
+        fi
+        if [ $$ -eq "$pgid" ]; then
+                kill -- -$$
+        else
+                echo "pgid $pgid not pid of the script ($$), not sending kill" \
+                        >&2
+        fi
+        trap - INT TERM
+        wait
+        stty "$stty_orig"
+        echo "Restored TIO" >&2
+}
+
 run() {
         tool=$1
         shift
         setup_firejail "$tool"
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
+                stty_orig=$(stty -g)
+                trap fj_sigaction INT TERM
                 # shellcheck disable=SC2046 # intentional
-                eval exec $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
+                eval $(cat "$fj_opt_file"; rm "$fj_opt_file") "$DIR/usr/bin/$tool" '"$@"'
         else
                 exec "$DIR/usr/bin/$tool" "$@"
         fi
@@ -337,6 +372,8 @@ elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
 elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
         usage
         exit 0
+elif [ "$1" = "--ug-help" ]; then
+        run uv -h
 elif [ "$1" = "--fullhelp" ]; then
         usage
         usage_aux

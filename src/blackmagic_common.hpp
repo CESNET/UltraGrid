@@ -39,6 +39,9 @@
 #define BLACKMAGIC_COMMON_HPP
 
 #ifdef _WIN32
+#include <winsock2.h> // needs to be included prior to windows.h which will be
+                      // included by foolowing include; wsock2.h needed for
+                      // htonl used by vcap/vdisp
 #include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
 #else
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
@@ -48,6 +51,8 @@
 #include <cstdbool>
 #include <cstdint>
 #include <map>
+#include <memory>
+#include <tuple>
 #include <vector>
 #include <string>
 #include <type_traits>
@@ -131,9 +136,8 @@ std::string get_str_from_bmd_api_str(BMD_STR string);
 std::string bmd_get_flags_str(BMDDisplayModeFlags flags);
 #endif
 
-///< @param[out] com_initialized - pass a pointer to bool
-IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose = true, bool coinit = true);
-///< @param com_initialized - pointer passed to create_decklink_iterator
+IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose = true);
+/// @param com_initialized - pointer passed to create_decklink_iterator
 void decklink_uninitialize(bool *com_initialized);
 bool blackmagic_api_version_check();
 void print_decklink_version(void);
@@ -161,6 +165,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
 
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
+#define BMD_NAT_SORT "bmd-sort-natural"
 
 template <typename T>
 bool decklink_supports_codec(T *deckLink, BMDPixelFormat pf);
@@ -173,6 +178,19 @@ decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
 bool bmd_parse_audio_levels(const char *opt) noexcept(false);
 void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                          const char                 *query_prop_fcc);
+
+/**
+ * @details parameters:
+ * - first - IDeckLinkInstance
+ * - unsigned - topological ID
+ * - int - natural idx (the old, order as given by IDeckLinkIterator)
+ * - char - new index ('a', 'b', 'c'...); sorted by topological ID
+ */
+using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
+                           unsigned, int, char>;
+std::vector<bmd_dev> bmd_get_sorted_devices(bool *com_initialized,
+                                            bool  verbose      = true,
+                                            bool  natural_sort = false);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

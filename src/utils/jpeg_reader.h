@@ -40,8 +40,10 @@
 
 #ifndef __cplusplus
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #else
+#include <cstddef>
 #include <cstdint>
 #endif
 
@@ -90,6 +92,19 @@ extern "C" {
 
 int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info);
 bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hdr_data);
+
+// for writer
+struct huffman_table {
+        const uint8_t *bits; // 16 items
+        const uint8_t *bufval;
+};
+enum huff_type { ///< order of tables in @ref default_huffman_tables
+        LUM_DC = 0,
+        LUM_AC = 1,
+        CHR_DC = 2,
+        CHR_AC = 3,
+};
+extern const struct huffman_table default_huffman_tables[4];
 
 #ifdef __cplusplus
 }

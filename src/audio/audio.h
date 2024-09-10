@@ -49,10 +49,14 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#define DEFAULT_AUDIO_FEC       "none"
+#define DEFAULT_AUDIO_SCALE     "mixauto"
+
 #define AUDIO_PROTOCOLS "JACK, rtsp, sdp or ultragrid_rtp" // available audio protocols
 #define PORT_AUDIO              5006
 
 #include "audio/types.h"
+#include "host.h" // common_opt
 #include "module.h"
 #include "tv.h"
 
@@ -69,21 +73,17 @@ struct audio_options {
         const char *send_cfg = "none";
         const char *proto = "ultragrid_rtp";
         const char *proto_cfg = "";
-        const char *fec_cfg = "none";
+        const char *fec_cfg = DEFAULT_AUDIO_FEC;
         char *channel_map = nullptr;
-        const char *scale = "none";
+        const char *scale = DEFAULT_AUDIO_SCALE;
         bool echo_cancellation = false;
         const char *codec_cfg = "PCM";
         const char *filter_cfg = "";
 };
 
-int audio_init(struct state_audio **state, struct module *parent,
-                struct audio_options *opt,
-                const char *encryption,
-                int force_ip_version, const char *mcast_iface,
-                long long int bitrate, volatile int *audio_delay,
-                time_ns_t start_time,
-                int mtu, int ttl, struct exporter *exporter);
+int audio_init(struct state_audio **state,
+               const struct audio_options *opt,
+               const struct common_opts   *common);
 #endif
 
 #ifdef __cplusplus
@@ -97,12 +97,20 @@ void audio_join(struct state_audio *s);
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
 struct audio_frame * sdi_get_frame(void *state);
 void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_display_callbacks(struct state_audio *s, void *udata,
-                                      void (*putf)(void *,
-                                                   const struct audio_frame *),
-                                      bool (*reconfigure)(void *, int, int, int),
-                                      bool (*get_property)(void *, int, void *,
-                                                          size_t *));
+
+struct display;
+struct video_rxtx;
+struct additional_audio_data {
+        struct {
+                void *udata;
+                void (*putf)(struct display *, const struct audio_frame *);
+                bool (*reconfigure)(struct display *, int, int, int);
+                bool (*get_property)(struct display *, int, void *, size_t *);
+        } display_callbacks;
+        struct video_rxtx *vrxtx;
+};
+void audio_register_aux_data(struct state_audio          *s,
+                             struct additional_audio_data data);
 
 struct audio_frame * audio_get_frame(struct state_audio *s);
 

@@ -40,36 +40,64 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif
 
-#ifndef _WIN32
+#include "host.h"
+
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <execinfo.h>
 #include <fcntl.h>
-#endif // defined _WIN32
+#endif // !defined _WIN32
+
+#ifdef __gnu_linux__
+#include <features.h>                   // for __GLIBC__, __GLIBC_MINOR__
+#include <sys/mman.h>                   // for memfd_create, MFD_CLOEXEC
+#endif
 
 #if __GLIBC__ == 2 && __GLIBC_MINOR__ < 27
 #include <sys/syscall.h>
 #endif
 
-#include "host.h"
+#include <algorithm>                    // for max
+#include <array>
+#include <cassert>                      // for assert
+#include <cerrno>                       // for errno
+#include <cmath>                        // for abs
+#include <csignal>                      // for signal, SIGALRM, SIG_DFL, raise
+#include <cstdint>                      // for uint32_t
+#include <cstdio>                       // for printf, puts, perror, _IONBF
+#include <cstdlib>                      // for abort, getenv, free, abs, EXI...
+#include <cstring>                      // for strlen, strcmp, NULL, strchr
+#include <getopt.h>                     // for getopt, optarg, opterr
+#include <iterator>                     // for size
+#include <map>                          // for map, _Rb_tree_iterator, opera...
+#include <mutex>                        // for mutex, unique_lock
+#include <string_view>                  // for operator<<, operator==, strin...
+#include <sys/types.h>                  // for ssize_t
+#include <tuple>                        // for tuple, get, make_tuple
+#include <unistd.h>                     // for STDERR_FILENO
+#include <vector>                       // for vector
 
 #include "audio/audio_capture.h"
+#include "audio/audio_filter.h"
 #include "audio/audio_playback.h"
-#include "audio/audio_filter.h"
 #include "audio/codec.h"
-#include "audio/audio_filter.h"
+#include "audio/types.h"                // for audio_desc
 #include "audio/utils.h"
-#include "compat/misc.h"
+#include "capture_filter.h"
 #include "compat/platform_pipe.h"
+#include "compat/strings.h"  // strdupa
+#include "config_unix.h"                // for fd_t
+#include "cuda_wrapper.h"               // for cudaDeviceReset
 #include "debug.h"
 #include "keyboard_control.h"
 #include "lib_common.h"
-#include "messaging.h"
 #include "module.h"
+#include "types.h"                      // for device_info, device_option
 #include "utils/color_out.h"
-#include "utils/fs.h"
+#include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/misc.h" // ug_strerror
 #include "utils/random.h"
 #include "utils/string.h"
@@ -78,18 +106,13 @@
 #include "utils/thread.h"
 #include "utils/windows.h"
 #include "video_capture.h"
+#include "video_codec.h"                // for get_codec_name, get_codec_nam...
 #include "video_compress.h"
 #include "video_display.h"
-#include "capture_filter.h"
-#include "video.h"
 
-#include <array>
-#include <chrono>
-#include <getopt.h>
 #include <iomanip>
 #include <iostream>
 #include <list>
-#include <sstream>
 #include <fstream>
 #include <string>
 #include <thread>
@@ -176,6 +199,7 @@ struct init_data {
 static void print_param_doc(void);
 static bool validate_param(const char *param);
 
+static bool unexpected_exit_called = true; // check for unexpected exit()
 void common_cleanup(struct init_data *init)
 {
         if (init) {
@@ -195,6 +219,13 @@ void common_cleanup(struct init_data *init)
 #ifdef _WIN32
         WSACleanup();
 #endif
+
+#if defined CUDA_DEVICE_RESET
+        // to allow "cuda-memcheck --leak-check full"
+        cuda_wrapper_device_reset();
+#endif
+
+        unexpected_exit_called = false;
 }
 
 ADD_TO_PARAM("stdout-buf",
@@ -394,6 +425,13 @@ tok_in_argv(char **argv, const char *tok)
         return false;
 }
 
+static void echeck_unexpected_exit(void ) {
+        if (!unexpected_exit_called) {
+                return;
+        }
+        fprintf(stderr, "exit() called unexpectedly! Maybe by some library?\n");
+}
+
 struct init_data *common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -465,6 +503,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         // warn in W10 "legacy" terminal emulators
         if (getenv("TERM") == nullptr &&
+            _isatty(fileno(stdout)) &&
             get_windows_build() < BUILD_WINDOWS_11_OR_LATER &&
             (win_has_ancestor_process("powershell.exe") ||
              win_has_ancestor_process("cmd.exe")) &&
@@ -491,6 +530,8 @@ struct init_data *common_preinit(int argc, char *argv[])
 #ifdef HAVE_FEC_INIT
         fec_init();
 #endif
+
+        atexit(echeck_unexpected_exit);
 
         return new init_data{ std::move(init) };
 }
@@ -1162,7 +1203,9 @@ bool running_in_debugger(){
 static void
 print_backtrace()
 {
-#ifndef _WIN32
+#ifdef _WIN32
+        print_stacktrace_win();
+#else
         // print to a temporary file to avoid interleaving from multiple
         // threads
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 27)

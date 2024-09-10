@@ -45,6 +45,10 @@
 #ifndef TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 #define TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef __cplusplus
 #include <cstdint>
 #include <ctime>
@@ -75,10 +79,15 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
-#define MS_IN_NS 1000000
+/// @todo
+/// The naming is inconsistent - whereas US_IN_NS is the 1 us represented in ns,
+/// MS_IN_SEC is count of milliseconds in a second. Unifiy the use.
+#define MS_IN_NS      1000000
 #define MS_IN_NS_DBL 1000000.0
 #define MS_IN_SEC 1000
 #define MS_IN_SEC_DBL 1000.0
+#define US_IN_1MS 1000
+#define US_IN_1MS_DBL 1000.0
 #define US_IN_SEC 1000000LL
 #define US_IN_NS 1000LL
 #define US_IN_SEC_DBL ((double) US_IN_SEC)

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,23 +35,30 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <stdbool.h>                                // for false, bool, true
+#include <stdint.h>                                 // for uint32_t
+#include <stdio.h>                                  // for printf
+#include <stdlib.h>                                 // for free, NULL, calloc
+#include <string.h>                                 // for memcpy, strcmp
 
-#include "capture_filter.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/color_out.h"
-#include "video.h"
-#include "video_codec.h"
-#include "vo_postprocess/capture_filter_wrapper.h"
+#include "capture_filter.h"                         // for CAPTURE_FILTER_AB...
+#include "debug.h"                                  // for log_msg, LOG_LEVE...
+#include "lib_common.h"                             // for REGISTER_MODULE
+#include "pixfmt_conv.h"                            // for get_decoder_from_to
+#include "types.h"                                  // for tile, video_frame
+#include "utils/color_out.h"                        // for color_printf, TER...
+#include "utils/macros.h"                           // for to_fourcc
+#include "video_codec.h"                            // for vc_get_linesize
+#include "video_frame.h"                            // for vf_alloc_desc
+#include "vo_postprocess.h"                         // for VO_PP_PROPERTY_CO...
+#include "vo_postprocess/capture_filter_wrapper.h"  // for ADD_VO_PP_CAPTURE...
+struct module;
 
+#define MAGIC to_fourcc('C', 'F', 'C', 'P')
 #define MOD_NAME "[change pixfmt cap. f.] "
 
 struct state_capture_filter_change_pixfmt {
+        uint32_t magic;
         codec_t to_codec;
         void *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
@@ -68,6 +75,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         }
 
         struct state_capture_filter_change_pixfmt *s = calloc(1, sizeof(struct state_capture_filter_change_pixfmt));
+        s->magic = MAGIC;
         s->to_codec = get_codec_from_name(cfg);
         if (!s->to_codec) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n", cfg);
@@ -99,7 +107,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (s->vo_pp_out_buffer) {
                 out->tiles[0].data = s->vo_pp_out_buffer;
         } else {
-                out->tiles[0].data = malloc(out->tiles[0].data_len);
+                out->tiles[0].data = malloc(out->tiles[0].data_len + MAX_PADDING);
                 out->callbacks.data_deleter = vf_data_deleter;
         }
         out->callbacks.dispose = vf_free;
@@ -133,8 +141,37 @@ static const struct capture_filter_info capture_filter_change_pixfmt = {
         .filter = filter,
 };
 
+static bool
+change_pixfmt_vo_pp_get_property(void *state, int property, void *val, size_t *len)
+{
+        if (property != VO_PP_PROPERTY_CODECS) {
+                return false;
+        }
+
+        struct state_capture_filter_change_pixfmt *s = state;
+        const size_t alloc_len = *len;
+        *len = 0;
+        for (codec_t c = VC_FIRST; c < VC_END; ++c)  {
+                decoder_t decoder = get_decoder_from_to(c, s->to_codec);
+                if (decoder == NULL) {
+                        continue;
+                }
+                if (*len + sizeof c > alloc_len) {
+                        MSG(ERROR, "Insufficient size %zd for get_property!\n",
+                            alloc_len);
+                        return false;
+                }
+                memcpy((char*) val + *len, &c, sizeof c);
+                *len += sizeof c;
+        }
+        return true;
+}
+
 // coverity[leaked_storage:SUPPRESS]
-ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done, vo_pp_set_out_buffer)
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done,
+                                 vo_pp_set_out_buffer,
+                                 change_pixfmt_vo_pp_get_property)
+
 REGISTER_MODULE(change_pixfmt, &capture_filter_change_pixfmt, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
 

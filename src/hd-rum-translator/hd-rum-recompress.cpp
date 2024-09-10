@@ -74,9 +74,10 @@ using namespace std;
 
 struct recompress_output_port {
         recompress_output_port() = default;
-        recompress_output_port(struct module *parent,
+        recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, int mtu, const char *fec, long long bitrate);
+                unsigned short tx_port, const struct common_opts *common,
+                const char *fec, long long bitrate);
 
         std::unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
         std::string host;
@@ -105,36 +106,28 @@ struct state_recompress {
         std::vector<std::pair<std::string, int>> index_to_port;
 };
 
-recompress_output_port::recompress_output_port(struct module *parent,
+recompress_output_port::recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, int mtu, const char *fec, long long bitrate) :
+                unsigned short tx_port, const struct common_opts *common,
+                const char *fec, long long bitrate) :
         host(std::move(host)),
         tx_port(tx_port),
         frames(0),
         active(true)
 {
-        int force_ip_version = 0;
-
         std::map<std::string, param_u> params;
 
         // common
-        params["parent"].ptr = parent;
-        params["exporter"].ptr = NULL;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_SENDER;
 
         //RTP
-        params["mtu"].i = mtu;
+        params["common"].cptr = common;
         params["receiver"].str = this->host.c_str();
         params["rx_port"].i = rx_port;
         params["tx_port"].i = tx_port;
-        params["force_ip_version"].i = force_ip_version;
-        params["mcast_if"].str = NULL;
         params["fec"].str = fec;
-        params["encryption"].str = NULL;
         params["bitrate"].ll = bitrate;
-        params["start_time"].ll = get_time_in_ns();
-        params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;
@@ -209,15 +202,16 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
         return index_in_worker;
 }
 
-int recompress_add_port(struct state_recompress *s, struct module *parent_rep,
+int recompress_add_port(struct state_recompress *s,
 		const char *host, const char *compress, unsigned short rx_port,
-		unsigned short tx_port, int mtu, const char *fec, long long bitrate)
+                unsigned short tx_port, const struct common_opts *common,
+                const char *fec, long long bitrate)
 {
         recompress_output_port port;
 
         try{
-                port = recompress_output_port(parent_rep, host, rx_port, tx_port,
-                                mtu, fec, bitrate);
+                port = recompress_output_port(host, rx_port, tx_port,
+                                common, fec, bitrate);
         } catch(...) {
                 return -1;
         }

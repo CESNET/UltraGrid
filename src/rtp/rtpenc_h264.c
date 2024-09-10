@@ -136,6 +136,8 @@ const char *
 get_nalu_name(int type)
 {
         switch ((enum nal_type) type) {
+        case NAL_H264_NON_IDR:
+                return "H264 non-IDR";
         case NAL_H264_IDR:
                 return "H264 IDR";
         case NAL_H264_SEI:
@@ -154,6 +156,20 @@ get_nalu_name(int type)
                 return "HEVC PPS";
         case NAL_HEVC_AUD:
                 return "HEVC AUD";
+        }
+        switch ((enum aux_nal_types) type) {
+        case RTP_STAP_A:
+                return "RTP STAP A";
+        case RTP_STAP_B:
+                return "RTP STAP B";
+        case RTP_MTAP16:
+                return "RTP MTAP 16";
+        case RTP_MTAP24:
+                return "RTP MTAP 24";
+        case RTP_FU_A:
+                return "RTP FU A";
+        case RTP_FU_B:
+                return "RTP FU B";
         }
         _Thread_local static char buf[32];
         snprintf(buf, sizeof buf, "(NALU %d)", type);

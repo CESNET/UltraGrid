@@ -3,7 +3,8 @@
  *           Ignacio Contreras <ignacio.contreras@i2cat.net>,
  *           Gerard Castillo <gerard.castillo@i2cat.net>
  *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2015-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -55,6 +56,7 @@ enum {
 
 enum nal_type {
         // H.264
+        NAL_H264_NON_IDR = 1,
         NAL_H264_IDR = 5,
         NAL_H264_SEI = 6,
         NAL_H264_SPS = 7,
@@ -67,15 +69,19 @@ enum nal_type {
         NAL_HEVC_AUD = 35,
 };
 
-struct video_frame;
-
-struct decode_data_h264 {
-        struct video_frame *frame;
-        int offset_len;
-        int video_pt;
+/// NAL values >23 are invalid in H.264 codestream but used by RTP
+enum aux_nal_types {
+        RTP_STAP_A = 24,
+        RTP_STAP_B = 25,
+        RTP_MTAP16 = 26,
+        RTP_MTAP24 = 27,
+        RTP_FU_A   = 28,
+        RTP_FU_B   = 29,
 };
 
 struct coded_data;
+struct decode_data_rtsp;
+struct video_desc;
 
 #define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
 #define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
@@ -83,6 +89,8 @@ struct coded_data;
         ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
+struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
+                                      struct decode_data_rtsp *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 
 #ifdef __cplusplus

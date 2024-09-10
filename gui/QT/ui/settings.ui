@@ -51,7 +51,7 @@
             <x>0</x>
             <y>0</y>
             <width>323</width>
-            <height>363</height>
+            <height>360</height>
            </rect>
           </property>
          </widget>
@@ -499,7 +499,7 @@
        <item row="1" column="1">
         <widget class="QLineEdit" name="encryptionLineEdit"/>
        </item>
-       <item row="2" column="0">
+       <item row="3" column="0">
         <widget class="QCheckBox" name="advModeCheck">
          <property name="toolTip">
           <string>Show all input/output modules as reported by UltraGrid. Note that most of the hidden devices are not useful.</string>
@@ -508,6 +508,16 @@
           <string>Show hidden devices</string>
          </property>
         </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="cap_filers_label">
+         <property name="text">
+          <string>Extra options</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="extraOptsLineEdit"/>
        </item>
       </layout>
      </widget>

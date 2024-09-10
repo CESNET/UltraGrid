@@ -3,7 +3,7 @@
  * @author Martin Pulec      <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2024 CESNET
  * All rights reserved.
  *
  * Using sample code from NDI.
@@ -52,7 +52,13 @@
 #include "utils/macros.h" // MAX, MERGE, TOSTRING
 
 #ifndef USE_NDI_VERSION
-#define USE_NDI_VERSION 5
+#define USE_NDI_VERSION 6
+#endif
+
+#if USE_NDI_VERSION >= 6
+#define NDI_API_VERSION 5
+#else
+#define NDI_API_VERSION USE_NDI_VERSION
 #endif
 
 #ifdef __linux__
@@ -63,9 +69,9 @@
 #else
 #define FALLBACK_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
 #endif
-#define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(USE_NDI_VERSION) "_load"
+#define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(NDI_API_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
-typedef MAKE_NDI_LIB_NAME(USE_NDI_VERSION) NDIlib_t;
+typedef MAKE_NDI_LIB_NAME(NDI_API_VERSION) NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
 
 static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
@@ -111,6 +117,7 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         const char *lib_cand[3] = {getenv(NDILIB_REDIST_FOLDER) ? getenv(NDILIB_REDIST_FOLDER) : "",
                                    "/usr/local/lib", FALLBACK_NDI_PATH};
         void *hNDILib = NULL;
+        const char *last_err = "(none)";
         for (unsigned int i = 0; i < sizeof lib_cand / sizeof lib_cand[0]; i++) {
                 if (i > 0) {
                         log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n",
@@ -128,7 +135,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                 if (hNDILib) {
                         break;
                 }
-                log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
+                last_err = dlerror();
+                log_msg(LOG_LEVEL_WARNING,
+                        "[NDI] Failed to open the library: %s\n", last_err);
         }
 
         // The main NDI entry point for dynamic loading if we got the library
@@ -139,7 +148,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
 
         // If we failed to load the library then we tell people to re-install it
         if (!NDIlib_load) {       // Unload the library if we loaded it
-                log_msg(LOG_LEVEL_ERROR, "[NDI] Failed to open the library: %s\n", dlerror());
+                log_msg(LOG_LEVEL_ERROR,
+                        "[NDI] Failed to open the library: %s\n", last_err);
+
                 if (strlen(NDILIB_REDIST_URL) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "[NDI] Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application.\n");
                 } else { // NDILIB_REDIST_URL is set to "" in Linux
@@ -171,8 +182,12 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_printf(TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available from http://ndi.tv/\n" \
-                        u8"NDI® is a registered trademark of NewTek, Inc.\n\n" TERM_RESET); int not_defined_function
+        color_printf( \
+            TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available " \
+                                   u8"from https://ndi.video/\n" \
+                                   u8"NDI® is a registered trademark of " \
+                                   u8"Vizrt NDI AB.\n\n" TERM_RESET); \
+        int not_defined_function
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 

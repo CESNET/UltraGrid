@@ -60,7 +60,7 @@
 #include <string>
 
 #include "debug.h"
-#include "host.h"
+#include "host.h"           // for common_opts, uv_argc, uv_argv
 #include "lib_common.h"
 #include "ihdtv/ihdtv.h"
 #include "video_display.h"
@@ -130,8 +130,8 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
 
 {
 #ifdef HAVE_IHDTV
-        int argc = params.at("argc").i;
-        char **argv = (char **) params.at("argv").ptr;
+        int argc = uv_argc;
+        char **argv = uv_argv;
         if ((argc != 0) && (argc != 1) && (argc != 2)) {
                 throw string("Wrong number of parameters");
         }
@@ -151,7 +151,7 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
                                 (&m_rx_connection, (argc == 0) ? NULL : argv[0],
                                  (argc ==
                                   0) ? NULL : ((argc == 1) ? argv[0] : argv[1]),
-                                 3000, 3001, params.at("mtu").i) != 0) {
+                                 3000, 3001, m_common.mtu) != 0) {
                         throw string("Error initializing receiver session");
                 }
         }
@@ -164,7 +164,7 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
                 if (ihdtv_init_tx_session
                                 (&m_tx_connection, argv[0],
                                  (argc == 2) ? argv[1] : argv[0],
-                                 params.at("mtu").i) != 0) {
+                                 m_common.mtu) != 0) {
                         throw string("Error initializing sender session");
                 }
         }

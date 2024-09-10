@@ -448,7 +448,11 @@ static struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_fra
          * some configurations, but seems to work currently. To be corrected if there is an
          * opposite case.
          */
-        parallel_pix_conv(s->tile->height, s->tile->data, vc_get_linesize(s->tile->width, RGB), &item->data->data[0], vc_get_linesize(s->tile->width, RGBA), vc_copylineABGRtoRGB, s->cpu_count);
+        parallel_pix_conv(s->tile->height, s->tile->data,
+                          vc_get_linesize(s->tile->width, RGB),
+                          &item->data->data[0],
+                          vc_get_linesize(s->tile->width, RGBA),
+                          vc_copylineBGRAtoRGB, s->cpu_count);
 
         XDestroyImage(item->data);
         free(item);

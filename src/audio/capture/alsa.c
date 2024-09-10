@@ -47,7 +47,6 @@
 /* Use the newer ALSA API */
 #define ALSA_PCM_NEW_HW_PARAMS_API
 
-#include "config.h"
 #include "config_unix.h"
 
 #include "host.h"
@@ -197,8 +196,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
                         }
                 }
                 if (s->frame.bps == 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find suitable sample format, "
-                                        "please contact %s.\n", PACKAGE_BUGREPORT);
+                        bug_msg(LOG_LEVEL_ERROR, MOD_NAME
+                                "Cannot find suitable sample format. ");
                         goto error;
                 }
         }

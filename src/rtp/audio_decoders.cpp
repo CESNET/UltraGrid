@@ -103,49 +103,6 @@ struct scale_data {
         double scale = 1.0;
 };
 
-struct channel_map {
-        ~channel_map() {
-                free(sizes);
-                for(int i = 0; i < size; ++i) {
-                        free(map[i]);
-                }
-                free(map);
-                free(contributors);
-        }
-        int **map = nullptr; // index is source channel, content is output channels
-        int *sizes = nullptr;
-        int *contributors = nullptr; // count of contributing channels to output
-        int size = 0;
-        int max_output = -1;
-
-        bool validate() {
-                for(int i = 0; i < size; ++i) {
-                        for(int j = 0; j < sizes[i]; ++j) {
-                                if(map[i][j] < 0) {
-                                        log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
-                                        return false;
-                                }
-                        }
-                }
-
-                return true;
-        }
-
-        void compute_contributors() {
-                for (int i = 0; i < size; ++i) {
-                        for (int j = 0; j < sizes[i]; ++j) {
-                                max_output = std::max(map[i][j], max_output);
-                        }
-                }
-                contributors = (int *) calloc(max_output + 1, sizeof(int));
-                for (int i = 0; i < size; ++i) {
-                        for (int j = 0; j < sizes[i]; ++j) {
-                                contributors[map[i][j]] += 1;
-                        }
-                }
-        }
-};
-
 struct state_audio_decoder_summary {
 private:
         unsigned long int last_bufnum = -1;
@@ -316,7 +273,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
-        if (encryption) {
+        if (strlen(encryption) > 0) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
@@ -333,67 +290,10 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         if(audio_channel_map) {
-                char *save_ptr = NULL;
-                char *item;
-                char *ptr;
-                tmp = ptr = strdup(audio_channel_map);
-
-                s->channel_map.size = 0;
-                while((item = strtok_r(ptr, ",", &save_ptr))) {
-                        ptr = NULL;
-                        // item is in format x1:y1
-                        if(isdigit(item[0])) {
-                                s->channel_map.size = std::max(s->channel_map.size, atoi(item) + 1);
-                        }
-                }
-                
-                s->channel_map.map = (int **) malloc(s->channel_map.size * sizeof(int *));
-                s->channel_map.sizes = (int *) malloc(s->channel_map.size * sizeof(int));
-
-                /* default value, do not process */
-                for(int i = 0; i < s->channel_map.size; ++i) {
-                        s->channel_map.map[i] = NULL;
-                        s->channel_map.sizes[i] = 0;
-                }
-
-                free (tmp);
-                tmp = ptr = strdup(audio_channel_map);
-
-                while((item = strtok_r(ptr, ",", &save_ptr))) {
-                        ptr = NULL;
-
-                        assert(strchr(item, ':') != NULL);
-                        int src;
-                        if(isdigit(item[0])) {
-                                src = atoi(item);
-                        } else {
-                                src = -1;
-                        }
-                        if(!isdigit(strchr(item, ':')[1])) {
-                                log_msg(LOG_LEVEL_ERROR, "Audio destination channel not entered!\n");
-                                goto error;
-                        }
-                        int dst = atoi(strchr(item, ':') + 1);
-                        if(src >= 0) {
-                                s->channel_map.sizes[src] += 1;
-                                if(s->channel_map.map[src] == NULL) {
-                                        s->channel_map.map[src] = (int *) malloc(1 * sizeof(int));
-                                } else {
-                                        s->channel_map.map[src] = (int *) realloc(s->channel_map.map[src], s->channel_map.sizes[src] * sizeof(int));
-                                }
-                                s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
-                        }
-                }
-
-                if (!s->channel_map.validate()) {
-                        log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
+                if (!parse_channel_map_cfg(&s->channel_map, audio_channel_map)) {
                         goto error;
                 }
                 s->channel_remapping = TRUE;
-                s->channel_map.compute_contributors();
-
-                free (tmp);
-                tmp = NULL;
         } else {
                 s->channel_remapping = FALSE;
                 s->channel_map.map = NULL;
@@ -525,6 +425,10 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
+        if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");
+        }
+
         int output_channels = decoder->channel_remapping ?
                         decoder->channel_map.max_output + 1: input_channels;
         audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
@@ -593,6 +497,7 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
                 char *out = nullptr;
                 int out_len = 0;
                 if (decoder->fec_state->decode(c.first.data(), c.first.size(), &out, &out_len, c.second)) {
+                        assert(out_len >= (int) sizeof(audio_payload_hdr_t));
                         if (!desc) {
                                 uint32_t quant_sample_rate = 0;
                                 uint32_t audio_tag = 0;

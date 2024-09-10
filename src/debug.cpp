@@ -178,12 +178,15 @@ void log_perror(int level, const char *msg)
  **/
 void debug_dump(const void *lp, int len)
 {
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
         const char *p;
         int i, j, start;
         char Buff[81];
         char tmpBuf[10];
 
-        _dprintf("Dump of %d=%x bytes\n", len, len);
+        _dprintf("Dump of %d=%xh bytes\n", len, len);
         start = 0L;
         while (start < len) {
                 /* start line with pointer position key */
@@ -193,9 +196,11 @@ void debug_dump(const void *lp, int len)
                 /* display each character as hex value */
                 for (i = start, j = 0; j < 16; p++, i++, j++) {
                         if (i < len) {
-                                snprintf(tmpBuf, sizeof tmpBuf, "%02X ", ((int)(*p) & 0xFF));
+                                snprintf(tmpBuf, sizeof tmpBuf, "%02X", ((int)(*p) & 0xFF));
                                 strcat(Buff, tmpBuf);
                         } else
+                                strcat(Buff, "  ");
+                        if (j % 2 == 1) /* space between groups of 2 */
                                 strcat(Buff, " ");
                         if (j == 7)     /* space between groups of 8 */
                                 strcat(Buff, " ");
@@ -363,6 +368,30 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
         skip_map[key] = -1;
 }
 #endif
+
+/**
+ * @brief prints the error with the advice to report the bug
+ *
+ * @param msg the message to be printed, can be prefixed with particular
+ * MOD_NAME. Should end with either ' ' or '\n' (what fits the caller better).
+ */
+void
+bug_msg(int level, const char *format, ...)
+{
+        char fmt_adj[STR_LEN];
+        snprintf_ch(fmt_adj,
+                "%sPlease report a bug"
+#ifdef PACKAGE_BUGREPORT
+                " to " PACKAGE_BUGREPORT
+#endif // defined PACKAGE_BUGREPORT
+                " if you reach here.\n",
+                format);
+
+        va_list ap;
+        va_start(ap, format);
+        log_vprintf(level, fmt_adj, ap);
+        va_end(ap);
+}
 
 Log_output::Log_output(){
         last_msg.reserve(initial_buf_size);

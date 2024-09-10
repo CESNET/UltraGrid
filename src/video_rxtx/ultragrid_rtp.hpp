@@ -77,7 +77,6 @@ private:
                                                       ///< and used simultaneously from
                                                       ///< multiple decoders, here are
                                                       ///< saved forked states
-        const char      *m_requested_encryption;
 
         /**
          * This variables serve as a notification when asynchronous sending exits

@@ -58,6 +58,8 @@ void Filter_chain::push_back(struct audio_filter filter){
 
 bool Filter_chain::emplace_new(std::string_view cfg){
         std::string filter_name(tokenize(cfg, ':'));
+        if(!cfg.empty() && cfg[0] == ':')
+                cfg.remove_prefix(1);
         std::string config(cfg);
 
         struct audio_filter afilter;

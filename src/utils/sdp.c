@@ -47,6 +47,8 @@
  *   modules want also to use EmbeddableWebServer)
  */
 
+#include "utils/sdp.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -63,6 +65,9 @@
 #endif
 
 #include "audio/types.h"
+#include "compat/htonl.h"         // for htons, htonl
+#include "compat/strings.h"       // for strcasecmp
+#include "config.h"               // for SDP_HTTP
 #include "debug.h"
 #include "rtp/rtp_types.h"
 #include "types.h"
@@ -71,7 +76,7 @@
 #include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/net.h"
-#include "utils/sdp.h"
+#include "video_codec.h"      // for get_codec_from_name
 #ifdef SDP_HTTP
 #define EWS_DISABLE_SNPRINTF_COMPAT
 #include "EmbeddableWebServer.h"
@@ -83,7 +88,6 @@
 enum {
     DEFAULT_SDP_HTTP_PORT = 8554,
     MAX_STREAMS = 2,
-    STR_LENGTH = 2048,
 };
 
 bool autorun;
@@ -96,9 +100,9 @@ static char sdp_filename[MAX_PATH_SIZE];
 static struct sdp *sdp_state = NULL;
 
 struct stream_info {
-    char media_info[STR_LENGTH];
-    char rtpmap[STR_LENGTH];
-    char fmtp[STR_LENGTH];
+    char media_info[STR_LEN];
+    char rtpmap[STR_LEN];
+    char fmtp[STR_LEN];
 };
 
 struct sdp {
@@ -109,11 +113,11 @@ struct sdp {
 #endif // defined SDP_HTTP
     pthread_t http_server_thr;
     int ip_version;
-    char version[STR_LENGTH];
-    char origin[STR_LENGTH];
-    char session_name[STR_LENGTH];
-    char connection[STR_LENGTH];
-    char times[STR_LENGTH];
+    char version[STR_LEN];
+    char origin[STR_LEN];
+    char session_name[STR_LEN];
+    char connection[STR_LEN];
+    char times[STR_LEN];
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
     int audio_index;
@@ -221,11 +225,12 @@ static void start() {
  */
 int
 get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
-                        char *rtpmapLine)
+                        char rtpmapLine[STR_LEN])
 {
+    rtpmapLine[0] = '\0';
     int pt = PT_DynRTP_Type97; // default
 
-    if (sample_rate == kHz48 && channels == 1 &&
+    if (sample_rate == kHz8 && channels == 1 &&
         (codec == AC_ALAW || codec == AC_MULAW)) {
         pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
     }
@@ -233,10 +238,11 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
         pt = PT_MPA;
     }
 
-    if (pt != PT_DynRTP_Type97) { // skip rtpmap creation
-        rtpmapLine[0] = '\0';
-        return pt;
-    }
+    // skip rtpmap creation could be skipped for static PT, optionally added
+    // if (pt != PT_DynRTP_Type97) {
+    //     rtpmapLine[0] = '\0';
+    //     return pt;
+    // }
 
     const int sdp_ch_count =
         codec == AC_OPUS ? 2 : channels; // RFC 7587 enforces 2 for Opus
@@ -250,6 +256,9 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
         break;
     case AC_OPUS:
         sdp_codec_name = "opus";
+        break;
+    case AC_MP3: // rtpmap is optional for MPA
+        sdp_codec_name = "MPA";
         break;
     default:
         abort();
@@ -291,6 +300,33 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
     return 0;
 }
 
+int
+get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
+{
+    rtpmapLine[0] = '\0';
+    int pt = -1;
+    const char *rtpmap_codec = NULL;
+    switch (codec) {
+    case JPEG:
+    case MJPG:
+            pt           = PT_JPEG;
+            rtpmap_codec = "JPEG";
+            break;
+    case H264:
+            pt           = PT_DynRTP_Type96;
+            rtpmap_codec = "H264";
+            break;
+    default:
+            return -2;
+    }
+
+    assert(pt >= 0);
+    assert(rtpmap_codec != NULL);
+    snprintf(rtpmapLine, STR_LEN, "a=rtpmap:%d %s/90000\r\n",
+             pt, rtpmap_codec);
+    return pt;
+}
+
 /**
  * @retval  0 ok
  * @retval -1 too much streams
@@ -298,8 +334,10 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
  */
 int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata)
 {
-    if (codec != H264 && codec != JPEG && codec != MJPG) {
-        return -2;
+    char rtpmap[STR_LEN];
+    const int pt = get_video_rtp_pt_rtpmap(codec, rtpmap);
+    if (pt < 0) {
+        return pt;
     }
     if (!sdp_state) {
         sdp_state = new_sdp(ipv6, sdp_receiver);
@@ -317,13 +355,8 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
     sdp_state->video_index = index;
     snprintf(sdp_state->stream[index].media_info,
              sizeof sdp_state->stream[index].media_info,
-             "m=video %d RTP/AVP %d\r\n", port,
-             codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
-    if (codec == H264) {
-        snprintf(sdp_state->stream[index].rtpmap,
-                 sizeof sdp_state->stream[index].rtpmap,
-                 "a=rtpmap:%d H264/90000\r\n", PT_DynRTP_Type96);
-    }
+             "m=video %d RTP/AVP %d\r\n", port, pt);
+    snprintf_ch(sdp_state->stream[index].rtpmap, "%s", rtpmap);
 
     sdp_state->video_set = true;
     start();
@@ -454,21 +487,22 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
  * the SDP (using static packet type)
  */
 static void
-print_std_rtp_urls(struct sdp *sdp, bool ipv6) {
-    const char *const bind_addr = ipv6 ? "[::]" : "0.0.0.0";
+print_std_rtp_urls(struct sdp *sdp) {
+    const char *const bind_addr = sdp->ip_version == 6 ? "[::]" : "0.0.0.0";
     int               port      = 0;
-    if (sdp->audio_index >= 0 &&
-        sdp->stream[sdp->audio_index].rtpmap[0] == '\0') {
-        if (sscanf(sdp_state->stream[sdp->audio_index].media_info, "%*[^ ] %d",
-                   &port) == 1) {
+    int               pt        = 0;
+    if (sdp->audio_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp->audio_index].media_info,
+                   "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
+            pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "audio can be played directly with rtp://%s:%d\n",
                 bind_addr, port);
         }
     }
-    if (sdp->video_index >= 0 &&
-        sdp->stream[sdp->video_index].rtpmap[0] == '\0') {
-        if (sscanf(sdp_state->stream[sdp->video_index].media_info, "%*[^ ] %d",
-                   &port) == 1) {
+    if (sdp->video_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp->video_index].media_info,
+                    "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
+            pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "video can be played directly with rtp://%s:%d\n",
                 bind_addr, port);
         }
@@ -479,20 +513,23 @@ static void print_http_path(struct sdp *sdp) {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
     if (get_local_addresses(addrs, &len, sdp->ip_version)) {
-        bool found_public_ip = false;
+        bool found_preferred_addr = false;
+#define PREFERRED_ADDR(addr) \
+    (!is_addr_loopback((struct sockaddr *) (addr)) && \
+     !is_addr_linklocal((struct sockaddr *) (addr)))
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
-            if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
-                found_public_ip = true;
+            if (PREFERRED_ADDR(&addrs[i])) {
+                found_preferred_addr = true;
             }
         }
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
-            if (!found_public_ip || (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i]))) {
+            if (!found_preferred_addr || PREFERRED_ADDR(&addrs[i])) {
                 char hostname[256];
                 bool ipv6 = addrs[i].ss_family == AF_INET6;
                 size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
                 getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
 
-                char recv_str[STR_LENGTH];
+                char recv_str[STR_LEN];
                 if (autorun) {
                     snprintf(recv_str, sizeof recv_str, "ANY receiver");
                 } else {
@@ -503,9 +540,11 @@ static void print_http_path(struct sdp *sdp) {
                     "http://%s%s%s:%u/%s\n",
                     recv_str, ipv6 ? "[" : "", hostname, ipv6 ? "]" : "",
                     portInHostOrder, SDP_FILE);
-                print_std_rtp_urls(sdp, ipv6);
             }
         }
+    }
+    if (!autorun) {
+        print_std_rtp_urls(sdp);
     }
 }
 
@@ -549,6 +588,8 @@ int sdp_set_options(const char *opts) {
         color_printf("\t" TBOLD("uv " TRED("--protocol sdp") "[:autorun][:file=<name>|no][:port=<http_port>]") "\n");
         color_printf("where:\n");
         color_printf("\t" TBOLD("autorun") " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n");
+        color_printf("\n");
+        sdp_print_supported_codecs();
         return 1;
     }
 
@@ -572,5 +613,50 @@ int sdp_set_options(const char *opts) {
     return 0;
 }
 
+/**
+ * @brief get UG video codec to given params
+ *
+ * rtpmap values are preferred than PT if mapping is correct
+ */
+codec_t
+get_video_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name)
+{
+        // prefer PT type (if assigned) if codec is in form "?H264" (the mapping
+        // was incorrect), otherwise prefer the value from rtpmap
+        bool prefer_pt = false;
+        if (rtpmap_codec_name[0] == '?') {
+                rtpmap_codec_name += 1;
+                prefer_pt = true;
+        }
+
+        codec_t c = VC_NONE;
+        if (strlen(rtpmap_codec_name) > 1) {
+                c = get_codec_from_name(rtpmap_codec_name);
+                if (c == VC_NONE) {
+                        MSG(WARNING, "Codec %s not known to UltraGrid!\n",
+                            rtpmap_codec_name);
+                }
+        }
+
+        if (!prefer_pt && c != VC_NONE) {
+            return c;
+        }
+        if (pt == PT_JPEG) {
+                return JPEG;
+        }
+        MSG(WARNING, "No mapping of PT=%d to video coddec in UG!\n", pt);
+        return VC_NONE;
+}
+
+void
+sdp_print_supported_codecs(void)
+{
+        /// see audio_tx_send_standard()
+        color_printf("Supported audio codecs: " TBOLD("MP3") ", " TBOLD(
+            "Opus") ", " TBOLD("PCMA") " (A-law), " TBOLD("PCMU") " (u-law)\n");
+        color_printf(
+            "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+        color_printf("\n");
+}
 
 /* vim: set expandtab sw=4 : */

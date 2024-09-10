@@ -39,24 +39,31 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "video_rxtx/h264_sdp.hpp"
+
+#include <cstdint>               // for uint32_t
+#include <cstdlib>               // for abort
+#include <cstring>               // for strncpy
+#include <exception>             // for exception
 #include <iostream>
 
 #include "audio/audio.h"
+#include "audio/types.h"         // for audio_desc
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"           // for msg_change_compress_data, free_response
 #include "module.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h" // PCMA/PCMU packet types
-#include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/sdp.h"
+#include "video_codec.h"         // for is_codec_opaque
 #include "video_rxtx.hpp"
-#include "video_rxtx/h264_sdp.hpp"
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPEG:safe"
+#define MOD_NAME "[vrxtx/sdp] "
 
 using std::cout;
 using std::exception;
@@ -85,7 +92,7 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 
         constexpr enum module_class path_sender[] = { MODULE_CLASS_SENDER,
                                                       MODULE_CLASS_NONE };
-        sdp_send_change_address_message(get_root_module(s->m_parent),
+        sdp_send_change_address_message(get_root_module(s->m_common.parent),
                                         path_sender, address);
 }
 
@@ -121,7 +128,8 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 		strncpy(msg->config_string, DEFAULT_SDP_COMPRESSION, sizeof(msg->config_string) - 1);
 
 		const char *path = "sender.compress";
-		auto resp = send_message(get_root_module(m_parent), path, (struct message *) msg);
+                auto *resp = send_message(get_root_module(m_common.parent), path,
+                                         (struct message *) msg);
 		free_response(resp);
 		m_sent_compress_change = true;
 		return;
@@ -162,8 +170,26 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 }
 
-h264_sdp_video_rxtx::~h264_sdp_video_rxtx()
+static void
+sdp_change_address_callback(void *udata, const char *address)
 {
+        const enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
+                                                  MODULE_CLASS_SENDER,
+                                                  MODULE_CLASS_NONE };
+        sdp_send_change_address_message((module *) udata, path_sender, address);
+}
+
+void
+h264_sdp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
+                                    int /* audio_rx_port */, int audio_tx_port, bool ipv6)
+{
+        if (sdp_add_audio(ipv6, audio_tx_port,
+                          desc->sample_rate,
+                          desc->ch_count, desc->codec,
+                          sdp_change_address_callback,
+                          get_root_module(m_common.parent)) != 0) {
+                MSG(ERROR, "Cannot add audio to SDP!\n");
+        }
 }
 
 static video_rxtx *create_video_rxtx_h264_sdp(std::map<std::string, param_u> const &params)

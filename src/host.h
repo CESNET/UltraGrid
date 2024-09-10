@@ -55,6 +55,9 @@
 #include <stdbool.h>
 #endif
 
+#include "tv.h"
+#include "utils/macros.h"  // for STR_LEN
+
 #define EXIT_FAIL_USAGE        2
 #define EXIT_FAIL_UI           3
 #define EXIT_FAIL_DISPLAY      4
@@ -68,8 +71,6 @@
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help). */
 #define INIT_NOERR          ((void*)1) // NOLINT (cppcoreguidelines-pro-type-cstyle-cast)
-
-#define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,6 +166,22 @@ void hang_signal_handler(int sig);
 #ifdef __cplusplus
 }
 #endif
+
+struct common_opts {
+        struct module   *parent;
+        char             encryption[STR_LEN];
+        char             mcast_if[STR_LEN];
+        int              mtu;
+        int              ttl;
+        int              force_ip_version;
+        struct exporter *exporter;
+        time_ns_t        start_time;
+#define COMMON_OPTS_INIT \
+        /* .parent = */ 0, \
+        /* .encryption = */ "", /* .mcast_if = */ "", /* .mtu = */ 1500, \
+        /* .ttl = */ -1,  /* .force_ip_version = */ 0, /* .exporter = */ 0, \
+        /* .start_time = */  get_time_in_ns(),
+};
 
 #ifdef __cplusplus
 #include <string>

@@ -38,23 +38,26 @@
 #ifndef VIDEO_RXTX_H_
 #define VIDEO_RXTX_H_
 
-#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
 
+#include "host.h"
 #include "module.h"
 
 #define VIDEO_RXTX_ABI_VERSION 3
 
+struct audio_desc;
 struct display;
 struct module;
 struct video_compress;
 struct exporter;
 struct video_frame;
 
-class video_rxtx;
-
+/**
+ * @todo
+ * get rid of this altogether and pass 2 structs (common + video_rxtx opts)
+ */
 union param_u {
         void          *ptr;
         const void    *cptr;
@@ -68,10 +71,10 @@ union param_u {
 
 struct video_rxtx_info {
         const char *long_name;
-        class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
+        struct video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
-class video_rxtx {
+struct video_rxtx {
 public:
         virtual ~video_rxtx();
         void send(std::shared_ptr<struct video_frame>);
@@ -89,16 +92,20 @@ public:
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         static void list(bool full);
+        virtual void set_audio_spec(const struct audio_desc *desc,
+                                    int audio_rx_port, int audio_tx_port,
+                                    bool ipv6);
         std::string m_port_id;
-        bool m_should_exit = false;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
         void check_sender_messages();
         struct module m_sender_mod;
         struct module m_receiver_mod;
         int m_rxtx_mode;
-        struct module *m_parent;
         unsigned long long int m_frames_sent;
+        struct common_opts m_common;
+        bool m_should_exit = false;
+
 private:
         void start();
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept = 0;
@@ -108,10 +115,10 @@ private:
         virtual struct response *process_sender_message(struct msg_sender *) {
                 return NULL;
         }
+        static void should_exit(void *state);
 
-        struct compress_state *m_compression;
+        struct compress_state *m_compression = nullptr;
         pthread_mutex_t m_lock;
-        struct exporter *m_exporter;
 
         pthread_t m_thread_id;
         bool m_poisoned, m_joined;

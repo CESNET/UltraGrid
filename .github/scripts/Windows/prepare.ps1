@@ -46,4 +46,10 @@ while ($attempts -eq 10) {
 echo "C:\Program Files\NDI\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
 #Remove-Item C:\ndi.exe
 
+#Install vc redist 2010
+$url="https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe"
+Invoke-WebRequest $url -OutFile vcredist_x64.exe
+Start-Process -FilePath "vcredist_x64.exe" -ArgumentList "/install /quiet /norestart" -Wait -NoNewWindow
+Remove-Item vcredist_x64.exe
+
 # vim: set sw=2:

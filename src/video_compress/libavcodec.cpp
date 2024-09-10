@@ -136,8 +136,19 @@ constexpr const char *DEFAULT_NVENC_RC      = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE    = "ull";
 constexpr const char *DEFAULT_QSV_PRESET    = "medium";
 constexpr const char *DEFAULT_QSV_RC        = "vbr";
-constexpr double      DEFAULT_X264_X265_CRF = 22.0;
 constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
+
+double
+get_default_crf(const char *codec_name)
+{
+        if (strstr(codec_name, "libx26") == codec_name) {
+                return 22.0;
+        }
+        if (strcmp(codec_name, "libsvtav1") == 0) {
+                return 35.0; // 35 is libsvtav1 default
+        }
+        return 0;
+}
 
 struct setparam_param {
         setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
@@ -171,7 +182,8 @@ static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
-static void show_encoder_help(string const &name);
+static void print_codec_aux_usage(string const &name);
+static bool show_coder_help(string const &name, bool encoder = true);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 void usage(bool full);
 static void cleanup(struct state_video_compress_libav *s);
@@ -434,7 +446,9 @@ void usage(bool full) {
                 col() << "\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
 
         }
-        col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options, works on decoders as well (also use keyword \"encoder\").\n";
+        col() << "\nUse '" << SBOLD("-c lavc:enc=<enc>:help")
+              << "' to display encoder specific options/examples; works\nfor "
+                 "decoders as well (use the keyword \"enc[oder]\", anyways).\n";
         col() << "\n";
         col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
         const char *swscale = "no";
@@ -474,7 +488,7 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
                 return;
         }
         if (!req_encoder.empty()) {
-                show_encoder_help(req_encoder);
+                show_coder_help(req_encoder);
                 return;
         }
         usage(full);
@@ -525,7 +539,9 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         s->params.requested_bitrate =
                             unit_evaluate(strchr(item, '=') + 1, nullptr);
-                        assert(s->params.requested_bitrate >= 0);
+                        if (s->params.requested_bitrate < 0) {
+                                return -1;
+                        }
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
                         s->params.requested_bpp =
@@ -778,7 +794,8 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::c
 template<typename T, bool log_err = false>
 static inline bool check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
         string val_str;
-        if constexpr (std::is_same_v<T, const char *>) {
+        if constexpr (std::is_same_v<T, char *> ||
+                      std::is_same_v<T, const char *>) {
                 val_str = val;
         } else {
                 val_str = to_string(val);
@@ -818,50 +835,51 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
                 codec_ctx->global_quality = cqp;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting QSV global_quality to " << cqp <<  "\n";
         } else {
-                if (check_av_opt_set<int>(codec_ctx->priv_data, "qp", cqp, "CQP")) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
-                }
+                check_av_opt_set<int, true>(codec_ctx->priv_data, "qp", cqp,
+                                            "CQP");
         }
 }
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
 {
-        bool is_x264_x265 = strstr(s->codec_ctx->codec->name, "libx26") == s->codec_ctx->codec->name;
         bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
         bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
 
-        double avg_bpp; // average bit per pixel
-        avg_bpp = s->params.requested_bpp > 0.0
-                      ? s->params.requested_bpp
+        // make a copy because set_param callbacks may adjust parameters
+        struct setparam_param params = s->params;
+
+        // average bit per pixel
+        const double avg_bpp = params.requested_bpp > 0.0
+                      ? params.requested_bpp
                       : codec_params[ug_codec].avg_bpp;
 
         bool set_bitrate = false;
         int_fast64_t bitrate =
-            s->params.requested_bitrate > 0
-                ? s->params.requested_bitrate
-                : desc.width * desc.height * avg_bpp * desc.fps;
+            params.requested_bitrate > 0
+                ? params.requested_bitrate
+                : (long long) (desc.width * desc.height * avg_bpp * desc.fps);
 
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
-        if (s->params.requested_cqp >= 0 ||
-            ((is_vaapi || is_mjpeg) && s->params.requested_crf == -1.0 &&
-             s->params.requested_bitrate == 0 &&
-             s->params.requested_bpp == 0.0)) {
-                set_cqp(s->codec_ctx, s->params.requested_cqp);
-        } else if (s->params.requested_crf >= 0.0 ||
-                   (is_x264_x265 && s->params.requested_bitrate == 0 &&
-                    s->params.requested_bpp == 0.0)) {
-                const double crf = s->params.requested_crf >= 0.0
-                                       ? s->params.requested_crf
-                                       : DEFAULT_X264_X265_CRF;
-                if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
-                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
-                }
+        if (params.requested_cqp >= 0 ||
+            ((is_vaapi || is_mjpeg) && params.requested_crf == -1.0 &&
+             params.requested_bitrate == 0 &&
+             params.requested_bpp == 0.0)) {
+                set_cqp(s->codec_ctx, params.requested_cqp);
+        } else if (params.requested_crf >= 0.0 ||
+                   (get_default_crf(s->codec_ctx->codec->name) != 0 &&
+                    params.requested_bitrate == 0 &&
+                    params.requested_bpp == 0.0)) {
+                const double crf = params.requested_crf >= 0.0
+                                       ? params.requested_crf
+                                       : get_default_crf(s->codec_ctx->codec->name);
+                check_av_opt_set<double, true>(s->codec_ctx->priv_data, "crf",
+                                               crf, "CRF");
         } else if (strcmp(s->codec_ctx->codec->name, "libopenh264") != 0) {
                 set_bitrate = true;
         }
-        if (set_bitrate || s->params.requested_bitrate > 0) {
+        if (set_bitrate || params.requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
@@ -878,9 +896,12 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->pix_fmt = pix_fmt;
         s->codec_ctx->bits_per_raw_sample = min<int>(get_bits_per_component(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
-        codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
-        set_codec_thread_mode(s->codec_ctx, &s->params);
-        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1 ? 16 : DEFAULT_SLICE_COUNT);
+        codec_params[ug_codec].set_param(s->codec_ctx, &params);
+        set_codec_thread_mode(s->codec_ctx, &params);
+        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(
+            params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1
+                               ? 16
+                               : DEFAULT_SLICE_COUNT);
 
         // set user supplied parameters
         for (auto const &item : s->lavc_opts) {
@@ -1615,10 +1636,48 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * 
         }
 }
 
-static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+/// check and possibly fix incorrect slices and threads combination for MJPEG
+static void
+mjpeg_adjust_param(struct setparam_param *param)
+{
+        char warn[STR_LEN];
+        warn[0] = '\0';
+        if (param->slices == 1) {
+                if (param->thread_mode.empty()) {
+                        snprintf_ch(warn, "MJPEG requested slice=1, "
+                                          "setting thread count=1");
+                        param->thread_mode = "1";
+                } else if (strtol(param->thread_mode.c_str(), nullptr, 10) !=
+                           1) {
+                        snprintf_ch(warn, "slice=1 with thread count!=1 not "
+                                          "recommended");
+                }
+        } else if (strtol(param->thread_mode.c_str(), nullptr, 10) == 1) {
+                if (param->slices == -1) {
+                        snprintf_ch(warn, "MJPEG requested threads=1, "
+                                          "setting slices=1");
+                        param->slices = 1;
+                } else if (param->slices > 1) {
+                        snprintf_ch(warn, "slice>1 with thread count=1 not "
+                                          "recommended");
+                }
+        }
+
+        if (strlen(warn) == 0) {
+                return;
+        }
+        MSG(WARNING,
+            "%s. If seems that FFmpeg JPEG encoder requires "
+            "both slice and threads to be 1, if any of it "
+            "is or the JPEG is broken.\n",
+            warn);
+}
+
+static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
+                mjpeg_adjust_param(param);
         }
         if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
@@ -1831,17 +1890,6 @@ static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_pa
         // interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
 }
 
-void set_forced_idr(AVCodecContext *codec_ctx, int value)
-{
-        assert(value <= 9);
-        array<char, 2> force_idr_val{};
-        force_idr_val[0] = '0' + value;
-
-        if (int ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val.data(), 0)) {
-                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set Forced IDR", ret);
-        }
-}
-
 static void configure_aom_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         auto && usage = get_map_val_or_default<string, string>(param->lavc_opts, "usage", "realtime");
@@ -1865,7 +1913,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 }
         }
 
-        set_forced_idr(codec_ctx, 1);
+        check_av_opt_set(codec_ctx->priv_data, "forced-idr", 1);
 #ifdef PATCHED_FF_NVENC_NO_INFINITE_GOP
         const bool patched_ff = true;
 #else
@@ -1914,14 +1962,13 @@ static void configure_rav1e(AVCodecContext *codec_ctx, struct setparam_param * /
         check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "64");
 }
 
-static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void
+configure_svt_hevc_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
-        if (codec_ctx->codec_id != AV_CODEC_ID_AV1) {
-                set_forced_idr(
-                    codec_ctx,
-                    strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
-        }
+        check_av_opt_set(
+            codec_ctx->priv_data, "forced-idr",
+            strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "la_depth", 0);
@@ -1938,26 +1985,48 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<const char *>(codec_ctx->priv_data,
                                                        "preset", "11");
                 }
-        } else if ("libsvtav1"s == codec_ctx->codec->name) {
-                const char *preset =
-                    param->desc.width * param->desc.height * param->desc.fps <=
-                            FLW_THRESH
-                        ? "9"
-                        : "11";
-                check_av_opt_set<const char *>(codec_ctx->priv_data, "preset",
-                                               preset);
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
-                //pred-struct=1 is low-latency mode
-                if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "pred-struct=1:tile-columns=2:tile-rows=2", 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set svtav1-params for SVT", ret);
-                }
-#else
-                // tile_columns and tile_rows are log2 values
-                for (auto const &val : { "tile_columns", "tile_rows" }) {
-                        check_av_opt_set<int>(codec_ctx->priv_data, val, 2, "tile dimensions for SVT AV1");
-                }
-#endif
         }
+}
+
+static void
+configure_svt_av1(AVCodecContext *codec_ctx, struct setparam_param *param) {
+        const char *preset =
+            param->desc.width * param->desc.height * param->desc.fps <=
+                    FLW_THRESH
+                ? "9"
+                : "11";
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
+        // pred-struct=1 is low-latency mode
+        char params[STR_LEN] = "pred-struct=1:";
+        if (param->requested_bitrate > 0) {
+                if (param->requested_crf == -1 && param->requested_cqp == -1) {
+                        params[0] = '\0'; // do not set pred-struct for VBR
+                        MSG(WARNING,
+                            "Bitrate setting without crf/cqp for SVT "
+                            "AV1 is not recommended since it increases "
+                            "latency, prefer CRF or CQP mode if "
+                            "possible.\n");
+                        MSG(WARNING, "However, you can specify _both_ crf/cqp "
+                                     "and bitrate options to set bitrate "
+                                     "limit.\n");
+                } else {
+                        codec_ctx->rc_max_rate = param->requested_bitrate;
+                        codec_ctx->bit_rate    = 0;
+                        MSG(INFO, "Setting rc_max_rate to %" PRId64 "\n",
+                            codec_ctx->rc_max_rate);
+                }
+        }
+        snprintf(params + strlen(params), sizeof params - strlen(params), "%s",
+                 "fast-decode=1:tile-columns=2:tile-rows=2");
+        check_av_opt_set(codec_ctx->priv_data, "svtav1-params", params);
+#else
+        // tile_columns and tile_rows are log2 values
+        for (auto const &val : { "tile_columns", "tile_rows" }) {
+                check_av_opt_set<int>(codec_ctx->priv_data, val, 2,
+                                      "tile dimensions for SVT AV1");
+        }
+#endif
 }
 
 void
@@ -2006,8 +2075,10 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_aom_av1(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "librav1e") == 0) {
                 configure_rav1e(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "libsvtav1") == 0) {
+                configure_svt_av1(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
-                configure_svt(codec_ctx, param);
+                configure_svt_hevc_vp9(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "libopenh264") == 0) {
                 configure_libopenh264(codec_ctx, param);
         } else {
@@ -2036,19 +2107,30 @@ get_opt_default_value(const AVOption *opt)
         }
 }
 
-void show_encoder_help(string const &name) {
-        col() << "Options for " << SBOLD(name) << ":\n";
-        auto *codec = avcodec_find_encoder_by_name(name.c_str());
-        if (codec == nullptr) {
-                codec = avcodec_find_decoder_by_name(name.c_str());
+/// @aram encoder - if bool, print for both encoder and decoder
+static bool
+show_coder_help(string const &name, bool encoder)
+{
+        bool dec_found = true;
+        if (encoder) {
+                dec_found = show_coder_help(name, false);
         }
+        const auto *codec = encoder
+                                ? avcodec_find_encoder_by_name(name.c_str())
+                                : avcodec_find_decoder_by_name(name.c_str());
         if (codec == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
-                return;
+                if (!dec_found) {
+                        MSG(ERROR,
+                            "Unable to find neither encoder nor decoder %s!\n",
+                            name.c_str());
+                }
+                return false;
         }
+        col() << "Options for " << SBOLD(name) << " "
+              << (encoder ? "encoder" : "decoder") << ":\n";
         const auto *opt = codec->priv_class->option;
         if (opt == nullptr) {
-                return;
+                return true;
         }
         while (opt->name != nullptr) {
                 string default_val;
@@ -2077,11 +2159,38 @@ void show_encoder_help(string const &name) {
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
         }
+        print_codec_aux_usage(name);
+        color_printf("\n");
+        return true;
+}
+
+/// @brief print UG-specific documentation for given codec name
+static void
+print_codec_aux_usage(string const &name)
+{
         if (name == "libx264" || name == "libx265") {
                 col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
         if (name == "hevc_qsv" || name == "h264_qsv") {
                 col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << ", " << SBOLD("qvbr") << " or " << SBOLD("vbr") << "\n";
+        }
+        if (name == "libsvtav1") {
+                color_printf("\nIf using " TBOLD("svtav1-params") ", the option "
+                        "separator (':') must be replaced with '\\:'.\n"
+                        "It is also recommended to consult its default value "
+                        "(see UG output for the encoder).\n");
+                color_printf("\nExamples:\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1")
+                        "\n\t  - use SVT AV1 with default RC CRF 35\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:crf=30")
+                        "\n\t  - use SVT AV1 with CRF=30\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:cqp=30")
+                        "\n\t  - use SVT AV1 with QP=30\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:crf=35:bitr=3M")
+                        "\n\t  - use SVT AV1 with QP=35 and Maximum Bitrate 3 Mbps\n");
+                color_printf(TBOLD("\tuv -c lavc:enc=libsvtav1:bitr=3M")
+                        "\n\t  - use SVT AV1 in VBR mode with 3 Mbps (not "
+                        "recommended at the moment, increases latency)\n");
         }
 }
 

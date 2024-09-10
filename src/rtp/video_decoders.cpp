@@ -750,7 +750,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 
         s = new state_video_decoder(parent);
 
-        if (encryption) {
+        if (strlen(encryption) > 0) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {

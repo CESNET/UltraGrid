@@ -28,24 +28,34 @@
  * frames.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include <audioclient.h>
+#include <audiosessiontypes.h>     // for AUDCLNT_SHAREMODE_SHARED
+#include <basetsd.h>               // for UINT32, HRESULT, UINT, LPWSTR, GUID..
+#include <cassert>                 // for assert
+#include <cctype>                  // for isdigit
+#include <combaseapi.h>            // for CoTaskMemFree, CoCreateInstance
+#include <cstdio>                  // for snprintf
+#include <cstdlib>                 // for NULL, atoi, malloc, mbtowc, realloc
+#include <cstring>                 // for memset, strcmp, strlen, wcslen
 #include <iostream>
-#include <mfapi.h>
+#include <ksmedia.h>               // for KSAUDIO_SPEAKER_5POINT1_SURROUND
+#include <mediaobj.h>              // for REFERENCE_TIME
 #include <mmdeviceapi.h>
+#include <mmeapi.h>                // for WAVEFORMATEX
+#include <mmreg.h>                 // for WAVEFORMATEXTENSIBLE, WAVE_FORMAT_...
+#include <objbase.h>               // for STGM_READ
+#include <propidl.h>               // for PropVariantClear, PropVariantInit
+#include <propsys.h>               // for IPropertyStore
 #include <sstream>
 #include <string>
-#include <windows.h>
+#include <winerror.h>              // for SUCCEEDED, S_OK, FAILED, S_FALSE
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "debug.h"
+#include "host.h"                  // for get_commandline_param, INIT_NOERR
 #include "lib_common.h"
+#include "types.h"                 // for device_info
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/windows.h"
@@ -61,7 +71,10 @@ const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 const static GUID IDevice_FriendlyName = { 0xa45c254e, 0xdf1c, 0x4efd, { 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0 } };
 const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 };
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces" // not our issue - defined by Mingw-w64
 const static GUID UG_KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
+#pragma GCC diagnostic pop
 
 
 using std::cout;

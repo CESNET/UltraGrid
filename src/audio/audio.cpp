@@ -89,6 +89,7 @@
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/worker.h"
+#include "video_rxtx.hpp"               // for video_rxtx
 
 using std::array;
 using std::fixed;
@@ -114,7 +115,7 @@ struct audio_network_parameters {
         int send_port = 0;
         struct pdb *participants = 0;
         int force_ip_version = 0;
-        char *mcast_if = nullptr;
+        const char *mcast_if;
         int ttl = -1;
 };
 
@@ -172,7 +173,7 @@ struct state_audio {
         struct exporter *exporter = nullptr;
         int resample_to = 0;
 
-        char *requested_encryption = nullptr;
+        struct common_opts opts{};
 
         int audio_tx_mode = 0;
 
@@ -181,6 +182,8 @@ struct state_audio {
         bool muted_sender = false;
 
         size_t recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
+
+        struct video_rxtx *vrxtx = nullptr;
 };
 
 /** 
@@ -203,7 +206,7 @@ static void audio_channel_map_usage(void)
 {
         printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
         printf("\t                                to output audio channels comma-separated\n");
-        printf("\t                                list of channel mapping\n");
+        printf("\t                                list of channel mapping (receiver only)\n");
         printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
         printf("\t                                    0:0    - play only first channel\n");
         printf("\t                                    0:0,:1 - sets second channel to\n");
@@ -260,26 +263,15 @@ sdp_send_change_address_message(struct module           *root,
         free_response(resp);
 }
 
-static void
-sdp_change_address_callback(void *udata, const char *address)
-{
-        enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-        sdp_send_change_address_message((module*) udata, path_sender, address);
-}
-
 /**
  * take care that addrs can also be comma-separated list of addresses !
  * @retval  0 state succesfully initialized
  * @retval <0 error occured
  * @retval >0 success but no state was created (eg. help printed)
  */
-int audio_init(struct state_audio **ret, struct module *parent,
-                struct audio_options *opt,
-                const char *encryption,
-                int force_ip_version, const char *mcast_iface,
-                long long int bitrate, volatile int *audio_delay,
-                time_ns_t start_time,
-                int mtu, int ttl, struct exporter *exporter)
+int audio_init(struct state_audio **ret,
+               const struct audio_options *opt,
+               const struct common_opts   *common)
 {
         char *tmp, *unused = NULL;
         char *addr;
@@ -299,8 +291,9 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 audio_scale_usage();
                 return 1;
         }
-        
-        struct state_audio *s = new state_audio(parent, start_time);
+
+        struct state_audio *s =
+            new state_audio(common->parent, common->start_time);
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
@@ -308,7 +301,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
-        s->exporter = exporter;
+        s->exporter = common->exporter;
 
         if (opt->echo_cancellation) {
 #ifdef HAVE_SPEEXDSP
@@ -336,13 +329,11 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 }
         }
 
-        if(encryption) {
-                s->requested_encryption = strdup(encryption);
-        }
+        s->opts = *common;
         
         assert(opt->host != nullptr);
         tmp = strdup(opt->host);
-        s->audio_participants = pdb_init(audio_delay);
+        s->audio_participants = pdb_init(&audio_offset);
         addr = strtok_r(tmp, ",", &unused);
         assert(addr != nullptr);
 
@@ -350,10 +341,10 @@ int audio_init(struct state_audio **ret, struct module *parent,
         s->audio_network_parameters.recv_port = opt->recv_port;
         s->audio_network_parameters.send_port = opt->send_port;
         s->audio_network_parameters.participants = s->audio_participants;
-        s->audio_network_parameters.force_ip_version = force_ip_version;
-        s->audio_network_parameters.mcast_if = mcast_iface
-                ? strdup(mcast_iface) : NULL;
-        s->audio_network_parameters.ttl = ttl;
+        s->audio_network_parameters.force_ip_version = common->force_ip_version;
+        s->audio_network_parameters.mcast_if =
+            strlen(s->opts.mcast_if) > 0 ? s->opts.mcast_if : nullptr;
+        s->audio_network_parameters.ttl = s->opts.ttl;
         free(tmp);
 
         if (strcmp(opt->send_cfg, "none") != 0) {
@@ -371,7 +362,9 @@ int audio_init(struct state_audio **ret, struct module *parent,
                         retval = ret;
                         goto error;
                 }
-                s->tx_session = tx_init(s->audio_sender_module.get(), mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
+                s->tx_session = tx_init(
+                    s->audio_sender_module.get(), common->mtu, TX_MEDIA_AUDIO,
+                    opt->fec_cfg, common->encryption, 0 /* unused */);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
                         goto error;
@@ -417,20 +410,6 @@ int audio_init(struct state_audio **ret, struct module *parent,
                                    &s->audio_network_device, &len);
         }
 
-        if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
-                const audio_codec_params params =
-                    parse_audio_codec_params(opt->codec_cfg);
-                if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device),
-                                  opt->send_port,
-                                  IF_NOT_NULL_ELSE(params.sample_rate, kHz48),
-                                  audio_capture_channels, params.codec,
-                                  sdp_change_address_callback,
-                                  get_root_module(parent)) != 0) {
-                        MSG(ERROR,"Cannot add audio to SDP!\n");
-                        goto error;
-                }
-        }
-
         if ((s->audio_tx_mode & MODE_SENDER) != 0U || "help"s == opt->codec_cfg) {
                 if ((s->audio_encoder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER)) == nullptr) {
                         goto error;
@@ -464,7 +443,7 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 goto error;
         }
 
-        register_should_exit_callback(parent, should_exit_audio, s);
+        register_should_exit_callback(common->parent, should_exit_audio, s);
 
         *ret = s;
         return 0;
@@ -554,10 +533,8 @@ void audio_done(struct state_audio *s)
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
-        free(s->requested_encryption);
 
         free(s->audio_network_parameters.addr);
-        free(s->audio_network_parameters.mcast_if);
 
         audio_codec_done(s->audio_encoder);
 
@@ -681,7 +658,11 @@ static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
         auto *dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
         assert(dec_state != NULL);
         dec_state->enabled = true;
-        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
+        dec_state->pbuf_data.decoder =
+            (struct state_audio_decoder *) audio_decoder_init(
+                s->audio_channel_map, s->audio_scale, s->opts.encryption,
+                (audio_playback_ctl_t) audio_playback_ctl,
+                s->audio_playback_device, s->audio_receiver_module.get());
         if (!dec_state->pbuf_data.decoder) {
                 free(dec_state);
                 return NULL;
@@ -1066,10 +1047,31 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
         return rate_hi > 0 ? rate_hi : rate_lo;
 }
 
+static void
+set_audio_spec_to_vrxtx(struct video_rxtx *vrxtx, audio_frame2 *compressed_frm,
+                        struct rtp *netdev, int tx_port, bool *audio_spec_to_vrxtx_set)
+{
+        if (*audio_spec_to_vrxtx_set) {
+                return;
+        }
+
+        *audio_spec_to_vrxtx_set = true;
+
+        const struct audio_desc desc    = compressed_frm->get_desc();
+        const int               rx_port = rtp_get_udp_rx_port(netdev);
+
+        MSG(VERBOSE, "Setting audio desc %s, rx port=%d to RXTX.\n",
+            audio_desc_to_cstring(desc), rx_port);
+
+        assert(vrxtx != nullptr);
+        vrxtx->set_audio_spec(&desc, rx_port, tx_port, rtp_is_ipv6(netdev));
+}
+
 static void *audio_sender_thread(void *arg)
 {
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
+        bool audio_spec_to_vrxtx_set = false;
         struct audio_frame *buffer = NULL;
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
@@ -1155,6 +1157,11 @@ static void *audio_sender_thread(void *arg)
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_standard(s->tx_session, s->audio_network_device, &compressed);
                                     uncompressed = NULL;
+                                    set_audio_spec_to_vrxtx(
+                                        s->vrxtx, &compressed,
+                                        s->audio_network_device,
+                                        s->audio_network_parameters.send_port,
+                                        &audio_spec_to_vrxtx_set);
                             }
                         }
 #ifdef HAVE_JACK_TRANS
@@ -1179,19 +1186,23 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
 }
 
 void
-audio_register_display_callbacks(struct state_audio *s, void *udata,
-                                 void (*putf)(void *,
-                                              const struct audio_frame *),
-                                 bool (*reconfigure)(void *, int, int, int),
-                                 bool (*get_property)(void *, int, void *,
-                                                     size_t *))
+audio_register_aux_data(struct state_audio          *s,
+                        struct additional_audio_data data)
 {
-        struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_get_display_flags(s->audio_playback_device))
-                return;
-        
-        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
-        sdi_register_display_callbacks(sdi_playback, udata, putf, reconfigure, get_property);
+        if (audio_playback_get_display_flags(s->audio_playback_device) != 0U) {
+                auto *sdi_playback = (struct state_sdi_playback *)
+                    audio_playback_get_state_pointer(s->audio_playback_device);
+                sdi_register_display_callbacks(
+                    sdi_playback, data.display_callbacks.udata,
+                    (void (*)(void *, const struct audio_frame *))
+                        data.display_callbacks.putf,
+                    (bool (*)(void *, int, int,
+                              int)) data.display_callbacks.reconfigure,
+                    (bool (*)(void *, int, void *,
+                              size_t *)) data.display_callbacks.get_property);
+        }
+
+        s->vrxtx = data.vrxtx;
 }
 
 unsigned int audio_get_display_flags(struct state_audio *s)

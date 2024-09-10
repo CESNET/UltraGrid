@@ -10,17 +10,11 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:+":$PKG_CONFIG
 ARCH=$(dpkg --print-architecture)
 APPNAME=UltraGrid-latest-${ARCH}.AppImage
 
-set -- --enable-plugins --enable-openssl --enable-soxr --enable-speexdsp                                # general
-set -- "$@" --enable-alsa --enable-jack --enable-jack-transport --enable-pipewire                       # audio
-# vidcap (+ duplex video)
-set -- "$@" --enable-decklink --enable-file --enable-ndi --enable-rtsp \
-            --enable-screen --enable-swmix --enable-v4l2 --enable-ximea
-set -- "$@" --enable-caca --enable-gl-display --enable-panogl_disp --enable-sdl                         # display
-set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
-set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-text --enable-video-mixer --enable-zfec # extras (pp. etc)
-set -- "$@" --enable-drm
-if [ "$ARCH" = arm64 ]; then
-        set -- "$@" --enable-vulkan
+# shellcheck disable=SC2086 # intentional
+set -- $FEATURES
+set -- "$@" --enable-drm_disp
+if [ "$ARCH" != arm64 ]; then
+        set -- "$@" --disable-vulkan
 fi
 
 ./autogen.sh "$@"

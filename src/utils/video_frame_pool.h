@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,18 +38,13 @@
 #ifndef VIDEO_FRAME_POOL_H_
 #define VIDEO_FRAME_POOL_H_
 
-#include "debug.h"
-#include "host.h"
+#include "types.h"         // for video_frame
 #include "utils/macros.h"
-#include "video.h"
 
 #ifdef __cplusplus
 
-#include <condition_variable>
-#include <cstdint>
-#include <mutex>
+#include <cstddef>         // for size_t
 #include <memory>
-#include <queue>
 
 struct video_frame_pool_allocator {
         virtual void *allocate(size_t size) = 0;
@@ -73,7 +68,8 @@ struct video_frame_pool {
                  *                        is unreturned, get_frames() will block.
                  */
                 video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator());
-                virtual ~video_frame_pool();
+                video_frame_pool &operator=(video_frame_pool &&);
+                ~video_frame_pool();
 
                 /**
                  * @param new_size  if omitted, deduce from video desc (only for pixel formats)
@@ -97,18 +93,8 @@ struct video_frame_pool {
                 video_frame_pool_allocator const & get_allocator();
 
         private:
-                void remove_free_frames();
-                void deallocate_frame(struct video_frame *frame);
-
-                std::unique_ptr<video_frame_pool_allocator> m_allocator;
-                std::queue<struct video_frame *> m_free_frames;
-                std::mutex        m_lock;
-                std::condition_variable m_frame_returned;
-                int               m_generation;
-                struct video_desc m_desc;
-                size_t            m_max_data_len;
-                unsigned int      m_unreturned_frames;
-                unsigned int      m_max_used_frames;
+                struct impl;
+                std::unique_ptr<impl> m_impl;
 };
 #endif //  __cplusplus
 

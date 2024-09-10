@@ -4,9 +4,6 @@
  *
  * Miscellaneous compat functions that are simple enough to be implemented
  * in a separate file.
- *
- * Currently only strdupa that needs to be a macro, for futher functions,
- * implementation file should be defined.
  */
 /*
  * Copyright (c) 2021-2024 CESNET
@@ -44,23 +41,14 @@
 #ifndef COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 #define COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 
-// strdupa is defined as a macro
-#include <string.h>
-#ifndef strdupa
-#define strdupa(s) (char *) memcpy(alloca(strlen(s) + 1), s, strlen(s) + 1)
-#endif // defined strdupa
-
-// str[n]casecmp
-#ifdef _WIN32 // also defined in config_win32.h
-#ifndef strcasecmp
-#define strcasecmp _stricmp
-#endif // defined strcasecmp
-#ifndef strncasecmp
-#define strncasecmp _strnicmp
-#endif // defined strncasecmp
+#ifdef WANT_MKDIR
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
 #else
-#include <strings.h>
+#include <sys/stat.h>
 #endif
+#endif // defined WANT_MKDIR
 
 #endif // defined COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 

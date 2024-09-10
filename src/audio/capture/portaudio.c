@@ -58,7 +58,7 @@ struct module;
 #include "audio/audio_capture.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
-#include "compat/misc.h" // strdupa
+#include "compat/strings.h" // strdupa
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

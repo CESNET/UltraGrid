@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,32 +47,35 @@
  *   up to first
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
-#include <stdio.h>
-#include <string.h>
-
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/color_out.h"
-#include "utils/list.h"
-#include "video_codec.h"
-#include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <assert.h>           // for assert
+#include <stdint.h>           // for uint32_t
+#include <stdio.h>            // for NULL, printf, size_t
+#include <stdlib.h>           // for free, malloc
+#include <string.h>           // for strchr, strcmp, strdup, strtok_r
+
+#include "debug.h"            // for log_msg, LOG_LEVEL_ERROR
+#include "lib_common.h"       // for library_class, list_modules, load_library
+#include "utils/color_out.h"  // for color_printf, TERM_BOLD, TERM_RESET
+#include "utils/list.h"       // for simple_linked_list_it_init, simple_link...
+#include "utils/macros.h"     // for to_fourcc
+#include "video_codec.h"      // for vc_get_linesize
+#include "video_display.h"    // for display_prop_vid_mode
+
+#define MAGIC to_fourcc('V', 'P', 'S', 'T')
+#define MAGIC_SINGLE to_fourcc('V', 'P', 'S', 'S')
 #define MOD_NAME "[vo_postprocess] "
 
 struct vo_postprocess_state_single {
+        uint32_t magic;
         const struct vo_postprocess_info *funcs;
         void *state;
         struct video_frame *f;
 };
 
 struct vo_postprocess_state {
+        uint32_t magic;
         struct simple_linked_list *postprocessors;
 };
 
@@ -105,6 +108,7 @@ static _Bool init(struct vo_postprocess_state *s, const char *config_string) {
                         return 0;
                 }
                 struct vo_postprocess_state_single *state = malloc(sizeof(struct vo_postprocess_state_single));
+                state->magic = MAGIC_SINGLE;
                 state->funcs = funcs;
                 state->state = state->funcs->init(vo_postprocess_options);
                 if (!state->state) {
@@ -133,6 +137,7 @@ struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
         }
 
         struct vo_postprocess_state *s = (struct vo_postprocess_state *) malloc(sizeof(struct vo_postprocess_state));
+        s->magic = MAGIC;
         s->postprocessors = simple_linked_list_init();
 
         if (!init(s, config_string)) {
@@ -155,8 +160,8 @@ vo_postprocess_reconfigure(struct vo_postprocess_state *s,
 
         for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
-                int ret = state->funcs->reconfigure(state->state, desc);
-                if (ret == FALSE) {
+                const bool ret = state->funcs->reconfigure(state->state, desc);
+                if (!ret) {
                         simple_linked_list_it_destroy(it);
                         return false;
                 }
@@ -211,7 +216,7 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 struct video_frame *out, int req_pitch)
 {
         if (s == NULL) {
-                return FALSE;
+                return false;
         }
         assert(in == ((struct vo_postprocess_state_single *) simple_linked_list_first(s->postprocessors))->f || in == NULL);
 
@@ -265,10 +270,12 @@ bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, v
         if (s == NULL) {
                 return false;
         }
+        assert(s->magic == MAGIC);
 
         if (simple_linked_list_size(s->postprocessors) == 1 || property == VO_PP_DOES_CHANGE_TILING_MODE) {
                 struct vo_postprocess_state_single *state = simple_linked_list_last(s->postprocessors);
-                return state->funcs->get_property(state, property, val, len);
+                assert(state->magic == MAGIC_SINGLE);
+                return state->funcs->get_property(state->state, property, val, len);
         }
 
         /** @todo
@@ -277,7 +284,8 @@ bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, v
          */
         if (property == VO_PP_PROPERTY_CODECS) {
                 struct vo_postprocess_state_single *state = simple_linked_list_first(s->postprocessors);
-                return state->funcs->get_property(state, property, val, len);
+                assert(state->magic == MAGIC_SINGLE);
+                return state->funcs->get_property(state->state, property, val, len);
         }
 
         return false;

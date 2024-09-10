@@ -337,10 +337,11 @@ static video_frame *get_copy(struct state_video_compress_cineform *s, video_fram
         auto *dst = (unsigned char *) ret->tiles[0].data;
         int dst_sign = 1;
         if (s->precompress_desc.color_spec == RGB) { // upside down
-                dst += static_cast<size_t>(dst_linesize) * frame->tiles[0].height - 1;
+                dst += static_cast<size_t>(dst_linesize) *
+                       (frame->tiles[0].height - 1);
                 dst_sign = -1;
         }
-        for (unsigned i = 0; i < frame->tiles[0].height; ++i) {
+        for (long int i = 0; i < (long int) frame->tiles[0].height; ++i) {
                 s->dec(dst + dst_sign * i * dst_linesize, (unsigned char *) frame->tiles[0].data + i * src_linesize, dst_linesize, 16, 8, 0);
         }
 
@@ -364,6 +365,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 }
                 std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->precompress_desc), vf_free);
                 video_frame *dummy_ptr = dummy.get();
+                vf_clear(dummy_ptr);
 
                 s->stop = true;
                 s->frame_queue.push(std::move(dummy));
