@@ -282,7 +282,7 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 
         if (position_x == size_x / 8) {
                 // compute the last incomplete block
-                uint8_t tmp[48];
+                alignas(uint32_t) uint8_t tmp[48];
                 r12l_to_rg48_compute_blk(src, tmp);
                 for (unsigned i = 0; i < (size_x - position_x * 8) * 6; ++i) {
                         dst[i] = tmp[i];
@@ -294,8 +294,19 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 
 /// adapted variant of @ref vc_copylineR12LtoRG48
 __device__ static void
-r12l_to_rg48_compute_blk(const uint8_t *src, uint8_t *dst)
+r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
 {
+        // load the data from in to src_u32
+        auto *in_u32 = (uint32_t *) in;
+        uint32_t src_u32[9];
+        for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
+                src_u32[i] = in_u32[i];
+        }
+
+        uint32_t dst_u32[12];
+        uint8_t *dst = (uint8_t *) dst_u32;
+        uint8_t *src = (uint8_t *) src_u32;
+
         // 0
         // R
         *dst++ = src[0] << 4;
@@ -376,6 +387,12 @@ r12l_to_rg48_compute_blk(const uint8_t *src, uint8_t *dst)
 
         *dst++ = src[32 + 2] & 0xF0;
         *dst++ = src[32 + 3];
+
+        // store the result
+        auto *out_u32 = (uint32_t *) out;
+        for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
+                out_u32[i] = dst_u32[i];
+        }
 }
 
 void
