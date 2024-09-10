@@ -331,9 +331,14 @@ static void parallel_conv(video_frame *dst, video_frame *src){
         decoder_t decoder =
             get_decoder_from_to(src->color_spec, dst->color_spec);
         assert(decoder != nullptr);
+        time_ns_t t0 = get_time_in_ns();
         parallel_pix_conv((int) src->tiles[0].height, dst->tiles[0].data,
                           dst_pitch, src->tiles[0].data, src_pitch,
                           decoder, 0);
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                MSG(DEBUG, "pixfmt conversion duration: %f ms\n",
+                    NS_TO_MS((double) (get_time_in_ns() - t0)));
+        }
 }
 
 static struct {

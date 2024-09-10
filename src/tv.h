@@ -86,8 +86,6 @@ typedef long long time_ns_t;
 #define MS_IN_NS_DBL 1000000.0
 #define MS_IN_SEC 1000
 #define MS_IN_SEC_DBL 1000.0
-#define US_IN_1MS 1000
-#define US_IN_1MS_DBL 1000.0
 #define US_IN_SEC 1000000LL
 #define US_IN_NS 1000LL
 #define US_IN_SEC_DBL ((double) US_IN_SEC)
@@ -97,6 +95,10 @@ typedef long long time_ns_t;
 #define NS_IN_SEC_DBL ((double) NS_IN_SEC)
 #define NS_IN_US (NS_IN_SEC/US_IN_SEC)
 #define NS_IN_US_DBL ((double) NS_IN_US)
+#define US_TO_MS(val_us) ((val_us) / 1000)
+#define MS_TO_US(val_ms) ((val_ms) * 1000)
+#define NS_TO_MS(val_ns) ((val_ns) / 1000 / 1000)
+
 static inline time_ns_t get_time_in_ns() {
 #ifdef HAVE_TIMESPEC_GET
         struct timespec ts = { 0, 0 };

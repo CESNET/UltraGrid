@@ -41,11 +41,8 @@
 #include <cstdio>
 #include <cuda_runtime_api.h>
 
-#ifdef DEBUG
-#define D_PRINTF printf
-#else
-#define D_PRINTF(...)
-#endif
+extern volatile int log_level;
+#define LOG_LEVEL_DEBUG 7
 
 #define MEASURE_KERNEL_DURATION_START(stream) \
         cudaEvent_t t0, t1; \
@@ -57,7 +54,9 @@
         cudaEventSynchronize(t1); \
         float elapsedTime = NAN; \
         cudaEventElapsedTime(&elapsedTime, t0, t1); \
-        D_PRINTF("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        if (log_level >= LOG_LEVEL_DEBUG) { \
+                printf("%s elapsed time: %f ms\n", __func__, elapsedTime); \
+        } \
         if (elapsedTime > 10.0) { \
                 fprintf( \
                     stderr, \
@@ -73,9 +72,26 @@
 /**
  * modified @ref vc_copylineRG48toR12L
  */
+template <typename load_t>
 __device__ static void
-rt48_to_r12l_compute_blk(const uint8_t *src, uint8_t *dst)
+rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
 {
+         // load the data from in to src_u32
+         auto    *in_t = (load_t *) in;
+         uint32_t src_u32[12];
+         for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
+                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4);
+                 if constexpr (sizeof(load_t) == 4) {
+                         src_u32[i] = in_t[i];
+                 } else {
+                         src_u32[i] = in_t[2 * i] | in_t[2 * i + 1] << 16;
+                 }
+         }
+
+        uint32_t dst_u32[9];
+        auto *dst = (uint8_t *) dst_u32;
+        auto *src = (uint8_t *) src_u32;
+
         // 0
         dst[0] = src[0] >> 4;
         dst[0] |= src[1] << 4;
@@ -191,21 +207,29 @@ rt48_to_r12l_compute_blk(const uint8_t *src, uint8_t *dst)
         dst[32 + 2] |= src[0] & 0xF0;
         dst[32 + 3] = src[1];
         src += 2;
+
+        // store the result
+        auto *out_u32 = (uint32_t *) out;
+        for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
+                out_u32[i] = dst_u32[i];
+        }
 }
 
+template <typename load_t>
 __device__ static void
 rt48_to_r12l_compute_last_blk(uint8_t *src, uint8_t *dst, unsigned width)
 {
-        uint8_t tmp[48];
+        alignas(uint32_t) uint8_t tmp[48];
         for (unsigned i = 0; i < width * 6; ++i) {
                 tmp[i] = src[i];
         }
-        rt48_to_r12l_compute_blk(tmp, dst);
+        rt48_to_r12l_compute_blk<load_t>(tmp, dst);
 }
 
 /**
  * @todo fix the last block for widths not divisible by 8
  */
+template <typename load_t>
 __global__ static void
 kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x)
 {
@@ -220,11 +244,11 @@ kernel_rg48_to_r12l(uint8_t *in, uint8_t *out, unsigned size_x)
 
         // handle incomplete blocks
         if (position_x == size_x / 8) {
-                rt48_to_r12l_compute_last_blk(src, dst,
-                                              size_x - position_x * 8);
+                rt48_to_r12l_compute_last_blk<load_t>(src, dst,
+                                                      size_x - position_x * 8);
                 return;
         }
-        rt48_to_r12l_compute_blk(src, dst);
+        rt48_to_r12l_compute_blk<load_t>(src, dst);
 }
 
 /**
@@ -252,9 +276,24 @@ int postprocess_rg48_to_r12l(
 
         MEASURE_KERNEL_DURATION_START(stream)
 
-        kernel_rg48_to_r12l<<<blocks, threads_per_block, 0,
-                              (cudaStream_t) stream>>>(
-            (uint8_t *) input_samples, (uint8_t *) output_buffer, size_x);
+        if (size_x % 2 == 0) {
+                kernel_rg48_to_r12l<uint32_t>
+                    <<<blocks, threads_per_block, 0, (cudaStream_t) stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_buffer,
+                        size_x);
+        } else {
+                thread_local bool warn_print;
+                if (!warn_print) {
+                        fprintf(stderr,
+                                "%s: Odd width %d px will use slower kernel!\n",
+                                __func__, size_x);
+                        warn_print = true;
+                }
+                kernel_rg48_to_r12l<uint16_t>
+                    <<<blocks, threads_per_block, 0, (cudaStream_t) stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_buffer,
+                        size_x);
+        }
 
         MEASURE_KERNEL_DURATION_STOP(stream)
 
@@ -266,9 +305,11 @@ int postprocess_rg48_to_r12l(
 //   / , _/ / /  / __/  / /__/___/ > > / , _// (_ / /_  _// _  |
 //  /_/|_| /_/  /____/ /____/     /_/ /_/|_| \___/   /_/  \___/
 
+template <typename store_t>
 __device__ static void r12l_to_rg48_compute_blk(const uint8_t *src,
                                                 uint8_t       *dst);
 
+template <typename store_t>
 __global__ static void
 kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 {
@@ -283,20 +324,32 @@ kernel_r12l_to_rg48(uint8_t *in, uint8_t *out, unsigned size_x)
 
         if (position_x == size_x / 8) {
                 // compute the last incomplete block
-                uint8_t tmp[48];
-                r12l_to_rg48_compute_blk(src, tmp);
+                alignas(uint32_t) uint8_t tmp[48];
+                r12l_to_rg48_compute_blk<store_t>(src, tmp);
                 for (unsigned i = 0; i < (size_x - position_x * 8) * 6; ++i) {
                         dst[i] = tmp[i];
                 }
                 return;
         }
-        r12l_to_rg48_compute_blk(src, dst);
+        r12l_to_rg48_compute_blk<store_t>(src, dst);
 }
 
 /// adapted variant of @ref vc_copylineR12LtoRG48
+template <typename store_t>
 __device__ static void
-r12l_to_rg48_compute_blk(const uint8_t *src, uint8_t *dst)
+r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
 {
+        // load the data from in to src_u32
+        auto *in_u32 = (uint32_t *) in;
+        uint32_t src_u32[9];
+        for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
+                src_u32[i] = in_u32[i];
+        }
+
+        uint32_t dst_u32[12];
+        uint8_t *dst = (uint8_t *) dst_u32;
+        uint8_t *src = (uint8_t *) src_u32;
+
         // 0
         // R
         *dst++ = src[0] << 4;
@@ -377,6 +430,18 @@ r12l_to_rg48_compute_blk(const uint8_t *src, uint8_t *dst)
 
         *dst++ = src[32 + 2] & 0xF0;
         *dst++ = src[32 + 3];
+
+        // store the result
+        auto *out_t = (store_t *) out;
+        for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
+                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4);
+                if constexpr (sizeof(store_t) == 4) {
+                        out_t[i] = dst_u32[i];
+                } else  {
+                        out_t[2 * i] = dst_u32[i] & 0xFFFFU;
+                        out_t[2 * i + 1] = dst_u32[i] >> 16;
+                }
+        }
 }
 
 void
@@ -387,8 +452,20 @@ preprocess_r12l_to_rg48(int width, int height, void *src, void *dst)
         dim3 blocks((((width + 7) / 8) + 255) / 256, height);
 
         MEASURE_KERNEL_DURATION_START(0)
-        kernel_r12l_to_rg48<<<blocks, threads_per_block>>>(
-            (uint8_t *) src, (uint8_t *) dst, width);
+        if (width % 2 == 0) {
+                kernel_r12l_to_rg48<uint32_t><<<blocks, threads_per_block>>>(
+                    (uint8_t *) src, (uint8_t *) dst, width);
+        } else {
+                thread_local bool warn_print;
+                if (!warn_print) {
+                        fprintf(stderr,
+                                "%s: Odd width %d px will use slower kernel!\n",
+                                __func__, width);
+                        warn_print = true;
+                }
+                kernel_r12l_to_rg48<uint16_t><<<blocks, threads_per_block>>>(
+                    (uint8_t *) src, (uint8_t *) dst, width);
+        }
         MEASURE_KERNEL_DURATION_STOP(0)
 }
 

@@ -212,9 +212,14 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         int dst_len = vc_get_linesize(width, R12L);
         decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L);
 
+        time_ns_t t0 = get_time_in_ns();
         parallel_pix_conv((int) height, (char *) dst_buffer, dst_len,
                           (const char *) src_buffer, src_pitch,
                           vc_copylineRG48toR12L, 0);
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                MSG(DEBUG, "pixfmt conversion duration: %f ms\n",
+                    NS_TO_MS((double) (get_time_in_ns() - t0)));
+        }
 }
 
 static void print_dropped(unsigned long long int dropped, const j2k_decompress_platform& platform) {
