@@ -129,7 +129,7 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                         delete old_fec_state;
                         break;
                 }
-                m_fec_state = fec::create_from_config(msg->fec_cfg);
+                m_fec_state = fec::create_from_config(msg->fec_cfg, false);
                 if (m_fec_state == nullptr) {
                         int rc = 0;
                         if (strstr(msg->fec_cfg, "help") == nullptr) {

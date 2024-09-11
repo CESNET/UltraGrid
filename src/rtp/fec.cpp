@@ -59,7 +59,7 @@ using std::stof;
 using std::stoi;
 using std::string;
 
-fec *fec::create_from_config(const char *c_str) noexcept
+fec *fec::create_from_config(const char *c_str, bool is_audio) noexcept
 {
         try {
                 if (strncmp(c_str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
@@ -87,7 +87,7 @@ fec *fec::create_from_config(const char *c_str) noexcept
                         return new ldgm(c_str + strlen("LDGM cfg "));
                 }
                 if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
-                        return new rs(c_str + strlen("rs cfg "));
+                        return new rs(c_str + strlen("rs cfg "), is_audio);
                 }
                 throw ug_runtime_error("Unrecognized FEC configuration!");
         } catch (string const &s) {

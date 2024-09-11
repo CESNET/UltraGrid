@@ -873,7 +873,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         delete old_fec_state;
                         break;
                 }
-                s->fec_state = fec::create_from_config(msg->fec_cfg);
+                s->fec_state = fec::create_from_config(msg->fec_cfg, true);
                 if (s->fec_state == nullptr) {
                         s->fec_state = old_fec_state;
                         if (strstr(msg->fec_cfg, "help") !=

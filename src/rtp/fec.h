@@ -64,7 +64,7 @@ struct fec {
                         const std::map<int, int> &) = 0;
         virtual ~fec() {}
 
-        static fec *create_from_config(const char *str) noexcept;
+        static fec *create_from_config(const char *str, bool is_audio) noexcept;
         static fec *create_from_desc(struct fec_desc) noexcept;
         static int pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted) throw();
         static enum fec_type fec_type_from_pt(int pt) throw();
