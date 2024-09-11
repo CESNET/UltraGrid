@@ -202,6 +202,8 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
         }
 
         m_coding_session->set_pcMatrix(filename);
+
+        MSG(INFO, "Using LDGM with k=%u m=%u c=%u\n", m_k, m_m, m_c);
 }
 
 ADD_TO_PARAM("ldgm-device", "* ldgm-device={CPU|GPU}\n"

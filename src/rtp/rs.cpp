@@ -57,6 +57,8 @@
 #define MAX_K 255
 #define MAX_N 255
 
+#define MOD_NAME "[fec/rs] "
+
 #ifdef HAVE_ZFEC
 extern "C" {
 #ifndef _MSC_VER
@@ -115,6 +117,7 @@ rs::rs(const char *c_cfg)
 #ifdef HAVE_ZFEC
         state = fec_new(m_k, m_n);
         assert(state != NULL);
+        MSG(INFO, "Using Reed-Solomon with k=%u n=%u\n", m_k, m_n);
 #else
         throw ug_runtime_error("zfec support is not compiled in");
 #endif
