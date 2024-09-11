@@ -78,6 +78,7 @@
 #include "transmit.h"
 #include "tv.h"
 #include "utils/jpeg_reader.h"
+#include "utils/macros.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
 #include "video.h"
@@ -838,9 +839,9 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         }
 
         long data_sent = 0;
+        int  data_len  = tx->mtu - hdrs_len;
         do {
                 const char *data     = chan_data + pos;
-                int         data_len = tx->mtu - hdrs_len;
                 if (pos + data_len >=
                     (unsigned int) buffer->get_data_len(channel)) {
                         data_len = buffer->get_data_len(channel) - pos;
@@ -872,6 +873,23 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         } while (pos < buffer->get_data_len(channel));
 
         report_stats(tx, rtp_session, data_sent);
+
+        if (buffer->get_fec_params(0).type == FEC_NONE) {
+                return;
+        }
+        // issue a warning if R-S is inadequate
+        const int packet_count =
+            (buffer->get_data_len(channel) + data_len - 1) / data_len;
+        if (packet_count > 3) {
+                return;
+        }
+        const char *pl_suffix = packet_count == 1 ? "" : "s";
+        log_msg_once(LOG_LEVEL_WARNING, to_fourcc('t', 'x', 'a', 'F'),
+                     MOD_NAME
+                     "[audio] %d packet%s per audio channel may be too low "
+                     "for Reed Solomon, consider mult instead!%s\n",
+                     packet_count, pl_suffix,
+                     packet_count == 3 ? " (Or increase the redundancy.)" : "");
 }
 
 static bool
