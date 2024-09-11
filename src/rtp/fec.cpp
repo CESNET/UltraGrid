@@ -5,7 +5,7 @@
  * Common ancesor of FEC modules.
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,23 +37,27 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include "rtp/fec.h"
 
+#include <cassert>               // for assert
+#include <cstdlib>               // for abort, free
+#include <cstring>               // for strlen, strncmp, strtok_r, strdup
+#include <exception>             // for exception
+#include <ostream>               // for operator<<, basic_ostream, basic_ost...
 #include <string>
 
 #include "debug.h"
-#include "rtp/fec.h"
 #include "rtp/ldgm.h"
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
+#include "rtp/rtp_types.h"       // for PT_ENCRYPT_VIDEO, PT_ENCRYPT_VIDEO_LDGM
 #include "ug_runtime_error.hpp"
 #include "utils/macros.h"
 
-using namespace std;
+using std::exception;
+using std::stof;
+using std::stoi;
+using std::string;
 
 fec *fec::create_from_config(const char *c_str) noexcept
 {
