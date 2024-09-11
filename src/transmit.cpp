@@ -872,9 +872,10 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         }
 
         long data_sent = 0;
-        int  data_len  = tx->mtu - hdrs_len;
+        const int max_len = tx->mtu - hdrs_len;
         do {
                 const char *data     = chan_data + pos;
+                int         data_len = max_len;
                 if (pos + data_len >=
                     (unsigned int) buffer->get_data_len(channel)) {
                         data_len = buffer->get_data_len(channel) - pos;
@@ -915,7 +916,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         }
         // issue a warning if R-S is inadequate
         const int packet_count =
-            (buffer->get_data_len(channel) + data_len - 1) / data_len;
+            (buffer->get_data_len(channel) + max_len - 1) / max_len;
         if (packet_count > 3) {
                 return;
         }
