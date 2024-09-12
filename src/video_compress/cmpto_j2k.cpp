@@ -466,7 +466,7 @@ static void usage() {
                 }
                 col() << "]";
         }
-        col() << " [--cuda-device <c_index>]\n" << TERM_RESET;
+        col() << "\n\t\t[--cuda-device <c_index>] [--param " CPU_CONV_PARAM "]\n" << TERM_RESET;
 
         col() << "where:\n";
         for(const auto& opt : usage_opts){
@@ -478,6 +478,10 @@ static void usage() {
                 col() << " - " << opt.description << "\n";
         }
         col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
+        col() << TBOLD("\t--param " CPU_CONV_PARAM)
+              << " - use CPU for pixfmt conversion (useful if GPU\n\t\tis fully "
+                 "occupied by the encoder; an option for decoder exists as "
+                 "well)\n";
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
