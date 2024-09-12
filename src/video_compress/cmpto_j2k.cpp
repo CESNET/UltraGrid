@@ -318,6 +318,14 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         "Setting MCT",
                         NOOP);
 
+        char rate[100];
+        snprintf_ch(rate, "%s", s->rate == 0 ? "unset" : format_in_si_units(s->rate));
+        MSG(INFO,
+            "Using parameters: quality=%.2f, bitrate=%s, mem_limit=%s, "
+            "tile_limit=%u, pool_size=%u, mct=%d\n",
+            s->quality, rate, format_in_si_units(s->mem_limit), s->tile_limit,
+            s->max_in_frames, mct);
+
         set_pool(s, cuda_convert_func != nullptr);
 
         s->compressed_desc = desc;
