@@ -40,8 +40,9 @@
 
 #include <cstddef>
 
+// for cmpto_j2k compress and decompress
 struct cmpto_j2k_dec_comp_format;
-
+struct cmpto_j2k_enc_comp_format;
 int postprocess_rg48_to_r12l(
     void * postprocessor,
     void * img_custom_data,
@@ -58,7 +59,19 @@ int postprocess_rg48_to_r12l(
     size_t output_buffer_size,
     void * stream
 );
-
-void preprocess_r12l_to_rg48(int width, int height, void *src, void *dst);
+int preprocess_r12l_to_rg48(
+    void * preprocessor,
+    void * img_custom_data,
+    size_t img_custom_data_size,
+    int size_x,
+    int size_y,
+    struct cmpto_j2k_enc_comp_format * comp_formats,
+    int comp_count,
+    void * input_samples,
+    size_t input_samples_size,
+    void * output_samples,
+    size_t output_samples_size,
+    void *stream
+);
 
 #endif // defined CUDA_WRAPPER_KERNELS_HPP_1A3F7B57_EE91_4363_8D50_9CDDC60CB74F

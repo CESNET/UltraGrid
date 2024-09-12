@@ -72,8 +72,9 @@
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
 #include "utils/video_frame_pool.h"
-#include "video.h"
+#include "video_codec.h"             // for vc_get_linesize, codec_is_a_rgb
 #include "video_compress.h"
+#include "video_frame.h"             // for vf_alloc_desc, vf_free, vf_resto...
 
 #define MOD_NAME "[Cmpto J2K enc.] "
 
@@ -129,8 +130,6 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
 };
 #endif
 
-typedef void (*cuda_convert_func_t)(int width, int height, void *src, void *dst);
-
 struct state_video_compress_j2k {
         struct module module_data{};
         struct cmpto_j2k_enc_ctx *context{};
@@ -157,9 +156,6 @@ struct state_video_compress_j2k {
         condition_variable configure_cv;
         bool               configured  = false;
         bool               should_exit = false;
-
-        cuda_convert_func_t cuda_convert_func = nullptr;
-        uint8_t            *cuda_conv_tmp_buf = nullptr;
 };
 
 // prototypes
@@ -184,18 +180,18 @@ static void parallel_conv(video_frame *dst, video_frame *src){
         }
 }
 
+const cmpto_j2k_enc_preprocessor_run_callback_cuda r12l_to_rg48_cuda =
 #ifdef HAVE_CUDA
-const cuda_convert_func_t r12l_to_rg48_cuda = preprocess_r12l_to_rg48;
+    preprocess_r12l_to_rg48;
 #else
-const cuda_convert_func_t r12l_to_rg48_cuda = nullptr;
+    nullptr;
 #endif
 
 static struct {
         codec_t ug_codec;
         enum cmpto_sample_format_type cmpto_sf;
         codec_t convert_codec;
-        /// must be not-NULL if convert_codec != VC_NONE and HAVE_CUDA
-        cuda_convert_func_t cuda_convert_func;
+        cmpto_j2k_enc_preprocessor_run_callback_cuda cuda_convert_func;
 } codecs[] = {
         {UYVY, CMPTO_422_U8_P1020, VIDEO_CODEC_NONE, nullptr},
         {v210, CMPTO_422_U10_V210, VIDEO_CODEC_NONE, nullptr},
@@ -212,25 +208,14 @@ ADD_TO_PARAM(
     "* " CPU_CONV_PARAM "\n"
     "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 static void
-set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
+set_pool(struct state_video_compress_j2k *s, bool have_gpu_preprocess)
 {
 #ifdef HAVE_CUDA
-        const bool force_cpu_conv =
-            get_commandline_param(CPU_CONV_PARAM) != nullptr;
         s->pool_in_device_memory = false;
         if (cuda_devices_count > 1) {
                 MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
                              "conversion...\n");
-        } else if (!force_cpu_conv || s->cuda_convert_func == nullptr) {
-                cuda_wrapper_set_device((int) cuda_devices[0]);
-
-                if (s->cuda_convert_func != nullptr) {
-                        cuda_wrapper_malloc(
-                            (void **) &s->cuda_conv_tmp_buf,
-                            vc_get_datalen(desc.width, desc.height, desc.color_spec) +
-                                MAX_PADDING);
-                }
-
+        } else if (s->precompress_codec == VC_NONE || have_gpu_preprocess) {
                 s->pool_in_device_memory = true;
                 s->pool                  = video_frame_pool(
                     s->max_in_frames,
@@ -238,25 +223,27 @@ set_pool(struct state_video_compress_j2k *s, struct video_desc desc)
                                          cuda_wrapper_malloc, cuda_wrapper_free>());
                 return;
         }
-        s->cuda_convert_func = nullptr; // either was 0 or force_cpu_conv
         s->pool = video_frame_pool(
             s->max_in_frames,
             cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,
                                                      cuda_wrapper_free_host>());
 #else
+        assert(!have_gpu_preprocess); // if CUDA not found, we shouldn't have
         s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
 #endif
 }
 
 static bool configure_with(struct state_video_compress_j2k *s, struct video_desc desc){
         enum cmpto_sample_format_type sample_format;
+        cmpto_j2k_enc_preprocessor_run_callback_cuda cuda_convert_func =
+            nullptr;
         bool found = false;
 
         for(const auto &codec : codecs){
                 if(codec.ug_codec == desc.color_spec){
                         sample_format = codec.cmpto_sf;
                         s->precompress_codec = codec.convert_codec;
-                        s->cuda_convert_func = codec.cuda_convert_func;
+                        cuda_convert_func = codec.cuda_convert_func;
                         found = true;
                         break;
                 }
@@ -275,6 +262,10 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                 s->configured = false;
         }
 
+        if (get_commandline_param(CPU_CONV_PARAM) != nullptr) {
+                cuda_convert_func = nullptr;
+        }
+
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg),
                  "Context configuration create", return false);
@@ -283,6 +274,11 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                     cmpto_j2k_enc_ctx_cfg_add_cuda_device(
                         ctx_cfg, cuda_devices[i], s->mem_limit, s->tile_limit),
                     "Setting CUDA device", return false);
+        }
+        if (cuda_convert_func != nullptr) {
+                CHECK_OK(cmpto_j2k_enc_ctx_cfg_set_preprocessor_cuda(
+                             ctx_cfg, nullptr, nullptr, cuda_convert_func),
+                         "Setting CUDA preprocess", return false);
         }
 
         CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &s->context),
@@ -321,7 +317,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         "Setting MCT",
                         NOOP);
 
-        set_pool(s, desc);
+        set_pool(s, cuda_convert_func != nullptr);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
@@ -341,26 +337,15 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
  * Does the pixel format conversion as well if specified.
  */
 static void
-do_gpu_copy(struct state_video_compress_j2k *s,
-             std::shared_ptr<video_frame> &ret, video_frame *in_frame)
+do_gpu_copy(std::shared_ptr<video_frame> &ret, video_frame *in_frame)
 {
 #ifdef HAVE_CUDA
         cuda_wrapper_set_device((int) cuda_devices[0]);
-        if (s->cuda_convert_func == nullptr) {
-                assert(s->precompress_codec == VC_NONE);
-                cuda_wrapper_memcpy(ret->tiles[0].data, in_frame->tiles[0].data,
-                                    in_frame->tiles[0].data_len,
-                                    CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE);
-                return;
-        }
-        cuda_wrapper_memcpy(s->cuda_conv_tmp_buf, in_frame->tiles[0].data,
+        cuda_wrapper_memcpy(ret->tiles[0].data, in_frame->tiles[0].data,
                             in_frame->tiles[0].data_len,
                             CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE);
-        s->cuda_convert_func((int) in_frame->tiles[0].width,
-                             (int) in_frame->tiles[0].height,
-                             s->cuda_conv_tmp_buf, ret->tiles[0].data);
 #else
-        (void) s, (void) ret, (void) in_frame;
+        (void) ret, (void) in_frame;
         abort(); // must not reach here
 #endif
 }
@@ -369,7 +354,7 @@ static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, vide
         std::shared_ptr<video_frame> ret = s->pool.get_frame();
 
         if (s->pool_in_device_memory) {
-                do_gpu_copy(s, ret, frame);
+                do_gpu_copy(ret, frame);
         } else if (s->precompress_codec != VC_NONE) {
                 parallel_conv(ret.get(), frame);
         } else {
@@ -615,7 +600,8 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         return;
                 }
                 struct video_desc pool_desc = desc;
-                if (s->precompress_codec != VC_NONE) {
+                if (s->precompress_codec != VC_NONE &&
+                    !s->pool_in_device_memory) {
                         pool_desc.color_spec = s->precompress_codec;
                 }
                 s->pool.reconfigure(
@@ -646,9 +632,17 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         vf_store_metadata(tx.get(), udata->metadata);
 
         if (s->pool_in_device_memory) {
+                // cmpto_j2k_enc requires the size after postprocess, which
+                // doesn't equeal the IN frame data_len for R12L
+                const codec_t device_codec = s->precompress_codec == VC_NONE
+                                           ? udata->frame->color_spec
+                                           : s->precompress_codec;
+                const size_t  data_len =
+                    vc_get_datalen(udata->frame->tiles[0].width,
+                                   udata->frame->tiles[0].height, device_codec);
                 CHECK_OK(cmpto_j2k_enc_img_set_samples_cuda(
                              img, cuda_devices[0], udata->frame->tiles[0].data,
-                             udata->frame->tiles[0].data_len, release_cstream_cuda),
+                             data_len, release_cstream_cuda),
                          "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
         } else {
                 CHECK_OK(cmpto_j2k_enc_img_set_samples(
@@ -694,11 +688,6 @@ cleanup_common(struct state_video_compress_j2k *s)
                 cmpto_j2k_enc_ctx_destroy(s->context);
         }
         s->context = nullptr;
-
-#ifdef HAVE_CUDA
-        cuda_wrapper_free(s->cuda_conv_tmp_buf);
-        s->cuda_conv_tmp_buf = nullptr;
-#endif
 }
 
 static compress_module_info get_cmpto_j2k_module_info(){
