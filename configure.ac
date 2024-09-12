@@ -1787,6 +1787,7 @@ ENSURE_FEATURE_PRESENT([$libswscale_req], [$libswscale], [Libswscale not found])
 # -------------------------------------------------------------------------------------------------
 # Libav
 # -------------------------------------------------------------------------------------------------
+lavc_cuda=no
 libavcodec=no
 libavcodec_audio=no
 AC_ARG_ENABLE(libavcodec,
@@ -1869,7 +1870,8 @@ else
 fi
 
 ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
-ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$FOUND_CUDA], [CUDA not found for lavc CUDA convs])
+ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$lavc_cuda],
+        [either libavcodec or CUDA>=9 missing for lavc_cuda])
 
 # -------------------------------------------------------------------------------------------------
 # File vidcap/display
