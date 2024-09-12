@@ -242,8 +242,8 @@ static void * j2k_decompress_init(void)
 
         auto *s = new state_decompress_j2k(queue_len, encoder_in_frames);
         if (get_commandline_param("j2k-dec-mem-limit") != nullptr) {
-                s->req_mem_limit = unit_evaluate(
-                    get_commandline_param("j2k-dec-mem-limit"), nullptr);
+                s->req_mem_limit = unit_evaluate_dbl(
+                    get_commandline_param("j2k-dec-mem-limit"), false, nullptr);
         }
 
         if (get_commandline_param("j2k-dec-tile-limit") != nullptr) {

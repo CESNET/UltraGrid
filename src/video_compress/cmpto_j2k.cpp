@@ -483,11 +483,13 @@ static void usage() {
               << " - use CPU for pixfmt conversion (useful if GPU\n\t\tis fully "
                  "occupied by the encoder; an option for decoder exists as "
                  "well)\n";
+        color_printf("\nOption prefixes (eg. 'q=' for quality) can be used. SI "
+                     "suffixes are recognized (eg. 'r=7.5M').\n");
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
         do { \
-                long long val = unit_evaluate(str, nullptr); \
+                long long val = unit_evaluate_dbl(str, false, nullptr); \
                 if (val < (minval) || val > UINT_MAX) { \
                         LOG(LOG_LEVEL_ERROR) \
                             << "[J2K] Wrong value " << (str) \

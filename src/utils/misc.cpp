@@ -92,7 +92,7 @@ unit_evaluate(const char *str, const char **endptr)
  * Converts units in format <val>[.<val>][kMG] to floating point representation.
  *
  * @param    str            string to be parsed, suffix following SI suffix is ignored (as in 1ms or 100MB)
- * @param    case_sensitive should 'm' be considered as mega
+ * @param    case_sensitive if true 'm' will be considered as milli, otherwise mega
  * @param    endptr         if not NULL, point to suffix after parse
  * @returns                 positive floating point representation of the string
  * @returns                 NAN if error
