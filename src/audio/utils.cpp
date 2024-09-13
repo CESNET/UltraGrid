@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET z.s.p.o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,32 +36,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
+#include "audio/utils.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>             // for isdigit
 #include <climits>
 #include <cmath>
+#include <cstdio>             // for snprintf
+#include <cstdlib>            // for free, malloc, abort, atoi, abs, calloc
 #include <cstring>
+#include <memory>             // for unique_ptr
+#include <ostream>            // for operator<<, basic_ostream, basic_ostrea...
+#include <string>             // for char_traits, basic_string, stoi, hash
+#include <unordered_map>      // for operator==, unordered_map, _Node_iterat...
+#include <vector>             // for vector
 
-#include "audio/codec.h"
+#include "utils/color_out.h"  // for color_printf, TBOLD, TERM_RESET
 #include "audio/types.h"
-#include "audio/utils.h"
 #include "debug.h"
 #include "host.h" // ADD_TO_PARAM
 #include "utils/macros.h"
 #include "utils/misc.h"
 
+
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
               "The code below assumes little endianness.");
 
-using std::clamp;
 using std::max;
-using std::numeric_limits;
 using std::stoi;
 using std::string;
 using std::unique_ptr;
