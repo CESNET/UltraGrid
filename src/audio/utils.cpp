@@ -834,7 +834,8 @@ format_audio_channel_volume(int chan_idx, double rms, double peak, const char *f
         }
         const double rms_dbfs  = 20.0 * log(rms) / log(10.0);
         const double peak_dbfs = 20.0 * log(peak) / log(10.0);
-        *volume_start += snprintf(*volume_start, volume_end - *volume_start,
-                                  "[%d] %s%.2f/%.2f" TERM_RESET, chan_idx,
-                                  format_color, rms_dbfs, peak_dbfs);
+        *volume_start +=
+            snprintf(*volume_start, volume_end - *volume_start,
+                     "[%d] %s%.2f" TERM_RESET "/%s%.2f" TERM_RESET, chan_idx,
+                     format_color, rms_dbfs, format_color, peak_dbfs);
 }
