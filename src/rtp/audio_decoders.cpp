@@ -388,17 +388,19 @@ static void *adec_compute_and_print_stats(void *arg) {
                         d->frame.get_sample_count(),
                         d->seconds);
 
-        using namespace std::string_literals;
-        ostringstream volume;
-        volume << fixed << setprecision(2);
+        char volume[STR_LEN];
+        char       *vol_start = volume;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                volume << (i > 0 ? ", ["s : "["s) << i << "] " << SBOLD(SMAGENTA(20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0)));
+                format_audio_channel_volume(i, rms, peak,
+                                            TERM_BOLD TERM_FG_MAGENTA,
+                                            &vol_start, volume + sizeof volume);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio decoder] Volume: " << volume.str() << " dBFS RMS/peak" << (d->muted_receiver ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
+        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Volume: %s dBFS RMS/peak%s\n",
+                volume, d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 

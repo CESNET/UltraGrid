@@ -813,4 +813,26 @@ void channel_map::compute_contributors() {
         }
 }
 
-
+/**
+ * @brief format per channel incrementally volume string (eg. "[0]
+ * -18.00/-14.99, [1] -18.00/-14.99")
+ * @param rms                   volume RMS in range [0,1]
+ * @param peak                  value of sample with maximal absolute value in
+ *                              range [0,1]
+ * @param[in,out] volume_start  string to be wwritten to, after function exit
+ * will to point after just written data
+ */
+void
+format_audio_channel_volume(int chan_idx, double rms, double peak, const char *format_color,
+                            char **volume_start, char *volume_end)
+{
+        if (chan_idx > 0) {
+                *volume_start +=
+                    snprintf(*volume_start, volume_end - *volume_start, ", ");
+        }
+        const double rms_dbfs  = 20.0 * log(rms) / log(10.0);
+        const double peak_dbfs = 20.0 * log(peak) / log(10.0);
+        *volume_start += snprintf(*volume_start, volume_end - *volume_start,
+                                  "[%d] %s%.2f/%.2f" TERM_RESET, chan_idx,
+                                  format_color, rms_dbfs, peak_dbfs);
+}

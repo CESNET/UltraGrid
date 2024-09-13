@@ -983,17 +983,19 @@ static void *asend_compute_and_print_stats(void *arg) {
                         d->frame.get_sample_count(),
                         d->seconds);
 
-        ostringstream volume;
-        volume << fixed << setprecision(2);
-        using namespace std::string_literals;
+        char volume[STR_LEN];
+        char *vol_start = volume;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                volume << (i > 0 ? ", ["s : "["s) << i << "] " << SBOLD(SGREEN(20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0)));
+                format_audio_channel_volume(
+                    i, rms, peak, TERM_BOLD TERM_FG_GREEN, &vol_start,
+                    volume + sizeof volume);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << volume.str() << " dBFS RMS/peak" << (d->muted_sender ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
+        log_msg(LOG_LEVEL_INFO, "[Audio sender] Volume: %s dBFS RMS/peak%s\n",
+                volume, d->muted_sender ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 
