@@ -493,6 +493,14 @@ static void usage() {
                  "well)\n";
         color_printf("\nOption prefixes (eg. 'q=' for quality) can be used. SI "
                      "suffixes are recognized (eg. 'r=7.5M').\n");
+#ifdef HAVE_CUDA
+        constexpr char cuda_supported[] = "YES";
+#else
+        constexpr char cuda_supported[] = TRED("NO");
+#endif
+        color_printf(
+            "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
+            cuda_supported);
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
