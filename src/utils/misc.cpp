@@ -340,5 +340,5 @@ bool invalid_arg_is_numeric(const char *what) {
         if (what == nullptr) {
                 return false;
         }
-        return strcmp(what, "stoi") == 0 || strcmp(what, "stod") == 0;
+        return strncmp(what, "stoi", 4) == 0 || strncmp(what, "stod", 4) == 0;
 }
