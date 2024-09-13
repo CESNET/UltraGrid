@@ -71,6 +71,8 @@ struct key_val {
 };
 void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help);
 
+bool invalid_arg_is_numeric(const char *what);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1026,8 +1026,7 @@ int main(int argc, char **argv)
     try {
         ret = parse_fmt(argc, argv, &params);
     } catch (invalid_argument &e) {
-        if (strcmp(e.what(), "stoi") != 0 &&
-            strcmp(e.what(), "stod") != 0) {
+        if (!invalid_arg_is_numeric(e.what())) {
             throw;
         }
         MSG(ERROR, "Non-numeric value passed to option "

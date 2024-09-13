@@ -1416,8 +1416,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         try {
                 succeeded = settings_init(s, fmt, cardId);
         } catch (exception &e) {
-                if (strcmp(e.what(), "stoi") == 0 ||
-                    strcmp(e.what(), "stod") == 0) {
+                if (invalid_arg_is_numeric(e.what())) {
                         MSG(ERROR, "Invalid number passed where numeric "
                                    "argument expected!\n");
                 } else {

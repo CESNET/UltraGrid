@@ -329,3 +329,16 @@ bool is_arm_mac() {
         return false;
 #endif
 }
+
+/**
+ * @param what  value returned by std::logic_error::what()
+ * @returns if given std::invalid_argument message belongs to a stoi/stof
+ * converison
+ */
+
+bool invalid_arg_is_numeric(const char *what) {
+        if (what == nullptr) {
+                return false;
+        }
+        return strcmp(what, "stoi") == 0 || strcmp(what, "stod") == 0;
+}

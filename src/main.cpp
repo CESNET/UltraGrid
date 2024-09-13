@@ -1013,8 +1013,7 @@ parse_options(int argc, char *argv[], struct ug_options *opt)
         try {
                 return parse_options_internal(argc, argv, opt);
         } catch (logic_error &e) {
-                if (strcmp(e.what(), "stoi") != 0 &&
-                    strcmp(e.what(), "stod") != 0) {
+                if (!invalid_arg_is_numeric(e.what())) {
                         throw;
                 }
                 if (dynamic_cast<invalid_argument *>(&e) != nullptr) {
