@@ -79,7 +79,7 @@
 
 struct state_sdl2;
 
-static void show_help(void);
+static void show_help(const char *driver);
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame);
 static struct video_frame *display_sdl2_getf(void *state);
 static void display_sdl2_new_message(struct module *mod);
@@ -331,9 +331,10 @@ static void sdl2_print_displays() {
         printf("\n");
 }
 
-static void show_help(void)
+static void
+show_help(const char *driver)
 {
-        SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
+        SDL_CHECK(SDL_VideoInit(driver));
         printf("SDL options:\n");
         color_printf(TBOLD(
             TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
@@ -370,6 +371,7 @@ static void show_help(void)
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
                 color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
         }
+        SDL_VideoQuit();
         SDL_Quit();
 }
 
@@ -602,7 +604,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 } else if (strcmp(tok, "fs") == 0) {
                         s->fs = true;
                 } else if (strcmp(tok, "help") == 0) {
-                        show_help();
+                        show_help(driver);
                         free(s);
                         return INIT_NOERR;
                 } else if (strcmp(tok, "novsync") == 0) {
@@ -653,15 +655,15 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 tmp = NULL;
         }
 
-        int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
+        if (SDL_VideoInit(driver) < 0) {
+                MSG(ERROR, "Unable to initialize SDL2 video: %s\n",
+                    SDL_GetError());
                 free(s);
                 return NULL;
         }
-        ret = SDL_VideoInit(driver);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
+        if (SDL_Init(SDL_INIT_EVENTS) < 0) {
+                MSG(ERROR, "Unable to initialize SDL2 events: %s\n",
+                    SDL_GetError());
                 free(s);
                 return NULL;
         }
