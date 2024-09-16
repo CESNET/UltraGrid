@@ -76,6 +76,7 @@ export FEATURES="\
  --enable-vulkan\
  --enable-ximea\
  --enable-zfec\
+ --disable-drm_disp\
 "
 CUDA_FEATURES="--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy"
 case "$RUNNER_OS" in
