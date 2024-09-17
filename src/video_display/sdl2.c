@@ -380,6 +380,10 @@ show_help(const char *driver)
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
                 color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
         }
+        SDL_version ver;
+        SDL_GetVersion(&ver);
+        printf("\nSDL version (linked): %" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n",
+               ver.major, ver.minor, ver.patch);
         SDL_VideoQuit();
         SDL_Quit();
 }
