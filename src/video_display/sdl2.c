@@ -655,24 +655,24 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         {
                 if (strcmp(tok, "d") == 0 || strcmp(tok, "dforce") == 0) {
                         s->deinterlace = strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
-                } else if (strncmp(tok, "display=", strlen("display=")) == 0) {
-                        s->display_idx = atoi(tok + strlen("display="));
-                } else if (strncmp(tok, "driver=", strlen("driver=")) == 0) {
-                        driver = tok + strlen("driver=");
-                } else if (strcmp(tok, "fs") == 0) {
+                } else if (IS_KEY_PREFIX(tok, "display")) {
+                        s->display_idx = atoi(strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "driver")) {
+                        driver = strchr(tok, '=') + 1;;
+                } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
-                } else if (strcmp(tok, "help") == 0) {
+                } else if (IS_PREFIX(tok, "help")) {
                         show_help(driver);
                         free(s);
                         return INIT_NOERR;
-                } else if (strcmp(tok, "novsync") == 0) {
+                } else if (IS_PREFIX(tok, "novsync")) {
                         s->vsync = false;
-                } else if (strcmp(tok, "nodecorate") == 0) {
+                } else if (IS_PREFIX(tok, "nodecorate")) {
                         s->window_flags |= SDL_WINDOW_BORDERLESS;
-                } else if (strcmp(tok, "keep-aspect") == 0) {
+                } else if (IS_PREFIX(tok, "keep-aspect")) {
                         s->keep_aspect = true;
-                } else if (strstr(tok, "fixed_size=") == tok ||
-                           strstr(tok, "size=") == tok) {
+                } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
+                           IS_KEY_PREFIX(tok, "siz=")) {
                         if (!set_size(s, tok)) {
                                 free(s);
                                 return NULL;
@@ -682,16 +682,16 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                                 MOD_NAME "fixed_size deprecated, use size with "
                                          "dimensions\n");
                         s->fixed_size = true;
-                } else if (strstr(tok, "window_flags=") == tok) {
+                } else if (IS_KEY_PREFIX(tok, "window_flags")) {
                         int f;
-                        if (sscanf(tok + strlen("window_flags="), "%i", &f) != 1) {
+                        if (sscanf(strchr(tok, '=') + 1, "%i", &f) != 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong window_flags: %s\n", tok);
                                 free(s);
                                 return NULL;
                         }
                         s->window_flags |= f;
-		} else if (strstr(tok, "pos=") == tok) {
-                        tok += strlen("pos=");
+		} else if (IS_KEY_PREFIX(tok, "position")) {
+                        tok = strchr(tok, '=') + 1;
                         if (strchr(tok, ',') == NULL) {
                                 log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n", tok);
                                 free(s);
@@ -703,7 +703,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                                 MOD_NAME "pos is deprecated, use "
                                          "\"size=%+d%+d\" instead.\n",
                                 s->x, s->y);
-                } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
+		} else if (IS_KEY_PREFIX(tok, "renderer")) {
                         renderer = strchr(tok, '=') + 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n", tok);
