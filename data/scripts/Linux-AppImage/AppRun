@@ -182,10 +182,18 @@ setup_vaapi() {
 }
 
 setup_wayland() {
-        # use bundled Wayland libs only when not running on Wayland, otherwise system ones
-        if [ -z "${WAYLAND_DISPLAY-}" ]; then
-                n_ld_library_path="$n_ld_library_path:$AI_LIB_PATH/wayland"
+        # use bundled Wayland libs only when not present in system
+        sdl_l=$DIR/usr/lib/libSDL2-2.0.so.0
+        LOADER=$(get_loader)
+        if [ -x "$LOADER" ] && [ -f "$sdl_l" ]; then
+                ldd=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$sdl_l")
+                if echo "$ldd" | grep libwayland | grep -qv 'not found'; then
+                        return # we don't have libwayland* in system
+                fi
+        elif [ -n "${WAYLAND_DISPLAY-}" ]; then # fallback - don't have SDL2,
+                return                          # use env var instead
         fi
+        n_ld_library_path="$n_ld_library_path:$AI_LIB_PATH/wayland"
 }
 
 add_whitelist() {
