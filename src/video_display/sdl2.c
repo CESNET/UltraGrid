@@ -591,6 +591,36 @@ static bool set_size(struct state_sdl2 *s, const char *tok)
         return true;
 }
 
+/**
+ * @retval -1  default renderer (can be passed to SDL_CreateRenderer)
+ * @retval -2  error
+ * @retva. >= 0 renderer index according to the param
+ */
+static int
+get_renderer_idx(const char *renderer)
+{
+        if (renderer == NULL) {
+                return -1; // default
+        }
+        const int renderer_cnt = SDL_GetNumRenderDrivers();
+
+        char *endptr = NULL;
+        const long number = strtol(renderer, &endptr, 0);
+        if (*endptr == '\0') { // valid number
+                if (number < 0 || number >= renderer_cnt) {
+                        MSG(ERROR,
+                            "Invalid renderer index - valid range [0,%d], got "
+                            "%ld\n",
+                            renderer_cnt, number);
+                        return -2;
+                }
+                return (int) number;
+        }
+
+        MSG(ERROR, "Invalid renderer index %s\n", renderer);
+        return -2;
+}
+
 static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
@@ -598,10 +628,10 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 return NULL;
         }
         const char *driver = NULL;
+        const char *renderer = NULL;
         struct state_sdl2 *s = calloc(1, sizeof *s);
 
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
-        s->renderer_idx = -1;
         s->vsync = true;
 
         if (fmt == NULL) {
@@ -664,13 +694,18 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                                          "\"size=%+d%+d\" instead.\n",
                                 s->x, s->y);
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
-                        s->renderer_idx = atoi(tok + strlen("renderer="));
+                        renderer = strchr(tok, '=') + 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n", tok);
                         free(s);
                         return NULL;
                 }
                 tmp = NULL;
+        }
+
+        s->renderer_idx = get_renderer_idx(renderer);
+        if (s->renderer_idx == -2) {
+                return NULL;
         }
 
         if (SDL_VideoInit(driver) < 0) {
