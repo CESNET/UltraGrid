@@ -44,23 +44,6 @@
  * * autorelease_pool (macOS) - perhaps not needed
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-#include "host.h"
-#include "keyboard_control.h" // K_*
-#include "lib_common.h"
-#include "messaging.h"
-#include "module.h"
-#include "utils/color_out.h"
-#include "utils/list.h"
-#include "video_display.h"
-#include "video.h"
-
 /// @todo remove the defines when no longer needed
 #ifdef __arm64__
 #define SDL_DISABLE_MMINTRIN_H 1
@@ -71,6 +54,32 @@
 #else
 #include <SDL.h>
 #endif
+
+#include <assert.h>             // for assert
+#include <ctype.h>              // for toupper
+#include <math.h>               // for sqrt
+#include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
+#include <stdbool.h>            // for true, bool, false
+#include <stdint.h>             // for int64_t, uint32_t
+#include <stdio.h>              // for printf, sscanf, snprintf
+#include <stdlib.h>             // for atoi, free, calloc
+#include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
+#include <time.h>               // for timespec_get, TIME_UTC, timespec
+
+#include "debug.h"              // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
+#include "host.h"               // for get_commandline_param, exit_uv, ADD_T...
+#include "keyboard_control.h"   // for keycontrol_register_key, keycontrol_s...
+#include "lib_common.h"         // for REGISTER_MODULE, library_class
+#include "messaging.h"          // for new_response, msg_universal, RESPONSE...
+#include "module.h"             // for module, get_root_module, module_done
+#include "tv.h"                 // for ts_add_nsec
+#include "types.h"              // for video_desc, tile, video_frame, device...
+#include "utils/color_out.h"    // for color_printf, TBOLD, TRED
+#include "utils/list.h"         // for simple_linked_list_append, simple_lin...
+#include "utils/macros.h"       // for STR_LEN
+#include "video_codec.h"        // for get_codec_name, codec_is_planar, vc_d...
+#include "video_display.h"      // for display_property, get_splashscreen
+#include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
 
 #define SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x327058e5
 #define MAGIC_SDL2   0x3cc234a1
@@ -83,7 +92,7 @@ static void show_help(const char *driver);
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame);
 static struct video_frame *display_sdl2_getf(void *state);
 static void display_sdl2_new_message(struct module *mod);
-static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
+static bool display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 static void loadSplashscreen(struct state_sdl2 *s);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
@@ -478,7 +487,8 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
         return true;
 }
 
-static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
+static bool
+display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -508,7 +518,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
-                return FALSE;
+                return false;
         }
 
         if (s->renderer) {
@@ -517,7 +527,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         s->renderer = SDL_CreateRenderer(s->window, s->renderer_idx, SDL_RENDERER_ACCELERATED | (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
         if (!s->renderer) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
-                return FALSE;
+                return false;
         }
         SDL_RendererInfo renderer_info;
         if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
@@ -528,12 +538,12 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
 
         if (!recreate_textures(s, desc)) {
-                return FALSE;
+                return false;
         }
 
         s->current_display_desc = desc;
 
-        return TRUE;
+        return true;
 }
 
 static void loadSplashscreen(struct state_sdl2 *s) {
@@ -590,8 +600,9 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         if (fmt == NULL) {
                 fmt = "";
         }
-        char *tmp = (char *) alloca(strlen(fmt) + 1);
-        strcpy(tmp, fmt);
+        char buf[STR_LEN];
+        snprintf(buf, sizeof buf, "%s", fmt);
+        char *tmp = buf;
         char *tok, *save_ptr;
         while((tok = strtok_r(tmp, ":", &save_ptr)))
         {
