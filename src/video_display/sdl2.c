@@ -368,11 +368,12 @@ show_help(const char *driver)
                                       "                   "
                                       "(syntax: " TBOLD(
                                           "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
-        color_printf(TBOLD("\t  <ridx>") " - renderer index: ");
+        color_printf(TBOLD("\t  <renderer>") " - renderer, one of:");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
                 if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
-                        color_printf("%s" TBOLD("%d") " - " TBOLD("%s"), (i == 0 ? "" : ", "), i, renderer_info.name);
+                        color_printf("%s" TBOLD("%s"), (i == 0 ? " " : ", "),
+                                     renderer_info.name);
                 }
         }
         printf("\n");
@@ -617,7 +618,16 @@ get_renderer_idx(const char *renderer)
                 return (int) number;
         }
 
-        MSG(ERROR, "Invalid renderer index %s\n", renderer);
+        for (int i = 0; i < renderer_cnt; ++i) {
+                SDL_RendererInfo renderer_info;
+                if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
+                        if (strcmp(renderer, renderer_info.name) == 0) {
+                                return i;
+                        }
+                }
+        }
+
+        MSG(ERROR, "Unknown renderer name: %s\n", renderer);
         return -2;
 }
 
