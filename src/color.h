@@ -68,11 +68,13 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 
 #define KG(kr,kb)  (1.-kr-kb)
 #ifdef YCBCR_FULL
-#define Y_LIMIT    1.0
-#define CBCR_LIMIT 1.0
+#define Y_LIMIT(out_depth)    1.0
+#define CBCR_LIMIT(out_depth) 1.0
 #else
-#define Y_LIMIT    (219.0/255.0)
-#define CBCR_LIMIT (224.0/255.0)
+#define Y_LIMIT(out_depth) \
+        (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
+#define CBCR_LIMIT(out_depth) \
+        (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
 #endif // !defined YCBCR_FULL
 
 #define KR_709 .212639
@@ -85,43 +87,76 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define KG_709 KG(KR_709,KB_709)
 #define D (2.*(KR_709+KG_709))
 #define E (2.*(1.-KR_709))
-#define Y_R ((comp_type_t) ((KR_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define Y_G ((comp_type_t) ((KG_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define Y_B ((comp_type_t) ((KB_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define CB_R ((comp_type_t) ((-KR_709/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CB_G ((comp_type_t) ((-KG_709/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CB_B ((comp_type_t) (((1-KB_709)/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_R ((comp_type_t) (((1-KR_709)/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_G ((comp_type_t) ((-KG_709/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_B ((comp_type_t) ((-KB_709/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
-#define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
-#define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
+
+#define C_EPS 0.5
+
+#define Y_R(out_depth) \
+        ((comp_type_t) (((KR_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define Y_G(out_depth) \
+        ((comp_type_t) (((KG_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define Y_B(out_depth) \
+        ((comp_type_t) (((KB_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define CB_R(out_depth) \
+        ((comp_type_t) (((-KR_709 / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CB_G(out_depth) \
+        ((comp_type_t) (((-KG_709 / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CB_B(out_depth) \
+        ((comp_type_t) ((((1 - KB_709) / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) + C_EPS))
+#define CR_R(out_depth) \
+        ((comp_type_t) ((((1 - KR_709) / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CR_G(out_depth) \
+        ((comp_type_t) (((-KG_709 / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CR_B(out_depth) \
+        ((comp_type_t) (((-KB_709 / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) + C_EPS))
+#define RGB_TO_Y_709_SCALED(out_depth, r, g, b) \
+        ((r) * Y_R(out_depth) + (g) * Y_G(out_depth) + (b) * Y_B(out_depth))
+#define RGB_TO_CB_709_SCALED(out_depth, r, g, b) \
+        ((r) * CB_R(out_depth) + (g) * CB_G(out_depth) + (b) * CB_B(out_depth))
+#define RGB_TO_CR_709_SCALED(out_depth, r, g, b) \
+        ((r) * CR_R(out_depth) + (g) * CR_G(out_depth) + (b) * CR_B(out_depth))
+#ifdef YCBCR_FULL
+#define LIMIT_LO(depth) 0
+#define LIMIT_HI_Y(depth) ((1<<(depth))-1)
+#define LIMIT_HI_CBCR(depth) ((1<<(depth))-1)
+#else
 #define LIMIT_LO(depth) (1<<((depth)-4))
 #define LIMIT_HI_Y(depth) (235 * (1<<((depth)-8)))
 #define LIMIT_HI_CBCR(depth) (240 * (1<<((depth)-8)))
-#ifdef YCBCR_FULL
-#define CLAMP_LIMITED_Y(val, depth) (val)
-#define CLAMP_LIMITED_CBCR(val, depth) (val)
-#else
+#endif
 #define CLAMP_LIMITED_Y(val, depth) CLAMP((val), LIMIT_LO(depth), LIMIT_HI_Y(depth))
 #define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), LIMIT_HI_CBCR(depth))
-#endif
 
-#define R_CB(kr,kb) 0.0
-#define R_CR(kr,kb) ((2.*(1.-kr))/CBCR_LIMIT)
-#define G_CB(kr,kb) ((-kb*(2.*(kr+KG(kr,kb)))/KG(kr,kb))/CBCR_LIMIT)
-#define G_CR(kr,kb) ((-kr*(2.*(1.-kr))/KG(kr,kb))/CBCR_LIMIT)
-#define B_CB(kr,kb) ((2.*(kr+KG(kr,kb)))/CBCR_LIMIT)
-#define B_CR(kr,kb) 0.0
+#define R_CR(in_depth, kr, kb) ((2. * (1. - (kr))) / CBCR_LIMIT(in_depth))
+#define G_CB(in_depth, kr, kb) \
+        ((-(kb) * (2. * ((kr) + KG(kr, kb))) / KG(kr, kb)) / \
+         CBCR_LIMIT(in_depth))
+#define G_CR(in_depth, kr, kb) \
+        ((-(kr) * (2. * (1. - (kr))) / KG(kr, kb)) / CBCR_LIMIT(in_depth))
+#define B_CB(in_depth, kr, kb) \
+        ((2. * ((kr) + KG(kr, kb))) / CBCR_LIMIT(in_depth))
+
 #define SCALED(x) ((comp_type_t) ((x) * (1<<COMP_BASE)))
-#define Y_LIMIT_INV (1./Y_LIMIT)
-#define Y_SCALE SCALED(Y_LIMIT_INV) // precomputed value, Y multiplier is same for all channels
-#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * SCALED(r_cb(KR_709,KB_709)) */ + (cr) * SCALED(R_CR(KR_709,KB_709)))
-#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * SCALED(G_CB(KR_709,KB_709))    + (cr) * SCALED(G_CR(KR_709,KB_709)))
-#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * SCALED(B_CB(KR_709,KB_709)) /* + (cr) * SCALED(b_cr(KR_709,KB_709))) */)
-
-#define FULL_FOOT(depth) (1<<((depth)-8))
+#define Y_LIMIT_INV(in_depth) (1./Y_LIMIT(in_depth))
+#define Y_SCALE(in_depth) \
+        SCALED(Y_LIMIT_INV(in_depth)) // precomputed value, Y multiplier is same
+                                      // for all channels
+#define YCBCR_TO_R_709_SCALED(in_depth, y, cb, cr) \
+        ((y) /* * r_y */ + (cr) * SCALED(R_CR(in_depth, KR_709, KB_709)))
+#define YCBCR_TO_G_709_SCALED(in_depth, y, cb, cr) \
+        ((y) /* * g_y */ + (cb) * SCALED(G_CB(in_depth, KR_709, KB_709)) + \
+         (cr) * SCALED(G_CR(in_depth, KR_709, KB_709)))
+#define YCBCR_TO_B_709_SCALED(in_depth, y, cb, cr) \
+        ((y) /* * b_y */ + (cb) * SCALED(B_CB(in_depth, KR_709, KB_709)))
+#define FULL_FOOT(depth) (1 << ((depth) - 8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
 

@@ -112,15 +112,15 @@ static void load_yuv_coefficients(GlProgram& program){
 
         glUseProgram(program.get());
         GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
-        glUniform1f(loc, Y_LIMIT_INV);
+        glUniform1f(loc, Y_LIMIT_INV(8));
         loc = glGetUniformLocation(program.get(), "r_cr");
-        glUniform1f(loc, R_CR(kr, kb));
+        glUniform1f(loc, R_CR(8, kr, kb));
         loc = glGetUniformLocation(program.get(), "g_cr");
-        glUniform1f(loc, G_CR(kr, kb));
+        glUniform1f(loc, G_CR(8, kr, kb));
         loc = glGetUniformLocation(program.get(), "g_cb");
-        glUniform1f(loc, G_CB(kr, kb));
+        glUniform1f(loc, G_CB(8, kr, kb));
         loc = glGetUniformLocation(program.get(), "b_cb");
-        glUniform1f(loc, B_CB(kr, kb));
+        glUniform1f(loc, B_CB(8, kr, kb));
 }
 
 class Rendering_convertor : public Frame_convertor{

@@ -651,6 +651,10 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
+        enum {
+                D_DEPTH = 10,
+        };
+
         const int src_linesize = vc_get_linesize(width, R10k);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
@@ -663,9 +667,18 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
                         comp_type_t g = (src[1] & 0x3f ) << 4 | src[2] >> 4;
                         comp_type_t b = (src[2] & 0x0f) << 6 | src[3] >> 2;
 
-                        comp_type_t res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-4));
-                        comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-1));
-                        comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-1));
+                        comp_type_t res_y =
+                            (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >>
+                             (COMP_BASE)) +
+                            (1 << (D_DEPTH - 4));
+                        comp_type_t res_cb =
+                            (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >>
+                             (COMP_BASE)) +
+                            (1 << (D_DEPTH - 1));
+                        comp_type_t res_cr =
+                            (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >>
+                             (COMP_BASE)) +
+                            (1 << (D_DEPTH - 1));
 
                         dst_y[x * 2] = CLAMP_LIMITED_Y(res_y, 10);
                         src += 4;
@@ -674,9 +687,15 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
                         g = (src[1] & 0x3f ) << 4 | src[2] >> 4;
                         b = (src[2] & 0x0f) << 6 | src[3] >> 2;
 
-                        res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-4));
-                        res_cb += (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-1));
-                        res_cr += (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE)) + (1<<(10-1));
+                        res_y = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >>
+                                 (COMP_BASE)) +
+                                (1 << (D_DEPTH - 4));
+                        res_cb += (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >>
+                                   (COMP_BASE)) +
+                                  (1 << (D_DEPTH - 1));
+                        res_cr += (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >>
+                                   (COMP_BASE)) +
+                                  (1 << (D_DEPTH - 1));
 
                         res_cb /= 2;
                         res_cr /= 2;
@@ -721,7 +740,7 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned c
 static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
 #endif
-static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static inline void r10k_to_yuv444pXXle(int out_depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -738,13 +757,22 @@ static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                         comp_type_t g = (src[1] & 0x3F ) << 4 | src[2] >> 4;
                         comp_type_t b = (src[2] & 0x0F) << 6 | src[3] >> 2;
 
-                        comp_type_t res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-4));
-                        comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
-                        comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
+                        comp_type_t res_y =
+                            (RGB_TO_Y_709_SCALED(out_depth, r, g, b) >>
+                             (COMP_BASE + 10 - out_depth)) +
+                            (1 << (out_depth - 4));
+                        comp_type_t res_cb =
+                            (RGB_TO_CB_709_SCALED(out_depth, r, g, b) >>
+                             (COMP_BASE + 10 - out_depth)) +
+                            (1 << (out_depth - 1));
+                        comp_type_t res_cr =
+                            (RGB_TO_CR_709_SCALED(out_depth, r, g, b) >>
+                             (COMP_BASE + 10 - out_depth)) +
+                            (1 << (out_depth - 1));
 
-                        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));
-                        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));
-                        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
+                        *dst_y++ = CLAMP_LIMITED_Y(res_y, out_depth);
+                        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, out_depth);
+                        *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, out_depth);
                         src += 4;
                 }
         }
@@ -777,12 +805,18 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
 #define WRITE_RES \
-        res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-4));\
-        res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
-        res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
-        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));\
-        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));\
-        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
+        res_y = (RGB_TO_Y_709_SCALED(depth, r, g, b) >> \
+                 (COMP_BASE + 12 - depth)) + \
+                (1 << (depth - 4)); \
+        res_cb = (RGB_TO_CB_709_SCALED(depth, r, g, b) >> \
+                  (COMP_BASE + 12 - depth)) + \
+                 (1 << (depth - 1)); \
+        res_cr = (RGB_TO_CR_709_SCALED(depth, r, g, b) >> \
+                  (COMP_BASE + 12 - depth)) + \
+                 (1 << (depth - 1)); \
+        *dst_y++ = CLAMP_LIMITED_Y(res_y, depth);\
+        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth);\
+        *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth);
 
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
@@ -905,13 +939,22 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                         comp_type_t g = *src++;
                         comp_type_t b = *src++;
 
-                        comp_type_t res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+16-depth)) + (1<<(depth-4));
-                        comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+16-depth)) + (1<<(depth-1));
-                        comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+16-depth)) + (1<<(depth-1));
+                        comp_type_t res_y =
+                            (RGB_TO_Y_709_SCALED(depth, r, g, b) >>
+                             (COMP_BASE + 16 - depth)) +
+                            (1 << (depth - 4));
+                        comp_type_t res_cb =
+                            (RGB_TO_CB_709_SCALED(depth, r, g, b) >>
+                             (COMP_BASE + 16 - depth)) +
+                            (1 << (depth - 1));
+                        comp_type_t res_cr =
+                            (RGB_TO_CR_709_SCALED(depth, r, g, b) >>
+                             (COMP_BASE + 16 - depth)) +
+                            (1 << (depth - 1));
 
-                        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));
-                        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));
-                        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
+                        *dst_y++  = CLAMP_LIMITED_Y(res_y, depth);
+                        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth);
+                        *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth);
                 }
         }
 }
@@ -956,13 +999,13 @@ rgb_to_yuv444p(AVFrame *__restrict out_frame,
                         const comp_type_t b = *src++;
 
                         const comp_type_t res_y =
-                            (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (RGB_TO_Y_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 4));
                         const comp_type_t res_cb =
-                            (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (RGB_TO_CB_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 1));
                         const comp_type_t res_cr =
-                            (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) +
+                            (RGB_TO_CR_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 1));
 
                         *dst_y++  = CLAMP_LIMITED_Y(res_y, DEPTH);

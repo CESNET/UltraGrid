@@ -67,4 +67,22 @@
         }
 #endif
 
+#define ASSERT_GE_MESSAGE(msg, expected, actual) \
+        if ((actual) < (expected)) { \
+                fprintf(stderr, \
+                        "Assertion failed - expected >=%" PRIdMAX \
+                        ", got %" PRIdMAX ": %s\n", \
+                        (intmax_t) (expected), (intmax_t) (actual), (msg)); \
+                return -1; \
+        }
+
+#define ASSERT_LE_MESSAGE(msg, expected, actual) \
+        if ((actual) > (expected)) { \
+                fprintf(stderr, \
+                        "Assertion failed - expected >=%" PRIdMAX \
+                        ", got %" PRIdMAX ": %s\n", \
+                        (intmax_t) (expected), (intmax_t) (actual), (msg)); \
+                return -1; \
+        }
+
 #endif // defined TEST_UNIT_COMMON_H_7A471D89_C7E4_470A_A330_74F4BD85BBAC

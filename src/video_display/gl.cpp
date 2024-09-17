@@ -1529,7 +1529,7 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
         double kr = cs_coeffs[2 * index];
         double kb = cs_coeffs[2 * index + 1];
         const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };
-        double values[] =            {  Y_LIMIT_INV,            R_CR(kr,kb),        G_CB(kr,kb),        G_CR(kr,kb),        B_CB(kr,kb)};
+        double values[] =            {  Y_LIMIT_INV(8),         R_CR(8,kr,kb),      G_CB(8,kr,kb),      G_CR(8,kr,kb),      B_CB(8,kr,kb)};
 
         for (size_t i = 0; i < sizeof placeholders / sizeof placeholders[0]; ++i) {
                 char *tok = fp;

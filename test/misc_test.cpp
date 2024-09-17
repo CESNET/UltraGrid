@@ -1,12 +1,10 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cstring>         // for strcmp
+#include <cmath>           // for abs
 #include <list>
 #include <sstream>
+#include <string>          // for allocator, basic_string, operator+, string
 
+#include "color.h"
 #include "types.h"
 #include "utils/string.h"
 #include "unit_common.h"
@@ -14,11 +12,62 @@
 #include "video_frame.h"
 
 extern "C" {
-        int misc_test_replace_all();
-        int misc_test_video_desc_io_op_symmetry();
+int misc_test_color_coeff_range();
+int misc_test_replace_all();
+int misc_test_video_desc_io_op_symmetry();
 }
 
 using namespace std;
+
+/**
+ * check that scaled coefficient for minimal values match approximately minimal
+ * value of nominal range (== there is not significant shift)
+ */
+int
+misc_test_color_coeff_range()
+{
+        const int depths[] = { 8, 10, 12, 16 };
+
+        for (unsigned i = 0; i < sizeof depths / sizeof depths[0]; ++i) {
+                const int d        = depths[i];
+                const int d_max    = (1 << d) - 1;
+                const int max_diff = 1 << (d - 8);
+
+                // Y
+                ASSERT_LE_MESSAGE(
+                    "min Y diverges from nominal range min", max_diff,
+                    abs((RGB_TO_Y_709_SCALED(d, 0, 0, 0) >> COMP_BASE) +
+                        LIMIT_LO(d)) -
+                        LIMIT_LO(d));
+                ASSERT_LE_MESSAGE(
+                    "max Y diverges from nominal range max", max_diff,
+                    abs((RGB_TO_Y_709_SCALED(d, d_max, d_max, d_max) >>
+                         COMP_BASE) +
+                        LIMIT_LO(d) - LIMIT_HI_Y(d)));
+                // Cb
+                ASSERT_LE_MESSAGE(
+                    "min Cb diverges from nominal range min", max_diff,
+                    abs((RGB_TO_CB_709_SCALED(d, d_max, d_max, 0) >>
+                         COMP_BASE) +
+                        (1 << (d - 1)) - LIMIT_LO(d)));
+                ASSERT_LE_MESSAGE(
+                    "max Cb diverges from nominal range max", max_diff,
+                    abs((RGB_TO_CB_709_SCALED(d, 0, 0, d_max) >> COMP_BASE) +
+                        (1 << (d - 1)) - LIMIT_HI_CBCR(d)));
+                // Cr
+                ASSERT_LE_MESSAGE(
+                    "min Cr diverges from nominal range min", max_diff,
+                    abs((RGB_TO_CR_709_SCALED(d, 0, d_max, d_max) >>
+                         COMP_BASE) +
+                        (1 << (d - 1)) - LIMIT_LO(d)));
+                ASSERT_LE_MESSAGE(
+                    "max Cr diverges from nominal range max", max_diff,
+                    abs((RGB_TO_CR_709_SCALED(d, d_max, 0, 0) >> COMP_BASE) +
+                        (1 << (d - 1)) - LIMIT_HI_CBCR(d)));
+        }
+
+        return 0;
+}
 
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wstring-concatenation"
