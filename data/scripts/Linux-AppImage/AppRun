@@ -194,8 +194,8 @@ setup_wayland() {
         LOADER=$(get_loader)
         if [ -x "$LOADER" ] && [ -f "$sdl_l" ]; then
                 ldd=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$sdl_l")
-                if echo "$ldd" | grep libwayland | grep -qv 'not found'; then
-                        return # we don't have libwayland* in system
+                if ! echo "$ldd" | grep libwayland | grep -q 'not found'; then
+                        return # we have libwayland* in system
                 fi
         elif [ -n "${WAYLAND_DISPLAY-}" ]; then # fallback - don't have SDL2,
                 return                          # use env var instead
