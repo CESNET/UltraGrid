@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -717,6 +717,15 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         if (s->renderer_idx == -2) {
                 return NULL;
         }
+
+#ifdef __linux__
+        if (driver == NULL && getenv("DISPLAY") == NULL &&
+            getenv("WAYLAND_DISPLAY") == NULL) {
+                MSG(NOTICE, "X11/Wayland doesn't seem to be running (according "
+                            "to env vars). Setting driver=KMSDRM.\n");
+                driver = "KMSDRM";
+        }
+#endif // defined __linux__
 
         if (SDL_VideoInit(driver) < 0) {
                 MSG(ERROR, "Unable to initialize SDL2 video: %s\n",
