@@ -433,13 +433,10 @@ static const struct {
 #else
         { RGBA, SDL_PIXELFORMAT_ABGR8888 },
 #endif
+        { R10k, SDL_PIXELFORMAT_ARGB2101010 },
 };
 
 static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
-        if (ug_codec == R10k) {
-                return SDL_PIXELFORMAT_ARGB2101010;
-        }
-
         for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
                 if (pf_mapping[i].first == ug_codec) {
                         return pf_mapping[i].second;
@@ -456,12 +453,14 @@ ADD_TO_PARAM("sdl2-r10k",
 static int get_supported_pfs(codec_t *codecs) {
         int count = 0;
 
+        const char *sdl2_r10k_opt = get_commandline_param("sdl2-r10k");
+        const bool  sdl2_r10k_req =
+            sdl2_r10k_opt == NULL || strcmp(sdl2_r10k_opt, "no") != 0;
         for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
+                if (pf_mapping[i].first == R10k && !sdl2_r10k_req) {
+                        continue;
+                }
                 codecs[count++] = pf_mapping[i].first;
-        }
-        const char *sdl2_r10k_req = get_commandline_param("sdl2-r10k");
-        if (sdl2_r10k_req == NULL || strcmp(sdl2_r10k_req, "no") != 0) {
-                codecs[count++] = R10k;
         }
         return count;
 }
