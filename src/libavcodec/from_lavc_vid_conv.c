@@ -1641,6 +1641,9 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
 static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
+        enum {
+                S_DEPTH = 10,
+        };
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
 
         for (int y = 0; y < height; y++) {
@@ -1650,12 +1653,16 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                 uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t cb = (*src_cb++ >> 2) - 128;
-                        comp_type_t cr = (*src_cr++ >> 2) - 128;
-                        comp_type_t y = (*src_y++ >> 2) * Y_SCALE;
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
+                        comp_type_t cb = *src_cb++ - (1 << (S_DEPTH - 1));
+                        comp_type_t cr = *src_cr++ - (1 << (S_DEPTH - 1));
+                        comp_type_t y =
+                            (*src_y++ - (1 << (S_DEPTH - 4))) * Y_SCALE;
+                        comp_type_t r =
+                            YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t g =
+                            YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t b =
+                            YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE + 2);
                         if (rgba) {
                                 *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
