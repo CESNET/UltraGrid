@@ -833,7 +833,17 @@ static struct video_frame *display_sdl2_getf(void *state)
 static void
 r10k_to_sdl2(size_t count, uint32_t *buf)
 {
+        enum {
+                LOOP_ITEMS = 16,
+        };
         unsigned int i = 0;
+        for (; i < count / LOOP_ITEMS; ++i) {
+                for (int j = 0; j < LOOP_ITEMS; ++j) {
+                        uint32_t val = htonl(*buf);
+                        *buf++       = val >> 2;
+                }
+        }
+        i *= LOOP_ITEMS;
         for (; i < count; ++i) {
                 uint32_t val = htonl(*buf);
                 *buf++       = val >> 2;
