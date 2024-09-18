@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,27 +36,28 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "utils/misc.h"
+
+#ifdef _WIN32
+#include <windows.h>          // for GetModuleHandle, GetProcAddress
+#else
+#include <unistd.h>           // for sysconf, _SC_NPROCESSORS_ONLN
 #endif
-#include "config_unix.h"
-#include "config_win32.h"
-
-#include <unistd.h>
-
 #include <cassert>
+#include <cctype>             // for toupper
 #include <cerrno>
 #include <climits>
 #include <cmath>
+#include <cstdio>             // for perror, snprintf
+#include <cstdlib>            // for strtod
 #include <cstring>
-#include <stdexcept>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include "compat/strings.h" // sterror_s
 #include "debug.h"
 #include "utils/macros.h"
-#include "utils/misc.h"
 #include "utils/color_out.h"
 
 #ifdef __APPLE__
