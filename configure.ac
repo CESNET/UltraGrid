@@ -2110,8 +2110,10 @@ AC_ARG_ENABLE(screen,
 
 case "$system" in
 	MacOSX)
-                screen_cap=yes
-                SCREEN_CAP_LIB="-framework CoreFoundation"
+                if test "$os_version_major" -lt 24; then # Darwin 24.0.0 is macOS 15
+                        screen_cap=yes
+                        SCREEN_CAP_LIB="-framework CoreFoundation"
+                fi
 	;;
         Windows)
                 screen_cap=$dshow
