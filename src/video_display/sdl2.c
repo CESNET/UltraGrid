@@ -829,6 +829,14 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
+        if (frame == NULL) { // posion pill
+                SDL_Event event;
+                event.type       = s->sdl_user_new_frame_event;
+                event.user.data1 = NULL;
+                SDL_CHECK(SDL_PushEvent(&event));
+                return true;
+        }
+
         pthread_mutex_lock(&s->lock);
         if (timeout_ns == PUTF_DISCARD) {
                 assert(frame != NULL);
@@ -837,7 +845,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                 return true;
         }
 
-        if (frame != NULL && timeout_ns > 0) {
+        if (timeout_ns > 0) {
                 int rc = 0;
                 while (rc == 0 && simple_linked_list_size(s->free_frame_queue) == 0) {
                         if (timeout_ns == PUTF_BLOCKING) {
@@ -850,7 +858,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                         }
                 }
         }
-        if (frame != NULL && simple_linked_list_size(s->free_frame_queue) == 0) {
+        if (simple_linked_list_size(s->free_frame_queue) == 0) {
                 simple_linked_list_append(s->free_frame_queue, frame);
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "1 frame(s) dropped!\n");
                 pthread_mutex_unlock(&s->lock);
