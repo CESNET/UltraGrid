@@ -342,3 +342,4 @@ bool invalid_arg_is_numeric(const char *what) {
         }
         return strncmp(what, "stoi", 4) == 0 || strncmp(what, "stod", 4) == 0;
 }
+

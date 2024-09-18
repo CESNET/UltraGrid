@@ -66,6 +66,7 @@
 #include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
 #include <time.h>               // for timespec_get, TIME_UTC, timespec
 
+#include "compat/htonl.h"       // for htonl
 #include "debug.h"              // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
 #include "host.h"               // for get_commandline_param, exit_uv, ADD_T...
 #include "keyboard_control.h"   // for keycontrol_register_key, keycontrol_s...
@@ -396,6 +397,11 @@ static bool display_sdl2_reconfigure(void *state, struct video_desc desc)
         if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == DEINT_OFF) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n");
         }
+        if (desc.color_spec == R10k) {
+                MSG(WARNING,
+                    "Displaying 10-bit RGB, which is experimentat. In case of "
+                    "problems use '--param sdl2-r10k=no` and please report.\n");
+        }
 
         pthread_mutex_lock(&s->lock);
 
@@ -444,8 +450,8 @@ static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
 }
 
 ADD_TO_PARAM("sdl2-r10k",
-         "* sdl2-r10k\n"
-         "  Enable 10-bit RGB support for SDL2 (EXPERIMENTAL)\n");
+         "* sdl2-r10k[=no]\n"
+         "  Enable/disable 10-bit RGB support for SDL2 (default: enabled)\n");
 
 static int get_supported_pfs(codec_t *codecs) {
         int count = 0;
@@ -453,7 +459,8 @@ static int get_supported_pfs(codec_t *codecs) {
         for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
                 codecs[count++] = pf_mapping[i].first;
         }
-        if (get_commandline_param("sdl2-r10k") != NULL) {
+        const char *sdl2_r10k_req = get_commandline_param("sdl2-r10k");
+        if (sdl2_r10k_req == NULL || strcmp(sdl2_r10k_req, "no") != 0) {
                 codecs[count++] = R10k;
         }
         return count;
@@ -823,6 +830,16 @@ static struct video_frame *display_sdl2_getf(void *state)
         return buffer;
 }
 
+static void
+r10k_to_sdl2(size_t count, uint32_t *buf)
+{
+        unsigned int i = 0;
+        for (; i < count; ++i) {
+                uint32_t val = htonl(*buf);
+                *buf++       = val >> 2;
+        }
+}
+
 static bool display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
@@ -835,6 +852,12 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                 event.user.data1 = NULL;
                 SDL_CHECK(SDL_PushEvent(&event));
                 return true;
+        }
+
+        // fix endianity
+        if (frame->color_spec == R10k) {
+                r10k_to_sdl2(frame->tiles[0].data_len / 4,
+                             (uint32_t *) frame->tiles[0].data);
         }
 
         pthread_mutex_lock(&s->lock);
