@@ -455,13 +455,14 @@ struct {
         const char *description;
         const char *opt_str;
         const bool is_boolean;
+        const char *placeholder;
 } usage_opts[] = {
-        {"Bitrate", "quality", "Target bitrate", ":rate=", false},
-        {"Quality", "quant_coeff", "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY), ":quality=", false},
-        {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false},
-        {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false},
-        {"Pool size", "pool_size", "Total number of tiles encoder can hold at moment (same meaning as above), default: " TOSTRING(DEFAULT_POOL_SIZE) ", should be greater than <t>", ":pool_size=", false},
-        {"Use MCT", "mct", "use MCT", ":mct", true},
+        {"Bitrate", "quality", "Target bitrate", ":rate=", false, "70M"},
+        {"Quality", "quant_coeff", "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY), ":quality=", false, TOSTRING(DEFAULT_QUALITY)},
+        {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false, TOSTRING(DEFAULT_MEM_LIMIT)},
+        {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false, TOSTRING(DEFAULT_TILE_LIMIT)},
+        {"Pool size", "pool_size", "Total number of tiles encoder can hold at moment (same meaning as above), default: " TOSTRING(DEFAULT_POOL_SIZE) ", should be greater than <t>", ":pool_size=", false, TOSTRING(DEFAULT_POOL_SIZE)},
+        {"Use MCT", "mct", "use MCT", ":mct", true, ""},
 };
 
 static void usage() {
@@ -719,7 +720,7 @@ static compress_module_info get_cmpto_j2k_module_info(){
 
         for(const auto& opt : usage_opts){
                 module_info.opts.emplace_back(module_option{opt.label,
-                                opt.description, opt.key, opt.opt_str, opt.is_boolean});
+                                opt.description, opt.placeholder,  opt.key, opt.opt_str, opt.is_boolean});
         }
 
         codec codec_info;

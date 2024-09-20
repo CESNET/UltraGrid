@@ -709,6 +709,7 @@ static void probe_compress(std::string const & name, const void *mod) noexcept {
                         cout << "{"
                                 "\"display_name\":" << std::quoted(opt.display_name) << ", "
                                 "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
+                                "\"placeholder_text\":" << std::quoted(opt.placeholder_text) << ", "
                                 "\"key\":" << std::quoted(opt.key) << ", "
                                 "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
                                 "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";

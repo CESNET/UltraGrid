@@ -634,16 +634,18 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
 static compress_module_info get_libavcodec_module_info(){
         compress_module_info module_info;
         module_info.name = "libavcodec";
-        module_info.opts.emplace_back(module_option{"Bitrate", "Bitrate", "quality", ":bitrate=", false});
-        module_info.opts.emplace_back(module_option{"Crf", "specifies CRF factor (only for libx264/libx265)", "crf", ":crf=", false});
+        module_info.opts.emplace_back(module_option{"Bitrate", "Bitrate", "25M", "quality", ":bitrate=", false});
+        module_info.opts.emplace_back(module_option{"Crf", "specifies CRF factor (only for libx264/libx265)", "23", "crf", ":crf=", false});
         module_info.opts.emplace_back(module_option{"Disable intra refresh",
-                        "Do not use Periodic Intra Refresh (H.264/H.265)",
+                        "Do not use Periodic Intra Refresh (H.264/H.265)", "",
                         "disable_intra_refresh", ":disable_intra_refresh", true});
         module_info.opts.emplace_back(module_option{"Subsampling",
                         "may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced",
+                        "422",
                         "subsampling", ":subsampling=", false});
         module_info.opts.emplace_back(module_option{"Lavc opt",
                         "arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)",
+                        "",
                         "lavc_opt", ":", false});
 
         for (const auto& param : codec_params) {

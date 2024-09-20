@@ -469,31 +469,32 @@ static const struct {
         const char *description;
         const char *opt_str;
         bool is_boolean;
+        const char *placeholder;
 } usage_opts[] = {
         {"Quality", "quality", "quality",
-                "\t\tJPEG quality coefficient [0..100] - more is better\n", ":q=", false},
+                "\t\tJPEG quality coefficient [0..100] - more is better\n", ":q=", false, "80"},
         {"Restart interval", "restart_interval", "restart_interval",
                 "\t\tInterval between independently entropy encoded block of MCUs,\n"
                         "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
                         "\t\treduces bandwidth at the expense of worse parallelization (if\n"
                         "\t\treset intervals disabled, Huffman encoding is run on CPU). Leave\n"
                         "\t\tuntouched if unsure.\n",
-                ":restart=", false},
+                ":restart=", false, ""},
         {"Interleaved", "interleaved", "interleaved",
                 "\t\tForce interleaved encoding (default for YCbCr input formats).\n"
                         "\t\tNon-interleaved has slightly better performance for RGB at the\n"
                         "\t\texpense of worse compatibility. Therefore this option may be\n"
                         "\t\tenabled safely.\n",
-                ":interleaved", true},
+                ":interleaved", true, ""},
         {"Color space", "color_space", "RGB|Y601|Y601full|Y709",
                 "\t\tforce internal JPEG color space (otherwise source color space is kept).\n",
-                ":", false},
+                ":", false, "Y601"},
         {"Subsampling", "subsampling", "sub",
                 "\t\tUse specified JPEG subsampling (444, 422 or 420).\n",
-                ":sub=", false},
+                ":sub=", false, "422"},
         {"Alpha", "alpha", "alpha",
                 "\t\tCompress (keep) alpha channel of RGBA.\n",
-                ":alpha", true},
+                ":alpha", true, ""},
 };
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
@@ -725,7 +726,7 @@ static compress_module_info get_gpujpeg_module_info(){
                 desc.erase(std::remove(desc.begin(), desc.end(), '\t'), desc.end());
                 std::replace(desc.begin(), desc.end(), '\n', ' ');
                 module_info.opts.emplace_back(
-                    module_option{ opt.label, std::move(desc), opt.key,
+                    module_option{ opt.label, std::move(desc), opt.placeholder, opt.key,
                                    opt.opt_str, opt.is_boolean });
         }
 
