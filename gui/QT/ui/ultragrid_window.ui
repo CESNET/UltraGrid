@@ -458,6 +458,9 @@
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
+           <property name="placeholderText">
+            <string>160k</string>
+           </property>
           </widget>
          </item>
         </layout>

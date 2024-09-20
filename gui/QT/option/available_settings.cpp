@@ -149,6 +149,7 @@ std::vector<CapabOpt> parseCapabOpts(const QJsonObject& obj){
 			CapabOpt capabOpt;
 			maybeWriteString(optJson, "display_name", capabOpt.displayName);
 			maybeWriteString(optJson, "display_desc", capabOpt.displayDesc);
+			maybeWriteString(optJson, "placeholder_text", capabOpt.placeholder);
 			maybeWriteString(optJson, "key", capabOpt.key);
 			maybeWriteString(optJson, "opt_str", capabOpt.optStr);
 			if(optJson.contains("is_boolean") && optJson["is_boolean"].isString()){
