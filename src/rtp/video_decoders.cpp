@@ -135,8 +135,11 @@
 #include <sstream>
 #include <thread>
 
-#ifdef HAVE_LIBAVCODEC_AVCODEC_H
+#if __has_include(<libavcodec/avcodec.h>)
 #include <libavcodec/avcodec.h> // AV_INPUT_BUFFER_PADDING_SIZE
+constexpr int PADDING = max<int>(MAX_PADDING, AV_INPUT_BUFFER_PADDING_SIZE);
+#else
+constexpr int PADDING = MAX_PADDING;
 #endif
 
 #define MOD_NAME "[video dec.] "
@@ -177,12 +180,6 @@ static int sum_map(map<int, int> const & m) {
 }
 
 namespace {
-
-#ifdef HAVE_LIBAVCODEC_AVCODEC_H
-constexpr int PADDING = AV_INPUT_BUFFER_PADDING_SIZE;
-#else
-constexpr int PADDING = 0;
-#endif
 /**
  * Enumerates 2 possibilities how to decode arriving data.
  */
@@ -630,7 +627,7 @@ static void *decompress_thread(void *args) {
                 unique_ptr<char[]> tmp;
 
                 if (decoder->out_codec == VIDEO_CODEC_END) {
-                        tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + MAX_PADDING)]);
+                        tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + PADDING)]);
                 }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
