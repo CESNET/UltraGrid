@@ -101,6 +101,7 @@
 // IANA/RFC 6335 suggested range 49152-65535. Implementatins may differ, eg. Linux uses 32768-60999.
 #define IPPORT_DYNAMIC ((1U<<15U) + (1U<<14U))
 #define IPPORT_MAX ((1U<<16U) - 1U)
+#define MOD_NAME "[rtp] "
 
 /*
  * Encryption stuff.
@@ -1089,6 +1090,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 } else {
                         verbose_msg("Found empty UDP port pair %d/%d\n", rx_port, rx_port + 1);
                 }
+        } else {
+                MSG(VERBOSE, "Bound to ports %d/%d\n", rx_port, rx_port + 1);
         }
         if (tx_port == 0) {
                 tx_port = rx_port;
