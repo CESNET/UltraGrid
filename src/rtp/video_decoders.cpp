@@ -843,7 +843,9 @@ ADD_TO_PARAM("decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified pixel format for decoding (eg. v210). This overrides automatic\n"
                 "  choice. The pixel format must be supported by the video display. Use 'help' to see\n"
-                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n");
+                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n"
+                "* decoder-use-codec=!<codec>\n"
+                "  Blacklist specified pixel format ('!<codec' may need to be quoted).\n");
 /**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
@@ -877,6 +879,11 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         }
         if (get_commandline_param("decoder-use-codec")) {
                 const char *codec_str = get_commandline_param("decoder-use-codec");
+                bool blacklist_codec = false;
+                if (codec_str[0] == '!') {
+                        blacklist_codec = true;
+                        codec_str += 1;
+                }
                 codec_t req_codec = get_codec_from_name(codec_str);
                 if ("help"s == codec_str) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
@@ -887,7 +894,16 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                         return false;
                 }
-                if (find(decoder->native_codecs.begin(), decoder->native_codecs.end(), req_codec) != end(decoder->native_codecs)) {
+                if (blacklist_codec) {
+                        auto to_erase = find(decoder->native_codecs.begin(),
+                                             decoder->native_codecs.end(),
+                                             req_codec);
+                        if (to_erase != decoder->native_codecs.end()) {
+                                decoder->native_codecs.erase(to_erase);
+                        }
+                } else if (find(decoder->native_codecs.begin(),
+                                decoder->native_codecs.end(),
+                                req_codec) != end(decoder->native_codecs)) {
                         decoder->native_codecs.clear();
                         decoder->native_codecs.push_back(req_codec);
                 } else {
