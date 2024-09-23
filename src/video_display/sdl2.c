@@ -399,8 +399,8 @@ static bool display_sdl2_reconfigure(void *state, struct video_desc desc)
         }
         if (desc.color_spec == R10k) {
                 MSG(WARNING,
-                    "Displaying 10-bit RGB, which is experimentat. In case of "
-                    "problems use '--param sdl2-r10k=no` and please report.\n");
+                    "Displaying 10-bit RGB, which is experimental. In case of "
+                    "problems use '--param decoder-use-codec='!R10k'` and please report.\n");
         }
 
         pthread_mutex_lock(&s->lock);
@@ -446,21 +446,11 @@ static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
         return SDL_PIXELFORMAT_UNKNOWN;
 }
 
-ADD_TO_PARAM("sdl2-r10k",
-         "* sdl2-r10k[=no]\n"
-         "  Enable/disable 10-bit RGB support for SDL2 (default: enabled)\n");
-
 static int get_supported_pfs(codec_t *codecs) {
-        int count = 0;
+        const int count = sizeof pf_mapping / sizeof pf_mapping[0];
 
-        const char *sdl2_r10k_opt = get_commandline_param("sdl2-r10k");
-        const bool  sdl2_r10k_req =
-            sdl2_r10k_opt == NULL || strcmp(sdl2_r10k_opt, "no") != 0;
-        for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
-                if (pf_mapping[i].first == R10k && !sdl2_r10k_req) {
-                        continue;
-                }
-                codecs[count++] = pf_mapping[i].first;
+        for (int i = 0; i < count; ++i) {
+                codecs[i] = pf_mapping[i].first;
         }
         return count;
 }
