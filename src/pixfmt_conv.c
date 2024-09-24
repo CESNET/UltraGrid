@@ -976,14 +976,14 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
 /**
  * @brief Converts RGB(A) into UYVY
  *
- * Uses Rec. 709 with standard SDI ceiling and floor
  * @copydetails vc_copyliner10k
  * @param[in] roff     red offset in bytes (0 for RGB)
  * @param[in] goff     green offset in bytes (1 for RGB)
  * @param[in] boff     blue offset in bytes (2 for RGB)
  * @param[in] pix_size source pixel size (3 for RGB, 4 for RGBA)
  */
-#define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
+#define vc_copylineToUYVY(dst, src, dst_len, roff, goff, boff, pix_size) {\
+        const struct color_coeffs *cfs = get_color_coeffs(DEPTH8); \
         register uint32_t *d = (uint32_t *)(void *) dst;\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 4; x += 4) {\
                 int r, g, b;\
@@ -992,23 +992,21 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
                 g = src[goff];\
                 b = src[boff];\
                 src += pix_size;\
-                y1 = 11993 * r + 40239 * g + 4063 * b + (1<<20);\
-                u  = -6619 * r -22151 * g + 28770 * b;\
-                v  = 28770 * r - 26149 * g - 2621 * b;\
+                y1 = (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) + 16;\
+                u = RGB_TO_CB(cfs, r, g, b);\
+                v = RGB_TO_CR(cfs, r, g, b);\
                 r = src[roff];\
                 g = src[goff];\
                 b = src[boff];\
                 src += pix_size;\
-                y2 = 11993 * r + 40239 * g + 4063 * b + (1<<20);\
-                u += -6619 * r -22151 * g + 28770 * b;\
-                v += 28770 * r - 26149 * g - 2621 * b;\
-                u = u / 2 + (1<<23);\
-                v = v / 2 + (1<<23);\
+                y2 = (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) + 16;\
+                u += RGB_TO_CB(cfs, r, g, b);\
+                v += RGB_TO_CR(cfs, r, g, b);\
+                u = ((u / 2) >> COMP_BASE) + 128;\
+                v = ((v / 2) >> COMP_BASE) + 128;\
 \
-                *d++ = (CLAMP(y2, 0, (1<<24)-1) >> 16) << 24 |\
-                        (CLAMP(v, 0, (1<<24)-1) >> 16) << 16 |\
-                        (CLAMP(y1, 0, (1<<24)-1) >> 16) << 8 |\
-                        (CLAMP(u, 0, (1<<24)-1) >> 16);\
+                *d++ = ((y2 & 0xFF) << 24) | ((v & 0xFF) << 16) | \
+                       ((y1 & 0xFF) << 8) | (u & 0xFF); \
         }\
 }
 
@@ -2024,7 +2022,7 @@ static void vc_copylineRGBtoUYVY(unsigned char * __restrict dst, const unsigned 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 3);
+        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 3);
 }
 
 /**
@@ -2234,7 +2232,7 @@ static void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        vc_copylineToUYVY709(dst, src, dst_len, 2, 1, 0, 3);
+        vc_copylineToUYVY(dst, src, dst_len, 2, 1, 0, 3);
 }
 
 /**
@@ -2250,7 +2248,7 @@ static void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
+        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 4);
 }
 
 static void vc_copylineR10ktoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
@@ -2281,7 +2279,7 @@ static void vc_copylineRG48toUYVY(unsigned char * __restrict dst, const unsigned
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        vc_copylineToUYVY709(dst, src, dst_len, 1, 3, 5, 6);
+        vc_copylineToUYVY(dst, src, dst_len, 1, 3, 5, 6);
 }
 
 /**
