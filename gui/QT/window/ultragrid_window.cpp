@@ -17,6 +17,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+#include "utils/string_view_utils.hpp"
+
 namespace {
 QString argListToString(const QStringList& argList){
 	return argList.join(" ");
@@ -120,6 +122,34 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	using namespace std::placeholders;
 	controlPort.addLineCallback(std::bind(&BandwidthWidget::parseLine, ui.send_bandwidth, _1));
+
+	controlPort.addLineCallback(std::bind(&UltragridWindow::recvFmtCallback, this, _1));
+}
+
+void UltragridWindow::clearFmtLabels(){
+	ui.recvVideoFmtLabel->setText("");
+	ui.recvAudioFmtLabel->setText("");
+};
+
+void UltragridWindow::recvFmtCallback(std::string_view line){
+	static constexpr std::string_view prefix = "stats ";
+	if(!sv_is_prefix(line, prefix))
+		return;
+
+	line.remove_prefix(prefix.size());
+
+	static constexpr std::string_view videoFmt = "new incoming video fmt: ";
+	static constexpr std::string_view audioFmt = "new incoming audio fmt: ";
+
+	if(sv_is_prefix(line, videoFmt)){
+		line.remove_prefix(videoFmt.size());
+		std::string fmt(sv_trim_whitespace_back(line));
+		ui.recvVideoFmtLabel->setText(fmt.c_str());
+	} else if(sv_is_prefix(line, audioFmt)){
+		line.remove_prefix(audioFmt.size());
+		std::string fmt(sv_trim_whitespace_back(line));
+		ui.recvAudioFmtLabel->setText(fmt.c_str());
+	}
 }
 
 void UltragridWindow::launchQuery(){
@@ -314,6 +344,8 @@ void UltragridWindow::start(){
 	ctx->args = launchArgs;
 	ctx->type = LaunchContext::Type::Run;
 
+	clearFmtLabels();
+
 	connect(&ctx->process, &QProcess::started,
 			[=]()
 			{
@@ -330,6 +362,7 @@ void UltragridWindow::start(){
 				ui.startButton->setEnabled(true);
 				ui.actionRefresh->setEnabled(true);
 				receiverLoss.reset();
+				clearFmtLabels();
 				rtcpRr.reset();
 				ui.send_bandwidth->reset();
 

@@ -44,6 +44,9 @@ private:
 
 	void launchQuery();
 
+	void clearFmtLabels();
+	void recvFmtCallback(std::string_view line);
+
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;
