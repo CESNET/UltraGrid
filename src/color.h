@@ -68,9 +68,11 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 
 #define KG(kr,kb)  (1.-kr-kb)
 #ifdef YCBCR_FULL
+#define C_EPS 0 // prevent under/overflows when there is no clip
 #define Y_LIMIT(out_depth)    1.0
 #define CBCR_LIMIT(out_depth) 1.0
 #else
+#define C_EPS 0.5
 #define Y_LIMIT(out_depth) \
         (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
 #define CBCR_LIMIT(out_depth) \
@@ -87,8 +89,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define KG_709 KG(KR_709,KB_709)
 #define D (2.*(KR_709+KG_709))
 #define E (2.*(1.-KR_709))
-
-#define C_EPS 0.5
 
 #define Y_R(out_depth) \
         ((comp_type_t) (((KR_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
@@ -132,8 +132,9 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define LIMIT_HI_Y(depth) (235 * (1<<((depth)-8)))
 #define LIMIT_HI_CBCR(depth) (240 * (1<<((depth)-8)))
 #endif
-#define CLAMP_LIMITED_Y(val, depth) CLAMP((val), LIMIT_LO(depth), LIMIT_HI_Y(depth))
-#define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), LIMIT_HI_CBCR(depth))
+// TODO: remove
+#define CLAMP_LIMITED_Y(val, depth) (val)
+#define CLAMP_LIMITED_CBCR(val, depth) (val)
 
 #define R_CR(in_depth, kr, kb) ((2. * (1. - (kr))) / CBCR_LIMIT(in_depth))
 #define G_CB(in_depth, kr, kb) \
