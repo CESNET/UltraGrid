@@ -136,6 +136,8 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define CLAMP_LIMITED_Y(val, depth) (val)
 #define CLAMP_LIMITED_CBCR(val, depth) (val)
 
+#define C_SIGN(x) ((x) > 0 ? 1. : -1.)
+#define SCALED(x) ((comp_type_t) (((x) * (1<<COMP_BASE)) + C_SIGN(x) * C_EPS))
 #define R_CR(in_depth, kr, kb) ((2. * (1. - (kr))) / CBCR_LIMIT(in_depth))
 #define G_CB(in_depth, kr, kb) \
         ((-(kb) * (2. * ((kr) + KG(kr, kb))) / KG(kr, kb)) / \
