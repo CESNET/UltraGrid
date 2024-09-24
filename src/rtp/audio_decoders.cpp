@@ -427,6 +427,10 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
+        std::ostringstream oss;
+        oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
+        control_report_stats(decoder->control, oss.str());
+
         if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");
         }
