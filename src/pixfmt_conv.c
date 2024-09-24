@@ -302,6 +302,7 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
                 D_DEPTH = 16,
         };
         assert((uintptr_t) dst % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dstlen; x += 8) {
                 unsigned int byte1 = *src++;
@@ -313,15 +314,15 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
                 g = (byte2 & 0x3FU) << 10U | (byte3 & 0xF0U) << 2U;
                 b = (byte3 & 0xFU) << 12U | (byte4 & 0xFCU) << 4U;
                 comp_type_t u =
-                    (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 1));
                 *d++ = CLAMP_LIMITED_CBCR(u, D_DEPTH);
                 comp_type_t y =
-                    (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 4));
                 *d++ = CLAMP_LIMITED_Y(y, D_DEPTH);
                 comp_type_t v =
-                    (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 4));
                 *d++ = CLAMP_LIMITED_CBCR(v, D_DEPTH);
                 *d++ = 0xFFFFU;
@@ -1442,16 +1443,17 @@ static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) dst % sizeof(uint16_t) == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
         uint16_t *d = (void *) dst;
 
 #define WRITE_RES \
-        u = (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) + \
+        u = (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) + \
             (1 << (D_DEPTH - 1)); \
         *d++ = CLAMP_LIMITED_CBCR(u, D_DEPTH); \
-        y    = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) + \
+        y    = (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) + \
             (1 << (D_DEPTH - 4)); \
         *d++ = CLAMP_LIMITED_Y(y, D_DEPTH); \
-        v    = (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) + \
+        v    = (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) + \
             (1 << (D_DEPTH - 1)); \
         *d++ = CLAMP_LIMITED_CBCR(v, D_DEPTH); \
         *d++ = 0xFFFFU;
@@ -1512,24 +1514,25 @@ vc_copylineR12LtoUYVY(unsigned char *__restrict dst,
                 UYVY_BPP      = 2,
                 DST_BYTE_SZ   = PX_PER_BLK_IN * UYVY_BPP,
         };
+        const struct color_coeffs *cfs = get_color_coeffs(D_DPTH);
         uint8_t *d = (void *) dst;
 #define WRITE_RES \
         { \
-                comp_type_t u = ((RGB_TO_CB_709_SCALED(D_DPTH, r1, g1, b1) + \
-                                  RGB_TO_CB_709_SCALED(D_DPTH, r2, g2, b2)) >> \
+                comp_type_t u = ((RGB_TO_CB(cfs, r1, g1, b1) + \
+                                  RGB_TO_CB(cfs, r2, g2, b2)) >> \
                                  (COMP_BASE + D_DPTH + 1)) + \
                                 COFF; \
                 *d++          = CLAMP_LIMITED_CBCR(u, D_DPTH); \
-                comp_type_t y = (RGB_TO_Y_709_SCALED(D_DPTH, r1, g1, b1) >> \
+                comp_type_t y = (RGB_TO_Y(cfs, r1, g1, b1) >> \
                                  (COMP_BASE + D_DPTH)) + \
                                 YOFF; \
                 *d++          = CLAMP_LIMITED_Y(y, D_DPTH); \
-                comp_type_t v = ((RGB_TO_CR_709_SCALED(D_DPTH, r1, g1, b1) + \
-                                  RGB_TO_CR_709_SCALED(D_DPTH, r2, g2, b2)) >> \
+                comp_type_t v = ((RGB_TO_CR(cfs, r1, g1, b1) + \
+                                  RGB_TO_CR(cfs, r2, g2, b2)) >> \
                                  (COMP_BASE + D_DPTH + 1)) + \
                                 COFF; \
                 *d++ = CLAMP_LIMITED_CBCR(v, D_DPTH); \
-                y    = (RGB_TO_Y_709_SCALED(D_DPTH, r2, g2, b2) >> \
+                y    = (RGB_TO_Y(cfs, r2, g2, b2) >> \
                      (COMP_BASE + D_DPTH)) + \
                     YOFF; \
                 *d++ = CLAMP_LIMITED_Y(y, D_DPTH); \
@@ -1789,14 +1792,15 @@ static void vc_copylineY416toR12L(unsigned char * __restrict dst, const unsigned
                 S_DEPTH = 16,
                 D_DEPTH = 12,
         };
+        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
 #define GET_NEXT \
         u = *in++ - (1 << (S_DEPTH - 1)); \
         y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4))); \
         v = *in++ - (1 << (S_DEPTH - 1)); \
         in++; \
-        r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 4U); \
-        g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 4U); \
-        b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 4U); \
+        r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 4U); \
+        g = YCBCR_TO_G(cfs, y, u, v) >> (COMP_BASE + 4U); \
+        b = YCBCR_TO_B(cfs, y, u, v) >> (COMP_BASE + 4U); \
         r = CLAMP_FULL(r, D_DEPTH); \
         g = CLAMP_FULL(g, D_DEPTH); \
         b = CLAMP_FULL(b, D_DEPTH);
@@ -1878,6 +1882,7 @@ static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
                 comp_type_t y, u, v, r, g, b;
@@ -1886,9 +1891,9 @@ static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned
                 y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
-                r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 6U);
-                g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 6U);
-                b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 6U);
+                r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 6U);
+                g = YCBCR_TO_G(cfs, y, u, v) >> (COMP_BASE + 6U);
+                b = YCBCR_TO_B(cfs, y, u, v) >> (COMP_BASE + 6U);
                 r = CLAMP_FULL(r, 10);
                 g = CLAMP_FULL(g, 10);
                 b = CLAMP_FULL(b, 10);
@@ -1908,6 +1913,7 @@ static void vc_copylineY416toRGB(unsigned char * __restrict dst, const unsigned 
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
                 comp_type_t y, u, v, r, g, b;
@@ -1916,9 +1922,9 @@ static void vc_copylineY416toRGB(unsigned char * __restrict dst, const unsigned 
                 y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
-                r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
-                g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
-                b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
+                r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 8U);
+                g = YCBCR_TO_G(cfs, y, u, v) >> (COMP_BASE + 8U);
+                b = YCBCR_TO_B(cfs, y, u, v) >> (COMP_BASE + 8U);
                 r = CLAMP_FULL(r, 8);
                 g = CLAMP_FULL(g, 8);
                 b = CLAMP_FULL(b, 8);
@@ -1937,6 +1943,7 @@ static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned
         };
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 4 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         uint32_t *out = (void *) dst;
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
@@ -1947,9 +1954,9 @@ static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned
                 y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
-                r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
-                g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
-                b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, u, v) >> (COMP_BASE + 8U);
+                r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 8U);
+                g = YCBCR_TO_G(cfs, y, u, v) >> (COMP_BASE + 8U);
+                b = YCBCR_TO_B(cfs, y, u, v) >> (COMP_BASE + 8U);
                 r = CLAMP_FULL(r, 8);
                 g = CLAMP_FULL(g, 8);
                 b = CLAMP_FULL(b, 8);
@@ -2285,20 +2292,21 @@ static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned
         enum {
                 D_DEPTH = 10,
         };
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
 #define COMP_OFF (COMP_BASE+(16-10))
 #define FETCH_BLOCK \
                 r = *in++; \
                 g = *in++; \
                 b = *in++; \
-                y1 = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF) + (1<<6); \
-                u = RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF; \
-                v = RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF; \
+                y1 = (RGB_TO_Y(cfs, r, g, b) >> COMP_OFF) + (1<<6); \
+                u = RGB_TO_CB(cfs, r, g, b) >> COMP_OFF; \
+                v = RGB_TO_CR(cfs, r, g, b) >> COMP_OFF; \
                 r = *in++; \
                 g = *in++; \
                 b = *in++; \
-                y2 = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF) + (1<<6); \
-                u += RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF; \
-                v += RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_OFF; \
+                y2 = (RGB_TO_Y(cfs, r, g, b) >> COMP_OFF) + (1<<6); \
+                u += RGB_TO_CB(cfs, r, g, b) >> COMP_OFF; \
+                v += RGB_TO_CR(cfs, r, g, b) >> COMP_OFF; \
                 y1 = CLAMP_LIMITED_Y(y1, 10); \
                 y2 = CLAMP_LIMITED_Y(y2, 10); \
                 u = u / 2 + (1<<9); \
@@ -2344,6 +2352,7 @@ static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
@@ -2352,22 +2361,22 @@ static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                y = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                y = (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 4));
                 *d++ = CLAMP_LIMITED_Y(y, 16);
-                u = (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE);
-                v = (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE);
+                u = (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE);
+                v = (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE);
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                u = (u + (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) /
+                u = (u + (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) /
                              2) +
                     (1 << 15);
                 *d++ = CLAMP_LIMITED_CBCR(u, 16);
-                y    = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                y    = (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) +
                     (1 << 12);
                 *d++ = CLAMP_LIMITED_Y(y, 16);
-                v = (v + (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) /
+                v = (v + (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) /
                              2) +
                     (1 << 15);
                 *d++ = CLAMP_LIMITED_CBCR(v, 16);
@@ -2384,6 +2393,7 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
@@ -2392,15 +2402,15 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
                 g = *in++;
                 b = *in++;
                 comp_type_t u =
-                    (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 1));
                 *d++          = CLAMP_LIMITED_CBCR(u, D_DEPTH);
                 comp_type_t y =
-                    (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 4));
                 *d++ = CLAMP_LIMITED_Y(y, D_DEPTH);
                 comp_type_t v =
-                    (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >> COMP_BASE) +
+                    (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) +
                     (1 << (D_DEPTH - 1));
                 *d++ = CLAMP_LIMITED_CBCR(v, D_DEPTH);
                 *d++ = 0xFFFFU;
@@ -2417,6 +2427,7 @@ static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
+        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 6) {
@@ -2426,11 +2437,11 @@ static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned
                 comp_type_t v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
                 comp_type_t r =
-                    YCBCR_TO_R_709_SCALED(S_DEPTH, y, u, v) >> COMP_BASE;
+                    YCBCR_TO_R(cfs, y, u, v) >> COMP_BASE;
                 comp_type_t g =
-                    YCBCR_TO_G_709_SCALED(S_DEPTH, y, u, v) >> COMP_BASE;
+                    YCBCR_TO_G(cfs, y, u, v) >> COMP_BASE;
                 comp_type_t b =
-                    YCBCR_TO_B_709_SCALED(S_DEPTH, y, u, v) >> COMP_BASE;
+                    YCBCR_TO_B(cfs, y, u, v) >> COMP_BASE;
                 *d++ = CLAMP_FULL(r, 16);
                 *d++ = CLAMP_FULL(g, 16);
                 *d++ = CLAMP_FULL(b, 16);
@@ -2747,7 +2758,7 @@ static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned 
                 int gshift, int bshift)
 {
         enum {
-                IDEPTH    = 8,
+                IDEPTH    = 8, // 10, but cherry-picking 8 bits
                 Y_SHIFT   = 1 << (IDEPTH - 4),
                 C_SHIFT   = 1 << (IDEPTH - 1),
                 ODEPTH    = 8,
@@ -2756,13 +2767,14 @@ static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned 
                 OUT_BL_SZ = PIX_COUNT * RGB_BPP,
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        const struct color_coeffs *cfs = get_color_coeffs(IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
         (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
-        val = (YCBCR_TO_R_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE)); \
+        val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
-        val = (YCBCR_TO_G_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE)); \
+        val = (YCBCR_TO_G(cfs, (y), (u), (v)) >> (COMP_BASE)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
-        val = (YCBCR_TO_B_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE)); \
+        val = (YCBCR_TO_B(cfs, (y), (u), (v)) >> (COMP_BASE)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH);
 
         // read 8 bits from v210 directly
@@ -2817,13 +2829,14 @@ vc_copylineV210toRG48(unsigned char *__restrict d,
                 OUT_BL_SZ = PIX_COUNT * RG48_BPP,
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        const struct color_coeffs *cfs = get_color_coeffs(IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
         (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
-        val = (YCBCR_TO_R_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
-        val = (YCBCR_TO_G_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        val = (YCBCR_TO_G(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
-        val = (YCBCR_TO_B_709_SCALED(IDEPTH, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
+        val = (YCBCR_TO_B(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH);
 
         // read 8 bits from v210 directly

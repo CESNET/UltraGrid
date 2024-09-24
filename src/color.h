@@ -147,7 +147,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define B_CB(in_depth, kr, kb) \
         ((2. * ((kr) + KG(kr, kb))) / CBCR_LIMIT(in_depth))
 
-#define SCALED(x) ((comp_type_t) ((x) * (1<<COMP_BASE)))
 #define Y_LIMIT_INV(in_depth) (1./Y_LIMIT(in_depth))
 #define Y_SCALE(in_depth) \
         SCALED(Y_LIMIT_INV(in_depth)) // precomputed value, Y multiplier is same
@@ -162,6 +161,27 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define FULL_FOOT(depth) (1 << ((depth) - 8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
+
+// new API
+struct color_coeffs {
+        short y_r,  y_g,  y_b;
+        short cb_r, cb_g, cb_b;
+        short cr_r, cr_g, cr_b;
+
+        short r_cr, g_cb, g_cr;
+        int b_cb; // b_cb is 34712 so doesn't fit to 16-bit short
+};
+const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
+#define RGB_TO_Y(t, r, g, b) ((r) * (t)->y_r + (g) * (t)->y_g + (b) * (t)->y_b)
+#define RGB_TO_CB(t, r, g, b) \
+        ((r) * (t)->cb_r + (g) * (t)->cb_g + (b) * (t)->cb_b)
+#define RGB_TO_CR(t, r, g, b) \
+        ((r) * (t)->cr_r + (g) * (t)->cr_g + (b) * (t)->cr_b)
+/// @param y_scaled Y scaled (multiplied) by Y_SCALE()
+#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + (cr) * (t)->r_cr)
+#define YCBCR_TO_G(t, y_scaled, cb, cr) \
+        ((y_scaled) + (cb) * (t)->g_cb + (cr) * (t)->g_cr)
+#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + (cb) * (t)->b_cb)
 
 /**
  * @param alpha_mask alpha mask already positioned at target bit offset

@@ -33,6 +33,7 @@ astat.a: astat.o src/compat/platform_pipe.o
 	ar rcs astat.a $^
 
 convert: src/pixfmt_conv.o src/video_codec.o convert.o src/debug.o \
+        src/color.o \
         src/utils/color_out.o src/utils/misc.o src/video_frame.o \
         src/utils/pam.c src/utils/y4m.c
 	$(CXX) $^ -o convert
