@@ -117,6 +117,7 @@
 #include "compat/htonl.h"              // for ntohl
 #include "crypto/openssl_decrypt.h"
 #include "crypto/openssl_encrypt.h"    // for openssl_mode
+#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -1484,6 +1485,11 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
         LOG(LOG_LEVEL_NOTICE)
             << "[video dec.] New incoming video format detected: "
             << network_desc << "\n";
+
+        std::ostringstream oss;
+        oss << "new incoming video fmt: " << network_desc;
+        control_report_stats(decoder->control, oss.str());
+
         reconfigure_helper(decoder, network_desc, {});
 }
 
