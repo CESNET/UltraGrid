@@ -551,6 +551,7 @@ static void loadSplashscreen(struct state_sdl2 *s) {
         struct video_frame *frame = get_splashscreen();
         if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
                 MSG(WARNING, "Cannot render splashscreeen!\n");
+                vf_free(frame);
                 return;
         }
         struct video_frame *splash = display_sdl2_getf(s);
