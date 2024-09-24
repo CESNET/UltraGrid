@@ -97,7 +97,6 @@
 
 #include <cassert>                     // for assert
 #include <chrono>                      // for duration, steady_clock, durati...
-#include <libavcodec/defs.h>           // for AV_INPUT_BUFFER_PADDING_SIZE
 #include <cstdlib>                     // for free, malloc, calloc
 #include <cstring>                     // for NULL, memcpy, size_t, memset
 #include <algorithm>                   // for find, max, sort
