@@ -379,6 +379,10 @@ if [ "${FIREJAIL_DEBUG-}" ]; then
 (replacement)${reset}\n"
 fi
 
+if [ "${APPIMAGE_DEBUG-undef}" = undef ] && [ "${ULTRAGRID_VERBOSE-}" ]; then
+        APPIMAGE_DEBUG=$ULTRAGRID_VERBOSE
+fi
+
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
         handle_updates "$@"
         if [ $# -eq 0 ]; then usage; else shift; fi
