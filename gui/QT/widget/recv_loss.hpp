@@ -33,7 +33,7 @@ private:
 	};
 	SSRC_container<SSRC_report, decltype(elapsedTimer.elapsed())> reports;
 
-	void addReport(int ssrc, int received, int total);
+	void addReport(unsigned ssrc, int received, int total);
 	void updateVal();
 };
 
