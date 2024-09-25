@@ -1043,36 +1043,36 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
  * components can be given by parameters (in bytes). This macro is used by
  * vc_copylineUYVYtoRGB() and vc_copylineYUYVtoRGB().
  *
- * Uses Rec. 709 with standard SDI ceiling and floor
- *
  * @todo make it faster if needed
  * @param rgb16   true if output is 16-bit RGB, otherwise false
  */
 #define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off, rgb16) {\
+        enum { DEPTH = DEPTH8 };\
+        const struct color_coeffs *cfs = get_color_coeffs(DEPTH);\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
-                register int y1 = (src)[y1_off];\
-                register int y2 = (src)[y2_off];\
-                register int u = (src)[u_off];\
-                register int v = (src)[v_off];\
+                register int y1 = Y_SCALE(8) * ((src)[y1_off] - 16);\
+                register int y2 = Y_SCALE(8) * ((src)[y2_off] - 16);\
+                register int u = (src)[u_off] - 128;\
+                register int v = (src)[v_off] - 128;\
                 int val;\
                 src += 4;\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y1 - 16) + 1.793 * (v - 128);\
+                val = YCBCR_TO_R(cfs, y1, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y1 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
+                val = YCBCR_TO_G(cfs, y1, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y1 - 16) + 2.115 * (u - 128);\
+                val = YCBCR_TO_B(cfs, y1, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y2 - 16) + 1.793 * (v - 128);\
+                val = YCBCR_TO_R(cfs, y2, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y2 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
+                val = YCBCR_TO_G(cfs, y2, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                val = 1.164 * (y2 - 16) + 2.115 * (u - 128);\
+                val = YCBCR_TO_B(cfs, y2, u, v) >> COMP_BASE;\
                 *(dst)++ = CLAMP(val, 0, 255);\
         }\
 }
