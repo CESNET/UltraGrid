@@ -40,7 +40,7 @@ void RecvLossWidget::parseLine(std::string_view line){
 	auto received_sv = tokenize(packet_counts, '/');
 	auto total_sv = tokenize(packet_counts, '/');
 
-	int ssrc;
+	unsigned ssrc;
 	int received;
 	int total;
 
@@ -53,7 +53,7 @@ void RecvLossWidget::parseLine(std::string_view line){
 	updateVal();
 }
 
-void RecvLossWidget::addReport(int ssrc, int received, int total){
+void RecvLossWidget::addReport(unsigned ssrc, int received, int total){
 	SSRC_report rep;
 	rep.received = received;
 	rep.total = total;
