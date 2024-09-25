@@ -5,6 +5,11 @@ MKDIR_P = mkdir -p
 vpath %.c $(SRCDIR) $(SRCDIR)/tools
 vpath %.cpp $(SRCDIR) $(SRCDIR)/tools
 
+ARCH := $(shell uname -m)
+ifeq ($(ARCH), x86_64)
+    COMMON_FLAGS += -msse4.1
+endif
+
 TARGETS=astat_lib astat_test convert decklink_temperature uyvy2yuv422p thumbnailgen
 
 OBJS=$(shell find . -name '*.o')
