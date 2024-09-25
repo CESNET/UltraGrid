@@ -982,12 +982,23 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
  * @param[in] boff     blue offset in bytes (2 for RGB)
  * @param[in] pix_size source pixel size (3 for RGB, 4 for RGBA)
  */
-#define vc_copylineToUYVY(dst, src, dst_len, roff, goff, boff, pix_size) {\
-        const struct color_coeffs *cfs = get_color_coeffs(DEPTH8); \
-        register uint32_t *d = (uint32_t *)(void *) dst;\
-        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 4; x += 4) {\
-                int r, g, b;\
-                int y1, y2, u ,v;\
+#if defined __GNUC__
+static inline void vc_copylineToUYVY(unsigned char *__restrict dst,
+                                     const unsigned char *__restrict src,
+                                     int dst_len, int roff, int goff, int boff,
+                                     int pix_size)
+    __attribute__((always_inline));
+#endif
+static inline void
+vc_copylineToUYVY(unsigned char *__restrict dst,
+                  const unsigned char *__restrict src, int dst_len, int roff,
+                  int goff, int boff, int pix_size)
+{
+        const struct color_coeffs *cfs = get_color_coeffs(DEPTH8);
+        register uint32_t         *d   = (uint32_t *) (void *) dst;
+        int r, g, b;
+        int y1, y2, u ,v;
+#define loop_body \
                 r = src[roff];\
                 g = src[goff];\
                 b = src[boff];\
@@ -1006,8 +1017,13 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
                 v = ((v / 2) >> COMP_BASE) + 128;\
 \
                 *d++ = ((y2 & 0xFF) << 24) | ((v & 0xFF) << 16) | \
-                       ((y1 & 0xFF) << 8) | (u & 0xFF); \
-        }\
+                       ((y1 & 0xFF) << 8) | (u & 0xFF);
+
+        OPTIMIZED_FOR(int x = 0; x <= dst_len - 4; x += 4)
+        {
+                loop_body
+        }
+#undef loop_body
 }
 
 /**
