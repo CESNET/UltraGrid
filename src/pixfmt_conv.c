@@ -994,6 +994,10 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
                   const unsigned char *__restrict src, int dst_len, int roff,
                   int goff, int boff, int pix_size)
 {
+        enum {
+                UYVY_BPP   = 4,
+                LOOP_ITEMS = 2,
+        };
         const struct color_coeffs *cfs = get_color_coeffs(DEPTH8);
         register uint32_t         *d   = (uint32_t *) (void *) dst;
         int r, g, b;
@@ -1019,8 +1023,14 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
                 *d++ = ((y2 & 0xFF) << 24) | ((v & 0xFF) << 16) | \
                        ((y1 & 0xFF) << 8) | (u & 0xFF);
 
-        OPTIMIZED_FOR(int x = 0; x <= dst_len - 4; x += 4)
-        {
+        const int count = (dst_len + 3) / UYVY_BPP;
+        int       x     = 0;
+        for (; x < count / LOOP_ITEMS; x++) {
+                loop_body
+                loop_body
+        }
+        x *= LOOP_ITEMS;
+        for (; x < count; x++) {
                 loop_body
         }
 #undef loop_body
