@@ -95,9 +95,15 @@ handle_updates() {(
                 return
         fi
         if [ "${ULTRAGRID_AUTOUPDATE-}" ] && [ "$ULTRAGRID_AUTOUPDATE" -ge 0 ]; then
-                if ! "$DIR/appimageupdatetool" -j "$APPIMAGE" && "$DIR/appimageupdatetool" "$APPIMAGE"; then
-                        ULTRAGRID_AUTOUPDATE=-1 # prevent update loops if the new version not stored for some reason
-                        exec "$APPIMAGE" "$@"  # launch the updated version
+                if "$DIR/appimageupdatetool" -j "$APPIMAGE"; then
+                        debug_msg "No UltraGrid AppImage update available"
+                else
+                        if "$DIR/appimageupdatetool" "$APPIMAGE"; then
+                                # prevent update loops if the new version not
+                                # stored for some reason
+                                ULTRAGRID_AUTOUPDATE=-1
+                                exec "$APPIMAGE" "$@"  # launch updated version
+                        fi
                 fi
                 touch "$APPIMAGE" # update AppImage mtime otherwise if there are no updates after elapsing the interval, the check would run always
                 return
