@@ -345,7 +345,7 @@ display_file_get_property(void *state, int property, void *val, size_t *len)
                         codecs[count++] = R12L;
                         codecs[count++] = v210;
                 }
-                for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+                for (int i = VIDEO_CODEC_FIRST; i < VIDEO_CODEC_COUNT; ++i) {
                         if (s->is_nut) {
                                 if (get_ug_to_av_pixfmt(i) != AV_PIX_FMT_NONE) {
                                         codecs[count++] = i;
