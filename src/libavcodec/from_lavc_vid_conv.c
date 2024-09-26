@@ -271,6 +271,7 @@ static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, 
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
         UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -282,9 +283,9 @@ static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, 
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
                         // r g b is now on 10 bit scale
 
                         r = CLAMP_FULL(r, 10);
@@ -330,6 +331,7 @@ static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, 
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
         UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -344,9 +346,9 @@ static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, 
                                 comp_type_t y = (Y_SCALE(depth) * (*src_y++ - (1<<(depth-4))));
                                 comp_type_t cr = *src_cr++ - (1<<(depth-1));
                                 comp_type_t cb = *src_cb++ - (1<<(depth-1));
-                                comp_type_t rr = YCBCR_TO_R_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t gg = YCBCR_TO_G_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t bb = YCBCR_TO_B_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t rr = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t gg = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t bb = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
                                 r[j] = CLAMP_FULL(rr, 12);
                                 g[j] = CLAMP_FULL(gg, 12);
                                 b[j] = CLAMP_FULL(bb, 12);
@@ -425,6 +427,7 @@ static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, 
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
         UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -436,9 +439,9 @@ static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, 
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-16+depth);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-16+depth);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(depth, y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
                         // r g b is now on 16 bit scale
 
                         *dst++ = CLAMP_FULL(r, 16);
@@ -1034,6 +1037,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
         assert((uintptr_t) dst_buffer % 4 == 0);
 
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1044,9 +1048,9 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                         comp_type_t cb = *src_cbcr++ - 128;
                         comp_type_t cr = *src_cbcr++ - 128;
                         comp_type_t y = (*src_y++ - 16) * Y_SCALE(S_DEPTH);
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1087,7 +1091,6 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
 #endif
 /**
  * Changes pixel format from planar 8-bit 422 and 420 YUV to packed RGB/A.
- * Color space is assumed ITU-T Rec. 709 limited range.
  */
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
@@ -1096,6 +1099,7 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 S_DEPTH = 8,
         };
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
@@ -1135,15 +1139,15 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                         comp_type_t cb = *src_cb1++ - 128;
                         comp_type_t cr = *src_cr1++ - 128;
                         comp_type_t y = (*src_y1++ - 16) * Y_SCALE(S_DEPTH);
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr);
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         y = (*src_y1++ - 16) * Y_SCALE(S_DEPTH);
-                        r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr);
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         if (subsampling == 422) {
@@ -1151,15 +1155,15 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                                 cr = *src_cr2++ - 128;
                         }
                         y = (*src_y2++ - 16) * Y_SCALE(S_DEPTH);
-                        r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr);
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
                         y = (*src_y2++ - 16) * Y_SCALE(S_DEPTH);
-                        r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr);
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
@@ -1207,6 +1211,7 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
         assert((uintptr_t) dst_buffer % 4 == 0);
 
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1218,9 +1223,9 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
                         int y = *src_y++ * Y_SCALE(S_DEPTH);
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr) >> COMP_BASE;
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1562,6 +1567,7 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
         assert(out_bit_depth == 24 || out_bit_depth == 30 || out_bit_depth == 32);
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
         const int bpp = out_bit_depth == 30 ? 10 : 8;
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 
         for (int y = 0; y < height / 2; ++y) {
                 uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
@@ -1585,9 +1591,9 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cr = *src_cr1++ - (1<<9);
                         comp_type_t cb = *src_cb1++ - (1<<9);
-                        comp_type_t rr = YCBCR_TO_R_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                        comp_type_t gg = YCBCR_TO_G_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                        comp_type_t bb = YCBCR_TO_B_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t rr = YCBCR_TO_R(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t gg = YCBCR_TO_G(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t bb = YCBCR_TO_B(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
 
 #                       define WRITE_RES_YUV10P_TO_RGB(Y, DST) {\
                                 comp_type_t r = Y + rr;\
@@ -1619,9 +1625,9 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                         if (subsampling == 422) {
                                 cr = *src_cr2++ - (1<<9);
                                 cb = *src_cb2++ - (1<<9);
-                                rr = YCBCR_TO_R_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                                gg = YCBCR_TO_G_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                                bb = YCBCR_TO_B_709_SCALED(S_DEPTH, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                rr = YCBCR_TO_R(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                gg = YCBCR_TO_G(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                bb = YCBCR_TO_B(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
                         }
 
                         comp_type_t y2 = (Y_SCALE(S_DEPTH) * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
@@ -1659,6 +1665,7 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                 S_DEPTH = 10,
         };
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
@@ -1672,14 +1679,11 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                         comp_type_t y =
                             (*src_y++ - (1 << (S_DEPTH - 4))) * Y_SCALE(S_DEPTH);
                         comp_type_t r =
-                            YCBCR_TO_R_709_SCALED(S_DEPTH, y, cb, cr) >>
-                            (COMP_BASE + 2);
+                            YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE + 2);
                         comp_type_t g =
-                            YCBCR_TO_G_709_SCALED(S_DEPTH, y, cb, cr) >>
-                            (COMP_BASE + 2);
+                            YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE + 2);
                         comp_type_t b =
-                            YCBCR_TO_B_709_SCALED(S_DEPTH, y, cb, cr) >>
-                            (COMP_BASE + 2);
+                            YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE + 2);
                         if (rgba) {
                                 *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
