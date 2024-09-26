@@ -7,6 +7,8 @@ vpath %.cpp $(SRCDIR) $(SRCDIR)/tools
 
 TARGETS=astat_lib astat_test convert decklink_temperature uyvy2yuv422p thumbnailgen
 
+OBJS=$(shell find . -name '*.o')
+
 all: $(TARGETS)
 
 %.o : %.c
@@ -40,4 +42,4 @@ thumbnailgen: thumbnailgen.o ipc_frame.o ipc_frame_unix.o
 	$(CXX) $^ -o $@ -ljpeg
 
 clean:
-	$(RM) $(TARGETS) *o
+	$(RM) $(TARGETS) $(OBJS)
