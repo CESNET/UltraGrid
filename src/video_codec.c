@@ -79,12 +79,6 @@
 
 char pixfmt_conv_pref[] = "dsc"; ///< bitdepth, subsampling, color space
 
-#ifdef WORDS_BIGENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
-
 #ifdef __SSE2__
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);

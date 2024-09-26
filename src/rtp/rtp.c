@@ -143,7 +143,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
 #define RTCP_RX   205
 
 typedef struct {
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         unsigned short version:2;       /* packet type            */
         unsigned short p:1;     /* padding flag           */
         unsigned short count:5; /* varies by payload type */

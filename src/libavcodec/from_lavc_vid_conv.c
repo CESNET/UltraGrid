@@ -71,7 +71,7 @@
 
 #define MOD_NAME "[from_lavc_vid_conv] "
 
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x

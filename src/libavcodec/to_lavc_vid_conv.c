@@ -66,7 +66,7 @@
 
 #define MOD_NAME "[to_lavc_vid_conv] "
 
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x
@@ -1151,12 +1151,6 @@ static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, const unsigned char
 {
         r10k_to_gbrpXXle(out_frame, in_data, width, height, 16U);
 }
-
-#ifdef WORDS_BIGENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
 
 /// @note out_depth needs to be at least 12
 #if defined __GNUC__
