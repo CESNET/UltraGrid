@@ -1,6 +1,8 @@
 astat.a
 astat.so
 astat_test
+benchmark_ff_convs
 convert
 decklink_temperature
+thumbnailgen
 uyvy2yuv422p
