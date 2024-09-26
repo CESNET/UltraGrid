@@ -299,7 +299,7 @@ src/libavcodec/to_lavc_vid_conv.o: src/libavcodec/to_lavc_vid_conv.c
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-src/video_codec.o: src/video_codec.c
+src/pixfmt_conv.o: src/pixfmt_conv.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
