@@ -75,6 +75,8 @@
 #define BYTE_SWAP(x) x
 #endif
 
+#define MOD_NAME "[pixfmt_conv] "
+
 /**
  * @brief Converts v210 to UYVY
  * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
@@ -2915,6 +2917,8 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out) {
                 }
         }
 
+        MSG(DEBUG, "No decoder from %s to %s!\n", get_codec_name(in),
+            get_codec_name(out));
         return NULL;
 }
 

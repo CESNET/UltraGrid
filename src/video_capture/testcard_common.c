@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2022 CESNET
+ * Copyright (c) 2020-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "video_capture/testcard_common.h"
 
+#include <stdio.h>            // for printf
+#include <stdlib.h>           // for NULL, free, abort, malloc
+
+#include "debug.h"            // for LOG_LEVEL_FATAL, MSG
 #include "pixfmt_conv.h"
 #include "utils/color_out.h"
-#include "video.h"
-#include "video_capture/testcard_common.h"
+#include "video_codec.h"      // for get_codec_name, vc_get_size, get_bits_p...
+
+#define MOD_NAME "[testcard_common] "
 
 const uint32_t rect_colors[] = {
         0xff0000ffLU,
@@ -132,7 +133,11 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
                 return;
         }
         decoder_t decoder = get_decoder_from_to(in_c, out_c);
-        assert(decoder != NULL);
+        if (decoder == NULL) {
+                MSG(FATAL, "No decoder from %s to %s!\n", get_codec_name(in_c),
+                    get_codec_name(out_c));
+                abort();
+        }
         long out_linesize = vc_get_linesize(width, out_c);
         long in_linesize = vc_get_linesize(width, in_c);
         for (int i = 0; i < height; ++i) {

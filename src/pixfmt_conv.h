@@ -55,10 +55,6 @@
 
 #include "types.h" // codec_t
 
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif // !defined __cplusplus
-
 #ifdef _MSC_VER
 #define __attribute__(a)
 #endif
