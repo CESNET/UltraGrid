@@ -37,6 +37,8 @@
  */
 /**
  * @file
+ * To measure performance of conversions, use tools/benchmark_ff_convs
+ *
  * References:
  * 1. [v210](https://wiki.multimedia.cx/index.php/V210)
  *
@@ -2454,7 +2456,7 @@ av_to_uv_conversion_destroy(av_to_uv_convert_t **s)
 }
 
 static bool
-cuda_conv_enabled()
+from_lavc_cuda_conv_enabled()
 {
         if (!cuda_devices_explicit) {
                 return false;
@@ -2488,7 +2490,7 @@ av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
         ret->dst_pixfmt = uv_codec;
 
-        if (cuda_conv_enabled()) {
+        if (from_lavc_cuda_conv_enabled()) {
                 enum AVPixelFormat f[2] = { av_codec, AV_PIX_FMT_NONE };
                 if (get_first_supported_cuda(f) != AV_PIX_FMT_NONE) {
                         ret->cuda_conv_state =
@@ -2631,7 +2633,7 @@ probe_cuda_ug_to_av(const enum AVPixelFormat *fmts)
 }
 
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel) {
-        if (cuda_conv_enabled() && probe_cuda_ug_to_av(fmt) != VC_NONE) {
+        if (from_lavc_cuda_conv_enabled() && probe_cuda_ug_to_av(fmt) != VC_NONE) {
                 return probe_cuda_ug_to_av(fmt);
         }
         codec_t c = VIDEO_CODEC_NONE;
@@ -2640,7 +2642,7 @@ codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel)
 }
 
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel) {
-        if (cuda_conv_enabled() &&
+        if (from_lavc_cuda_conv_enabled() &&
             get_first_supported_cuda(fmt) != AV_PIX_FMT_NONE) {
                 return get_first_supported_cuda(fmt);
         }

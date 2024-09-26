@@ -37,7 +37,8 @@ astat_lib: astat.a
 astat.a: astat.o src/compat/platform_pipe.o
 	ar rcs astat.a $^
 
-benchmark_ff_convs.o: benchmark_ff_convs.c ../src/libavcodec/to_lavc_vid_conv.c
+benchmark_ff_convs.o: benchmark_ff_convs.c ../src/libavcodec/from_lavc_vid_conv.c \
+	../src/libavcodec/to_lavc_vid_conv.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(COMMON_FLAGS) -c $< -o $@
 
