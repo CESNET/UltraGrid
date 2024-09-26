@@ -1702,6 +1702,7 @@ static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned c
 }
 
 struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int height, enum AVPixelFormat out_pixfmt, int thread_count) {
+        assert(thread_count > 0);
         int ret = 0;
         struct to_lavc_vid_conv *s = (struct to_lavc_vid_conv *) calloc(1, sizeof *s);
         s->in_pixfmt = in_pixfmt;
