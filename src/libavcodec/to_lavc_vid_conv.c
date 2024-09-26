@@ -48,9 +48,8 @@
 #include <stdint.h>
 
 #include "color.h"
+#include "compat/htonl.h"                      // for htonl
 #include "compat/qsort_s.h"
-#include "config_unix.h"  // htonl
-#include "config_win32.h" // -||-
 #include "debug.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
@@ -656,6 +655,7 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
         };
 
         const int src_linesize = vc_get_linesize(width, R10k);
+        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * (y / v_subsampl_rate));
@@ -668,16 +668,13 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
                         comp_type_t b = (src[2] & 0x0f) << 6 | src[3] >> 2;
 
                         comp_type_t res_y =
-                            (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >>
-                             (COMP_BASE)) +
+                            (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE)) +
                             (1 << (D_DEPTH - 4));
                         comp_type_t res_cb =
-                            (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >>
-                             (COMP_BASE)) +
+                            (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE)) +
                             (1 << (D_DEPTH - 1));
                         comp_type_t res_cr =
-                            (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >>
-                             (COMP_BASE)) +
+                            (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE)) +
                             (1 << (D_DEPTH - 1));
 
                         dst_y[x * 2] = CLAMP_LIMITED_Y(res_y, 10);
@@ -687,14 +684,11 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
                         g = (src[1] & 0x3f ) << 4 | src[2] >> 4;
                         b = (src[2] & 0x0f) << 6 | src[3] >> 2;
 
-                        res_y = (RGB_TO_Y_709_SCALED(D_DEPTH, r, g, b) >>
-                                 (COMP_BASE)) +
+                        res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE)) +
                                 (1 << (D_DEPTH - 4));
-                        res_cb += (RGB_TO_CB_709_SCALED(D_DEPTH, r, g, b) >>
-                                   (COMP_BASE)) +
+                        res_cb += (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE)) +
                                   (1 << (D_DEPTH - 1));
-                        res_cr += (RGB_TO_CR_709_SCALED(D_DEPTH, r, g, b) >>
-                                   (COMP_BASE)) +
+                        res_cr += (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE)) +
                                   (1 << (D_DEPTH - 1));
 
                         res_cb /= 2;
@@ -747,6 +741,7 @@ static inline void r10k_to_yuv444pXXle(int out_depth, AVFrame * __restrict out_f
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const int src_linesize = vc_get_linesize(width, R10k);
+        const struct color_coeffs *cfs = get_color_coeffs(out_depth);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
@@ -757,18 +752,15 @@ static inline void r10k_to_yuv444pXXle(int out_depth, AVFrame * __restrict out_f
                         comp_type_t g = (src[1] & 0x3F ) << 4 | src[2] >> 4;
                         comp_type_t b = (src[2] & 0x0F) << 6 | src[3] >> 2;
 
-                        comp_type_t res_y =
-                            (RGB_TO_Y_709_SCALED(out_depth, r, g, b) >>
-                             (COMP_BASE + 10 - out_depth)) +
-                            (1 << (out_depth - 4));
-                        comp_type_t res_cb =
-                            (RGB_TO_CB_709_SCALED(out_depth, r, g, b) >>
-                             (COMP_BASE + 10 - out_depth)) +
-                            (1 << (out_depth - 1));
-                        comp_type_t res_cr =
-                            (RGB_TO_CR_709_SCALED(out_depth, r, g, b) >>
-                             (COMP_BASE + 10 - out_depth)) +
-                            (1 << (out_depth - 1));
+                        comp_type_t res_y = (RGB_TO_Y(cfs, r, g, b) >>
+                                             (COMP_BASE + 10 - out_depth)) +
+                                            (1 << (out_depth - 4));
+                        comp_type_t res_cb = (RGB_TO_CB(cfs, r, g, b) >>
+                                              (COMP_BASE + 10 - out_depth)) +
+                                             (1 << (out_depth - 1));
+                        comp_type_t res_cr = (RGB_TO_CR(cfs, r, g, b) >>
+                                              (COMP_BASE + 10 - out_depth)) +
+                                             (1 << (out_depth - 1));
 
                         *dst_y++ = CLAMP_LIMITED_Y(res_y, out_depth);
                         *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, out_depth);
@@ -793,7 +785,6 @@ static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
         r10k_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
-// RGB full range to YCbCr bt. 709 limited range
 #if defined __GNUC__
 static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
@@ -804,18 +795,16 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
+        const struct color_coeffs *cfs = get_color_coeffs(depth);
 #define WRITE_RES \
-        res_y = (RGB_TO_Y_709_SCALED(depth, r, g, b) >> \
-                 (COMP_BASE + 12 - depth)) + \
+        res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
                 (1 << (depth - 4)); \
-        res_cb = (RGB_TO_CB_709_SCALED(depth, r, g, b) >> \
-                  (COMP_BASE + 12 - depth)) + \
+        res_cb = (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
                  (1 << (depth - 1)); \
-        res_cr = (RGB_TO_CR_709_SCALED(depth, r, g, b) >> \
-                  (COMP_BASE + 12 - depth)) + \
+        res_cr = (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
                  (1 << (depth - 1)); \
-        *dst_y++ = CLAMP_LIMITED_Y(res_y, depth);\
-        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth);\
+        *dst_y++  = CLAMP_LIMITED_Y(res_y, depth); \
+        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth); \
         *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth);
 
         const int src_linesize = vc_get_linesize(width, R12L);
@@ -929,6 +918,7 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const int src_linesize = vc_get_linesize(width, RG48);
+        const struct color_coeffs *cfs = get_color_coeffs(depth);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
@@ -939,18 +929,15 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                         comp_type_t g = *src++;
                         comp_type_t b = *src++;
 
-                        comp_type_t res_y =
-                            (RGB_TO_Y_709_SCALED(depth, r, g, b) >>
-                             (COMP_BASE + 16 - depth)) +
-                            (1 << (depth - 4));
-                        comp_type_t res_cb =
-                            (RGB_TO_CB_709_SCALED(depth, r, g, b) >>
-                             (COMP_BASE + 16 - depth)) +
-                            (1 << (depth - 1));
-                        comp_type_t res_cr =
-                            (RGB_TO_CR_709_SCALED(depth, r, g, b) >>
-                             (COMP_BASE + 16 - depth)) +
-                            (1 << (depth - 1));
+                        comp_type_t res_y = (RGB_TO_Y(cfs, r, g, b) >>
+                                             (COMP_BASE + 16 - depth)) +
+                                            (1 << (depth - 4));
+                        comp_type_t res_cb = (RGB_TO_CB(cfs, r, g, b) >>
+                                              (COMP_BASE + 16 - depth)) +
+                                             (1 << (depth - 1));
+                        comp_type_t res_cr = (RGB_TO_CR(cfs, r, g, b) >>
+                                              (COMP_BASE + 16 - depth)) +
+                                             (1 << (depth - 1));
 
                         *dst_y++  = CLAMP_LIMITED_Y(res_y, depth);
                         *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth);
@@ -983,6 +970,7 @@ rgb_to_yuv444p(AVFrame *__restrict out_frame,
                 DEPTH = sizeof(t) * CHAR_BIT,
         };
         const ptrdiff_t src_linesize = vc_get_linesize(width, RGB);
+        const struct color_coeffs *cfs = get_color_coeffs(DEPTH);
         for (ptrdiff_t y = 0; y < height; y++) {
                 const t *src =
                     (const t *) (const void *) (in_data + y * src_linesize);
@@ -999,13 +987,13 @@ rgb_to_yuv444p(AVFrame *__restrict out_frame,
                         const comp_type_t b = *src++;
 
                         const comp_type_t res_y =
-                            (RGB_TO_Y_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
+                            (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 4));
                         const comp_type_t res_cb =
-                            (RGB_TO_CB_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
+                            (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 1));
                         const comp_type_t res_cr =
-                            (RGB_TO_CR_709_SCALED(DEPTH, r, g, b) >> COMP_BASE) +
+                            (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) +
                             (1 << (DEPTH - 1));
 
                         *dst_y++  = CLAMP_LIMITED_Y(res_y, DEPTH);
