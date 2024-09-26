@@ -54,6 +54,16 @@
                 SCALED(B_CB(depth, KR_709, KB_709)), \
         }
 
+/**
+ * @brief returns color coefficient for RGB<-YCbCr conversion
+ *
+ * @note
+ * It is suggested to copy the result to a struct (not using the returned ptr
+ * directly) when passing to RGB_TO_*() or YCBCR_TO_*(). The compiler may not
+ * be sure that the struct itself doesn't alias with other pointers and may
+ * produce less optimal code (currently with GCC 12 is not a problem for
+ * pixfmt_conv conversions but to_lavc_vid_convs seem to be affected).
+ */
 const struct color_coeffs *
 get_color_coeffs(int ycbcr_bit_depth)
 {

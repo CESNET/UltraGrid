@@ -172,16 +172,16 @@ struct color_coeffs {
         int b_cb; // b_cb is 34712 so doesn't fit to 16-bit short
 };
 const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
-#define RGB_TO_Y(t, r, g, b) ((r) * (t)->y_r + (g) * (t)->y_g + (b) * (t)->y_b)
+#define RGB_TO_Y(t, r, g, b) ((r) * (t).y_r + (g) * (t).y_g + (b) * (t).y_b)
 #define RGB_TO_CB(t, r, g, b) \
-        ((r) * (t)->cb_r + (g) * (t)->cb_g + (b) * (t)->cb_b)
+        ((r) * (t).cb_r + (g) * (t).cb_g + (b) * (t).cb_b)
 #define RGB_TO_CR(t, r, g, b) \
-        ((r) * (t)->cr_r + (g) * (t)->cr_g + (b) * (t)->cr_b)
+        ((r) * (t).cr_r + (g) * (t).cr_g + (b) * (t).cr_b)
 /// @param y_scaled Y scaled (multiplied) by Y_SCALE()
-#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + (cr) * (t)->r_cr)
+#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + (cr) * (t).r_cr)
 #define YCBCR_TO_G(t, y_scaled, cb, cr) \
-        ((y_scaled) + (cb) * (t)->g_cb + (cr) * (t)->g_cr)
-#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + (cb) * (t)->b_cb)
+        ((y_scaled) + (cb) * (t).g_cb + (cr) * (t).g_cr)
+#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + (cb) * (t).b_cb)
 
 /**
  * @param alpha_mask alpha mask already positioned at target bit offset

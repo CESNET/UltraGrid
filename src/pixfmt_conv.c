@@ -302,7 +302,7 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
                 D_DEPTH = 16,
         };
         assert((uintptr_t) dst % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dstlen; x += 8) {
                 unsigned int byte1 = *src++;
@@ -998,7 +998,7 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
                 UYVY_BPP   = 4,
                 LOOP_ITEMS = 2,
         };
-        const struct color_coeffs *cfs = get_color_coeffs(DEPTH8);
+        const struct color_coeffs cfs  = *get_color_coeffs(DEPTH8);
         register uint32_t         *d   = (uint32_t *) (void *) dst;
         int r, g, b;
         int y1, y2, u ,v;
@@ -1048,7 +1048,7 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
  */
 #define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off, rgb16) {\
         enum { DEPTH = DEPTH8 };\
-        const struct color_coeffs *cfs = get_color_coeffs(DEPTH);\
+        const struct color_coeffs cfs = *get_color_coeffs(DEPTH);\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
                 register int y1 = Y_SCALE(8) * ((src)[y1_off] - 16);\
                 register int y2 = Y_SCALE(8) * ((src)[y2_off] - 16);\
@@ -1467,7 +1467,7 @@ static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) dst % sizeof(uint16_t) == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
         uint16_t *d = (void *) dst;
 
 #define WRITE_RES \
@@ -1538,7 +1538,7 @@ vc_copylineR12LtoUYVY(unsigned char *__restrict dst,
                 UYVY_BPP      = 2,
                 DST_BYTE_SZ   = PX_PER_BLK_IN * UYVY_BPP,
         };
-        const struct color_coeffs *cfs = get_color_coeffs(D_DPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DPTH);
         uint8_t *d = (void *) dst;
 #define WRITE_RES \
         { \
@@ -1816,7 +1816,7 @@ static void vc_copylineY416toR12L(unsigned char * __restrict dst, const unsigned
                 S_DEPTH = 16,
                 D_DEPTH = 12,
         };
-        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
 #define GET_NEXT \
         u = *in++ - (1 << (S_DEPTH - 1)); \
         y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4))); \
@@ -1906,7 +1906,7 @@ static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
                 comp_type_t y, u, v, r, g, b;
@@ -1937,7 +1937,7 @@ static void vc_copylineY416toRGB(unsigned char * __restrict dst, const unsigned 
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
                 comp_type_t y, u, v, r, g, b;
@@ -1967,7 +1967,7 @@ static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned
         };
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 4 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         uint32_t *out = (void *) dst;
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
@@ -2316,7 +2316,7 @@ static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned
         enum {
                 D_DEPTH = 10,
         };
-        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
 #define COMP_OFF (COMP_BASE+(16-10))
 #define FETCH_BLOCK \
                 r = *in++; \
@@ -2376,7 +2376,7 @@ static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
@@ -2417,7 +2417,7 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
@@ -2451,7 +2451,7 @@ static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 2 == 0);
-        const struct color_coeffs *cfs = get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
         const uint16_t *in = (const void *) src;
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 6) {
@@ -2791,7 +2791,7 @@ static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned 
                 OUT_BL_SZ = PIX_COUNT * RGB_BPP,
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
-        const struct color_coeffs *cfs = get_color_coeffs(IDEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
         (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
         val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE)); \
@@ -2853,7 +2853,7 @@ vc_copylineV210toRG48(unsigned char *__restrict d,
                 OUT_BL_SZ = PIX_COUNT * RG48_BPP,
         };
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
-        const struct color_coeffs *cfs = get_color_coeffs(IDEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
         (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
         val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
