@@ -13,7 +13,7 @@
  * This file contains video codecs' metadata and helper
  * functions as well as pixelformat converting functions.
  */
-/* Copyright (c) 2005-2023 CESNET z.s.p.o.
+/* Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -52,18 +52,16 @@
 
 #define __STDC_WANT_LIB_EXT1__ 1
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
+#include "pixfmt_conv.h"
 
-#include <assert.h>
+#include <assert.h>          // for assert
+#include <stddef.h>          // for NULL, size_t
+#include <stdint.h>          // for uint32_t, uintptr_t, uint16_t, uint64_t
+#include <string.h>          // for memcpy
 
 #include "color.h"
 #include "compat/qsort_s.h"
 #include "debug.h"
-#include "pixfmt_conv.h"
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, CLAMP
 #include "video_codec.h"
 
@@ -71,7 +69,7 @@
 #include "tmmintrin.h"
 #endif
 
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x
@@ -593,7 +591,10 @@ static void vc_copylineDVS10toV210(unsigned char * __restrict dst, const unsigne
 
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
-/* TODO: undo it - currently this decoder is broken */
+/* TODO:
+ * - undo it - currently this decoder is broken - but rather remove DVS10 entirely
+ * - if not, replace !(__APPLE__ || HAVE_32B_LINUX) with something like __SSE2__
+ */
 #if 0 /* !(__APPLE__ || HAVE_32B_LINUX) */
 
 void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
@@ -1936,7 +1937,7 @@ static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned
         const uint16_t *in = (const uint16_t *)(const void *) src;
         uint32_t *out = (uint32_t *)(void *) dst;
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
                 *out++ = r << 22U | g << 12U | b << 2U | 0x3FU; /// @todo just a stub
 #else
                 unsigned r = *in++ >> 6;
