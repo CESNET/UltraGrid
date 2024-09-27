@@ -1525,7 +1525,11 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
                 }
         }
-        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+        if (get_commandline_param("color-601") != nullptr) {
+                index = 0;
+        }
+        const double cs_coeffs[2 * 4] = { KR_601,  KB_601,  KR_709, KB_709,
+                                          KR_2020, KB_2020, KR_P3,  KB_P3 };
         double kr = cs_coeffs[2 * index];
         double kb = cs_coeffs[2 * index + 1];
         const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };

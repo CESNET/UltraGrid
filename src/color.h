@@ -83,6 +83,8 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
         (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
 #endif // !defined YCBCR_FULL
 
+#define KR_601 .299
+#define KB_601 .114
 #define KR_709 .212639
 #define KB_709 .072192
 #define KR_2020 .262700
@@ -152,14 +154,18 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 extern "C" {
 #endif
 
-// new API
 struct color_coeffs {
+        // shorts are used the compiler can use 2-byte words in the vecotred
+        // instruction, which is faster (and the values fit)
         short y_r,  y_g,  y_b;
         short cb_r, cb_g, cb_b;
         short cr_r, cr_g, cr_b;
 
+        // the shorts below doesn't seem to be necessary - it seems like the
+        // compiler doesn't vectorise those conversions (in contrary to the
+        // above coeffs)
         short r_cr, g_cb, g_cr;
-        int b_cb; // b_cb is 34712 so doesn't fit to 16-bit short
+        int   b_cb; // is 34712 for 709  so doesn't fit to 16-bit short
 };
 const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
 #ifdef __cplusplus

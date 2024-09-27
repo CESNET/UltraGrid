@@ -40,6 +40,7 @@
 #include <stdio.h>   // for fprintf, stderr
 #include <stdlib.h>  // for abort
 
+#include "host.h"    // for ADD_TO_PARAM
 #include "types.h"   // for depth
 
 #define D(kr, kb) (2. * ((kr) + KG(kr, kb)))
@@ -91,8 +92,11 @@
                 SCALED(B_CB(depth, kr, kb)), \
         }
 
+#define COEFFS_601(depth) COEFFS(depth, KR_601, KB_601)
 #define COEFFS_709(depth) COEFFS(depth, KR_709, KB_709)
 
+ADD_TO_PARAM("color-601", "* color-601\n"
+                "  Use BT.601 color primaries.\n");
 /**
  * @brief returns color coefficient for RGB<-YCbCr conversion
  *
@@ -109,21 +113,31 @@
 const struct color_coeffs *
 get_color_coeffs(int ycbcr_bit_depth)
 {
-        static const struct color_coeffs col_cfs_8  = COEFFS_709(DEPTH8);
-        static const struct color_coeffs col_cfs_10 = COEFFS_709(DEPTH10);
-        static const struct color_coeffs col_cfs_12 = COEFFS_709(DEPTH12);
-        static const struct color_coeffs col_cfs_16 = COEFFS_709(DEPTH16);
+        static _Atomic int primaries_index = -1;
+        if (primaries_index == -1) {
+                primaries_index =
+                    get_commandline_param("color-601") != NULL ? 0 : 1;
+        }
+
+        static const struct {
+                struct color_coeffs col_cfs[2];
+        } coeffs[] = {
+                { { COEFFS_601(DEPTH8),  COEFFS_709(DEPTH8)  } },
+                { { COEFFS_601(DEPTH10), COEFFS_709(DEPTH10) } },
+                { { COEFFS_601(DEPTH12), COEFFS_709(DEPTH12) } },
+                { { COEFFS_601(DEPTH16), COEFFS_709(DEPTH16) } }
+        };
         switch ((enum depth) ycbcr_bit_depth) {
         case DEPTH8:
-                return &col_cfs_8;
+                return &coeffs[0].col_cfs[primaries_index];
         case DEPTH10:
-                return &col_cfs_10;
+                return &coeffs[1].col_cfs[primaries_index];
         case DEPTH12:
-                return &col_cfs_12;
+                return &coeffs[2].col_cfs[primaries_index];
         case DEPTH16:
-                return &col_cfs_16;
+                return &coeffs[3].col_cfs[primaries_index];
         }
-        fprintf(stderr, "%s: Wrong depth %d!\n", __func__,
-                ycbcr_bit_depth);
+
+        fprintf(stderr, "%s: Wrong depth %d!\n", __func__, ycbcr_bit_depth);
         abort();
 }
