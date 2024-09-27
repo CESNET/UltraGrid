@@ -32,37 +32,34 @@ misc_test_color_coeff_range()
                 const int d        = depths[i];
                 const int d_max    = (1 << d) - 1;
                 const int max_diff = 1 << (d - 8);
+                const struct color_coeffs *cfs = get_color_coeffs(d);
 
                 // Y
                 ASSERT_LE_MESSAGE(
                     "min Y diverges from nominal range min", max_diff,
-                    abs((RGB_TO_Y_709_SCALED(d, 0, 0, 0) >> COMP_BASE) +
-                        LIMIT_LO(d)) -
+                    abs((RGB_TO_Y(*cfs, 0, 0, 0) >> COMP_BASE) + LIMIT_LO(d)) -
                         LIMIT_LO(d));
                 ASSERT_LE_MESSAGE(
                     "max Y diverges from nominal range max", max_diff,
-                    abs((RGB_TO_Y_709_SCALED(d, d_max, d_max, d_max) >>
-                         COMP_BASE) +
+                    abs((RGB_TO_Y(*cfs, d_max, d_max, d_max) >> COMP_BASE) +
                         LIMIT_LO(d) - LIMIT_HI_Y(d)));
                 // Cb
                 ASSERT_LE_MESSAGE(
                     "min Cb diverges from nominal range min", max_diff,
-                    abs((RGB_TO_CB_709_SCALED(d, d_max, d_max, 0) >>
-                         COMP_BASE) +
+                    abs((RGB_TO_CB(*cfs, d_max, d_max, 0) >> COMP_BASE) +
                         (1 << (d - 1)) - LIMIT_LO(d)));
                 ASSERT_LE_MESSAGE(
                     "max Cb diverges from nominal range max", max_diff,
-                    abs((RGB_TO_CB_709_SCALED(d, 0, 0, d_max) >> COMP_BASE) +
+                    abs((RGB_TO_CB(*cfs, 0, 0, d_max) >> COMP_BASE) +
                         (1 << (d - 1)) - LIMIT_HI_CBCR(d)));
                 // Cr
                 ASSERT_LE_MESSAGE(
                     "min Cr diverges from nominal range min", max_diff,
-                    abs((RGB_TO_CR_709_SCALED(d, 0, d_max, d_max) >>
-                         COMP_BASE) +
+                    abs((RGB_TO_CR(*cfs, 0, d_max, d_max) >> COMP_BASE) +
                         (1 << (d - 1)) - LIMIT_LO(d)));
                 ASSERT_LE_MESSAGE(
                     "max Cr diverges from nominal range max", max_diff,
-                    abs((RGB_TO_CR_709_SCALED(d, d_max, 0, 0) >> COMP_BASE) +
+                    abs((RGB_TO_CR(*cfs, d_max, 0, 0) >> COMP_BASE) +
                         (1 << (d - 1)) - LIMIT_HI_CBCR(d)));
         }
 

@@ -162,16 +162,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
 
-// new API
-struct color_coeffs {
-        short y_r,  y_g,  y_b;
-        short cb_r, cb_g, cb_b;
-        short cr_r, cr_g, cr_b;
-
-        short r_cr, g_cb, g_cr;
-        int b_cb; // b_cb is 34712 so doesn't fit to 16-bit short
-};
-const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
 #define RGB_TO_Y(t, r, g, b) ((r) * (t).y_r + (g) * (t).y_g + (b) * (t).y_b)
 #define RGB_TO_CB(t, r, g, b) \
         ((r) * (t).cb_r + (g) * (t).cb_g + (b) * (t).cb_b)
@@ -197,5 +187,24 @@ const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
 #define RGBA_BLACK MK_MONOCHROME(0x00)
 #define RGBA_GRAY  MK_MONOCHROME(0x80)
 #define RGBA_WHITE MK_MONOCHROME(0xFF)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// new API
+struct color_coeffs {
+        short y_r,  y_g,  y_b;
+        short cb_r, cb_g, cb_b;
+        short cr_r, cr_g, cr_b;
+
+        short r_cr, g_cb, g_cr;
+        int b_cb; // b_cb is 34712 so doesn't fit to 16-bit short
+};
+const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 
 #endif // !defined COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
