@@ -8,10 +8,9 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * @brief This file contains video codec-related functions.
+ * @brief the file contains conversions between UG pixel formats
  *
- * This file contains video codecs' metadata and helper
- * functions as well as pixelformat converting functions.
+ * To measure performance of conversions, use `tools/convert benchmark`.
  */
 /* Copyright (c) 2005-2024 CESNET
  *

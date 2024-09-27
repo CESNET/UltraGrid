@@ -11,7 +11,7 @@
  * @brief This file contains video codec-related functions.
  *
  * This file contains video codecs' metadata and helper
- * functions as well as pixelformat converting functions.
+ * functions.
  */
 /* Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
