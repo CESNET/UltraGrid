@@ -42,6 +42,38 @@
 
 #include "types.h"   // for depth
 
+#define KG_709 KG(KR_709,KB_709)
+#define D (2.*(KR_709+KG_709))
+#define E (2.*(1.-KR_709))
+
+#define Y_R(out_depth) \
+        ((comp_type_t) (((KR_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define Y_G(out_depth) \
+        ((comp_type_t) (((KG_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define Y_B(out_depth) \
+        ((comp_type_t) (((KB_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+                        C_EPS))
+#define CB_R(out_depth) \
+        ((comp_type_t) (((-KR_709 / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CB_G(out_depth) \
+        ((comp_type_t) (((-KG_709 / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CB_B(out_depth) \
+        ((comp_type_t) ((((1 - KB_709) / D * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) + C_EPS))
+#define CR_R(out_depth) \
+        ((comp_type_t) ((((1 - KR_709) / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CR_G(out_depth) \
+        ((comp_type_t) (((-KG_709 / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) - C_EPS))
+#define CR_B(out_depth) \
+        ((comp_type_t) (((-KB_709 / E * CBCR_LIMIT(out_depth)) * \
+                        (1 << COMP_BASE)) + C_EPS))
+
 #define COEFFS(depth) \
         { \
                 Y_R(depth),  Y_G(depth),  Y_B(depth),\

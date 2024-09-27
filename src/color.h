@@ -66,7 +66,6 @@ typedef int32_t comp_type_t; // int32_t provides much better performance than in
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 
-#define KG(kr,kb)  (1.-kr-kb)
 #ifdef YCBCR_FULL
 #define C_EPS 0 // prevent under/overflows when there is no clip
 #define Y_LIMIT(out_depth)    1.0
@@ -85,44 +84,8 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define KB_2020 .059302
 #define KR_P3 .228975
 #define KB_P3 .079287
+#define KG(kr,kb)  (1.-kr-kb)
 
-#define KG_709 KG(KR_709,KB_709)
-#define D (2.*(KR_709+KG_709))
-#define E (2.*(1.-KR_709))
-
-#define Y_R(out_depth) \
-        ((comp_type_t) (((KR_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
-                        C_EPS))
-#define Y_G(out_depth) \
-        ((comp_type_t) (((KG_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
-                        C_EPS))
-#define Y_B(out_depth) \
-        ((comp_type_t) (((KB_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
-                        C_EPS))
-#define CB_R(out_depth) \
-        ((comp_type_t) (((-KR_709 / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CB_G(out_depth) \
-        ((comp_type_t) (((-KG_709 / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CB_B(out_depth) \
-        ((comp_type_t) ((((1 - KB_709) / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) + C_EPS))
-#define CR_R(out_depth) \
-        ((comp_type_t) ((((1 - KR_709) / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CR_G(out_depth) \
-        ((comp_type_t) (((-KG_709 / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CR_B(out_depth) \
-        ((comp_type_t) (((-KB_709 / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) + C_EPS))
-#define RGB_TO_Y_709_SCALED(out_depth, r, g, b) \
-        ((r) * Y_R(out_depth) + (g) * Y_G(out_depth) + (b) * Y_B(out_depth))
-#define RGB_TO_CB_709_SCALED(out_depth, r, g, b) \
-        ((r) * CB_R(out_depth) + (g) * CB_G(out_depth) + (b) * CB_B(out_depth))
-#define RGB_TO_CR_709_SCALED(out_depth, r, g, b) \
-        ((r) * CR_R(out_depth) + (g) * CR_G(out_depth) + (b) * CR_B(out_depth))
 #ifdef YCBCR_FULL
 #define LIMIT_LO(depth) 0
 #define LIMIT_HI_Y(depth) ((1<<(depth))-1)
@@ -151,13 +114,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define Y_SCALE(in_depth) \
         SCALED(Y_LIMIT_INV(in_depth)) // precomputed value, Y multiplier is same
                                       // for all channels
-#define YCBCR_TO_R_709_SCALED(in_depth, y, cb, cr) \
-        ((y) /* * r_y */ + (cr) * SCALED(R_CR(in_depth, KR_709, KB_709)))
-#define YCBCR_TO_G_709_SCALED(in_depth, y, cb, cr) \
-        ((y) /* * g_y */ + (cb) * SCALED(G_CB(in_depth, KR_709, KB_709)) + \
-         (cr) * SCALED(G_CR(in_depth, KR_709, KB_709)))
-#define YCBCR_TO_B_709_SCALED(in_depth, y, cb, cr) \
-        ((y) /* * b_y */ + (cb) * SCALED(B_CB(in_depth, KR_709, KB_709)))
 #define FULL_FOOT(depth) (1 << ((depth) - 8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
