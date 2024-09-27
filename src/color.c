@@ -42,52 +42,62 @@
 
 #include "types.h"   // for depth
 
-#define KG_709 KG(KR_709,KB_709)
-#define D (2.*(KR_709+KG_709))
-#define E (2.*(1.-KR_709))
+#define D(kr, kb) (2. * ((kr) + KG(kr, kb)))
+#define E(kr)     (2. * (1. - (kr)))
 
-#define Y_R(out_depth) \
-        ((comp_type_t) (((KR_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+#define Y_R(out_depth, kr, kb) \
+        ((comp_type_t) (((kr * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + C_EPS))
+#define Y_G(out_depth, kr, kb) \
+        ((comp_type_t) (((KG(kr, kb) * Y_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) + \
                         C_EPS))
-#define Y_G(out_depth) \
-        ((comp_type_t) (((KG_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+#define Y_B(out_depth, kr, kb) \
+        ((comp_type_t) ((((kb) * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
                         C_EPS))
-#define Y_B(out_depth) \
-        ((comp_type_t) (((KB_709 * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + \
+#define CB_R(out_depth, kr, kb) \
+        ((comp_type_t) (((-(kr) / D(kr, kb) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) - \
                         C_EPS))
-#define CB_R(out_depth) \
-        ((comp_type_t) (((-KR_709 / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CB_G(out_depth) \
-        ((comp_type_t) (((-KG_709 / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CB_B(out_depth) \
-        ((comp_type_t) ((((1 - KB_709) / D * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) + C_EPS))
-#define CR_R(out_depth) \
-        ((comp_type_t) ((((1 - KR_709) / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CR_G(out_depth) \
-        ((comp_type_t) (((-KG_709 / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) - C_EPS))
-#define CR_B(out_depth) \
-        ((comp_type_t) (((-KB_709 / E * CBCR_LIMIT(out_depth)) * \
-                        (1 << COMP_BASE)) + C_EPS))
+#define CB_G(out_depth, kr, kb) \
+        ((comp_type_t) (((-KG(kr, kb) / D(kr, kb) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) - \
+                        C_EPS))
+#define CB_B(out_depth, kr, kb) \
+        ((comp_type_t) ((((1 - (kb)) / D(kr, kb) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) + \
+                        C_EPS))
+#define CR_R(out_depth, kr, kb) \
+        ((comp_type_t) ((((1 - (kr)) / E(kr) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) - \
+                        C_EPS))
+#define CR_G(out_depth, kr, kb) \
+        ((comp_type_t) (((-KG(kr, kb) / E(kr) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) - \
+                        C_EPS))
+#define CR_B(out_depth, kr, kb) \
+        ((comp_type_t) (((-(kb) / E(kr) * CBCR_LIMIT(out_depth)) * \
+                         (1 << COMP_BASE)) + \
+                        C_EPS))
 
-#define COEFFS(depth) \
+#define COEFFS(depth, kr, kb) \
         { \
-                Y_R(depth),  Y_G(depth),  Y_B(depth),\
-                CB_R(depth), CB_G(depth), CB_B(depth),\
-                CR_R(depth), CR_G(depth), CR_B(depth),\
+                Y_R(depth, kr, kb),  Y_G(depth, kr, kb),  Y_B(depth, kr, kb),\
+                CB_R(depth, kr, kb), CB_G(depth, kr, kb), CB_B(depth, kr, kb),\
+                CR_R(depth, kr, kb), CR_G(depth, kr, kb), CR_B(depth, kr, kb),\
 \
-                SCALED(R_CR(depth, KR_709, KB_709)), \
-                SCALED(G_CB(depth, KR_709, KB_709)), \
-                SCALED(G_CR(depth, KR_709, KB_709)), \
-                SCALED(B_CB(depth, KR_709, KB_709)), \
+                SCALED(R_CR(depth, kr, kb)), \
+                SCALED(G_CB(depth, kr, kb)), \
+                SCALED(G_CR(depth, kr, kb)), \
+                SCALED(B_CB(depth, kr, kb)), \
         }
+
+#define COEFFS_709(depth) COEFFS(depth, KR_709, KB_709)
 
 /**
  * @brief returns color coefficient for RGB<-YCbCr conversion
+ *
+ * Using BT.709 by default.
+ *
  *
  * @note
  * It is suggested to copy the result to a struct (not using the returned ptr
@@ -99,10 +109,10 @@
 const struct color_coeffs *
 get_color_coeffs(int ycbcr_bit_depth)
 {
-        static const struct color_coeffs col_cfs_8  = COEFFS(DEPTH8);
-        static const struct color_coeffs col_cfs_10 = COEFFS(DEPTH10);
-        static const struct color_coeffs col_cfs_12 = COEFFS(DEPTH12);
-        static const struct color_coeffs col_cfs_16 = COEFFS(DEPTH16);
+        static const struct color_coeffs col_cfs_8  = COEFFS_709(DEPTH8);
+        static const struct color_coeffs col_cfs_10 = COEFFS_709(DEPTH10);
+        static const struct color_coeffs col_cfs_12 = COEFFS_709(DEPTH12);
+        static const struct color_coeffs col_cfs_16 = COEFFS_709(DEPTH16);
         switch ((enum depth) ycbcr_bit_depth) {
         case DEPTH8:
                 return &col_cfs_8;

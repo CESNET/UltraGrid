@@ -47,20 +47,25 @@
 
 #include "utils/macros.h" // CLAMP
 
-/* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
+/**
+ * @file
+ * @brief Color space coedfficients and limits
  *
- * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
+ * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], YCbCr
+ * limited, see [limits].
  *
- * Scaled by 1<<COMP_BASE, footroom 16/255, headroom 235/255 (luma), 240/255 (chroma); limits [2^(depth-8)..255*2^(depth-8)-1]
+ * The coefficients are scaled by 1<<COMP_BASE.
+ *
+ * limited footroom is (1<<(limited_depth - 4)), headroom 235*(limited_depth-8)
+ * /luma/, 240*(limited_depth-8)/255 /chroma/; full-range limits
+ * [2^(depth-8)..255*2^(depth-8)-1] (excludes vals with 0x00 and 0xFF MSB).
+ *
  * matrix Y = [ 0.182586, 0.614231, 0.062007; -0.100643, -0.338572, 0.4392157; 0.4392157, -0.398942, -0.040274 ]
  * * [coefficients]: https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a "Rec. 709 coefficients"
  * * [limits]:       https://tech.ebu.ch/docs/r/r103.pdf                             "SDI limits"
  *
- * @ingroup lavc_video_conversions
- *
  * @todo
  * Use this transformations in all conversions.
- * @{
  */
 typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
@@ -136,7 +141,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
         ((alpha_mask) | (CLAMP_FULL((r), (depth)) << (rshift) | \
                          CLAMP_FULL((g), (depth)) << (gshift) | \
                          CLAMP_FULL((b), (depth)) << (bshift)))
-/// @}
 
 #define MK_MONOCHROME(val) \
         FORMAT_RGBA((val), (val), (val), 0, 8, 16, 0xFF000000, 8)
