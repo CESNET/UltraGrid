@@ -178,18 +178,13 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         buf[0] = '\0';
 }
 
-#ifdef HAVE_CONFIG_H // built inside UG
 ADD_TO_PARAM("lavc-log-level",
                 "* lavc-log-level=<num>\n"
                 "  Set libavcodec log level (FFmpeg range semantics, bypasses UG logger)\n"
                 " - 'D' - use FFmpeg default log handler\n");
-#endif
 /// Sets specified log level either given explicitly or from UG-wide log_level
 void ug_set_av_logging() {
-        const char *param = NULL;
-#ifdef HAVE_CONFIG_H // built inside UG
-        param = get_commandline_param("lavc-log-level");
-#endif
+        const char *param = get_commandline_param("lavc-log-level");
         if (param == NULL) {
                 av_log_set_callback(av_log_ug_callback);
                 return;
