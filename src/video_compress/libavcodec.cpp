@@ -1007,6 +1007,14 @@ static bool try_open_codec(struct state_video_compress_libav *s,
 #endif
 
         get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
+        // QSV always converts to limited BT.601 but writes to metadata contents
+        // of AVCodecContex so set the attribs to correspond
+        if (strstr(codec->name, "_qsv") != nullptr &&
+            codec_is_a_rgb(desc.color_spec)) {
+                s->codec_ctx->colorspace =
+                    AVCOL_SPC_BT470BG; // or AVCOL_SPC_SMPTE170M?
+                s->codec_ctx->color_range = AVCOL_RANGE_MPEG;
+        }
 
         /* open it */
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
