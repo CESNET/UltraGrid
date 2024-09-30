@@ -1006,10 +1006,6 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         }
 #endif
 
-        if (const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(pix_fmt)) { // defaults
-                s->codec_ctx->colorspace = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
-                s->codec_ctx->color_range = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
-        }
         get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
 
         /* open it */
