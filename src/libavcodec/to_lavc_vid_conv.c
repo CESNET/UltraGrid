@@ -50,7 +50,7 @@
 #include <stdint.h>
 
 #include "color.h"
-#include "compat/htonl.h"                      // for htonl
+#include "compat/net.h"                        // for htonl
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "host.h"

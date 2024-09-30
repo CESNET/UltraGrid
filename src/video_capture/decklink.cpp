@@ -73,7 +73,7 @@
 #include "blackmagic_common.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/htonl.h"
+#include "compat/net.h"            // for ntohl
 #include "compat/strings.h"
 #include "debug.h"
 #include "host.h"

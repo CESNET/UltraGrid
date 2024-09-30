@@ -1,8 +1,9 @@
 /**
- * @file   compat/htonl.h
+ * @file   compat/net.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * This file just picks the correct header for [nh]to[nh]l functions.
+ * This file includes the correct header for network-related functions
+ * (also htonl and the family).
  */
 /*
  * Copyright (c) 2024 CESNET, z. s. p. o.
@@ -37,8 +38,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
+#define COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
+
 #ifdef _WIN32
 #include <winsock2.h>
+typedef SOCKET fd_t;
 #else
 #include <arpa/inet.h>
+typedef int fd_t;
+#define INVALID_SOCKET (-1)
 #endif
+
+#endif // defined COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056

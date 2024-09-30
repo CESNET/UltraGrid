@@ -47,7 +47,7 @@
 #include <stdlib.h>             // for free, malloc, NULL
 #include <string.h>             // for memcpy
 
-#include "compat/htonl.h"       // for ntohs
+#include "compat/net.h"         // for ntohs
 #include "debug.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"

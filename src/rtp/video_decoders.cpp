@@ -114,7 +114,7 @@
 #include <utility>                     // for pair, move
 #include <vector>                      // for vector
 
-#include "compat/htonl.h"              // for ntohl
+#include "compat/net.h"                // for ntohl
 #include "crypto/openssl_decrypt.h"
 #include "crypto/openssl_encrypt.h"    // for openssl_mode
 #include "control_socket.h"

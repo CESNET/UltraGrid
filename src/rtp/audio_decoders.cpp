@@ -58,7 +58,7 @@
 #include "audio/resampler.hpp"       // for audio_frame2_resampler
 #include "audio/types.h"             // for audio_frame2, audio_desc, AC_PCM
 #include "audio/utils.h"             // for channel_map, calculate_rms, mux_...
-#include "compat/htonl.h"            // for ntohl, sockaddr_storage
+#include "compat/net.h"              // for ntohl, sockaddr_storage
 #include "compat/strings.h"          // for strcasecmp
 #include "control_socket.h"
 #include "crypto/openssl_decrypt.h"  // for openssl_decrypt_info, OPENSSL_DE...

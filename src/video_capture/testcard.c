@@ -67,7 +67,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/htonl.h"
+#include "compat/net.h"                     // for ntohs
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

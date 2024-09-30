@@ -183,7 +183,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 }
 #define aligned_free free
 
-#define INVALID_SOCKET -1
+#define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
 
 #define _ftelli64 ftell

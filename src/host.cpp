@@ -89,7 +89,7 @@
 #include "capture_filter.h"
 #include "compat/platform_pipe.h"
 #include "compat/strings.h"  // strdupa
-#include "config_unix.h"                // for fd_t
+#include "compat/net.h"                 // for fd_t
 #include "cuda_wrapper.h"               // for cudaDeviceReset
 #include "debug.h"
 #include "keyboard_control.h"

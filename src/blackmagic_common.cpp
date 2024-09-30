@@ -52,8 +52,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "compat/htonl.h"
 #include "compat/misc.h"         // for strncasecmp
+#include "compat/net.h"          // for htonl, ntohl
 #include "DeckLinkAPIVersion.h"
 #include "blackmagic_common.hpp"
 #include "debug.h"

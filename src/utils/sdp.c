@@ -65,7 +65,7 @@
 #endif
 
 #include "audio/types.h"
-#include "compat/htonl.h"         // for htons, htonl
+#include "compat/net.h"           // for htons, htonl
 #include "compat/strings.h"       // for strcasecmp
 #include "config.h"               // for SDP_HTTP
 #include "debug.h"
