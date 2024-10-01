@@ -206,11 +206,6 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         }
 }
 
-static void jpeg_callback(void)
-{
-        MSG(WARNING, "JPEG decoder will use limited-range YCbCr BT.709.\n");
-}
-
 enum {
         MAX_PREFERED = 10,
         MAX_DECODERS = MAX_PREFERED + 1 + 1, ///< + user forced + default
@@ -220,7 +215,6 @@ enum {
 struct decoder_info {
         codec_t ug_codec;
         enum AVCodecID avcodec_id;
-        void (*codec_callback)(void);
         // Note:
         // Make sure that if adding hw decoders to prefered_decoders[] that
         // that decoder fails if there is not the HW during init, not while decoding
@@ -234,24 +228,24 @@ struct decoder_info {
 };
 
 static const struct decoder_info decoders[] = {
-        { H264, AV_CODEC_ID_H264, NULL, { NULL /* "h264_cuvid" */ } },
-        { H265, AV_CODEC_ID_HEVC, NULL, { NULL /* "hevc_cuvid" */ } },
-        { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
-        { JPEG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
-        { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
-        { J2KR, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
-        { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
-        { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
-        { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
-        { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
-        { AV1, AV_CODEC_ID_AV1, NULL, { "libdav1d" } },
-        { PRORES_4444, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_4444_XQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_HQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_PROXY, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_LT, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { CFHD, AV_CODEC_ID_CFHD, NULL, { NULL } }
+        { H264,             AV_CODEC_ID_H264,     { NULL /* "h264_cuvid" */ } },
+        { H265,             AV_CODEC_ID_HEVC,     { NULL /* "hevc_cuvid" */ } },
+        { MJPG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
+        { JPEG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
+        { J2K,              AV_CODEC_ID_JPEG2000, { NULL }                    },
+        { J2KR,             AV_CODEC_ID_JPEG2000, { NULL }                    },
+        { VP8,              AV_CODEC_ID_VP8,      { NULL }                    },
+        { VP9,              AV_CODEC_ID_VP9,      { NULL }                    },
+        { HFYU,             AV_CODEC_ID_HUFFYUV,  { NULL }                    },
+        { FFV1,             AV_CODEC_ID_FFV1,     { NULL }                    },
+        { AV1,              AV_CODEC_ID_AV1,      { "libdav1d" }              },
+        { PRORES_4444,      AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_4444_XQ,   AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_HQ,    AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422,       AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_PROXY, AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_LT,    AV_CODEC_ID_PRORES,   { NULL }                    },
+        { CFHD,             AV_CODEC_ID_CFHD,     { NULL }                    }
 };
 
 static bool
@@ -349,10 +343,6 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         if (dec == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
                 return false;
-        }
-
-        if (dec->codec_callback) {
-                dec->codec_callback();
         }
 
         // priority list of decoders that can be used for the codec
