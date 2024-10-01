@@ -2759,11 +2759,34 @@ convert_task(void *arg)
         return NULL;
 }
 
+/**
+ * @return check color space/range if we can correctly convert
+ */
+static void
+check_constraints(AVFrame *f)
+{
+        assert(f != NULL);
+        const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
+        assert(avd != NULL);
+        const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
+        if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb) {
+                MSG(WARNING, "Full-range YCbCr may not be supported!\n");
+        }
+        if (f->colorspace != AVCOL_SPC_RGB &&
+            f->colorspace != AVCOL_SPC_BT709 &&
+            f->colorspace != AVCOL_SPC_UNSPECIFIED) {
+                MSG(WARNING,
+                    "Input color space %s is not supported by UltraGrid!\n",
+                    av_color_space_name(f->colorspace));
+        }
+}
+
 void
 av_to_uv_convert(const av_to_uv_convert_t *convert,
                  char *dst, AVFrame *in, int width, int height, int pitch,
                  const int rgb_shift[3])
 {
+        check_constraints(in);
         if (convert->cuda_conv_state != NULL) {
                 av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in, width,
                                       height, pitch, rgb_shift);
