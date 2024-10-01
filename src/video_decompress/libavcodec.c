@@ -769,11 +769,11 @@ static void lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
 }
 #endif
 
-static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s, enum AVPixelFormat av_codec, codec_t out_codec, int width, int height) {
-        assert(av_codec != AV_PIX_FMT_NONE);
-        if (s->convert_in == av_codec) {
-                return 1;
-        }
+static _Bool
+reconf_internal(struct state_libavcodec_decompress *s,
+                     enum AVPixelFormat av_codec, codec_t out_codec, int width,
+                     int height)
+{
         av_to_uv_conversion_destroy(&s->convert);
         s->convert = get_av_to_uv_conversion(av_codec, out_codec);
         if (s->convert != NULL) {
@@ -805,6 +805,26 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
         UNUSED(width), UNUSED(height);
         return 0;
 #endif
+}
+
+static bool
+reconfigure_convert_if_needed(struct state_libavcodec_decompress *s,
+                              enum AVPixelFormat av_codec, codec_t out_codec,
+                              int width, int height)
+{
+        assert(av_codec != AV_PIX_FMT_NONE);
+        if (s->convert_in == av_codec) { // no reconf needed
+                return true;
+        }
+        MSG(VERBOSE,
+            "Codec characteristics: CS=%s, range=%s, primaries=%s, "
+            "transfer=%s, chr_loc=%s\n",
+            av_color_space_name(s->codec_ctx->colorspace),
+            av_color_range_name(s->codec_ctx->color_range),
+            av_color_primaries_name(s->codec_ctx->color_primaries),
+            av_color_transfer_name(s->codec_ctx->color_trc),
+            av_chroma_location_name(s->codec_ctx->chroma_sample_location));
+        return reconf_internal(s, av_codec, out_codec, width, height);
 }
 
 /**
