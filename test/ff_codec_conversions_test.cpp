@@ -16,6 +16,7 @@
 
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/to_lavc_vid_conv.h"
+#include "pixfmt_conv.h"
 #include "tv.h"
 #include "unit_common.h"
 #include "video_capture/testcard_common.h"
@@ -37,6 +38,7 @@ using std::vector;
 
 constexpr int MIN_12B = 16;
 constexpr int MAX_12B = 4079;
+constexpr int RGB_SHIFT[] = DEFAULT_RGB_SHIFT_INIT;
 
 extern "C" {
         int ff_codec_conversions_test_yuv444pXXle_from_to_r10k();
@@ -73,7 +75,7 @@ int ff_codec_conversions_test_yuv444pXXle_from_to_r10k()
                 TIMER(t1);
                 av_to_uv_convert(
                     to_conv, reinterpret_cast<char *>(r10k_buf.data()),
-                    converted, vc_get_linesize(width, R10k), nullptr);
+                    converted, vc_get_linesize(width, R10k), RGB_SHIFT);
                 TIMER(t2);
                 to_lavc_vid_conv_destroy(&from_conv);
                 av_to_uv_conversion_destroy(&to_conv);
@@ -143,7 +145,7 @@ int ff_codec_conversions_test_yuv444pXXle_from_to_r12l()
                 TIMER(t1);
                 av_to_uv_convert(
                     to_conv, reinterpret_cast<char *>(r12l_buf.data()),
-                    converted, vc_get_linesize(width, R12L), nullptr);
+                    converted, vc_get_linesize(width, R12L), RGB_SHIFT);
                 TIMER(t2);
                 av_to_uv_conversion_destroy(&to_conv);
                 to_lavc_vid_conv_destroy(&from_conv);
@@ -201,7 +203,7 @@ static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char
         struct AVFrame *converted = to_lavc_vid_conv(from_conv, in);
         TIMER(t1);
         av_to_uv_convert(to_conv, reinterpret_cast<char *>(out), converted,
-                         vc_get_linesize(width, RG48), nullptr);
+                         vc_get_linesize(width, RG48), RGB_SHIFT);
         TIMER(t2);
         av_to_uv_conversion_destroy(&to_conv);
         to_lavc_vid_conv_destroy(&from_conv);
@@ -379,7 +381,7 @@ int ff_codec_conversions_test_pX10_from_to_v210()
                 struct AVFrame *converted = to_lavc_vid_conv(from_conv, (char *) in.data());
                 av_to_uv_convert(to_conv, reinterpret_cast<char *>(out.data()),
                                  converted, vc_get_linesize(width, codec),
-                                 nullptr);
+                                 RGB_SHIFT);
                 av_to_uv_conversion_destroy(&to_conv);
                 to_lavc_vid_conv_destroy(&from_conv);
 
