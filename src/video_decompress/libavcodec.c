@@ -208,8 +208,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
 
 static void jpeg_callback(void)
 {
-        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
-                        "will use full-scale YUV.\n");
+        MSG(WARNING, "JPEG decoder will use limited-range YCbCr BT.709.\n");
 }
 
 enum {
@@ -1095,6 +1094,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         if (s->out_codec != VIDEO_CODEC_NONE) {
                 if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                         return DECODER_UNSUPP_PIXFMT;
+                }
+                if (s->codec_ctx->codec->id == AV_CODEC_ID_MJPEG) {
+                        s->frame->colorspace = AVCOL_SPC_BT709;
                 }
                 change_pixfmt(s->frame, dst, s->convert, s->out_codec,
                               s->desc.width, s->desc.height, s->pitch,
