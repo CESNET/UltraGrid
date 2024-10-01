@@ -2698,32 +2698,34 @@ pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
 
 static void
 do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
-                 AVFrame *__restrict in_frame, int width, int height, int pitch,
+                 AVFrame *__restrict inf, int pitch,
                  const int *__restrict rgb_shift)
 {
-        unsigned char *dec_input = in_frame->data[0];
-        size_t src_linesize = in_frame->linesize[0];
+        unsigned char *dec_input = inf->data[0];
+        size_t src_linesize = inf->linesize[0];
         unsigned char *tmp = NULL;
         if (s->convert) {
                 DEBUG_TIMER_START(lavd_av_to_uv);
                 if (!s->dec) {
-                        s->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+                        s->convert(dst_buffer, inf, inf->width,
+                                   inf->height, pitch, rgb_shift);
                         DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
                 }
-                src_linesize = vc_get_linesize(width, s->src_pixfmt);
+                src_linesize = vc_get_linesize(inf->width, s->src_pixfmt);
                 dec_input = tmp = malloc(
-                    vc_get_datalen(width, height, s->src_pixfmt) + MAX_PADDING);
+                    vc_get_datalen(inf->width, inf->height, s->src_pixfmt) +
+                    MAX_PADDING);
                 int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT,
                                             DEFAULT_B_SHIFT };
-                s->convert((char *) dec_input, in_frame, width, height,
+                s->convert((char *) dec_input, inf, inf->width, inf->height,
                            src_linesize, default_rgb_shift);
                 DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
         if (s->dec) {
                 DEBUG_TIMER_START(lavd_dec);
-                int dst_size = vc_get_size(width, s->dst_pixfmt);
-                for (ptrdiff_t i = 0; i < height; ++i) {
+                int dst_size = vc_get_size(inf->width, s->dst_pixfmt);
+                for (ptrdiff_t i = 0; i < inf->height; ++i) {
                         s->dec((unsigned char *) dst_buffer + i * pitch,
                                dec_input + i * src_linesize, dst_size,
                                rgb_shift[0], rgb_shift[1], rgb_shift[2]);
@@ -2734,9 +2736,9 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
         }
 
         // memcpy only
-        int linesize = vc_get_linesize(width, s->dst_pixfmt);
-        for (ptrdiff_t i = 0; i < height; ++i) {
-                memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
+        int linesize = vc_get_linesize(inf->width, s->dst_pixfmt);
+        for (ptrdiff_t i = 0; i < inf->height; ++i) {
+                memcpy(dst_buffer + i * pitch, inf->data[0] + i * inf->linesize[0], linesize);
         }
 }
 
@@ -2744,8 +2746,6 @@ struct convert_task_data {
         const av_to_uv_convert_t *convert;
         unsigned char            *out_data;
         AVFrame                  *in_frame;
-        int                       width;
-        int                       height;
         int                       pitch;
         const int                *rgb_shift;
 };
@@ -2755,7 +2755,7 @@ convert_task(void *arg)
 {
         struct convert_task_data *d = arg;
         do_av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
-                         d->width, d->height, d->pitch, d->rgb_shift);
+                         d->pitch, d->rgb_shift);
         return NULL;
 }
 
@@ -2783,18 +2783,18 @@ check_constraints(AVFrame *f)
 
 void
 av_to_uv_convert(const av_to_uv_convert_t *convert,
-                 char *dst, AVFrame *in, int width, int height, int pitch,
+                 char *dst, AVFrame *in, int pitch,
                  const int rgb_shift[3])
 {
         check_constraints(in);
         if (convert->cuda_conv_state != NULL) {
-                av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in, width,
-                                      height, pitch, rgb_shift);
+                av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in,
+                                      in->width, in->height, pitch, rgb_shift);
                 return;
         }
 
         if (codec_is_const_size(convert->dst_pixfmt)) { // VAAPI etc
-                do_av_to_uv_convert(convert, dst, in, width, height, pitch,
+                do_av_to_uv_convert(convert, dst, in, pitch,
                                  rgb_shift);
                 return;
         }
@@ -2804,7 +2804,7 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
         struct convert_task_data d[cpu_count];
         AVFrame                  parts[cpu_count];
         for (int i = 0; i < cpu_count; ++i) {
-                int row_height = (height / cpu_count) & ~1; // needs to be even
+                int row_height = (in->height / cpu_count) & ~1; // needs to be even
                 unsigned char *part_dst =
                     (unsigned char *) dst + (size_t) i * row_height * pitch;
                 memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
@@ -2820,11 +2820,13 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                              (plane == 0 ? 0 : fmt_desc->log2_chroma_h));
                 }
                 if (i == cpu_count - 1) {
-                        row_height = height - row_height * (cpu_count - 1);
+                        row_height = in->height - row_height * (cpu_count - 1);
                 }
+                parts[i].width = in->width;
+                parts[i].height = row_height;
                 d[i] =
                     (struct convert_task_data){ convert,  part_dst,   &parts[i],
-                                                width,    row_height, pitch,
+                                                pitch,
                                                 rgb_shift };
         }
         task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);

@@ -840,14 +840,14 @@ reconfigure_convert_if_needed(struct state_libavcodec_decompress *s,
  */
 static void
 change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
-              codec_t out_codec, int width, int height, int pitch,
+              codec_t out_codec, int pitch,
               int rgb_shift[static restrict 3],
               struct state_libavcodec_decompress_sws *sws)
 {
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (!sws->ctx) {
-                av_to_uv_convert(convert, (char *) dst, frame, width, height,
+                av_to_uv_convert(convert, (char *) dst, frame,
                                  pitch, rgb_shift);
                 return;
         }
@@ -859,7 +859,7 @@ change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
         }
 
         lavd_sws_convert(sws, frame);
-        av_to_uv_convert(convert, (char *) dst, sws->frame, width, height,
+        av_to_uv_convert(convert, (char *) dst, sws->frame,
                          pitch, rgb_shift);
 #else
         (void) out_codec;
@@ -1099,7 +1099,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         s->frame->colorspace = AVCOL_SPC_BT709;
                 }
                 change_pixfmt(s->frame, dst, s->convert, s->out_codec,
-                              s->desc.width, s->desc.height, s->pitch,
+                              s->pitch,
                               s->rgb_shift, &s->sws);
         }
         time_ns_t t2 = get_time_in_ns();
