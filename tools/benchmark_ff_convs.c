@@ -55,11 +55,11 @@ benchmark_from_lavc_convs()
                 in->width   = W;
                 in->height  = H;
                 av_frame_get_buffer(in, 0);
-                int             rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
                 struct timespec t0, t1;
                 timespec_get(&t0, TIME_UTC);
-                conv->convert(out, in, W, H, vc_get_linesize(W, conv->uv_codec),
-                              rgb_shift);
+                conv->convert((struct conv_data){
+                    out, in, vc_get_linesize(W, conv->uv_codec),
+                    DEFAULT_RGB_SHIFT_INIT });
                 timespec_get(&t1, TIME_UTC);
                 printf("%s->%s:\t%.2f ms\n",
                        av_get_pix_fmt_name(conv->av_codec),
