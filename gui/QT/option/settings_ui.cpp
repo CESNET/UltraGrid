@@ -27,10 +27,16 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	connect(mainWin->actionTest, SIGNAL(triggered()), this, SLOT(test()));
 #endif
 
+	connect(ui->networkModeTabWidget, &QTabWidget::currentChanged,
+			this, &SettingsUi::networkModeTabChanged);
+
 	addControl(new CheckboxUi(ui->fECCheckBox, settings, "network.fec.enabled"));
 	addControl(new CheckboxUi(ui->previewCheckBox, settings, "preview"));
 	addControl(
 			new LineEditUi(ui->networkDestinationEdit, settings, "network.destination")
+			);
+	addControl(
+			new LineEditUi(ui->networkDestinationEdit_clientTab, settings, "network.destination")
 			);
 	addControl(new ActionCheckableUi(ui->actionVuMeter, settings, "vuMeter"));
 	addControl(new ActionCheckableUi(ui->actionUse_hw_acceleration,
@@ -112,6 +118,8 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 				"audio.source.channels"));
 
 	addControl(new LineEditUi(ui->portLineEdit, settings, "network.port"));
+	addControl(new LineEditUi(ui->portLineEdit_serverTab, settings, "network.port"));
+	addControl(new LineEditUi(ui->portLineEdit_clientTab, settings, "network.port"));
 }
 
 void SettingsUi::refreshAll(){
@@ -261,6 +269,23 @@ void SettingsUi::buildSettingsDeviceList(QListWidget *list, SettingType type){
 
 		list->addItem(item);
 	}
+}
+
+void SettingsUi::networkModeTabChanged(int index){
+	Option &modeOpt = settings->getOption("network.mode");
+	switch(index){
+		case 0:
+			modeOpt.setValue(" ");
+			break;
+		case 1:
+			modeOpt.setValue(" -S");
+			break;
+		case 2:
+			modeOpt.setValue(" -C");
+			break;
+	}
+
+	emit changed();
 }
 
 void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *){
