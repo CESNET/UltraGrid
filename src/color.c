@@ -111,13 +111,14 @@ ADD_TO_PARAM("color-601", "* color-601\n"
  * pixfmt_conv conversions but to_lavc_vid_convs seem to be affected).
  */
 const struct color_coeffs *
-get_color_coeffs(int ycbcr_bit_depth)
+get_color_coeffs(enum colorspace cs, int ycbcr_bit_depth)
 {
-        static _Atomic int primaries_index = -1;
-        if (primaries_index == -1) {
-                primaries_index =
-                    get_commandline_param("color-601") != NULL ? 0 : 1;
+        static _Atomic enum colorspace dfl_cs = CS_DFL;
+        if (dfl_cs == CS_DFL) {
+                dfl_cs = get_default_cs();
         }
+
+        const int cs_idx = cs != (CS_DFL ? cs : dfl_cs) - 1;
 
         static const struct {
                 struct color_coeffs col_cfs[2];
@@ -129,15 +130,22 @@ get_color_coeffs(int ycbcr_bit_depth)
         };
         switch ((enum depth) ycbcr_bit_depth) {
         case DEPTH8:
-                return &coeffs[0].col_cfs[primaries_index];
+                return &coeffs[0].col_cfs[cs_idx];
         case DEPTH10:
-                return &coeffs[1].col_cfs[primaries_index];
+                return &coeffs[1].col_cfs[cs_idx];
         case DEPTH12:
-                return &coeffs[2].col_cfs[primaries_index];
+                return &coeffs[2].col_cfs[cs_idx];
         case DEPTH16:
-                return &coeffs[3].col_cfs[primaries_index];
+                return &coeffs[3].col_cfs[cs_idx];
         }
 
         fprintf(stderr, "%s: Wrong depth %d!\n", __func__, ycbcr_bit_depth);
         abort();
+}
+
+enum colorspace
+get_default_cs()
+{
+        return get_commandline_param("color-601") != NULL ? CS_601_LIM
+                                                          : CS_709_LIM;
 }

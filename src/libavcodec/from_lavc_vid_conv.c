@@ -47,6 +47,7 @@
  */
 
 #include <assert.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/hwcontext_drm.h>
 #include <stdbool.h>
@@ -67,6 +68,7 @@
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel
 #include "video.h"
+#include "video_codec.h"
 
 #ifdef __SSE3__
 #include "pmmintrin.h"
@@ -99,6 +101,7 @@ struct av_conv_data {
         AVFrame *__restrict in_frame;
         size_t pitch;
         int    rgb_shift[3];
+        enum colorspace cs_coeffs;
 };
 
 static void
@@ -313,7 +316,7 @@ yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -376,7 +379,7 @@ yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -475,7 +478,7 @@ yuv444pXXle_to_rg48(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -1145,7 +1148,7 @@ nv12_to_rgb(struct av_conv_data d, bool rgba)
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1210,7 +1213,7 @@ static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgb
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                               (0xFFU << d.rgb_shift[G]) ^
                               (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
 
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
@@ -1328,7 +1331,7 @@ yuv444p_to_rgb(struct av_conv_data d, bool rgba)
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                               (0xFFU << d.rgb_shift[G]) ^
                               (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1719,7 +1722,7 @@ yuvp10le_to_rgb(struct av_conv_data d, int subsampling, int out_bit_depth)
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
         const int bpp = out_bit_depth == 30 ? 10 : 8;
-        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
 
         for (int y = 0; y < height / 2; ++y) {
                 uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
@@ -1829,7 +1832,7 @@ yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
 
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
@@ -2457,7 +2460,8 @@ typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
 struct av_to_uv_convert_state {
         av_to_uv_convert_fp convert;
-        codec_t src_pixfmt;
+        codec_t src_pixfmt; ///< after av_to_uv conversion (intermediate);
+                            ///< VC_NONE if no further conversion needed
         codec_t dst_pixfmt;
         decoder_t dec;
         struct av_to_uv_convert_cuda *cuda_conv_state;
@@ -2688,7 +2692,9 @@ get_first_supported_cuda(const enum AVPixelFormat *fmts)
         return AV_PIX_FMT_NONE;
 }
 
-av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+static av_to_uv_convert_t *
+get_av_to_uv_conversion_int(int av_codec, codec_t uv_codec)
+{
         av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
         ret->dst_pixfmt = uv_codec;
 
@@ -2746,6 +2752,17 @@ av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
         watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
 
+        return ret;
+}
+
+av_to_uv_convert_t *
+get_av_to_uv_conversion(int av_codec, codec_t uv_codec)
+{
+        av_to_uv_convert_t *ret =
+            get_av_to_uv_conversion_int(av_codec, uv_codec);
+        MSG(VERBOSE, "converting %s to %s over %s\n",
+            av_get_pix_fmt_name(av_codec), get_codec_name(ret->dst_pixfmt),
+            get_codec_name(ret->src_pixfmt));
         return ret;
 }
 
@@ -2896,8 +2913,8 @@ pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
 
 static void
 do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
-                 AVFrame *__restrict inf, int pitch,
-                 const int *__restrict rgb_shift)
+                    AVFrame *__restrict inf, int                     pitch,
+                    const int *__restrict rgb_shift, enum colorspace cs_coeffs)
 {
         unsigned char *dec_input = inf->data[0];
         size_t src_linesize = inf->linesize[0];
@@ -2909,7 +2926,8 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
                             dst_buffer,
                             inf,
                             pitch,
-                            { rgb_shift[0], rgb_shift[1], rgb_shift[2] }
+                            { rgb_shift[0], rgb_shift[1], rgb_shift[2] },
+                            cs_coeffs
                         });
                         DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
@@ -2922,7 +2940,8 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
                     (char *) dec_input,
                     inf,
                     src_linesize,
-                    DEFAULT_RGB_SHIFT_INIT
+                    DEFAULT_RGB_SHIFT_INIT,
+                    cs_coeffs
                 });
                 DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
@@ -2952,6 +2971,7 @@ struct convert_task_data {
         AVFrame                  *in_frame;
         int                       pitch;
         const int                *rgb_shift;
+        enum colorspace           cs_coeffs;
 };
 
 static void *
@@ -2959,7 +2979,7 @@ convert_task(void *arg)
 {
         struct convert_task_data *d = arg;
         do_av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
-                         d->pitch, d->rgb_shift);
+                         d->pitch, d->rgb_shift, d->cs_coeffs);
         return NULL;
 }
 
@@ -2969,20 +2989,60 @@ convert_task(void *arg)
 static void
 check_constraints(AVFrame *f)
 {
-        assert(f != NULL);
         const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
-        assert(avd != NULL);
         const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
         if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb) {
                 MSG(WARNING, "Full-range YCbCr may not be supported!\n");
         }
-        if (f->colorspace != AVCOL_SPC_RGB &&
-            f->colorspace != AVCOL_SPC_BT709 &&
-            f->colorspace != AVCOL_SPC_UNSPECIFIED) {
-                MSG(WARNING,
-                    "Input color space %s is not supported by UltraGrid!\n",
-                    av_color_space_name(f->colorspace));
+}
+
+/**
+ * @param interm_pf use intermediate PF (after av_to_uv) because eventual
+ * uv_to_uv conv do not implement other CS coeffs than BT.709
+ */
+static enum colorspace
+get_cs_for_conv(AVFrame *f, codec_t interm_pf, codec_t out_pf)
+{
+        const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
+        const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
+        const codec_t av_to_uv_pf =
+            interm_pf != VC_NONE ? interm_pf : out_pf;
+        const bool dst_rgb = codec_is_a_rgb(av_to_uv_pf);
+        const bool src_601 = f->colorspace == AVCOL_SPC_BT470BG ||
+                             f->colorspace == AVCOL_SPC_SMPTE170M ||
+                             f->colorspace == AVCOL_SPC_SMPTE240M;
+        if (src_rgb) {
+                return CS_DFL; // either no CS conv or to default YUV
         }
+        // from now src is YUV
+        if (!dst_rgb) { // dst is YUV -> no CS conv!
+                if (f->colorspace != AVCOL_SPC_RGB &&
+                    f->colorspace != AVCOL_SPC_BT709 &&
+                    f->colorspace != AVCOL_SPC_UNSPECIFIED && !src_601) {
+                        MSG(WARNING,
+                            "Input color space %s is not supported by "
+                            "UltraGrid!\n",
+                            av_color_space_name(f->colorspace));
+                }
+                if (src_601 && get_default_cs() != CS_601_LIM) {
+                        MSG(WARNING,
+                            "Got %s CS but not converted - consider \"--param "
+                            "color-601\" as a hint for supported displays\n",
+                            av_color_space_name(f->colorspace));
+                }
+                return CS_DFL; // doesn't matter - won't be used anyways
+        }
+        if (src_601) {
+                return CS_601_LIM;
+        }
+        if (f->colorspace == AVCOL_SPC_BT709) {
+                return CS_709_LIM;
+        }
+        MSG(WARNING,
+            "Suspicious (unexpected) color space %s, using default "
+            "coeffs. Please report.!\n",
+            av_color_space_name(f->colorspace));
+        return CS_DFL;
 }
 
 void
@@ -2999,11 +3059,13 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
 
         if (codec_is_const_size(convert->dst_pixfmt)) { // VAAPI etc
                 do_av_to_uv_convert(convert, dst, in, pitch,
-                                 rgb_shift);
+                                 rgb_shift, CS_DFL);
                 return;
         }
 
         const int cpu_count = get_cpu_core_count();
+        const enum colorspace cs =
+            get_cs_for_conv(in, convert->src_pixfmt, convert->dst_pixfmt);
 
         struct convert_task_data d[cpu_count];
         AVFrame                  parts[cpu_count];
@@ -3031,7 +3093,7 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                 d[i] =
                     (struct convert_task_data){ convert,  part_dst,   &parts[i],
                                                 pitch,
-                                                rgb_shift };
+                                                rgb_shift, cs };
         }
         task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
 }

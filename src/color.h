@@ -154,6 +154,12 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 extern "C" {
 #endif
 
+enum colorspace {
+        CS_DFL     = 0,
+        CS_601_LIM = 1,
+        CS_709_LIM = 2,
+};
+
 struct color_coeffs {
         // shorts are used the compiler can use 2-byte words in the vecotred
         // instruction, which is faster (and the values fit)
@@ -167,7 +173,10 @@ struct color_coeffs {
         short r_cr, g_cb, g_cr;
         int   b_cb; // is 34712 for 709  so doesn't fit to 16-bit short
 };
-const struct color_coeffs *get_color_coeffs(int ycbcr_bit_depth);
+const struct color_coeffs *get_color_coeffs(enum colorspace cs,
+                                            int             ycbcr_bit_depth);
+enum colorspace get_default_cs(void);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

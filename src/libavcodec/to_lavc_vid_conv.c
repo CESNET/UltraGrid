@@ -657,7 +657,7 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const uns
         };
 
         const int src_linesize = vc_get_linesize(width, R10k);
-        const struct color_coeffs cfs = *get_color_coeffs(D_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, D_DEPTH);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * (y / v_subsampl_rate));
@@ -743,7 +743,7 @@ static inline void r10k_to_yuv444pXXle(int out_depth, AVFrame * __restrict out_f
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const int src_linesize = vc_get_linesize(width, R10k);
-        const struct color_coeffs cfs = *get_color_coeffs(out_depth);
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, out_depth);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
@@ -797,7 +797,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(depth);
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
 #define WRITE_RES \
         res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
                 (1 << (depth - 4)); \
@@ -920,7 +920,7 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const int src_linesize = vc_get_linesize(width, RG48);
-        const struct color_coeffs cfs = *get_color_coeffs(depth);
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
@@ -972,7 +972,7 @@ rgb_to_yuv444p(AVFrame *__restrict out_frame,
                 DEPTH = sizeof(t) * CHAR_BIT,
         };
         const ptrdiff_t src_linesize = vc_get_linesize(width, RGB);
-        const struct color_coeffs cfs = *get_color_coeffs(DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH);
         for (ptrdiff_t y = 0; y < height; y++) {
                 const t *src =
                     (const t *) (const void *) (in_data + y * src_linesize);

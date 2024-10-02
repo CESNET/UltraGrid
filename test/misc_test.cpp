@@ -32,7 +32,7 @@ misc_test_color_coeff_range()
                 const int d        = depths[i];
                 const int d_max    = (1 << d) - 1;
                 const int max_diff = 1 << (d - 8);
-                const struct color_coeffs *cfs = get_color_coeffs(d);
+                const struct color_coeffs *cfs = get_color_coeffs(CS_DFL, d);
 
                 // Y
                 ASSERT_LE_MESSAGE(
