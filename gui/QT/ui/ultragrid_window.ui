@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>959</width>
-    <height>695</height>
+    <width>998</width>
+    <height>697</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -515,7 +515,10 @@
            </property>
            <widget class="QWidget" name="normalTab">
             <attribute name="title">
-             <string>Normal</string>
+             <string>Point to point</string>
+            </attribute>
+            <attribute name="toolTip">
+             <string>The normal mode where UltraGrid sends directly to the provided destination and receives incoming streams.</string>
             </attribute>
             <layout class="QFormLayout" name="formLayout_8">
              <item row="0" column="1">
@@ -555,6 +558,9 @@
             <attribute name="title">
              <string>Server</string>
             </attribute>
+            <attribute name="toolTip">
+             <string>In this mode UltraGrid acts as a server and sends to a client that connects.</string>
+            </attribute>
             <layout class="QFormLayout" name="formLayout_9">
              <item row="0" column="1">
               <widget class="QLineEdit" name="portLineEdit_serverTab">
@@ -575,6 +581,9 @@
            <widget class="QWidget" name="clientTab">
             <attribute name="title">
              <string>Client</string>
+            </attribute>
+            <attribute name="toolTip">
+             <string>Used to connect to a server mode instance.</string>
             </attribute>
             <layout class="QFormLayout" name="formLayout_10">
              <item row="0" column="1">
@@ -713,7 +722,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>959</width>
+     <width>998</width>
      <height>24</height>
     </rect>
    </property>
