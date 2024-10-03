@@ -3024,10 +3024,12 @@ get_cs_for_conv(AVFrame *f, codec_t interm_pf, codec_t out_pf)
                             "UltraGrid!\n",
                             av_color_space_name(f->colorspace));
                 }
-                if (src_601 && get_default_cs() != CS_601_LIM) {
+                const bool have_pp = tok_in_argv(uv_argv, "y601_to_y709");
+                if (src_601 && get_default_cs() != CS_601_LIM && !have_pp) {
                         MSG(WARNING,
                             "Got %s CS but not converted - consider \"--param "
-                            "color-601\" as a hint for supported displays\n",
+                            "color-601\" as a hint for supported displays or "
+                            "\"-p matrix2:y601_to_y709\"\n",
                             av_color_space_name(f->colorspace));
                 }
                 return CS_DFL; // doesn't matter - won't be used anyways
