@@ -2992,7 +2992,7 @@ check_constraints(AVFrame *f)
         const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
         const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
         if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb) {
-                MSG(WARNING, "Full-range YCbCr may not be supported!\n");
+                MSG_ONCE(WARNING, "Full-range YCbCr may be clipped!\n");
         }
 }
 
