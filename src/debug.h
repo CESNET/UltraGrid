@@ -96,6 +96,12 @@ void log_perror(int log_level, const char *msg);
 #define MSG(l, fmt, ...) \
         if (log_level >= LOG_LEVEL_##l) \
                 log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
+#define MSG_ONCE(l, fmt, ...) \
+        if (log_level >= LOG_LEVEL_##l) \
+                log_msg_once(LOG_LEVEL_##l, \
+                             (0x80000000U | (((uintptr_t) MOD_NAME) & \
+                                 0x7FFFFFFF)) +  __COUNTER__, \
+                             "%s" fmt, MOD_NAME, ##__VA_ARGS__)
 
 bool parse_log_cfg(const char *conf_str,
 		int *log_lvl,

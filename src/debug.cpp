@@ -134,6 +134,12 @@ void log_msg(int level, const char *format, ...) {
         va_end(ap);
 }
 
+/**
+ * @param  id  the identifier that idetifies identical messages (only first
+ * message of given ID is printed); use values < 0x8000'0000 for manually
+ * generated IDs, the higher values are reserved for automatically generated
+ * ones as in MSG_ONCE()
+ */
 void log_msg_once(int level, uint32_t id, const char *msg, ...) {
         if (log_level < level) {
                 return;
