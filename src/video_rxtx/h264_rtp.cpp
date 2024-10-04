@@ -54,7 +54,7 @@
 #include "rtsp/rtsp_utils.h"  // for rtsp_types_t
 #include "transmit.h"
 #include "tv.h"
-#include "types.h"            // for video_frame, H264, JPEG, MJPG
+#include "types.h"            // for video_frame, H264, JPEG
 #include "utils/color_out.h"
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video_codec.h"      // for get_codec_name
@@ -87,8 +87,7 @@ h264_rtp_video_rxtx::configure_rtsp_server_video()
         assert((rtsp_params.avType & rtsp_type_video) != 0);
         if (rtsp_params.video_codec == H264) {
                 tx_send_std = tx_send_h264;
-        } else if (rtsp_params.video_codec == JPEG ||
-                   rtsp_params.video_codec == MJPG) {
+        } else if (rtsp_params.video_codec == JPEG) {
                 tx_send_std = tx_send_jpeg;
         } else {
                 MSG(ERROR,

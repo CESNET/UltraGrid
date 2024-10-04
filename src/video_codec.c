@@ -145,8 +145,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('A','V','C','1'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "h264"},
         [H265] = {"H.265", "H.265/HEVC",
                 to_fourcc('H','E','V','C'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "h265"},
-        [MJPG] = {"MJPEG", "MJPEG",
-                to_fourcc('M','J','P','G'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "jpg"},
         [VP8] = {"VP8", "Google VP8",
                 to_fourcc('V','P','8','0'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "vp8"},
         [VP9] = {"VP9", "Google VP9",
@@ -218,9 +216,8 @@ static const struct alternative_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
-        // following ones are rather for further compatibility (proposed codecs rename)
-        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
 
+        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
         {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('d', 'v', 's', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
@@ -239,6 +236,7 @@ static const struct alternative_codec_name codec_name_aliases[] = {
         {"AVC", "H.264"},
         {"H264", "H.264"},
         {"HEVC", "H.265"},
+        {"MJPG", "JPEG"},
 };
 
 void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12)

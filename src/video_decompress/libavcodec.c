@@ -230,7 +230,6 @@ struct decoder_info {
 static const struct decoder_info decoders[] = {
         { H264,             AV_CODEC_ID_H264,     { NULL /* "h264_cuvid" */ } },
         { H265,             AV_CODEC_ID_HEVC,     { NULL /* "hevc_cuvid" */ } },
-        { MJPG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
         { JPEG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
         { J2K,              AV_CODEC_ID_JPEG2000, { NULL }                    },
         { J2KR,             AV_CODEC_ID_JPEG2000, { NULL }                    },

@@ -66,7 +66,7 @@ static const struct {
 } av_to_uv_map[] = {
         { AV_CODEC_ID_H264, H264 },
         { AV_CODEC_ID_HEVC, H265 },
-        { AV_CODEC_ID_MJPEG, MJPG },
+        { AV_CODEC_ID_MJPEG, JPEG },
         { AV_CODEC_ID_JPEG2000, J2K },
         { AV_CODEC_ID_VP8, VP8 },
         { AV_CODEC_ID_VP9, VP9 },

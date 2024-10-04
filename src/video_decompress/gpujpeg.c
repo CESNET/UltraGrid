@@ -335,34 +335,17 @@ static void gpujpeg_decompress_done(void *state)
 }
 
 static int gpujpeg_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
-        if (compression != JPEG && compression != MJPG) {
+        (void) internal;
+        if (compression != JPEG) {
                 return -1;
         }
-        switch (ugc) {
-                case VIDEO_CODEC_NONE:
-                        return compression == JPEG ? 50 : 90; // for probe
-                case I420:
-                case RGB:
-                case RGBA:
-                case UYVY:
-                        break;
-                default:
-                        return -1;
+        if (ugc == VC_NONE) {
+                return VDEC_PRIO_PROBE_HI;
         }
-        bool out_rgb = codec_is_a_rgb(ugc);
-        if (compression == JPEG) {
-                if (internal.depth == 0) { // unspecified
-                        return 900;
-                }
-                return internal.rgb == out_rgb ? 200 : 500;
+        if (ugc == I420 || ugc == RGB || ugc == RGBA || ugc == UYVY) {
+                return VDEC_PRIO_PREFERRED;
         }
-        // decoding from FFmpeg MJPG has lower priority than libavcodec
-        // decoder because those files doesn't has much independent
-        // segments (1 per MCU row -> 68 for HD) -> lavd may be better
-        if (internal.depth == 0) {
-                return 920;
-        }
-        return internal.rgb == out_rgb ? 600 : 800;
+        return VDEC_PRIO_NA;
 }
 
 static const struct video_decompress_info gpujpeg_info = {

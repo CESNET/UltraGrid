@@ -120,7 +120,7 @@ enum {
         HOUSEKEEP_INTERVAL = 100, //< for metadata_storage
 };
 
-constexpr const codec_t DEFAULT_CODEC       = MJPG;
+constexpr const codec_t DEFAULT_CODEC       = JPEG;
 constexpr const int     DEFAULT_GOP_SIZE    = 20;
 constexpr int           DEFAULT_SLICE_COUNT = 32;
 
@@ -203,7 +203,7 @@ static map<codec_t, codec_params_t> codec_params = {
                 setparam_h264_h265_av1,
                 101
         }},
-        { MJPG, codec_params_t{
+        { JPEG, codec_params_t{
                 nullptr,
                 1.2,
                 setparam_jpeg,
