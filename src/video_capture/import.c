@@ -288,13 +288,14 @@ static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_cou
                         desc.height = val;
                         items_found |= 1U<<2U;
                 } else if(strncmp(line, "fourcc ", strlen("fourcc ")) == 0) {
-                        char *ptr = line + strlen("fourcc ");
-                        if(strlen(ptr) != 5) { // including '\n'
+                        char fcc[6];
+                        sscanf(line + strlen("fourcc "), "%5[^\r\n]", fcc);
+                        if (strlen(fcc) != 4) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read video FourCC tag.\n");
                                 return (struct video_desc) { 0 };
                         }
                         uint32_t fourcc = 0U;
-                        memcpy((void *) &fourcc, ptr, sizeof(fourcc));
+                        memcpy((void *) &fourcc, fcc, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
                         if(desc.color_spec == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested codec not known.\n");
