@@ -43,8 +43,26 @@
 #include "host.h"    // for ADD_TO_PARAM
 #include "types.h"   // for depth
 
+#define KG(kr,kb)  (1.-(kr)-(kb))
 #define D(kr, kb) (2. * ((kr) + KG(kr, kb)))
 #define E(kr)     (2. * (1. - (kr)))
+
+#ifdef YCBCR_FULL
+#define C_EPS 0 // prevent under/overflows when there is no clip
+#define Y_LIMIT(out_depth)    1.0
+#define CBCR_LIMIT(out_depth) 1.0
+#else
+#define C_EPS 0.5
+#define Y_LIMIT(out_depth) \
+        (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
+#define CBCR_LIMIT(out_depth) \
+        (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
+#endif // !defined YCBCR_FULL
+
+#define Y_LIMIT_INV(in_depth) (1./Y_LIMIT(in_depth))
+#define Y_SCALE(in_depth) \
+        SCALED(Y_LIMIT_INV(in_depth)) // precomputed value, Y multiplier is same
+                                      // for all channels
 
 #define Y_R(out_depth, kr, kb) \
         ((comp_type_t) (((kr * Y_LIMIT(out_depth)) * (1 << COMP_BASE)) + C_EPS))
@@ -79,6 +97,18 @@
         ((comp_type_t) (((-(kb) / E(kr) * CBCR_LIMIT(out_depth)) * \
                          (1 << COMP_BASE)) + \
                         C_EPS))
+
+#define C_SIGN(x) ((x) > 0 ? 1. : -1.)
+#define SCALED(x) ((comp_type_t) (((x) * (1<<COMP_BASE)) + C_SIGN(x) * C_EPS))
+#define R_CR(in_depth, kr, kb) ((2. * (1. - (kr))) / CBCR_LIMIT(in_depth))
+#define G_CB(in_depth, kr, kb) \
+        ((-(kb) * (2. * ((kr) + KG(kr, kb))) / KG(kr, kb)) / \
+         CBCR_LIMIT(in_depth))
+#define G_CR(in_depth, kr, kb) \
+        ((-(kr) * (2. * (1. - (kr))) / KG(kr, kb)) / CBCR_LIMIT(in_depth))
+#define B_CB(in_depth, kr, kb) \
+        ((2. * ((kr) + KG(kr, kb))) / CBCR_LIMIT(in_depth))
+
 
 #define COEFFS(depth, kr, kb) \
         { \

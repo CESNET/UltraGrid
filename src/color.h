@@ -71,18 +71,6 @@ typedef int32_t comp_type_t; // int32_t provides much better performance than in
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 
-#ifdef YCBCR_FULL
-#define C_EPS 0 // prevent under/overflows when there is no clip
-#define Y_LIMIT(out_depth)    1.0
-#define CBCR_LIMIT(out_depth) 1.0
-#else
-#define C_EPS 0.5
-#define Y_LIMIT(out_depth) \
-        (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
-#define CBCR_LIMIT(out_depth) \
-        (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
-#endif // !defined YCBCR_FULL
-
 #define KR_601 .299
 #define KB_601 .114
 #define KR_709 .212639
@@ -91,7 +79,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define KB_2020 .059302
 #define KR_P3 .228975
 #define KB_P3 .079287
-#define KG(kr,kb)  (1.-kr-kb)
 
 #ifdef YCBCR_FULL
 #define LIMIT_LO(depth) 0
@@ -106,21 +93,6 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define CLAMP_LIMITED_Y(val, depth) (val)
 #define CLAMP_LIMITED_CBCR(val, depth) (val)
 
-#define C_SIGN(x) ((x) > 0 ? 1. : -1.)
-#define SCALED(x) ((comp_type_t) (((x) * (1<<COMP_BASE)) + C_SIGN(x) * C_EPS))
-#define R_CR(in_depth, kr, kb) ((2. * (1. - (kr))) / CBCR_LIMIT(in_depth))
-#define G_CB(in_depth, kr, kb) \
-        ((-(kb) * (2. * ((kr) + KG(kr, kb))) / KG(kr, kb)) / \
-         CBCR_LIMIT(in_depth))
-#define G_CR(in_depth, kr, kb) \
-        ((-(kr) * (2. * (1. - (kr))) / KG(kr, kb)) / CBCR_LIMIT(in_depth))
-#define B_CB(in_depth, kr, kb) \
-        ((2. * ((kr) + KG(kr, kb))) / CBCR_LIMIT(in_depth))
-
-#define Y_LIMIT_INV(in_depth) (1./Y_LIMIT(in_depth))
-#define Y_SCALE(in_depth) \
-        SCALED(Y_LIMIT_INV(in_depth)) // precomputed value, Y multiplier is same
-                                      // for all channels
 #define FULL_FOOT(depth) (1 << ((depth) - 8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
