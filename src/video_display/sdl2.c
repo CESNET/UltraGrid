@@ -723,9 +723,9 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 driver = "KMSDRM";
         }
 #endif // defined __linux__
-        if (get_commandline_param("color-601") != NULL) {
-                SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_BT601);
-        }
+        SDL_SetYUVConversionMode(get_commandline_param("color-601") != NULL
+                                     ? SDL_YUV_CONVERSION_BT601
+                                     : SDL_YUV_CONVERSION_BT709);
 
         if (SDL_VideoInit(driver) < 0) {
                 MSG(ERROR, "Unable to initialize SDL2 video: %s\n",
