@@ -35,21 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <assert.h>                      // for assert
+#include <libgpujpeg/gpujpeg_decoder.h>  // for gpujpeg_decoder_set_output_f...
+#include <libgpujpeg/gpujpeg_version.h>  // for GPUJPEG_VERSION_INT, GPUJPEG...
+#include <stdbool.h>                     // for false, true
+#include <stdint.h>                      // for uint8_t
+#include <stdio.h>                       // for printf
+#include <stdlib.h>                      // for abort, free, NULL, calloc
+#include <string.h>                      // for strncpy, memcpy
+
 #include "debug.h"
 #include "host.h"
 #include "video.h"
 #include "video_decompress.h"
-
-#include <libgpujpeg/gpujpeg_decoder.h>
-#include <libgpujpeg/gpujpeg_version.h>
-//#include "compat/platform_semaphore.h"
-#include <pthread.h>
-#include <stdlib.h>
 
 #include "lib_common.h"
 #include "utils/macros.h"
@@ -77,7 +75,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 
         s->decoder = gpujpeg_decoder_create(NULL);
         if(!s->decoder) {
-                return FALSE;
+                return false;
         }
 
         // setting verbosity - a bit tricky now, gpujpeg_decoder_init needs to be called with some "valid" data
@@ -125,7 +123,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 assert("Invalid codec!" && 0);
         }
 
-        return TRUE;
+        return true;
 }
 
 static void * gpujpeg_decompress_init(void)
@@ -143,7 +141,7 @@ static void * gpujpeg_decompress_init(void)
 
         int ret;
         printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-        ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+        ret = gpujpeg_init_device(cuda_devices[0], true);
         if(ret != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", cuda_devices[0]);
                 free(s);
@@ -168,7 +166,7 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
                         s->gshift == gshift &&
                         s->bshift == bshift &&
                         video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING)) {
-                return TRUE;
+                return true;
         } else {
                 s->out_codec = out_codec;
                 s->pitch = pitch;
@@ -308,18 +306,18 @@ static int gpujpeg_decompress_get_property(void *state, int property, void *val,
 {
         struct state_decompress *s = (struct state_decompress *) state;
         UNUSED(s);
-        int ret = FALSE;
+        int ret = false;
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if(*len >= sizeof(int)) {
-                                *(int *) val = FALSE;
+                                *(int *) val = false;
                                 *len = sizeof(int);
-                                ret = TRUE;
+                                ret = true;
                         }
                         break;
                 default:
-                        ret = FALSE;
+                        ret = false;
         }
 
         return ret;
