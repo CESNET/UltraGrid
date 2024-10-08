@@ -86,6 +86,7 @@
                 CB_R(depth, kr, kb), CB_G(depth, kr, kb), CB_B(depth, kr, kb),\
                 CR_R(depth, kr, kb), CR_G(depth, kr, kb), CR_B(depth, kr, kb),\
 \
+                Y_SCALE(depth), \
                 SCALED(R_CR(depth, kr, kb)), \
                 SCALED(G_CB(depth, kr, kb)), \
                 SCALED(G_CR(depth, kr, kb)), \

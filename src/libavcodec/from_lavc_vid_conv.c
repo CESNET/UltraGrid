@@ -325,7 +325,7 @@ yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
                     (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (Y_SCALE(depth) * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
@@ -392,7 +392,7 @@ yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
                         comp_type_t g[8];
                         comp_type_t b[8];
                         OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
-                                comp_type_t y = (Y_SCALE(depth) * (*src_y++ - (1<<(depth-4))));
+                                comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                                 comp_type_t cr = *src_cr++ - (1<<(depth-1));
                                 comp_type_t cb = *src_cb++ - (1<<(depth-1));
                                 comp_type_t rr = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
@@ -487,7 +487,7 @@ yuv444pXXle_to_rg48(struct av_conv_data d, int depth)
                     (uint16_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (Y_SCALE(depth) * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
@@ -1159,7 +1159,7 @@ nv12_to_rgb(struct av_conv_data d, bool rgba)
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cbcr++ - 128;
                         comp_type_t cr = *src_cbcr++ - 128;
-                        comp_type_t y = (*src_y++ - 16) * Y_SCALE(S_DEPTH);
+                        comp_type_t y = (*src_y++ - 16) * cfs.y_scale;
                         comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
                         comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
@@ -1172,7 +1172,7 @@ nv12_to_rgb(struct av_conv_data d, bool rgba)
                                 *dst++ = CLAMP_FULL(b, 8);
                         }
 
-                        y = (*src_y++ - 16) * Y_SCALE(S_DEPTH);
+                        y = (*src_y++ - 16) * cfs.y_scale;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1254,13 +1254,13 @@ static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgb
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cb1++ - 128;
                         comp_type_t cr = *src_cr1++ - 128;
-                        comp_type_t y = (*src_y1++ - 16) * Y_SCALE(S_DEPTH);
+                        comp_type_t y = (*src_y1++ - 16) * cfs.y_scale;
                         comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr);
                         comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr);
                         comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
-                        y = (*src_y1++ - 16) * Y_SCALE(S_DEPTH);
+                        y = (*src_y1++ - 16) * cfs.y_scale;
                         r = YCBCR_TO_R(cfs, y, cb, cr);
                         g = YCBCR_TO_G(cfs, y, cb, cr);
                         b = YCBCR_TO_B(cfs, y, cb, cr);
@@ -1270,13 +1270,13 @@ static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgb
                                 cb = *src_cb2++ - 128;
                                 cr = *src_cr2++ - 128;
                         }
-                        y = (*src_y2++ - 16) * Y_SCALE(S_DEPTH);
+                        y = (*src_y2++ - 16) * cfs.y_scale;
                         r = YCBCR_TO_R(cfs, y, cb, cr);
                         g = YCBCR_TO_G(cfs, y, cb, cr);
                         b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
-                        y = (*src_y2++ - 16) * Y_SCALE(S_DEPTH);
+                        y = (*src_y2++ - 16) * cfs.y_scale;
                         r = YCBCR_TO_R(cfs, y, cb, cr);
                         g = YCBCR_TO_G(cfs, y, cb, cr);
                         b = YCBCR_TO_B(cfs, y, cb, cr);
@@ -1343,7 +1343,7 @@ yuv444p_to_rgb(struct av_conv_data d, bool rgba)
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
-                        int y = *src_y++ * Y_SCALE(S_DEPTH);
+                        int y = *src_y++ * cfs.y_scale;
                         comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
                         comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
@@ -1776,10 +1776,10 @@ yuvp10le_to_rgb(struct av_conv_data d, int subsampling, int out_bit_depth)
                                 }\
                         }
 
-                        comp_type_t y1 = (Y_SCALE(S_DEPTH) * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y1 = (cfs.y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y1, dst1)
 
-                        comp_type_t y11 = (Y_SCALE(S_DEPTH) * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y11 = (cfs.y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y11, dst1)
 
                         if (subsampling == 422) {
@@ -1790,10 +1790,10 @@ yuvp10le_to_rgb(struct av_conv_data d, int subsampling, int out_bit_depth)
                                 bb = YCBCR_TO_B(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
                         }
 
-                        comp_type_t y2 = (Y_SCALE(S_DEPTH) * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y2 = (cfs.y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y2, dst2)
 
-                        comp_type_t y22 = (Y_SCALE(S_DEPTH) * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y22 = (cfs.y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y22, dst2)
                 }
         }
@@ -1845,7 +1845,7 @@ yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
                         comp_type_t cb = *src_cb++ - (1 << (S_DEPTH - 1));
                         comp_type_t cr = *src_cr++ - (1 << (S_DEPTH - 1));
                         comp_type_t y =
-                            (*src_y++ - (1 << (S_DEPTH - 4))) * Y_SCALE(S_DEPTH);
+                            (*src_y++ - (1 << (S_DEPTH - 4))) * cfs.y_scale;
                         comp_type_t r =
                             YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE + 2);
                         comp_type_t g =

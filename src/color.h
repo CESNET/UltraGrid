@@ -170,6 +170,7 @@ struct color_coeffs {
         // the shorts below doesn't seem to be necessary - it seems like the
         // compiler doesn't vectorise those conversions (in contrary to the
         // above coeffs)
+        short y_scale;
         short r_cr, g_cb, g_cr;
         int   b_cb; // is 34712 for 709  so doesn't fit to 16-bit short
 };

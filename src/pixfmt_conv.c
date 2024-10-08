@@ -1049,8 +1049,8 @@ vc_copylineToUYVY(unsigned char *__restrict dst,
         enum { DEPTH = DEPTH8 };\
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH);\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
-                register int y1 = Y_SCALE(8) * ((src)[y1_off] - 16);\
-                register int y2 = Y_SCALE(8) * ((src)[y2_off] - 16);\
+                register int y1 = cfs.y_scale * ((src)[y1_off] - 16);\
+                register int y2 = cfs.y_scale * ((src)[y2_off] - 16);\
                 register int u = (src)[u_off] - 128;\
                 register int v = (src)[v_off] - 128;\
                 int val;\
@@ -1818,7 +1818,7 @@ static void vc_copylineY416toR12L(unsigned char * __restrict dst, const unsigned
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, S_DEPTH);
 #define GET_NEXT \
         u = *in++ - (1 << (S_DEPTH - 1)); \
-        y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4))); \
+        y = cfs.y_scale * (*in++ - (1 << (S_DEPTH - 4))); \
         v = *in++ - (1 << (S_DEPTH - 1)); \
         in++; \
         r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 4U); \
@@ -1911,7 +1911,7 @@ static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned
                 comp_type_t y, u, v, r, g, b;
 
                 u = *in++ - (1 << (S_DEPTH - 1));
-                y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
+                y = cfs.y_scale * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
                 r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 6U);
@@ -1942,7 +1942,7 @@ static void vc_copylineY416toRGB(unsigned char * __restrict dst, const unsigned 
                 comp_type_t y, u, v, r, g, b;
 
                 u = *in++ - (1 << (S_DEPTH - 1));
-                y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
+                y = cfs.y_scale * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
                 r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 8U);
@@ -1974,7 +1974,7 @@ static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned
                 comp_type_t y, u, v, r, g, b;
 
                 u = *in++ - (1 << (S_DEPTH - 1));
-                y = Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
+                y = cfs.y_scale * (*in++ - (1 << (S_DEPTH - 4)));
                 v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
                 r = YCBCR_TO_R(cfs, y, u, v) >> (COMP_BASE + 8U);
@@ -2456,7 +2456,7 @@ static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 6) {
                 comp_type_t u = *in++ - (1 << (S_DEPTH - 1));
                 comp_type_t y =
-                    Y_SCALE(S_DEPTH) * (*in++ - (1 << (S_DEPTH - 4)));
+                    cfs.y_scale * (*in++ - (1 << (S_DEPTH - 4)));
                 comp_type_t v = *in++ - (1 << (S_DEPTH - 1));
                 in++;
                 comp_type_t r =
@@ -2792,7 +2792,7 @@ static void vc_copylineV210toRGB(unsigned char * __restrict dst, const unsigned 
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
-        (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
+        (y) = cfs.y_scale * ((y) - Y_SHIFT); \
         val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
         val = (YCBCR_TO_G(cfs, (y), (u), (v)) >> (COMP_BASE)); \
@@ -2854,7 +2854,7 @@ vc_copylineV210toRG48(unsigned char *__restrict d,
         UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, IDEPTH);
 #define WRITE_YUV_AS_RGB(y, u, v) \
-        (y) = Y_SCALE(IDEPTH) * ((y) - Y_SHIFT); \
+        (y) = cfs.y_scale * ((y) - Y_SHIFT); \
         val = (YCBCR_TO_R(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
         *(dst++) = CLAMP_FULL(val, ODEPTH); \
         val = (YCBCR_TO_G(cfs, (y), (u), (v)) >> (COMP_BASE - DIFF_BPP)); \
