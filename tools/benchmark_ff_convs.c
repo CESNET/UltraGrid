@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include "../src/libavcodec/from_lavc_vid_conv.c"
+#include "color.h"
 #undef MOD_NAME
 #include "../src/libavcodec/to_lavc_vid_conv.c"
 #include "debug.h"
@@ -57,9 +58,9 @@ benchmark_from_lavc_convs()
                 av_frame_get_buffer(in, 0);
                 struct timespec t0, t1;
                 timespec_get(&t0, TIME_UTC);
-                conv->convert((struct conv_data){
+                conv->convert((struct av_conv_data){
                     out, in, vc_get_linesize(W, conv->uv_codec),
-                    DEFAULT_RGB_SHIFT_INIT });
+                    DEFAULT_RGB_SHIFT_INIT, CS_DFL });
                 timespec_get(&t1, TIME_UTC);
                 printf("%s->%s:\t%.2f ms\n",
                        av_get_pix_fmt_name(conv->av_codec),
