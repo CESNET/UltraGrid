@@ -1084,7 +1084,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                         return DECODER_UNSUPP_PIXFMT;
                 }
-                if (s->codec_ctx->codec->id == AV_CODEC_ID_MJPEG) {
+                if (s->codec_ctx->codec->id ==
+                        AV_CODEC_ID_MJPEG &&s->frame->colorspace ==
+                        AVCOL_SPC_BT470BG &&s->frame->color_range ==
+                        AVCOL_RANGE_MPEG) {
                         s->frame->colorspace = AVCOL_SPC_BT709;
                 }
                 change_pixfmt(s->frame, dst, s->convert, s->out_codec,
