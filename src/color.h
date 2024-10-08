@@ -127,9 +127,9 @@ extern "C" {
 #endif
 
 enum colorspace {
-        CS_DFL     = 0,
-        CS_601_LIM = 1,
-        CS_709_LIM = 2,
+        CS_DFL = 0,
+        CS_601 = 1,
+        CS_709 = 2,
 };
 
 struct color_coeffs {

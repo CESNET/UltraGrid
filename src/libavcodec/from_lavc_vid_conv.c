@@ -3028,7 +3028,7 @@ get_cs_for_conv(AVFrame *f, codec_t interm_pf, codec_t out_pf)
                             av_color_space_name(f->colorspace));
                 }
                 const bool have_pp = tok_in_argv(uv_argv, "y601_to_y709");
-                if (src_601 && get_default_cs() != CS_601_LIM && !have_pp) {
+                if (src_601 && get_default_cs() != CS_601 && !have_pp) {
                         MSG(WARNING,
                             "Got %s CS but not converted - consider \"--param "
                             "color-601\" as a hint for supported displays or "
@@ -3038,10 +3038,10 @@ get_cs_for_conv(AVFrame *f, codec_t interm_pf, codec_t out_pf)
                 return CS_DFL; // doesn't matter - won't be used anyways
         }
         if (src_601) {
-                return CS_601_LIM;
+                return CS_601;
         }
         if (f->colorspace == AVCOL_SPC_BT709) {
-                return CS_709_LIM;
+                return CS_709;
         }
         MSG(WARNING,
             "Suspicious (unexpected) color space %s, using default "

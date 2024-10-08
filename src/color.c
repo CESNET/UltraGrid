@@ -186,8 +186,8 @@ get_color_coeffs(enum colorspace cs, int ycbcr_bit_depth)
 enum colorspace
 get_default_cs()
 {
-        return get_commandline_param("color-601") != NULL ? CS_601_LIM
-                                                          : CS_709_LIM;
+        return get_commandline_param("color-601") != NULL ? CS_601
+                                                          : CS_709;
 }
 
 struct color_coeffs
