@@ -176,7 +176,9 @@ struct color_coeffs {
 };
 const struct color_coeffs *get_color_coeffs(enum colorspace cs,
                                             int             ycbcr_bit_depth);
-enum colorspace get_default_cs(void);
+struct color_coeffs        compute_color_coeffs(double kr, double kb,
+                                                int ycbcr_bit_depth);
+enum colorspace            get_default_cs(void);
 
 #ifdef __cplusplus
 } // extern "C"

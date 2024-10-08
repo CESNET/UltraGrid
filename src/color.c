@@ -150,3 +150,9 @@ get_default_cs()
         return get_commandline_param("color-601") != NULL ? CS_601_LIM
                                                           : CS_709_LIM;
 }
+
+struct color_coeffs
+compute_color_coeffs(double kr, double kb, int ycbcr_bit_depth)
+{
+        return (struct color_coeffs) COEFFS(ycbcr_bit_depth, kr, kb);
+}

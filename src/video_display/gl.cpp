@@ -1533,8 +1533,12 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
         double kr = cs_coeffs[2 * index];
         double kb = cs_coeffs[2 * index + 1];
         const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };
-        double values[] =            {  Y_LIMIT_INV(8),         R_CR(8,kr,kb),      G_CB(8,kr,kb),      G_CR(8,kr,kb),      B_CB(8,kr,kb)};
-
+        const struct color_coeffs cfs = compute_color_coeffs(kr, kb, 8);
+        const double values[] = { (double) cfs.y_scale / (1 << COMP_BASE),
+                                  (double) cfs.r_cr / (1 << COMP_BASE),
+                                  (double) cfs.g_cb / (1 << COMP_BASE),
+                                  (double) cfs.g_cr / (1 << COMP_BASE),
+                                  (double) cfs.b_cb / (1 << COMP_BASE) };
         for (size_t i = 0; i < sizeof placeholders / sizeof placeholders[0]; ++i) {
                 char *tok = fp;
                 while ((tok = strstr(fp, placeholders[i])) != nullptr) {
