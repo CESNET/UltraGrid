@@ -73,6 +73,17 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 {
         s->desc = desc;
 
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 5)
+        struct gpujpeg_decoder_init_parameters param =
+            gpujpeg_decoder_default_init_parameters();
+        param.ff_cs_itu601_is_709 = true;
+        param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
+        param.perf_stats = log_level >= LOG_LEVEL_DEBUG ? 1 : 0;
+        s->decoder = gpujpeg_decoder_create_with_params(&param);
+        if(!s->decoder) {
+                return false;
+        }
+#else
         s->decoder = gpujpeg_decoder_create(NULL);
         if(!s->decoder) {
                 return false;
@@ -94,6 +105,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                                                        // for BT.601 limited range - not enabled by UG encoder because FFmpeg emits it also for 709)
         int rc = gpujpeg_decoder_init(s->decoder, &param, &param_image);
         assert(rc == 0);
+#endif
 
         switch (s->out_codec) {
         case I420:
