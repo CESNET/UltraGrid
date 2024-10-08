@@ -278,6 +278,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         }
 
 	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
+	m_encoder_param.perf_stats = log_level >= LOG_LEVEL_DEBUG ? 1 : 0;
 	m_encoder_param.segment_info = 1;
         gpujpeg_sampling_factor_t subsampling = m_parent_state->m_subsampling;
 #if !defined NEW_PARAM_IMG_NO_COMP_COUNT
