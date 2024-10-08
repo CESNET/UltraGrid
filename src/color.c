@@ -54,9 +54,13 @@
 #else
 #define C_EPS 0.5
 #define Y_LIMIT(out_depth) \
-        (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
+        (out_depth == 0 \
+            ? 1.0 \
+            : (219. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1)))
 #define CBCR_LIMIT(out_depth) \
-        (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1))
+        (out_depth == 0 \
+            ? 1.0 \
+            : (224. * (1 << ((out_depth) - 8)) / ((1 << (out_depth)) - 1)))
 #endif // !defined YCBCR_FULL
 
 #define Y_LIMIT_INV(in_depth) (1./Y_LIMIT(in_depth))
@@ -133,6 +137,7 @@ ADD_TO_PARAM("color-601", "* color-601\n"
  *
  * Using BT.709 by default.
  *
+ * @param ycbcr_bit_depth limited YCbCr scale; 0 for full-range
  *
  * @note
  * It is suggested to copy the result to a struct (not using the returned ptr
@@ -154,20 +159,24 @@ get_color_coeffs(enum colorspace cs, int ycbcr_bit_depth)
         static const struct {
                 struct color_coeffs col_cfs[2];
         } coeffs[] = {
+                { { COEFFS_601(0),       COEFFS_709(0)       } },
                 { { COEFFS_601(DEPTH8),  COEFFS_709(DEPTH8)  } },
                 { { COEFFS_601(DEPTH10), COEFFS_709(DEPTH10) } },
                 { { COEFFS_601(DEPTH12), COEFFS_709(DEPTH12) } },
                 { { COEFFS_601(DEPTH16), COEFFS_709(DEPTH16) } }
         };
+        if (ycbcr_bit_depth == 0) { // full-range
+                return &coeffs[0].col_cfs[cs_idx];
+        }
         switch ((enum depth) ycbcr_bit_depth) {
         case DEPTH8:
-                return &coeffs[0].col_cfs[cs_idx];
-        case DEPTH10:
                 return &coeffs[1].col_cfs[cs_idx];
-        case DEPTH12:
+        case DEPTH10:
                 return &coeffs[2].col_cfs[cs_idx];
-        case DEPTH16:
+        case DEPTH12:
                 return &coeffs[3].col_cfs[cs_idx];
+        case DEPTH16:
+                return &coeffs[4].col_cfs[cs_idx];
         }
 
         fprintf(stderr, "%s: Wrong depth %d!\n", __func__, ycbcr_bit_depth);

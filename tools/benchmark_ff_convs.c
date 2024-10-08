@@ -60,7 +60,7 @@ benchmark_from_lavc_convs()
                 timespec_get(&t0, TIME_UTC);
                 conv->convert((struct av_conv_data){
                     out, in, vc_get_linesize(W, conv->uv_codec),
-                    DEFAULT_RGB_SHIFT_INIT, CS_DFL });
+                    DEFAULT_RGB_SHIFT_INIT, CS_DFL, 1 });
                 timespec_get(&t1, TIME_UTC);
                 printf("%s->%s:\t%.2f ms\n",
                        av_get_pix_fmt_name(conv->av_codec),

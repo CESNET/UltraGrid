@@ -102,6 +102,7 @@ struct av_conv_data {
         size_t pitch;
         int    rgb_shift[3];
         enum colorspace cs_coeffs;
+        int lmt_rng; // 1 (limited) or 0 for full range
 };
 
 static void
@@ -316,7 +317,7 @@ yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -379,7 +380,7 @@ yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -478,7 +479,7 @@ yuv444pXXle_to_rg48(struct av_conv_data d, int depth)
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -1148,7 +1149,7 @@ nv12_to_rgb(struct av_conv_data d, bool rgba)
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1213,7 +1214,7 @@ static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgb
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                               (0xFFU << d.rgb_shift[G]) ^
                               (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
@@ -1331,7 +1332,7 @@ yuv444p_to_rgb(struct av_conv_data d, bool rgba)
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                               (0xFFU << d.rgb_shift[G]) ^
                               (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1722,7 +1723,7 @@ yuvp10le_to_rgb(struct av_conv_data d, int subsampling, int out_bit_depth)
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
         const int bpp = out_bit_depth == 30 ? 10 : 8;
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for (int y = 0; y < height / 2; ++y) {
                 uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
@@ -1832,7 +1833,7 @@ yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
@@ -2927,7 +2928,8 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
                             inf,
                             pitch,
                             { rgb_shift[0], rgb_shift[1], rgb_shift[2] },
-                            cs_coeffs
+                            cs_coeffs,
+                            inf->color_range == AVCOL_RANGE_JPEG ? 0 : 1,
                         });
                         DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
@@ -2941,7 +2943,8 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
                     inf,
                     src_linesize,
                     DEFAULT_RGB_SHIFT_INIT,
-                    cs_coeffs
+                    cs_coeffs,
+                    inf->color_range == AVCOL_RANGE_JPEG ? 0 : 1,
                 });
                 DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
@@ -2987,11 +2990,11 @@ convert_task(void *arg)
  * @return check color space/range if we can correctly convert
  */
 static void
-check_constraints(AVFrame *f)
+check_constraints(AVFrame *f, bool dst_rgb)
 {
         const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
         const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
-        if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb) {
+        if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb && !dst_rgb) {
                 MSG_ONCE(WARNING, "Full-range YCbCr may be clipped!\n");
         }
 }
@@ -3052,7 +3055,7 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                  char *dst, AVFrame *in, int pitch,
                  const int rgb_shift[3])
 {
-        check_constraints(in);
+        check_constraints(in, codec_is_a_rgb(convert->dst_pixfmt));
         if (convert->cuda_conv_state != NULL) {
                 av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in,
                                       in->width, in->height, pitch, rgb_shift);
@@ -3075,7 +3078,12 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                 int row_height = (in->height / cpu_count) & ~1; // needs to be even
                 unsigned char *part_dst =
                     (unsigned char *) dst + (size_t) i * row_height * pitch;
+
+                // copy props - av_frame_copy_props() can be used as well
+                // (but unsure if there isn't higher overhead of that file)
                 memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
+                parts[i].color_range = in->color_range;
+
                 const AVPixFmtDescriptor *fmt_desc =
                     av_pix_fmt_desc_get(in->format);
                 for (int plane = 0; plane < AV_NUM_DATA_POINTERS; ++plane) {
