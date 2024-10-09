@@ -270,6 +270,38 @@ static const char* jpeg_marker_name(enum jpeg_marker_code code)
         (uint16_t)(((*(image)) << 8) + (*((image) + 1))); \
         image += 2;
 
+#define read_4byte(image) \
+    (uint32_t)(((uint32_t) (image)[0]) << 24U | ((uint32_t) (image)[1] << 16U) | ((uint32_t) (image)[2] << 8U) | ((uint32_t) (image)[3])); \
+    (image) += 4;
+
+#define SPIFF_VERSION 0x100 // Version 1.00
+#define SPIFF_COMPRESSION_JPEG 5
+#define SPIFF_ENTRY_TAG_EOD 0x1
+#define SPIFF_ENTRY_TAG_EOD_LENGHT 8 // length is 2 bytes longer for EOD to contain also following SOI
+#define SPIFF_MARKER_LEN 32 ///< including length field
+
+static const char*
+color_space_get_name(enum jpeg_color_spec color_space)
+{
+    switch ( color_space ) {
+    case JPEG_COLOR_SPEC_NONE :
+        return "None";
+    case JPEG_COLOR_SPEC_RGB:
+        return "RGB";
+    case JPEG_COLOR_SPEC_YCBCR_601:
+        return "YCbCr BT.601 (limtted range)";
+    case JPEG_COLOR_SPEC_YCBCR_JPEG:
+        return "YCbCr BT.601 256 Levels (YCbCr JPEG)";
+    case JPEG_COLOR_SPEC_YCBCR_709:
+        return "YCbCr BT.709 (limited range)";
+    case JPEG_COLOR_SPEC_CMYK:
+        return "CMYK";
+    case JPEG_COLOR_SPEC_YCCK:
+        return "YCCK";
+    }
+    return "Unknown";
+}
+
 static int read_marker(uint8_t** image)
 {
         uint8_t byte = read_byte(*image);
@@ -279,6 +311,25 @@ static int read_marker(uint8_t** image)
         int marker = read_byte(*image);
         return marker;
 }
+
+///< new bound-checking version of read_marker() as used by GPUJPEG
+static int
+read_marker_new(uint8_t** image, const uint8_t* image_end)
+{
+    if(image_end - *image < 2) {
+        fprintf(stderr, "[GPUJPEG] [Error] Failed to read marker from JPEG data (end of data)\n");
+        return -1;
+    }
+
+    uint8_t byte = read_byte(*image);
+    if( byte != 0xFF ) {
+        fprintf(stderr, "[Error] Failed to read marker from JPEG data (0xFF was expected but 0x%X was presented)\n", byte);
+        return -1;
+    }
+    int marker = read_byte(*image);
+    return marker;
+}
+
 
 static void skip_marker_content(uint8_t** image)
 {
@@ -505,6 +556,133 @@ static int read_sos(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
+static int
+read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_spiff)
+{
+    int version = read_2byte(*image); // version
+    int profile_id = read_byte(*image); // profile ID
+    int comp_count = read_byte(*image); // component count
+    int width = read_4byte(*image); // width
+    int height = read_4byte(*image); // height
+    int spiff_color_space = read_byte(*image);
+    int bps = read_byte(*image); // bits per sample
+    int compression = read_byte(*image);
+    int pixel_units = read_byte(*image); // resolution units
+    int pixel_xdpu = read_4byte(*image); // vertical res
+    int pixel_ydpu = read_4byte(*image); // horizontal res
+    (void) profile_id, (void) comp_count, (void) width, (void) height, (void) pixel_units, (void) pixel_xdpu, (void) pixel_ydpu;
+
+    if (version != SPIFF_VERSION) {
+        verbose_msg("Unknown SPIFF version %d.%d.\n", version >> 8, version & 0xFF);
+    }
+    if (bps != 8) {
+        error_msg("Wrong bits per sample %d, only 8 is supported.\n", bps);
+    }
+    if (compression != SPIFF_COMPRESSION_JPEG) {
+            error_msg("Unexpected compression index %d, expected %d (JPEG)\n", compression, SPIFF_COMPRESSION_JPEG);
+            return -1;
+    }
+
+    switch (spiff_color_space) {
+        case 1: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_709;
+            break;
+        case 2: // NOLINT
+            break;
+        case 3: // NOLINT
+        case 8: /* grayscale */ // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_JPEG;
+            break;
+        case 4: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_601;
+            break;
+        case 10: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_RGB;
+            break;
+        default:
+                error_msg(
+                    "Unsupported or unrecongnized SPIFF color space %d!\n",
+                    spiff_color_space);
+                return -1;
+    }
+
+    debug_msg("APP8 SPIFF parsed succesfully, internal color space: %s\n",
+              color_space_get_name(*color_space));
+    *in_spiff = 1;
+
+    return 0;
+}
+
+static int
+read_spiff_directory(uint8_t** image, const uint8_t* image_end, int length, _Bool *in_spiff)
+{
+    if (length < 4) {
+        fprintf(stderr, "[GPUJPEG] [Error] APP8 SPIFF directory too short (%d bytes)\n", length + 2);
+        image += length;
+        return -1;
+    }
+    uint32_t tag = read_4byte(*image);
+    debug_msg("Read SPIFF tag 0x%x with length %d.\n", tag, length + 2);
+    if (tag == SPIFF_ENTRY_TAG_EOD && length == SPIFF_ENTRY_TAG_EOD_LENGHT - 2) {
+        int marker_soi = read_marker_new(image, image_end);
+        if ( marker_soi != JPEG_MARKER_SOI ) {
+            verbose_msg("SPIFF entry 0x1 should be followed directly with SOI.\n");
+            return -1;
+        }
+        debug_msg("SPIFF EOD presented.\n");
+        *in_spiff = 0;
+    } else if (tag >> 24U != 0) {
+        verbose_msg( "Erroneous SPIFF tag 0x%x (first byte should be 0).", tag);
+    } else {
+        debug_msg("SPIFF tag 0x%x with length %d presented.\n", tag, length + 2);
+    }
+    return 0;
+}
+
+static int
+read_app8(uint8_t** image, const uint8_t* image_end, enum jpeg_color_spec *color_space, bool *in_spiff)
+{
+    if(image_end - *image < 2) {
+        fprintf(stderr, "[GPUJPEG] [Error] Could not read APP8 marker length (end of data)\n");
+        return -1;
+    }
+    int length = read_2byte(*image);
+    length -= 2;
+    if(image_end - *image < length) {
+        fprintf(stderr, "[GPUJPEG] [Error] APP8 marker goes beyond end of data\n");
+        return -1;
+    }
+
+    if (*in_spiff) {
+        return read_spiff_directory(image, image_end, length, in_spiff);
+    }
+
+    if (length + 2 != SPIFF_MARKER_LEN) {
+        verbose_msg("APP8 segment length is %d, expected 32 for SPIFF.\n", length + 2);
+        *image += length;
+        return 0;
+    }
+
+    const char spiff_marker_name[6] = { 'S', 'P', 'I', 'F', 'F', '\0' };
+    char marker_name[sizeof spiff_marker_name];
+    for (unsigned i = 0; i < sizeof marker_name; i++) {
+        marker_name[i] = read_byte(*image);
+        if (!isprint(marker_name[i])) {
+            marker_name[i] = '\0';
+        }
+    }
+    length -= sizeof marker_name;
+
+    if (strcmp(marker_name, spiff_marker_name) != 0) {
+        verbose_msg("APP8 marker identifier should be 'SPIFF\\0' but '%-6.6s' was presented!\n", marker_name);
+        *image += length - 2;
+        return 0;
+    }
+
+    return read_spiff_header(image, color_space, in_spiff);
+}
+
+
 static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
 {
         int length = read_2byte(*image);
@@ -530,7 +708,7 @@ static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
 	if (color_transform == 0) {
 		param->color_spec = JPEG_COLOR_SPEC_CMYK; // or RGB - will be determined later
 	} else if (color_transform == 1) {
-		param->color_spec = JPEG_COLOR_SPEC_YCBCR;
+		param->color_spec = JPEG_COLOR_SPEC_YCBCR_JPEG;
 	} else if (color_transform == 2) {
 		param->color_spec = JPEG_COLOR_SPEC_YCCK;
 	} else {
@@ -559,6 +737,8 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                 return -1;
         }
 
+        const uint8_t *image_end = image + len;
+
         info->huff_lum_dc[0] = 255;
         info->huff_lum_ac[0] = 255;
         info->huff_chm_dc[0] = 255;
@@ -567,8 +747,9 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         info->interleaved = true;
         info->restart_interval = 0; // if DRI is not present
         info->com[0] = '\0'; // if COM is not present
-        info->color_spec = JPEG_COLOR_SPEC_YCBCR; // default
+        info->color_spec = JPEG_COLOR_SPEC_YCBCR_JPEG; // default
         bool marker_present[255] = { 0 };
+        bool in_spiff = false;
 
         // currently reading up to SOS marker gives us all needed data
         while (!marker_present[JPEG_MARKER_EOI] && !marker_present[JPEG_MARKER_SOS]
@@ -625,6 +806,12 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 if ((rc = read_com(info, &image)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading COM!\n");
                                         return rc;
+                                }
+                                break;
+
+                        case JPEG_MARKER_APP8:
+                                if ( read_app8(&image, image_end, &info->color_spec, &in_spiff ) != 0 ) {
+                                        return -1;
                                 }
                                 break;
 
@@ -740,9 +927,21 @@ check_rtp_compatibility(const struct jpeg_info *info)
                 log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG component count: %d!\n", info->comp_count);
 		return false;
         }
-        if (info->color_spec != JPEG_COLOR_SPEC_YCBCR) {
-                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG color space (only YCbCr supported!\n");
-		return false;
+        if (info->color_spec != JPEG_COLOR_SPEC_YCBCR_JPEG) {
+                if (info->color_spec != JPEG_COLOR_SPEC_YCBCR_601 &&
+                    info->color_spec != JPEG_COLOR_SPEC_YCBCR_709) {
+                        MSG(ERROR,
+                            "Unsupported JPEG color space %s "
+                            "(only YCbCr supported)!\n",
+                            color_space_get_name(info->color_spec));
+                        return false;
+                }
+                MSG_ONCE(WARNING,
+                         "JPEG CS should be full-range BT.601, have: %s\n",
+                         color_space_get_name(info->color_spec));
+                if (strstr(info->com, "GPUJPEG") != NULL) {
+                        MSG_ONCE(INFO, "Try setting \"-c gpujpeg:Y601full\"\n");
+                }
         }
         if (!info->interleaved) {
                 if (strstr(info->com, "GPUJPEG")) {
