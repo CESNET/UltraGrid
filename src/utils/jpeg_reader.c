@@ -584,10 +584,12 @@ read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_s
     }
 
     switch (spiff_color_space) {
+        // case 0: // Bi-level - one-bit, 1 = black
         case 1: // NOLINT
             *color_space = JPEG_COLOR_SPEC_YCBCR_709;
             break;
         case 2: // NOLINT
+            MSG_ONCE(WARNING, "SPIFF color space not specified by header!\n");
             break;
         case 3: // NOLINT
         case 8: /* grayscale */ // NOLINT
@@ -596,9 +598,22 @@ read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_s
         case 4: // NOLINT
             *color_space = JPEG_COLOR_SPEC_YCBCR_601;
             break;
+        // case 5: // reserved
+        // case 6: //  -"-
+        // case 7: //  -"-
+        // case 9: // PhotoYCC
         case 10: // NOLINT
             *color_space = JPEG_COLOR_SPEC_RGB;
             break;
+        // case 11: // CMY
+        case 12: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_CMYK;
+            break;
+        case 13: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCCK;
+            break;
+        // case 14: // CIELab
+        // case 15: // Bi-level - one-bit, 1 = white
         default:
                 error_msg(
                     "Unsupported or unrecongnized SPIFF color space %d!\n",
