@@ -171,6 +171,7 @@ static void display_multiplier_worker(void *state)
                 for (auto& disp : s->displays) {
                         struct video_frame *real_display_frame = display_get_frame(disp.get());
                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+                        memcpy(&real_display_frame->VF_METADATA_START, &frame->VF_METADATA_START, VF_METADATA_SIZE);
                         display_put_frame(disp.get(), real_display_frame, PUTF_BLOCKING);
                 }
 
