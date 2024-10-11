@@ -455,7 +455,15 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         {       // No data
         case NDIlib_frame_type_none:
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "No data received.\n";
-                break;
+                // check disconnect
+                if (s->NDIlib->recv_get_no_connections(s->pNDI_recv) > 0) {
+                        break;
+                }
+                MSG(WARNING, "The source has disconnected, starting "
+                             "new lookup!\n");
+                s->NDIlib->recv_destroy(s->pNDI_recv);
+                s->pNDI_recv = nullptr;
+                return nullptr;
 
                 // Video data
         case NDIlib_frame_type_video:
