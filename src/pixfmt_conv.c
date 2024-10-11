@@ -2193,6 +2193,7 @@ static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned
 #undef FETCH_BLOCK
 }
 
+
 static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
@@ -2215,11 +2216,13 @@ static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                u = (u + (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15);
+                u = ((u + (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE)) / 2) +
+                    (1 << 15);
                 *d++ = CLAMP_LIMITED_CBCR(u, 16);
                 y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
                 *d++ = CLAMP_LIMITED_Y(y, 16);
-                v = (v + (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15);
+                v = ((v + (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE)) / 2) +
+                    (1 << 15);
                 *d++ = CLAMP_LIMITED_CBCR(v, 16);
         }
 }
