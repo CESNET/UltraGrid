@@ -171,85 +171,83 @@ static char *ndi_disp_format_video_metadata(void)
         return out;
 }
 
-#define BEGIN_TRY int ret = 0; do
-#define END_TRY while(0);
-#define THROW(x) ret = (x); break;
-#define COMMON
-#define CATCH(x) if (ret == (x))
-#define FAIL (-1)
-#define HELP_SHOWN 1
+static bool
+parse_fmt(struct display_ndi *s, char *fmt, const char **ndi_name)
+{
+        char *item     = NULL;
+        char *save_ptr = NULL;
+
+        while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                if (strstr(item, "audio_level=") != NULL) {
+                        char *val = item + strlen("audio_level=");
+                        if (strcasecmp(val, "mic") == 0) {
+                                s->audio_level = 0;
+                        } else if (strcasecmp(val, "line") == 0) {
+                                s->audio_level = 20; // NOLINT
+                        } else {
+                                char *endptr  = NULL;
+                                long  val_num = strtol(val, &endptr, 0);
+                                if (val_num < 0 || val_num >= INT_MAX ||
+                                    *val == '\0' || *endptr != '\0') {
+                                        MSG(ERROR, "Wrong value: %s!\n", val);
+                                        return false;
+                                }
+                                s->audio_level = val_num; // NOLINT
+                        }
+                } else if (strstr(item, "name=") != NULL) {
+                        *ndi_name = item + strlen("name=");
+                } else {
+                        MSG(ERROR, "Unknown option: %s!\n", item);
+                        return false;
+                }
+                fmt = NULL;
+        }
+
+        return true;
+}
+
 static void *display_ndi_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
         UNUSED(parent);
         NDI_PRINT_COPYRIGHT();
 
-        char *fmt_copy = NULL;
+        if (strcmp(fmt, "help") == 0) {
+                usage();
+                return INIT_NOERR;
+        }
+
         struct display_ndi *s = calloc(1, sizeof(struct display_ndi));
         s->audio_level = DEFAULT_AUDIO_LEVEL;
 
-        BEGIN_TRY {
-                fmt_copy = strdup(fmt);
-                assert(fmt_copy != NULL);
+        char fmt_copy[STR_LEN];
+        snprintf_ch(fmt_copy, "%s", fmt);
+        const char *ndi_name = NULL;
+        parse_fmt(s, fmt_copy, &ndi_name);
 
-                const char *ndi_name = NULL;
-                char *tmp = fmt_copy, *item, *save_ptr;
-                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (strcmp(item, "help") == 0) {
-                                usage();
-                                THROW(HELP_SHOWN);
-                        }
-                        if (strstr(item, "audio_level=") != NULL) {
-                                char *val = item + strlen("audio_level=");
-                                if (strcasecmp(val, "mic") == 0) {
-                                        s->audio_level = 0;
-                                } else if (strcasecmp(val, "line") == 0) {
-                                        s->audio_level = 20; // NOLINT
-                                } else {
-                                        char *endptr = NULL;
-                                        long val_num = strtol(val, &endptr, 0);
-                                        if (val_num < 0 || val_num >= INT_MAX || *val == '\0' || *endptr != '\0') {
-                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value: %s!\n", val);
-                                                THROW(FAIL);
-                                        }
-                                        s->audio_level = val_num; // NOLINT
-                                }
-                        } else if (strstr(item, "name=") != NULL) {
-                                ndi_name = item + strlen("name=");
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
-                                THROW(FAIL);
-                        }
-                        tmp = NULL;
-                }
-
-                s->NDIlib = NDIlib_load(&s->lib);
-                if (s->NDIlib == NULL) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open NDI library!\n");
-                        THROW(FAIL);
-                }
-
-                printf("%s\n", s->NDIlib->version());
-
-                if (!s->NDIlib->initialize()) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize NDI library!\n");
-                        THROW(FAIL);
-                }
-
-                NDIlib_send_create_t NDI_send_create_desc = { .p_ndi_name = ndi_name, .p_groups = NULL, .clock_video = false, .clock_audio = false };
-                s->pNDI_send = s->NDIlib->send_create(&NDI_send_create_desc);
-                if (s->pNDI_send == NULL) {
-                        THROW(FAIL);
-                }
-        } END_TRY
-        COMMON {
-                free(fmt_copy);
-        }
-        CATCH(HELP_SHOWN) {
+        s->NDIlib = NDIlib_load(&s->lib);
+        if (s->NDIlib == NULL) {
+                MSG(ERROR, "Cannot open NDI library!\n");
                 free(s);
-                return INIT_NOERR;
+                return NULL;
         }
-        CATCH(FAIL) {
+
+        printf("%s\n", s->NDIlib->version());
+
+        if (!s->NDIlib->initialize()) {
+                MSG(ERROR, "Cannot initialize NDI library!\n");
+                free(s);
+                return NULL;
+        }
+
+        const NDIlib_send_create_t NDI_send_create_desc = {
+                .p_ndi_name  = ndi_name,
+                .p_groups    = NULL,
+                .clock_video = false,
+                .clock_audio = false
+        };
+        s->pNDI_send = s->NDIlib->send_create(&NDI_send_create_desc);
+        if (s->pNDI_send == NULL) {
                 free(s);
                 return NULL;
         }
