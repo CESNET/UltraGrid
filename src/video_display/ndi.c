@@ -305,12 +305,12 @@ static void ndi_disp_convert_Y416_to_PA16(const struct video_frame *f, char *out
         for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
                 unsigned int width = f->tiles[0].width;
                 OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
-                        *out_a++ = in[0];
+                        *out_cb_cr++ = (in[0] + in[4]) / 2;
                         *out_y++ = in[1];
                         *out_cb_cr++ = (in[2] + in[6]) / 2;
-                        *out_a++ = in[4];
+                        *out_a++ = in[3];
                         *out_y++ = in[5];
-                        *out_cb_cr++ = (in[3] + in[7]) / 2;
+                        *out_a++ = in[7];
                         in += 8;
                 }
         }
