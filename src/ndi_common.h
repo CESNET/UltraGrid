@@ -49,7 +49,8 @@
 #include "compat/dlfunc.h"
 #include "debug.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // MAX, MERGE, TOSTRING
+#include "utils/fs.h"       // for MAX_PATH_SIZE
+#include "utils/macros.h"   // for MAX, MERGE, TOSTRING, snprintf_ch
 
 #ifndef USE_NDI_VERSION
 #define USE_NDI_VERSION 6
@@ -75,6 +76,7 @@ typedef MAKE_NDI_LIB_NAME(NDI_API_VERSION) NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
 
 static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
+        char ndi_path[MAX_PATH_SIZE];
 #ifdef _WIN32
         // We check whether the NDI run-time is installed
         const char* p_ndi_runtime = getenv(NDILIB_REDIST_FOLDER);
@@ -87,11 +89,7 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         }
 
         // We now load the DLL as it is installed
-        const size_t path_len = strlen(p_ndi_runtime) + 2 + strlen(NDILIB_LIBRARY_NAME) + 1;
-        char *ndi_path = (char *)alloca(path_len);
-        strncpy(ndi_path, p_ndi_runtime, path_len - 1);
-        strncat(ndi_path, "\\", path_len - strlen(ndi_path) - 1);
-        strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
+        snprintf_ch(ndi_path, "%s\\%s", p_ndi_runtime, NDILIB_LIBRARY_NAME);
 
         // Try to load the library
         HMODULE hNDILib = LoadLibraryA(ndi_path);
@@ -123,13 +121,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                         log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n",
                                 lib_cand[i]);
                 }
-                size_t path_len = strlen(lib_cand[i]) + 1 + strlen(NDILIB_LIBRARY_NAME) + 1;
-                char *ndi_path = (char *)alloca(path_len);
-                strncpy(ndi_path, lib_cand[i], path_len - 1);
-                if (strlen(ndi_path) > 0) {
-                        strncat(ndi_path, "/", path_len - strlen(ndi_path) - 1);
-                }
-                strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
+                snprintf_ch(ndi_path, "%s%s%s", lib_cand[i],
+                            strlen(lib_cand[i]) > 0 ? "/" : "",
+                            NDILIB_LIBRARY_NAME);
                 // Try to load the library
                 hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
                 if (hNDILib) {
