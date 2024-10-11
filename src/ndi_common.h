@@ -86,6 +86,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                         "[NDI] " NDILIB_REDIST_FOLDER " environment variable not defined. "
                         "Trying fallback folder: %s\n",
                         FALLBACK_NDI_PATH);
+        } else {
+                debug_msg("NDILIB_REDIST_FOLDER env set to %s\n",
+                          p_ndi_runtime);
         }
 
         // We now load the DLL as it is installed
@@ -159,6 +162,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                 return 0;
         }
 #endif
+        verbose_msg("NDI lib loaded from %s - open: %s, load: %s\n", ndi_path,
+                    hNDILib == NULL ? "NOK" : "OK",
+                    NDIlib_load == NULL ? "NOK" : "OK");
         const NDIlib_t *ret = NDIlib_load();
         if (ret == NULL) {
                 dlclose(hNDILib);
