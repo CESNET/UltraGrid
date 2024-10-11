@@ -3134,10 +3134,15 @@ if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
 fi
 
 if test $ndi_req != no; then
+        S_CPATH=$CPATH
+        if test -n "$NDI_SDK_DIR"; then
+                CPATH="$CPATH;$NDI_SDK_DIR/Include"
+                export CPATH
+        fi
         AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
+        CPATH=$S_CPATH
 
-        # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
-        if test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows )
+        if test "$FOUND_NDI_H" = yes
         then
                 if test -n "$NDI_SDK_DIR" && test $system = Windows; then
                         COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
