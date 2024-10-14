@@ -57,7 +57,7 @@
 #include "ndi_common.h"
 #include "types.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // OPTIMIZED_FOR
+#include "utils/macros.h"     // for ARR_COUNT, OPTIMIZED_FOR
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"
@@ -95,35 +95,40 @@ static void display_ndi_probe(struct device_info **available_cards, int *count, 
         *deleter = free;
 }
 
-static const struct {
+static const struct mapping {
         codec_t ug_codec;
+        int stride_per_pixel;
         NDIlib_FourCC_video_type_e ndi_fourcc;
         ndi_disp_convert_t *convert;
 } codec_mapping[] = {
-        { RGBA, NDIlib_FourCC_type_RGBA, NULL },
-        { UYVY, NDIlib_FourCC_type_UYVY, NULL },
-        { I420, NDIlib_FourCC_video_type_I420, NULL },
-        { Y216, NDIlib_FourCC_type_P216, ndi_disp_convert_Y216_to_P216 },
-        { Y416, NDIlib_FourCC_type_PA16, ndi_disp_convert_Y416_to_PA16 },
+        { RGBA, 4, NDIlib_FourCC_type_RGBA,       NULL                          },
+        { UYVY, 2, NDIlib_FourCC_type_UYVY,       NULL                          },
+        { I420, 1, NDIlib_FourCC_video_type_I420, NULL                          },
+        { Y216, 2, NDIlib_FourCC_type_P216,       ndi_disp_convert_Y216_to_P216 },
+        { Y416, 2, NDIlib_FourCC_type_PA16,       ndi_disp_convert_Y416_to_PA16 },
 };
 
 static bool display_ndi_reconfigure(void *state, struct video_desc desc)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
+        const struct mapping *m = NULL;
+        for (size_t i = 0; i < ARR_COUNT(codec_mapping); ++i) {
+                if (codec_mapping[i].ug_codec == desc.color_spec) {
+                        m = &codec_mapping[i];
+                }
+        }
+        assert(m != NULL);
+
         s->desc = desc;
         free(s->convert_buffer);
         s->convert_buffer = malloc(MAX_BPS * desc.width * desc.height + MAX_PADDING);
+        s->convert = m->convert;
 
         s->NDI_video_frame.xres = s->desc.width;
         s->NDI_video_frame.yres = s->desc.height;
-        for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
-                if (codec_mapping[i].ug_codec == desc.color_spec) {
-                        s->NDI_video_frame.FourCC = codec_mapping[i].ndi_fourcc;
-                        s->convert = codec_mapping[i].convert;
-                }
-        }
-        assert(s->NDI_video_frame.FourCC != 0);
+        s->NDI_video_frame.line_stride_in_bytes = s->desc.width * m->stride_per_pixel;
+        s->NDI_video_frame.FourCC = m->ndi_fourcc;
         s->NDI_video_frame.frame_rate_N = get_framerate_n(desc.fps);
         s->NDI_video_frame.frame_rate_D = get_framerate_d(desc.fps);
         s->NDI_video_frame.frame_format_type = desc.interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
