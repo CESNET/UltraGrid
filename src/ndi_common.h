@@ -70,7 +70,11 @@
 // redist NDI for Apple uses /usr/local/lib, which is tried prior to this path
 #define FALLBACK_NDI_PATHS "/usr/local/lib", "/Library/NDI SDK for Apple/Lib/macOS"
 #else
-#define FALLBACK_NDI_PATHS "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
+#define FALLBACK_NDI_PATHS \
+        "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) \
+            " Runtime\\v" TOSTRING(USE_NDI_VERSION), \
+        "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) \
+            " Tools\\Runtime",
 #endif
 #define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(NDI_API_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
