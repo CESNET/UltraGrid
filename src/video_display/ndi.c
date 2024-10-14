@@ -261,6 +261,9 @@ static void display_ndi_done(void *state)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
+        // wait for the async frame to be processed
+        s->NDIlib->send_send_video_async_v2(s->pNDI_send, NULL);
+
         s->NDIlib->send_destroy(s->pNDI_send);
         free(s->convert_buffer);
         s->NDIlib->destroy();
@@ -335,7 +338,8 @@ static bool display_ndi_putf(void *state, struct video_frame *frame, long long f
                 return true;
         }
 
-        s->NDIlib->send_send_video_v2(s->pNDI_send, NULL); // wait for the async frame to be processed
+        // wait for the async frame to be processed
+        s->NDIlib->send_send_video_async_v2(s->pNDI_send, NULL);
         vf_free(s->send_frame);
         s->send_frame = NULL;
 
