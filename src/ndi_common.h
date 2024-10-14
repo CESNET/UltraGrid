@@ -68,7 +68,9 @@
 #define FALLBACK_NDI_PATHS "/usr/local/lib", "/usr/lib"
 #elif defined __APPLE__
 // redist NDI for Apple uses /usr/local/lib, which is tried prior to this path
-#define FALLBACK_NDI_PATHS "/usr/local/lib", "/Library/NDI SDK for Apple/Lib/macOS"
+#define FALLBACK_NDI_PATHS \
+        "/usr/local/lib", "/Library/NDI SDK for Apple/Lib/macOS", \
+            "/Applications/NDI Launcher.app/Contents/Frameworks/"
 #else
 #define FALLBACK_NDI_PATHS \
         "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) \
