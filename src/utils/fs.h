@@ -43,9 +43,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #define MAX_PATH_SIZE (MAX_PATH + 1)
+#define PATH_SEPARATOR "\\"
 #else
 #include <limits.h>
 #define MAX_PATH_SIZE PATH_MAX
+#define PATH_SEPARATOR "/"
 #endif
 
 #ifdef __cplusplus
