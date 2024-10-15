@@ -338,14 +338,28 @@ static void skip_marker_content(uint8_t** image)
         *image += length - 2;
 }
 
-static int read_sof0(struct jpeg_info *param, uint8_t** image)
+static int
+read_sof0(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
-        int length = (int)read_2byte(*image);
-        if ( length < 6 ) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] SOF0 marker length should be greater than 6 but %d was presented!\n", length);
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read SOF0 size (end of data)\n");
+                return -1;
+        }
+
+        int length = (int) read_2byte(*image);
+        if (length < 8) {
+                MSG(ERROR,
+                    "SOF0 marker length should be greater than 8 but %d was "
+                    "presented!\n",
+                    length);
                 return -1;
         }
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "SOF0 goes beyond end of data\n");
+                return -1;
+        }
 
         int precision = (int)read_byte(*image);
         if ( precision != 8 ) {
@@ -507,22 +521,28 @@ static int read_com(struct jpeg_info *param, uint8_t** image) {
         return 0;
 }
 
-static int read_sos(struct jpeg_info *param, uint8_t** image)
+static int
+read_sos(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
-        int length = (int)read_2byte(*image);
-        length -= 2;
-
-        if (length == 0) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
+        if (*image + 3 > image_end) {
+                MSG(ERROR, "SOS goes beyond end of data\n");
                 return -1;
         }
-        int comp_count = (int)read_byte(*image);
+
+        const int length     = (int) read_2byte(*image);
+        const int comp_count = (int) read_byte(*image);
+        if (length != comp_count * 2 + 6) {
+                MSG(ERROR, "Wrong SOS length (expected %d, got %d)\n",
+                    comp_count * 2 + 6, length);
+                return -1;
+        }
+        if (*image + length - 3 > image_end) {
+                MSG(ERROR, "SOS goes beyond end of data\n");
+                return -1;
+        }
+
         if ( comp_count != param->comp_count ) {
                 param->interleaved = false;
-        }
-        if (length < 1 + comp_count * 2 + 3) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
-                return -1;
         }
 
         // Collect the component-spec parameters
@@ -790,7 +810,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                 switch (marker)
                 {
                         case JPEG_MARKER_SOF0: // Baseline
-                                if ((rc = read_sof0(info, &image)) != 0) {
+                                if ((rc = read_sof0(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading SOF0!\n");
                                         return rc;
                                 }
@@ -838,7 +858,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         case JPEG_MARKER_SOS:
-                                if ((rc = read_sos(info, &image)) != 0) {
+                                if ((rc = read_sos(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading SOS!\n");
                                         return rc;
                                 }
