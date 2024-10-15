@@ -371,6 +371,17 @@ read_sof0(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
         param->width = (int)read_2byte(*image);
         param->comp_count = (int)read_byte(*image);
         length -= 6;
+        if (param->comp_count == 0) {
+                MSG(ERROR, "SOF0 has 0 components!\n");
+                return -1;
+        }
+        if (param->comp_count > JPEG_MAX_COMPONENT_COUNT) {
+                MSG(ERROR,
+                    "SOF0 has %d components but JPEG can contain at most %d "
+                    "components\n",
+                    param->comp_count, (int) JPEG_MAX_COMPONENT_COUNT);
+                return -1;
+        }
 
         for ( int comp = 0; comp < param->comp_count; comp++ ) {
                 int index = (int)read_byte(*image);
@@ -385,7 +396,7 @@ read_sof0(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 
                 int table_index = (int)read_byte(*image);
                 if (table_index > 3) {
-                        MSG(VERBOSE,
+                        MSG(ERROR,
                             "SOF0 marker contains unexpected quantization "
                             "table index %d!\n",
                             table_index);
@@ -578,6 +589,17 @@ read_sos(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
         }
         if (*image + length - 3 > image_end) {
                 MSG(ERROR, "SOS goes beyond end of data\n");
+                return -1;
+        }
+        if (comp_count == 0) {
+                MSG(ERROR, "SOS has 0 components!\n");
+                return -1;
+        }
+        if (comp_count > param->comp_count) {
+                MSG(ERROR,
+                    "Segment contains %d components but the JPEG has only %d "
+                    "components\n",
+                    comp_count, param->comp_count);
                 return -1;
         }
 
