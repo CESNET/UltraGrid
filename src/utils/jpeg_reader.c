@@ -766,7 +766,7 @@ read_adobe_app14(struct jpeg_info *param, uint8_t **image,
                 return -1;
         }
 
-        int length = read_2byte(*image);
+        const int length = read_2byte(*image);
 
         if (length - 2 > image_end - *image) {
                 MSG(ERROR, "Adobe APP14 goes beyond end of data\n");
@@ -783,7 +783,8 @@ read_adobe_app14(struct jpeg_info *param, uint8_t **image,
         adobe[2] = read_byte(*image);
         adobe[3] = read_byte(*image);
         adobe[4] = read_byte(*image);
-        if (strcmp(adobe, "Adobe") != 0) { // not an Adobe APP14 marker
+        adobe[5] = read_byte(*image);
+        if (memcmp(adobe, "Adobe", 6) != 0) { // not an Adobe APP14 marker
                 return 0;
         }
 
