@@ -302,28 +302,17 @@ color_space_get_name(enum jpeg_color_spec color_space)
     return "Unknown";
 }
 
-static int read_marker(uint8_t** image)
-{
-        uint8_t byte = read_byte(*image);
-        if( byte != 0xFF ) {
-                return -1;
-        }
-        int marker = read_byte(*image);
-        return marker;
-}
-
-///< new bound-checking version of read_marker() as used by GPUJPEG
 static int
-read_marker_new(uint8_t** image, const uint8_t* image_end)
+read_marker(uint8_t** image, const uint8_t* image_end)
 {
     if(image_end - *image < 2) {
-        fprintf(stderr, "[GPUJPEG] [Error] Failed to read marker from JPEG data (end of data)\n");
+        MSG(ERROR, "Failed to read marker from JPEG data (end of data)\n");
         return -1;
     }
 
     uint8_t byte = read_byte(*image);
     if( byte != 0xFF ) {
-        fprintf(stderr, "[Error] Failed to read marker from JPEG data (0xFF was expected but 0x%X was presented)\n", byte);
+        MSG(ERROR, "Failed to read marker from JPEG data (0xFF was expected but 0x%X was presented)\n", byte);
         return -1;
     }
     int marker = read_byte(*image);
@@ -659,7 +648,7 @@ read_spiff_directory(uint8_t** image, const uint8_t* image_end, int length, _Boo
     uint32_t tag = read_4byte(*image);
     debug_msg("Read SPIFF tag 0x%x with length %d.\n", tag, length + 2);
     if (tag == SPIFF_ENTRY_TAG_EOD && length == SPIFF_ENTRY_TAG_EOD_LENGHT - 2) {
-        int marker_soi = read_marker_new(image, image_end);
+        int marker_soi = read_marker(image, image_end);
         if ( marker_soi != JPEG_MARKER_SOI ) {
             verbose_msg("SPIFF entry 0x1 should be followed directly with SOI.\n");
             return -1;
@@ -764,15 +753,14 @@ static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
 int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
 {
         uint8_t *image_start = image;
+        const uint8_t *image_end = image + len;
 
         // Check first SOI marker
-        int marker_soi = read_marker(&image);
+        int marker_soi = read_marker(&image, image_end);
         if (marker_soi != JPEG_MARKER_SOI) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] JPEG data should begin with SOI marker, but marker %s was found!\n", jpeg_marker_name((enum jpeg_marker_code)marker_soi));
                 return -1;
         }
-
-        const uint8_t *image_end = image + len;
 
         info->huff_lum_dc[0] = 255;
         info->huff_lum_ac[0] = 255;
@@ -790,7 +778,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         while (!marker_present[JPEG_MARKER_EOI] && !marker_present[JPEG_MARKER_SOS]
                         && image < image_start + len) {
                 // Read marker
-                int marker = read_marker(&image);
+                int marker = read_marker(&image, image_end);
                 if ( marker == 0) { // not a marker (byte stuffing)
                         continue;
                 }
