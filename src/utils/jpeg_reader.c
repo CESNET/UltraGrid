@@ -319,12 +319,23 @@ read_marker(uint8_t** image, const uint8_t* image_end)
     return marker;
 }
 
-
-static void skip_marker_content(uint8_t** image)
+static int
+skip_marker_content(uint8_t** image, const uint8_t* image_end)
 {
-        int length = (int)read_2byte(*image);
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Failed to skip marker content (end of data)\n");
+                return -1;
+        }
 
-        *image += length - 2;
+        int length = (int) read_2byte(*image);
+        length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "Marker content goes beyond data size\n");
+                return -1;
+        }
+        *image += length;
+        return 0;
 }
 
 static int
@@ -393,8 +404,14 @@ read_sof0(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
         return 0;
 }
 
-static int read_dri(struct jpeg_info *param, uint8_t** image)
+static int
+read_dri(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 4) {
+                MSG(ERROR, "Could not read DRI (end of data)\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         if ( length != 4 ) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DRI marker length should be 4 but %d was presented!\n", length);
@@ -405,10 +422,21 @@ static int read_dri(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_dht(struct jpeg_info *param, uint8_t** image)
+static int
+read_dht(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read DHT size (end of data)\n");
+                return -1;
+        }
+
 	int length = (int)read_2byte(*image);
 	length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "DHT goes beyond end of data\n");
+                return -1;
+        }
 
 	while (length > 0) {
 		int index = read_byte(*image);
@@ -459,11 +487,21 @@ static int read_dht(struct jpeg_info *param, uint8_t** image)
 	return 0;
 }
 
-
-static int read_dqt(struct jpeg_info *param, uint8_t** image)
+static int
+read_dqt(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read dqt length\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "DQT marker goes beyond end of data\n");
+                return -1;
+        }
 
         if ( (length % 65) != 0 ) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DQT marker length should be 65 but %d was presented!\n", length);
@@ -496,9 +534,22 @@ static int read_dqt(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_com(struct jpeg_info *param, uint8_t** image) {
+static int
+read_com(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
+{
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read com length\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "COM goes beyond end of data\n");
+                return -1;
+        }
+
 
         for (int i = 0; i < length; ++i) {
                 param->com[i] = read_byte(*image);
@@ -706,10 +757,22 @@ read_app8(uint8_t** image, const uint8_t* image_end, enum jpeg_color_spec *color
     return read_spiff_header(image, color_space, in_spiff);
 }
 
-
-static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
+static int
+read_adobe_app14(struct jpeg_info *param, uint8_t **image,
+                 const uint8_t *image_end)
 {
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read Adobe APP14 length\n");
+                return -1;
+        }
+
         int length = read_2byte(*image);
+
+        if (length - 2 > image_end - *image) {
+                MSG(ERROR, "Adobe APP14 goes beyond end of data\n");
+                return -1;
+        }
+
         if (length != 14) { // not an Adobe APP14 marker
                 return 0;
         }
@@ -805,28 +868,28 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         case JPEG_MARKER_DHT:
-                                if ((rc = read_dht(info, &image)) != 0) {
+                                if ((rc = read_dht(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DQT!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_DQT:
-                                if ((rc = read_dqt(info, &image)) != 0) {
+                                if ((rc = read_dqt(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DQT!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_DRI:
-                                if ((rc = read_dri(info, &image)) != 0) {
+                                if ((rc = read_dri(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DRI!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_COM:
-                                if ((rc = read_com(info, &image)) != 0) {
+                                if ((rc = read_com(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading COM!\n");
                                         return rc;
                                 }
@@ -839,7 +902,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         case JPEG_MARKER_APP14:
-                                if ((rc = read_adobe_app14(info, &image)) != 0) {
+                                if ((rc = read_adobe_app14(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading APP14!\n");
                                         return rc;
                                 }
@@ -868,7 +931,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         default:
-                                skip_marker_content(&image);
+                                skip_marker_content(&image, image_end);
                                 break;
                 }
         }
