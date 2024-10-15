@@ -24,7 +24,7 @@ sudo apt install libsoxr-dev libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libcaca-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
 sudo apt install libopencv-core-dev libopencv-imgproc-dev
-sudo apt install libcurl4-nss-dev
+sudo apt install libcurl4-openssl-dev # for RTSP client (vidcap)
 sudo apt install i965-va-driver-shaders libva-dev # instead of i965-va-driver
 sudo apt-mark hold libva2
 sudo apt install uuid-dev # Cineform
