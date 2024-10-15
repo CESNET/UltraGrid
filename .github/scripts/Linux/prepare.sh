@@ -10,7 +10,14 @@ printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 git config --global user.name "UltraGrid Builder"
 git config --global user.email "ultragrid@example.org"
 
-sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
+# add deb-src for build-dep ffmpeg
+if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then # deb822 (new) format
+        sudo sed -i 's/Types: deb/Types: deb deb-src/' \
+                /etc/apt/sources.list.d/ubuntu.sources
+else # one-line-style (old) format
+        sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list |
+                sudo tee /etc/apt/sources.list.d/sources.list
+fi
 sudo apt update
 sudo apt install appstream `# appstreamcli for mkappimage AppStream validation` \
         asciidoc
