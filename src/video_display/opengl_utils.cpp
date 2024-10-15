@@ -236,7 +236,6 @@ Texture::~Texture(){
                 return;
 
         glDeleteTextures(1, &tex_id);
-        glDeleteBuffers(1, &pbo);
 }
 
 void Texture::allocate(int w, int h, GLint internal_fmt) {
@@ -299,7 +298,6 @@ void Texture::allocate(){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glGenBuffers(1, &pbo);
 }
 
 

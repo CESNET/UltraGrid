@@ -191,15 +191,12 @@ public:
                 std::swap(width, o.width);
                 std::swap(height, o.height);
                 std::swap(internal_format, o.internal_format);
-                std::swap(pbo, o.pbo);
         }
 private:
         GLuint tex_id = 0;
         int width = 0;
         int height = 0;
         GLint internal_format = 0;
-
-        GLuint pbo = 0;
 };
 
 /**
