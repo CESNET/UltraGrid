@@ -390,8 +390,8 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
         if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
                         playout_buf->expected_pkts > 0) {
                 // print stats
-                double loss_pct = (double) playout_buf->received_pkts /
-                        playout_buf->expected_pkts * 100.0;
+                const double recv_pct = (double) playout_buf->received_pkts /
+                                        playout_buf->expected_pkts * 100.0;
                 char oo_dups_str[1024];
                 oo_dups_str[0] = '\0';
                 if (playout_buf->out_of_order_pkts > 0) {
@@ -401,7 +401,7 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                         snprintf(oo_dups_str + strlen(oo_dups_str), sizeof oo_dups_str - strlen(oo_dups_str), ", %d dups", playout_buf->dups);
                 }
                 log_msg(LOG_LEVEL_INFO, "SSRC 0x%08" PRIx32 ": %d/%d packets received (%s%.4f%%" TERM_FG_RESET "), %d lost, max loss %d%s\n",
-                                pkt->ssrc, playout_buf->received_pkts, playout_buf->expected_pkts, (loss_pct < 100.0 ? TERM_FG_RED : ""), loss_pct,
+                                pkt->ssrc, playout_buf->received_pkts, playout_buf->expected_pkts, (recv_pct < 100.0 ? TERM_FG_RED : ""), recv_pct,
                                 playout_buf->expected_pkts - playout_buf->received_pkts, playout_buf->longest_gap, oo_dups_str);
 
                 if (playout_buf->max_out_of_order_dist >= playout_buf->stats_interval) {
