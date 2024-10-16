@@ -1,31 +1,30 @@
-From 6ae7d9c9902e0cb2c750cfb0e7d6842bca7076f2 Mon Sep 17 00:00:00 2001
+From 2e211a6d63db7a4c9232cfd9dc60553c563d6c64 Mon Sep 17 00:00:00 2001
 From: Martin Pulec <martin.pulec@cesnet.cz>
-Date: Fri, 20 Jan 2023 12:52:11 +0000
+Date: Wed, 16 Oct 2024 09:10:12 +0200
 Subject: [PATCH] removed bits incompatible with old vaapi
 
 ---
- libavcodec/vaapi_encode_h265.c | 7 -------
- 1 file changed, 7 deletions(-)
+ libavcodec/vaapi_encode_h265.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
 diff --git a/libavcodec/vaapi_encode_h265.c b/libavcodec/vaapi_encode_h265.c
-index 00f0b09e..088b87b4 100644
+index bb1944c505..e84c27611c 100644
 --- a/libavcodec/vaapi_encode_h265.c
 +++ b/libavcodec/vaapi_encode_h265.c
-@@ -707,10 +707,6 @@ static int vaapi_encode_h265_init_sequence_params(AVCodecContext *avctx)
+@@ -393,9 +393,6 @@ static int vaapi_encode_h265_init_sequence_params(AVCodecContext *avctx)
  
          .vui_parameters_present_flag = 0,
  
 -        .scc_fields.bits = {
 -            .palette_mode_enabled_flag = sps->palette_mode_enabled_flag,
 -        }
--
      };
  
      *vpic = (VAEncPictureParameterBufferHEVC) {
-@@ -764,9 +760,6 @@ static int vaapi_encode_h265_init_sequence_params(AVCodecContext *avctx)
+@@ -448,9 +445,6 @@ static int vaapi_encode_h265_init_sequence_params(AVCodecContext *avctx)
+             .enable_gpu_weighted_prediction = 0,
              .no_output_of_prior_pics_flag   = 0,
          },
- 
 -        .scc_fields.bits = {
 -            .pps_curr_pic_ref_enabled_flag = pps->pps_curr_pic_ref_enabled_flag,
 -        }
@@ -33,5 +32,5 @@ index 00f0b09e..088b87b4 100644
  
      if (pps->tiles_enabled_flag) {
 -- 
-2.17.1
+2.47.0
 
