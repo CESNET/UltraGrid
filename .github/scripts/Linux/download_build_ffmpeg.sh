@@ -48,7 +48,8 @@ install_onevpl() {(
 )}
 
 rm -rf /var/tmp/ffmpeg
-git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
+git clone --depth $FFMPEG_GIT_DEPTH https://github.com/FFmpeg/FFmpeg.git \
+        /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
 # apply Intel patches
 git clone https://github.com/intel/cartwheel-ffmpeg.git
