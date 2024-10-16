@@ -53,17 +53,20 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "rtp/pbuf.h"
 
+#include <assert.h>           // for assert, static_assert
 #include <inttypes.h>
+#include <limits.h>           // for CHAR_BIT, ULLONG_MAX
+#include <stdbool.h>          // for bool
+#include <stddef.h>           // for size_t
+#include <stdint.h>           // for uint16_t
+#include <stdio.h>            // for snprintf
+#include <stdlib.h>           // for free, calloc, malloc, abs
+#include <string.h>           // for strlen
 
 #include "debug.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
-#include "rtp/ptime.h"
-#include "rtp/pbuf.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
@@ -552,10 +555,7 @@ static int frame_complete(struct pbuf_node *frame)
 
 int pbuf_is_empty(struct pbuf *playout_buf)
 {
-        if (playout_buf->frst == NULL)
-                return TRUE;
-        else
-                return FALSE;
+        return playout_buf->frst == NULL;
 }
 
 int

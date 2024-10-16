@@ -59,7 +59,17 @@
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
 
+#ifdef __cplusplus
+#include <cstddef>        // for size_t
+#include <cstdint>        // for uint16_t
+#else
+#include <stdbool.h>      // for bool
+#include <stddef.h>       // for size_t
+#include <stdint.h>       // for uint16_t
+#endif
+
 #include "audio/types.h"
+#include "compat/net.h"   // for sockaddr_storage
 #include "rtp/rtp.h"
 #include "tv.h"
 
@@ -82,8 +92,6 @@ struct pbuf_stats {
 
 /* The playout buffer */
 struct pbuf;
-struct state_decoder;
-struct state_audio_decoder;
 
 /**
  * This struct is used to pass data between decoder and receiver.

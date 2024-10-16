@@ -60,12 +60,13 @@
  * $Date: 2009/12/11 15:29:39 $
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "debug.h"
-#include "rtp/rtp.h"            /* Needed by pbuf.h */
 #include "rtp/pbuf.h"
+
+#include <assert.h>    // for assert
+#include <stdlib.h>    // for NULL, free, malloc
+
+#include "config.h"    // for DEBUG
+#include "debug.h"
 #include "tfrc.h"
 #include "pdb.h"
 
