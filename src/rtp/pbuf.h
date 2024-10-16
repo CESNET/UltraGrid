@@ -12,7 +12,7 @@
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  * 
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -120,7 +120,7 @@ typedef int decode_frame_t(struct coded_data *cdata, void *decode_data, struct p
 /* 
  * External interface:
  */
-struct pbuf	*pbuf_init(volatile int *delay_ms);
+struct pbuf     *pbuf_init(const char *stream_id, volatile int *delay_ms);
 void             pbuf_destroy(struct pbuf *);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_is_empty(struct pbuf *playout_buf);

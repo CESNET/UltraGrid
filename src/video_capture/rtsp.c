@@ -612,7 +612,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.mcast_if = NULL;
     s->vrtsp_state.required_connections = 1;
 
-    s->vrtsp_state.participants = pdb_init(0);
+    s->vrtsp_state.participants = pdb_init("rtsp", 0);
 
     s->vrtsp_state.decode_data.offset_len = 0;
 

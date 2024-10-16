@@ -333,7 +333,7 @@ int audio_init(struct state_audio **ret,
         
         assert(opt->host != nullptr);
         tmp = strdup(opt->host);
-        s->audio_participants = pdb_init(&audio_offset);
+        s->audio_participants = pdb_init("audio", &audio_offset);
         addr = strtok_r(tmp, ",", &unused);
         assert(addr != nullptr);
 
