@@ -202,23 +202,23 @@ private:
 /**
  * RAII wrapper for an OpenGL framebuffer object
  */
-class Framebuffer{
+class Gl_framebuffer{
 public:
         /**
          * Constructs a new framebuffer object
          */
-        Framebuffer(){
+        Gl_framebuffer(){
                 glGenFramebuffers(1, &fbo);
         }
 
-        ~Framebuffer(){
+        ~Gl_framebuffer(){
                 glDeleteFramebuffers(1, &fbo);
         }
 
-        Framebuffer(const Framebuffer&) = delete;
-        Framebuffer(Framebuffer&& o) { swap(o); }
-        Framebuffer& operator=(const Framebuffer&) = delete;
-        Framebuffer& operator=(Framebuffer&& o) { swap(o); return *this; }
+        Gl_framebuffer(const Gl_framebuffer&) = delete;
+        Gl_framebuffer(Gl_framebuffer&& o) { swap(o); }
+        Gl_framebuffer& operator=(const Gl_framebuffer&) = delete;
+        Gl_framebuffer& operator=(Gl_framebuffer&& o) { swap(o); return *this; }
 
         /**
          * Returns the underlying OpenGL framebuffer id
@@ -242,7 +242,7 @@ public:
         }
 
 private:
-        void swap(Framebuffer& o){
+        void swap(Gl_framebuffer& o){
                 std::swap(fbo, o.fbo);
         }
 

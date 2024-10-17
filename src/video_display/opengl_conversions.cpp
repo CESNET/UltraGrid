@@ -161,7 +161,7 @@ protected:
 
         GlProgram program;
         Model quad;
-        Framebuffer fbuf;
+        Gl_framebuffer fbuf;
         GLint width_uniform_location = -1;
         Texture input_tex;
 };
