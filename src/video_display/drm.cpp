@@ -329,7 +329,7 @@ struct Drm_state {
         drmModeModeInfoPtr mode_info;
 };
 
-struct Framebuffer{
+struct Drm_framebuffer{
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t pitch = 0;
@@ -359,10 +359,10 @@ struct drm_display_state {
 
         Drm_state drm;
 
-        Framebuffer splashscreen;
+        Drm_framebuffer splashscreen;
 
-        Framebuffer back_buffer;
-        Framebuffer front_buffer;
+        Drm_framebuffer back_buffer;
+        Drm_framebuffer front_buffer;
 
         Drm_prime_fb drm_prime_fb;
 
@@ -700,8 +700,8 @@ static bool setup_crtc(drm_display_state *s){
         return true;
 }
 
-static Framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_fmt){
-        Framebuffer buf;
+static Drm_framebuffer create_dumb_fb(int dri, int width, int height, uint32_t pix_fmt){
+        Drm_framebuffer buf;
 
         //TODO: Currently pix_fmt is assumed to be single plane and 32 bpp
 
@@ -785,7 +785,7 @@ static void draw_splash(drm_display_state *s){
         }
 }
 
-static void draw_frame(Framebuffer *dst, video_frame *src, bool center = true){
+static void draw_frame(Drm_framebuffer *dst, video_frame *src, bool center = true){
         auto dst_p = static_cast<char *>(dst->map.get());
         auto src_p = static_cast<char *>(src->tiles[0].data);
 
@@ -822,7 +822,7 @@ static bool drm_format_supported(drm_display_state *s, uint32_t fmt){
         return s->drm.supported_drm_formats.find(fmt) != s->drm.supported_drm_formats.end();
 }
 
-static Framebuffer get_splash_fb(drm_display_state *s, int width, int height){
+static Drm_framebuffer get_splash_fb(drm_display_state *s, int width, int height){
         frame_uniq splash_frame(get_splashscreen());
 
         uint32_t pix_fmt;
