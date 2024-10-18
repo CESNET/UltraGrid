@@ -311,7 +311,7 @@ print_fps(const char *prefix, steady_clock::time_point *t0, int *frames,
         const char  *fps_col  = fps_perc >= MIN_FPS_PERC_WARN ? ""
                                 : fps_perc >= MIN_FPS_PERC_WARN2
                                     ? T256_FG_SYM(T_ARCTIC_LIME)
-                                    : T256_FG_SYM(T_DARKER_ORANGE);
+                                    : T256_FG_SYM(T_SADDLE_BROWN);
         log_msg(LOG_LEVEL_INFO,
                 TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN
                 "%s" TERM_RESET " %d frames in %g seconds = " TERM_BOLD
