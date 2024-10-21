@@ -1,3 +1,11 @@
+#### 1.9.7
+
+* fixed vdisp/file crash
+* fixes for irregular (eg. odd) image widths
+* added warnings for potentially wrong configs (alsa, R-S audio)
+* fixed some color conversion
+* NDI fixes - reconnect, 16-bit YCbCr blank if produced in MSW
+
 #### 1.9.6
 
 * fixed not working GPUJPEG decoder
