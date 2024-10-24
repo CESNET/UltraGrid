@@ -14,8 +14,9 @@ if [ -z "${GITHUB_ENV-}" ]; then
 fi
 
 export CPATH=/usr/local/include
-export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
-export LDFLAGS="-Wl,-rpath,/usr/local/lib"
+export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }\
+ -s /usr/local/lib -s /Library/Frameworks"
+export LDFLAGS="-Wl,-rpath,/usr/local/lib -Wl,-rpath,/Library/Frameworks"
 export LIBRARY_PATH=/usr/local/lib
 if [ "$(uname -m)" = arm64 ]; then
         CPATH=/usr/local/include:/opt/homebrew/include
