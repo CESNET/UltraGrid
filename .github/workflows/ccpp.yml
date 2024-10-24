@@ -149,7 +149,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)" >> $GITHUB_OUTPUT
+        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh "$SDK_URL/$DELTA_MAC_ARCHIVE")" >> $GITHUB_OUTPUT
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Set environment
@@ -159,14 +159,14 @@ jobs:
       uses: actions/cache@main
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ steps.etags.outputs.nonfree }}
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         rm -rf ${{ env.SDK_NONFREE_PATH }}
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
-        curl -S -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
+        curl -S -f -O "$SDK_URL/$DELTA_MAC_ARCHIVE" || true
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main

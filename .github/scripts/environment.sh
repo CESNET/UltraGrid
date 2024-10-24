@@ -120,3 +120,5 @@ import_signing_key() {
 }
 import_signing_key
 
+printf '%b' 'DELTA_MAC_ARCHIVE=videomaster-macos-dev.tar.gz\n' >> "$GITHUB_ENV"
+

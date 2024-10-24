@@ -38,12 +38,12 @@ install_aja() {(
 )}
 
 install_deltacast() {
-        filename=videomaster-macos-dev.zip
-        if [ ! -f "$SDK_NONFREE_PATH/$filename" ]; then
+        if [ ! -f "$SDK_NONFREE_PATH/$DELTA_MAC_ARCHIVE" ]; then
                 return
         fi
-        unzip "$SDK_NONFREE_PATH/$filename"
-        sudo cp -a Frameworks/VideoMasterHD* /Library/Frameworks/
+        tar xzf "$SDK_NONFREE_PATH/$DELTA_MAC_ARCHIVE"
+        sudo cp -a Deltacast/Library/Frameworks/VideoMasterHD* \
+                /Library/Frameworks/
         export FEATURES="${FEATURES+$FEATURES }--enable-deltacast"
         echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
         export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\
