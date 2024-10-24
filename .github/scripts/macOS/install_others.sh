@@ -31,7 +31,7 @@ install_ximea() {(
 )}
 
 install_deltacast() {
-        if [ ! -f "$SDK_NONFREE_PATH/$DELTA_MAC_ARCHIVE" ]; then
+        if [ ! "${SDK_URL-}" ]; then
                 return
         fi
         tar xzf "$SDK_NONFREE_PATH/$DELTA_MAC_ARCHIVE"
