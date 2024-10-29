@@ -28,7 +28,7 @@ void RecvReportWidget::reset(){
 }
 
 void RecvReportWidget::parseLine(std::string_view line){
-	if(!sv_is_prefix(line, "Receiver of 0x"))
+	if(!sv_is_prefix(line, "RR of 0x"))
 		return;
 
 	auto tmp = std::string(line);
@@ -36,7 +36,7 @@ void RecvReportWidget::parseLine(std::string_view line){
 	int rtt = 0;
 	float loss = 0;
 	int packets;
-	sscanf(tmp.c_str(), "Receiver of 0x%08x reports RTT=%d usec, loss %f%% (out of %d)", &ssrc, &rtt, &loss, &packets);
+	sscanf(tmp.c_str(), "RR of 0x%08x: RTT=%d usec, loss %f%% (of %d pkts)", &ssrc, &rtt, &loss, &packets);
 
 	RecvReport report;
 	report.total = packets;
