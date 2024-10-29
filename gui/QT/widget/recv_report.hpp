@@ -32,7 +32,7 @@ private:
 		int total;
 		int rtt_usec;
 	};
-	SSRC_container<RecvReport, decltype(elapsedTimer.elapsed())> reports;
+	SSRC_container<uint32_t, RecvReport, decltype(elapsedTimer.elapsed())> reports;
 
 	const int timeout_msec = 15000;
 };

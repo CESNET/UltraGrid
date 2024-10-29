@@ -57,7 +57,7 @@ void RecvReportWidget::updateVal(){
 	for(const auto& r : reports.get()){
 		total += r.item.total;
 		lost += r.item.lost;
-		tooltip += QString::number(r.ssrc, 16) +
+		tooltip += QString::number(r.key, 16) +
 			": RTT=" + QString::number(r.item.rtt_usec) + "us\n";
 	}
 
