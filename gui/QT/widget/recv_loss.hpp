@@ -31,9 +31,9 @@ private:
 		int received = 0;
 		int total = 0;
 	};
-	SSRC_container<SSRC_report, decltype(elapsedTimer.elapsed())> reports;
+	SSRC_container<std::string, SSRC_report, decltype(elapsedTimer.elapsed())> reports;
 
-	void addReport(unsigned ssrc, int received, int total);
+	void addReport(std::string ident, int received, int total);
 	void updateVal();
 };
 
