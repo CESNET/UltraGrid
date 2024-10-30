@@ -471,7 +471,7 @@ AC_ARG_ENABLE(cuda,
               [cuda_req=$build_default])
 
 AC_ARG_WITH(cuda,
-            [  --with-cuda=DIR         specify location of CUDA Toolkit],/FOUN
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
             ])
 
