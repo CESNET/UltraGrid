@@ -89,7 +89,7 @@ download_build_live555() {(
                 pacman -Rs --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
                 ./genMakefiles linux-with-shared-libraries
-                make -j "$(nproc)"
+                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DNO_STD_LIB"
         else
                 ./genMakefiles macosx-no-openssl
                 make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
