@@ -198,6 +198,12 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
         }
 }
 
+/**
+ * @brief intitializes transmission
+ *
+ * @param encryption passcode to be used to encrypt the data; NULL or an empty
+ * string can be passed
+ */
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long int bitrate)
 {
@@ -236,7 +242,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         return NULL;
                 }
         }
-        if (strlen(encryption) > 0) {
+        if (encryption != nullptr && strlen(encryption) > 0) {
                 tx->enc_funcs = static_cast<const struct openssl_encrypt_info *>(load_library("openssl_encrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
                 if (!tx->enc_funcs) {
