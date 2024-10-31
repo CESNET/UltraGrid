@@ -406,12 +406,12 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
 
                 char ssrc_str[STR_LEN];
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        snprintf_ch(ssrc_str, " SSRC 0x%08" PRIx32, pkt->ssrc);
+                        snprintf_ch(ssrc_str, " %08" PRIx32, pkt->ssrc);
                 } else {
                         ssrc_str[0] = '\0';
                 }
                 MSG(INFO,
-                    "[%s]%s %d/%d packets received (%s%.4f%%" TERM_FG_RESET
+                    "[%s%s] %d/%d packets received (%s%.4f%%" TERM_FG_RESET
                     "), %d lost, max loss %d%s\n",
                     playout_buf->stream_identifier, ssrc_str, playout_buf->received_pkts,
                     playout_buf->expected_pkts,
