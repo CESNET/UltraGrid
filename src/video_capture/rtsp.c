@@ -837,9 +837,9 @@ init_rtsp(struct rtsp_state *s) {
     }
 
     const char *range = "0.000-";
-    verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
-    verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
-    verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
+    MSG(DEBUG, "request %s\n", VERSION_STR);
+    MSG(DEBUG, "    Project web site: http://code.google.com/p/rtsprequest/\n");
+    MSG(DEBUG, "    Requires cURL V7.20 or greater\n\n");
     char Atransport[256] = "";
     char Vtransport[256] = "";
     int port = s->vrtsp_state.port;
