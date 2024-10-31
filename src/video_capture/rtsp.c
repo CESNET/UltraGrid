@@ -845,8 +845,9 @@ init_rtsp(struct rtsp_state *s) {
     char Vtransport[256] = "";
     int port = s->vrtsp_state.port;
     FILE *sdp_file = tmpfile();
+    const char *sdp_file_name = NULL;
     if (sdp_file == NULL) {
-        sdp_file = get_temp_file(NULL);
+        sdp_file = get_temp_file(&sdp_file_name);
         if (sdp_file == NULL) {
             perror("Creating SDP file");
             goto error;
@@ -945,6 +946,9 @@ init_rtsp(struct rtsp_state *s) {
 error:
     if(sdp_file)
             fclose(sdp_file);
+    if (sdp_file_name != NULL) {
+        unlink(sdp_file_name);
+    }
     return false;
 }
 
