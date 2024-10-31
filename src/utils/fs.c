@@ -149,7 +149,7 @@ FILE *get_temp_file(const char **filename) {
         static _Thread_local char filename_buf[MAX_PATH_SIZE];
 #ifdef _WIN32
         char *fname = tmpnam(filename_buf);
-        FILE *ret = fopen(fname, "wbx");
+        FILE *ret = fopen(fname, "w+bx");
         if (ret == NULL) {
                 return NULL;
         }
@@ -166,7 +166,7 @@ FILE *get_temp_file(const char **filename) {
         if (fd == -1) {
                 return NULL;
         };
-        FILE *ret = fdopen(fd, "wb");
+        FILE *ret = fdopen(fd, "w+b");
         if (ret == NULL) {
                 return NULL;
         }

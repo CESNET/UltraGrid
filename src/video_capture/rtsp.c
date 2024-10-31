@@ -72,6 +72,7 @@
 #include "rtp/rtpdec_state.h"
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
+#include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
@@ -845,7 +846,7 @@ init_rtsp(struct rtsp_state *s) {
     int port = s->vrtsp_state.port;
     FILE *sdp_file = tmpfile();
     if (sdp_file == NULL) {
-        sdp_file = fopen("rtsp.sdp", "w+");
+        sdp_file = get_temp_file(NULL);
         if (sdp_file == NULL) {
             perror("Creating SDP file");
             goto error;
