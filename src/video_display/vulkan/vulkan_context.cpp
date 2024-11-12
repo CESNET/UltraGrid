@@ -328,7 +328,11 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
         }
 
         if (enable_validation) {
+#if VK_HEADER_VERSION >= 301
+                dynamic_dispatcher = std::make_unique<vk::detail::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#else
                 dynamic_dispatcher = std::make_unique<vk::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#endif
                 init_validation_layers_error_messenger();
         }
 }
