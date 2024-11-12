@@ -130,7 +130,11 @@ struct SwapchainImage {
 
 class VulkanContext {
         vk::Instance instance;
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher{};
+#else
         std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher{};
+#endif
         vk::DebugUtilsMessengerEXT messenger;
         uint32_t vulkan_version{};
 
@@ -221,7 +225,11 @@ inline void cout_msg([[maybe_unused]] LogLevel log_level, std::string_view msg) 
 
 class VulkanInstance {
         vk::Instance instance{};
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#else
         std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#endif
         vk::DebugUtilsMessengerEXT messenger{};
         uint32_t vulkan_version = VK_API_VERSION_1_1;
 
