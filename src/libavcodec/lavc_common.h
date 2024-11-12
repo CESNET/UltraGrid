@@ -122,6 +122,13 @@ struct audio_desc audio_desc_from_av_frame(const AVFrame *frm);
 enum AVSampleFormat audio_bps_to_av_sample_fmt(int bps, bool planar);
 const char         *get_avpixfmts_names(const enum AVPixelFormat *pixfmts);
 
+const enum AVPixelFormat *avc_get_supported_pix_fmts(const AVCodecContext *ctx,
+                                                     const AVCodec *codec);
+const enum AVSampleFormat *
+avc_get_supported_sample_fmts(const AVCodecContext *ctx, const AVCodec *codec);
+const int *avc_get_supported_sample_rates(const AVCodecContext *ctx,
+                                          const AVCodec        *codec);
+
 #ifdef __cplusplus
 }
 #endif

@@ -299,9 +299,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 }
 
 /* check that a given sample format is supported by the encoder */
-static int check_sample_fmt(const AVCodec *codec, enum AVSampleFormat sample_fmt)
+static int
+check_sample_fmt(const AVCodecContext *ctx, enum AVSampleFormat sample_fmt)
 {
-    const enum AVSampleFormat *p = codec->sample_fmts;
+    const enum AVSampleFormat *p = avc_get_supported_sample_fmts(ctx, NULL);
 
     while (*p != AV_SAMPLE_FMT_NONE) {
         if (*p == sample_fmt)
@@ -367,7 +368,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_NONE;
 
         for (int i = 0; i < count; ++i) {
-                if (check_sample_fmt(s->codec, sample_fmts[i])) {
+                if (check_sample_fmt(s->codec_ctx, sample_fmts[i])) {
                         s->codec_ctx->sample_fmt = sample_fmts[i];
                         break;
                 }
@@ -375,10 +376,12 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
 
         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_NONE) {
                 int i = 0;
-                while (s->codec->sample_fmts[i] != AV_SAMPLE_FMT_NONE) {
-                        if (s->codec->sample_fmts[i] != AV_SAMPLE_FMT_DBL &&
-                                        s->codec->sample_fmts[i] != AV_SAMPLE_FMT_DBLP) {
-                                s->codec_ctx->sample_fmt = s->codec->sample_fmts[i];
+                const enum AVSampleFormat *sample_fmts =
+                    avc_get_supported_sample_fmts(s->codec_ctx, NULL);
+                while (sample_fmts[i] != AV_SAMPLE_FMT_NONE) {
+                        if (sample_fmts[i] != AV_SAMPLE_FMT_DBL &&
+                            sample_fmts[i] != AV_SAMPLE_FMT_DBLP) {
+                                s->codec_ctx->sample_fmt = sample_fmts[i];
                                 break;
                         }
                         i++;
@@ -736,7 +739,7 @@ static const int *libavcodec_get_sample_rates(void *state)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
 
-        return s->codec->supported_samplerates;
+        return avc_get_supported_sample_rates(s->codec_ctx, NULL);
 }
 
 static void cleanup_common(struct libavcodec_codec_state *s)

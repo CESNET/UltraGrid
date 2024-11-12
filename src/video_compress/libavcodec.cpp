@@ -480,7 +480,8 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
                     avcodec_find_encoder_by_name(req_encoder.c_str());
                 if (codec != nullptr) {
                         cout << "\n";
-                        print_codec_supp_pix_fmts(codec->pix_fmts);
+                        print_codec_supp_pix_fmts(
+                            avc_get_supported_pix_fmts(nullptr, codec));
                 } else {
                         MSG(ERROR, "Cannot open encoder: %s\n",
                             req_encoder.c_str());
@@ -1123,11 +1124,11 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
         return AV_PIX_FMT_NONE;
 #endif
         unsigned usable_fmt_cnt = 0;
-        if (codec->pix_fmts == nullptr) {
+        if (avc_get_supported_pix_fmts(nullptr, codec) == nullptr) {
                 return AV_PIX_FMT_NONE;
         }
-        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
-             ++pix) {
+        for (const auto *pix = avc_get_supported_pix_fmts(nullptr, codec);
+             *pix != AV_PIX_FMT_NONE; ++pix) {
                 usable_fmt_cnt += 1;
         }
         if (usable_fmt_cnt == fmts_tried.size()) {
@@ -1136,8 +1137,8 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: "
                                << get_codec_name(desc.color_spec)
                                << ". Trying to convert with swscale instead.\n";
-        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
-             ++pix) {
+        for (const auto *pix = avc_get_supported_pix_fmts(nullptr, codec);
+             *pix != AV_PIX_FMT_NONE; ++pix) {
                 const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                 if (fmts_tried.count(*pix) == 1 || fmt_desc == nullptr ||
                     (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0U) {
@@ -1179,7 +1180,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         set<AVPixelFormat> fmts_tried;
-        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+        while ((pix_fmt = get_first_matching_pix_fmt(
+                    requested_pix_fmt_it, requested_pix_fmt.cend(),
+                    avc_get_supported_pix_fmts(nullptr, codec))) !=
+               AV_PIX_FMT_NONE) {
                 fmts_tried.insert(pix_fmt);
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
@@ -1187,7 +1191,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
-                print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
+                print_pix_fmts(requested_pix_fmt,
+                               avc_get_supported_pix_fmts(nullptr, codec));
         }
 
         if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
