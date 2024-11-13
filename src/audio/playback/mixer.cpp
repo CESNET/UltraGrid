@@ -150,9 +150,9 @@ struct am_participant {
 
                 char buf[STR_LEN];
                 MSG(NOTICE, "added participant: %s:%u\n",
-                    get_sockaddr_addr_str((struct sockaddr *) &ss, buf,
+                    get_sockaddr_addr_str((struct sockaddr *) ss, buf,
                                           sizeof buf),
-                    get_sockaddr_addr_port((struct sockaddr *) &ss));
+                    get_sockaddr_addr_port((struct sockaddr *) ss));
         }
         ~am_participant() {
                 if (m_tx_session) {
