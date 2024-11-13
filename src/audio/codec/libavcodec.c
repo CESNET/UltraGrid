@@ -37,25 +37,32 @@
 
 #define __STDC_CONSTANT_MACROS
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
-#include "debug.h"
-#include "lib_common.h"
-
+#include <assert.h>                    // for assert
+#include <errno.h>                     // for EAGAIN
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
+#include <libavcodec/version.h>        // for LIBAVCODEC_VERSION_INT
+#include <libavutil/avutil.h>          // for AV_NOPTS_VALUE
 #include <libavutil/channel_layout.h>
-#include <libavutil/mem.h>
+#include <libavutil/frame.h>           // for av_frame_unref, av_frame_alloc
+#include <libavutil/opt.h>             // for av_opt_set_double, av_opt_set
+#include <libavutil/samplefmt.h>       // for AVSampleFormat, av_get_bytes_p...
+#include <libavutil/version.h>         // for AV_VERSION_INT
+#include <stdbool.h>                   // for bool, false, true
 #include <stddef.h>
+#include <stdio.h>                     // for snprintf
+#include <stdlib.h>                    // for free, atof, calloc, realloc
+#include <string.h>                    // for memcpy, strcmp, memmove, strlen
 
-#include "audio/audio.h"
 #include "audio/codec.h"
+#include "audio/types.h"               // for audio_channel, audio_desc, AC_...
 #include "audio/utils.h"
+#include "debug.h"                     // for log_msg, LOG_LEVEL_ERROR, MSG
+#include "host.h"                      // for get_commandline_param, ADD_TO_...
+#include "lib_common.h"
 #include "libavcodec/lavc_common.h"
+#include "tv.h"                        // for MS_IN_SEC
+#include "types.h"                     // for kHz90
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/string.h"
@@ -408,7 +415,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         } else if (strcmp(s->codec->name, "opus") == 0) {
                 char warn[] = MOD_NAME "Native FFmpeg Opus encoder seems to be currently broken "
                                 "with UltraGrid. You may be able to use 'libopus' encoder instead. Please let "
-                                "us know to " PACKAGE_BUGREPORT " if you either want to use the native encoder "
+                                "us know if you either want to use the native encoder "
                                 "or it even works for you.\n";
                 log_msg(LOG_LEVEL_WARNING, "%s", wrap_paragraph(warn));
                 int ret = av_opt_set_double(s->codec_ctx->priv_data, "opus_delay", 5, 0);
