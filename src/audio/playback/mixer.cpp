@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2023 CESNET z.s.p.o.
+ * Copyright (c) 2016-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,30 +35,37 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>               // for max, min
+#include <cassert>                 // for assert
+#include <chrono>
+#include <cmath>                   // for fabs, log
+#include <cstdint>                 // for int16_t, int32_t
+#include <cstdio>                  // for printf
+#include <cstdlib>                 // for free, abort
+#include <cstring>                 // for NULL, strlen, strncmp, memcpy, memset
+#include <iostream>
+#include <limits>                  // for numeric_limits
+#include <map>
+#include <memory>                  // for unique_ptr, shared_ptr
+#include <mutex>
+#include <string>                  // for basic_string, operator==, string
+#include <thread>
+#include <utility>                 // for move, pair
+#include <vector>
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/types.h"
+#include "compat/net.h"            // for sockaddr_in, sockaddr_in6, in6_addr
 #include "debug.h"
+#include "host.h"                  // for get_commandline_param, uv_argv
 #include "lib_common.h"
 #include "module.h"
 #include "rtp/rtp.h"
 #include "transmit.h"
+#include "types.h"                 // for tx_media_type
 #include "utils/audio_buffer.h"
 #include "utils/thread.h"
-#include <chrono>
-#include <iostream>
-#include <map>
-#include <mutex>
-#include <thread>
-#include <vector>
 
 #define SAMPLE_RATE 48000
 #define BPS     2 /// @todo 4?
@@ -375,14 +382,14 @@ static void audio_play_mixer_help()
                "\n"
                "Notes:\n"
                "1)\tYou do not need to specify audio participants explicitly,\n"
-               "\t" PACKAGE_NAME " simply sends the the stream back to the host\n"
+               "\tthe mixer simply sends the the stream back to the host\n"
                "\tthat is sending to mixer. Therefore it is necessary that the\n"
-               "\tparticipant uses single " PACKAGE_NAME " for both sending and\n"
+               "\tparticipant uses single UltraGrid for both sending and\n"
                "\treceiving audio.\n"
                "2)\tUses default port for receiving, therefore if you want to use it\n"
                "\ton machine that is a part of the conference, you should use something like:\n"
                "\t\t%s -s <your_capture> -P 5004:5004:5010:5006\n"
-               "\tfor the " PACKAGE_NAME " instance that is part of the conference (not mixer!)\n",
+               "\tfor the UltraGrid instance that is part of the conference (not mixer!)\n",
                uv_argv[0], uv_argv[0]);
 }
 
