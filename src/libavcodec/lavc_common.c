@@ -354,11 +354,11 @@ get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
  *
  * If passed ctx, values such as `strict_std_compliance` may afect the result.
  */
+#if LIBAVCODEC_VERSION_INT >  AV_VERSION_INT(61, 13, 100)
 static const void *
 avc_get_supported_config(const AVCodecContext *ctx, const AVCodec *codec,
                          enum AVCodecConfig config)
 {
-#if LIBAVCODEC_VERSION_INT >  AV_VERSION_INT(61, 13, 100)
         const void *ret = NULL;
         int         unused_count = 0;
         const int   rc           = avcodec_get_supported_config(
@@ -371,10 +371,8 @@ avc_get_supported_config(const AVCodecContext *ctx, const AVCodec *codec,
         }
 
         return ret;
-#else
-        abort(); // cannot reach here (shouldn't be called)
-#endif
 }
+#endif
 ///< @copydoc avc_get_supported_config
 const enum AVPixelFormat *
 avc_get_supported_pix_fmts(const AVCodecContext *ctx, const AVCodec *codec)
