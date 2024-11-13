@@ -424,7 +424,12 @@ unsigned get_sockaddr_addr_port(struct sockaddr *sa){
         return port;
 }
 
-void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n){
+/**
+ * @returns the input buffer (buf)
+ */
+char *
+get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n)
+{
         assert(n >= IN6_MAX_ASCII_LEN + 3 /* []: */ + 1 /* \0 */);
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
@@ -434,17 +439,18 @@ void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n){
                 src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
         } else {
                 snprintf(buf, n, "(unknown)");
-                return;
+                return buf;
         }
         if (inet_ntop(sa->sa_family, src, buf + strlen(buf), n - strlen(buf)) == NULL) {
                 perror("get_sockaddr_str");
                 snprintf(buf, n, "(error)");
-                return;
+                return buf;
         }
 
         if (sa->sa_family == AF_INET6) {
                 snprintf(buf + strlen(buf), n - strlen(buf), "]");
         }
+        return buf;
 }
 
 const char *get_sockaddr_str(struct sockaddr *sa)
