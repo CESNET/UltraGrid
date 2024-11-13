@@ -411,12 +411,14 @@ bool is_ipv6_supported(void)
         return true;
 }
 
-unsigned get_sockaddr_addr_port(struct sockaddr *sa){
+unsigned get_sockaddr_addr_port(const struct sockaddr *sa){
         unsigned port = 0;
         if (sa->sa_family == AF_INET6) {
-                port = ntohs(((struct sockaddr_in6 *)(void *) sa)->sin6_port);
+                port = ntohs(((const struct sockaddr_in6 *) (const void *) sa)
+                                 ->sin6_port);
         } else if (sa->sa_family == AF_INET) {
-                port = ntohs(((struct sockaddr_in *)(void *) sa)->sin_port);
+                port = ntohs(
+                    ((const struct sockaddr_in *) (const void *) sa)->sin_port);
         } else {
                 return UINT_MAX;
         }
@@ -428,15 +430,17 @@ unsigned get_sockaddr_addr_port(struct sockaddr *sa){
  * @returns the input buffer (buf)
  */
 char *
-get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n)
+get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n)
 {
         assert(n >= IN6_MAX_ASCII_LEN + 3 /* []: */ + 1 /* \0 */);
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
                 snprintf(buf, n, "[");
-                src = &((struct sockaddr_in6 *)(void *) sa)->sin6_addr;
+                src = &((const struct sockaddr_in6 *) (const void *) sa)
+                           ->sin6_addr;
         } else if (sa->sa_family == AF_INET) {
-                src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
+                src =
+                    &((const struct sockaddr_in *) (const void *) sa)->sin_addr;
         } else {
                 snprintf(buf, n, "(unknown)");
                 return buf;
@@ -453,20 +457,20 @@ get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n)
         return buf;
 }
 
-const char *get_sockaddr_str(struct sockaddr *sa)
+/**
+ * @returns the input buffer (buf)
+ */
+char *
+get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n)
 {
-        enum { ADDR_LEN = IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */ };
-        _Thread_local static char addr[ADDR_LEN] = "";
-        addr[0] = '\0';
-
-        get_sockaddr_addr_str(sa, addr, sizeof(addr));
+        get_sockaddr_addr_str(sa, buf, n);
 
         unsigned port = get_sockaddr_addr_port(sa);
         if(port == UINT_MAX)
-                return addr;
-        snprintf(addr + strlen(addr), ADDR_LEN - strlen(addr), ":%u", port);
+                return buf;
+        snprintf(buf + strlen(buf), n - strlen(buf), ":%u", port);
 
-        return addr;
+        return buf;
 }
 
 const char *ug_gai_strerror(int errcode)

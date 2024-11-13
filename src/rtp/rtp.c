@@ -1573,7 +1573,9 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
         if (!rtp_has_receiver(session)) {
                 session->opt->send_back = FALSE; // avoid multiple checks if already sending
                 struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
-                log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
+                MSG(NOTICE, "Redirecting stream to a client %s.\n",
+                    get_sockaddr_str(sa, (char[ADDR_STR_BUF_LEN]){ 0 },
+                                     ADDR_STR_BUF_LEN));
                 udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
         }
 

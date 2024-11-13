@@ -47,7 +47,11 @@
 #include <stdint.h>
 #endif // __cplusplus
 
-#define IN6_MAX_ASCII_LEN 39 // 32 nibbles + 7 colons
+enum {
+        IN6_MAX_ASCII_LEN = 39, // 32 nibbles + 7 colons
+        ADDR_STR_BUF_LEN =
+            IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */,
+};
 // RFC 6666 prefix 100::/64, suffix 'UltrGrS'
 #define IN6_BLACKHOLE_SERVER_MODE_STR "100::556C:7472:4772:6453"
 
@@ -66,9 +70,9 @@ bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
-char *get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n);
-unsigned get_sockaddr_addr_port(struct sockaddr *sa);
-const char *get_sockaddr_str(struct sockaddr *sa);
+char *get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n);
+unsigned get_sockaddr_addr_port(const struct sockaddr *sa);
+char *get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n);
 const char *ug_gai_strerror(int errcode);
 
 #ifdef _WIN32

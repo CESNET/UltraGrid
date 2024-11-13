@@ -65,7 +65,6 @@
 #include "transmit.h"
 #include "types.h"                 // for tx_media_type
 #include "utils/audio_buffer.h"
-#include "utils/macros.h"          // for STR_LEN
 #include "utils/net.h"             // for get_sockaddr_addr_str
 #include "utils/thread.h"
 
@@ -128,7 +127,7 @@ static void mixer_dummy_rtp_callback(struct rtp *session [[gnu::unused]], rtp_ev
 struct am_participant {
         am_participant(struct socket_udp_local *l, struct sockaddr_storage *ss,
                        string const &audio_codec)
-            : remote_addr(*ss)
+            : m_remote_addr(*ss)
         {
                 assert(l != nullptr && ss != nullptr);
                 m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5);
@@ -147,12 +146,6 @@ struct am_participant {
                         LOG(LOG_LEVEL_ERROR) << "Audio coder init failed!\n";
                         throw 1;
                 }
-
-                char buf[STR_LEN];
-                MSG(NOTICE, "added participant: %s:%u\n",
-                    get_sockaddr_addr_str((struct sockaddr *) ss, buf,
-                                          sizeof buf),
-                    get_sockaddr_addr_port((struct sockaddr *) ss));
         }
         ~am_participant() {
                 if (m_tx_session) {
@@ -167,11 +160,6 @@ struct am_participant {
                 if (m_audio_coder) {
                         audio_codec_done(m_audio_coder);
                 }
-                char buf[STR_LEN];
-                MSG(NOTICE, "removed participant: %s:%u\n",
-                    get_sockaddr_addr_str((struct sockaddr *) &remote_addr, buf,
-                                          sizeof buf),
-                    get_sockaddr_addr_port((struct sockaddr *) &remote_addr));
 	}
 	am_participant& operator=(am_participant&& other) {
 		m_audio_coder = std::move(other.m_audio_coder);
@@ -179,6 +167,7 @@ struct am_participant {
 		m_network_device = std::move(other.m_network_device);
 		m_tx_session = std::move(other.m_tx_session);
 		last_seen = std::move(other.last_seen);
+		m_remote_addr = std::move(other.m_remote_addr);
 		other.m_audio_coder = nullptr;
 		other.m_buffer = nullptr;
 		other.m_tx_session = nullptr;
@@ -188,7 +177,7 @@ struct am_participant {
         am_participant(am_participant && other) {
                 *this = std::move(other);
         }
-        struct sockaddr_storage remote_addr;
+        struct sockaddr_storage m_remote_addr;
         struct audio_codec_state *m_audio_coder;
         struct audio_buffer *m_buffer;
         struct rtp *m_network_device;
@@ -331,6 +320,12 @@ void state_audio_mixer::worker()
                 for (auto it = participants.cbegin(); it != participants.cend(); )
                 {
                         if (duration_cast<seconds>(now - it->second.last_seen).count() > PARTICIPANT_TIMEOUT_S) {
+                                char buf[ADDR_STR_BUF_LEN];
+                                MSG(NOTICE, "removed participant: %s\n",
+                                    get_sockaddr_str(
+                                        (const struct sockaddr *) &it->second
+                                            .m_remote_addr,
+                                        buf, sizeof buf));
                                 it = participants.erase(it);
                         } else {
                                 ++it;
@@ -441,6 +436,11 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
         auto ss = *(struct sockaddr_storage *) frame->network_source;
 
         if (s->participants.find(ss) == s->participants.end()) {
+                char buf[ADDR_STR_BUF_LEN];
+                MSG(NOTICE, "added participant: %s\n",
+                    get_sockaddr_str(
+                        (struct sockaddr *) &ss, buf,
+                        sizeof buf));
                 s->participants.emplace(ss, am_participant{s->recv_socket, &ss, s->audio_codec});
         }
 

@@ -918,7 +918,10 @@ public:
 
                         log_msg(LOG_LEVEL_NOTICE, "New participant\n");
                         std::string msg = "create-port ";
-                        msg += get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin));
+                        char buf[ADDR_STR_BUF_LEN];
+                        msg +=
+                            get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin),
+                                             buf, sizeof buf);
                         if(!compression.empty()){
                                 msg += " ";
                                 msg += compression;
