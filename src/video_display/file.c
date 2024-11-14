@@ -496,7 +496,8 @@ configure_audio(struct state_file *s, struct audio_desc aud_desc,
         s->audio.enc             = avcodec_alloc_context3(codec);
         s->audio.enc->sample_fmt =
             s->is_nut ? audio_bps_to_av_sample_fmt(aud_desc.bps, false)
-                      : select_sample_format(s->audio.enc->codec->sample_fmts);
+                      : select_sample_format(
+                            avc_get_supported_sample_fmts(s->audio.enc, NULL));
         aud_ctx_set_ch_layout(s->audio.enc, aud_desc.ch_count, s->is_nut);
         s->audio.enc->sample_rate = aud_desc.sample_rate;
         s->audio.st->time_base    = (AVRational){ 1, aud_desc.sample_rate };
