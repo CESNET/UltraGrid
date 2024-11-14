@@ -344,6 +344,13 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 }
         }
 
+        if (nonzero_channels == 0 &&
+            frame->get_data_len() == 0) { // produced by acap/passive
+                ret.init(frame->get_channel_count(), AC_PCM, frame->get_bps(),
+                         frame->get_sample_rate());
+                return ret;
+        }
+
         if (nonzero_channels != frame->get_channel_count()) {
                 log_msg(LOG_LEVEL_WARNING,
                         "[Audio decompress] %d empty channel(s) returned!\n",
