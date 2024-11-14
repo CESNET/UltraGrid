@@ -33,7 +33,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
 CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-std=gnu++17"
-CUDA_FLAGS="${CUDA_FLAGS-}"
+CUDA_FLAGS="$CUDA_FLAGS${CUDA_FLAGS:+${CUDAFLAGS:+ }}$CUDAFLAGS"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
 LIB_MODULES=     # modules libraries
@@ -431,7 +431,7 @@ fi
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
-AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native])
+AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native; alterntatively CUDAFLAGS])
 AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
