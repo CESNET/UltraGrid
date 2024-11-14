@@ -32,9 +32,7 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="${CFLAGS+$CFLAGS }-I$srcdir"
-CPPFLAGS="${CPPFLAGS+$CPPFLAGS }-I$srcdir"
-CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-I$srcdir -std=gnu++17"
+CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-std=gnu++17"
 CUDA_FLAGS="${CUDA_FLAGS-}"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
