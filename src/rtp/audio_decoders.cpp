@@ -37,7 +37,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "src/rtp/audio_decoders.h"
+#include "rtp/audio_decoders.h"
 
 #include <algorithm>                 // for min
 #include <atomic>                    // for atomic_uint64_t
