@@ -813,7 +813,7 @@ if test $decklink_req != no; then
                         AC_LANG_PUSH(C++)
                         AC_MSG_CHECKING([DeckLink usability])
                         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                                           #include "$DECKLINK_INC/DeckLinkAPI_h.h"
+                                           #include "$DECKLINK_INC/DeckLinkAPI.h"
                                            #include "$DECKLINK_INC/DeckLinkAPIVersion.h"
                                            #include <objbase.h>
                                            ]],

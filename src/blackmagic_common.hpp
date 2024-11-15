@@ -42,10 +42,9 @@
 #include <winsock2.h> // needs to be included prior to windows.h which will be
                       // included by foolowing include; wsock2.h needed for
                       // htonl used by vcap/vdisp
-#include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
-#else
-#include "DeckLinkAPI.h" /*  From DeckLink SDK */
 #endif
+
+#include "DeckLinkAPI.h" /*  From DeckLink SDK */
 
 #include <cctype>
 #include <cstdbool>

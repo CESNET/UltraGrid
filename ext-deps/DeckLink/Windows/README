@@ -1,2 +1,2 @@
-Use widl from mingw-w64-x86_64-tools-git or MIDL from VS (use VS Command
+Use widl from msys2 $MINGW_PACKAGE_PREFIX-tools-git or MIDL from VS (use VS Command
 Prompt) to compile interface from IDL.
