@@ -1296,28 +1296,20 @@ print_ethernet_status(IDeckLinkStatus *deckLinkStatus, bool capture)
                                              &int_val))) {
                 MSG(INFO, "Ethernet link speed: %" PRId64 " Mbps\n", int_val);
         }
-        if (SUCCEEDED(deckLinkStatus->GetString(bmdDeckLinkStatusEthernetLocalIPAddress,
-                                             &string_val))) {
-                string ip = get_str_from_bmd_api_str(string_val);
-                release_bmd_api_str(string_val);
-                string_val = "";
-                deckLinkStatus->GetString(bmdDeckLinkStatusEthernetSubnetMask,
-                                          &string_val);
-                string nmask = get_str_from_bmd_api_str(string_val);
-                release_bmd_api_str(string_val);
-                MSG(INFO, "Ethernet IP: %s/%s\n", ip.c_str(), nmask.c_str());
-        }
         struct {
-                int32_t     prop;
-                const char *prop_name;
-                bool        playback_only; ///< relevant only for playback;
+                BMDDeckLinkStatusID prop;
+                const char         *prop_name;
+                bool playback_only; ///< relevant only for playback;
         } strings_map[] = {
+                { bmdDeckLinkStatusEthernetLocalIPAddress,     "IP address",
+                 false                                                              },
+                { bmdDeckLinkStatusEthernetSubnetMask,         "subnet mask", false },
                 { bmdDeckLinkStatusEthernetGatewayIPAddress,   "gateway IP",
-                 false                                                            },
+                 false                                                              },
                 { bmdDeckLinkStatusEthernetVideoOutputAddress,
-                 "video output address",                                     true },
+                 "video output address",                                      true  },
                 { bmdDeckLinkStatusEthernetAudioOutputAddress,
-                 "audio output address",                                     true },
+                 "audio output address",                                      true  },
         };
         for (unsigned u = 0; u < ARR_COUNT(strings_map); ++u) {
                 if (capture && strings_map[u].playback_only) {
