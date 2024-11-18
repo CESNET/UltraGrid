@@ -82,6 +82,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/math.h"
+#include "utils/string.h"          // for replace_all, DELDEL, ESCAPED_COLON
 #include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
@@ -786,10 +787,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
+                char val[STR_LEN];
+                snprintf_ch(val, "%s", strchr(opt, '=') + 1);
+                replace_all(val, DELDEL, ":");
                 ret = s
                           ->device_options[(
                               BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)]
-                          .parse(strchr(opt, '=') + 1);
+                          .parse(val);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;
@@ -814,6 +818,8 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
 static bool
 settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
+        replace_all(fmt, ESCAPED_COLON, DELDEL); // replace all '\:' with 2xDEL
+
         char *tmp;
         char *save_ptr = NULL;
 

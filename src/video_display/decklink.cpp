@@ -1208,6 +1208,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         char tmp[STR_LEN];
         snprintf_ch(tmp, "%s", fmt);
         strcpy(tmp, fmt);
+        replace_all(tmp, ESCAPED_COLON, DELDEL); // replace all '\:' with 2xDEL
         char *save_ptr = nullptr;
         char *ptr = strtok_r(tmp, ":", &save_ptr);
         assert(ptr != nullptr);
@@ -1312,9 +1313,12 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
+                        char val[STR_LEN];
+                        snprintf_ch(val, "%s", strchr(ptr, '=') + 1);
+                        replace_all(val, DELDEL, ":");
                         ret &= s->device_options[(BMDDeckLinkConfigurationID)
                                                      bmd_read_fourcc(ptr)]
-                                   .parse(strchr(ptr, '=') + 1);
+                                   .parse(val);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in config string: %s\n", ptr);
                         return false;
