@@ -604,8 +604,9 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
                 col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
+                col() << SBOLD("\thelp=FourCC") << "\tshow FourCC opts syntax\n";
                 col() << SBOLD("\taacl[=no]")
-                      << "\t\tset analog audio levels to maximum gain "
+                      << "\tset analog audio levels to maximum gain "
                          "(consumer audio level)\n";
                 col() << "\n";
         } else {
@@ -724,6 +725,7 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 /* Parses option in format key=value */
 static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
 {
+        bool ret = true;
         const char *val = strchr(opt, '=') + 1;
         if(strcasecmp(opt, "3D") == 0) {
                 s->stereo = true;
@@ -784,13 +786,16 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
-                s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)].parse(strchr(opt, '=') + 1);
+                ret = s
+                          ->device_options[(
+                              BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)]
+                          .parse(strchr(opt, '=') + 1);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;
         }
 
-        return true;
+        return ret;
 }
 
 static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_ptr)
@@ -1424,10 +1429,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        if (!blackmagic_api_version_check()) {
-                return VIDCAP_INIT_FAIL;
-        }
-
         struct vidcap_decklink_state *s = nullptr;
         try {
                 if ((s = new vidcap_decklink_state()) == nullptr) {
@@ -1451,6 +1452,11 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 delete s;
 		return VIDCAP_INIT_FAIL;
 	}
+
+        if (!blackmagic_api_version_check()) {
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
 
         switch (get_bits_per_component(s->codec)) {
         case 0: s->requested_bit_depth = 0; break;

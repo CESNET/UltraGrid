@@ -575,6 +575,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\t<option_FourCC>=<value>")
               << "\tarbitrary BMD option (given a FourCC) and corresponding "
                  "value, i.a.:\n";
+
+        col() << SBOLD("\t\thelp=FourCC") << "\tshow FourCC opts syntax\n";
         col()
             << SBOLD("\t\taacl[=no]")
             << "\tset maximum analog audio attenuation (consumer line level)\n";
@@ -1202,6 +1204,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 return true;
         }
 
+        bool ret = true;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
         char *ptr;
@@ -1310,7 +1313,9 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
-                        s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(ptr)].parse(strchr(ptr, '=') + 1);
+                        ret &= s->device_options[(BMDDeckLinkConfigurationID)
+                                                     bmd_read_fourcc(ptr)]
+                                   .parse(strchr(ptr, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in config string: %s\n", ptr);
                         return false;
@@ -1318,7 +1323,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 ptr = strtok_r(nullptr, ":", &save_ptr);
         }
 
-        return true;
+        return ret;
 }
 
 /// only 2, 8, 16, 32 and 64 are supported according to BMD SDK doc
@@ -1405,10 +1410,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return INIT_NOERR;
         }
 
-        if (!blackmagic_api_version_check()) {
-                return NULL;
-        }
-
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
 
@@ -1424,6 +1425,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
         if (!succeeded) {
+                delete s;
+                return NULL;
+        }
+
+        if (!blackmagic_api_version_check()) {
                 delete s;
                 return NULL;
         }

@@ -712,11 +712,41 @@ bool bmd_option::is_help() const {
 bool bmd_option::is_user_set() const {
         return m_user_specified;
 }
+
+static void
+bmd_opt_help()
+{
+        color_printf(TBOLD("BMD") " option syntax:\n");
+        color_printf("\t" TBOLD("<FourCC>=<val>") "\n\n");
+        color_printf(
+            TBOLD("<FourCC>") " must have exactly " TBOLD("4 characters") "\n");
+        color_printf("\n");
+        color_printf("The value must corresponding type is deduced accordingly:\n");
+        color_printf("- " TBOLD("flag") " - values on/of, true/false, yes/no\n");
+        color_printf("- literal " TBOLD("keep") " - keep the preset value\n");
+        color_printf("- literal " TBOLD(
+            "help") " - show help (applicable to profile only)\n");
+        color_printf("- " TBOLD(
+            "int") " - any number without decimal point\n");
+        color_printf("- " TBOLD(
+            "float") " - a number with a decimal point\n");
+        color_printf(
+            "- " TBOLD("FourCC") " - a value with len <= 4 not listed above\n");
+        color_printf("\n");
+        color_printf("If the type deduction is not working, you can use also "
+                     "following syntax:\n");
+        color_printf("- \"value\" - assume the value is string\n");
+        color_printf("- 'value' - assume the value is FourCC\n");
+        color_printf("\n");
+}
+
 /**
- * @note
- * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
+ * @param val  can be empty or NULL - this allow specifying the flag without explicit value
+ * @retval true  value vas set
+ * @retval false help for FourCC syntas was print
  */
-void bmd_option::parse(const char *val)
+bool
+bmd_option::parse(const char *val)
 {
         // check flag
 #ifdef __clang__
@@ -726,24 +756,29 @@ void bmd_option::parse(const char *val)
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
                         || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
                 set_flag(true);
-                return;
+                return true;
         }
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
         if (strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
                 set_flag(false);
-                return;
+                return true;
         }
 
         if (strcasecmp(val, "keep") == 0) {
                 set_keep();
-                return;
+                return true;
         }
 
         if (strcmp(val, "help") == 0) {
                 set_string(val);
-                return;
+                return true;
+        }
+
+        if (strcmp(val, "FourCC") == 0) { // help=FourCC
+                bmd_opt_help();
+                return false;
         }
 
         // explicitly typed (either "str" or 'fcc')
@@ -755,7 +790,7 @@ void bmd_option::parse(const char *val)
                 } else {
                         set_int(bmd_read_fourcc(raw_val.c_str()));
                 }
-                return;
+                return true;
         }
 
         // check number
@@ -781,14 +816,15 @@ void bmd_option::parse(const char *val)
                 } else {
                         set_int(stoi(val, nullptr, 0));
                 }
-                return;
+                return true;
         }
         if (strlen(val) <= 4) {
                 set_int(bmd_read_fourcc(val));
-                return;
+                return true;
         }
 
         set_string(val);
+        return true;
 }
 
 bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, string const &log_prefix) const {

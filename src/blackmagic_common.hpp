@@ -109,7 +109,7 @@ public:
         bool get_flag() const;
         int64_t get_int() const;
         [[nodiscard]] const char *get_string() const;
-        void parse(const char *);
+        bool parse(const char *);
         void set_flag(bool val_);
         void set_int(int64_t val_);
         void set_float(double val_);
