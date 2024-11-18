@@ -760,6 +760,40 @@ bmd_opt_help()
         color_printf("- \"value\" - assume the value is string\n");
         color_printf("- 'value' - assume the value is FourCC\n");
         color_printf("\n");
+
+        color_printf("Incomplete " TBOLD("(!)") " list of keys:\n");
+        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+                uint32_t val = htonl(opt_name_map[i].fourcc);
+                color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
+                             opt_name_map[i].name);
+        }
+        color_printf("\n");
+        color_printf("See\n"
+                     TUNDERLINE("https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
+                     "DeckLink/Linux/DeckLinkAPIConfiguration.h") "\nfor full list.\n");
+        color_printf("\n");
+        color_printf("Incomplete " TBOLD("(!)") " list of values:\n");
+        color_printf("(note that the value belongs to its appropriate key)\n");
+        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+                uint32_t val = htonl(val_name_map[i].fourcc);
+                color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
+                             val_name_map[i].name);
+        }
+        color_printf("\n");
+        color_printf("Avaliable values can be found here:\n" TUNDERLINE(
+            "https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
+            "DeckLink/Linux/DeckLinkAPI.h") "\n");
+        color_printf("\n");
+        color_printf("The actual key type and possible values must be, however "
+                     "consutlted with:\n" TUNDERLINE(
+                         "https://documents.blackmagicdesign.com/UserManuals/"
+                         "DeckLinkSDKManual.pdf") "\n");
+
+        color_printf("\n");
+        color_printf("Examples:\n");
+        color_printf(TBOLD("aacl=on") " - set audio consumer levels (flag)\n");
+        color_printf(TBOLD("voio=blac") " - display black when no output\n");
+        color_printf("\n");
 }
 
 /**
