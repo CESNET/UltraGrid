@@ -49,7 +49,6 @@
 #include <mutex>                 // for mutex, lock_guard, unique_lock
 #include <sstream>
 #include <stdexcept>
-#include <unordered_map>
 #include <utility>
 
 #include "compat/misc.h"         // for strncasecmp
@@ -79,7 +78,6 @@ using std::stod;
 using std::stoi;
 using std::string;
 using std::uppercase;
-using std::unordered_map;
 using std::vector;
 
 string bmd_hresult_to_string(HRESULT res)
@@ -572,35 +570,59 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
         return output;
 }
 
-static string fcc_to_string(uint32_t fourcc) {
 #define BMDFCC(x) {x,#x}
-        static const unordered_map<uint32_t, const char *> conf_name_map = {
-                BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
-                BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
-                BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
-                BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
-                BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
-                BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
-                BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
-                BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
-                BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
-                BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
-                BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
-                BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
-                BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
-                BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
-                BMDFCC(bmdDeckLinkConfigVideoInputConnection),
-                BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
-                BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
-                BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
-                BMDFCC(bmdIdleVideoOutputBlack),
-                BMDFCC(bmdIdleVideoOutputLastFrame),
-                BMDFCC(bmdLinkConfigurationSingleLink), BMDFCC(bmdLinkConfigurationDualLink), BMDFCC(bmdLinkConfigurationQuadLink),
-        };
+static const struct {
+        uint32_t    fourcc;
+        const char *name;
+} opt_name_map[] = {
+        BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
+        BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
+        BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+        BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
+        BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+        BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
+        BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
+        BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
+        BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+        BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
+        BMDFCC(bmdDeckLinkConfigVideoInputConnection),
+        BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+        BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
+        BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
+};
+static const struct {
+        uint32_t    fourcc;
+        const char *name;
+} val_name_map[] = {
+        BMDFCC(bmdVideo3DPackingSidebySideHalf),
+        BMDFCC(bmdVideo3DPackingLinebyLine),
+        BMDFCC(bmdVideo3DPackingTopAndBottom),
+        BMDFCC(bmdVideo3DPackingFramePacking),
+        BMDFCC(bmdVideo3DPackingRightOnly),
+        BMDFCC(bmdVideo3DPackingLeftOnly),
+        BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
+        BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
+        BMDFCC(bmdIdleVideoOutputBlack),
+        BMDFCC(bmdIdleVideoOutputLastFrame),
+        BMDFCC(bmdLinkConfigurationSingleLink),
+        BMDFCC(bmdLinkConfigurationDualLink),
+        BMDFCC(bmdLinkConfigurationQuadLink),
+};
 #undef BMDFCC
-        if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
-                return it->second;
+
+static string fcc_to_string(uint32_t fourcc) {
+        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+                if (opt_name_map[i].fourcc == fourcc) {
+                        return opt_name_map[i].name;
+                }
         }
+        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+                if (val_name_map[i].fourcc == fourcc) {
+                        return val_name_map[i].name;
+                }
+        }
+
         union {
                 char c[5];
                 uint32_t i;
