@@ -1205,12 +1205,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         }
 
         bool ret = true;
-        auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
+        char tmp[STR_LEN];
+        snprintf_ch(tmp, "%s", fmt);
         strcpy(tmp, fmt);
-        char *ptr;
         char *save_ptr = nullptr;
-
-        ptr = strtok_r(tmp, ":", &save_ptr);
+        char *ptr = strtok_r(tmp, ":", &save_ptr);
         assert(ptr != nullptr);
         int i = 0;
         bool first_option_is_device = true;
