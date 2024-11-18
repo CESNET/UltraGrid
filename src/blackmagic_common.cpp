@@ -43,8 +43,10 @@
 #include <condition_variable>
 #include <cstdio>                // for fprintf, stderr
 #include <cstdint>               // for int64_t, uint32_t
+#include <cstdlib>               // for free
 #include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
 #include <iomanip>
+#include <iterator>              // for pair
 #include <map>
 #include <mutex>                 // for mutex, lock_guard, unique_lock
 #include <sstream>
@@ -53,6 +55,7 @@
 
 #include "compat/misc.h"         // for strncasecmp
 #include "compat/net.h"          // for htonl, ntohl
+#include "compat/strings.h"      // for strncasecmp
 #include "DeckLinkAPIVersion.h"
 #include "blackmagic_common.hpp"
 #include "debug.h"
@@ -853,6 +856,10 @@ bmd_option::parse(const char *val)
         bool is_number = true;
         bool decimal_point = false;
         for (size_t i = 0; i < strlen(val); ++i) {
+                if (i == 0 && strncasecmp(val, "0x", 2) == 0) {
+                        i += 1;
+                        continue;
+                }
                 if (val[i] == '.') {
                         if (decimal_point) { // there was already decimal point
                                 is_number = false;
