@@ -40,6 +40,7 @@
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
 #include <climits>               // for UINT_MAX
+#include <cinttypes>             // for PRId64
 #include <condition_variable>
 #include <cstdio>                // for fprintf, stderr
 #include <cstdint>               // for int64_t, uint32_t
@@ -1265,6 +1266,116 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
                 std::get<char>(d) = new_idx++;
         }
         return out;
+}
+
+static void
+print_ethernet_status(IDeckLinkStatus *deckLinkStatus, bool capture)
+{
+        int64_t int_val = 0;
+        BMD_STR string_val{};
+        if (SUCCEEDED(deckLinkStatus->GetInt(bmdDeckLinkStatusEthernetLink,
+                                             &int_val))) {
+                const char *state = nullptr;
+                switch (int_val) {
+                case bmdEthernetLinkStateDisconnected:
+                        state = "disconnected";
+                        break;
+                case bmdEthernetLinkStateConnectedUnbound:
+                        state = "unbound";
+                        break;
+                case bmdEthernetLinkStateConnectedBound:
+                        state = "bound";
+                        break;
+                default:
+                        state = "unknown";
+                        break;
+                }
+                MSG(INFO, "Ethernet state: %s\n", state);
+        }
+        if (SUCCEEDED(deckLinkStatus->GetInt(bmdDeckLinkStatusEthernetLinkMbps,
+                                             &int_val))) {
+                MSG(INFO, "Ethernet link speed: %" PRId64 " Mbps\n", int_val);
+        }
+        if (SUCCEEDED(deckLinkStatus->GetString(bmdDeckLinkStatusEthernetLocalIPAddress,
+                                             &string_val))) {
+                string ip = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                string_val = "";
+                deckLinkStatus->GetString(bmdDeckLinkStatusEthernetSubnetMask,
+                                          &string_val);
+                string nmask = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                MSG(INFO, "Ethernet IP: %s/%s\n", ip.c_str(), nmask.c_str());
+        }
+        struct {
+                int32_t     prop;
+                const char *prop_name;
+                bool        playback_only; ///< relevant only for playback;
+        } strings_map[] = {
+                { bmdDeckLinkStatusEthernetGatewayIPAddress,   "gateway IP",
+                 false                                                            },
+                { bmdDeckLinkStatusEthernetVideoOutputAddress,
+                 "video output address",                                     true },
+                { bmdDeckLinkStatusEthernetAudioOutputAddress,
+                 "audio output address",                                     true },
+        };
+        for (unsigned u = 0; u < ARR_COUNT(strings_map); ++u) {
+                if (capture && strings_map[u].playback_only) {
+                        continue;
+                }
+                if (FAILED(deckLinkStatus->GetString(strings_map[u].prop,
+                                                     &string_val))) {
+                        continue;
+                }
+                string str = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                MSG(INFO, "Ethernet %s: %s\n", strings_map[u].prop_name,
+                    str.c_str());
+        }
+}
+
+/**
+ * @brief dump DeckLink status
+ *
+ * Currently only Ethernet status for DeckLink IP devices are printed.
+ * @param capture   if true, skip irrelevant values like output addresses (A/V)
+ *
+ * @todo
+ * Print some useful information also normally (non-IP devices).
+ */
+void
+bmd_print_status(IDeckLink *deckLink, bool capture)
+{
+        IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+        HRESULT                     result = deckLink->QueryInterface(
+            IID_IDeckLinkProfileAttributes, (void **) &deckLinkAttributes);
+        if (result != S_OK) {
+                MSG(ERROR, "Cannot obtain IID_IDeckLinkProfileAttributes from "
+                           "DeckLink!\n");
+                return;
+        }
+        BMD_STR string_val{};
+        if (deckLinkAttributes->GetString(BMDDeckLinkEthernetMACAddress,
+                                       &string_val) != S_OK) {
+                MSG(DEBUG, "DeckLink doesn't support Ethernet.\n");
+                RELEASE_IF_NOT_NULL(deckLinkAttributes);
+                return;
+        }
+        string mac_addr = get_str_from_bmd_api_str(string_val);
+        release_bmd_api_str(string_val);
+        MSG(INFO, "Ethernet MAC address: %s\n", mac_addr.c_str());
+        RELEASE_IF_NOT_NULL(deckLinkAttributes);
+
+        IDeckLinkStatus *deckLinkStatus = nullptr;
+        if (HRESULT result = deckLink->QueryInterface(
+                IID_IDeckLinkStatus, (void **) &deckLinkStatus);
+            FAILED(result)) {
+                MSG(ERROR,
+                    "Cannot obtain IID_IDeckLinkStatus from DeckLink!\n");
+                return;
+        }
+        print_ethernet_status(deckLinkStatus, capture);
+        RELEASE_IF_NOT_NULL(deckLinkStatus);
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

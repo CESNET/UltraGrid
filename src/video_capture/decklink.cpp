@@ -1495,6 +1495,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         cleanup_common(s);
                         return VIDCAP_INIT_FAIL;
                 }
+                bmd_print_status(s->state[i].deckLink, true);
         }
 
         *state = s;

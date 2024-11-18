@@ -1571,6 +1571,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
+        bmd_print_status(s->deckLink, false);
 
         return (void *)s;
 }
