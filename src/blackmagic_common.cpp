@@ -582,6 +582,12 @@ static const struct {
         BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
         BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
         BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticGatewayIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticLocalIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticSubnetMask),
+        BMDFCC(bmdDeckLinkConfigEthernetVideoOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetUseDHCP),
         BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
         BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
         BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
@@ -796,6 +802,14 @@ bmd_opt_help()
         color_printf("Examples:\n");
         color_printf(TBOLD("aacl=on") " - set audio consumer levels (flag)\n");
         color_printf(TBOLD("voio=blac") " - display black when no output\n");
+        color_printf(TBOLD("DHCP=yes") " - use DHCP config for DeckLink IP\n");
+        color_printf(TBOLD(
+            "nsip=10.0.0.3:nssm=255.255.255.0:nsgw=10.0.0.1") " - use static "
+                                                              "net config for "
+                                                              "DeckLink IP\n");
+        color_printf(TBOLD(
+            "noaa=239.255.194.26:noav=239.255.194.26") " - set output "
+                                                       "audio/video address\n");
         color_printf("\n");
 }
 
@@ -1051,7 +1065,9 @@ const map<BMDVideoConnection, string> &get_connection_string_map() {
                 { bmdVideoConnectionOpticalSDI, "OpticalSDI"},
                 { bmdVideoConnectionComponent, "Component"},
                 { bmdVideoConnectionComposite, "Composite"},
-                { bmdVideoConnectionSVideo, "SVideo"}
+                { bmdVideoConnectionSVideo, "SVideo"},
+                { bmdVideoConnectionEthernet, "Ethernet"},
+                { bmdVideoConnectionOpticalEthernet, "OpticalEthernet"},
         };
         return m;
 }
