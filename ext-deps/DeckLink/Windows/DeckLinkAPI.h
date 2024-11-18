@@ -1799,14 +1799,14 @@ typedef enum _BMDDeckLinkConfigurationID {
     bmdDeckLinkConfigEthernetUseDHCP = 0x44484350,
     bmdDeckLinkConfigEthernetPTPFollowerOnly = 0x50545066,
     bmdDeckLinkConfigEthernetPTPUseUDPEncapsulation = 0x50545055,
+    bmdDeckLinkConfigEthernetPTPPriority1 = 0x50545031,
+    bmdDeckLinkConfigEthernetPTPPriority2 = 0x50545032,
+    bmdDeckLinkConfigEthernetPTPDomain = 0x50545044,
     bmdDeckLinkConfigEthernetStaticLocalIPAddress = 0x6e736970,
     bmdDeckLinkConfigEthernetStaticSubnetMask = 0x6e73736d,
     bmdDeckLinkConfigEthernetStaticGatewayIPAddress = 0x6e736777,
     bmdDeckLinkConfigEthernetStaticPrimaryDNS = 0x6e737064,
     bmdDeckLinkConfigEthernetStaticSecondaryDNS = 0x6e737364,
-    bmdDeckLinkConfigEthernetPTPPriority1 = 0x50545031,
-    bmdDeckLinkConfigEthernetPTPPriority2 = 0x50545032,
-    bmdDeckLinkConfigEthernetPTPDomain = 0x50545044,
     bmdDeckLinkConfigEthernetVideoOutputAddress = 0x6e6f6176,
     bmdDeckLinkConfigEthernetAudioOutputAddress = 0x6e6f6161,
     bmdDeckLinkConfigEthernetAncillaryOutputAddress = 0x6e6f6141,
@@ -4589,7 +4589,8 @@ typedef enum _BMDSupportedVideoModeFlags {
     bmdSupportedVideoModeSDISingleLink = 1 << 2,
     bmdSupportedVideoModeSDIDualLink = 1 << 3,
     bmdSupportedVideoModeSDIQuadLink = 1 << 4,
-    bmdSupportedVideoModeInAnyProfile = 1 << 5
+    bmdSupportedVideoModeInAnyProfile = 1 << 5,
+    bmdSupportedVideoModePsF = 1 << 6
 } BMDSupportedVideoModeFlags;
 typedef enum _BMDPacketType {
     bmdPacketTypeStreamInterruptedMarker = 0x73696e74,
@@ -4860,6 +4861,7 @@ typedef enum _BMDDeckLinkStatusID {
     bmdDeckLinkStatusCurrentVideoOutputMode = 0x63766f6d,
     bmdDeckLinkStatusCurrentVideoOutputFlags = 0x63766f66,
     bmdDeckLinkStatusEthernetLink = 0x73656c73,
+    bmdDeckLinkStatusEthernetLinkMbps = 0x73657370,
     bmdDeckLinkStatusPCIExpressLinkWidth = 0x70776964,
     bmdDeckLinkStatusPCIExpressLinkSpeed = 0x706c6e6b,
     bmdDeckLinkStatusLastVideoOutputPixelFormat = 0x6f706978,
