@@ -508,7 +508,7 @@ struct state_decklink {
         IDeckLinkOutput            *deckLinkOutput;
         IDeckLinkConfiguration     *deckLinkConfiguration;
         IDeckLinkProfileAttributes *deckLinkAttributes;
-        IDeckLinkNotificationCallback *notificationCallback = nullptr;
+        BMDNotificationCallback    *notificationCallback = nullptr;
 
         DeckLinkTimecode    *timecode{}; ///< @todo Should be actually allocated dynamically and
                                        ///< its lifespan controlled by AddRef()/Release() methods
@@ -1604,7 +1604,7 @@ static void display_decklink_done(void *state)
                                "DisableVideoOutput");
         }
 
-        bmd_unsubscribe_notify(s->deckLink, s->notificationCallback);
+        bmd_unsubscribe_notify(s->notificationCallback);
         RELEASE_IF_NOT_NULL(s->deckLinkAttributes);
         RELEASE_IF_NOT_NULL(s->deckLinkConfiguration);
         RELEASE_IF_NOT_NULL(s->deckLinkOutput);

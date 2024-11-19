@@ -1355,11 +1355,14 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
 }
 
 // from BMD SDK sample StatusMonitor.cpp
-class NotificationCallback : public IDeckLinkNotificationCallback
+class BMDNotificationCallback : public IDeckLinkNotificationCallback
 {
       public:
-        explicit NotificationCallback(IDeckLinkStatus *deckLinkStatus)
-            : m_deckLinkStatus(deckLinkStatus), m_refCount(1)
+        explicit BMDNotificationCallback(
+            IDeckLinkStatus       *deckLinkStatus,
+            IDeckLinkNotification *deckLinkNotification)
+            : m_deckLinkStatus(deckLinkStatus),
+              m_deckLinkNotification(deckLinkNotification), m_refCount(1)
 
         {
                 m_deckLinkStatus->AddRef();
@@ -1404,10 +1407,18 @@ class NotificationCallback : public IDeckLinkNotificationCallback
         }
 
       private:
-        IDeckLinkStatus   *m_deckLinkStatus;
-        std::atomic<ULONG> m_refCount;
+        IDeckLinkStatus       *m_deckLinkStatus;
+        IDeckLinkNotification *m_deckLinkNotification;
+        std::atomic<ULONG>     m_refCount;
 
-        virtual ~NotificationCallback() { m_deckLinkStatus->Release(); }
+        virtual ~BMDNotificationCallback()
+        {
+                m_deckLinkNotification->Unsubscribe(bmdStatusChanged, this);
+                m_deckLinkStatus->Release();
+                m_deckLinkNotification->Release();
+        }
+
+      public:
 };
 
 /**
@@ -1425,7 +1436,7 @@ class NotificationCallback : public IDeckLinkNotificationCallback
  * @todo
  * Print some useful information also normally (non-IP devices).
  */
-IDeckLinkNotificationCallback *
+BMDNotificationCallback *
 bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
 {
         IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
@@ -1474,8 +1485,9 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                 return nullptr;
         }
 
-        auto *notificationCallback = new NotificationCallback(deckLinkStatus);
-        assert(notificationCallback!= nullptr);
+        auto *notificationCallback =
+            new BMDNotificationCallback(deckLinkStatus, deckLinkNotification);
+        assert(notificationCallback != nullptr);
 
         result = deckLinkNotification->Subscribe(bmdStatusChanged,
                                                  notificationCallback);
@@ -1488,32 +1500,16 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                 return nullptr;
         }
 
-        deckLinkNotification->Release();;
-
         return notificationCallback;
 }
 void
-bmd_unsubscribe_notify(IDeckLink                     *deckLink,
-                       IDeckLinkNotificationCallback *notificationCallback) {
+bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback)
+{
         if (notificationCallback == nullptr) {
                 return;
         }
 
-        // Obtain the notification interface
-        IDeckLinkNotification *deckLinkNotification = nullptr;
-        HRESULT result = deckLink->QueryInterface(IID_IDeckLinkNotification,
-                                          (void **) &deckLinkNotification);
-        if (result != S_OK) {
-                MSG(ERROR,
-                    "Could not obtain the IDeckLinkNotification interface - "
-                    "result = %08x; cannot unsubscribe\n",
-                    result);
-                return;
-        }
-        deckLinkNotification->Unsubscribe(bmdStatusChanged,
-                                          notificationCallback);
         notificationCallback->Release();
-        deckLinkNotification->Release();
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

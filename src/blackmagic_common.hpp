@@ -190,11 +190,10 @@ using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
 std::vector<bmd_dev> bmd_get_sorted_devices(bool *com_initialized,
                                             bool  verbose      = true,
                                             bool  natural_sort = false);
-IDeckLinkNotificationCallback *
-bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture);
-void
-bmd_unsubscribe_notify(IDeckLink                     *deckLink,
-                       IDeckLinkNotificationCallback *notificationCallback);
+class BMDNotificationCallback;
+BMDNotificationCallback *bmd_print_status_subscribe_notify(IDeckLink *deckLink,
+                                                           bool       capture);
+void bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

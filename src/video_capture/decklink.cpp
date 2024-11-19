@@ -173,7 +173,7 @@ struct device_state {
         unique_ptr<VideoDelegate>  delegate;
         IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
-        IDeckLinkNotificationCallback *notificationCallback = nullptr;
+        BMDNotificationCallback    *notificationCallback  = nullptr;
         string                      device_id = "0"; // either numeric value or device name
         bool                        audio                 = false; /* wheather we process audio or not */
         struct tile                *tile                  = nullptr;
@@ -1519,8 +1519,7 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         }
 
         for (int i = 0; i < s->devices_cnt; ++i) {
-                bmd_unsubscribe_notify(s->state[i].deckLink,
-                                       s->state[i].notificationCallback);
+                bmd_unsubscribe_notify(s->state[i].notificationCallback);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkInput);
