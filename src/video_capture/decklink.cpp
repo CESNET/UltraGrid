@@ -173,6 +173,7 @@ struct device_state {
         unique_ptr<VideoDelegate>  delegate;
         IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
+        IDeckLinkNotificationCallback *notificationCallback = nullptr;
         string                      device_id = "0"; // either numeric value or device name
         bool                        audio                 = false; /* wheather we process audio or not */
         struct tile                *tile                  = nullptr;
@@ -1418,6 +1419,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 
         displayModeIterator->Release();
         displayModeIterator = NULL;
+
+        notificationCallback = bmd_print_status_subscribe_notify(deckLink, true);
+
         return true;
 }
 
@@ -1501,7 +1505,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         cleanup_common(s);
                         return VIDCAP_INIT_FAIL;
                 }
-                bmd_print_status(s->state[i].deckLink, true);
         }
 
         *state = s;
@@ -1516,6 +1519,8 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         }
 
         for (int i = 0; i < s->devices_cnt; ++i) {
+                bmd_unsubscribe_notify(s->state[i].deckLink,
+                                       s->state[i].notificationCallback);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkInput);

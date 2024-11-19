@@ -36,6 +36,7 @@
  */
 
 #include <algorithm>
+#include <atomic>                // for atomic
 #include <cassert>
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
@@ -1353,34 +1354,97 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
         }
 }
 
+// from BMD SDK sample StatusMonitor.cpp
+class NotificationCallback : public IDeckLinkNotificationCallback
+{
+      public:
+        explicit NotificationCallback(IDeckLinkStatus *deckLinkStatus)
+            : m_deckLinkStatus(deckLinkStatus), m_refCount(1)
+
+        {
+                m_deckLinkStatus->AddRef();
+        }
+
+        // Implement the IDeckLinkNotificationCallback interface
+        HRESULT STDMETHODCALLTYPE Notify(BMDNotifications topic,
+                                         uint64_t         param1,
+                                         uint64_t /* param2 */) override
+        {
+                // Check whether the notification we received is a status
+                // notification
+                if (topic != bmdStatusChanged) {
+                        return S_OK;
+                }
+
+                // Print the updated status value
+                auto statusId = (BMDDeckLinkStatusID) param1;
+                print_status_item(m_deckLinkStatus, statusId);
+
+                return S_OK;
+        }
+
+        // IUnknown needs only a dummy implementation
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID /* iid */,
+                                                 LPVOID * /* ppv */) override
+        {
+                return E_NOINTERFACE;
+        }
+
+        ULONG STDMETHODCALLTYPE AddRef() override { return ++m_refCount; }
+
+        ULONG STDMETHODCALLTYPE Release() override
+        {
+                ULONG newRefValue = --m_refCount;
+
+                if (newRefValue == 0) {
+                        delete this;
+                }
+
+                return newRefValue;
+        }
+
+      private:
+        IDeckLinkStatus   *m_deckLinkStatus;
+        std::atomic<ULONG> m_refCount;
+
+        virtual ~NotificationCallback() { m_deckLinkStatus->Release(); }
+};
+
 /**
- * @brief dump DeckLink status
+ * @brief dump DeckLink status + register to notifications
  *
  * Currently only Ethernet status for DeckLink IP devices are printed.
  * @param capture   if true, skip irrelevant values like output addresses (A/V)
  *
+ * @note
+ * Subscribing for notification is needed because if user sets eg. an IP
+ * address, the change isn't performed immediately so that the old value is
+ * actually printed while the new value is set later and it can be observed by
+ * the notification observer.
+ *
  * @todo
  * Print some useful information also normally (non-IP devices).
  */
-void
-bmd_print_status(IDeckLink *deckLink, bool capture)
+IDeckLinkNotificationCallback *
+bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
 {
         IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
         HRESULT                     result = deckLink->QueryInterface(
             IID_IDeckLinkProfileAttributes, (void **) &deckLinkAttributes);
-        if (result != S_OK) {
+        if (SUCCEEDED(result)) {
+                BMD_STR string_val{};
+                if (SUCCEEDED(deckLinkAttributes->GetString(
+                        BMDDeckLinkEthernetMACAddress, &string_val))) {
+                        string mac_addr = get_str_from_bmd_api_str(string_val);
+                        release_bmd_api_str(string_val);
+                        MSG(INFO, "Ethernet MAC address: %s\n",
+                            mac_addr.c_str());
+                }
+                RELEASE_IF_NOT_NULL(deckLinkAttributes);
+        } else {
                 MSG(ERROR, "Cannot obtain IID_IDeckLinkProfileAttributes from "
                            "DeckLink!\n");
-                return;
         }
-        BMD_STR string_val{};
-        if (SUCCEEDED(deckLinkAttributes->GetString(BMDDeckLinkEthernetMACAddress,
-                                       &string_val))) {
-                string mac_addr = get_str_from_bmd_api_str(string_val);
-                release_bmd_api_str(string_val);
-                MSG(INFO, "Ethernet MAC address: %s\n", mac_addr.c_str());
-        }
-        RELEASE_IF_NOT_NULL(deckLinkAttributes);
 
         IDeckLinkStatus *deckLinkStatus = nullptr;
         if (HRESULT result = deckLink->QueryInterface(
@@ -1388,15 +1452,68 @@ bmd_print_status(IDeckLink *deckLink, bool capture)
             FAILED(result)) {
                 MSG(ERROR,
                     "Cannot obtain IID_IDeckLinkStatus from DeckLink!\n");
-                return;
+                return nullptr;
         }
+        // print status_map values now
         for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
                 if (capture && status_map[u].playback_only) {
                         continue;
                 }
                 print_status_item(deckLinkStatus, status_map[u].prop);
         }
-        RELEASE_IF_NOT_NULL(deckLinkStatus);
+
+        // Obtain the notification interface
+        IDeckLinkNotification *deckLinkNotification = nullptr;
+        result = deckLink->QueryInterface(IID_IDeckLinkNotification,
+                                          (void **) &deckLinkNotification);
+        if (result != S_OK) {
+                MSG(ERROR,
+                    "Could not obtain the IDeckLinkNotification interface - "
+                    "result = %08x\n",
+                    result);
+                return nullptr;
+        }
+
+        auto *notificationCallback = new NotificationCallback(deckLinkStatus);
+        assert(notificationCallback!= nullptr);
+
+        result = deckLinkNotification->Subscribe(bmdStatusChanged,
+                                                 notificationCallback);
+        if (result != S_OK) {
+                MSG(ERROR,
+                    "Could not subscribe to the status change notification "
+                    "- result = %08x\n",
+                    result);
+                notificationCallback->Release();
+                return nullptr;
+        }
+
+        deckLinkNotification->Release();;
+
+        return notificationCallback;
+}
+void
+bmd_unsubscribe_notify(IDeckLink                     *deckLink,
+                       IDeckLinkNotificationCallback *notificationCallback) {
+        if (notificationCallback == nullptr) {
+                return;
+        }
+
+        // Obtain the notification interface
+        IDeckLinkNotification *deckLinkNotification = nullptr;
+        HRESULT result = deckLink->QueryInterface(IID_IDeckLinkNotification,
+                                          (void **) &deckLinkNotification);
+        if (result != S_OK) {
+                MSG(ERROR,
+                    "Could not obtain the IDeckLinkNotification interface - "
+                    "result = %08x; cannot unsubscribe\n",
+                    result);
+                return;
+        }
+        deckLinkNotification->Unsubscribe(bmdStatusChanged,
+                                          notificationCallback);
+        notificationCallback->Release();
+        deckLinkNotification->Release();
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

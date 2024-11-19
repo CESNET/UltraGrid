@@ -508,6 +508,7 @@ struct state_decklink {
         IDeckLinkOutput            *deckLinkOutput;
         IDeckLinkConfiguration     *deckLinkConfiguration;
         IDeckLinkProfileAttributes *deckLinkAttributes;
+        IDeckLinkNotificationCallback *notificationCallback = nullptr;
 
         DeckLinkTimecode    *timecode{}; ///< @todo Should be actually allocated dynamically and
                                        ///< its lifespan controlled by AddRef()/Release() methods
@@ -1575,7 +1576,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
-        bmd_print_status(s->deckLink, false);
+        s->notificationCallback = bmd_print_status_subscribe_notify(s->deckLink, false);
 
         return (void *)s;
 }
@@ -1603,6 +1604,7 @@ static void display_decklink_done(void *state)
                                "DisableVideoOutput");
         }
 
+        bmd_unsubscribe_notify(s->deckLink, s->notificationCallback);
         RELEASE_IF_NOT_NULL(s->deckLinkAttributes);
         RELEASE_IF_NOT_NULL(s->deckLinkConfiguration);
         RELEASE_IF_NOT_NULL(s->deckLinkOutput);
