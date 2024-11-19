@@ -68,6 +68,11 @@
 #include "utils/windows.h"
 #include "utils/worker.h"
 
+#if BLACKMAGIC_DECKLINK_API_VERSION > 0x0c080000
+#warning \
+    "Increased BMD API - enum diffs recheck recommends (or just increase the compared API version)"
+#endif
+
 #define MOD_NAME "[DeckLink] "
 
 using std::clamp;
@@ -1273,87 +1278,187 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
         return out;
 }
 
-static const struct {
-        uint32_t    fourcc;
+/*   ____            _    _     _       _     ____  _        _             
+ *  |  _ \  ___  ___| | _| |   (_)_ __ | | __/ ___|| |_ __ _| |_ _   _ ___ 
+ *  | | | |/ _ \/ __| |/ / |   | | '_ \| |/ /\___ \| __/ _` | __| | | / __|
+ *  | |_| |  __/ (__|   <| |___| | | | |   <  ___) | || (_| | |_| |_| \__ \
+ *  |____/ \___|\___|_|\_\_____|_|_| |_|_|\_\|____/ \__\__,_|\__|\__,_|___/
+ */
+
+/// value map, needs to be zero-terminated
+/// if status_type == ST_BIT_FIELD, val==0 must be set
+struct bmd_status_val_map {
+        uint32_t    val;
         const char *name;
-} status_val_map[] = {
+};
+/// FourCC based values (can be all in one array)
+static const struct bmd_status_val_map status_val_map_dfl[] = {
         { bmdEthernetLinkStateDisconnected,     "disconnected"        },
         { bmdEthernetLinkStateConnectedUnbound, "connected (unbound)" },
         { bmdEthernetLinkStateConnectedBound,   "connected (bound)"   },
+        { 0,                                    nullptr               },
+};
+static const struct bmd_status_val_map bmd_busy_state_bit_field_map[] = {
+        { 0,                       "inactive"    }, // default val if no bit set
+        { bmdDeviceCaptureBusy,    "capture"     },
+        { bmdDevicePlaybackBusy,   "playback"    },
+        { bmdDeviceSerialPortBusy, "serial-port" },
+        { 0,                       nullptr       },
+};
+static const struct bmd_status_val_map bmd_dyn_range_map[] = {
+        { bmdDynamicRangeSDR,          "SDR"     },
+        { bmdDynamicRangeHDRStaticPQ,  "HDR PQ"  },
+        { bmdDynamicRangeHDRStaticHLG, "HDR HLG" },
+        { 0,                           nullptr}
+};
+static const struct bmd_status_val_map bmd_cs_map[] = {
+        { bmdColorspaceRec601,  "Rec.601"  },
+        { bmdColorspaceRec709,  "Rec.709"  },
+        { bmdColorspaceRec2020, "Rec.2020" },
+        { 0,                    nullptr    }
 };
 enum status_type {
-        ST_FCC,
-        ST_INT,
+        ST_ENUM,      // set type_data.map
+        ST_BIT_FIELD, // set type_data.map
+        ST_INT,       // set type_data.int_fmt_str
         ST_STRING,
 };
-static const struct {
+static const struct status_property {
         BMDDeckLinkStatusID prop;
         const char         *prop_name;
         enum status_type    type;
-        const char         *int_units;
-        bool                playback_only; ///< relevant only for playback;
+        union type_data {
+                const char                      *int_fmt_str;
+                const struct bmd_status_val_map *map;
+        } type_data;
+        bool playback_only; ///< relevant only for playback;
+        int  req_log_level;
 } status_map[] = {
-        { bmdDeckLinkStatusEthernetLink, "Ethernet state", ST_FCC, nullptr,
-         false },
-        { bmdDeckLinkStatusEthernetLinkMbps, "Ethernet link speed", ST_INT,
-         "Mbps", false },
-        { bmdDeckLinkStatusEthernetLocalIPAddress, "Ethernet IP address",
-         ST_STRING, nullptr, false },
-        { bmdDeckLinkStatusEthernetSubnetMask, "Ethernet subnet mask",
-         ST_STRING, nullptr, false },
-        { bmdDeckLinkStatusEthernetGatewayIPAddress, "Ethernet gateway IP",
-         ST_STRING, nullptr, false },
+        { bmdDeckLinkStatusBusy,
+         "Busy",                          ST_BIT_FIELD,
+         { .map = bmd_busy_state_bit_field_map },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusPCIExpressLinkWidth,
+         "PCIe Link Width",               ST_INT,
+         { .int_fmt_str = "%" PRIu64 "x" },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusPCIExpressLinkSpeed,
+         "PCIe Link Speed",               ST_INT,
+         { .int_fmt_str = "Gen. %" PRIu64 },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusDetectedVideoInputColorspace,
+         "Video Colorspace",              ST_ENUM,
+         { .map = bmd_cs_map },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusDetectedVideoInputDynamicRange,
+         "Video Dynamic Range",           ST_ENUM,
+         { .map = bmd_dyn_range_map },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLink,
+         "Ethernet state",                ST_ENUM,
+         { .map = status_val_map_dfl },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLinkMbps,
+         "Ethernet link speed",           ST_INT,
+         { .int_fmt_str = "%" PRIu64 " Mbps" },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLocalIPAddress,
+         "Ethernet IP address",           ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetSubnetMask,
+         "Ethernet subnet mask",          ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetGatewayIPAddress,
+         "Ethernet gateway IP",           ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
         { bmdDeckLinkStatusEthernetVideoOutputAddress,
-         "Ethernet video output address", ST_STRING, nullptr, true },
+         "Ethernet video output address", ST_STRING,
+         {},
+         true,  LOG_LEVEL_INFO    },
         { bmdDeckLinkStatusEthernetAudioOutputAddress,
-         "Ethernet audio output address", ST_STRING, nullptr, true },
+         "Ethernet audio output address", ST_STRING,
+         {},
+         true,  LOG_LEVEL_INFO    },
 };
 static void
 print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
 {
+        const struct status_property *s_prop = nullptr;
+
+        for (unsigned i = 0; i < ARR_COUNT(status_map); ++i) {
+                if (status_map[i].prop == prop) {
+                        s_prop = &status_map[i];
+                        break;
+                }
+        }
+        if (s_prop == nullptr) { // not found
+                return;
+        }
+        if (log_level < s_prop->req_log_level) {
+                return;
+        }
+
         int64_t int_val = 0;
         BMD_STR string_val{};
-        for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
-                if (status_map[u].prop != prop) {
-                        continue;
+        HRESULT rc = s_prop->type == ST_STRING
+                         ? deckLinkStatus->GetString(s_prop->prop, &string_val)
+                         : deckLinkStatus->GetInt(s_prop->prop, &int_val);
+        if (!SUCCEEDED(rc)) {
+                if (FAILED(rc) && rc != E_NOTIMPL) {
+                        MSG(WARNING, "Obtain property 0x%08x value: %s\n",
+                            (unsigned) prop, bmd_hresult_to_string(rc).c_str());
                 }
-                switch (status_map[u].type) {
-                case ST_STRING: {
-                        if (FAILED(deckLinkStatus->GetString(status_map[u].prop,
-                                                             &string_val))) {
-                                break;
-                        }
-                        string str = get_str_from_bmd_api_str(string_val);
-                        release_bmd_api_str(string_val);
-                        MSG(INFO, "%s: %s\n", status_map[u].prop_name,
-                            str.c_str());
-                        break;
-                }
-                case ST_INT:
-                        if (FAILED(deckLinkStatus->GetInt(status_map[u].prop,
-                                                          &int_val))) {
-                                break;
-                        }
-                        MSG(INFO, "%s: %" PRId64 " %s\n",
-                            status_map[u].prop_name, int_val, status_map[u].int_units);
-                        break;
-                case ST_FCC: {
-                        const char *val = "unknown";
-                        if (FAILED(deckLinkStatus->GetInt(status_map[u].prop,
-                                                          &int_val))) {
-                                break;
-                        }
-                        for (unsigned u = 0; u < ARR_COUNT(status_val_map);
-                             ++u) {
-                                     if (status_val_map[u].fourcc == int_val) {
-                                             val = status_val_map[u].name;
-                                             break;
-                                     }
-                        }
+                return;
+        }
 
-                        MSG(INFO, "%s: %s\n", status_map[u].prop_name, val);
+        switch (s_prop->type) {
+        case ST_STRING: {
+                string str = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                MSG(INFO, "%s: %s\n", s_prop->prop_name, str.c_str());
+                break;
+        }
+        case ST_INT: {
+                char buf[STR_LEN];
+                snprintf_ch(buf, s_prop->type_data.int_fmt_str, int_val);
+                MSG(INFO, "%s: %s\n", s_prop->prop_name, buf);
+                break;
+        }
+        case ST_BIT_FIELD: {
+                char val[STR_LEN];
+                val[0] = '\0';
+                for (unsigned j = 0; s_prop->type_data.map[j].name != nullptr;
+                     ++j) {
+                        if ((int_val & s_prop->type_data.map[j].val) == 0) {
+                                continue;
+                        }
+                        snprintf(val + strlen(val), sizeof val - strlen(val),
+                                 "%s%s", val[0] != '\0' ? ", " : "",
+                                 s_prop->type_data.map[j].name);
                 }
+                if (val[0] == '\0') {
+                        snprintf_ch(val, "%s", s_prop->type_data.map[0].name);
                 }
+
+                MSG(INFO, "%s: %s\n", s_prop->prop_name, val);
+                break;
+        }
+        case ST_ENUM: {
+                const char *val = "unknown";
+                for (unsigned j = 0; s_prop->type_data.map[j].name != nullptr;
+                     ++j) {
+                        if (s_prop->type_data.map[j].val == int_val) {
+                                val = s_prop->type_data.map[j].name;
+                                break;
+                        }
+                }
+
+                MSG(INFO, "%s: %s\n", s_prop->prop_name, val);
+                break;
+        }
         }
 }
 
@@ -1440,9 +1545,6 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
  *
  * @returns a pointer representing the notification callback, must be passed to
  * destroy with bmd_unsubscribe_notify()
- *
- * @todo
- * Print some useful information also normally (non-IP devices).
  */
 BMDNotificationCallback *
 bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
