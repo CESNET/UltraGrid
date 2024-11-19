@@ -1305,12 +1305,12 @@ static const struct {
          "Ethernet audio output address", ST_STRING, nullptr, true },
 };
 static void
-print_ethernet_status(IDeckLinkStatus *deckLinkStatus, bool capture)
+print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
 {
         int64_t int_val = 0;
         BMD_STR string_val{};
         for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
-                if (capture && status_map[u].playback_only) {
+                if (status_map[u].prop != prop) {
                         continue;
                 }
                 switch (status_map[u].type) {
@@ -1374,15 +1374,12 @@ bmd_print_status(IDeckLink *deckLink, bool capture)
                 return;
         }
         BMD_STR string_val{};
-        if (deckLinkAttributes->GetString(BMDDeckLinkEthernetMACAddress,
-                                       &string_val) != S_OK) {
-                MSG(DEBUG, "DeckLink doesn't support Ethernet.\n");
-                RELEASE_IF_NOT_NULL(deckLinkAttributes);
-                return;
+        if (SUCCEEDED(deckLinkAttributes->GetString(BMDDeckLinkEthernetMACAddress,
+                                       &string_val))) {
+                string mac_addr = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                MSG(INFO, "Ethernet MAC address: %s\n", mac_addr.c_str());
         }
-        string mac_addr = get_str_from_bmd_api_str(string_val);
-        release_bmd_api_str(string_val);
-        MSG(INFO, "Ethernet MAC address: %s\n", mac_addr.c_str());
         RELEASE_IF_NOT_NULL(deckLinkAttributes);
 
         IDeckLinkStatus *deckLinkStatus = nullptr;
@@ -1393,7 +1390,12 @@ bmd_print_status(IDeckLink *deckLink, bool capture)
                     "Cannot obtain IID_IDeckLinkStatus from DeckLink!\n");
                 return;
         }
-        print_ethernet_status(deckLinkStatus, capture);
+        for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
+                if (capture && status_map[u].playback_only) {
+                        continue;
+                }
+                print_status_item(deckLinkStatus, status_map[u].prop);
+        }
         RELEASE_IF_NOT_NULL(deckLinkStatus);
 }
 
