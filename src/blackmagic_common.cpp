@@ -42,6 +42,7 @@
 #include <climits>               // for UINT_MAX
 #include <cinttypes>             // for PRId64
 #include <condition_variable>
+#include <csignal>
 #include <cstdio>                // for fprintf, stderr
 #include <cstdint>               // for int64_t, uint32_t
 #include <cstdlib>               // for free
@@ -1268,61 +1269,87 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
         return out;
 }
 
+static const struct {
+        uint32_t    fourcc;
+        const char *name;
+} status_val_map[] = {
+        { bmdEthernetLinkStateDisconnected,     "disconnected"        },
+        { bmdEthernetLinkStateConnectedUnbound, "connected (unbound)" },
+        { bmdEthernetLinkStateConnectedBound,   "connected (bound)"   },
+};
+enum status_type {
+        ST_FCC,
+        ST_INT,
+        ST_STRING,
+};
+static const struct {
+        BMDDeckLinkStatusID prop;
+        const char         *prop_name;
+        enum status_type    type;
+        const char         *int_units;
+        bool                playback_only; ///< relevant only for playback;
+} status_map[] = {
+        { bmdDeckLinkStatusEthernetLink, "Ethernet state", ST_FCC, nullptr,
+         false },
+        { bmdDeckLinkStatusEthernetLinkMbps, "Ethernet link speed", ST_INT,
+         "Mbps", false },
+        { bmdDeckLinkStatusEthernetLocalIPAddress, "Ethernet IP address",
+         ST_STRING, nullptr, false },
+        { bmdDeckLinkStatusEthernetSubnetMask, "Ethernet subnet mask",
+         ST_STRING, nullptr, false },
+        { bmdDeckLinkStatusEthernetGatewayIPAddress, "Ethernet gateway IP",
+         ST_STRING, nullptr, false },
+        { bmdDeckLinkStatusEthernetVideoOutputAddress,
+         "Ethernet video output address", ST_STRING, nullptr, true },
+        { bmdDeckLinkStatusEthernetAudioOutputAddress,
+         "Ethernet audio output address", ST_STRING, nullptr, true },
+};
 static void
 print_ethernet_status(IDeckLinkStatus *deckLinkStatus, bool capture)
 {
         int64_t int_val = 0;
         BMD_STR string_val{};
-        if (SUCCEEDED(deckLinkStatus->GetInt(bmdDeckLinkStatusEthernetLink,
-                                             &int_val))) {
-                const char *state = nullptr;
-                switch (int_val) {
-                case bmdEthernetLinkStateDisconnected:
-                        state = "disconnected";
-                        break;
-                case bmdEthernetLinkStateConnectedUnbound:
-                        state = "unbound";
-                        break;
-                case bmdEthernetLinkStateConnectedBound:
-                        state = "bound";
-                        break;
-                default:
-                        state = "unknown";
-                        break;
-                }
-                MSG(INFO, "Ethernet state: %s\n", state);
-        }
-        if (SUCCEEDED(deckLinkStatus->GetInt(bmdDeckLinkStatusEthernetLinkMbps,
-                                             &int_val))) {
-                MSG(INFO, "Ethernet link speed: %" PRId64 " Mbps\n", int_val);
-        }
-        struct {
-                BMDDeckLinkStatusID prop;
-                const char         *prop_name;
-                bool playback_only; ///< relevant only for playback;
-        } strings_map[] = {
-                { bmdDeckLinkStatusEthernetLocalIPAddress,     "IP address",
-                 false                                                              },
-                { bmdDeckLinkStatusEthernetSubnetMask,         "subnet mask", false },
-                { bmdDeckLinkStatusEthernetGatewayIPAddress,   "gateway IP",
-                 false                                                              },
-                { bmdDeckLinkStatusEthernetVideoOutputAddress,
-                 "video output address",                                      true  },
-                { bmdDeckLinkStatusEthernetAudioOutputAddress,
-                 "audio output address",                                      true  },
-        };
-        for (unsigned u = 0; u < ARR_COUNT(strings_map); ++u) {
-                if (capture && strings_map[u].playback_only) {
+        for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
+                if (capture && status_map[u].playback_only) {
                         continue;
                 }
-                if (FAILED(deckLinkStatus->GetString(strings_map[u].prop,
-                                                     &string_val))) {
-                        continue;
+                switch (status_map[u].type) {
+                case ST_STRING: {
+                        if (FAILED(deckLinkStatus->GetString(status_map[u].prop,
+                                                             &string_val))) {
+                                break;
+                        }
+                        string str = get_str_from_bmd_api_str(string_val);
+                        release_bmd_api_str(string_val);
+                        MSG(INFO, "%s: %s\n", status_map[u].prop_name,
+                            str.c_str());
+                        break;
                 }
-                string str = get_str_from_bmd_api_str(string_val);
-                release_bmd_api_str(string_val);
-                MSG(INFO, "Ethernet %s: %s\n", strings_map[u].prop_name,
-                    str.c_str());
+                case ST_INT:
+                        if (FAILED(deckLinkStatus->GetInt(status_map[u].prop,
+                                                          &int_val))) {
+                                break;
+                        }
+                        MSG(INFO, "%s: %" PRId64 " %s\n",
+                            status_map[u].prop_name, int_val, status_map[u].int_units);
+                        break;
+                case ST_FCC: {
+                        const char *val = "unknown";
+                        if (FAILED(deckLinkStatus->GetInt(status_map[u].prop,
+                                                          &int_val))) {
+                                break;
+                        }
+                        for (unsigned u = 0; u < ARR_COUNT(status_val_map);
+                             ++u) {
+                                     if (status_val_map[u].fourcc == int_val) {
+                                             val = status_val_map[u].name;
+                                             break;
+                                     }
+                        }
+
+                        MSG(INFO, "%s: %s\n", status_map[u].prop_name, val);
+                }
+                }
         }
 }
 
