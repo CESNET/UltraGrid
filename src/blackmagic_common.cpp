@@ -811,8 +811,11 @@ bmd_opt_help()
                                                               "net config for "
                                                               "DeckLink IP\n");
         color_printf(TBOLD(
-            "noaa=239.255.194.26:noav=239.255.194.26") " - set output "
-                                                       "audio/video address\n");
+            "noaa=239.255.194.26\\:16384:noav=239.255.194.26\\:"
+            "163888") " - set output "
+                      "audio/video address\n(note that the shell will remove "
+                      "backslash if not quoted, so you may use eg.:\nuv -t "
+                      "'decklink:noaa=239.255.194.26\\:16384')\n");
         color_printf("\n");
 }
 
