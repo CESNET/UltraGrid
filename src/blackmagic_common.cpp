@@ -1413,7 +1413,9 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
 
         virtual ~BMDNotificationCallback()
         {
-                m_deckLinkNotification->Unsubscribe(bmdStatusChanged, this);
+                BMD_CHECK(
+                    m_deckLinkNotification->Unsubscribe(bmdStatusChanged, this),
+                    "BMD device notification unsubscribe", BMD_NOOP);
                 m_deckLinkStatus->Release();
                 m_deckLinkNotification->Release();
         }
@@ -1433,6 +1435,9 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
  * actually printed while the new value is set later and it can be observed by
  * the notification observer.
  *
+ * @returns a pointer representing the notification callback, must be passed to
+ * destroy with bmd_unsubscribe_notify()
+ *
  * @todo
  * Print some useful information also normally (non-IP devices).
  */
@@ -1451,20 +1456,17 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                         MSG(INFO, "Ethernet MAC address: %s\n",
                             mac_addr.c_str());
                 }
-                RELEASE_IF_NOT_NULL(deckLinkAttributes);
+                deckLinkAttributes->Release();
         } else {
                 MSG(ERROR, "Cannot obtain IID_IDeckLinkProfileAttributes from "
                            "DeckLink!\n");
         }
 
         IDeckLinkStatus *deckLinkStatus = nullptr;
-        if (HRESULT result = deckLink->QueryInterface(
-                IID_IDeckLinkStatus, (void **) &deckLinkStatus);
-            FAILED(result)) {
-                MSG(ERROR,
-                    "Cannot obtain IID_IDeckLinkStatus from DeckLink!\n");
-                return nullptr;
-        }
+        BMD_CHECK(deckLink->QueryInterface(IID_IDeckLinkStatus,
+                                           (void **) &deckLinkStatus),
+                  "Cannot obtain IID_IDeckLinkStatus from DeckLink",
+                  return nullptr);
         // print status_map values now
         for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
                 if (capture && status_map[u].playback_only) {
@@ -1475,33 +1477,30 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
 
         // Obtain the notification interface
         IDeckLinkNotification *deckLinkNotification = nullptr;
-        result = deckLink->QueryInterface(IID_IDeckLinkNotification,
-                                          (void **) &deckLinkNotification);
-        if (result != S_OK) {
-                MSG(ERROR,
-                    "Could not obtain the IDeckLinkNotification interface - "
-                    "result = %08x\n",
-                    result);
-                return nullptr;
-        }
+        BMD_CHECK(deckLink->QueryInterface(IID_IDeckLinkNotification,
+                                           (void **) &deckLinkNotification),
+                  "Could not obtain the IDeckLinkNotification interface",
+                  deckLinkStatus->Release();
+                  return nullptr);
 
         auto *notificationCallback =
             new BMDNotificationCallback(deckLinkStatus, deckLinkNotification);
         assert(notificationCallback != nullptr);
 
-        result = deckLinkNotification->Subscribe(bmdStatusChanged,
-                                                 notificationCallback);
-        if (result != S_OK) {
-                MSG(ERROR,
-                    "Could not subscribe to the status change notification "
-                    "- result = %08x\n",
-                    result);
-                notificationCallback->Release();
-                return nullptr;
-        }
+        BMD_CHECK(deckLinkNotification->Subscribe(bmdStatusChanged,
+                                                  notificationCallback),
+                  "Could not subscribe to the status "
+                  "change notification",
+                  notificationCallback->Release();
+                  return nullptr);
 
         return notificationCallback;
 }
+
+/**
+ * @param notificationCallback the pointer returned by
+ * bmd_print_status_subscribe_notify(); may be nullptr
+ */
 void
 bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback)
 {

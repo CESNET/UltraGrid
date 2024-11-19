@@ -162,6 +162,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
                 }\
         } while (0)
 
+#define BMD_NOOP ///<  can be passed to @ref BMD_CHECK
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
 #define BMD_NAT_SORT "bmd-sort-natural"
