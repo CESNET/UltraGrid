@@ -192,8 +192,9 @@ std::vector<bmd_dev> bmd_get_sorted_devices(bool *com_initialized,
                                             bool  verbose      = true,
                                             bool  natural_sort = false);
 class BMDNotificationCallback;
-BMDNotificationCallback *bmd_print_status_subscribe_notify(IDeckLink *deckLink,
-                                                           bool       capture);
+BMDNotificationCallback *
+bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
+                                  bool capture);
 void bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback);
 
 #endif // defined BLACKMAGIC_COMMON_HPP

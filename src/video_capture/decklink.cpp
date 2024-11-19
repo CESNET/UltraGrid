@@ -1420,7 +1420,8 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         displayModeIterator->Release();
         displayModeIterator = NULL;
 
-        notificationCallback = bmd_print_status_subscribe_notify(deckLink, true);
+        notificationCallback =
+            bmd_print_status_subscribe_notify(deckLink,  MOD_NAME, true);
 
         return true;
 }

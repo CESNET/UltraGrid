@@ -1384,7 +1384,8 @@ static const struct status_property {
          true,  LOG_LEVEL_INFO    },
 };
 static void
-print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
+print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop,
+                  const char *log_prefix)
 {
         const struct status_property *s_prop = nullptr;
 
@@ -1408,8 +1409,10 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
                          : deckLinkStatus->GetInt(s_prop->prop, &int_val);
         if (!SUCCEEDED(rc)) {
                 if (FAILED(rc) && rc != E_NOTIMPL) {
-                        MSG(WARNING, "Obtain property 0x%08x value: %s\n",
-                            (unsigned) prop, bmd_hresult_to_string(rc).c_str());
+                        log_msg(LOG_LEVEL_WARNING,
+                                "%sObtain property 0x%08x value: %s\n",
+                                log_prefix, (unsigned) prop,
+                                bmd_hresult_to_string(rc).c_str());
                 }
                 return;
         }
@@ -1418,13 +1421,15 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
         case ST_STRING: {
                 string str = get_str_from_bmd_api_str(string_val);
                 release_bmd_api_str(string_val);
-                MSG(INFO, "%s: %s\n", s_prop->prop_name, str.c_str());
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, str.c_str());
                 break;
         }
         case ST_INT: {
                 char buf[STR_LEN];
                 snprintf_ch(buf, s_prop->type_data.int_fmt_str, int_val);
-                MSG(INFO, "%s: %s\n", s_prop->prop_name, buf);
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n",
+                        log_prefix, s_prop->prop_name, buf);
                 break;
         }
         case ST_BIT_FIELD: {
@@ -1443,7 +1448,8 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
                         snprintf_ch(val, "%s", s_prop->type_data.map[0].name);
                 }
 
-                MSG(INFO, "%s: %s\n", s_prop->prop_name, val);
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, val);
                 break;
         }
         case ST_ENUM: {
@@ -1456,7 +1462,8 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop)
                         }
                 }
 
-                MSG(INFO, "%s: %s\n", s_prop->prop_name, val);
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, val);
                 break;
         }
         }
@@ -1468,9 +1475,10 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
       public:
         explicit BMDNotificationCallback(
             IDeckLinkStatus       *deckLinkStatus,
-            IDeckLinkNotification *deckLinkNotification)
+            IDeckLinkNotification *deckLinkNotification, const char *log_prefix)
             : m_deckLinkStatus(deckLinkStatus),
-              m_deckLinkNotification(deckLinkNotification), m_refCount(1)
+              m_deckLinkNotification(deckLinkNotification),
+              m_logPrefix(log_prefix), m_refCount(1)
 
         {
                 m_deckLinkStatus->AddRef();
@@ -1489,7 +1497,8 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
 
                 // Print the updated status value
                 auto statusId = (BMDDeckLinkStatusID) param1;
-                print_status_item(m_deckLinkStatus, statusId);
+                print_status_item(m_deckLinkStatus, statusId,
+                                  m_logPrefix.c_str());
 
                 return S_OK;
         }
@@ -1517,6 +1526,7 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
       private:
         IDeckLinkStatus       *m_deckLinkStatus;
         IDeckLinkNotification *m_deckLinkNotification;
+        string                 m_logPrefix;
         std::atomic<ULONG>     m_refCount;
 
         virtual ~BMDNotificationCallback()
@@ -1547,7 +1557,8 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
  * destroy with bmd_unsubscribe_notify()
  */
 BMDNotificationCallback *
-bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
+bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
+                                  bool capture)
 {
         IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
         HRESULT                     result = deckLink->QueryInterface(
@@ -1558,13 +1569,15 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                         BMDDeckLinkEthernetMACAddress, &string_val))) {
                         string mac_addr = get_str_from_bmd_api_str(string_val);
                         release_bmd_api_str(string_val);
-                        MSG(INFO, "Ethernet MAC address: %s\n",
-                            mac_addr.c_str());
+                        log_msg(LOG_LEVEL_INFO, "%sEthernet MAC address: %s\n",
+                                log_prefix, mac_addr.c_str());
                 }
                 deckLinkAttributes->Release();
         } else {
-                MSG(ERROR, "Cannot obtain IID_IDeckLinkProfileAttributes from "
-                           "DeckLink!\n");
+                log_msg(LOG_LEVEL_ERROR,
+                        "%sCannot obtain IID_IDeckLinkProfileAttributes from "
+                        "DeckLink: %s\n",
+                        log_prefix, bmd_hresult_to_string(result).c_str());
         }
 
         IDeckLinkStatus *deckLinkStatus = nullptr;
@@ -1577,7 +1590,8 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                 if (capture && status_map[u].playback_only) {
                         continue;
                 }
-                print_status_item(deckLinkStatus, status_map[u].prop);
+                print_status_item(deckLinkStatus, status_map[u].prop,
+                                  log_prefix);
         }
 
         // Obtain the notification interface
@@ -1588,8 +1602,8 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, bool capture)
                   deckLinkStatus->Release();
                   return nullptr);
 
-        auto *notificationCallback =
-            new BMDNotificationCallback(deckLinkStatus, deckLinkNotification);
+        auto *notificationCallback = new BMDNotificationCallback(
+            deckLinkStatus, deckLinkNotification, log_prefix);
         assert(notificationCallback != nullptr);
 
         BMD_CHECK(deckLinkNotification->Subscribe(bmdStatusChanged,

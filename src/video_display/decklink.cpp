@@ -1576,7 +1576,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
-        s->notificationCallback = bmd_print_status_subscribe_notify(s->deckLink, false);
+        s->notificationCallback =
+            bmd_print_status_subscribe_notify(s->deckLink, MOD_NAME, false);
 
         return (void *)s;
 }
