@@ -257,20 +257,23 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 #else
 #define SYSCTL_ENTRY "net.core.rmem_max"
 #endif
-        log_msg(LOG_LEVEL_INFO,
-                        "Please set " SYSCTL_ENTRY " value to %1$d or greater (see also\n"
-                        "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
+        log_msg(
+            LOG_LEVEL_INFO,
+            "Please set " SYSCTL_ENTRY " value to %1$d or greater (see also\n"
+            "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
 #ifdef __APPLE__
-                        "\tsysctl -w kern.ipc.maxsockbuf=%2$d\n"
+            "\tsysctl -w kern.ipc.maxsockbuf=%2$d\n"
 #endif
-                        "\tsysctl -w " SYSCTL_ENTRY "=%1$d\n"
-                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                        "\n***\n\n",
-                        size
+            "\tsysctl -w " SYSCTL_ENTRY "=%1$d\n"
+            "To make this persistent, add these options (key=value) to "
+            "/etc/sysctl.d/60-ultragrid.conf\n"
+            "\n***\n\n",
+            size
 #ifdef __APPLE__
-                        , size * 4
+            ,
+            size * 4
 #endif /* __APPLE__ */
-                        );
+        );
 #undef SYSCTL_ENTRY
 }
 
