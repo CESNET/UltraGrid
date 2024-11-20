@@ -63,6 +63,7 @@
 #include "blackmagic_common.hpp"
 #include "debug.h"
 #include "host.h"
+#include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/windows.h"
@@ -1346,6 +1347,10 @@ static const struct status_property {
          "PCIe Link Speed",               ST_INT,
          { .int_fmt_str = "Gen. %" PRIu64 },
          false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusDeviceTemperature,
+         "Temperature",                   ST_INT,
+         { .int_fmt_str = "%" PRIu64 " °C" },
+         false, LOG_LEVEL_VERBOSE }, // temperature info is rate-limited
         { bmdDeckLinkStatusDetectedVideoInputColorspace,
          "Video Colorspace",              ST_ENUM,
          { .map = bmd_cs_map },
@@ -1497,6 +1502,10 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
 
                 // Print the updated status value
                 auto statusId = (BMDDeckLinkStatusID) param1;
+                if (statusId == bmdDeckLinkStatusDeviceTemperature) {
+                        HandleTemperature();
+                        return S_OK;
+                }
                 print_status_item(m_deckLinkStatus, statusId,
                                   m_logPrefix.c_str());
 
@@ -1523,11 +1532,25 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                 return newRefValue;
         }
 
+        void HandleTemperature() {
+                const time_ns_t now = get_time_in_ns();
+                if (now - m_tempLastShown < m_tempShowInt) {
+                        return;
+                }
+                print_status_item(m_deckLinkStatus,
+                                  bmdDeckLinkStatusDeviceTemperature,
+                                  m_logPrefix.c_str());
+                m_tempLastShown = now;
+        }
+
       private:
         IDeckLinkStatus       *m_deckLinkStatus;
         IDeckLinkNotification *m_deckLinkNotification;
         string                 m_logPrefix;
         std::atomic<ULONG>     m_refCount;
+
+        static constexpr time_ns_t m_tempShowInt   = SEC_TO_NS(60);
+        time_ns_t                  m_tempLastShown = 0;
 
         virtual ~BMDNotificationCallback()
         {
