@@ -1533,8 +1533,34 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
         }
 
         void HandleTemperature() {
+                int64_t         cur_temp = 0;
+                m_deckLinkStatus->GetInt(bmdDeckLinkStatusDeviceTemperature,
+                                         &cur_temp);
+                // check overheating
+                if (cur_temp >= m_tempThresholdErr) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                "%sDevice is overheating! The temperature is "
+                                "%" PRId64 " °C.\n",
+                                m_logPrefix.c_str(), cur_temp);
+                        return;
+                }
+                if (cur_temp < m_tempThresholdWarn &&
+                    log_level < LOG_LEVEL_VERBOSE) {
+                        return;
+                }
                 const time_ns_t now = get_time_in_ns();
-                if (now - m_tempLastShown < m_tempShowInt) {
+                if (cur_temp >= m_tempThresholdWarn &&
+                    now - m_tempWarnLastShown > m_tempShowIntervalWarn) {
+                        log_msg(
+                            LOG_LEVEL_WARNING,
+                            "%sDevice temperature is %" PRId64 " °C (>= %d °C).\n",
+                            m_logPrefix.c_str(), cur_temp, m_tempThresholdWarn);
+                        m_tempWarnLastShown = now;
+                        return;
+                }
+
+                // normal behavior - print once a minute in verbose
+                if (now - m_tempLastShown < m_tempShowInterval) {
                         return;
                 }
                 print_status_item(m_deckLinkStatus,
@@ -1549,8 +1575,13 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
         string                 m_logPrefix;
         std::atomic<ULONG>     m_refCount;
 
-        static constexpr time_ns_t m_tempShowInt   = SEC_TO_NS(60);
-        time_ns_t                  m_tempLastShown = 0;
+        // temperature check
+        static constexpr time_ns_t m_tempShowInterval     = SEC_TO_NS(60);
+        static constexpr time_ns_t m_tempShowIntervalWarn = SEC_TO_NS(20);
+        static constexpr int       m_tempThresholdWarn    = 77;
+        static constexpr int       m_tempThresholdErr     = 82;
+        time_ns_t                  m_tempLastShown        = 0;
+        time_ns_t                  m_tempWarnLastShown    = 0;
 
         virtual ~BMDNotificationCallback()
         {
