@@ -1,3 +1,8 @@
+#### 1.9.8
+
+* build fixes (SVT-VP9, Vulkan)
+* re-enable DELTACAST
+
 #### 1.9.7
 
 * fixed vdisp/file crash
