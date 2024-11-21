@@ -3333,6 +3333,7 @@ fi
 
 if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
+        src/audio/capture/passive.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o

@@ -573,6 +573,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
 
 struct audio_decoder {
         bool enabled;
+        bool decoded; ///< last frame was decoded
         struct pbuf_audio_data pbuf_data;
 };
 
@@ -776,6 +777,7 @@ static void *audio_receiver_thread(void *arg)
 
                                 struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
                                 if (dec_state && dec_state->enabled) {
+                                        dec_state->decoded = false;
                                         dec_state->pbuf_data.buffer.data_len = 0;
                                         dec_state->pbuf_data.buffer.timestamp = -1;
                                         // We iterate in loop since there can be more than one frmae present in
@@ -785,6 +787,7 @@ static void *audio_receiver_thread(void *arg)
 
                                                 current_pbuf = &dec_state->pbuf_data;
                                                 decoded = true;
+                                                dec_state->decoded = true;
                                         }
                                 }
 
@@ -845,7 +848,7 @@ static void *audio_receiver_thread(void *arg)
                                 cp = pdb_iter_init(s->audio_participants, &it);
                                 while (cp != NULL) {
                                         struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                        if (dec_state && dec_state->enabled && dec_state->pbuf_data.buffer.data_len > 0) {
+                                        if (dec_state && dec_state->enabled && dec_state->decoded) {
                                                 struct audio_frame *f = &dec_state->pbuf_data.buffer;
                                                 f->network_source = &dec_state->pbuf_data.source;
                                                 audio_playback_put_frame(s->audio_playback_device, f);
