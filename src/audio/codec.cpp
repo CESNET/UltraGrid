@@ -35,20 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
+#include "audio/codec.h"
 
 #include <algorithm>
 #include <cassert>
 #include <climits>
+#include <cstdio>             // for printf
+#include <cstdlib>            // for NULL, calloc, free, realloc
+#include <cstring>            // for strchr, memset, strtok_r, strdupa
 #include <string>
 #include <unordered_map>
 
-#include "audio/codec.h"
 #include "audio/utils.h"
 #include "compat/strings.h" // strdup, strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"  // for col, SBOLD, SRED, TRED
 #include "utils/macros.h"
 #include "utils/misc.h"
 
