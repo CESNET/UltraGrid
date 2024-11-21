@@ -35,6 +35,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef AUDIO_AUDIO_CAPTURE_H_843AF3B5_0481_4E0A_8F55_FDB5B3D3F351
+#define AUDIO_AUDIO_CAPTURE_H_843AF3B5_0481_4E0A_8F55_FDB5B3D3F351
+
 #include "../types.h"
 
 #ifdef __cplusplus
@@ -79,6 +82,8 @@ void                       *audio_capture_get_state_pointer(struct state_audio_c
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined AUDIO_AUDIO_CAPTURE_H_843AF3B5_0481_4E0A_8F55_FDB5B3D3F351
 
 /* vim: set expandtab sw=4: */
 

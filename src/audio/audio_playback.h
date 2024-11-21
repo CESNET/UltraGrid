@@ -35,6 +35,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef AUDIO_AUDIO_PLAYBACK_H_316AA23B_3EFF_4150_83D2_24A2295CB74A
+#define AUDIO_AUDIO_PLAYBACK_H_316AA23B_3EFF_4150_83D2_24A2295CB74A
+
 #include "../types.h"
 
 struct audio_desc;
@@ -135,6 +138,8 @@ void                       *audio_playback_get_state_pointer(struct state_audio_
 #ifdef __cplusplus
 }
 #endif
+
+#endif // defined AUDIO_AUDIO_PLAYBACK_H_316AA23B_3EFF_4150_83D2_24A2295CB74A
 
 /* vim: set expandtab sw=8: */
 
