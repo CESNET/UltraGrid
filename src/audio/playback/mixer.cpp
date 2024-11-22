@@ -240,32 +240,50 @@ public:
 };
 
 struct state_audio_mixer final {
-        state_audio_mixer(const char *cfg) {
-                if (cfg) {
-                        shared_ptr<char> tmp(strdup(cfg), free);
-                        char *item, *save_ptr;
-                        char *copy = tmp.get();
+private:
+        void parse_opts(const struct audio_playback_opts *opts) noexcept(false)
+        {
+                char copy[STR_LEN];
+                snprintf_ch(copy, "%s", opts->cfg);
+                char *tmp      = copy;
+                char *item     = nullptr;
+                char *save_ptr = nullptr;
 
-                        while ((item = strtok_r(copy, ":", &save_ptr))) {
-                                if (strncmp(item, "codec=", strlen("codec=")) == 0) {
-                                        audio_codec = item + strlen("codec=");
-                                } else if (strncmp(item, "algo=", strlen("algo=")) == 0) {
-                                        string algo = item + strlen("algo=");
-                                        if (algo == "linear") {
-                                                mixing_algorithm = decltype(mixing_algorithm)(new linear_mix_algo<sample_type_source, sample_type_mixed>());
-                                        } else if (algo == "logarithmic") {
-                                                mixing_algorithm = decltype(mixing_algorithm)(new logarithmic_mix_algo<sample_type_source, sample_type_mixed>());
-                                        } else {
-                                                LOG(LOG_LEVEL_ERROR) << "Unknown mixing algorithm: " << algo << "\n";
-                                                throw 1;
-                                        }
+                while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
+                        if (strncmp(item, "codec=", strlen("codec=")) == 0) {
+                                audio_codec = item + strlen("codec=");
+                        } else if (strncmp(item, "algo=", strlen("algo=")) ==
+                                   0) {
+                                string algo = item + strlen("algo=");
+                                if (algo == "linear") {
+                                        mixing_algorithm =
+                                            decltype(mixing_algorithm)(
+                                                new linear_mix_algo<
+                                                    sample_type_source,
+                                                    sample_type_mixed>());
+                                } else if (algo == "logarithmic") {
+                                        mixing_algorithm =
+                                            decltype(mixing_algorithm)(
+                                                new logarithmic_mix_algo<
+                                                    sample_type_source,
+                                                    sample_type_mixed>());
                                 } else {
-                                        LOG(LOG_LEVEL_ERROR) << "Unknown option: " << item << "\n";
+                                        LOG(LOG_LEVEL_ERROR)
+                                            << "Unknown mixing algorithm: "
+                                            << algo << "\n";
                                         throw 1;
                                 }
-                                copy = nullptr;
+                        } else {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << "Unknown option: " << item << "\n";
+                                throw 1;
                         }
+                        tmp = nullptr;
                 }
+        }
+public:
+        state_audio_mixer(const struct audio_playback_opts *opts) {
+                parse_opts(opts);
 
                 struct audio_codec_state *audio_coder =
                         audio_codec_init_cfg(audio_codec.c_str(), AUDIO_CODER);
@@ -422,7 +440,7 @@ audio_play_mixer_init(const struct audio_playback_opts *opts)
                 return INIT_NOERR;
         }
         try {
-                return new state_audio_mixer{opts->cfg};
+                return new state_audio_mixer(opts);
         } catch (...) {
                 return nullptr;
         }
