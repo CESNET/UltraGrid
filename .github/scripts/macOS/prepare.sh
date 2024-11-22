@@ -31,6 +31,15 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
+# Ensure that pkg-config is installed but unlinked.
+# This is to prevent interference with pkgconf - both can be installed as
+# a dependency of other packages so ensure a defined state (both installed;
+# pkgconf installed and enabled later).
+if ! brew list pkg-config 2>/dev/null; then
+        brew install pkg-config
+fi
+brew unlink pkg-config
+
 set -- \
         asciidoctor \
         autoconf \
@@ -46,7 +55,7 @@ set -- \
         molten-vk \
         opencv \
         ossp-uuid `#for cineform` \
-        pkg-config \
+        pkgconf \
         portaudio \
         qt \
         sdl2 \
