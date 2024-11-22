@@ -204,19 +204,21 @@ static void audio_play_wasapi_help() {
         com_uninitialize(&com_initialized);
 }
 
-static void * audio_play_wasapi_init(const char *cfg)
+static void *
+audio_play_wasapi_init(const struct audio_playback_opts *opts)
 {
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_wasapi_help();
+                return INIT_NOERR;
+        }
+
         wchar_t deviceID[1024] = L"";
         int index = -1;
-        if (strlen(cfg) > 0) {
-                if (strcmp(cfg, "help") == 0) {
-                        audio_play_wasapi_help();
-                        return INIT_NOERR;
-                }
-                if (isdigit(cfg[0])) {
-                        index = atoi(cfg);
+        if (strlen(opts->cfg) > 0) {
+                if (isdigit(opts->cfg[0])) {
+                        index = atoi(opts->cfg);
                 } else {
-                        mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
+                        mbtowc(deviceID, opts->cfg, (sizeof deviceID / 2) - 1);
                 }
         }
         auto s = new state_aplay_wasapi();

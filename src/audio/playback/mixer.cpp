@@ -414,14 +414,15 @@ static void audio_play_mixer_probe(struct device_info **available_devices, int *
         *count = 0;
 }
 
-static void * audio_play_mixer_init(const char *cfg)
+static void *
+audio_play_mixer_init(const struct audio_playback_opts *opts)
 {
-        if (strcmp(cfg, "help") == 0) {
+        if (strcmp(opts->cfg, "help") == 0) {
                 audio_play_mixer_help();
                 return INIT_NOERR;
         }
         try {
-                return new state_audio_mixer{cfg};
+                return new state_audio_mixer{opts->cfg};
         } catch (...) {
                 return nullptr;
         }

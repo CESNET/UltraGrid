@@ -385,7 +385,11 @@ int audio_init(struct state_audio **ret,
 			cfg = delim + 1;
 		}
 
-                int ret = audio_playback_init(device, cfg, &s->audio_playback_device);
+                struct audio_playback_opts opts;
+                snprintf_ch(opts.cfg, "%s", cfg);
+                opts.parent = s->audio_receiver_module.get();
+                const int ret = audio_playback_init(device, &opts,
+                                                    &s->audio_playback_device);
                 free(device);
                 if (ret != 0) {
                         retval = ret;

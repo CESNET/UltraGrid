@@ -35,18 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <assert.h>                // for assert
+#include <stdbool.h>               // for bool, false, true
+#include <stdint.h>                // for uint32_t
+#include <stdlib.h>                // for free, malloc
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
-#include <stdlib.h>
-#include <string.h>
+struct device_info;
 
 #define AUDIO_PLAYBACK_NONE_MAGIC 0x3bcf376au
 
@@ -62,13 +60,11 @@ static void audio_play_none_probe(struct device_info **available_devices, int *c
         *count = 0;
 }
 
-static void * audio_play_none_init(const char *cfg)
+static void *
+audio_play_none_init(const struct audio_playback_opts *opts)
 {
-        UNUSED(cfg);
-        struct state_audio_playback_none *s;
-
-        s = (struct state_audio_playback_none *)
-                malloc(sizeof(struct state_audio_playback_none));
+        (void) opts;
+        struct state_audio_playback_none *s = malloc(sizeof(*s));
         assert(s != NULL);
         s->magic = AUDIO_PLAYBACK_NONE_MAGIC;
                                 

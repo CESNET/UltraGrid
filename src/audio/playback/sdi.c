@@ -35,21 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "audio/audio.h"
-#include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "video_display.h"
 
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>                 // for printf, snprintf
+#include <stdlib.h>                // for free, calloc, malloc
+#include <string.h>                // for strcmp, strncpy, memcpy
+
+#include "audio/types.h"           // for audio_desc, audio_frame (ptr only)
+#include "audio/audio_playback.h"
+#include "debug.h"
+#include "host.h"                  // for INIT_NOERR
+#include "lib_common.h"
+#include "types.h"                 // for device_info
+#include "video_display.h"
 
 struct state_sdi_playback {
         void *udata;
@@ -98,9 +96,10 @@ static void audio_play_sdi_help(const char *driver_name)
         }
 }
 
-static void * audio_play_sdi_init(const char *cfg)
+static void *
+audio_play_sdi_init(const struct audio_playback_opts *opts)
 {
-        if (strcmp(cfg, "help") == 0) {
+        if (strcmp(opts->cfg, "help") == 0) {
                 printf("Available embedded devices:\n");
                 audio_play_sdi_help("embedded");
                 audio_play_sdi_help("AESEBU");

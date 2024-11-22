@@ -842,10 +842,15 @@ init_local_config_with_workaround(char const * pcm_node_name)
 
 ADD_TO_PARAM("alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
                                 "  ALSA API.\n");
-static void * audio_play_alsa_init(const char *cfg)
+static void *
+audio_play_alsa_init(const struct audio_playback_opts *opts)
 {
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_alsa_help();
+                return INIT_NOERR;
+        }
+
         int rc;
-        const char *name;
 
         struct state_alsa_playback *s = calloc(1, sizeof(struct state_alsa_playback));
 
@@ -879,24 +884,13 @@ static void * audio_play_alsa_init(const char *cfg)
 		log_msg(LOG_LEVEL_WARNING, MOD_NAME "Async API is experimental, in case of problems use either \"thread\" or \"sync\" API\n");
 	}
 
-        if (strlen(cfg) > 0) {
-                if(strcmp(cfg, "help") == 0) {
-                        audio_play_alsa_help();
-                        free(s);
-                        return INIT_NOERR;
-                }
-                name = cfg;
-        } else {
-                if (is_default_pulse()) {
-                        name = "pulse";
-                } else {
-                        name = "default";
-                }
+        const char *name = is_default_pulse() ? "pulse" : "default";
+        if (strlen(opts->cfg) > 0) {
+                name = opts->cfg;
         }
 
-        char device[1024] = "pcm.";
-
-        strncat(device, name, sizeof(device) - strlen(device) - 1);
+        char device[STR_LEN + 4];
+        snprintf_ch(device, "pcm.%s", name);
 
         if (s->playback_mode == SYNC) {
                 s->local_config = init_local_config_with_workaround(device);

@@ -73,17 +73,18 @@ static void audio_play_dummy_help(void)
         color_printf("\t" TBOLD("debug") " - audio print frame TS + len\n");
 }
 
-static void * audio_play_dummy_init(const char *cfg)
+static void *
+audio_play_dummy_init(const struct audio_playback_opts *opts)
 {
         struct state_dummy_aplay *s = calloc(1, sizeof *s);
-        if (strcmp(cfg, "debug") == 0) {
+        if (strcmp(opts->cfg, "debug") == 0) {
                 s->debug = true;
-        } else if (strcmp(cfg, "help") == 0) {
+        } else if (strcmp(opts->cfg, "help") == 0) {
                 audio_play_dummy_help();
                 free(s);
                 return INIT_NOERR;
-        } else if (strlen(cfg) > 0) {
-                MSG(ERROR, "Wrong option: %s\n", cfg);
+        } else if (strlen(opts->cfg) > 0) {
+                MSG(ERROR, "Wrong option: %s\n", opts->cfg);
                 free(s);
                 return NULL;
         }

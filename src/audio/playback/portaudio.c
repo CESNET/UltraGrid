@@ -167,18 +167,19 @@ static void audio_play_portaudio_help(void) {
         portaudio_print_help(PORTAUDIO_OUT);
 }
 
-static void * audio_play_portaudio_init(const char *cfg)
-{	
+static void *
+audio_play_portaudio_init(const struct audio_playback_opts *opts)
+{
         int output_device_idx = -1;
         char output_device_name[STR_LEN] = "";
 
         portaudio_print_version();
         
-        if (strcmp(cfg, "help") == 0) {
+        if (strcmp(opts->cfg, "help") == 0) {
                 audio_play_portaudio_help();
                 return INIT_NOERR;
         }
-        if (!parse_fmt(cfg, &output_device_idx, output_device_name)) {
+        if (!parse_fmt(opts->cfg, &output_device_idx, output_device_name)) {
                 return NULL;
         }
 

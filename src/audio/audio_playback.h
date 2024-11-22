@@ -38,18 +38,22 @@
 #ifndef AUDIO_AUDIO_PLAYBACK_H_316AA23B_3EFF_4150_83D2_24A2295CB74A
 #define AUDIO_AUDIO_PLAYBACK_H_316AA23B_3EFF_4150_83D2_24A2295CB74A
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #include "../types.h"
+#include "utils/macros.h" // for STR_LEN
 
 struct audio_desc;
 struct audio_frame;
+struct module;
 
 #ifdef __cplusplus
 extern "C" {
-#else
-#include <stdbool.h>
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 11
+#define AUDIO_PLAYBACK_ABI_VERSION 12
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests
@@ -80,9 +84,14 @@ extern "C" {
 #define AUDIO_PLAYBACK_PUT_NETWORK_DEVICE   3
 /// @}
 
+struct audio_playback_opts {
+        char           cfg[STR_LEN];
+        struct module *parent;
+};
+
 struct audio_playback_info {
         device_probe_func probe;
-        void *(*init)(const char *cfg); ///< @param cfg is not NULL
+        void *(*init)(const struct audio_playback_opts *opts);
         void (*write)(void *state, const struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */
         bool (*ctl)(void *state, int request, void *data, size_t *len);
@@ -97,8 +106,9 @@ void                            audio_playback_init_devices(void);
 /**
  * @see display_init
  */
-int                             audio_playback_init(const char *device, const char *cfg,
-                struct state_audio_playback **);
+int audio_playback_init(const char                       *device,
+                        const struct audio_playback_opts *opts,
+                        struct state_audio_playback     **state);
 struct state_audio_playback    *audio_playback_init_null_device(void);
 
 /**

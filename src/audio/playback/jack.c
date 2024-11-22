@@ -152,7 +152,8 @@ static void audio_play_jack_help(const char *client_name)
         free(available_devices);
 }
 
-static void * audio_play_jack_init(const char *cfg)
+static void *
+audio_play_jack_init(const struct audio_playback_opts *opts)
 {
         const char **ports;
         jack_status_t status;
@@ -174,7 +175,7 @@ static void * audio_play_jack_init(const char *cfg)
         }
 
         char dup[STR_LEN];
-        snprintf_ch(dup, "%s", cfg);
+        snprintf_ch(dup, "%s", opts->cfg);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (strcmp(item, "help") == 0) {
@@ -194,7 +195,7 @@ static void * audio_play_jack_init(const char *cfg)
                 } else if (strstr(item, "name=") == item) {
                         snprintf_ch(client_name, "%s", strchr(item, '=') + 1);
                 } else { // the rest is the device name
-                        source_name = cfg + (item - dup);
+                        source_name = opts->cfg + (item - dup);
                         break;
                 }
                 tmp = NULL;

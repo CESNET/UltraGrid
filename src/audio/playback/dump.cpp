@@ -71,16 +71,15 @@ static void audio_play_dump_help() {
                         "\n");
 }
 
-static void * audio_play_dump_init(const char *cfg){
+static void * audio_play_dump_init(const struct audio_playback_opts *opts){
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_dump_help();
+                return INIT_NOERR;
+        }
         struct audio_dump_state *s = new audio_dump_state();
 
-        if (strlen(cfg) > 0) {
-                if (strcmp(cfg, "help") == 0) {
-                        audio_play_dump_help();
-                        delete s;
-                        return INIT_NOERR;
-                }
-                s->filename = cfg;
+        if (strlen(opts->cfg) > 0) {
+                s->filename = opts->cfg;
         } else {
                 s->filename = "audio_dump";
         }

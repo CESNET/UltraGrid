@@ -118,10 +118,10 @@ static void on_process(void *userdata) noexcept{
         }
 }
 
-static void * audio_play_pw_init(const char *cfg){
+static void * audio_play_pw_init(const struct audio_playback_opts *opts){
         auto s = std::make_unique<state_pipewire_play>();
 
-        std::string_view cfg_sv(cfg);
+        std::string_view cfg_sv(opts->cfg);
         while(!cfg_sv.empty()){
                 auto tok = tokenize(cfg_sv, ':', '"');
                 auto key = tokenize(tok, '=');
