@@ -70,8 +70,6 @@ bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
-char *get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n);
-unsigned get_sockaddr_addr_port(const struct sockaddr *sa);
 char *get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n);
 const char *ug_gai_strerror(int errcode);
 

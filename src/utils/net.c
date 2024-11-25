@@ -411,7 +411,9 @@ bool is_ipv6_supported(void)
         return true;
 }
 
-unsigned get_sockaddr_addr_port(const struct sockaddr *sa){
+static unsigned
+get_sockaddr_addr_port(const struct sockaddr *sa)
+{
         unsigned port = 0;
         if (sa->sa_family == AF_INET6) {
                 port = ntohs(((const struct sockaddr_in6 *) (const void *) sa)
@@ -426,13 +428,9 @@ unsigned get_sockaddr_addr_port(const struct sockaddr *sa){
         return port;
 }
 
-/**
- * @returns the input buffer (buf)
- */
-char *
+static char *
 get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n)
 {
-        assert(n >= IN6_MAX_ASCII_LEN + 3 /* []: */ + 1 /* \0 */);
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
                 snprintf(buf, n, "[");
@@ -458,11 +456,13 @@ get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n)
 }
 
 /**
+ * @param n size of buf; must be at least ADDR_STR_BUF_LEN
  * @returns the input buffer (buf)
  */
 char *
 get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n)
 {
+        assert(n >= ADDR_STR_BUF_LEN);
         get_sockaddr_addr_str(sa, buf, n);
 
         unsigned port = get_sockaddr_addr_port(sa);
