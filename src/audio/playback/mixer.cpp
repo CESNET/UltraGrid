@@ -339,7 +339,8 @@ void state_audio_mixer::worker()
                                 MSG(NOTICE, "removed participant: %s\n",
                                     get_sockaddr_str(
                                         (const struct sockaddr *) &it->first,
-                                        buf, sizeof buf));
+                                        sizeof it->first, buf, sizeof buf));
+
                                 it = participants.erase(it);
                         } else {
                                 ++it;
@@ -453,9 +454,9 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
         if (s->participants.find(ss) == s->participants.end()) {
                 char buf[ADDR_STR_BUF_LEN];
                 MSG(NOTICE, "added participant: %s\n",
-                    get_sockaddr_str(
-                        (struct sockaddr *) &ss, buf,
-                        sizeof buf));
+                    get_sockaddr_str((struct sockaddr *) &ss,
+                                     sizeof(struct sockaddr_storage), buf,
+                                     sizeof buf));
                 s->participants.emplace(ss, am_participant{s->recv_socket, &ss, s->audio_codec});
         }
 

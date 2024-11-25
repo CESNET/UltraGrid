@@ -889,7 +889,7 @@ public:
                                 std::string msg = "delete-port ";
                                 auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
                                 char replica_name[ADDR_STR_BUF_LEN];
-                                msg += get_sockaddr_str(addr, replica_name,
+                                msg += get_sockaddr_str(addr, sizeof sin, replica_name,
                                                         sizeof replica_name);
 
                                 std::swap(*it, participants.back());
@@ -919,7 +919,7 @@ public:
                         char buf[ADDR_STR_BUF_LEN];
                         msg +=
                             get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin),
-                                             buf, sizeof buf);
+                                             addrlen, buf, sizeof buf);
                         if(!compression.empty()){
                                 msg += " ";
                                 msg += compression;

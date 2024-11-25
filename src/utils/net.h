@@ -47,10 +47,27 @@
 #include <stdint.h>
 #endif // __cplusplus
 
+#ifdef _WIN32
+#include <winsock2.h>   // dep for netioapi.h, ntddnidis.h
+#include <ntddndis.h>   // dep for IF_NAMESIZE
+#include <iphlpapi.h>   // for IF_NAMESIZE
+#else
+#include <net/if.h>     // for IF_NAMESIZE
+#endif
+
 enum {
-        IN6_MAX_ASCII_LEN = 39, // 32 nibbles + 7 colons
+        /// maximal length of textual representation of IPv6 address including
+        /// eventual scope ID but without terminating NUL byte
+        IN6_MAX_ASCII_LEN = 40 /* 32 nibbles + 7 colons + "%" */ + IF_NAMESIZE,
+        /// not including terminating NUL
+        IN_PORT_STR_LEN = 5,
+        /**
+         * buffer for host:port represenation. If IPv6 address is presented,
+         * enclosed in []. Including terminating NUL byte.
+         * @sa get_sockaddr_str
+         */
         ADDR_STR_BUF_LEN =
-            IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */,
+            IN6_MAX_ASCII_LEN + 3 /* []: */ + IN_PORT_STR_LEN + 1 /* \0 */,
 };
 // RFC 6666 prefix 100::/64, suffix 'UltrGrS'
 #define IN6_BLACKHOLE_SERVER_MODE_STR "100::556C:7472:4772:6453"
@@ -70,7 +87,8 @@ bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
-char *get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n);
+char *get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
+                       size_t n);
 const char *ug_gai_strerror(int errcode);
 
 #ifdef _WIN32

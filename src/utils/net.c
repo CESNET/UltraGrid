@@ -411,64 +411,42 @@ bool is_ipv6_supported(void)
         return true;
 }
 
-static unsigned
-get_sockaddr_addr_port(const struct sockaddr *sa)
+/**
+ * @brief writes string "host:port" for given sockaddr
+ *
+ * IPv6 addresses will be enclosed in brackets [], scope ID is output as well if
+ * defined.
+ *
+ * @param n size of buf; must be at least @ref ADDR_STR_BUF_LEN
+ * @returns the input buffer (buf) pointer with result
+ */
+char *
+get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
+                 size_t n)
 {
-        unsigned port = 0;
-        if (sa->sa_family == AF_INET6) {
-                port = ntohs(((const struct sockaddr_in6 *) (const void *) sa)
-                                 ->sin6_port);
-        } else if (sa->sa_family == AF_INET) {
-                port = ntohs(
-                    ((const struct sockaddr_in *) (const void *) sa)->sin_port);
-        } else {
-                return UINT_MAX;
-        }
+        assert(n >= ADDR_STR_BUF_LEN);
 
-        return port;
-}
+        char       *buf_ptr = buf; // ptr to be appended to
+        const char *buf_end = buf + n; // endptr to check
 
-static char *
-get_sockaddr_addr_str(const struct sockaddr *sa, char *buf, size_t n)
-{
-        const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
-                snprintf(buf, n, "[");
-                src = &((const struct sockaddr_in6 *) (const void *) sa)
-                           ->sin6_addr;
-        } else if (sa->sa_family == AF_INET) {
-                src =
-                    &((const struct sockaddr_in *) (const void *) sa)->sin_addr;
-        } else {
-                snprintf(buf, n, "(unknown)");
-                return buf;
+                buf_ptr += snprintf(buf_ptr, buf_end - buf_ptr, "[");
         }
-        if (inet_ntop(sa->sa_family, src, buf + strlen(buf), n - strlen(buf)) == NULL) {
-                perror("get_sockaddr_str");
+        char port[IN_PORT_STR_LEN + 1];
+        const int rc =
+            getnameinfo(sa, sa_len, buf_ptr, buf_end - buf_ptr, port,
+                        sizeof port, NI_NUMERICHOST | NI_NUMERICSERV);
+        if (rc != 0) {
+                MSG(ERROR, "%s getnameinfo: %s\n", __func__, gai_strerror(rc));
                 snprintf(buf, n, "(error)");
                 return buf;
         }
+        buf_ptr += strlen(buf_ptr);
 
         if (sa->sa_family == AF_INET6) {
-                snprintf(buf + strlen(buf), n - strlen(buf), "]");
+                buf_ptr += snprintf(buf_ptr, buf_end - buf_ptr, "]");
         }
-        return buf;
-}
-
-/**
- * @param n size of buf; must be at least ADDR_STR_BUF_LEN
- * @returns the input buffer (buf)
- */
-char *
-get_sockaddr_str(const struct sockaddr *sa, char *buf, size_t n)
-{
-        assert(n >= ADDR_STR_BUF_LEN);
-        get_sockaddr_addr_str(sa, buf, n);
-
-        unsigned port = get_sockaddr_addr_port(sa);
-        if(port == UINT_MAX)
-                return buf;
-        snprintf(buf + strlen(buf), n - strlen(buf), ":%u", port);
+        buf_ptr += snprintf(buf_ptr, buf_end - buf_ptr, ":%s", port);
 
         return buf;
 }
