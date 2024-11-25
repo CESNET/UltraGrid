@@ -31,14 +31,18 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-# Ensure that pkg-config is installed but unlinked.
-# This is to prevent interference with pkgconf - both can be installed as
-# a dependency of other packages so ensure a defined state (both installed;
-# pkgconf installed and enabled later).
-if ! brew list pkg-config 2>/dev/null; then
+# TOREMOVE: temporal CI fix, remove after a short period (let say after 2024)
+for n in $(brew list --formula -1 | grep -E '^(pkg-config(@.*)?|pkgconf)$'); do
+        brew uninstall "$n"
+done
+brew install pkg-config
+# if pkg-config is not alias for pkgconf, install it for deps but unlink
+if brew list pkg-config | grep -qv pkgconf; then
+        brew uninstall pkg-config
+        brew install pkgconf
+        brew unlink pkgconf
         brew install pkg-config
 fi
-brew unlink pkg-config
 
 set -- \
         asciidoctor \
