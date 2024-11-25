@@ -56,7 +56,7 @@
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/types.h"
-#include "compat/net.h"            // for sockaddr_in, sockaddr_in6, in6_addr
+#include "compat/net.h"            // for sockaddr_in, sockaddr_in6, in6_addr...
 #include "debug.h"
 #include "host.h"                  // for get_commandline_param, uv_argv
 #include "lib_common.h"
@@ -113,6 +113,11 @@ public:
                                 if (sin_x.sin6_addr.s6_addr[i] != sin_y.sin6_addr.s6_addr[i]) {
                                         return sin_x.sin6_addr.s6_addr[i] < sin_y.sin6_addr.s6_addr[i];
                                 }
+                        }
+
+                        if (IN6_IS_ADDR_LINKLOCAL(&sin_x.sin6_addr) &&
+                            sin_x.sin6_scope_id != sin_y.sin6_scope_id) {
+                                return sin_x.sin6_scope_id < sin_y.sin6_scope_id;
                         }
 
                         return sin_x.sin6_port < sin_y.sin6_port;
