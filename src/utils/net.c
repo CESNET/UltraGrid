@@ -519,15 +519,47 @@ get_sockaddr(const char *hostport, int mode)
 }
 
 /**
+ * If addr6 is not a v4-mapped address, return it.
+ * Otherwise convert to sockaddr_in AF_INET address.
+ */
+static const struct sockaddr *
+v4_unmap(const struct sockaddr_in6 *addr6, struct sockaddr_in *buf4)
+{
+        if (!IN6_IS_ADDR_V4MAPPED(&addr6->sin6_addr)) {
+                return (const struct sockaddr *) addr6;
+        }
+        buf4->sin_family = AF_INET;
+        buf4->sin_port = addr6->sin6_port;
+        union {
+                uint8_t bytes[4];
+                uint32_t word;
+        } u;
+        for (int i = 0; i < 4; ++i) {
+                u.bytes[i] = addr6->sin6_addr.s6_addr[12 + i];
+        }
+        buf4->sin_addr.s_addr = u.word;
+        return (struct sockaddr *) buf4;
+}
+
+/**
  * @retval <0 struct represents "smaller" address (port)
  * @retval 0  addresses equal
  * @retval >0 struct represents "bigger" address (port)
  * @note
- * v4-mapped ports are not handled
+ * v4-mapped ipv6 address is considered eqaul to corresponding AF_INET addr
  */
 int
 sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
 {
+        struct sockaddr_in tmp1;
+        if (x->sa_family == AF_INET6) {
+                x = v4_unmap((const struct sockaddr_in6 *) x, &tmp1);
+        }
+        struct sockaddr_in tmp2;
+        if (y->sa_family == AF_INET6) {
+                y = v4_unmap((const struct sockaddr_in6 *) y, &tmp2);
+        }
+
         if (x->sa_family != y->sa_family) {
                 return y->sa_family - x->sa_family;
         }
@@ -564,7 +596,7 @@ sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
                                                                            : 1;
                 }
 
-                return ntohs(sin_y->sin6_port) - sin_x->sin6_port;
+                return ntohs(sin_y->sin6_port) - ntohs(sin_x->sin6_port);
         }
         MSG(ERROR, "Unsupported address class %d!", (int) x->sa_family);
         abort();

@@ -14,9 +14,10 @@
 
 extern "C" {
 int misc_test_color_coeff_range();
+int misc_test_net_getsockaddr();
+int misc_test_net_sockaddr_compare_v4_mapped();
 int misc_test_replace_all();
 int misc_test_video_desc_io_op_symmetry();
-int misc_test_net_getsockaddr();
 }
 
 using namespace std;
@@ -105,6 +106,15 @@ misc_test_net_getsockaddr()
                 ASSERT_MESSAGE(msg, strcmp(test_cases[i].str, buf) == 0);
         }
 
+        return 0;
+}
+
+int misc_test_net_sockaddr_compare_v4_mapped() {
+        struct sockaddr_storage v4 = get_sockaddr("10.0.0.1:10", 4);
+        struct sockaddr_storage v4mapped = get_sockaddr("10.0.0.1:10", 0);
+        ASSERT_MESSAGE("V4 mapped address doesn't equal plain V4",
+                       sockaddr_compare((struct sockaddr *) &v4,
+                                        (struct sockaddr *) &v4mapped) == 0);
         return 0;
 }
 
