@@ -1394,6 +1394,13 @@ int udp_fd(socket_udp * s)
         return 0;
 }
 
+/**
+ * @param[in]  mode  IP version preference (4 or 6) or 0 for none;
+                     if 0 is requested, v4-mapped IPv6 address is returned
+ * @param[out] mode  sockaddr struct version - 4 for input mode 4, 6 otherwise
+ *
+ * @returns 0 on success, GAI error on failure
+ */
 int resolve_addrinfo(const char *addr, uint16_t tx_port,
                 struct sockaddr_storage *dst, socklen_t *len, int *mode)
 {

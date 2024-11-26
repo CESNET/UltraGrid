@@ -6,6 +6,7 @@
 
 #include "color.h"
 #include "types.h"
+#include "utils/net.h"
 #include "utils/string.h"
 #include "unit_common.h"
 #include "video.h"
@@ -15,6 +16,7 @@ extern "C" {
 int misc_test_color_coeff_range();
 int misc_test_replace_all();
 int misc_test_video_desc_io_op_symmetry();
+int misc_test_net_getsockaddr();
 }
 
 using namespace std;
@@ -61,6 +63,46 @@ misc_test_color_coeff_range()
                     "max Cr diverges from nominal range max", max_diff,
                     abs((RGB_TO_CR(*cfs, d_max, 0, 0) >> COMP_BASE) +
                         (1 << (d - 1)) - LIMIT_HI_CBCR(d)));
+        }
+
+        return 0;
+}
+
+int
+misc_test_net_getsockaddr()
+{
+        struct {
+                const char *str;
+                int ip_mode;
+        } test_cases[] = {
+                { "10.0.0.1:10",          4 },
+                { "[100::1:abcd]:10",     6 },
+#if defined   __APPLE__
+                { "[fe80::123%lo0]:1000", 6 },
+#elif defined __linux__
+                { "[fe80::123%lo]:1000",  6 },
+#elif defined _WIN32
+                { "[fe80::123%1]:1000",   6 },
+#endif
+        };
+        for (unsigned i = 0; i < sizeof test_cases / sizeof test_cases[0];
+             ++i) {
+                struct sockaddr_storage ss =
+                    get_sockaddr(test_cases[i].str, test_cases[i].ip_mode);
+                char buf[ADDR_STR_BUF_LEN] = "";
+                get_sockaddr_str((struct sockaddr *) &ss, sizeof ss, buf,
+                                 sizeof buf);
+                char msg[2048];
+                snprintf(msg, sizeof msg,
+                         "get_sockaddr_str conversion of '%s' failed",
+                         test_cases[i].str);
+                ASSERT_MESSAGE(msg, ss.ss_family != AF_UNSPEC);
+                snprintf(
+                    msg, sizeof msg,
+                    "sockaddr output string '%s' doesn't match the input '%s'",
+                    buf, test_cases[i].str);
+
+                ASSERT_MESSAGE(msg, strcmp(test_cases[i].str, buf) == 0);
         }
 
         return 0;

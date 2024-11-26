@@ -34,6 +34,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+ /**
+  * @todo
+  * move/use common network defs from compat/net.h
+  */
+
+#include "utils/net.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -49,7 +55,6 @@ typedef SOCKET fd_t;
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define closesocket close
 #define INVALID_SOCKET (-1)
 typedef int fd_t;
 #endif
@@ -57,12 +62,12 @@ typedef int fd_t;
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils/net.h"
+#include "rtp/net_udp.h"   // for resolve_addrinfo
+#include "utils/macros.h"  // for STR_LEN
 #include "utils/windows.h"
 
 #include "debug.h"
@@ -406,7 +411,7 @@ bool is_ipv6_supported(void)
                 return false;
         }
         if (fd != INVALID_SOCKET) {
-                closesocket(fd);
+                CLOSESOCKET(fd);
         }
         return true;
 }
@@ -449,6 +454,68 @@ get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
         buf_ptr += snprintf(buf_ptr, buf_end - buf_ptr, ":%s", port);
 
         return buf;
+}
+
+/**
+ * @brief counterpart of get_sockaddr_str()
+ *
+ * @param mode  mode to enforce 4, 6 or 0 (auto, as @ref resolve_addrinfo
+ * returns v4-mapped IPv6 address for 0, the returned address will be aiways in
+ * sockaddr_in6, either native or v4-mapped)
+ *
+ * @note
+ * Even for dot-decimal IPv4 address, sockaddr_in6 struct with v4-mapped
+ * address may be returned (Linux).
+ *
+ * Converts from textual representation of <host>:<port> to sockaddr_storage.
+ * IPv6 numeric addresses must be enclosed in [] brackets.
+ */
+struct sockaddr_storage
+get_sockaddr(const char *hostport, int mode)
+{
+        struct sockaddr_storage ret;
+        socklen_t               socklen_unused = 0;
+        char host[STR_LEN];
+
+        ret.ss_family = AF_UNSPEC;
+        const char *const rightmost_colon = strrchr(hostport, ':');
+        if (rightmost_colon == NULL) {
+                MSG(ERROR, "Address %s not in format host:port!\n", hostport);
+                return ret;
+        }
+        if (rightmost_colon == hostport) {
+                MSG(ERROR, "Empty host spec: %s!\n", hostport);
+                return ret;
+        }
+
+        const char *const port_str = rightmost_colon + 1;
+        char             *endptr   = NULL;
+        long port = strtol(port_str, &endptr, 10);
+        if (*endptr != '\0') {
+                MSG(ERROR, "Wrong port value: %s\n", port_str);
+                return ret;
+        }
+        if (port < 0 || port > UINT16_MAX) {
+                MSG(ERROR, "Port %ld out of range!\n", port);
+                return ret;
+        }
+
+        const char *host_start = hostport;
+        const char *host_end = rightmost_colon;
+        if (*host_start == '[') { // skip IPv6 []
+                host_start += 1;
+                if (host_end[-1] != ']') {
+                        MSG(ERROR, "Malformed IPv6 host (missing ]): %s\n",
+                            hostport);
+                        return ret;
+                }
+                host_end -= 1;
+        }
+
+        const size_t len = host_end - host_start;
+        snprintf(host, MIN(sizeof host, len + 1), "%s", host_start);
+        resolve_addrinfo(host, port, &ret, &socklen_unused, &mode);
+        return ret;
 }
 
 const char *ug_gai_strerror(int errcode)

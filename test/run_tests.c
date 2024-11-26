@@ -87,6 +87,7 @@ DECLARE_TEST(get_framerate_test_free);
 DECLARE_TEST(gpujpeg_test_simple);
 DECLARE_TEST(libavcodec_test_get_decoder_from_uv_to_uv);
 DECLARE_TEST(misc_test_color_coeff_range);
+DECLARE_TEST(misc_test_net_getsockaddr);
 DECLARE_TEST(misc_test_replace_all);
 DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
@@ -121,6 +122,7 @@ struct {
         DEFINE_TEST(gpujpeg_test_simple),
         DEFINE_TEST(libavcodec_test_get_decoder_from_uv_to_uv),
         DEFINE_TEST(misc_test_color_coeff_range),
+        DEFINE_TEST(misc_test_net_getsockaddr),
         DEFINE_TEST(misc_test_replace_all),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
 };

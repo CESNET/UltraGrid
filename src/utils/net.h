@@ -89,6 +89,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 bool is_ipv6_supported(void);
 char *get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
                        size_t n);
+struct sockaddr_storage get_sockaddr(const char *hostport, int mode);
 const char *ug_gai_strerror(int errcode);
 
 #ifdef _WIN32
