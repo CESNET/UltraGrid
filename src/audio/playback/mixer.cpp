@@ -89,40 +89,8 @@ using namespace std::chrono;
 class sockaddr_storage_less {
 public:
         bool operator() (const sockaddr_storage & x, const sockaddr_storage & y) const {
-                if (x.ss_family != y.ss_family) {
-                        return x.ss_family < y.ss_family;
-                }
-
-                if (x.ss_family == AF_INET) {
-                        const auto &sin_x =
-                            reinterpret_cast<const sockaddr_in &>(x);
-                        const auto &sin_y =
-                            reinterpret_cast<const sockaddr_in &>(y);
-
-                        if (sin_x.sin_addr.s_addr != sin_y.sin_addr.s_addr) {
-                                return sin_x.sin_addr.s_addr < sin_y.sin_addr.s_addr;
-                        }
-                        return sin_x.sin_port < sin_y.sin_port;
-                } else if (x.ss_family == AF_INET6) {
-                        const auto &sin_x =
-                            reinterpret_cast<const sockaddr_in6 &>(x);
-                        const auto &sin_y =
-                            reinterpret_cast<const sockaddr_in6 &>(y);
-
-                        for (int i = 0; i < 16; ++i) {
-                                if (sin_x.sin6_addr.s6_addr[i] != sin_y.sin6_addr.s6_addr[i]) {
-                                        return sin_x.sin6_addr.s6_addr[i] < sin_y.sin6_addr.s6_addr[i];
-                                }
-                        }
-
-                        if (IN6_IS_ADDR_LINKLOCAL(&sin_x.sin6_addr) &&
-                            sin_x.sin6_scope_id != sin_y.sin6_scope_id) {
-                                return sin_x.sin6_scope_id < sin_y.sin6_scope_id;
-                        }
-
-                        return sin_x.sin6_port < sin_y.sin6_port;
-                }
-                abort();
+                return sockaddr_compare((const sockaddr *) &x,
+                                        (const sockaddr *) &y) < 0;
         }
 };
 

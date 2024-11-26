@@ -518,6 +518,58 @@ get_sockaddr(const char *hostport, int mode)
         return ret;
 }
 
+/**
+ * @retval <0 struct represents "smaller" address (port)
+ * @retval 0  addresses equal
+ * @retval >0 struct represents "bigger" address (port)
+ * @note
+ * v4-mapped ports are not handled
+ */
+int
+sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
+{
+        if (x->sa_family != y->sa_family) {
+                return y->sa_family - x->sa_family;
+        }
+
+        if (x->sa_family == AF_INET) {
+                const struct sockaddr_in *sin_x = (const void *) x;
+                const struct sockaddr_in *sin_y = (const void *) y;
+
+                if (sin_x->sin_addr.s_addr != sin_y->sin_addr.s_addr) {
+                        return ntohl(sin_x->sin_addr.s_addr) <
+                                       ntohl(sin_y->sin_addr.s_addr)
+                                   ? -1
+                                   : 1;
+                }
+                return ntohs(sin_y->sin_port) - ntohs(sin_x->sin_port);
+        }
+        if (x->sa_family == AF_INET6) {
+                const struct sockaddr_in6 *sin_x = (const void *) x;
+                const struct sockaddr_in6 *sin_y = (const void *) y;
+
+                for (int i = 0; i < 16; ++i) {
+                        if (sin_x->sin6_addr.s6_addr[i] !=
+                            sin_y->sin6_addr.s6_addr[i]) {
+                                return sin_y->sin6_addr.s6_addr[i] -
+                                       sin_x->sin6_addr.s6_addr[i];
+                        }
+                }
+
+                // sin6_scope_id is opaque so do not cope with endianity
+                // (actually it is host order on both Linux and Windows)
+                if (IN6_IS_ADDR_LINKLOCAL(&sin_x->sin6_addr) &&
+                    sin_x->sin6_scope_id != sin_y->sin6_scope_id) {
+                        return sin_x->sin6_scope_id < sin_y->sin6_scope_id ? -1
+                                                                           : 1;
+                }
+
+                return ntohs(sin_y->sin6_port) - sin_x->sin6_port;
+        }
+        MSG(ERROR, "Unsupported address class %d!", (int) x->sa_family);
+        abort();
+}
+
 const char *ug_gai_strerror(int errcode)
 {
 #ifdef _WIN32

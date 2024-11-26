@@ -91,6 +91,7 @@ char *get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
                        size_t n);
 struct sockaddr_storage get_sockaddr(const char *hostport, int mode);
 const char *ug_gai_strerror(int errcode);
+int sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y);
 
 #ifdef _WIN32
 #define CLOSESOCKET closesocket
