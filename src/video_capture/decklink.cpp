@@ -824,7 +824,7 @@ settings_init(struct vidcap_decklink_state *s, char *fmt)
         char *tmp;
         char *save_ptr = NULL;
 
-        if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
+        if ((tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
                 MSG(INFO, "Auto-choosen device 0.\n");
                 return true;
         }
