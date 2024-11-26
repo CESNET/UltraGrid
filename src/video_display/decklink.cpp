@@ -1208,7 +1208,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         bool ret = true;
         char tmp[STR_LEN];
         snprintf_ch(tmp, "%s", fmt);
-        strcpy(tmp, fmt);
         replace_all(tmp, ESCAPED_COLON, DELDEL); // replace all '\:' with 2xDEL
         char *save_ptr = nullptr;
         char *ptr = strtok_r(tmp, ":", &save_ptr);
