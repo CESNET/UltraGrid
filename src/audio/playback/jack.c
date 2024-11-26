@@ -191,7 +191,7 @@ static void * audio_play_jack_init(const char *cfg)
                                 goto error;
                         }
                 } else if (strstr(item, "name=") == item) {
-                        strcpy(client_name, item + strlen("name="));
+                        snprintf_ch(client_name, "%s", strchr(item, '=') + 1);
                 } else { // the rest is the device name
                         source_name = cfg + (item - dup);
                         break;
