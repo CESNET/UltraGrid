@@ -606,6 +606,7 @@ static const struct {
         BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
         BMDFCC(bmdDeckLinkConfigVideoInputConnection),
         BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+        BMDFCC(bmdDeckLinkConfigVideoOutputConnection),
         BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
         BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
 };
@@ -939,8 +940,12 @@ bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                         return true;
         }
         ostringstream value_oss;
-        if (opt == bmdDeckLinkConfigVideoInputConnection && get_connection_string_map().find((BMDVideoConnection) get_int()) != get_connection_string_map().end()) {
-                value_oss << get_connection_string_map().at((BMDVideoConnection) get_int());
+        if ((opt == bmdDeckLinkConfigVideoInputConnection ||
+             opt == bmdDeckLinkConfigVideoOutputConnection) &&
+            get_connection_string_map().find((BMDVideoConnection) get_int()) !=
+                get_connection_string_map().end()) {
+                value_oss << get_connection_string_map().at(
+                    (BMDVideoConnection) get_int());
         } else {
                 value_oss << *this;
         }
@@ -1296,6 +1301,17 @@ print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
                 }
         }
         col() << "\n";
+}
+
+BMDVideoConnection
+bmd_get_connection_by_name(const char *connection)
+{
+        for (auto const &it : get_connection_string_map()) {
+                if (strcasecmp(connection, it.second.c_str()) == 0) {
+                        return it.first;
+                }
+        }
+        return bmdVideoConnectionUnspecified;
 }
 
 /*   ____            _    _     _       _     ____  _        _             

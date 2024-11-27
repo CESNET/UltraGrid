@@ -732,15 +732,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if (IS_KEY_PREFIX(opt, "connection")) {
                 const char *connection = strchr(opt, '=') + 1;
-                for (auto const & it : get_connection_string_map()) {
-                        if (strcasecmp(connection, it.second.c_str()) == 0) {
-                                s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option((int64_t) it.first);
-                        }
-                }
-                if (s->device_options.find(bmdDeckLinkConfigVideoInputConnection) == s->device_options.end()) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized connection %s.\n", connection);
+                auto        bmd_conn   = bmd_get_connection_by_name(connection);
+                if (bmd_conn == bmdVideoConnectionUnspecified) {
+                        MSG(ERROR, "Unrecognized connection %s.\n", connection);
                         return false;
                 }
+                s->device_options[bmdDeckLinkConfigVideoInputConnection] =
+                    bmd_option((int64_t) bmd_conn);
         } else if(strncasecmp(opt, "audio_level=",
                                 strlen("audio_level=")) == 0) {
                 s->device_options[bmdDeckLinkConfigAnalogAudioConsumerLevels] =

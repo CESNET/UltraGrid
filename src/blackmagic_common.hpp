@@ -181,6 +181,7 @@ void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
 void print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
                            BMDDeckLinkAttributeID      id,
                            const char                 *module_prefix);
+BMDVideoConnection bmd_get_connection_by_name(const char *connection);
 
 /**
  * @details parameters:

@@ -618,6 +618,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\tUse1080PsF[=true|false|keep]") << " flag sets use of PsF on output instead of progressive (default is false)\n";
                 col() << SBOLD("\tprofile=<P>") << "\tuse desired device profile:\n";
                 print_bmd_device_profiles("\t\t");
+                col() << SBOLD("\tconnection=<conn>") << " set output video connection (usually unneeded)\n";
                 col() << SBOLD("\tmaxresample=<N>") << " maximum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
@@ -1302,6 +1303,17 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
+                } else if (IS_KEY_PREFIX(ptr, "connection")) {
+                        const char *connection = strchr(ptr, '=') + 1;
+                        auto bmd_conn = bmd_get_connection_by_name(connection);
+                        if (bmd_conn == bmdVideoConnectionUnspecified) {
+                                MSG(ERROR, "Unrecognized connection %s.\n",
+                                    connection);
+                                return false;
+                        }
+                        s->device_options
+                            [bmdDeckLinkConfigVideoOutputConnection] =
+                            bmd_option((int64_t) bmd_conn);
                 } else if (strstr(ptr, "keep-settings") == ptr) {
                         s->keep_device_defaults = true;
                 } else if (strstr(ptr, "drift_fix") == ptr) {
