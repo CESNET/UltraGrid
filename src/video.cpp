@@ -300,6 +300,8 @@ struct video_desc get_video_desc_from_string(const char *string)
                 {"cif", { 352, 288, UYVY, 29.97, PROGRESSIVE, 1 }},
                 {"4cif", { 704, 576, UYVY, 29.97, PROGRESSIVE, 1 }},
                 {"ntsc", { 720, 480, UYVY, 29.97, INTERLACED_MERGED, 1 }},
+                /// NTSC with 6 lines overscan (486 lines), compatible with BMD
+                {"ntos", { 720, 486, UYVY, 29.97, INTERLACED_MERGED, 1 }},
                 {"pal", { 720, 576, UYVY, 25, INTERLACED_MERGED, 1 }},
                 {"cga", { 320, 200, UYVY, 60, PROGRESSIVE, 1 }},
                 {"vga", { 640, 480, UYVY, 60, PROGRESSIVE, 1 }},
