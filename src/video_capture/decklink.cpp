@@ -498,18 +498,8 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
         }
         color_printf(TERM_RESET "\n");
 
-        int64_t connections = 0;
-        if (deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
-        } else {
-                cout << "\n\tConnection can be one of following:\n";
-                for (auto const &it : get_connection_string_map()) {
-                        if (connections & it.first) {
-                                col() << "\t\t" << SBOLD(it.second) << "\n";
-                        }
-                }
-        }
-        cout << "\n";
+        print_bmd_connections(deckLinkAttributes,
+                              BMDDeckLinkVideoInputConnections, MOD_NAME);
 
         if (query_prop_fcc != nullptr) {
                 print_bmd_attribute(deckLinkAttributes, query_prop_fcc);

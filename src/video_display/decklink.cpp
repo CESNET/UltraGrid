@@ -2172,6 +2172,7 @@ HRESULT DeckLink3DFrame::GetFrameForRightEye(IDeckLinkVideoFrame ** frame)
 static void
 print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
 {
+        IDeckLinkProfileAttributes             *deckLinkAttributes  = nullptr;
         IDeckLinkOutput*                        deckLinkOutput = NULL;
         IDeckLinkDisplayModeIterator*           displayModeIterator = NULL;
         IDeckLinkDisplayMode*                   displayMode = NULL;
@@ -2241,28 +2242,25 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
         }
         color_printf(TERM_RESET "\n");
 
-        if (query_prop_fcc != nullptr) {
-                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
-                if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
-                                             (void **) &deckLinkAttributes) ==
-                    S_OK) {
+        if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                     (void **) &deckLinkAttributes) == S_OK) {
+                if (query_prop_fcc != nullptr) {
                         cout << "\n";
                         print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
-                        deckLinkAttributes->Release();
-                } else {
-                        MSG(ERROR, "Could not query device attributes.\n\n");
                 }
-        }
+                print_bmd_connections(deckLinkAttributes,
+                                      BMDDeckLinkVideoOutputConnections,
+                                      MOD_NAME);
 
-        color_printf("\n");
+        } else {
+                MSG(ERROR, "Could not query device attributes.\n\n");
+        }
 
 bail:
         // Ensure that the interfaces we obtained are released to prevent a memory leak
-        if (displayModeIterator != NULL)
-                displayModeIterator->Release();
-
-        if (deckLinkOutput != NULL)
-                deckLinkOutput->Release();
+        RELEASE_IF_NOT_NULL(deckLinkAttributes);
+        RELEASE_IF_NOT_NULL(displayModeIterator);
+        RELEASE_IF_NOT_NULL(deckLinkOutput);
 }
 
 static const struct video_display_info display_decklink_info = {

@@ -178,6 +178,9 @@ decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
 bool bmd_parse_audio_levels(const char *opt) noexcept(false);
 void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                          const char                 *query_prop_fcc);
+void print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
+                           BMDDeckLinkAttributeID      id,
+                           const char                 *module_prefix);
 
 /**
  * @details parameters:

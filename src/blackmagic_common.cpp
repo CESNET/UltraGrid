@@ -1279,6 +1279,25 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
         return out;
 }
 
+void
+print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
+                      BMDDeckLinkAttributeID id, const char *module_prefix)
+{
+        col() << "\n\tConnection can be one of following:\n";
+        int64_t connections = 0;
+        if (deckLinkAttributes->GetInt(id, &connections) != S_OK) {
+                log_msg(LOG_LEVEL_ERROR, "%sCould not get connections.\n\n",
+                        module_prefix);
+                return;
+        }
+        for (auto const &it : get_connection_string_map()) {
+                if ((connections & it.first) != 0) {
+                        col() << "\t\t" << SBOLD(it.second) << "\n";
+                }
+        }
+        col() << "\n";
+}
+
 /*   ____            _    _     _       _     ____  _        _             
  *  |  _ \  ___  ___| | _| |   (_)_ __ | | __/ ___|| |_ __ _| |_ _   _ ___ 
  *  | | | |/ _ \/ __| |/ / |   | | '_ \| |/ /\___ \| __/ _` | __| | | / __|
