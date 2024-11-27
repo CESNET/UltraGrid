@@ -615,7 +615,14 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         }
         cout << "\n";
         if (!full) {
-                col() << "Possible connections: " << TBOLD("SDI") << ", " << TBOLD("HDMI") << ", " << TBOLD("OpticalSDI") << ", " << TBOLD("Component") << ", " << TBOLD("Composite") << ", " << TBOLD("SVideo") << "\n";
+                col() << "Possible connections:";
+                for (const auto &i : get_connection_string_map()) {
+                        col() << (i == *get_connection_string_map().cbegin()
+                                      ? " "
+                                      : ", ")
+                              << SBOLD(i.second);
+                }
+                cout << "\n";
         }
         cout << "\n";
 
