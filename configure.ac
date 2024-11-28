@@ -297,7 +297,6 @@ fi
 AC_SUBST(DLL_LIBS)
 
 AC_CHECK_FUNCS(usleep)
-AC_CHECK_FUNCS(timespec_get)
 
 # ---------------------------------------------------------------------
 # Common shell utility functions
