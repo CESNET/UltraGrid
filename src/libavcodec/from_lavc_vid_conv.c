@@ -55,6 +55,7 @@
 
 #include "color.h"
 #include "compat/qsort_s.h"
+#include "config.h"       // for HWACC_VDPAU
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -64,6 +65,7 @@
 #include "libavcodec/lavc_common.h"
 #include "pixfmt_conv.h"
 #include "types.h"
+#include "utils/debug.h"  // for DEBUG_TIMER_*
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel

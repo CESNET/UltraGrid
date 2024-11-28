@@ -39,6 +39,9 @@
  * SUCH DAMAGE.
  */
 
+#include "debug.h"
+#include "utils/debug.h"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // defined HAVE_CONFIG_H
@@ -52,7 +55,6 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"

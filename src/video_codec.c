@@ -53,7 +53,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"            // for HWACC_VDPAU
 #endif // HAVE_CONFIG_H
 #include "config_unix.h"
 #include "config_win32.h"
@@ -70,6 +70,7 @@
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_drm.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR
 #include "video_codec.h"
 

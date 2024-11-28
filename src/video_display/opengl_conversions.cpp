@@ -36,6 +36,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"                // for HWACC_VDPAU
 #include "color.h"
 #include "debug.h"
 #include "host.h"

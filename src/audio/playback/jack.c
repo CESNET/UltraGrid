@@ -43,6 +43,7 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "config.h"                // for PACKAGE_NAME
 #include "debug.h"
 #include "host.h"
 #include "jack_common.h"

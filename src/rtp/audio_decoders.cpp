@@ -76,6 +76,7 @@
 #include "types.h"                   // for fec_desc, fec_type
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
 #include "utils/packet_counter.h"
 #include "utils/worker.h"

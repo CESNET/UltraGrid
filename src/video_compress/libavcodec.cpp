@@ -67,6 +67,7 @@
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/debug.h"                  // for debug_file_dump
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/string.h" // replace_all

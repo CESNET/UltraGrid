@@ -65,6 +65,7 @@
 #include "host.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"
 #include "utils/windows.h"
 #include "utils/worker.h"

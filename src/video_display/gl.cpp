@@ -77,6 +77,7 @@
 #include "module.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/ref_count.hpp"
 #include "video.h"

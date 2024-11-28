@@ -57,6 +57,7 @@
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
+#include "utils/debug.h"          // for debug_file_dump
 #include "utils/macros.h"
 #include "video.h"
 #include "video_codec.h"

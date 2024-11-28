@@ -46,6 +46,7 @@
 #include <thread>
 #include <string_view>
 
+#include "config.h"    // for HAVE_OPENCV2_OPENCV_HPP
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

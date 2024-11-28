@@ -47,9 +47,6 @@
 #include <stdio.h> // FILE
 #endif // defined __cplusplus
 
-#ifdef HAVE_CONFIG_H
-#include "config.h" // DEBUG
-#endif // defined HAVE_CONFIG_H
 #include "tv.h"
 
 #define UNUSED(x)	(x=x)
@@ -80,11 +77,6 @@ extern "C" {
 #endif
 
 void debug_dump(const void*lp, int len);
-#ifdef DEBUG
-void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data);
-#else
-#define debug_file_dump(key, serialize, data) (void) (key), (void) (serialize), (void) (data)
-#endif
 
 #define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
@@ -321,15 +313,6 @@ private:
 if ((level) <= log_level) Logger(level).Get()
 
 
-#endif
-
-#ifdef DEBUG
-#define DEBUG_TIMER_EVENT(name) time_ns_t name = get_time_in_ns()
-#define DEBUG_TIMER_START(name) DEBUG_TIMER_EVENT(name##_start);
-#define DEBUG_TIMER_STOP(name) DEBUG_TIMER_EVENT(name##_stop); log_msg(LOG_LEVEL_DEBUG2, "%s duration: %lf s\n", #name, (name##_stop - name##_start) / NS_IN_SEC_DBL) // NOLINT(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
-#else
-#define DEBUG_TIMER_START(name)
-#define DEBUG_TIMER_STOP(name)
 #endif
 
 #endif

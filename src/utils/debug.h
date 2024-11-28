@@ -1,9 +1,9 @@
 /**
- * @file   libavcodec/lavc_video.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   debug.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,32 +35,44 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBAVCODEC_LAVC_VIDEO_62BB95A5_236F_4D7C_9DD6_85FD35E6BEB2
-#define LIBAVCODEC_LAVC_VIDEO_62BB95A5_236F_4D7C_9DD6_85FD35E6BEB2
+#ifndef UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44
+#define UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"      // for DEBUG
+#endif
+
+#include "../debug.h"    // for log_msg
+#include "tv.h"          // for get_time_in_ns
 
 #ifdef __cplusplus
-#include <cstdio>
+#include <cstdio>        // for FILE
+#define EXTERNC extern "C"
 #else
 #include <stdio.h>
+#define EXTERNC          // for FILE
 #endif
 
-#include "config.h"  // for HAVE_SWSCALE
-#include "libavcodec/lavc_common.h"
+#ifdef DEBUG
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+EXTERNC void debug_file_dump(const char *key,
+                             void (*serialize)(const void *data, FILE *),
+                             void *data);
+#define DEBUG_TIMER_EVENT(name) time_ns_t name = get_time_in_ns()
+#define DEBUG_TIMER_START(name) DEBUG_TIMER_EVENT(name##_start);
+#define DEBUG_TIMER_STOP(name) \
+        DEBUG_TIMER_EVENT(name##_stop); \
+        log_msg(LOG_LEVEL_DEBUG2, "%s duration: %lf s\n", #name, \
+                (name##_stop - name##_start) / NS_IN_SEC_DBL) \
+                // NOLINT(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
 
-void serialize_video_avframe(const void *f, FILE *out);
+#else
 
-#ifdef HAVE_SWSCALE
-struct SwsContext;
-struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags);
-#endif // defined HAVE_SWSCALE
+#define debug_file_dump(key, serialize, data) \
+        (void) (key), (void) (serialize), (void) (data)
+#define DEBUG_TIMER_START(name)
+#define DEBUG_TIMER_STOP(name)
 
-#ifdef __cplusplus
-}
-#endif
+#endif // ! defined DEBUG
 
-#endif // !defined LIBAVCODEC_LAVC_VIDEO_62BB95A5_236F_4D7C_9DD6_85FD35E6BEB2
-
+#endif // ! defined UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44

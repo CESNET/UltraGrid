@@ -70,6 +70,7 @@
 #include "audio/playback/sdi.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
+#include "config.h"                     // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
 #include "module.h"

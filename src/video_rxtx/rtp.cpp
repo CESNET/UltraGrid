@@ -41,6 +41,7 @@
 #include <sstream>
 #include <string>
 
+#include "config.h"              // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
