@@ -70,6 +70,11 @@
 #include "utils/windows.h"
 #include "utils/worker.h"
 
+// BMD sometimes do a ABI bump that entirely breaks compatibility (eg. changing
+// GUIDs), this can be inspected by checking the "versioned" DeckLinkAPI here:
+// <https://github.com/MartinPulec/desktopvideo_sdk-api/tree/main/Linux/include>
+#define BMD_LAST_INCOMPATIBLE_ABI 0x0b050100 // 11.5.1
+
 #if BLACKMAGIC_DECKLINK_API_VERSION > 0x0c080000
 #warning \
     "Increased BMD API - enum diffs recheck recommends (or just increase the compared API version)"
@@ -238,14 +243,30 @@ bool blackmagic_api_version_check()
                 goto cleanup;
         }
 
-        if (BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
-                log_msg(LOG_LEVEL_ERROR, "The DeckLink drivers are be outdated.\n");
-                log_msg(LOG_LEVEL_ERROR, "You should have at least the version UltraGrid has been linked with.\n");
-                log_msg(LOG_LEVEL_ERROR, "Vendor download page is http://www.blackmagic-design.com/support\n");
+        // this is safe comparision, for internal structure please see SDK
+        // documentation
+        if (value <= BMD_LAST_INCOMPATIBLE_ABI) {
+                MSG(ERROR, "The DeckLink drivers are be outdated.\n");
+                MSG(ERROR, "You must have drivers newer than %d.%d.%d.\n",
+                    BMD_LAST_INCOMPATIBLE_ABI >> 24,
+                    (BMD_LAST_INCOMPATIBLE_ABI >> 16) & 0xFF,
+                    (BMD_LAST_INCOMPATIBLE_ABI >> 8) & 0xFF);
+                MSG(ERROR, "Vendor download page is "
+                           "http://www.blackmagic-design.com/support\n");
                 print_decklink_version();
-                ret = false;
         } else {
                 ret = true;
+                if (BLACKMAGIC_DECKLINK_API_VERSION > value) {
+                        MSG(WARNING, "The DeckLink drivers are be outdated.\n");
+                        MSG(WARNING,
+                            "Although it will likely work, it is recommended "
+                            "to use drivers at least as the API that "
+                            "UltraGrid is linked with.\n");
+                        print_decklink_version();
+                        MSG(WARNING,
+                            "Vendor download page is "
+                            "http://www.blackmagic-design.com/support\n\n");
+                }
         }
 
 cleanup:
