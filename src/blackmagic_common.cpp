@@ -778,7 +778,7 @@ bmd_opt_help()
         color_printf("If the type deduction is not working, you can use also "
                      "following syntax:\n");
         color_printf("- \"value\" - assume the value is string\n");
-        color_printf("- 'value' - assume the value is FourCC\n");
+        color_printf("- 'vlue' - assume the value is FourCC\n");
         color_printf("\n");
 
         color_printf("Incomplete " TBOLD("(!)") " list of keys:\n");
