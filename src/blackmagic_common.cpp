@@ -588,29 +588,161 @@ static const struct {
         uint32_t    fourcc;
         const char *name;
 } opt_name_map[] = {
-        BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
-        BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
-        BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
-        BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
-        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticGatewayIPAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticLocalIPAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticSubnetMask),
-        BMDFCC(bmdDeckLinkConfigEthernetVideoOutputAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetUseDHCP),
-        BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
-        BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+
+        { 0, "Serial port Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigSwapSerialRxTx),
+
+        { 0, "Video Input/Output Integers" },
+
         BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
-        BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
-        BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
-        BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+        BMDFCC(bmdDeckLinkConfigBypass),
+        BMDFCC(bmdDeckLinkConfigClockTimingAdjustment),
+
+        { 0, "Audio Input/Output Flags"    },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
+        BMDFCC(bmdDeckLinkConfigSwapHDMICh3AndCh4OnInput),
+        BMDFCC(bmdDeckLinkConfigSwapHDMICh3AndCh4OnOutput),
+
+        { 0, "Video Output Flags"          },
+
+        BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
+        BMDFCC(bmdDeckLinkConfigHD1080p24ToHD1080i5994Conversion),
+        BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
+        BMDFCC(bmdDeckLinkConfigBlackVideoOutputDuringCapture),
+        BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+        BMDFCC(bmdDeckLinkConfigDownConversionOnAllAnalogOutput),
         BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
-        BMDFCC(bmdDeckLinkConfigVideoInputConnection),
-        BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+        BMDFCC(bmdDeckLinkConfigRec2020Output),
+        BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
+        BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
+
+        { 0, "Video Output Integers"       },
+
         BMDFCC(bmdDeckLinkConfigVideoOutputConnection),
         BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
+        BMDFCC(bmdDeckLinkConfigAnalogVideoOutputFlags),
+        BMDFCC(bmdDeckLinkConfigReferenceInputTimingOffset),
+        BMDFCC(bmdDeckLinkConfigReferenceOutputMode),
         BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
+        BMDFCC(bmdDeckLinkConfigDefaultVideoOutputMode),
+        BMDFCC(bmdDeckLinkConfigDefaultVideoOutputModeFlags),
+        BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+        BMDFCC(bmdDeckLinkConfigHDMITimecodePacking),
+        BMDFCC(bmdDeckLinkConfigPlaybackGroup),
+
+        { 0, "Video Output Floats"         },
+
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentChromaBlueGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentChromaRedGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputCompositeLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputCompositeChromaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputSVideoLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputSVideoChromaGain),
+
+        { 0, "Video Input Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputScanning),
+        BMDFCC(bmdDeckLinkConfigUseDedicatedLTCInput),
+        BMDFCC(bmdDeckLinkConfigSDIInput3DPayloadOverride),
+        BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
+
+        { 0, "Video Input Integers"        },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputConnection),
+        BMDFCC(bmdDeckLinkConfigAnalogVideoInputFlags),
+        BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+        BMDFCC(bmdDeckLinkConfig32PulldownSequenceInitialTimecodeFrame),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine1Mapping),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine2Mapping),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine3Mapping),
+        BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+        BMDFCC(bmdDeckLinkConfigCaptureGroup),
+
+        { 0, "Video Input Floats"          },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentChromaBlueGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentChromaRedGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputCompositeLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputCompositeChromaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputSVideoLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputSVideoChromaGain),
+
+        { 0, "Keying Integers"             },
+
+        BMDFCC(bmdDeckLinkConfigInternalKeyingAncillaryDataSource),
+
+        { 0, "Audio Input Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigMicrophonePhantomPower),
+
+        { 0, "Audio Input Integers"        },
+
+        BMDFCC(bmdDeckLinkConfigAudioInputConnection),
+
+        { 0, "Audio Input Floats"          },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel1),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel2),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel3),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel4),
+        BMDFCC(bmdDeckLinkConfigDigitalAudioInputScale),
+        BMDFCC(bmdDeckLinkConfigMicrophoneInputGain),
+
+        { 0, "Audio Output Integers"       },
+
+        BMDFCC(bmdDeckLinkConfigAudioOutputAESAnalogSwitch),
+
+        { 0, "Audio Output Floats"         },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel1),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel2),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel3),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel4),
+        BMDFCC(bmdDeckLinkConfigDigitalAudioOutputScale),
+        BMDFCC(bmdDeckLinkConfigHeadphoneVolume),
+
+        { 0, "Network Flags"               },
+
+        BMDFCC(bmdDeckLinkConfigEthernetUseDHCP),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPFollowerOnly),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPUseUDPEncapsulation),
+
+        { 0, "Network Integers"            },
+
+        BMDFCC(bmdDeckLinkConfigEthernetPTPPriority1),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPPriority2),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPDomain),
+
+        { 0, "Network Strings"             },
+
+        BMDFCC(bmdDeckLinkConfigEthernetStaticLocalIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticSubnetMask),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticGatewayIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticPrimaryDNS),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticSecondaryDNS),
+        BMDFCC(bmdDeckLinkConfigEthernetVideoOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAncillaryOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputChannelOrder),
+
+        { 0, "Device Information Strings"  },
+
+        BMDFCC(bmdDeckLinkConfigDeviceInformationLabel),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationSerialNumber),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationCompany),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationPhone),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationEmail),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationDate),
+
+        { 0, "Deck Control Integers"       },
+
+        BMDFCC(bmdDeckLinkConfigDeckControlConnection),
 };
+
 static const struct {
         uint32_t    fourcc;
         const char *name;
@@ -781,16 +913,20 @@ bmd_opt_help()
         color_printf("- 'vlue' - assume the value is FourCC\n");
         color_printf("\n");
 
-        color_printf("Incomplete " TBOLD("(!)") " list of keys:\n");
+        color_printf("List of keys:\n");
         for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
-                uint32_t val = htonl(opt_name_map[i].fourcc);
-                color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
-                             opt_name_map[i].name);
+                if (opt_name_map[i].fourcc == 0) {
+                        color_printf("\n%s:\n", opt_name_map[0].name);
+                } else {
+                        uint32_t val = htonl(opt_name_map[i].fourcc);
+                        color_printf("- " TBOLD("%.4s") " - %s\n",
+                                     (char *) &val, opt_name_map[i].name);
+                }
         }
         color_printf("\n");
-        color_printf("See\n"
-                     TUNDERLINE("https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
-                     "DeckLink/Linux/DeckLinkAPIConfiguration.h") "\nfor full list.\n");
+        color_printf("See also\n" TUNDERLINE(
+            "https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
+            "DeckLink/Linux/DeckLinkAPIConfiguration.h") "\nfor details.\n");
         color_printf("\n");
         color_printf("Incomplete " TBOLD("(!)") " list of values:\n");
         color_printf("(note that the value belongs to its appropriate key)\n");
