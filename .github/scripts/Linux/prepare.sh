@@ -56,7 +56,12 @@ sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
 sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
 # FFmpeg deps
-sudo add-apt-repository ppa:savoury1/ffmpeg4 # openh264, new x265
+for i in $(seq 10); do
+        [ "$i" -gt 1 ] && sleep $((2**i))
+        # openh264, new x265
+        sudo add-apt-repository --yes ppa:savoury1/ffmpeg4 && err=0 && break || err=$?
+done
+(exit "$err")
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libva-dev')
 # shellcheck disable=SC2086 # intentional
