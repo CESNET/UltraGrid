@@ -1426,8 +1426,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
         const char *fmt = vidcap_params_get_fmt(params);
 
-        blackmagic_api_version_check();
-
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 decklink_help(strcmp(fmt, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
@@ -1460,6 +1458,11 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 delete s;
 		return VIDCAP_INIT_FAIL;
 	}
+
+        if (!blackmagic_api_version_check()) {
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
 
         switch (get_bits_per_component(s->codec)) {
         case 0: s->requested_bit_depth = 0; break;

@@ -1416,8 +1416,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
 
-        blackmagic_api_version_check();
-
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
                 return INIT_NOERR;
@@ -1442,6 +1440,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
         if (!succeeded) {
+                delete s;
+                return NULL;
+        }
+
+        if (!blackmagic_api_version_check()) {
                 delete s;
                 return NULL;
         }
