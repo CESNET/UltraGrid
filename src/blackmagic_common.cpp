@@ -1608,8 +1608,8 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop,
         if (!SUCCEEDED(rc)) {
                 if (FAILED(rc) && rc != E_NOTIMPL) {
                         log_msg(LOG_LEVEL_WARNING,
-                                "%sObtain property 0x%08x value: %s\n",
-                                log_prefix, (unsigned) prop,
+                                "%sObtain property %s (0x%08x) value: %s\n",
+                                log_prefix, s_prop->prop_name, (unsigned) prop,
                                 bmd_hresult_to_string(rc).c_str());
                 }
                 return;
