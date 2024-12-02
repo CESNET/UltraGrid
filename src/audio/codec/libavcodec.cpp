@@ -296,10 +296,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                 return false;
         }
 
-        s->codec_ctx->channels = 1;
-#if LIBAVCODEC_VERSION_MAJOR >= 54
-        s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
-#endif
+        AVCODECCTX_CHANNELS(s->codec_ctx) = 1;
 
         pthread_mutex_lock(s->libav_global_lock);
         /* open it */
@@ -316,8 +313,12 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         s->av_frame->nb_samples     = s->codec_ctx->frame_size;
         s->av_frame->format         = s->codec_ctx->sample_fmt;
-#if LIBAVCODEC_VERSION_MAJOR >= 54
+#if FF_API_NEW_CHANNEL_LAYOUT
+        s->av_frame->ch_layout = (struct AVChannelLayout) AV_CHANNEL_LAYOUT_MONO;
+#else
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
+#endif
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         s->av_frame->sample_rate    = s->codec_ctx->sample_rate;
 #endif
 
@@ -347,7 +348,7 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
         avcodec_close(s->codec_ctx);
         pthread_mutex_unlock(s->libav_global_lock);
 
-        s->codec_ctx->channels = 1;
+        AVCODECCTX_CHANNELS(s->codec_ctx) = 1;
 
         s->codec_ctx->bits_per_coded_sample = 4; // ADPCM
         s->codec_ctx->sample_rate = desc.sample_rate;

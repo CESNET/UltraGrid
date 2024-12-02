@@ -120,6 +120,13 @@ extern "C" {
 #define AV_CODEC_ID_AV1 AV_CODEC_ID_NONE
 #endif
 
+#if defined FF_API_OLD_CHANNEL_LAYOUT || (LIBAVUTIL_VERSION_MAJOR >= 58)
+#define AVCODECCTX_CHANNELS(context) (context)->ch_layout.nb_channels
+#define FF_API_NEW_CHANNEL_LAYOUT 1
+#else
+#define AVCODECCTX_CHANNELS(context) (context)->channels
+#endif
+
 // avutil
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51, 42, 0) // FFMPEG commit 78071a1420b
 #define AV_PIX_FMT_NONE PIX_FMT_NONE
