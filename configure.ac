@@ -266,11 +266,6 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #define MAX(a,b) (((a)>(b))?(a):(b))
 ])
 
-# @param $1 name of the module
-function MODULE_NAME() {
-        echo "lib/ultragrid/ultragrid_"$1".so"
-}
-
 # Adds the module to UltraGrid build system.
 # @param $1 name of the module, should be in format <class>_<name> unless
 #           sure that the modular build won't take place
@@ -278,7 +273,7 @@ function MODULE_NAME() {
 # @param $3 libraries
 # @param $4 static libraries (?)
 AC_DEFUN([ADD_MODULE], [
-          TARGET=$(MODULE_NAME "$1")
+          TARGET="lib/ultragrid/ultragrid_"$1".so"
           LIB_OBJS=$LIB_OBJS" "$2
           LIB_MODULES=$LIB_MODULES" "$3
 	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
