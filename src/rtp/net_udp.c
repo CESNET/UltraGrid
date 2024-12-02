@@ -51,6 +51,10 @@
 #include <pthread.h>
 #include <stdalign.h>
 
+#ifndef _WIN32
+#include <ifaddrs.h>
+#endif
+
 #include "debug.h"
 #include "host.h"
 #include "memory.h"
@@ -71,8 +75,11 @@
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
 
+static unsigned get_ifindex(const char *iface);
 static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
+static void     udp_leave_mcast_grp4(unsigned long addr, int fd,
+                                     const char iface[]);
 
 #define IPv4	4
 #define IPv6	6
@@ -167,7 +174,7 @@ struct socket_udp_local {
 struct _socket_udp {
         struct sockaddr_storage sock;
         socklen_t sock_len;
-        unsigned int ifindex; ///< iface index for multicast
+        char iface[IF_NAMESIZE]; ///< iface for multicast
 
         struct socket_udp_local *local;
         bool local_is_slave; // whether is the local
@@ -364,7 +371,56 @@ static bool udp_addr_valid4(const char *dst)
         return false;
 }
 
-static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
+/**
+ * @returns 1. 0 (htonl(INADDR_ANY)) if iface is "";
+ *          2. representation of the address if iface is an adress
+ *          3a. [Windows only] interface index
+ *          3b. [otherwise] iface local address
+ */
+static in_addr_t
+get_iface_local_addr4(const char iface[])
+{
+        if (iface[0] == '\0') {
+                return htonl(INADDR_ANY);
+        }
+
+        // address specified by bind address
+        struct in_addr iface_addr;
+        if (inet_pton(AF_INET, iface, &iface_addr) == 1) {
+                return iface_addr.s_addr;
+        }
+
+        unsigned int ifindex = get_ifindex(iface);
+        if (ifindex == (unsigned) -1) {
+                return htonl(INADDR_ANY);
+        }
+
+#ifdef _WIN32
+        // Windows allow the interface specification by ifindex
+        return htonl(ifindex);
+#else
+        struct ifaddrs *a        = NULL;
+        getifaddrs(&a);
+        struct ifaddrs *p = a;
+        while (NULL != p) {
+                if (p->ifa_addr != NULL && p->ifa_addr->sa_family == AF_INET &&
+                    strcmp(iface, p->ifa_name) == 0) {
+                        struct sockaddr_in *sin = (void *) p->ifa_addr;
+                        in_addr_t ret = sin->sin_addr.s_addr;
+                        freeifaddrs(a);
+                        return ret;
+                }
+                p = p->ifa_next;
+        }
+        freeifaddrs(a);
+        MSG(ERROR, "Interface %s has assigned no IPv4 address!\n", iface);
+        return htonl(INADDR_ANY);
+#endif
+}
+
+static bool
+udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl,
+                    const char iface[])
 {
         if (IN_MULTICAST(ntohl(addr))) {
 #ifndef _WIN32
@@ -372,8 +428,13 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
 #endif
                 struct ip_mreq imr;
 
+                in_addr_t iface_addr = get_iface_local_addr4(iface);
+                char buf[IN4_MAX_ASCII_LEN + 1] = "(err. unknown)";
+                inet_ntop(AF_INET, &iface_addr, buf, sizeof buf);
+                MSG(INFO, "mcast4 iface bound to: %s\n", buf);
+
                 imr.imr_multiaddr.s_addr = addr;
-                imr.imr_interface.s_addr = ifindex;
+                imr.imr_interface.s_addr = iface_addr;
 
                 if (SETSOCKOPT
                     (rx_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
@@ -401,7 +462,7 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
                 }
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
-                     (char *)&ifindex, sizeof(ifindex)) != 0) {
+                     (char *) &iface_addr, sizeof iface_addr) != 0) {
                         socket_error("setsockopt IP_MULTICAST_IF");
                         return false;
                 }
@@ -409,12 +470,13 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
         return true;
 }
 
-static void udp_leave_mcast_grp4(unsigned long addr, int fd)
+static void
+udp_leave_mcast_grp4(unsigned long addr, int fd, const char iface[])
 {
         if (IN_MULTICAST(ntohl(addr))) {
                 struct ip_mreq imr;
                 imr.imr_multiaddr.s_addr = addr;
-                imr.imr_interface.s_addr = INADDR_ANY;
+                imr.imr_interface.s_addr = get_iface_local_addr4(iface);
                 if (SETSOCKOPT
                     (fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
@@ -470,16 +532,32 @@ static bool udp_addr_valid6(const char *dst)
         return false;
 }
 
-static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
+static bool
+udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl,
+                    const char iface[])
 {
 #ifdef HAVE_IPv6
+        // macOS handles v4-mapped addresses transparently as other v6 addrs;
+        // Linux/Win need to use the v4 sockpts
+#ifdef __APPLE__
+        in_addr_t v4mapped = 0;
+        memcpy((void *) &v4mapped, sin6_addr.s6_addr + 12, sizeof v4mapped);
+        if (IN6_IS_ADDR_MULTICAST(&sin6_addr) ||
+            (IN6_IS_ADDR_V4MAPPED(&sin6_addr) &&
+             IN_MULTICAST(ntohl(v4mapped)))) {
+#else
         if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
+#endif
                 unsigned int loop = 1;
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
                 imr.i6mr_multiaddr = sin6_addr;
 #else
+                unsigned int ifindex = get_ifindex(iface);
+                if (ifindex == (unsigned) -1) {
+                        return false;
+                }
                 imr.ipv6mr_multiaddr = sin6_addr;
                 imr.ipv6mr_interface = ifindex;
 #endif
@@ -508,6 +586,14 @@ static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd,
                         MSG(WARNING, "Using multicast but not setting TTL.\n");
                 }
                 if (ifindex != 0) {
+#ifdef __APPLE__
+                        MSG(WARNING,
+                            "Interface specification may not work "
+                            "with IPv6 sockets on macOS.\n%s\n",
+                            IN6_IS_ADDR_MULTICAST(&sin6_addr)
+                                ? "Please contact us for details or resolution."
+                                : "Use '-4' to enforce IPv4 socket");
+#endif
                         if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                        (char *) &ifindex,
                                        sizeof(ifindex)) != 0) {
@@ -515,21 +601,46 @@ static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd,
                                 return false;
                         }
                 }
+
+                return true;
+        }
+        if (IN6_IS_ADDR_V4MAPPED(&sin6_addr)) {
+                in_addr_t v4mapped = 0;
+                memcpy((void *) &v4mapped, sin6_addr.s6_addr + 12,
+                       sizeof v4mapped);
+                return udp_join_mcast_grp4(v4mapped, rx_fd, tx_fd, ttl,
+                                           iface);
         }
 
         return true;
+#else
+        return false;
 #endif
 }
 
-static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd, unsigned int ifindex)
+static void
+udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd, const char iface[])
 {
 #ifdef HAVE_IPv6
+        // see udp_join_mcast_grp for mac/Linux+Win difference
+#ifdef __APPLE__
+        in_addr_t v4mapped = 0;
+        memcpy((void *) &v4mapped, sin6_addr.s6_addr + 12, sizeof v4mapped);
+        if (IN6_IS_ADDR_MULTICAST(&sin6_addr) ||
+            (IN6_IS_ADDR_V4MAPPED(&sin6_addr) &&
+             IN_MULTICAST(ntohl(v4mapped)))) {
+#else
         if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
+#endif
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
                 imr.i6mr_multiaddr = sin6_addr;
 #else
+                unsigned int ifindex = get_ifindex(iface);
+                if (ifindex == (unsigned) -1) {
+                        return;
+                }
                 imr.ipv6mr_multiaddr = sin6_addr;
                 imr.ipv6mr_interface = ifindex;
 #endif
@@ -539,7 +650,13 @@ static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd, unsigned int
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_DROP_MEMBERSHIP");
                 }
+        } else if (IN6_IS_ADDR_V4MAPPED(&sin6_addr)) {
+                in_addr_t v4mapped = 0;
+                memcpy((void *) &v4mapped, sin6_addr.s6_addr + 12,
+                       sizeof v4mapped);
+                udp_leave_mcast_grp4(v4mapped, fd, iface);
         }
+
 #else
         UNUSED(s);
 #endif                          /* HAVE_IPv6 */
@@ -764,6 +881,47 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         return true;
 }
 
+static unsigned
+get_ifindex(const char *iface)
+{
+        if (iface[0] == '\0') {
+                return 0; // default
+        }
+        if (strcmp(iface, "help") == 0) {
+                printf(
+                    "mcast interface specification can be one of following:\n");
+                printf( "1. interface name\n");
+                printf( "2. interface index\n");
+                printf( "3. bind address (IPv4 only)\n");
+                printf("\n");
+                return (unsigned) -1;
+        }
+        const unsigned ret = if_nametoindex(iface);
+        if (ret != 0) {
+                return ret;
+        }
+        // check if the value isn't the index itself
+        char *endptr = NULL;
+        const long val = strtol(iface, &endptr, 0);
+        if (*endptr == '\0' && val >= 0 && (unsigned) val <= UINT_MAX) {
+                char buf[IF_NAMESIZE];
+                if (if_indextoname(val, buf) != NULL) {
+                        MSG(INFO, "Using mcast interface %s\n", buf);
+                        return val;
+                }
+        }
+        struct in_addr iface_addr;
+        if (inet_pton(AF_INET, iface, &iface_addr) == 1) {
+                error_msg("Interface identified with addres %s not allowed "
+                          "here. Try '-4'...\n",
+                          iface);
+                return (unsigned) -1;
+        }
+        error_msg("Illegal interface specification '%s': %s\n", iface,
+                  ug_strerror(errno));
+        return (unsigned) -1;
+}
+
 ADD_TO_PARAM("udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
@@ -814,12 +972,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 goto error;
         }
         if (iface != NULL) {
-                if ((s->ifindex = if_nametoindex(iface)) == 0) {
-                        error_msg("Illegal interface specification\n");
-                        goto error;
-                }
-        } else {
-                s->ifindex = 0;
+                snprintf_ch(s->iface, "%s", iface);
         }
 #ifdef _WIN32
         if (!is_host_loopback(addr)) {
@@ -877,12 +1030,16 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         switch (s->local->mode) {
         case IPv4:
-                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
+                if (!udp_join_mcast_grp4(
+                        ((struct sockaddr_in *) &s->sock)->sin_addr.s_addr,
+                        s->local->rx_fd, s->local->tx_fd, ttl, s->iface)) {
                         goto error;
                 }
                 break;
         case IPv6:
-                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
+                if (!udp_join_mcast_grp6(
+                        ((struct sockaddr_in6 *) &s->sock)->sin6_addr,
+                        s->local->rx_fd, s->local->tx_fd, ttl, s->iface)) {
                         goto error;
                 }
                 break;
@@ -981,10 +1138,14 @@ void udp_exit(socket_udp * s)
         }
         switch (s->local->mode) {
         case IPv4:
-                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd);
+                udp_leave_mcast_grp4(
+                    ((struct sockaddr_in *) &s->sock)->sin_addr.s_addr,
+                    s->local->rx_fd, s->iface);
                 break;
         case IPv6:
-                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->ifindex);
+                udp_leave_mcast_grp6(
+                    ((struct sockaddr_in6 *) &s->sock)->sin6_addr,
+                    s->local->rx_fd, s->iface);
                 break;
         }
 

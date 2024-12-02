@@ -56,6 +56,7 @@
 #endif
 
 enum {
+        IN4_MAX_ASCII_LEN = 4 * 3 + 3, ///< max len of IPv4 addr str (w/o '\0')
         /// maximal length of textual representation of IPv6 address including
         /// eventual scope ID but without terminating NUL byte
         IN6_MAX_ASCII_LEN = 40 /* 32 nibbles + 7 colons + "%" */ + IF_NAMESIZE,
