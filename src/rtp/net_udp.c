@@ -397,7 +397,7 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
                                 return false;
                         }
                 } else {
-                        log_msg(LOG_LEVEL_WARNING, "Using IPv4 multicast but not setting TTL.\n");
+                        MSG(WARNING, "Using multicast but not setting TTL.\n");
                 }
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
@@ -503,9 +503,9 @@ static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd,
                              sizeof(ttl)) != 0) {
                                 socket_error("setsockopt IPV6_MULTICAST_HOPS");
                                 return false;
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "Using IPv6 multicast but not setting TTL.\n");
                         }
+                } else {
+                        MSG(WARNING, "Using multicast but not setting TTL.\n");
                 }
                 if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
