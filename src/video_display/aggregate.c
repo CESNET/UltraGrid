@@ -275,6 +275,7 @@ static int display_aggregate_get_property(void *state, int property, void *val, 
                                 codec_t **codecs = malloc(s->devices_cnt * sizeof(codec_t *));
                                 size_t *lens = malloc(s->devices_cnt * sizeof(size_t));
 
+                                assert(s->devices_cnt > 0);
                                 for (i = 0; i < s->devices_cnt; ++i) {
                                         codecs[i] = malloc(*len);
                                         lens[i] = *len;

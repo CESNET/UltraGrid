@@ -180,7 +180,7 @@ void video_export_destroy(struct video_export *s)
 {
         if(s) {
                 // poison
-                struct output_entry *entry = calloc(sizeof(struct output_entry), 1);
+                struct output_entry *entry = calloc(1, sizeof(struct output_entry));
 
                 pthread_mutex_lock(&s->lock);
                 {
