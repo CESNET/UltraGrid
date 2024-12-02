@@ -79,6 +79,8 @@ extern "C" {
 
 struct sockaddr;
 struct sockaddr_storage;
+bool is_addr4(const char *addr);
+bool is_addr6(const char *addr);
 bool is_addr_linklocal(struct sockaddr *sa);
 bool is_addr_loopback(struct sockaddr *sa);
 bool is_addr_private(struct sockaddr *sa);

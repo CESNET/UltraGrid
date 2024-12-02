@@ -355,7 +355,9 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 /**
  * Checks if the address is a dot-separated numeric IPv4 address.
  */
-static bool is_addr4(const char *addr) {
+bool
+is_addr4(const char *addr)
+{
         // only basic check
         while (*addr != '\0') {
                 if (!isdigit(*addr) && *addr != '.') {
@@ -370,7 +372,9 @@ static bool is_addr4(const char *addr) {
  * Checks if the address is a colon-separated numeric IPv6 address
  * (with optional zone index).
  */
-static bool is_addr6(const char *addr) {
+bool
+is_addr6(const char *addr)
+{
         while (*addr != '\0') {
                 if (*addr == '%') { // skip zone identification at the end
                         return true;

@@ -881,6 +881,30 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         return true;
 }
 
+/**
+ * - checks force_ip_version validity
+ * - for macOS with ipv4 mcast addr and iface set, return 4 if 0 requested
+ * - otherwise return force_ip_version param
+ */
+static int
+adjust_ip_version(int force_ip_version, const char *addr, const char *iface)
+{
+        assert(force_ip_version == 0 || force_ip_version == 4 ||
+               force_ip_version == 6);
+#ifdef __APPLE__
+        if (force_ip_version == 0 && iface != NULL && is_addr4(addr) &&
+            is_addr_multicast(addr)) {
+                MSG(INFO, "enforcing IPv4 mode on macOS for v4 mcast address "
+                            "and iface set\n");
+                return IPv4;
+        }
+        return force_ip_version;
+#else
+        (void) addr, (void) iface;
+        return force_ip_version;
+#endif
+}
+
 static unsigned
 get_ifindex(const char *iface)
 {
@@ -960,11 +984,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         pthread_cond_init(&s->local->boss_cv, NULL);
         pthread_cond_init(&s->local->reader_cv, NULL);
 
-        assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
-        s->local->mode = force_ip_version;
-        if (s->local->mode == 0 && is_addr_multicast(addr)) {
-                s->local->mode = strchr(addr, '.') != NULL ? 4 : 6;
-        }
+        s->local->mode = adjust_ip_version(force_ip_version, addr, iface);
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Can't resolve IP address for %s: %s\n", addr,
