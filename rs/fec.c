@@ -9,6 +9,14 @@
 #include <string.h>
 #include <assert.h>
 
+#ifdef __GNUC__
+#if ! defined __clang__
+#pragma GCC diagnostic ignored "-Wold-style-declaration"
+#endif
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 /*
  * Primitive polynomials - see Lin & Costello, Appendix A,
  * and  Lee & Messerschmitt, p. 453.
