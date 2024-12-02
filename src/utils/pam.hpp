@@ -45,13 +45,25 @@
 #include <iostream>
 #include <string>
 
+#define PAM_ATTR(a)
+
 #if __cplusplus >= 201703L
 #define MAYBE_UNUSED [[maybe_unused]]
 #else
 #define MAYBE_UNUSED
+#ifdef __GNUC__
+#undef PAM_ATTR
+#define PAM_ATTR(a) __attribute__((a))
+#endif
 #endif
 
-MAYBE_UNUSED static bool pam_read(const char *filename, unsigned int *width, unsigned int *height, int *depth, unsigned char **data, void *(*allocator)(size_t) = malloc) {
+MAYBE_UNUSED static bool
+pam_read(const char *filename, unsigned int *width, unsigned int *height,
+         int *depth, unsigned char **data, void *(*allocator)(size_t) = malloc) PAM_ATTR(unused);
+static bool
+pam_read(const char *filename, unsigned int *width, unsigned int *height,
+         int *depth, unsigned char **data, void *(*allocator)(size_t))
+{
         try {
                 std::string line;
                 std::ifstream file(filename, std::ifstream::in | std::ifstream::binary);
@@ -113,7 +125,13 @@ MAYBE_UNUSED static bool pam_read(const char *filename, unsigned int *width, uns
         return true;
 }
 
-MAYBE_UNUSED static bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, const unsigned char *data) {
+MAYBE_UNUSED static bool pam_write(const char *filename, unsigned int width,
+                                   unsigned int height, int depth,
+                                   const unsigned char *data) PAM_ATTR(unused);
+static bool
+pam_write(const char *filename, unsigned int width, unsigned int height,
+          int depth, const unsigned char *data)
+{
         try {
                 std::ofstream file(filename, std::ifstream::out | std::ifstream::binary);
 
