@@ -553,11 +553,11 @@ sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
 {
         struct sockaddr_in tmp1;
         if (x->sa_family == AF_INET6) {
-                x = v4_unmap((const struct sockaddr_in6 *) x, &tmp1);
+                x = v4_unmap((const void *) x, &tmp1);
         }
         struct sockaddr_in tmp2;
         if (y->sa_family == AF_INET6) {
-                y = v4_unmap((const struct sockaddr_in6 *) y, &tmp2);
+                y = v4_unmap((const void *) y, &tmp2);
         }
 
         if (x->sa_family != y->sa_family) {
