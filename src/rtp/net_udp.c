@@ -507,10 +507,13 @@ static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd,
                 } else {
                         MSG(WARNING, "Using multicast but not setting TTL.\n");
                 }
-                if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
-                                        (char *)&ifindex, sizeof(ifindex)) != 0) {
-                        socket_error("setsockopt IPV6_MULTICAST_IF");
-                        return false;
+                if (ifindex != 0) {
+                        if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+                                       (char *) &ifindex,
+                                       sizeof(ifindex)) != 0) {
+                                socket_error("setsockopt IPV6_MULTICAST_IF");
+                                return false;
+                        }
                 }
         }
 
