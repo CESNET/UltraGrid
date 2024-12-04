@@ -376,6 +376,8 @@ static bool udp_addr_valid4(const char *dst)
  *          2. representation of the address if iface is an adress
  *          3a. [Windows only] interface index
  *          3b. [otherwise] iface local address
+ *          4a. [error] htonl(INADDR_ANY) if no IPv4 address on iface
+ *          4b. [error] ((unsigned) -1) on wrong iface spec or help
  */
 static in_addr_t
 get_iface_local_addr4(const char iface[])
@@ -392,7 +394,7 @@ get_iface_local_addr4(const char iface[])
 
         unsigned int ifindex = get_ifindex(iface);
         if (ifindex == (unsigned) -1) {
-                return htonl(INADDR_ANY);
+                return ifindex;
         }
 
 #ifdef _WIN32
@@ -429,6 +431,9 @@ udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl,
                 struct ip_mreq imr;
 
                 in_addr_t iface_addr = get_iface_local_addr4(iface);
+                if (iface_addr == (unsigned) -1) {
+                        return false;
+                }
                 char buf[IN4_MAX_ASCII_LEN + 1] = "(err. unknown)";
                 inet_ntop(AF_INET, &iface_addr, buf, sizeof buf);
                 MSG(INFO, "mcast4 iface bound to: %s\n", buf);
