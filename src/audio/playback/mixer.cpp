@@ -290,7 +290,7 @@ public:
         struct socket_udp_local *recv_socket{};
         string audio_codec{"PCM"};
         sockaddr_storage
-            only_sender; ///< if !AF_UNSPEC, use stream just from this sender
+            only_sender{}; ///< if !AF_UNSPEC, use stream just from this sender
 private:
         struct module mod;
         thread thread_id;
@@ -330,14 +330,22 @@ state_audio_mixer::check_messages()
                         MSG(INFO, "flushing the address restriction (defaulting to mix all)\n");
                         only_sender.ss_family = AF_UNSPEC;
                 } else {
-                        MSG(INFO, "restricting mixer to: %s\n", val);
-                        only_sender = get_sockaddr(val, 0);
-                        if (participants.find(only_sender) ==
-                            participants.end()) {
-                                MSG(WARNING,
-                                    "The requested participant %s is not yet "
-                                    "present...\n",
-                                    val);
+                        struct sockaddr_storage ss = get_sockaddr(val, 0);
+                        if (ss.ss_family != AF_UNSPEC) {
+                                MSG(INFO, "restricting mixer to: %s\n", val);
+                                only_sender = ss;
+                                if (participants.find(only_sender) ==
+                                    participants.end()) {
+                                        MSG(WARNING,
+                                            "The requested participant %s is "
+                                            "not yet present...\n", val);
+                                }
+                        } else {
+                                MSG(ERROR, "Wrong addr spec: %s\n", val);
+                                free_message(msg,
+                                             new_response(RESPONSE_BAD_REQUEST,
+                                                          nullptr));
+                                continue;
                         }
                 }
 

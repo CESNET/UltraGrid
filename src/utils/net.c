@@ -477,11 +477,10 @@ get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
 struct sockaddr_storage
 get_sockaddr(const char *hostport, int mode)
 {
-        struct sockaddr_storage ret;
+        struct sockaddr_storage ret            = { .ss_family = AF_UNSPEC };
         socklen_t               socklen_unused = 0;
         char host[STR_LEN];
 
-        ret.ss_family = AF_UNSPEC;
         const char *const rightmost_colon = strrchr(hostport, ':');
         if (rightmost_colon == NULL) {
                 MSG(ERROR, "Address %s not in format host:port!\n", hostport);
