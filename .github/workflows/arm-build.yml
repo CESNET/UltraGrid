@@ -34,7 +34,7 @@ jobs:
     - name: Prepare
       run: |
         sudo apt update
-        sudo apt install binfmt-support curl qemu qemu-user-static
+        sudo apt install binfmt-support curl qemu-user-static
 
     - name: Fetch SDKs ETags
       id: etags
