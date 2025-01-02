@@ -11,7 +11,7 @@ on:
 jobs:
   Build:
     if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # TODO: see the commit message why 22.04 is explicit
     strategy:
       matrix:
         arch: [armhf, arm64]
@@ -55,7 +55,9 @@ jobs:
       uses: actions/cache@main
       with:
         path: '~/chroot.tar'
-        key: cache-bootstrap-${{ matrix.arch }}-${{ hashFiles('.github/scripts/Linux/arm/bootstrap.sh', '.github/scripts/Linux/install_others.sh') }}
+        key: cache-bootstrap-${{ env.ImageOS }}-${{ matrix.arch }}-${{
+          hashFiles('.github/scripts/Linux/arm/bootstrap.sh',
+          '.github/scripts/Linux/install_others.sh') }}
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
