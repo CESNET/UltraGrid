@@ -63,7 +63,7 @@ jobs:
       id: etags
       run: |
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -76,7 +76,7 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
-    - name: Cache FFmpeg
+    - name: Run actions/cache for FFmpeg
       id: cache-ffmpeg
       uses: actions/cache@main
       with:
@@ -154,7 +154,7 @@ jobs:
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Set environment
       run: . .github/scripts/environment.sh
-    - name: Cache Non-Free SDKs
+    - name: Run actions/cache for Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
       with:
@@ -167,7 +167,7 @@ jobs:
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O "$SDK_URL/$DELTA_MAC_ARCHIVE" || true
-    - name: Cache XIMEA
+    - name: Run actions/cache for XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
       with:
@@ -176,7 +176,7 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg -o /private/var/tmp/XIMEA_OSX_SP.dmg
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -248,7 +248,7 @@ jobs:
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -267,7 +267,7 @@ jobs:
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl 'https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe' -o 'C:\XIMEA_API_Installer.exe'
 
-    - name: Cache libajantv2 build
+    - name: Run actions/cache for libajantv2 build
       id: cache-aja
       uses: actions/cache@main
       with:
@@ -283,7 +283,7 @@ jobs:
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache JACK
+    - name: Run actions/cache for JACK
       id: cache-jack
       uses: actions/cache@main
       with:
@@ -296,7 +296,7 @@ jobs:
     - name: bootsrap MSYS2
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
 
-    - name: Cache Spout build
+    - name: Run actions/cache for Spout build
       id: cache-spout
       uses: actions/cache@main
       with:
@@ -308,7 +308,7 @@ jobs:
     - name: Install Spout
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
 
-    - name: Cache CineForm build
+    - name: Run actions/cache for CineForm build
       id: cache-cineform
       uses: actions/cache@main
       with:
