@@ -50,6 +50,7 @@
 
 #include <pthread.h>
 #include <stdalign.h>
+#include <stdint.h>       // for uint16_t, uintmax_t
 
 #ifndef _WIN32
 #include <ifaddrs.h>
@@ -932,7 +933,7 @@ get_ifindex(const char *iface)
         // check if the value isn't the index itself
         char *endptr = NULL;
         const long val = strtol(iface, &endptr, 0);
-        if (*endptr == '\0' && val >= 0 && (unsigned) val <= UINT_MAX) {
+        if (*endptr == '\0' && val >= 0 && (uintmax_t) val <= UINT_MAX) {
                 char buf[IF_NAMESIZE];
                 if (if_indextoname(val, buf) != NULL) {
                         MSG(INFO, "Using mcast interface %s\n", buf);
