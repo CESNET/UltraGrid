@@ -76,7 +76,7 @@ usage_aux() {
 update_check_days=90
 ## Trigger update if $ULTRAGRID_AUTOUPDATE days passed.
 ## If $ULTRAGRID_AUTOUPDATE unset or empty, print update hint if UG binary is older than $update_check_days days.
-handle_updates() {(
+handle_autoupdates() {(
         if [ "${ULTRAGRID_AUTOUPDATE-0}" -eq -1 ]; then
                 return
         fi
@@ -95,6 +95,11 @@ handle_updates() {(
                 return
         fi
         if [ "${ULTRAGRID_AUTOUPDATE-}" ] && [ "$ULTRAGRID_AUTOUPDATE" -ge 0 ]; then
+                echo "Running the UltraGrid update because the interval" \
+                 "specified by ULTRAGRID_AUTOUPDATE env variable has passed..."
+                # update AppImage mtime otherwise if there are no updates
+                # after elapsing the interval, the check would run always
+                touch "$APPIMAGE"
                 if "$DIR/appimageupdatetool" -j "$APPIMAGE"; then
                         debug_msg "No UltraGrid AppImage update available"
                 else
@@ -105,7 +110,6 @@ handle_updates() {(
                                 exec "$APPIMAGE" "$@"  # launch updated version
                         fi
                 fi
-                touch "$APPIMAGE" # update AppImage mtime otherwise if there are no updates after elapsing the interval, the check would run always
                 return
         fi
         printf "UltraGrid binary older than %d days, consider checking updates:\n" "$update_check_days"
@@ -384,7 +388,7 @@ if [ "${APPIMAGE_DEBUG-undef}" = undef ] && [ "${ULTRAGRID_VERBOSE-}" ]; then
 fi
 
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
-        handle_updates "$@"
+        handle_autoupdates "$@"
         if [ $# -eq 0 ]; then usage; else shift; fi
         if [ -x "$DIR/usr/bin/uv-qt" ]; then
                 run uv-qt --with-uv "$DIR/usr/bin/uv" "$@"
@@ -393,7 +397,7 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
                 exit 1
         fi
 elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
-        handle_updates "$@"
+        handle_autoupdates "$@"
         TOOL=$2
         shift 2
         if [ "$TOOL" = help ]; then
@@ -422,6 +426,6 @@ elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
 else
-        handle_updates "$@"
+        handle_autoupdates "$@"
         run uv "$@"
 fi
