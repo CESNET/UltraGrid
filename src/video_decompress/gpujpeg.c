@@ -85,7 +85,12 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         struct gpujpeg_parameters param;
         gpujpeg_set_default_parameters(&param);
         param.color_space_internal = GPUJPEG_YCBCR_BT709; // see comment bellow
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 26, 0)
+        param.verbose =
+            log_level >= LOG_LEVEL_DEBUG ? GPUJPEG_LL_VERBOSE : GPUJPEG_LL_INFO;
+#else
         param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
+#endif
         struct gpujpeg_image_parameters param_image;
         gpujpeg_image_set_default_parameters(&param_image);
         param_image.width = desc.width; // size must be non-zero in order the init to succeed

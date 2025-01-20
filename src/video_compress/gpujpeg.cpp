@@ -284,7 +284,12 @@ bool encoder_state::configure_with(struct video_desc desc)
                                 m_encoder_param.quality);
         }
 
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 26, 0)
+        m_encoder_param.verbose =
+            log_level >= LOG_LEVEL_DEBUG ? GPUJPEG_LL_VERBOSE : GPUJPEG_LL_INFO;
+#else
 	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
+#endif
 	m_encoder_param.segment_info = 1;
         gpujpeg_sampling_factor_t subsampling = m_parent_state->m_subsampling;
 #if !defined NEW_PARAM_IMG_NO_COMP_COUNT
