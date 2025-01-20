@@ -24,6 +24,7 @@ install_svt() {
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-HEVC && cd SVT-HEVC/Build/linux && ./build.sh release && cd Release && sudo cmake --install . || exit 1 )
         ( git clone --depth 1 https://gitlab.com/AOMediaCodec/SVT-AV1.git && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
+        git apply SVT-AV1/.gitlab/workflows/linux/ffmpeg_n7_fix.patch
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
         git am -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
         patch SVT-VP9/ffmpeg_plugin/master-*.patch < "$GITHUB_WORKSPACE/\
