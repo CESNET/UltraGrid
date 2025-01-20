@@ -77,7 +77,12 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         struct gpujpeg_decoder_init_parameters param =
             gpujpeg_decoder_default_init_parameters();
         param.ff_cs_itu601_is_709 = true;
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 26, 0)
+        param.verbose =
+            log_level >= LOG_LEVEL_DEBUG ? GPUJPEG_LL_VERBOSE : GPUJPEG_LL_INFO;
+#else
         param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
+#endif
         param.perf_stats = log_level >= LOG_LEVEL_DEBUG ? 1 : 0;
         s->decoder = gpujpeg_decoder_create_with_params(&param);
         if(!s->decoder) {
