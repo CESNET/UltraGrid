@@ -163,6 +163,8 @@ if [ -f /lib/x86_64-linux-gnu/libfuse.so.2 ]; then
         cp /lib/x86_64-linux-gnu/libfuse.so.2 $APPDIR/appimageupdatetool-lib
 fi
 
+# TODO: temporarily (? 2025-01-25) disable signing because validation fails
+unset appimage_key
 GIT_ROOT=$(git rev-parse --show-toplevel || true)
 if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
         echo "$appimage_key" | base64 -d | tar -C "$GIT_ROOT" -xzaf -
