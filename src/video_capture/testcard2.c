@@ -39,7 +39,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL2
+#include "config.h"                     // for HAVE_LIBSDL_TTF
 #endif // defined HAVE_CONFIG_H
 
 #include <assert.h>                     // for assert
@@ -57,11 +57,7 @@
 #include <time.h>                       // for time
 
 #ifdef HAVE_LIBSDL_TTF
-#ifdef HAVE_SDL2
-#include <SDL2/SDL_ttf.h>
-#else
-#include <SDL/SDL_ttf.h>
-#endif
+#include <SDL_ttf.h>
 #endif
 
 #include "audio/types.h"                // for audio_frame

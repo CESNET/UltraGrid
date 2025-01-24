@@ -1261,7 +1261,6 @@ if test "$sdl_req" != no; then
                 if test "$sdl_version" = 1; then
                         SDL_LIBS="$SDL_LIBS -lX11" # X11 for x11_common.o
                 else
-                        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
                         sdl_ver_suffix=2
                 fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"

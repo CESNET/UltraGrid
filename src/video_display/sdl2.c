@@ -49,11 +49,7 @@
 #define SDL_DISABLE_MMINTRIN_H 1
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
-#if __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
 #include <SDL.h>
-#endif
 
 #include <assert.h>             // for assert
 #include <ctype.h>              // for toupper
