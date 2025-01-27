@@ -100,9 +100,10 @@ install_deltacast() {(
 )}
 
 install_gpujpeg() {(
+        fname=GPUJPEG-Windows.zip
         wget --no-verbose \
-https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
-        unzip GPUJPEG.zip
+https://github.com/CESNET/GPUJPEG/releases/download/continuous/"$fname"
+        unzip "./$fname"
         cp -r GPUJPEG/* /usr/local/
 )}
 
