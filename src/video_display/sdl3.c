@@ -106,7 +106,7 @@ struct state_sdl3 {
         int           display_idx;
         int           x;
         int           y;
-        int           renderer_idx;
+        char          req_renderers_name[STR_LEN];
         SDL_Window   *window;
         SDL_Renderer *renderer;
 
@@ -155,8 +155,7 @@ static const struct {
 
 #define SDL_CHECK(cmd, ...) \
         do { \
-                int ret = cmd; \
-                if (ret < 0) { \
+                if (!(cmd)) { \
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
                                 #cmd, SDL_GetError()); \
                         __VA_ARGS__; \
@@ -190,7 +189,7 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
 
         SDL_RenderClear(s->renderer);
         SDL_UnlockTexture(texture);
-        SDL_CHECK(SDL_RenderCopy(s->renderer, texture, NULL, NULL));
+        SDL_CHECK(SDL_RenderTexture(s->renderer, texture, NULL, NULL));
         SDL_RenderPresent(s->renderer);
 
         int pitch = 0;
@@ -210,38 +209,39 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
 }
 
 static int64_t
-translate_sdl_key_to_ug(SDL_Keysym sym)
+translate_sdl_key_to_ug(SDL_KeyboardEvent keyev)
 {
-        sym.mod &= ~(KMOD_NUM | KMOD_CAPS); // remove num+caps lock modifiers
+        keyev.mod &=
+            ~(SDL_KMOD_NUM | SDL_KMOD_CAPS); // remove num+caps lock modifiers
 
         // ctrl alone -> do not interpret
-        if (sym.sym == SDLK_LCTRL || sym.sym == SDLK_RCTRL) {
+        if (keyev.key == SDLK_LCTRL || keyev.key == SDLK_RCTRL) {
                 return 0;
         }
 
         bool ctrl  = false;
         bool shift = false;
-        if (sym.mod & KMOD_CTRL) {
+        if (keyev.mod & SDL_KMOD_CTRL) {
                 ctrl = true;
         }
-        sym.mod &= ~KMOD_CTRL;
+        keyev.mod &= ~SDL_KMOD_CTRL;
 
-        if (sym.mod & KMOD_SHIFT) {
+        if (keyev.mod & SDL_KMOD_SHIFT) {
                 shift = true;
         }
-        sym.mod &= ~KMOD_SHIFT;
+        keyev.mod &= ~SDL_KMOD_SHIFT;
 
-        if (sym.mod != 0) {
+        if (keyev.mod != 0) {
                 return -1;
         }
 
-        if ((sym.sym & SDLK_SCANCODE_MASK) == 0) {
+        if ((keyev.key & SDLK_SCANCODE_MASK) == 0) {
                 if (shift) {
-                        sym.sym = toupper(sym.sym);
+                        keyev.key = toupper(keyev.key);
                 }
-                return ctrl ? K_CTRL(sym.sym) : sym.sym;
+                return ctrl ? K_CTRL(keyev.key) : keyev.key;
         }
-        switch (sym.sym) {
+        switch (keyev.key) {
         case SDLK_RIGHT:
                 return K_RIGHT;
         case SDLK_LEFT:
@@ -270,8 +270,7 @@ display_sdl3_process_key(struct state_sdl3 *s, int64_t key)
                 return true;
         case 'f':
                 s->fs = !s->fs;
-                SDL_SetWindowFullscreen(
-                    s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                SDL_SetWindowFullscreen(s->window, s->fs);
                 return true;
         case 'q':
                 exit_uv(0);
@@ -343,16 +342,15 @@ display_sdl3_run(void *arg)
 
                                 free_message((struct message *) msg, r);
                         }
-                } else if (sdl_event.type == SDL_KEYDOWN) {
-                        log_msg(LOG_LEVEL_VERBOSE,
-                                MOD_NAME "Pressed key %s (scancode: %d, sym: "
-                                         "%d, mod: %d)!\n",
-                                SDL_GetKeyName(sdl_event.key.keysym.sym),
-                                sdl_event.key.keysym.scancode,
-                                sdl_event.key.keysym.sym,
-                                sdl_event.key.keysym.mod);
-                        int64_t sym =
-                            translate_sdl_key_to_ug(sdl_event.key.keysym);
+                } else if (sdl_event.type == SDL_EVENT_KEY_DOWN) {
+                        MSG(VERBOSE,
+                            "Pressed key %s (scancode: %d, sym: %d, mod: "
+                            "%d)!\n",
+                            SDL_GetKeyName(sdl_event.key.key),
+                            sdl_event.key.scancode, sdl_event.key.key,
+                            sdl_event.key.mod);
+                        const int64_t sym =
+                            translate_sdl_key_to_ug(sdl_event.key);
                         if (sym > 0) {
                                 if (!display_sdl3_process_key(
                                         s, sym)) { // unknown key -> pass to
@@ -361,44 +359,33 @@ display_sdl3_run(void *arg)
                                             get_root_module(&s->mod), sym);
                                 }
                         } else if (sym == -1) {
-                                log_msg(
-                                    LOG_LEVEL_WARNING,
-                                    MOD_NAME
-                                    "Cannot translate key %s (scancode: %d, "
-                                    "sym: %d, mod: %d)!\n",
-                                    SDL_GetKeyName(sdl_event.key.keysym.sym),
-                                    sdl_event.key.keysym.scancode,
-                                    sdl_event.key.keysym.sym,
-                                    sdl_event.key.keysym.mod);
+                                MSG(WARNING,
+                                    "Cannot translate key %s (scancode: "
+                                    "%d, sym: %d, mod: %d)!\n",
+                                    SDL_GetKeyName(sdl_event.key.key),
+                                    sdl_event.key.scancode, sdl_event.key.key,
+                                    sdl_event.key.mod);
                         }
-                } else if (sdl_event.type == SDL_WINDOWEVENT) {
                         // https://forums.libsdl.org/viewtopic.php?p=38342
-                        if (s->keep_aspect &&
-                            sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                                double area = sdl_event.window.data1 *
-                                              sdl_event.window.data2;
-                                int width = sqrt(
-                                    area /
-                                    ((double) s->current_display_desc.height /
-                                     s->current_display_desc.width));
-                                int height = sqrt(
-                                    area /
-                                    ((double) s->current_display_desc.width /
-                                     s->current_display_desc.height));
-                                SDL_SetWindowSize(s->window, width, height);
-                                MSG(DEBUG, "resizing to %d x %d\n", width,
-                                    height);
-                        }
-                        if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED ||
-                            sdl_event.window.event ==
-                                SDL_WINDOWEVENT_SIZE_CHANGED) {
-                                // clear both buffers
-                                SDL_RenderClear(s->renderer);
-                                display_frame(s, s->last_frame);
-                                SDL_RenderClear(s->renderer);
-                                display_frame(s, s->last_frame);
-                        }
-                } else if (sdl_event.type == SDL_QUIT) {
+                } else if (s->keep_aspect &&
+                           sdl_event.type == SDL_EVENT_WINDOW_RESIZED) {
+                        double area =
+                            sdl_event.window.data1 * sdl_event.window.data2;
+                        int width = sqrt(
+                            area / ((double) s->current_display_desc.height /
+                                    s->current_display_desc.width));
+                        int height = sqrt(
+                            area / ((double) s->current_display_desc.width /
+                                    s->current_display_desc.height));
+                        SDL_SetWindowSize(s->window, width, height);
+                        MSG(DEBUG, "resizing to %d x %d\n", width, height);
+                } else if (sdl_event.type == SDL_EVENT_WINDOW_RESIZED) {
+                        // clear both buffers
+                        SDL_RenderClear(s->renderer);
+                        display_frame(s, s->last_frame);
+                        SDL_RenderClear(s->renderer);
+                        display_frame(s, s->last_frame);
+                } else if (sdl_event.type == SDL_EVENT_QUIT) {
                         exit_uv(0);
                 }
         }
@@ -407,11 +394,13 @@ display_sdl3_run(void *arg)
 static void
 sdl3_print_displays()
 {
-        for (int i = 0; i < SDL_GetNumVideoDisplays(); ++i) {
+        int            count    = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        for (int i = 0; i < count; ++i) {
                 if (i > 0) {
                         printf(", ");
                 }
-                const char *dname = SDL_GetDisplayName(i);
+                const char *dname = SDL_GetDisplayName(displays[i]);
                 if (dname == NULL) {
                         dname = SDL_GetError();
                 }
@@ -420,15 +409,29 @@ sdl3_print_displays()
         printf("\n");
 }
 
+static SDL_DisplayID get_display_id_to_idx(int idx)
+{
+        int            count    = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        if (idx < count) {
+                return displays[idx];
+        }
+        MSG(ERROR, "Display index %d out of range!\n", idx);
+        return 0;
+}
+
 static void
 show_help(const char *driver)
 {
-        SDL_CHECK(SDL_VideoInit(driver));
+        if (driver != NULL) {
+                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver);
+        }
+        SDL_CHECK(SDL_InitSubSystem(SDL_INIT_VIDEO));
         printf("SDL options:\n");
-        color_printf(TBOLD(
-            TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
-                             "renderer=<ridx>|:nodecorate|:size[=WxH]|:window_"
-                             "flags=<f>|:keep-aspect]*|:help]") "\n");
+        color_printf(TBOLD(TRED(
+            "\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
+                        "renderer=<name[s]>|:nodecorate|:size[=WxH]|:window_"
+                        "flags=<f>|:keep-aspect]*|:help]") "\n");
         printf("where:\n");
         color_printf(TBOLD(
             "\td[force]") " - deinterlace (force even for progresive video)\n");
@@ -452,12 +455,12 @@ show_help(const char *driver)
                                       "                   "
                                       "(syntax: " TBOLD(
                                           "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
-        color_printf(TBOLD("\t  <renderer>") " - renderer, one of:");
+        color_printf(TBOLD("      <renderer>") " - renderer, one or more of:");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
-                SDL_RendererInfo renderer_info;
-                if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
+                const char *renderer_name = SDL_GetRenderDriver(i);
+                if (renderer_name != NULL) {
                         color_printf("%s" TBOLD("%s"), (i == 0 ? " " : ", "),
-                                     renderer_info.name);
+                                     renderer_name);
                 }
         }
         printf("\n");
@@ -467,11 +470,10 @@ show_help(const char *driver)
                 color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key,
                              keybindings[i].description);
         }
-        SDL_version ver;
-        SDL_GetVersion(&ver);
+        int ver = SDL_GetVersion();
         printf("\nSDL version (linked): %" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n",
-               ver.major, ver.minor, ver.patch);
-        SDL_VideoQuit();
+               ver / 1000000, (ver / 1000) % 1000, ver % 1000);
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
         SDL_Quit();
 }
 
@@ -519,11 +521,7 @@ static const struct {
         { YUYV, SDL_PIXELFORMAT_YUY2        },
         { RGB,  SDL_PIXELFORMAT_RGB24       },
         { BGR,  SDL_PIXELFORMAT_BGR24       },
-#if SDL_COMPILEDVERSION >= SDL_VERSIONNUM(2, 0, 5)
         { RGBA, SDL_PIXELFORMAT_RGBA32      },
-#else
-        { RGBA, SDL_PIXELFORMAT_ABGR8888 },
-#endif
         { R10k, SDL_PIXELFORMAT_ARGB2101010 },
 };
 
@@ -575,9 +573,31 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
         cleanup_frames(s);
 
         for (int i = 0; i < BUFFER_COUNT; ++i) {
-                SDL_Texture *texture = SDL_CreateTexture(
-                    s->renderer, get_ug_to_sdl_format(desc.color_spec),
-                    SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
+                SDL_PropertiesID prop = SDL_CreateProperties();
+                SDL_SetNumberProperty(prop,
+                                      SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER,
+                                      get_ug_to_sdl_format(desc.color_spec));
+                SDL_SetNumberProperty(prop,
+                                      SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER,
+                                      SDL_TEXTUREACCESS_STREAMING);
+                SDL_SetNumberProperty(prop,
+                                      SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER,
+                                      desc.width);
+                SDL_SetNumberProperty(prop,
+                                      SDL_PROP_TEXTURE_CREATE_HEIGHT_NUMBER,
+                                      desc.height);
+                if (!codec_is_a_rgb(desc.color_spec)) {
+                        const enum SDL_Colorspace cs =
+                            get_commandline_param("color-601") != NULL
+                                ? SDL_COLORSPACE_BT601_LIMITED
+                                : SDL_COLORSPACE_BT709_LIMITED;
+                        SDL_SetNumberProperty(
+                            prop, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER,
+                            cs);
+                }
+                SDL_Texture *texture =
+                    SDL_CreateTextureWithProperties(s->renderer, prop);
+                SDL_DestroyProperties(prop);
                 if (!texture) {
                         log_msg(LOG_LEVEL_ERROR,
                                 MOD_NAME "Unable to create texture: %s\n",
@@ -608,17 +628,19 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         MSG(NOTICE, "Reconfigure to size %dx%d\n", desc.width, desc.height);
 
         if (s->fixed_size && s->window) {
-                SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
+                SDL_SetRenderLogicalPresentation(
+                    s->renderer, desc.width, desc.height,
+                    SDL_LOGICAL_PRESENTATION_LETTERBOX);
                 return recreate_textures(s, desc);
         }
 
         if (s->window) {
                 SDL_DestroyWindow(s->window);
         }
-        int flags =
-            s->window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+        int flags = s->window_flags | SDL_WINDOW_RESIZABLE |
+                    SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (s->fs) {
-                flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+                flags |= SDL_WINDOW_FULLSCREEN;
         }
         const char *window_title = "UltraGrid - SDL3 Display";
         if (get_commandline_param("window-title")) {
@@ -626,36 +648,51 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         }
         int width  = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
+        const SDL_DisplayID display_id = get_display_id_to_idx(s->display_idx);
         int x      = s->x == SDL_WINDOWPOS_UNDEFINED
-                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx)
+                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id)
                          : s->x;
         int y      = s->y == SDL_WINDOWPOS_UNDEFINED
-                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx)
+                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id)
                          : s->y;
-        s->window  = SDL_CreateWindow(window_title, x, y, width, height, flags);
+        s->window  = SDL_CreateWindow(window_title, width, height, flags);
         if (!s->window) {
                 MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
+        SDL_SetWindowPosition(s->window, x, y);
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
         }
-        s->renderer =
-            SDL_CreateRenderer(s->window, s->renderer_idx,
-                               SDL_RENDERER_ACCELERATED |
-                                   (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
+        SDL_PropertiesID renderer_prop = SDL_CreateProperties();
+        SDL_SetPointerProperty(
+            renderer_prop, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, s->window);
+        if (strlen(s->req_renderers_name) > 0) {
+                SDL_SetStringProperty(renderer_prop,
+                                      SDL_PROP_RENDERER_CREATE_NAME_STRING,
+                                      s->req_renderers_name);
+        }
+        s->renderer = SDL_CreateRendererWithProperties(renderer_prop);
+        SDL_DestroyProperties(renderer_prop);
         if (!s->renderer) {
                 MSG(ERROR, "Unable to create renderer: %s\n", SDL_GetError());
                 return false;
         }
-        SDL_RendererInfo renderer_info;
-        if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                MSG(NOTICE, "Using renderer: %s\n", renderer_info.name);
+        if (s->vsync) {
+                // try adaptive first, if it doesn't succeed try 1
+                if (!SDL_SetRenderVSync(s->renderer,
+                                        SDL_RENDERER_VSYNC_ADAPTIVE)) {
+                        SDL_CHECK(SDL_SetRenderVSync(s->renderer, 1));
+                }
+        }
+        const char *renderer_name = SDL_GetRendererName(s->renderer);
+        if (renderer_name != NULL) {
+                MSG(NOTICE, "Using renderer: %s\n", renderer_name);
         }
 
-        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-        SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
+        SDL_SetRenderLogicalPresentation(s->renderer, desc.width, desc.height,
+                                         SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
         if (!recreate_textures(s, desc)) {
                 return false;
@@ -714,57 +751,16 @@ set_size(struct state_sdl3 *s, const char *tok)
         return true;
 }
 
-/**
- * @retval -1  default renderer (can be passed to SDL_CreateRenderer)
- * @retval -2  error
- * @retva. >= 0 renderer index according to the param
- */
-static int
-get_renderer_idx(const char *renderer)
-{
-        if (renderer == NULL) {
-                return -1; // default
-        }
-        const int renderer_cnt = SDL_GetNumRenderDrivers();
-
-        char      *endptr = NULL;
-        const long number = strtol(renderer, &endptr, 0);
-        if (*endptr == '\0') { // valid number
-                if (number < 0 || number >= renderer_cnt) {
-                        MSG(ERROR,
-                            "Invalid renderer index - valid range [0,%d], got "
-                            "%ld\n",
-                            renderer_cnt, number);
-                        return -2;
-                }
-                return (int) number;
-        }
-
-        for (int i = 0; i < renderer_cnt; ++i) {
-                SDL_RendererInfo renderer_info;
-                if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
-                        if (strcmp(renderer, renderer_info.name) == 0) {
-                                return i;
-                        }
-                }
-        }
-
-        MSG(ERROR, "Unknown renderer name: %s\n", renderer);
-        return -2;
-}
-
 static void *
 display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
-                log_msg(
-                    LOG_LEVEL_ERROR,
+                MSG(ERROR,
                     "UltraGrid SDL3 module currently doesn't support audio!\n");
                 return NULL;
         }
-        const char        *driver   = NULL;
-        const char        *renderer = NULL;
-        struct state_sdl3 *s        = calloc(1, sizeof *s);
+        const char        *driver = NULL;
+        struct state_sdl3 *s      = calloc(1, sizeof *s);
 
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
@@ -831,18 +827,14 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                                          "\"size=%+d%+d\" instead.\n",
                                 s->x, s->y);
                 } else if (IS_KEY_PREFIX(tok, "renderer")) {
-                        renderer = strchr(tok, '=') + 1;
+                        snprintf_ch(s->req_renderers_name, "%s",
+                                    strchr(tok, '=') + 1);
                 } else {
                         MSG(ERROR, "Wrong option: %s\n", tok);
                         free(s);
                         return NULL;
                 }
                 tmp = NULL;
-        }
-
-        s->renderer_idx = get_renderer_idx(renderer);
-        if (s->renderer_idx == -2) {
-                return NULL;
         }
 
 #ifdef __linux__
@@ -853,17 +845,17 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 driver = "KMSDRM";
         }
 #endif // defined __linux__
-        SDL_SetYUVConversionMode(get_commandline_param("color-601") != NULL
-                                     ? SDL_YUV_CONVERSION_BT601
-                                     : SDL_YUV_CONVERSION_BT709);
 
-        if (SDL_VideoInit(driver) < 0) {
+        if (driver != NULL) {
+                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver);
+        }
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
                 MSG(ERROR, "Unable to initialize SDL3 video: %s\n",
                     SDL_GetError());
                 free(s);
                 return NULL;
         }
-        if (SDL_Init(SDL_INIT_EVENTS) < 0) {
+        if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
                 MSG(ERROR, "Unable to initialize SDL3 events: %s\n",
                     SDL_GetError());
                 free(s);
@@ -871,7 +863,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
-        SDL_ShowCursor(SDL_DISABLE);
+        SDL_HideCursor();
         SDL_DisableScreenSaver();
 
         module_init_default(&s->mod);
@@ -926,9 +918,9 @@ display_sdl3_done(void *state)
                 SDL_DestroyWindow(s->window);
         }
 
-        SDL_ShowCursor(SDL_ENABLE);
+        SDL_ShowCursor();
 
-        SDL_VideoQuit();
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
         SDL_Quit();
 

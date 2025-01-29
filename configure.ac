@@ -1237,31 +1237,46 @@ then
 fi
 
 # ------------------------------------------------------------------------------
-# SDL1/2 Stuff
+# SDL1/2/3 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
 sdl_version=
 sdl_version_str=
 sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--enable-sdl[=1|2]], [enable SDL (optionally with version; default is auto), ]
-              [requires: sdl >= 1.2.14 | sdl2]),
+              AS_HELP_STRING([--enable-sdl[=1|2|3]], [enable SDL (optionally with version(s); default is auto), ]
+              [requires: sdl >= 1.2.14 | sdl2 | sdl3 >= 3.2.0]),
               [sdl_req=$enableval],
               [sdl_req=$build_default]
               )
 
 if test "$sdl_req" != no; then
-        if test "$sdl_req" != 1; then
-                PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2], [ ])
+        sdl_req_ver=$sdl_req
+        if test "$sdl_req" = yes || test "$sdl_req" = auto; then
+                sdl_req_ver=321
         fi
-        if test -z "$sdl_version" && test "$sdl_req" != 2; then
-                PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1], [ ])
+
+        while test -n "$sdl_req_ver"; do
+                ver=$(echo "$sdl_req_ver" | cut -c1)
+                case "$ver" in
+                1) PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1], [ ]) ;;
+                2) PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2], [ ]) ;;
+                3) PKG_CHECK_MODULES([SDL], [sdl3 >= 3.2.0], [sdl_version=3], [ ]) ;;
+                esac
+                if test -n "$sdl_version"; then
+                        break
+                fi
+                sdl_req_ver=$(printf "$sdl_req_ver" | cut -c2-)
+        done
+
+        if test "$sdl_version" = 3; then
+                UG_MSG_WARN([Using SDL 3, which is experimental. SDL 2 can be enforced with --enable-sdl=2])
         fi
         if test -n "$sdl_version"; then
                 if test "$sdl_version" = 1; then
                         SDL_LIBS="$SDL_LIBS -lX11" # X11 for x11_common.o
                 else
-                        sdl_ver_suffix=2
+                        sdl_ver_suffix=$sdl_version
                 fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
