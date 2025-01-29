@@ -46,107 +46,111 @@
 
 /// @todo remove the defines when no longer needed
 #ifdef __arm64__
-#define SDL_DISABLE_MMINTRIN_H 1
+#define SDL_DISABLE_MMINTRIN_H  1
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
 #include <SDL.h>
 
-#include <assert.h>             // for assert
-#include <ctype.h>              // for toupper
-#include <inttypes.h>           // for PRIu8
-#include <math.h>               // for sqrt
-#include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
-#include <stdbool.h>            // for true, bool, false
-#include <stdint.h>             // for int64_t, uint32_t
-#include <stdio.h>              // for printf, sscanf, snprintf
-#include <stdlib.h>             // for atoi, free, calloc
-#include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
-#include <time.h>               // for timespec_get, TIME_UTC, timespec
+#include <assert.h>   // for assert
+#include <ctype.h>    // for toupper
+#include <inttypes.h> // for PRIu8
+#include <math.h>     // for sqrt
+#include <pthread.h>  // for pthread_mutex_unlock, pthread_mutex_lock
+#include <stdbool.h>  // for true, bool, false
+#include <stdint.h>   // for int64_t, uint32_t
+#include <stdio.h>    // for printf, sscanf, snprintf
+#include <stdlib.h>   // for atoi, free, calloc
+#include <string.h>   // for NULL, strlen, strcmp, strstr, strchr
+#include <time.h>     // for timespec_get, TIME_UTC, timespec
 
-#include "compat/net.h"         // for htonl
-#include "debug.h"              // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
-#include "host.h"               // for get_commandline_param, exit_uv, ADD_T...
-#include "keyboard_control.h"   // for keycontrol_register_key, keycontrol_s...
-#include "lib_common.h"         // for REGISTER_MODULE, library_class
-#include "messaging.h"          // for new_response, msg_universal, RESPONSE...
-#include "module.h"             // for module, get_root_module, module_done
-#include "tv.h"                 // for ts_add_nsec
-#include "types.h"              // for video_desc, tile, video_frame, device...
-#include "utils/color_out.h"    // for color_printf, TBOLD, TRED
-#include "utils/list.h"         // for simple_linked_list_append, simple_lin...
-#include "utils/macros.h"       // for STR_LEN
-#include "video_codec.h"        // for get_codec_name, codec_is_planar, vc_d...
-#include "video_display.h"      // for display_property, get_splashscreen
-#include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
+#include "compat/net.h"       // for htonl
+#include "debug.h"            // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
+#include "host.h"             // for get_commandline_param, exit_uv, ADD_T...
+#include "keyboard_control.h" // for keycontrol_register_key, keycontrol_s...
+#include "lib_common.h"       // for REGISTER_MODULE, library_class
+#include "messaging.h"        // for new_response, msg_universal, RESPONSE...
+#include "module.h"           // for module, get_root_module, module_done
+#include "tv.h"               // for ts_add_nsec
+#include "types.h"            // for video_desc, tile, video_frame, device...
+#include "utils/color_out.h"  // for color_printf, TBOLD, TRED
+#include "utils/list.h"       // for simple_linked_list_append, simple_lin...
+#include "utils/macros.h"     // for STR_LEN
+#include "video_codec.h"      // for get_codec_name, codec_is_planar, vc_d...
+#include "video_display.h"    // for display_property, get_splashscreen
+#include "video_frame.h"      // for vf_free, vf_alloc_desc, video_desc_fr...
 
 #define MAGIC_SDL3   0x60540F2D
-#define BUFFER_COUNT   2
-#define MOD_NAME "[SDL] "
+#define BUFFER_COUNT 2
+#define MOD_NAME     "[SDL] "
 
 struct state_sdl3;
 
 static void show_help(const char *driver);
 static void display_frame(struct state_sdl3 *s, struct video_frame *frame);
 static struct video_frame *display_sdl3_getf(void *state);
-static void display_sdl3_new_message(struct module *mod);
+static void                display_sdl3_new_message(struct module *mod);
 static bool display_sdl3_reconfigure_real(void *state, struct video_desc desc);
 static void loadSplashscreen(struct state_sdl3 *s);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 
 struct state_sdl3 {
-        struct module           mod;
+        struct module mod;
 
-        int                     texture_pitch;
+        int texture_pitch;
 
-        Uint32                  sdl_user_new_frame_event;
-        Uint32                  sdl_user_new_message_event;
-        Uint32                  sdl_user_reconfigure_event;
+        Uint32 sdl_user_new_frame_event;
+        Uint32 sdl_user_new_message_event;
+        Uint32 sdl_user_reconfigure_event;
 
-        int                     display_idx;
-        int                     x;
-        int                     y;
-        int                     renderer_idx;
-        SDL_Window             *window;
-        SDL_Renderer           *renderer;
+        int           display_idx;
+        int           x;
+        int           y;
+        int           renderer_idx;
+        SDL_Window   *window;
+        SDL_Renderer *renderer;
 
-        bool                    fs;
-        enum deint              deinterlace;
-        bool                    keep_aspect;
-        bool                    vsync;
-        bool                    fixed_size;
-        unsigned                fixed_w, fixed_h;
-        uint32_t                window_flags; ///< user requested flags
+        bool       fs;
+        enum deint deinterlace;
+        bool       keep_aspect;
+        bool       vsync;
+        bool       fixed_size;
+        unsigned   fixed_w, fixed_h;
+        uint32_t   window_flags; ///< user requested flags
 
-        pthread_mutex_t         lock;
-        pthread_cond_t          frame_consumed_cv;
+        pthread_mutex_t lock;
+        pthread_cond_t  frame_consumed_cv;
 
-        pthread_cond_t          reconfigured_cv;
-        int                     reconfiguration_status;
+        pthread_cond_t reconfigured_cv;
+        int            reconfiguration_status;
 
-        struct video_desc       current_display_desc;
-        struct video_frame     *last_frame;
+        struct video_desc   current_display_desc;
+        struct video_frame *last_frame;
 
         struct simple_linked_list *free_frame_queue;
-
 };
 
-static const char *deint_to_string(enum deint val) {
+static const char *
+deint_to_string(enum deint val)
+{
         switch (val) {
-                case DEINT_OFF: return "OFF";
-                case DEINT_ON: return "ON";
-                case DEINT_FORCE: return "FORCE";
+        case DEINT_OFF:
+                return "OFF";
+        case DEINT_ON:
+                return "ON";
+        case DEINT_FORCE:
+                return "FORCE";
         }
         return NULL;
 }
 
 static const struct {
-        char key;
+        char        key;
         const char *description;
 } keybindings[] = {
-        {'d', "toggle deinterlace"},
-        {'f', "toggle fullscreen"},
-        {'q', "quit"},
+        { 'd', "toggle deinterlace" },
+        { 'f', "toggle fullscreen"  },
+        { 'q', "quit"               },
 };
 
 #define SDL_CHECK(cmd, ...) \
@@ -167,9 +171,16 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
         }
 
         SDL_Texture *texture = (SDL_Texture *) frame->callbacks.dispose_udata;
-        if (s->deinterlace == DEINT_FORCE || (s->deinterlace == DEINT_ON && frame->interlacing == INTERLACED_MERGED)) {
-                size_t pitch = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
-                if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, pitch, (unsigned char *) frame->tiles[0].data, pitch, frame->tiles[0].height)) {
+        if (s->deinterlace == DEINT_FORCE ||
+            (s->deinterlace == DEINT_ON &&
+             frame->interlacing == INTERLACED_MERGED)) {
+                size_t pitch =
+                    vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+                if (!vc_deinterlace_ex(frame->color_spec,
+                                       (unsigned char *) frame->tiles[0].data,
+                                       pitch,
+                                       (unsigned char *) frame->tiles[0].data,
+                                       pitch, frame->tiles[0].height)) {
                         MSG_ONCE(ERROR,
                                  "Cannot deinterlace, unsupported "
                                  "pixel format '%s'!\n",
@@ -183,7 +194,8 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
         SDL_RenderPresent(s->renderer);
 
         int pitch = 0;
-        SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &frame->tiles[0].data, &pitch));
+        SDL_CHECK(SDL_LockTexture(texture, NULL,
+                                  (void **) &frame->tiles[0].data, &pitch));
         assert(pitch == s->texture_pitch);
 
         if (frame == s->last_frame) {
@@ -197,7 +209,9 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
         s->last_frame = frame;
 }
 
-static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
+static int64_t
+translate_sdl_key_to_ug(SDL_Keysym sym)
+{
         sym.mod &= ~(KMOD_NUM | KMOD_CAPS); // remove num+caps lock modifiers
 
         // ctrl alone -> do not interpret
@@ -205,7 +219,7 @@ static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
                 return 0;
         }
 
-        bool ctrl = false;
+        bool ctrl  = false;
         bool shift = false;
         if (sym.mod & KMOD_CTRL) {
                 ctrl = true;
@@ -228,12 +242,18 @@ static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
                 return ctrl ? K_CTRL(sym.sym) : sym.sym;
         }
         switch (sym.sym) {
-        case SDLK_RIGHT: return K_RIGHT;
-        case SDLK_LEFT:  return K_LEFT;
-        case SDLK_DOWN:  return K_DOWN;
-        case SDLK_UP:    return K_UP;
-        case SDLK_PAGEDOWN:    return K_PGDOWN;
-        case SDLK_PAGEUP:    return K_PGUP;
+        case SDLK_RIGHT:
+                return K_RIGHT;
+        case SDLK_LEFT:
+                return K_LEFT;
+        case SDLK_DOWN:
+                return K_DOWN;
+        case SDLK_UP:
+                return K_UP;
+        case SDLK_PAGEDOWN:
+                return K_PGDOWN;
+        case SDLK_PAGEUP:
+                return K_PGUP;
         }
         return -1;
 }
@@ -243,12 +263,15 @@ display_sdl3_process_key(struct state_sdl3 *s, int64_t key)
 {
         switch (key) {
         case 'd':
-                s->deinterlace = s->deinterlace == DEINT_OFF ? DEINT_ON : DEINT_OFF;
-                log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n", deint_to_string(s->deinterlace));
+                s->deinterlace =
+                    s->deinterlace == DEINT_OFF ? DEINT_ON : DEINT_OFF;
+                log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
+                        deint_to_string(s->deinterlace));
                 return true;
         case 'f':
                 s->fs = !s->fs;
-                SDL_SetWindowFullscreen(s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                SDL_SetWindowFullscreen(
+                    s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                 return true;
         case 'q':
                 exit_uv(0);
@@ -268,63 +291,107 @@ display_sdl3_run(void *arg)
         while (1) {
                 SDL_Event sdl_event;
                 if (!SDL_WaitEvent(&sdl_event)) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "SDL_WaitEvent error: %s\n", SDL_GetError());
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "SDL_WaitEvent error: %s\n",
+                                SDL_GetError());
                         continue;
                 }
                 if (sdl_event.type == s->sdl_user_reconfigure_event) {
                         pthread_mutex_lock(&s->lock);
-                        struct video_desc desc = *(struct video_desc *) sdl_event.user.data1;
-                        s->reconfiguration_status = display_sdl3_reconfigure_real(s, desc);
+                        struct video_desc desc =
+                            *(struct video_desc *) sdl_event.user.data1;
+                        s->reconfiguration_status =
+                            display_sdl3_reconfigure_real(s, desc);
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->reconfigured_cv);
 
                 } else if (sdl_event.type == s->sdl_user_new_frame_event) {
-                        if (sdl_event.user.data1 == NULL) { // poison pill received
+                        if (sdl_event.user.data1 ==
+                            NULL) { // poison pill received
                                 break;
                         }
-                        display_frame(s, (struct video_frame *) sdl_event.user.data1);
+                        display_frame(
+                            s, (struct video_frame *) sdl_event.user.data1);
                 } else if (sdl_event.type == s->sdl_user_new_message_event) {
                         struct msg_universal *msg;
-                        while ((msg = (struct msg_universal *) check_message(&s->mod))) {
-                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg->text);
+                        while ((msg = (struct msg_universal *) check_message(
+                                    &s->mod))) {
+                                log_msg(LOG_LEVEL_VERBOSE,
+                                        MOD_NAME "Received message: %s\n",
+                                        msg->text);
                                 struct response *r;
-                                int key;
-                                if (strstr(msg->text, "win-title ") == msg->text) {
-                                        SDL_SetWindowTitle(s->window, msg->text + strlen("win-title "));
+                                int              key;
+                                if (strstr(msg->text, "win-title ") ==
+                                    msg->text) {
+                                        SDL_SetWindowTitle(
+                                            s->window,
+                                            msg->text + strlen("win-title "));
                                         r = new_response(RESPONSE_OK, NULL);
                                 } else if (sscanf(msg->text, "%d", &key) == 1) {
                                         if (!display_sdl3_process_key(s, key)) {
-                                                r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
+                                                r = new_response(
+                                                    RESPONSE_BAD_REQUEST,
+                                                    "Unsupported key for SDL");
                                         } else {
-                                                r = new_response(RESPONSE_OK, NULL);
+                                                r = new_response(RESPONSE_OK,
+                                                                 NULL);
                                         }
                                 } else {
-                                        r = new_response(RESPONSE_BAD_REQUEST, "Wrong command");
+                                        r = new_response(RESPONSE_BAD_REQUEST,
+                                                         "Wrong command");
                                 }
 
-                                free_message((struct message*) msg, r);
+                                free_message((struct message *) msg, r);
                         }
                 } else if (sdl_event.type == SDL_KEYDOWN) {
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
-                        int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
+                        log_msg(LOG_LEVEL_VERBOSE,
+                                MOD_NAME "Pressed key %s (scancode: %d, sym: "
+                                         "%d, mod: %d)!\n",
+                                SDL_GetKeyName(sdl_event.key.keysym.sym),
+                                sdl_event.key.keysym.scancode,
+                                sdl_event.key.keysym.sym,
+                                sdl_event.key.keysym.mod);
+                        int64_t sym =
+                            translate_sdl_key_to_ug(sdl_event.key.keysym);
                         if (sym > 0) {
-                                if (!display_sdl3_process_key(s, sym)) { // unknown key -> pass to control
-                                        keycontrol_send_key(get_root_module(&s->mod), sym);
+                                if (!display_sdl3_process_key(
+                                        s, sym)) { // unknown key -> pass to
+                                                   // control
+                                        keycontrol_send_key(
+                                            get_root_module(&s->mod), sym);
                                 }
                         } else if (sym == -1) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
+                                log_msg(
+                                    LOG_LEVEL_WARNING,
+                                    MOD_NAME
+                                    "Cannot translate key %s (scancode: %d, "
+                                    "sym: %d, mod: %d)!\n",
+                                    SDL_GetKeyName(sdl_event.key.keysym.sym),
+                                    sdl_event.key.keysym.scancode,
+                                    sdl_event.key.keysym.sym,
+                                    sdl_event.key.keysym.mod);
                         }
                 } else if (sdl_event.type == SDL_WINDOWEVENT) {
                         // https://forums.libsdl.org/viewtopic.php?p=38342
-                        if (s->keep_aspect && sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                                double area = sdl_event.window.data1 * sdl_event.window.data2;
-                                int width = sqrt(area / ((double) s->current_display_desc.height / s->current_display_desc.width));
-                                int height = sqrt(area / ((double) s->current_display_desc.width / s->current_display_desc.height));
+                        if (s->keep_aspect &&
+                            sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                                double area = sdl_event.window.data1 *
+                                              sdl_event.window.data2;
+                                int width = sqrt(
+                                    area /
+                                    ((double) s->current_display_desc.height /
+                                     s->current_display_desc.width));
+                                int height = sqrt(
+                                    area /
+                                    ((double) s->current_display_desc.width /
+                                     s->current_display_desc.height));
                                 SDL_SetWindowSize(s->window, width, height);
-                                debug_msg("[SDL] resizing to %d x %d\n", width, height);
+                                debug_msg("[SDL] resizing to %d x %d\n", width,
+                                          height);
                         }
-                        if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED
-                                        || sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED ||
+                            sdl_event.window.event ==
+                                SDL_WINDOWEVENT_SIZE_CHANGED) {
                                 // clear both buffers
                                 SDL_RenderClear(s->renderer);
                                 display_frame(s, s->last_frame);
@@ -363,16 +430,20 @@ show_help(const char *driver)
                              "renderer=<ridx>|:nodecorate|:size[=WxH]|:window_"
                              "flags=<f>|:keep-aspect]*|:help]") "\n");
         printf("where:\n");
-        color_printf(TBOLD("\td[force]") " - deinterlace (force even for progresive video)\n");
+        color_printf(TBOLD(
+            "\td[force]") " - deinterlace (force even for progresive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
-        color_printf(TBOLD("\t  <didx>") " - display index, available indices: ");
+        color_printf(
+            TBOLD("\t  <didx>") " - display index, available indices: ");
         sdl3_print_displays();
         color_printf(TBOLD("\t   <drv>") " - one of following: ");
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
-                color_printf("%s" TBOLD("%s"), (i == 0 ? "" : ", "), SDL_GetVideoDriver(i));
+                color_printf("%s" TBOLD("%s"), (i == 0 ? "" : ", "),
+                             SDL_GetVideoDriver(i));
         }
         color_printf("\n");
-        color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio respecive to the video\n");
+        color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio "
+                                               "respecive to the video\n");
         color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
         color_printf(TBOLD("      nodecorate") " - disable window border\n");
         color_printf(
@@ -391,8 +462,10 @@ show_help(const char *driver)
         }
         printf("\n");
         printf("\nKeyboard shortcuts:\n");
-        for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
-                color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
+        for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0];
+             ++i) {
+                color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key,
+                             keybindings[i].description);
         }
         SDL_version ver;
         SDL_GetVersion(&ver);
@@ -407,19 +480,24 @@ display_sdl3_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sdl3 *s = state;
 
-        if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == DEINT_OFF) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n");
+        if (desc.interlacing == INTERLACED_MERGED &&
+            s->deinterlace == DEINT_OFF) {
+                log_msg(LOG_LEVEL_WARNING,
+                        MOD_NAME "Receiving interlaced video but deinterlacing "
+                                 "is off - suggesting toggling it on (press "
+                                 "'d' or pass cmdline option)\n");
         }
         if (desc.color_spec == R10k) {
                 MSG(WARNING,
                     "Displaying 10-bit RGB, which is experimental. In case of "
-                    "problems use '--param decoder-use-codec='!R10k'` and please report.\n");
+                    "problems use '--param decoder-use-codec='!R10k'` and "
+                    "please report.\n");
         }
 
         pthread_mutex_lock(&s->lock);
 
         SDL_Event event;
-        event.type = s->sdl_user_reconfigure_event;
+        event.type       = s->sdl_user_reconfigure_event;
         event.user.data1 = &desc;
         SDL_CHECK(SDL_PushEvent(&event));
 
@@ -433,33 +511,39 @@ display_sdl3_reconfigure(void *state, struct video_desc desc)
 }
 
 static const struct {
-        codec_t first;
+        codec_t  first;
         uint32_t second;
 } pf_mapping[] = {
-        { I420, SDL_PIXELFORMAT_IYUV },
-        { UYVY, SDL_PIXELFORMAT_UYVY },
-        { YUYV, SDL_PIXELFORMAT_YUY2 },
-        { RGB, SDL_PIXELFORMAT_RGB24 },
-        { BGR, SDL_PIXELFORMAT_BGR24 },
+        { I420, SDL_PIXELFORMAT_IYUV        },
+        { UYVY, SDL_PIXELFORMAT_UYVY        },
+        { YUYV, SDL_PIXELFORMAT_YUY2        },
+        { RGB,  SDL_PIXELFORMAT_RGB24       },
+        { BGR,  SDL_PIXELFORMAT_BGR24       },
 #if SDL_COMPILEDVERSION >= SDL_VERSIONNUM(2, 0, 5)
-        { RGBA, SDL_PIXELFORMAT_RGBA32 },
+        { RGBA, SDL_PIXELFORMAT_RGBA32      },
 #else
         { RGBA, SDL_PIXELFORMAT_ABGR8888 },
 #endif
         { R10k, SDL_PIXELFORMAT_ARGB2101010 },
 };
 
-static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
-        for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
+static uint32_t
+get_ug_to_sdl_format(codec_t ug_codec)
+{
+        for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0];
+             ++i) {
                 if (pf_mapping[i].first == ug_codec) {
                         return pf_mapping[i].second;
                 }
         }
-        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n", get_codec_name(ug_codec));
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n",
+                get_codec_name(ug_codec));
         return SDL_PIXELFORMAT_UNKNOWN;
 }
 
-static int get_supported_pfs(codec_t *codecs) {
+static int
+get_supported_pfs(codec_t *codecs)
+{
         const int count = sizeof pf_mapping / sizeof pf_mapping[0];
 
         for (int i = 0; i < count; ++i) {
@@ -468,29 +552,39 @@ static int get_supported_pfs(codec_t *codecs) {
         return count;
 }
 
-static void cleanup_frames(struct state_sdl3 *s) {
-        s->last_frame = NULL;
+static void
+cleanup_frames(struct state_sdl3 *s)
+{
+        s->last_frame              = NULL;
         struct video_frame *buffer = NULL;
         while ((buffer = simple_linked_list_pop(s->free_frame_queue)) != NULL) {
                 vf_free(buffer);
         }
 }
 
-static void vf_sdl_texture_data_deleter(struct video_frame *buf) {
+static void
+vf_sdl_texture_data_deleter(struct video_frame *buf)
+{
         SDL_Texture *texture = (SDL_Texture *) buf->callbacks.dispose_udata;
         SDL_DestroyTexture(texture);
 }
 
-static bool recreate_textures(struct state_sdl3 *s, struct video_desc desc) {
+static bool
+recreate_textures(struct state_sdl3 *s, struct video_desc desc)
+{
         cleanup_frames(s);
 
         for (int i = 0; i < BUFFER_COUNT; ++i) {
-                SDL_Texture *texture = SDL_CreateTexture(s->renderer, get_ug_to_sdl_format(desc.color_spec), SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
+                SDL_Texture *texture = SDL_CreateTexture(
+                    s->renderer, get_ug_to_sdl_format(desc.color_spec),
+                    SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
                 if (!texture) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create texture: %s\n", SDL_GetError());
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME "Unable to create texture: %s\n",
+                                SDL_GetError());
                         return false;
                 }
-                struct video_frame *f = vf_alloc_desc(desc);
+                struct video_frame *f      = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
                 SDL_CHECK(SDL_LockTexture(texture, NULL,
                                           (void **) &f->tiles[0].data,
@@ -509,10 +603,10 @@ static bool recreate_textures(struct state_sdl3 *s, struct video_desc desc) {
 static bool
 display_sdl3_reconfigure_real(void *state, struct video_desc desc)
 {
-        struct state_sdl3 *s = (struct state_sdl3 *)state;
+        struct state_sdl3 *s = state;
 
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Reconfigure to size %dx%d\n", desc.width,
-                        desc.height);
+        log_msg(LOG_LEVEL_NOTICE, "[SDL] Reconfigure to size %dx%d\n",
+                desc.width, desc.height);
 
         if (s->fixed_size && s->window) {
                 SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
@@ -522,7 +616,8 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         if (s->window) {
                 SDL_DestroyWindow(s->window);
         }
-        int flags = s->window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+        int flags =
+            s->window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
         if (s->fs) {
                 flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
@@ -530,27 +625,38 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         if (get_commandline_param("window-title")) {
                 window_title = get_commandline_param("window-title");
         }
-        int width = s->fixed_w ? s->fixed_w : desc.width;
+        int width  = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->x;
-        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->y;
-        s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
+        int x      = s->x == SDL_WINDOWPOS_UNDEFINED
+                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx)
+                         : s->x;
+        int y      = s->y == SDL_WINDOWPOS_UNDEFINED
+                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx)
+                         : s->y;
+        s->window  = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
+                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n",
+                        SDL_GetError());
                 return false;
         }
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
         }
-        s->renderer = SDL_CreateRenderer(s->window, s->renderer_idx, SDL_RENDERER_ACCELERATED | (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
+        s->renderer =
+            SDL_CreateRenderer(s->window, s->renderer_idx,
+                               SDL_RENDERER_ACCELERATED |
+                                   (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
         if (!s->renderer) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
+                log_msg(LOG_LEVEL_ERROR,
+                        "[SDL] Unable to create renderer: %s\n",
+                        SDL_GetError());
                 return false;
         }
         SDL_RendererInfo renderer_info;
         if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n", renderer_info.name);
+                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n",
+                        renderer_info.name);
         }
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -565,7 +671,9 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         return true;
 }
 
-static void loadSplashscreen(struct state_sdl3 *s) {
+static void
+loadSplashscreen(struct state_sdl3 *s)
+{
         struct video_frame *frame = get_splashscreen();
         if (!display_sdl3_reconfigure_real(s, video_desc_from_frame(frame))) {
                 MSG(WARNING, "Cannot render splashscreeen!\n");
@@ -573,12 +681,16 @@ static void loadSplashscreen(struct state_sdl3 *s) {
                 return;
         }
         struct video_frame *splash = display_sdl3_getf(s);
-        memcpy(splash->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+        memcpy(splash->tiles[0].data, frame->tiles[0].data,
+               frame->tiles[0].data_len);
         vf_free(frame);
-        display_frame(s, splash); // don't be tempted to use _putf() - it will use event queue and there may arise a race-condition with recv thread
+        display_frame(s, splash); // don't be tempted to use _putf() - it will
+                                  // use event queue and there may arise a
+                                  // race-condition with recv thread
 }
 
-static bool set_size(struct state_sdl3 *s, const char *tok)
+static bool
+set_size(struct state_sdl3 *s, const char *tok)
 {
         if (strstr(tok, "fixed_size=") == tok) {
                 log_msg(LOG_LEVEL_WARNING,
@@ -593,13 +705,13 @@ static bool set_size(struct state_sdl3 *s, const char *tok)
         }
         if (strchr(tok, 'x') != NULL) {
                 s->fixed_size = true;
-                s->fixed_w = atoi(tok);
-                s->fixed_h = atoi(strchr(tok, 'x') + 1);
+                s->fixed_w    = atoi(tok);
+                s->fixed_h    = atoi(strchr(tok, 'x') + 1);
         }
         tok = strpbrk(tok, "+-");
         if (tok != NULL) {
                 s->x = atoi(tok);
-                tok = strpbrk(tok + 1, "+-");
+                tok  = strpbrk(tok + 1, "+-");
         }
         if (tok != NULL) {
                 s->y = atoi(tok);
@@ -620,7 +732,7 @@ get_renderer_idx(const char *renderer)
         }
         const int renderer_cnt = SDL_GetNumRenderDrivers();
 
-        char *endptr = NULL;
+        char      *endptr = NULL;
         const long number = strtol(renderer, &endptr, 0);
         if (*endptr == '\0') { // valid number
                 if (number < 0 || number >= renderer_cnt) {
@@ -650,15 +762,17 @@ static void *
 display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
-                log_msg(LOG_LEVEL_ERROR, "UltraGrid SDL3 module currently doesn't support audio!\n");
+                log_msg(
+                    LOG_LEVEL_ERROR,
+                    "UltraGrid SDL3 module currently doesn't support audio!\n");
                 return NULL;
         }
-        const char *driver = NULL;
-        const char *renderer = NULL;
-        struct state_sdl3 *s = calloc(1, sizeof *s);
+        const char        *driver   = NULL;
+        const char        *renderer = NULL;
+        struct state_sdl3 *s        = calloc(1, sizeof *s);
 
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
-        s->vsync = true;
+        s->vsync    = true;
 
         if (fmt == NULL) {
                 fmt = "";
@@ -667,14 +781,15 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         snprintf(buf, sizeof buf, "%s", fmt);
         char *tmp = buf;
         char *tok, *save_ptr;
-        while((tok = strtok_r(tmp, ":", &save_ptr)))
-        {
+        while ((tok = strtok_r(tmp, ":", &save_ptr))) {
                 if (strcmp(tok, "d") == 0 || strcmp(tok, "dforce") == 0) {
-                        s->deinterlace = strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
+                        s->deinterlace =
+                            strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
                 } else if (IS_KEY_PREFIX(tok, "display")) {
                         s->display_idx = atoi(strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "driver")) {
-                        driver = strchr(tok, '=') + 1;;
+                        driver = strchr(tok, '=') + 1;
+                        ;
                 } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
                 } else if (IS_PREFIX(tok, "help")) {
@@ -701,15 +816,17 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_KEY_PREFIX(tok, "window_flags")) {
                         int f;
                         if (sscanf(strchr(tok, '=') + 1, "%i", &f) != 1) {
-                                log_msg(LOG_LEVEL_ERROR, "Wrong window_flags: %s\n", tok);
+                                log_msg(LOG_LEVEL_ERROR,
+                                        "Wrong window_flags: %s\n", tok);
                                 free(s);
                                 return NULL;
                         }
                         s->window_flags |= f;
-		} else if (IS_KEY_PREFIX(tok, "position")) {
+                } else if (IS_KEY_PREFIX(tok, "position")) {
                         tok = strchr(tok, '=') + 1;
                         if (strchr(tok, ',') == NULL) {
-                                log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n", tok);
+                                log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n",
+                                        tok);
                                 free(s);
                                 return NULL;
                         }
@@ -719,10 +836,11 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                                 MOD_NAME "pos is deprecated, use "
                                          "\"size=%+d%+d\" instead.\n",
                                 s->x, s->y);
-		} else if (IS_KEY_PREFIX(tok, "renderer")) {
+                } else if (IS_KEY_PREFIX(tok, "renderer")) {
                         renderer = strchr(tok, '=') + 1;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n", tok);
+                        log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n",
+                                tok);
                         free(s);
                         return NULL;
                 }
@@ -758,20 +876,21 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 free(s);
                 return NULL;
         }
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
+        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n",
+                SDL_GetCurrentVideoDriver());
 
         SDL_ShowCursor(SDL_DISABLE);
         SDL_DisableScreenSaver();
 
         module_init_default(&s->mod);
-        s->mod.priv_magic = MAGIC_SDL3;
+        s->mod.priv_magic  = MAGIC_SDL3;
         s->mod.new_message = display_sdl3_new_message;
-        s->mod.cls = MODULE_CLASS_DATA;
+        s->mod.cls         = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->frame_consumed_cv, NULL);
-        pthread_cond_init(&s->reconfigured_cv , NULL);
+        pthread_cond_init(&s->reconfigured_cv, NULL);
 
         s->sdl_user_new_frame_event = SDL_RegisterEvents(3);
         assert(s->sdl_user_new_frame_event != (Uint32) -1);
@@ -780,13 +899,17 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 
         s->free_frame_queue = simple_linked_list_init();
 
-        for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
-                if (keybindings[i].key == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
+        for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0];
+             ++i) {
+                if (keybindings[i].key ==
+                    'q') { // don't report 'q' to avoid accidental close - user
+                           // can use Ctrl-c there
                         continue;
                 }
                 char key_str[128];
                 snprintf(key_str, sizeof key_str, "%d", keybindings[i].key);
-                keycontrol_register_key(&s->mod, keybindings[i].key, key_str, keybindings[i].description);
+                keycontrol_register_key(&s->mod, keybindings[i].key, key_str,
+                                        keybindings[i].description);
         }
 
         log_msg(LOG_LEVEL_NOTICE, "SDL3 initialized successfully.\n");
@@ -797,7 +920,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 static void
 display_sdl3_done(void *state)
 {
-        struct state_sdl3 *s = (struct state_sdl3 *)state;
+        struct state_sdl3 *s = state;
 
         assert(s->mod.priv_magic == MAGIC_SDL3);
 
@@ -831,14 +954,15 @@ display_sdl3_done(void *state)
 static struct video_frame *
 display_sdl3_getf(void *state)
 {
-        struct state_sdl3 *s = (struct state_sdl3 *)state;
+        struct state_sdl3 *s = state;
         assert(s->mod.priv_magic == MAGIC_SDL3);
 
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->free_frame_queue) == 0) {
                 pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
         }
-        struct video_frame *buffer = simple_linked_list_pop(s->free_frame_queue);
+        struct video_frame *buffer =
+            simple_linked_list_pop(s->free_frame_queue);
         pthread_mutex_unlock(&s->lock);
 
         return buffer;
@@ -867,7 +991,7 @@ r10k_to_sdl3(size_t count, uint32_t *buf)
 static bool
 display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
-        struct state_sdl3 *s = (struct state_sdl3 *)state;
+        struct state_sdl3 *s = state;
 
         assert(s->mod.priv_magic == MAGIC_SDL3);
 
@@ -895,14 +1019,17 @@ display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
 
         if (timeout_ns > 0) {
                 int rc = 0;
-                while (rc == 0 && simple_linked_list_size(s->free_frame_queue) == 0) {
+                while (rc == 0 &&
+                       simple_linked_list_size(s->free_frame_queue) == 0) {
                         if (timeout_ns == PUTF_BLOCKING) {
-                                rc = pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
+                                rc = pthread_cond_wait(&s->frame_consumed_cv,
+                                                       &s->lock);
                         } else {
                                 struct timespec ts;
                                 timespec_get(&ts, TIME_UTC);
                                 ts_add_nsec(&ts, timeout_ns);
-                                rc = pthread_cond_timedwait(&s->frame_consumed_cv, &s->lock, &ts);
+                                rc = pthread_cond_timedwait(
+                                    &s->frame_consumed_cv, &s->lock, &ts);
                         }
                 }
         }
@@ -914,7 +1041,7 @@ display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
         }
         pthread_mutex_unlock(&s->lock);
         SDL_Event event;
-        event.type = s->sdl_user_new_frame_event;
+        event.type       = s->sdl_user_new_frame_event;
         event.user.data1 = frame;
         SDL_CHECK(SDL_PushEvent(&event));
 
@@ -925,29 +1052,33 @@ static bool
 display_sdl3_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sdl3 *s = state;
-        codec_t codecs[VIDEO_CODEC_COUNT];
+        codec_t            codecs[VIDEO_CODEC_COUNT];
         size_t codecs_len = get_supported_pfs(codecs) * sizeof(codec_t);
 
         switch (property) {
-                case DISPLAY_PROPERTY_CODECS:
-                        if (codecs_len <= *len) {
-                                memcpy(val, codecs, codecs_len);
-                                *len = codecs_len;
-                        } else {
-                                return false;
-                        }
-                        break;
-                case DISPLAY_PROPERTY_BUF_PITCH:
-                        *(int *) val = codec_is_planar(s->current_display_desc.color_spec) ? PITCH_DEFAULT : s->texture_pitch;
-                        *len = sizeof(int);
-                        break;
-                default:
+        case DISPLAY_PROPERTY_CODECS:
+                if (codecs_len <= *len) {
+                        memcpy(val, codecs, codecs_len);
+                        *len = codecs_len;
+                } else {
                         return false;
+                }
+                break;
+        case DISPLAY_PROPERTY_BUF_PITCH:
+                *(int *) val =
+                    codec_is_planar(s->current_display_desc.color_spec)
+                        ? PITCH_DEFAULT
+                        : s->texture_pitch;
+                *len = sizeof(int);
+                break;
+        default:
+                return false;
         }
         return true;
 }
 
-static void display_sdl3_new_message(struct module *mod)
+static void
+display_sdl3_new_message(struct module *mod)
 {
         struct state_sdl3 *s = (struct state_sdl3 *) mod;
 
@@ -962,13 +1093,19 @@ display_sdl3_probe(struct device_info **available_cards, int *count,
 {
         UNUSED(deleter);
         *count = 1;
-        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        *available_cards =
+            (struct device_info *) calloc(1, sizeof(struct device_info));
         strcpy((*available_cards)[0].dev, "");
         strcpy((*available_cards)[0].name, "SDL3 SW display");
-        dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace", "deinterlace", ":d", true);
-        dev_add_option(&(*available_cards)[0], "Fullscreen", "Launch as fullscreen", "fullscreen", ":fs", true);
-        dev_add_option(&(*available_cards)[0], "No decorate", "Disable window decorations", "nodecorate", ":nodecorate", true);
-        dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync", "novsync", ":novsync", true);
+        dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace",
+                       "deinterlace", ":d", true);
+        dev_add_option(&(*available_cards)[0], "Fullscreen",
+                       "Launch as fullscreen", "fullscreen", ":fs", true);
+        dev_add_option(&(*available_cards)[0], "No decorate",
+                       "Disable window decorations", "nodecorate",
+                       ":nodecorate", true);
+        dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync",
+                       "novsync", ":novsync", true);
 
         (*available_cards)[0].repeatable = true;
 }
@@ -987,5 +1124,5 @@ static const struct video_display_info display_sdl3_info = {
         MOD_NAME,
 };
 
-REGISTER_MODULE(sdl, &display_sdl3_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
+REGISTER_MODULE(sdl, &display_sdl3_info, LIBRARY_CLASS_VIDEO_DISPLAY,
+                VIDEO_DISPLAY_ABI_VERSION);
