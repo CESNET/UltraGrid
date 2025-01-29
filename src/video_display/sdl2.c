@@ -53,6 +53,7 @@
 
 #include <assert.h>             // for assert
 #include <ctype.h>              // for toupper
+#include <inttypes.h>           // for PRIu8
 #include <math.h>               // for sqrt
 #include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
 #include <stdbool.h>            // for true, bool, false
@@ -149,7 +150,15 @@ static const struct {
         {'q', "quit"},
 };
 
-#define SDL_CHECK(cmd) do { int ret = cmd; if (ret < 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
+#define SDL_CHECK(cmd, ...) \
+        do { \
+                int ret = cmd; \
+                if (ret < 0) { \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
+                                #cmd, SDL_GetError()); \
+                        __VA_ARGS__; \
+                } \
+        } while (0)
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -475,7 +484,10 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 }
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
-                SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch));
+                SDL_CHECK(SDL_LockTexture(texture, NULL,
+                                          (void **) &f->tiles[0].data,
+                                          &s->texture_pitch),
+                          return false);
                 f->tiles[0].data_len = desc.height * s->texture_pitch;
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
