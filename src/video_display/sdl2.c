@@ -488,7 +488,9 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                                           (void **) &f->tiles[0].data,
                                           &s->texture_pitch),
                           return false);
-                f->tiles[0].data_len = desc.height * s->texture_pitch;
+                if (!codec_is_planar(desc.color_spec)) {
+                        f->tiles[0].data_len = desc.height * s->texture_pitch;
+                }
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
