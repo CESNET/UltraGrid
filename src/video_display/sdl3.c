@@ -94,10 +94,27 @@ static void loadSplashscreen(struct state_sdl3 *s);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 
-struct state_sdl3 {
-        struct module mod;
+static const struct fmt_data {
+        codec_t              ug_codec;
+        enum SDL_PixelFormat sdl_tex_fmt;
+} pf_mapping_template[] = {
+        { I420, SDL_PIXELFORMAT_IYUV        },
+        { RGBA, SDL_PIXELFORMAT_RGBX32      },
+        // none of the remaining PF seem to be
+        // supported by the opengl renderer
+        { UYVY, SDL_PIXELFORMAT_UYVY        },
+        { YUYV, SDL_PIXELFORMAT_YUY2        },
+        { RGB,  SDL_PIXELFORMAT_RGB24       },
+        { BGR,  SDL_PIXELFORMAT_BGR24       },
+        { R10k, SDL_PIXELFORMAT_ARGB2101010 },
+};
 
-        int texture_pitch;
+struct state_sdl3 {
+        struct module   mod;
+        struct fmt_data supp_fmts[(sizeof pf_mapping_template /
+                                   sizeof pf_mapping_template[0]) +
+                                  1]; // nul terminated
+        int             texture_pitch;
 
         Uint32 sdl_user_new_frame_event;
         Uint32 sdl_user_new_message_event;
@@ -284,8 +301,6 @@ static void
 display_sdl3_run(void *arg)
 {
         struct state_sdl3 *s = arg;
-
-        loadSplashscreen(s);
 
         while (1) {
                 SDL_Event sdl_event;
@@ -512,26 +527,12 @@ display_sdl3_reconfigure(void *state, struct video_desc desc)
         return s->reconfiguration_status;
 }
 
-static const struct {
-        codec_t  first;
-        uint32_t second;
-} pf_mapping[] = {
-        { I420, SDL_PIXELFORMAT_IYUV        },
-        { UYVY, SDL_PIXELFORMAT_UYVY        },
-        { YUYV, SDL_PIXELFORMAT_YUY2        },
-        { RGB,  SDL_PIXELFORMAT_RGB24       },
-        { BGR,  SDL_PIXELFORMAT_BGR24       },
-        { RGBA, SDL_PIXELFORMAT_RGBX32      },
-        { R10k, SDL_PIXELFORMAT_ARGB2101010 },
-};
-
 static uint32_t
-get_ug_to_sdl_format(codec_t ug_codec)
+get_ug_to_sdl_format(const struct fmt_data *supp_fmts, codec_t ug_codec)
 {
-        for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0];
-             ++i) {
-                if (pf_mapping[i].first == ug_codec) {
-                        return pf_mapping[i].second;
+        for (unsigned int i = 0; supp_fmts[i].ug_codec != VC_NONE; ++i) {
+                if (supp_fmts[i].ug_codec == ug_codec) {
+                        return supp_fmts[i].sdl_tex_fmt;
                 }
         }
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n",
@@ -540,14 +541,58 @@ get_ug_to_sdl_format(codec_t ug_codec)
 }
 
 static int
-get_supported_pfs(codec_t *codecs)
+get_supported_pfs(const struct fmt_data *supp_fmts, codec_t *codecs)
 {
-        const int count = sizeof pf_mapping / sizeof pf_mapping[0];
-
-        for (int i = 0; i < count; ++i) {
-                codecs[i] = pf_mapping[i].first;
+        int i = 0;
+        for (; supp_fmts[i].ug_codec != VC_NONE; ++i) {
+                codecs[i] = supp_fmts[i].ug_codec;
         }
-        return count;
+        return i;
+}
+
+static void
+query_renderer_supported_fmts(SDL_Renderer *renderer, struct fmt_data *supp_fmts)
+{
+        assert(renderer != NULL);
+        assert(supp_fmts != NULL);
+        SDL_PropertiesID renderer_props =
+            SDL_GetRendererProperties(renderer);
+        const SDL_PixelFormat *const fmts = SDL_GetPointerProperty(
+            renderer_props, SDL_PROP_RENDERER_TEXTURE_FORMATS_POINTER, NULL);
+        if (fmts == NULL) {
+                MSG(ERROR, "No supported pixel format!\n");
+                return;
+        }
+
+        if (log_level >= LOG_LEVEL_VERBOSE) {
+                const SDL_PixelFormat *it = fmts;
+                MSG(VERBOSE, "Supported pixel formats:\n");
+                while (*it != SDL_PIXELFORMAT_UNKNOWN) {
+                        MSG(VERBOSE, " - %s\n", SDL_GetPixelFormatName(*it++));
+                }
+        }
+        int count = 0;
+        for (unsigned i = 0; i < ARR_COUNT(pf_mapping_template); ++i) {
+                const SDL_PixelFormat *it = fmts;
+                while (*it != SDL_PIXELFORMAT_UNKNOWN) {
+                        if (*it == pf_mapping_template[i].sdl_tex_fmt) {
+                                memcpy(&supp_fmts[count++],
+                                       &pf_mapping_template[i],
+                                       sizeof pf_mapping_template[i]);
+                                break;
+                        }
+                        it++;
+                }
+                if (*it == SDL_PIXELFORMAT_UNKNOWN) {
+                        MSG(DEBUG,
+                            "Pixel format %s (%s) not supported by the "
+                            "renderer!\n",
+                            get_codec_name(pf_mapping_template[i].ug_codec),
+                            SDL_GetPixelFormatName(
+                                pf_mapping_template[i].sdl_tex_fmt));
+                }
+        }
+        memset(&supp_fmts[count], 0, sizeof supp_fmts[count]); // terminate
 }
 
 static void
@@ -576,7 +621,7 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                 SDL_PropertiesID prop = SDL_CreateProperties();
                 SDL_SetNumberProperty(prop,
                                       SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER,
-                                      get_ug_to_sdl_format(desc.color_spec));
+                                      get_ug_to_sdl_format(s->supp_fmts, desc.color_spec));
                 SDL_SetNumberProperty(prop,
                                       SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER,
                                       SDL_TEXTUREACCESS_STREAMING);
@@ -690,6 +735,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         if (renderer_name != NULL) {
                 MSG(NOTICE, "Using renderer: %s\n", renderer_name);
         }
+        query_renderer_supported_fmts(s->renderer, s->supp_fmts);
 
         SDL_SetRenderLogicalPresentation(s->renderer, desc.width, desc.height,
                                          SDL_LOGICAL_PRESENTATION_LETTERBOX);
@@ -896,6 +942,8 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                                         keybindings[i].description);
         }
 
+        loadSplashscreen(s);
+
         log_msg(LOG_LEVEL_NOTICE, "SDL3 initialized successfully.\n");
 
         return (void *) s;
@@ -1036,11 +1084,12 @@ static bool
 display_sdl3_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sdl3 *s = state;
-        codec_t            codecs[VIDEO_CODEC_COUNT];
-        size_t codecs_len = get_supported_pfs(codecs) * sizeof(codec_t);
 
         switch (property) {
-        case DISPLAY_PROPERTY_CODECS:
+        case DISPLAY_PROPERTY_CODECS: {
+                codec_t codecs[VIDEO_CODEC_COUNT];
+                const size_t codecs_len =
+                    get_supported_pfs(s->supp_fmts, codecs) * sizeof(codec_t);
                 if (codecs_len <= *len) {
                         memcpy(val, codecs, codecs_len);
                         *len = codecs_len;
@@ -1048,6 +1097,7 @@ display_sdl3_get_property(void *state, int property, void *val, size_t *len)
                         return false;
                 }
                 break;
+        }
         case DISPLAY_PROPERTY_BUF_PITCH:
                 *(int *) val =
                     codec_is_planar(s->current_display_desc.color_spec)
