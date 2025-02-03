@@ -468,7 +468,9 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
                 SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch));
-                f->tiles[0].data_len = desc.height * s->texture_pitch;
+                if (!codec_is_planar(desc.color_spec)) {
+                        f->tiles[0].data_len = desc.height * s->texture_pitch;
+                }
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
