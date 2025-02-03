@@ -661,6 +661,7 @@ struct video_frame *get_splashscreen()
                 _Static_assert((codec_t) FBUF_CS == RGBA, "RGBA is expected");
                 for (unsigned int x = 0; x < splash_width; ++x) {
                         HEADER_PIXEL(data,line);
+                        line[3] = 0xFF; // alpha
                         line += 4;
                 }
         }
