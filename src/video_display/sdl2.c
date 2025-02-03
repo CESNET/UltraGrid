@@ -498,6 +498,24 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
         return true;
 }
 
+static void
+print_renderer_info(SDL_Renderer *renderer)
+{
+        SDL_RendererInfo renderer_info;
+        if (SDL_GetRendererInfo(renderer, &renderer_info) != 0) {
+                MSG(WARNING, "Cannot get renderer info.\n");
+                return;
+        }
+        MSG(NOTICE, "Using renderer: %s\n", renderer_info.name);
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
+        MSG(DEBUG, "Supported texture types:\n");
+        for (unsigned int i = 0; i < renderer_info.num_texture_formats; i++)
+                MSG(DEBUG, " - %s\n",
+                    SDL_GetPixelFormatName(renderer_info.texture_formats[i]));
+}
+
 static bool
 display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 {
@@ -540,10 +558,7 @@ display_sdl2_reconfigure_real(void *state, struct video_desc desc)
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
                 return false;
         }
-        SDL_RendererInfo renderer_info;
-        if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n", renderer_info.name);
-        }
+        print_renderer_info(s->renderer);
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
