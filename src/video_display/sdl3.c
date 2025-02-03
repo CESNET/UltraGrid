@@ -49,7 +49,7 @@
 #define SDL_DISABLE_MMINTRIN_H  1
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include <assert.h>   // for assert
 #include <ctype.h>    // for toupper
@@ -94,27 +94,38 @@ static void loadSplashscreen(struct state_sdl3 *s);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 
+struct video_frame_sdl3_data {
+        SDL_Texture *texture; ///< associated texture
+        char        *preconv_data;
+};
+
+static void convert_UYVY_IYUV(const struct video_frame *uv_frame,
+                              char *tex_data, size_t y_pitch);
 static const struct fmt_data {
         codec_t              ug_codec;
         enum SDL_PixelFormat sdl_tex_fmt;
+        void (*convert)(const struct video_frame *uv_frame, char *tex_data,
+                        size_t tex_pitch);
 } pf_mapping_template[] = {
-        { I420, SDL_PIXELFORMAT_IYUV        },
-        { RGBA, SDL_PIXELFORMAT_RGBX32      },
+        { I420, SDL_PIXELFORMAT_IYUV,        NULL              },
+        { RGBA, SDL_PIXELFORMAT_RGBX32,      NULL              },
+        { RGBA, SDL_PIXELFORMAT_RGBA32,      NULL              },
+        { UYVY, SDL_PIXELFORMAT_UYVY,        NULL              }, // macOS
+        { UYVY, SDL_PIXELFORMAT_IYUV,        convert_UYVY_IYUV }, // fallback
         // none of the remaining PF seem to be
         // supported by the opengl renderer
-        { UYVY, SDL_PIXELFORMAT_UYVY        },
-        { YUYV, SDL_PIXELFORMAT_YUY2        },
-        { RGB,  SDL_PIXELFORMAT_RGB24       },
-        { BGR,  SDL_PIXELFORMAT_BGR24       },
-        { R10k, SDL_PIXELFORMAT_ARGB2101010 },
+        { YUYV, SDL_PIXELFORMAT_YUY2,        NULL              },
+        { RGB,  SDL_PIXELFORMAT_RGB24,       NULL              },
+        { BGR,  SDL_PIXELFORMAT_BGR24,       NULL              },
+        { R10k, SDL_PIXELFORMAT_ARGB2101010, NULL              },
 };
-
 struct state_sdl3 {
         struct module   mod;
         struct fmt_data supp_fmts[(sizeof pf_mapping_template /
                                    sizeof pf_mapping_template[0]) +
                                   1]; // nul terminated
-        int             texture_pitch;
+        const struct fmt_data *cs_data;
+        int                   texture_pitch;
 
         Uint32 sdl_user_new_frame_event;
         Uint32 sdl_user_new_message_event;
@@ -186,7 +197,8 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
                 return;
         }
 
-        SDL_Texture *texture = (SDL_Texture *) frame->callbacks.dispose_udata;
+        struct video_frame_sdl3_data *frame_data =
+            frame->callbacks.dispose_udata;
         if (s->deinterlace == DEINT_FORCE ||
             (s->deinterlace == DEINT_ON &&
              frame->interlacing == INTERLACED_MERGED)) {
@@ -204,15 +216,26 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
                 }
         }
 
+        int pitch = 0;
+        if (s->cs_data->convert != NULL) {
+                char *tex_data = NULL;
+                SDL_CHECK(SDL_LockTexture(frame_data->texture, NULL,
+                                          (void **) &tex_data, &pitch));
+                s->cs_data->convert(frame, tex_data, pitch);
+        }
+
         SDL_RenderClear(s->renderer);
-        SDL_UnlockTexture(texture);
-        SDL_CHECK(SDL_RenderTexture(s->renderer, texture, NULL, NULL));
+        SDL_UnlockTexture(frame_data->texture);
+        SDL_CHECK(
+            SDL_RenderTexture(s->renderer, frame_data->texture, NULL, NULL));
         SDL_RenderPresent(s->renderer);
 
-        int pitch = 0;
-        SDL_CHECK(SDL_LockTexture(texture, NULL,
-                                  (void **) &frame->tiles[0].data, &pitch));
-        assert(pitch == s->texture_pitch);
+        if (s->cs_data->convert == NULL) {
+                SDL_CHECK(SDL_LockTexture(frame_data->texture, NULL,
+                                          (void **) &frame->tiles[0].data,
+                                          &pitch));
+                assert(pitch == s->texture_pitch);
+        }
 
         if (frame == s->last_frame) {
                 return; // we are only redrawing on window resize
@@ -527,17 +550,17 @@ display_sdl3_reconfigure(void *state, struct video_desc desc)
         return s->reconfiguration_status;
 }
 
-static uint32_t
+static const struct fmt_data *
 get_ug_to_sdl_format(const struct fmt_data *supp_fmts, codec_t ug_codec)
 {
         for (unsigned int i = 0; supp_fmts[i].ug_codec != VC_NONE; ++i) {
                 if (supp_fmts[i].ug_codec == ug_codec) {
-                        return supp_fmts[i].sdl_tex_fmt;
+                        return &supp_fmts[i];
                 }
         }
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec: %s\n",
                 get_codec_name(ug_codec));
-        return SDL_PIXELFORMAT_UNKNOWN;
+        return NULL;
 }
 
 static int
@@ -603,13 +626,17 @@ cleanup_frames(struct state_sdl3 *s)
         while ((buffer = simple_linked_list_pop(s->free_frame_queue)) != NULL) {
                 vf_free(buffer);
         }
+        s->texture_pitch = PITCH_DEFAULT;
 }
 
 static void
 vf_sdl_texture_data_deleter(struct video_frame *buf)
 {
-        SDL_Texture *texture = (SDL_Texture *) buf->callbacks.dispose_udata;
-        SDL_DestroyTexture(texture);
+        struct video_frame_sdl3_data *frame_data =
+            buf->callbacks.dispose_udata;
+        SDL_DestroyTexture(frame_data->texture);
+        free(frame_data->preconv_data);
+        free(frame_data);
 }
 
 static bool
@@ -621,7 +648,7 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                 SDL_PropertiesID prop = SDL_CreateProperties();
                 SDL_SetNumberProperty(prop,
                                       SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER,
-                                      get_ug_to_sdl_format(s->supp_fmts, desc.color_spec));
+                                      s->cs_data->sdl_tex_fmt);
                 SDL_SetNumberProperty(prop,
                                       SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER,
                                       SDL_TEXTUREACCESS_STREAMING);
@@ -649,15 +676,24 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                                 SDL_GetError());
                         return false;
                 }
-                struct video_frame *f      = vf_alloc_desc(desc);
-                f->callbacks.dispose_udata = (void *) texture;
-                SDL_CHECK(SDL_LockTexture(texture, NULL,
-                                          (void **) &f->tiles[0].data,
-                                          &s->texture_pitch),
-                          return false);
-                if (!codec_is_planar(desc.color_spec)) {
-                        f->tiles[0].data_len = desc.height * s->texture_pitch;
+                struct video_frame           *f = vf_alloc_desc(desc);
+                struct video_frame_sdl3_data *frame_data =
+                    calloc(1, sizeof *frame_data);
+                frame_data->texture = texture;
+                if (s->cs_data->convert != NULL) {
+                        frame_data->preconv_data = f->tiles[0].data =
+                            malloc(f->tiles[0].data_len);
+                } else {
+                        SDL_CHECK(SDL_LockTexture(texture, NULL,
+                                                  (void **) &f->tiles[0].data,
+                                                  &s->texture_pitch),
+                                  return false);
+                        if (!codec_is_planar(desc.color_spec)) {
+                                f->tiles[0].data_len =
+                                    desc.height * s->texture_pitch;
+                        }
                 }
+                f->callbacks.dispose_udata = frame_data;
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
@@ -736,6 +772,12 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 MSG(NOTICE, "Using renderer: %s\n", renderer_name);
         }
         query_renderer_supported_fmts(s->renderer, s->supp_fmts);
+        s->cs_data = get_ug_to_sdl_format(s->supp_fmts, desc.color_spec);
+        if (s->cs_data == NULL) {
+                return false;
+        }
+        MSG(VERBOSE, "Setting SDL3 pix fmt: %s\n",
+            SDL_GetPixelFormatName(s->cs_data->sdl_tex_fmt));
 
         SDL_SetRenderLogicalPresentation(s->renderer, desc.width, desc.height,
                                          SDL_LOGICAL_PRESENTATION_LETTERBOX);
@@ -1017,6 +1059,42 @@ r10k_to_sdl3(size_t count, uint32_t *buf)
         for (; i < count; ++i) {
                 uint32_t val = htonl(*buf);
                 *buf++       = val >> 2;
+        }
+}
+
+static void
+convert_UYVY_IYUV(const struct video_frame *uv_frame, char *tex_data,
+                  size_t y_pitch)
+{
+        size_t cr_pitch = (y_pitch + 1) / 2;
+        char  *ubase    = tex_data + (y_pitch * uv_frame->tiles[0].height);
+        char  *vbase =
+            ubase + (cr_pitch * ((uv_frame->tiles[0].height + 1) / 2));
+        const char *in = uv_frame->tiles[0].data;
+        for (unsigned i = 0; i < (uv_frame->tiles[0].height + 1) / 2; ++i) {
+                char *y1 = tex_data + ((2ULL * i) * y_pitch);
+                char *y2 = y1 + y_pitch;
+                char *u  = ubase + (i * cr_pitch);
+                char *v  = vbase + (i * cr_pitch);
+                for (unsigned j = 0; j < (uv_frame->tiles[0].width + 1) / 2;
+                     ++j) {
+                        *u++  = *in++;
+                        *y1++ = *in++;
+                        *v++  = *in++;
+                        *y1++ = *in++;
+                }
+                // last line when height % 2 == 1
+                if (i * 2 + 1 == uv_frame->tiles[0].height) {
+                        break;
+                }
+                // take just lumas from second
+                for (unsigned j = 0; j < (uv_frame->tiles[0].width + 1) / 2;
+                     ++j) {
+                        in++; // drop U
+                        *y2++ = *in++;
+                        in++; // drop V
+                        *y2++ = *in++;
+                }
         }
 }
 
