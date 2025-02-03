@@ -521,7 +521,7 @@ static const struct {
         { YUYV, SDL_PIXELFORMAT_YUY2        },
         { RGB,  SDL_PIXELFORMAT_RGB24       },
         { BGR,  SDL_PIXELFORMAT_BGR24       },
-        { RGBA, SDL_PIXELFORMAT_RGBA32      },
+        { RGBA, SDL_PIXELFORMAT_RGBX32      },
         { R10k, SDL_PIXELFORMAT_ARGB2101010 },
 };
 
