@@ -517,6 +517,9 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
+ *
+ * @note
+ * alpha is set always to 0xFF (not preserved if different in source)
  */
 void
 vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,

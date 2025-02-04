@@ -103,23 +103,31 @@ static void convert_UYVY_IYUV(const struct video_frame *uv_frame,
                               char *tex_data, size_t y_pitch);
 static void convert_R10k_ARGB2101010(const struct video_frame *uv_frame,
                                      char *tex_data, size_t y_pitch);
-static const struct fmt_data {
+static void convert_R10k_ABGR2101010(const struct video_frame *uv_frame,
+                                     char *tex_data, size_t y_pitch);
+static void convert_RGBA_BGRA(const struct video_frame *uv_frame,
+                                     char *tex_data, size_t y_pitch);
+struct fmt_data {
         codec_t              ug_codec;
         enum SDL_PixelFormat sdl_tex_fmt;
         void (*convert)(const struct video_frame *uv_frame, char *tex_data,
                         size_t tex_pitch);
-} pf_mapping_template[] = {
-        { I420, SDL_PIXELFORMAT_IYUV,        NULL                     },
-        { RGBA, SDL_PIXELFORMAT_RGBX32,      NULL                     },
-        { RGBA, SDL_PIXELFORMAT_RGBA32,      NULL                     },
-        { UYVY, SDL_PIXELFORMAT_UYVY,        NULL                     }, // macOS
+};
+// order matters relative to fixed ug codec - first usable SDL fmt is used
+static const struct fmt_data pf_mapping_template[] = {
+        { I420, SDL_PIXELFORMAT_IYUV,        NULL                     }, // gles2,ogl,vk,d3d,d3d1[12],metal
+        { RGBA, SDL_PIXELFORMAT_RGBA32,      NULL                     }, // gles2,ogl,gpu,metal
+        { RGBA, SDL_PIXELFORMAT_BGRA32,      convert_RGBA_BGRA        }, // gles2,ogl,gpu,sw,vk,d3d,d3d1[12],metal
+        { RGBA, SDL_PIXELFORMAT_RGBX32,      NULL                     }, // gles2,ogl,gpu
+        { RGBA, SDL_PIXELFORMAT_BGRX32,      convert_RGBA_BGRA        }, // gles2,ogl,gpu,sw,vk,d3d12
+        { UYVY, SDL_PIXELFORMAT_UYVY,        NULL                     }, // mac ogl
         { UYVY, SDL_PIXELFORMAT_IYUV,        convert_UYVY_IYUV        }, // fallback
-        // none of the remaining PF seem to be
-        // supported by the opengl renderer
         { YUYV, SDL_PIXELFORMAT_YUY2,        NULL                     },
         { RGB,  SDL_PIXELFORMAT_RGB24,       NULL                     },
         { BGR,  SDL_PIXELFORMAT_BGR24,       NULL                     },
         { R10k, SDL_PIXELFORMAT_ARGB2101010, convert_R10k_ARGB2101010 },
+        { R10k, SDL_PIXELFORMAT_ABGR2101010, convert_R10k_ABGR2101010 }, // vk,metal,d3d1[12]
+        { R10k, SDL_PIXELFORMAT_XBGR2101010, convert_R10k_ABGR2101010 },
 };
 struct state_sdl3 {
         struct module   mod;
@@ -1069,6 +1077,45 @@ convert_R10k_ARGB2101010(const struct video_frame *uv_frame, char *tex_data,
         for (; i < count; ++i) {
                 uint32_t val = htonl(*in++);
                 *out++       = 0x3 << 30 | val >> 2;
+        }
+}
+
+static void
+convert_R10k_ABGR2101010(const struct video_frame *uv_frame, char *tex_data,
+                  size_t pitch)
+{
+        const size_t src_linesize = vc_get_linesize(uv_frame->tiles[0].width, R10k);
+        for (unsigned i = 0; i < uv_frame->tiles[0].height; ++i) {
+                const uint8_t *in =
+                    (uint8_t *) uv_frame->tiles[0].data + (i * src_linesize);
+                uint32_t *out = (void *) (tex_data + (i * pitch));
+                assert((uintptr_t) out% 4 == 0);
+                for (unsigned i = 0; i < uv_frame->tiles[0].width; ++i) {
+                        *out++ = 0x3 << 30 |                                  // A
+                                 (in[3] & 0xfc) << 18 | (in[2] & 0xf) << 26 | // B
+                                 (in[2] & 0xf0) << 6 | (in[1] & 0x3f) << 14 | // G
+                                 (in[1] & 0xc0) >> 6 | in[0] << 2;            // R
+                        in += 4;
+                }
+        }
+}
+
+static void
+convert_RGBA_BGRA(const struct video_frame *uv_frame, char *tex_data,
+                  size_t pitch)
+{
+        const size_t src_linesize = vc_get_linesize(uv_frame->tiles[0].width, RGBA);
+        for (unsigned i = 0; i < uv_frame->tiles[0].height; ++i) {
+                const uint8_t *in =
+                    (uint8_t *) uv_frame->tiles[0].data + (i * src_linesize);
+                uint8_t *out = (uint8_t *) tex_data + (i * pitch);
+                for (unsigned i = 0; i < uv_frame->tiles[0].width ; ++i) {
+                        *out++ = in[2]; // B
+                        *out++ = in[1]; // G
+                        *out++ = in[0]; // R
+                        *out++ = in[3]; // A
+                        in += 4;
+                }
         }
 }
 
