@@ -81,7 +81,7 @@
 
 #define MAGIC_SDL3   0x60540F2D
 #define BUFFER_COUNT 2
-#define MOD_NAME     "[SDL] "
+#define MOD_NAME     "[SDL3] "
 
 struct state_sdl3;
 
@@ -386,8 +386,8 @@ display_sdl3_run(void *arg)
                                     ((double) s->current_display_desc.width /
                                      s->current_display_desc.height));
                                 SDL_SetWindowSize(s->window, width, height);
-                                debug_msg("[SDL] resizing to %d x %d\n", width,
-                                          height);
+                                MSG(DEBUG, "resizing to %d x %d\n", width,
+                                    height);
                         }
                         if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED ||
                             sdl_event.window.event ==
@@ -605,8 +605,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
 {
         struct state_sdl3 *s = state;
 
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Reconfigure to size %dx%d\n",
-                desc.width, desc.height);
+        MSG(NOTICE, "Reconfigure to size %dx%d\n", desc.width, desc.height);
 
         if (s->fixed_size && s->window) {
                 SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
@@ -635,8 +634,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                          : s->y;
         s->window  = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n",
-                        SDL_GetError());
+                MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
 
@@ -648,15 +646,12 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                                SDL_RENDERER_ACCELERATED |
                                    (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
         if (!s->renderer) {
-                log_msg(LOG_LEVEL_ERROR,
-                        "[SDL] Unable to create renderer: %s\n",
-                        SDL_GetError());
+                MSG(ERROR, "Unable to create renderer: %s\n", SDL_GetError());
                 return false;
         }
         SDL_RendererInfo renderer_info;
         if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n",
-                        renderer_info.name);
+                MSG(NOTICE, "Using renderer: %s\n", renderer_info.name);
         }
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -825,8 +820,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_KEY_PREFIX(tok, "position")) {
                         tok = strchr(tok, '=') + 1;
                         if (strchr(tok, ',') == NULL) {
-                                log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n",
-                                        tok);
+                                MSG(ERROR, "position: %s\n", tok);
                                 free(s);
                                 return NULL;
                         }
@@ -839,8 +833,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_KEY_PREFIX(tok, "renderer")) {
                         renderer = strchr(tok, '=') + 1;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n",
-                                tok);
+                        MSG(ERROR, "Wrong option: %s\n", tok);
                         free(s);
                         return NULL;
                 }
@@ -876,8 +869,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 free(s);
                 return NULL;
         }
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n",
-                SDL_GetCurrentVideoDriver());
+        MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         SDL_ShowCursor(SDL_DISABLE);
         SDL_DisableScreenSaver();
