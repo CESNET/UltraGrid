@@ -106,9 +106,9 @@ namespace vkd = vulkan_display;
 namespace chrono = std::chrono;
 using namespace std::literals;
 
-constexpr int magic_vulkan_sdl2 = 0x3cc234a2;
+constexpr int magic_vulkan_sdl3 = 0x33536b56; // 'VkS3'
 constexpr int initial_frame_count = 0;
-#define MOD_NAME "[VULKAN_SDL2] "
+#define MOD_NAME "[Vulkan SDL3] "
 
 
 void display_vulkan_new_message(module*);
@@ -170,7 +170,7 @@ struct FrameMappings{
         }
 };
 
-struct state_vulkan_sdl2 {
+struct state_vulkan_sdl3 {
         module mod{};
 
         Uint32 sdl_user_new_message_event;
@@ -195,9 +195,9 @@ struct state_vulkan_sdl2 {
         std::atomic<bool> should_exit = false;
         video_desc current_desc{};
 
-        explicit state_vulkan_sdl2(module* parent) {
+        explicit state_vulkan_sdl3(module* parent) {
                 module_init_default(&mod);
-                mod.priv_magic = magic_vulkan_sdl2;
+                mod.priv_magic = magic_vulkan_sdl3;
                 mod.new_message = display_vulkan_new_message;
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
@@ -206,19 +206,19 @@ struct state_vulkan_sdl2 {
                 assert(sdl_user_new_message_event != static_cast<Uint32>(-1));
         }
 
-        state_vulkan_sdl2(const state_vulkan_sdl2& other) = delete;
-        state_vulkan_sdl2& operator=(const state_vulkan_sdl2& other) = delete;
-        state_vulkan_sdl2(state_vulkan_sdl2&& other) = delete;
-        state_vulkan_sdl2& operator=(state_vulkan_sdl2&& other) = delete;
+        state_vulkan_sdl3(const state_vulkan_sdl3& other) = delete;
+        state_vulkan_sdl3& operator=(const state_vulkan_sdl3& other) = delete;
+        state_vulkan_sdl3(state_vulkan_sdl3&& other) = delete;
+        state_vulkan_sdl3& operator=(state_vulkan_sdl3&& other) = delete;
 
-        ~state_vulkan_sdl2() {
+        ~state_vulkan_sdl3() {
                 delete frame_mappings;
                 module_done(&mod);
         }
 };
 
-// make sure that state_vulkan_sdl2 is C compatible
-static_assert(std::is_standard_layout_v<state_vulkan_sdl2>);
+// make sure that state_vulkan_sdl3 is C compatible
+static_assert(std::is_standard_layout_v<state_vulkan_sdl3>);
 
 //todo C++20 : change to to_array
 constexpr std::array<std::pair<char, std::string_view>, 3> display_vulkan_keybindings{{
@@ -280,7 +280,7 @@ constexpr int64_t translate_sdl_key_to_ug(SDL_KeyboardEvent keyev) {
         return -1;
 }
 
-constexpr bool display_vulkan_process_key(state_vulkan_sdl2& s, int64_t key) {
+constexpr bool display_vulkan_process_key(state_vulkan_sdl3& s, int64_t key) {
         switch (key) {
                 case 'd':
                         s.deinterlace = !s.deinterlace;
@@ -308,7 +308,7 @@ void log_and_exit_uv(std::exception& e) {
         exit_uv(EXIT_FAILURE);
 }
 
-void process_user_messages(state_vulkan_sdl2& s) {
+void process_user_messages(state_vulkan_sdl3& s) {
         msg_universal* msg = nullptr;
         while ((msg = reinterpret_cast<msg_universal*>(check_message(&s.mod)))) {
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg->text);
@@ -330,7 +330,7 @@ void process_user_messages(state_vulkan_sdl2& s) {
         }
 }
 
-void process_events(state_vulkan_sdl2& s) {
+void process_events(state_vulkan_sdl3& s) {
         SDL_Event sdl_event;
         while (SDL_PollEvent(&sdl_event)) {
                 if (sdl_event.type == s.sdl_user_new_message_event) {
@@ -387,8 +387,8 @@ void process_events(state_vulkan_sdl2& s) {
 }
 
 void display_vulkan_run(void* state) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
         
         s->time = chrono::steady_clock::now();
         while (!s->should_exit) {
@@ -414,7 +414,7 @@ void display_vulkan_run(void* state) {
 
 }
 
-void sdl2_print_displays() {
+void sdl3_print_displays() {
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
         for (int i = 0; i < count; ++i) {
@@ -459,8 +459,8 @@ void show_help() {
                 col() << '\n';
         };
         
-        col() << "VULKAN_SDL2 options:\n";
-        col() << SBOLD(SRED("\t-d vulkan_sdl2")
+        col() << "VULKAN_SDL3 options:\n";
+        col() << SBOLD(SRED("\t-d vulkan")
                         << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<dis_id>|"
                         ":driver=<drv>|:gpu=<gpu_id>|:pos=<x>,<y>|:size=<W>x<H>|:window_flags=<f>|:help])") << "\n";
 
@@ -477,7 +477,7 @@ void show_help() {
         col() << SBOLD("\t      validation") << " - enable vulkan validation layers\n";
 
         col() << SBOLD("\tdisplay=<dis_id>") << " - display index, available indices: ";
-        sdl2_print_displays();
+        sdl3_print_displays();
         col() << SBOLD("\t    driver=<drv>") << " - available drivers: ";
         print_drivers();
         col() << SBOLD("\t    gpu=<gpu_id>") << " - gpu index selected from the following list or keywords " << SBOLD("integrated") " or " << SBOLD("discrete") "\n";
@@ -502,7 +502,7 @@ struct CodecToVulkanFormat{
 
 
 // Ultragrid to VulkanDisplay Format mapping
-const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulkan_sdl2& s){
+const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulkan_sdl3& s){
         //the backup vkd::Format must follow the corrresponding native vkd::Format 
         constexpr std::array<CodecToVulkanFormat, 10> format_mapping {{
                 {RGBA, vkd::Format::RGBA8},
@@ -537,7 +537,7 @@ const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulka
 }
 
 
-vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_vulkan_sdl2& s) {
+vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_vulkan_sdl3& s) {
         auto& mapping = get_ug_to_vkd_format_mapping(s);
         codec_t searched_codec = ultragrid_desc.color_spec;
         auto iter = std::find_if(mapping.begin(), mapping.end(),
@@ -548,8 +548,8 @@ vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_
 
 
 bool display_vulkan_reconfigure(void* state, video_desc desc) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
 
         assert(desc.tile_count == 1);
         s->current_desc = desc;
@@ -566,7 +566,7 @@ bool display_vulkan_reconfigure(void* state, video_desc desc) {
  * Function loads graphic data from header file "splashscreen.h", where are
  * stored splashscreen data in RGB format.
  */
-void draw_splashscreen(state_vulkan_sdl2& s) {
+void draw_splashscreen(state_vulkan_sdl3& s) {
         vkd::TransferImage image;
         try {
                 image = s.vulkan->acquire_image({splash_width, splash_height, vkd::Format::RGBA8});
@@ -611,7 +611,7 @@ struct command_line_arguments {
         std::string driver{};
 };
 
-bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl2& s, std::string_view arguments_sv) {
+bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl3& s, std::string_view arguments_sv) {
         constexpr auto npos = std::string_view::npos;
         constexpr std::string_view wrong_option_msg = MOD_NAME "Wrong option: ";
 
@@ -729,11 +729,11 @@ void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
 
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
-                log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL2 module currently doesn't support audio!\n");
+                log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL3 module currently doesn't support audio!\n");
                 return nullptr;
         }
 
-        auto s = std::make_unique<state_vulkan_sdl2>(parent);
+        auto s = std::make_unique<state_vulkan_sdl3>(parent);
 
         command_line_arguments args{};
         if (fmt) {
@@ -747,7 +747,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
         bool ret = SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         if (!ret) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3: %s\n", SDL_GetError());
                 return nullptr;
         }
 
@@ -756,10 +756,10 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         }
         ret = SDL_InitSubSystem(SDL_INIT_VIDEO);
         if (!ret) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3 video: %s\n", SDL_GetError());
                 return nullptr;
         }
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
+        MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         if (!args.cursor) {
                 SDL_HideCursor();
@@ -771,7 +771,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 keycontrol_register_key(&s->mod, binding.first, msg.c_str(), binding.second.data());
         }
 
-        log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");
+        log_msg(LOG_LEVEL_NOTICE, "SDL3 initialized successfully.\n");
 
         const char* window_title = "UltraGrid - Vulkan Display";
         if (get_commandline_param("window-title")) {
@@ -823,7 +823,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 vkd::VulkanInstance instance;
                 instance.init(required_extensions, args.validation, vulkan_display_log);
 #ifdef __MINGW32__
-                //SDL2 for MINGW has problem creating surface
+                //SDL3 for MINGW has problem creating surface
                 SDL_SysWMinfo wmInfo{};
                 SDL_VERSION(&wmInfo.version);
                 SDL_GetWindowWMInfo(s->window, &wmInfo);
@@ -859,8 +859,8 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 }
 
 void display_vulkan_done(void* state) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
 
         SDL_ShowCursor();
 
@@ -885,8 +885,8 @@ void display_vulkan_done(void* state) {
 }
 
 video_frame* display_vulkan_getf(void* state) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
         
         const auto& desc = s->current_desc;
         vkd::TransferImage image;
@@ -903,8 +903,8 @@ video_frame* display_vulkan_getf(void* state) {
 }
 
 bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
 
         if (!frame) {
                 s->should_exit = true;
@@ -937,8 +937,8 @@ bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) 
 }
 
 bool display_vulkan_get_property(void* state, int property, void* val, size_t* len) {
-        auto* s = static_cast<state_vulkan_sdl2*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto* s = static_cast<state_vulkan_sdl3*>(state);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS: {
@@ -984,8 +984,8 @@ bool display_vulkan_get_property(void* state, int property, void* val, size_t* l
 }
 
 void display_vulkan_new_message(module* mod) {
-        auto s = reinterpret_cast<state_vulkan_sdl2*>(mod);
-        assert(s->mod.priv_magic == magic_vulkan_sdl2);
+        auto s = reinterpret_cast<state_vulkan_sdl3*>(mod);
+        assert(s->mod.priv_magic == magic_vulkan_sdl3);
 
         SDL_Event event{};
         event.type = s->sdl_user_new_message_event;
@@ -1010,7 +1010,7 @@ const video_display_info display_vulkan_info = {
                 *available_cards = static_cast<device_info*>(calloc(1, sizeof(device_info)));
                 auto& info = **available_cards;
                 strcpy(info.dev, "");
-                strcpy(info.name, "VULKAN_SDL2 SW display");
+                strcpy(info.name, "Vulkan SDL3 SW display");
                 info.repeatable = true;
         },
         display_vulkan_init,
@@ -1028,5 +1028,6 @@ const video_display_info display_vulkan_info = {
 } // namespace
 
 
-REGISTER_MODULE(vulkan_sdl2, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_MODULE(vulkan, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(vulkan_sdl3, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

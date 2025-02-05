@@ -1010,4 +1010,5 @@ const video_display_info display_vulkan_info = {
 
 
 REGISTER_MODULE(vulkan_sdl2, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(vulkan, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

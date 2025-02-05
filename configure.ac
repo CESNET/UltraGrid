@@ -1320,10 +1320,11 @@ if test "$vulkan_req" != no; then
                         src/video_display/vulkan/vulkan_transfer_image.o \
                         src/video_display/vulkan/vulkan_pipelines.o"
                 VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
-                add_module display_vulkan_sdl2 "$VULKAN_OBJ" "$VULKAN_LIBS"
+                add_module display_vulkan "$VULKAN_OBJ" "$VULKAN_LIBS"
                 VULKAN=vulkanEnabled
                 AC_SUBST(VULKAN)
                 vulkan=yes
+                vulkan_sdl_ver=" (SDL$sdl_version)"
         fi
 fi
 
@@ -3534,7 +3535,7 @@ RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL$sdl_version_str" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
-RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
+RESULT=`add_column "$RESULT" "Vulkan$vulkan_sdl_ver" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`end_section "$RESULT"`
 
