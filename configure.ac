@@ -1296,7 +1296,7 @@ vulkan=no
 
 AC_ARG_ENABLE(vulkan,
 [  --disable-vulkan            disable sdl2_vulkan display (default is auto)]
-[                          Requires:  sdl2 vulkan],
+[                          Requires:  sdl2|sdl3 vulkan],
     [vulkan_req=$enableval],
     [vulkan_req=$build_default]
     )
@@ -1313,8 +1313,12 @@ if test "$vulkan_req" != no; then
         fi
         AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
 
-        if test $sdl = yes && test $sdl_version = 2 && test $found_vulkan = yes; then
-                VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
+        if test $sdl = yes && test $sdl_version -ge 2 && test $found_vulkan = yes; then
+                VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl$sdl_version.o \
+                        src/video_display/vulkan/vulkan_display.o \
+                        src/video_display/vulkan/vulkan_context.o \
+                        src/video_display/vulkan/vulkan_transfer_image.o \
+                        src/video_display/vulkan/vulkan_pipelines.o"
                 VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
                 add_module display_vulkan_sdl2 "$VULKAN_OBJ" "$VULKAN_LIBS"
                 VULKAN=vulkanEnabled
@@ -1323,7 +1327,7 @@ if test "$vulkan_req" != no; then
         fi
 fi
 
-ENSURE_FEATURE_PRESENT([$vulkan_req], [$vulkan], [Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2)!])
+ENSURE_FEATURE_PRESENT([$vulkan_req], [$vulkan], [Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2/3)!])
 
 # ------------------------------------------------------------------------------
 # GLM (OpenGL math library)

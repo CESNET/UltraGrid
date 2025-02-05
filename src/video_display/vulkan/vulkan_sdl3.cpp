@@ -1,12 +1,12 @@
 /**
- * @file   video_display/vulkan_sdl2.cpp
+ * @file   video_display/vulkan_sdl3.cpp
  * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  * @author Milos Liska      <xliska@fi.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Martin Bela      <492789@mail.muni.cz>
  */
  /*
-  * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+  * Copyright (c) 2018-2025 CESNET
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
@@ -77,11 +77,11 @@
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
 
 #ifdef __MINGW32__
-#include <SDL2/SDL_syswm.h>
+#include <SDL3/SDL_syswm.h>
 #endif
 
 #include <algorithm>
@@ -125,7 +125,7 @@ public:
                 assert(window);
                 int width = 0;
                 int height = 0;
-                SDL_Vulkan_GetDrawableSize(window, &width, &height);
+                SDL_GetWindowSizeInPixels(window, &width, &height);
                 if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
                         width = 0;
                         height = 0;
@@ -239,37 +239,38 @@ constexpr void update_description(const video_desc& video_desc, video_frame& fra
         }
 }
 
-constexpr int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
-        sym.mod &= ~(KMOD_NUM | KMOD_CAPS); // remove num+caps lock modifiers
+constexpr int64_t translate_sdl_key_to_ug(SDL_KeyboardEvent keyev) {
+        keyev.mod &=
+            ~(SDL_KMOD_NUM | SDL_KMOD_CAPS); // remove num+caps lock modifiers
 
         // ctrl alone -> do not interpret
-        if (sym.sym == SDLK_LCTRL || sym.sym == SDLK_RCTRL) {
+        if (keyev.key == SDLK_LCTRL || keyev.key == SDLK_RCTRL) {
                 return 0;
         }
 
         bool ctrl = false;
         bool shift = false;
-        if (sym.mod & KMOD_CTRL) {
+        if (keyev.mod & SDL_KMOD_CTRL) {
                 ctrl = true;
         }
-        sym.mod &= ~KMOD_CTRL;
+        keyev.mod &= ~SDL_KMOD_CTRL;
 
-        if (sym.mod & KMOD_SHIFT) {
+        if (keyev.mod & SDL_KMOD_SHIFT) {
                 shift = true;
         }
-        sym.mod &= ~KMOD_SHIFT;
+        keyev.mod &= ~SDL_KMOD_SHIFT;
 
-        if (sym.mod != 0) {
+        if (keyev.mod != 0) {
                 return -1;
         }
 
-        if ((sym.sym & SDLK_SCANCODE_MASK) == 0) {
+        if ((keyev.key & SDLK_SCANCODE_MASK) == 0) {
                 if (shift) {
-                        sym.sym = toupper(sym.sym);
+                        keyev.key = toupper(keyev.key);
                 }
-                return ctrl ? K_CTRL(sym.sym) : sym.sym;
+                return ctrl ? K_CTRL(keyev.key) : keyev.key;
         }
-        switch (sym.sym) {
+        switch (keyev.key) {
                 case SDLK_RIGHT: return K_RIGHT;
                 case SDLK_LEFT:  return K_LEFT;
                 case SDLK_DOWN:  return K_DOWN;
@@ -289,9 +290,9 @@ constexpr bool display_vulkan_process_key(state_vulkan_sdl2& s, int64_t key) {
                         return true;
                 case 'f': {
                         s.fullscreen = !s.fullscreen;
-                        int mouse_x = 0, mouse_y = 0;
+                        float mouse_x = 0, mouse_y = 0;
                         SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
-                        SDL_SetWindowFullscreen(s.window, s.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                        SDL_SetWindowFullscreen(s.window, s.fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
                         SDL_WarpMouseGlobal(mouse_x, mouse_y);
                         return true;
                 }
@@ -335,13 +336,13 @@ void process_events(state_vulkan_sdl2& s) {
         while (SDL_PollEvent(&sdl_event)) {
                 if (sdl_event.type == s.sdl_user_new_message_event) {
                         process_user_messages(s);
-                } else if (sdl_event.type == SDL_KEYDOWN && sdl_event.key.repeat == 0) {
-                        auto& keysym = sdl_event.key.keysym;
+                } else if (sdl_event.type == SDL_EVENT_KEY_DOWN && sdl_event.key.repeat == 0) {
+                        auto& keysym = sdl_event.key;
                         log_msg(LOG_LEVEL_VERBOSE, 
                                 MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n",
-                                SDL_GetKeyName(keysym.sym), 
+                                SDL_GetKeyName(keysym.key), 
                                 keysym.scancode, 
-                                keysym.sym, 
+                                keysym.key, 
                                 keysym.mod);
                         int64_t sym = translate_sdl_key_to_ug(keysym);
                         if (sym > 0) {
@@ -352,38 +353,35 @@ void process_events(state_vulkan_sdl2& s) {
                         } else if (sym == -1) {
                                 log_msg(LOG_LEVEL_WARNING, 
                                         MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n",
-                                        SDL_GetKeyName(keysym.sym), 
+                                        SDL_GetKeyName(keysym.key), 
                                         keysym.scancode, 
-                                        keysym.sym, 
+                                        keysym.key, 
                                         keysym.mod);
                         }
 
-                } else if (sdl_event.type == SDL_WINDOWEVENT) {
+                } else if (s.keep_aspect && sdl_event.type == SDL_EVENT_WINDOW_RESIZED) {
                         // https://forums.libsdl.org/viewtopic.php?p=38342
-                        if (s.keep_aspect && sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                                int old_width = s.width, old_height = s.height;
-                                auto width = sdl_event.window.data1;
-                                auto height = sdl_event.window.data2;
-                                if (old_width == width) {
-                                        width = old_width * height / old_height;
-                                } else if (old_height == height) {
-                                        height = old_height * width / old_width;
-                                } else {
-                                        auto area = int64_t{ width } * height;
-                                        width = sqrt(area * old_width / old_height);
-                                        height = sqrt(area * old_height / old_width);
-                                }
-                                s.width = width;
-                                s.height = height;
-                                SDL_SetWindowSize(s.window, width, height);
-                                debug_msg(MOD_NAME "resizing to %d x %d\n", width, height);
-                        } else if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED
-                                || sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-                        {
-                                s.vulkan->window_parameters_changed();
+                        int old_width = s.width, old_height = s.height;
+                        auto width = sdl_event.window.data1;
+                        auto height = sdl_event.window.data2;
+                        if (old_width == width) {
+                                width = old_width * height / old_height;
+                        } else if (old_height == height) {
+                                height = old_height * width / old_width;
+                        } else {
+                                auto area = int64_t{ width } * height;
+                                width = sqrt(area * old_width / old_height);
+                                height = sqrt(area * old_height / old_width);
                         }
+                        s.width = width;
+                        s.height = height;
+                        SDL_SetWindowSize(s.window, width, height);
+                        debug_msg(MOD_NAME "resizing to %d x %d\n", width, height);
+                } else if (sdl_event.type == SDL_EVENT_WINDOW_RESIZED)
+                {
+                        s.vulkan->window_parameters_changed();
 
-                } else if (sdl_event.type == SDL_QUIT) {
+                } else if (sdl_event.type == SDL_EVENT_QUIT) {
                         exit_uv(0);
                 }
         }
@@ -418,15 +416,17 @@ void display_vulkan_run(void* state) {
 }
 
 void sdl2_print_displays() {
-        for (int i = 0; i < SDL_GetNumVideoDisplays(); ++i) {
+        int            count    = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        for (int i = 0; i < count; ++i) {
                 if (i > 0) {
                         std::cout << ", ";
                 }
-                const char* dname = SDL_GetDisplayName(i);
+                const char* dname = SDL_GetDisplayName(displays[i]);
                 if (dname == nullptr) {
                         dname = SDL_GetError();
                 }
-                col() << SBOLD(i) << " - " << dname;
+                col() << SBOLD(displays[i]) << " - " << dname;
         }
         std::cout << "\n";
 }
@@ -746,20 +746,25 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 }
         }
 
-        int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-        if (ret < 0) {
+        bool ret = SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+        if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
                 return nullptr;
         }
 
-        ret = SDL_VideoInit(args.driver.empty() ? nullptr : args.driver.c_str());
-        if (ret < 0) {
+        if (!args.driver.empty()) {
+                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str());
+        }
+        ret = SDL_InitSubSystem(SDL_INIT_VIDEO);
+        if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
                 return nullptr;
         }
         log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
-        SDL_ShowCursor(args.cursor);
+        if (!args.cursor) {
+                SDL_HideCursor();
+        }
         SDL_DisableScreenSaver();
 
         for (auto& binding : display_vulkan_keybindings) {
@@ -777,37 +782,38 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.x);
         int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.y);
         if(s->width == -1 && s->height == -1){
-                SDL_DisplayMode mode;
                 int display_index = 0;
-                if(SDL_GetDesktopDisplayMode(display_index, &mode)){
+                const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(display_index);
+                s->width = 0;
+                s->height = 0;
+                if(mode == nullptr){
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get display size\n");
-                        mode.w = 0;
-                        mode.h = 0;
+                } else {
+                        s->width = mode->w;
+                        s->height = mode->h;
                 }
-                s->width = mode.w;
-                s->height = mode.h;
 
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Detected display size: %dx%d\n", mode.w, mode.h);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Detected display size: %dx%d\n", mode->w, mode->h);
         }
         if (s->width == 0) s->width = 960;
         if (s->height == 0) s->height = 540;
 
-        int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI;
+        int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (s->fullscreen) {
-                window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+                SDL_SetWindowFullscreen(s->window, true);
         }
 
-        s->window = SDL_CreateWindow(window_title, x, y, s->width, s->height, window_flags);
+        s->window = SDL_CreateWindow(window_title, s->width, s->height, window_flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create window : %s\n", SDL_GetError());
                 return nullptr;
         }
         s->window_callback = new WindowCallback(s->window);
+        SDL_SetWindowPosition(s->window, x, y);
 
         uint32_t extension_count = 0;
-        SDL_Vulkan_GetInstanceExtensions(s->window, &extension_count, nullptr);
-        std::vector<const char*> required_extensions(extension_count);
-        SDL_Vulkan_GetInstanceExtensions(s->window, &extension_count, required_extensions.data());
+        const char *const *extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count);
+        std::vector<const char*> required_extensions(extensions, extensions + extension_count);
         assert(extension_count > 0);
         
         const char *path = get_install_root();
@@ -834,7 +840,8 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 }
 #else
                 VkSurfaceKHR surface{};
-                if (!SDL_Vulkan_CreateSurface(s->window, (VkInstance) instance.get_instance(), &surface)) {
+                /// @todo check if not to provide the allocator
+                if (!SDL_Vulkan_CreateSurface(s->window, (VkInstance) instance.get_instance(), nullptr, &surface)) {
                         std::cout << SDL_GetError() << std::endl;
                         throw std::runtime_error("SDL cannot create surface.");
                 }
@@ -856,7 +863,7 @@ void display_vulkan_done(void* state) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
-        SDL_ShowCursor(SDL_ENABLE);
+        SDL_ShowCursor();
 
         try {
                 s->vulkan->destroy();
