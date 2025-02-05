@@ -849,9 +849,24 @@ set_size(struct state_sdl3 *s, const char *tok)
         return true;
 }
 
+static void
+sdl_set_log_level()
+{
+        if (log_level <= LOG_LEVEL_INFO) {
+                return;
+        }
+        // SDL_INFO corresponds rather to UG verbose and SDL_VERBOSE is actually
+        // more detailed than SDL_DEBUG so map this to UG debug
+        SDL_SetLogPriorities(log_level == LOG_LEVEL_VERBOSE
+                                 ? SDL_LOG_PRIORITY_INFO
+                                 : SDL_LOG_PRIORITY_VERBOSE);
+}
+
 static void *
 display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        sdl_set_log_level();
+
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 MSG(ERROR,
                     "UltraGrid SDL3 module currently doesn't support audio!\n");
