@@ -275,7 +275,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
                 FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all\
- --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp\
+ --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp\
  --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR\
  --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
