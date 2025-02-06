@@ -35,9 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"               // for HAVE_SDL3
+
+#ifdef HAVE_SDL3
+#include <SDL3/SDL.h>             // for SDL_Init, SDL_INIT_AUDIO
+#include <SDL3/SDL_audio.h>       // for AUDIO_S16LSB, AUDIO_S32LSB, AUDIO_S8
+#include <SDL3_mixer/SDL_mixer.h> // for MIX_MAX_VOLUME, Mix_GetError, Mix_C...
+#else
 #include <SDL.h>                  // for SDL_Init, SDL_INIT_AUDIO
 #include <SDL_audio.h>            // for AUDIO_S16LSB, AUDIO_S32LSB, AUDIO_S8
 #include <SDL_mixer.h>            // for MIX_MAX_VOLUME, Mix_GetError, Mix_C...
+#endif
 #include <stdio.h>                // for NULL, fclose, fopen, size_t, FILE
 #include <stdlib.h>               // for free, calloc, getenv, atoi, malloc
 #include <string.h>               // for strlen, strncat, strchr, strcmp
@@ -59,6 +67,16 @@
 #define DEFAULT_MIX_MAX_VOLUME (MIX_MAX_VOLUME / 4)
 #define SDL_MIXER_SAMPLE_RATE 48000
 #define MOD_NAME "[SDL_mixer] "
+
+#ifdef HAVE_SDL3
+#define Mix_GetError SDL_GetError
+#define SDL_ERR false
+#else
+#define SDL_AUDIO_S8 AUDIO_S8
+#define SDL_AUDIO_S16LE AUDIO_S16LSB
+#define SDL_AUDIO_S32LE AUDIO_S32LSB
+#define SDL_ERR (-1)
+#endif
 
 struct state_sdl_mixer_capture {
         struct audio_frame audio;
@@ -197,19 +215,33 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
         s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_SDL_MIXER_BPS;
-        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels
+                                                       : MIX_DEFAULT_CHANNELS;
         s->audio.sample_rate = SDL_MIXER_SAMPLE_RATE;
 
         int audio_format = 0;
         switch (s->audio.bps) {
-                case 1: audio_format = AUDIO_S8; break;
-                case 2: audio_format = AUDIO_S16LSB; break;
-                case 4: audio_format = AUDIO_S32LSB; break;
+                case 1: audio_format = SDL_AUDIO_S8; break;
+                case 2: audio_format = SDL_AUDIO_S16LE; break;
+                case 4: audio_format = SDL_AUDIO_S32LE; break;
                 default: UG_ASSERT(0 && "BPS can be only 1, 2 or 4");
         }
 
+#ifdef HAVE_SDL3
+        if (s->audio.ch_count == 1) {
+                MSG(WARNING,
+                    "! channel capture seem to be broken with SDL3 mixer...\n");
+        }
+        SDL_AudioSpec spec = {
+                .format   = audio_format,
+                .channels = s->audio.ch_count,
+                .freq     = s->audio.sample_rate,
+        };
+        if (!Mix_OpenAudio(0, &spec)) {
+#else
         if( Mix_OpenAudio(SDL_MIXER_SAMPLE_RATE, audio_format,
                                 s->audio.ch_count, 4096 ) == -1 ) {
+#endif
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
                 goto error;
         }
@@ -242,7 +274,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
         Mix_VolumeMusic(s->volume);
-        if(Mix_PlayMusic(music,-1)==-1){
+        if (Mix_PlayMusic(music, -1) == SDL_ERR) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error playing file: %s\n", Mix_GetError());
                 goto error;
         }

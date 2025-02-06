@@ -39,7 +39,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"                     // for HAVE_LIBSDL_TTF
+#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL3
 #endif // defined HAVE_CONFIG_H
 
 #include <assert.h>                     // for assert
@@ -57,7 +57,11 @@
 #include <time.h>                       // for time
 
 #ifdef HAVE_LIBSDL_TTF
+#ifdef HAVE_SDL3
+#include <SDL3_ttf/SDL_ttf.h>
+#else
 #include <SDL_ttf.h>
+#endif // defined HAVE_SDL3
 #endif
 
 #include "audio/types.h"                // for audio_frame
@@ -113,6 +117,13 @@ static const char *const font_candidates[] = {
 };
 #endif
 #endif // defined HAVE_LIBSDL_TTF
+
+#ifdef HAVE_SDL3
+#define TTF_GetError SDL_GetError
+#define SDL_ERR false
+#else
+#define SDL_ERR (-1)
+#endif
 
 void * vidcap_testcard2_thread(void *args);
 
@@ -411,8 +422,7 @@ void * vidcap_testcard2_thread(void *arg)
 #define EXIT_THREAD { free(banner); exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
         TTF_Font * font = NULL;
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
-        if(TTF_Init() == -1)
-        {
+        if (TTF_Init() == SDL_ERR) {
           log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
             TTF_GetError());
           EXIT_THREAD
@@ -505,7 +515,11 @@ void * vidcap_testcard2_thread(void *arg)
                                 (int) since_start % 60,
                                  s->count % (int) s->desc.fps);
                 SDL_Surface *text = TTF_RenderText_Solid(font,
+#ifdef HAVE_SDL3
+                        frames, 0, col);
+#else
                         frames, col);
+#endif
                 long xoff = ((long) s->desc.width - text->w) / 2;
                 long yoff = (BANNER_HEIGHT - text->h) / 2;
                 for (int i = 0 ; i < text->h; i++) {
@@ -518,7 +532,11 @@ void * vidcap_testcard2_thread(void *arg)
                         }
                 }
                 testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), (unsigned char *) banner, s->desc.width, BANNER_HEIGHT);
+#ifdef HAVE_SDL3
+                SDL_DestroySurface(text);
+#else
                 SDL_FreeSurface(text);
+#endif // HAVE_SDL3
 #endif
 
 next_frame:

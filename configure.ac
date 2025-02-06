@@ -1278,6 +1278,9 @@ if test "$sdl_req" != no; then
                 else
                         sdl_ver_suffix=$sdl_version
                 fi
+                if test "$sdl_version" -eq 3; then
+                        AC_DEFINE([HAVE_SDL3], [1],  [Build with SDL3 support])
+                fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
                 SDL_LIBS=$(remove_mwindows "$SDL_LIBS")
@@ -1697,7 +1700,13 @@ fi
 if test $testcard2_req != no
 then
         TESTCARD2_OBJ="src/video_capture/testcard2.o"
-        PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        if test "$sdl_ver_suffix" -lt 3; then
+                PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf],
+                                  [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        else
+                PKG_CHECK_MODULES([SDL_TTF], [sdl${sdl_ver_suffix}-ttf],
+                                  [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        fi
         SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
         if test "$FOUND_SDL_TTF" = yes
         then
@@ -3318,7 +3327,13 @@ sdl_mixer=no
 
 if test $sdl = yes && test $sdl_mixer_req != no
 then
-        PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        if test "$sdl_ver_suffix" -lt 3; then
+                PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer],
+                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        else
+                PKG_CHECK_MODULES([SDL_MIXER], [sdl${sdl_ver_suffix}-mixer],
+                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        fi
         if test "$found_sdl_mixer" = yes; then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
                 SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
