@@ -59,11 +59,22 @@
  * however, not reflected by decoder which queried the data before.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "video_display.h"
+
+#include <assert.h>                      // for assert
+#include <errno.h>                       // for errno
+#include <math.h>                        // for floor
+#include <pthread.h>                     // for pthread_create, pthread_join
+#include <stdint.h>                      // for uint32_t
+#include <stdio.h>                       // for perror, printf
+#include <stdlib.h>                      // for free, abort, calloc
+#include <string.h>                      // for strcmp, strncpy, memcpy, strlen
+
+#include "compat/strings.h"              // for strncasecmp
 #include "debug.h"
+#include "host.h"                        // for exit_uv, mainloop, EXIT_FAIL...
 #include "lib_common.h"
+#include "messaging.h"                   // for new_response, msg_universal
 #include "module.h"
 #include "tv.h"
 #include "types.h"
@@ -71,7 +82,6 @@
 #include "utils/macros.h"
 #include "utils/thread.h"
 #include "video.h"
-#include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "vo_postprocess.h"
 
@@ -584,8 +594,8 @@ void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
  * @param               quant_samples   number of bits per sample
  * @param               channels        count of channels
  * @param               sample_rate     samples per second
- * @retval              TRUE            if reconfiguration succeeded
- * @retval              FALSE           if reconfiguration failed
+ * @retval              true            if reconfiguration succeeded
+ * @retval              false           if reconfiguration failed
  */
 bool display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
@@ -593,7 +603,7 @@ bool display_reconfigure_audio(struct display *d, int quant_samples, int channel
         if (!d->funcs->reconfigure_audio) {
                 log_msg(LOG_LEVEL_FATAL, MOD_NAME "Selected display '%s' doesn't support audio!\n", d->display_name);
                 exit_uv(EXIT_FAIL_USAGE);
-                return FALSE;
+                return false;
         }
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
