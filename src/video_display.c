@@ -346,6 +346,10 @@ struct video_frame *display_get_frame(struct display *d)
 
 static bool display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
+        enum {
+                MIN_FPS_PERC_WARN  = 98,
+                MIN_FPS_PERC_WARN2 = 90,
+        };
         bool ret = d->funcs->putf(d->state, frame, timeout_ns);
         if (!d->funcs->generic_fps_indicator_prefix) {
                 return ret;
@@ -357,10 +361,21 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
         time_ns_t t = get_time_in_ns();
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS" TERM_RESET "\n",
-                                d->funcs->generic_fps_indicator_prefix,
-                                d->frames, (double) seconds_ns / NS_IN_SEC,
-                                (double) d->frames * NS_IN_SEC / seconds_ns);
+                const double seconds = (double) seconds_ns / NS_IN_SEC;
+                const double fps      = d->frames / seconds;
+                const int    fps_perc = floor(fps / frame->fps * 100.);
+                const char  *fps_col  = "";
+                if (fps_perc < MIN_FPS_PERC_WARN) {
+                        fps_col = fps_perc >= MIN_FPS_PERC_WARN2
+                                      ? T256_FG_SYM(T_ARCTIC_LIME)
+                                      : T256_FG_SYM(T_SADDLE_BROWN);
+                }
+                log_msg(LOG_LEVEL_INFO,
+                        TERM_BOLD TERM_FG_MAGENTA
+                        "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD
+                        "%s%g FPS" TERM_RESET "\n",
+                        d->funcs->generic_fps_indicator_prefix, d->frames,
+                        seconds, fps_col, fps);
                 d->frames = 0;
                 d->t0 = t;
         }
