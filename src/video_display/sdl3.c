@@ -63,7 +63,7 @@
 #include <string.h>   // for NULL, strlen, strcmp, strstr, strchr
 #include <time.h>     // for timespec_get, TIME_UTC, timespec
 
-#include "compat/net.h"       // for htonl
+#include "compat/endian.h"    // for be32toh, htole32
 #include "debug.h"            // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
 #include "host.h"             // for get_commandline_param, exit_uv, ADD_T...
 #include "keyboard_control.h" // for keycontrol_register_key, keycontrol_s...
@@ -1084,14 +1084,14 @@ convert_R10k_ARGB2101010(const struct video_frame *uv_frame, char *tex_data,
         unsigned int i = 0;
         for (; i < count / LOOP_ITEMS; ++i) {
                 for (int j = 0; j < LOOP_ITEMS; ++j) {
-                        uint32_t val = htonl(*in++);
-                        *out++       = 0x3 << 30 | val >> 2;
+                        uint32_t val = be32toh(*in++);
+                        *out++       = htole32(0x3 << 30 | val >> 2);
                 }
         }
         i *= LOOP_ITEMS;
         for (; i < count; ++i) {
-                uint32_t val = htonl(*in++);
-                *out++       = 0x3 << 30 | val >> 2;
+                uint32_t val = be32toh(*in++);
+                *out++       = htole32(0x3 << 30 | val >> 2);
         }
 }
 
@@ -1106,10 +1106,11 @@ convert_R10k_ABGR2101010(const struct video_frame *uv_frame, char *tex_data,
                 uint32_t *out = (void *) (tex_data + (i * pitch));
                 assert((uintptr_t) out% 4 == 0);
                 for (unsigned i = 0; i < uv_frame->tiles[0].width; ++i) {
-                        *out++ = 0x3 << 30 |                                  // A
+                        uint32_t val  = 0x3 << 30 |                           // A
                                  (in[3] & 0xfc) << 18 | (in[2] & 0xf) << 26 | // B
                                  (in[2] & 0xf0) << 6 | (in[1] & 0x3f) << 14 | // G
                                  (in[1] & 0xc0) >> 6 | in[0] << 2;            // R
+                        *out++ = htole32(val);
                         in += 4;
                 }
         }
