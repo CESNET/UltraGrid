@@ -78,6 +78,7 @@
 #include "utils/color_out.h"
 #include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
+#include "utils/misc.h"              // for get_stat_color
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
 
@@ -381,13 +382,16 @@ static void *adec_compute_and_print_stats(void *arg) {
         if (d->bytes_received < d->bytes_expected) {
                 loss = " (" + to_string(d->bytes_expected - d->bytes_received) + " lost)";
         }
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B%s, "
-                        "decoded %d samples in %.2f sec.\n",
-                        d->bytes_received,
-                        d->bytes_expected,
-                        loss.c_str(),
-                        d->frame.get_sample_count(),
-                        d->seconds);
+
+        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
+        const char  *dec_cnt_warn_col =
+            get_stat_color(d->frame.get_sample_count() / exp_samples);
+
+        MSG(INFO,
+            "Received %ld/%ld B%s, "
+            "decoded %s%d samples" TERM_RESET " in %.2f sec.\n",
+            d->bytes_received, d->bytes_expected, loss.c_str(),
+            dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
 
         char volume[STR_LEN];
         char       *vol_start = volume;
@@ -400,8 +404,8 @@ static void *adec_compute_and_print_stats(void *arg) {
                                             &vol_start, volume + sizeof volume);
         }
 
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Volume: %s dBFS RMS/peak%s\n",
-                volume, d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
+        MSG(INFO, "Volume: %s dBFS RMS/peak%s\n", volume,
+            d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 
