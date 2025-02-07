@@ -448,7 +448,6 @@ sdl3_print_displays()
                 }
                 color_printf(TBOLD("%d") " - %s", i, dname);
         }
-        printf("\n");
 }
 
 static SDL_DisplayID get_display_id_to_idx(int idx)
@@ -473,7 +472,9 @@ show_help(const char *driver)
         color_printf(TBOLD(TRED(
             "\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
                         "renderer=<name[s]>|:nodecorate|:size[=WxH]|:window_"
-                        "flags=<f>|:keep-aspect]*|:help]") "\n");
+                        "flags=<f>|:keep-aspect]*]") "\n");
+        color_printf(TBOLD(
+            "\t-d sdl[:driver=<drv>]:help") "\n");
         printf("where:\n");
         color_printf(TBOLD(
             "\td[force]") " - deinterlace (force even for progresive video)\n");
@@ -481,6 +482,7 @@ show_help(const char *driver)
         color_printf(
             TBOLD("\t  <didx>") " - display index, available indices: ");
         sdl3_print_displays();
+        color_printf("%s\n", (driver == NULL ? TBOLD(" *")  : ""));
         color_printf(TBOLD("\t   <drv>") " - one of following: ");
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
                 color_printf("%s" TBOLD("%s"), (i == 0 ? "" : ", "),
@@ -506,6 +508,13 @@ show_help(const char *driver)
                 }
         }
         printf("\n");
+        if (driver == NULL) {
+                color_printf(
+                    TBOLD("*") " available values depend on the driver "
+                                 "selection. These are for the default driver - "
+                                 "specify a driver for help with another "
+                                 "one.\n");
+        }
         printf("\nKeyboard shortcuts:\n");
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0];
              ++i) {
