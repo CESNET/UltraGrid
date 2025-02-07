@@ -44,13 +44,7 @@
  * * autorelease_pool (macOS) - perhaps not needed
  */
 
-/// @todo remove the defines when no longer needed
-#ifdef __arm64__
-#define SDL_DISABLE_MMINTRIN_H  1
-#define SDL_DISABLE_IMMINTRIN_H 1
-#endif // defined __arm64__
 #include <SDL3/SDL.h>
-
 #include <assert.h>   // for assert
 #include <ctype.h>    // for toupper
 #include <inttypes.h> // for PRIu8
