@@ -36,6 +36,7 @@
  */
 
 #include "vulkan_context.hpp"
+#include <algorithm>            // for std::any_of, std::find_if
 #include <cassert>
 #include <iostream>
 
@@ -101,6 +102,72 @@ void check_validation_layers(const std::vector<const char*>& required_layers) {
         }
 }
 
+/**
+ * handle VK_KHR_portability_enumeration (non-)presence
+ *
+ * @returns if VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR can be added
+ *
+ * Also append the extension if supported to handle non-native drivers (as
+ * MoltenVK, that set VK_KHR_portability_subset, otherwise those won't be
+ * enumerated).
+ *
+ * In case the VK_KHR_portability_enumeration is explicitly required but not
+ * present, remove it from extension list in macOS - this will allow linking
+ * directly to MoltenVK in mac (not to vulkan-loader), which doesn't have the
+ * enumerate extension.
+ */
+bool
+handle_enumerate_portability_extension(
+    std::vector<const char *> &required_extensions)
+{
+        std::vector<vk::ExtensionProperties> extensions =
+            vk::enumerateInstanceExtensionProperties(nullptr);
+
+        auto eq_portability_ext = [](const char *extension) {
+                return strcmp(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+                              extension) == 0;
+        };
+
+        if (std::any_of(
+                extensions.begin(), extensions.end(), [](auto const &exten) {
+                        return strcmp(
+                                   VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+                                   exten.extensionName) == 0;
+                })) {
+                if (!std::any_of(required_extensions.begin(),
+                                required_extensions.end(),
+                                eq_portability_ext)) {
+                        vulkan_log_msg(
+                            LogLevel::debug,
+                            "adding"
+                            " " VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+                            " to list of required extensions");
+                        required_extensions.push_back(
+                            VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+                }
+                return true;
+        }
+#ifdef __APPLE__ // SDL3 sets it always in macOS  but not present if linked with
+                 // MoltenVK (only with vulkan-loader)
+        const auto it = std::find_if(required_extensions.begin(),
+                               required_extensions.end(), eq_portability_ext);
+        if (it != required_extensions.end()) {
+                vulkan_log_msg(LogLevel::info,
+                               VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+                               " required but not found... erasing "
+                               "this extension...");
+                required_extensions.erase(it);
+        }
+#endif
+
+        return false;
+}
+
+/**
+ * this checks required_extensions prior to vk::createInstance(), which would
+ * throw the exception as well if extension is missing but without providing
+ * its name.
+ */
 void check_instance_extensions(const std::vector<const char*>& required_extensions) {
         std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
 
@@ -320,6 +387,8 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
                 required_extensions.push_back(debug_extension);
         }
 
+        const bool create_enumerate_portability_bit_supported =
+            handle_enumerate_portability_extension(required_extensions);
         check_instance_extensions(required_extensions);
 
         vk::ApplicationInfo app_info{};
@@ -333,6 +402,9 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
                 .setPpEnabledLayerNames(validation_layers.data())
                 .setEnabledExtensionCount(static_cast<uint32_t>(required_extensions.size()))
                 .setPpEnabledExtensionNames(required_extensions.data());
+        if (create_enumerate_portability_bit_supported) {
+                instance_info.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+        }
         auto result = vk::createInstance(&instance_info, nullptr, &instance);
         
         switch (result) {
