@@ -64,10 +64,6 @@
 #undef min
 #undef max
 
-#ifdef __MINGW32__
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
-
 #include "vulkan_display.hpp" // vulkan.h must be before GLFW/SDL
 
 // @todo remove the defines when no longer needed
@@ -78,10 +74,6 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
-
-#ifdef __MINGW32__
-#include <SDL3/SDL_syswm.h>
-#endif
 
 #include <algorithm>
 #include <array>
@@ -822,29 +814,12 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         try {
                 vkd::VulkanInstance instance;
                 instance.init(required_extensions, args.validation, vulkan_display_log);
-#ifdef __MINGW32__
-                //SDL3 for MINGW has problem creating surface
-                SDL_SysWMinfo wmInfo{};
-                SDL_VERSION(&wmInfo.version);
-                SDL_GetWindowWMInfo(s->window, &wmInfo);
-                HWND hwnd = wmInfo.info.win.window;
-                HINSTANCE hinst = wmInfo.info.win.hinstance;
-                vk::Win32SurfaceCreateInfoKHR create_info{};
-                create_info
-                        .setHinstance(hinst)
-                        .setHwnd(hwnd);
-                vk::SurfaceKHR surface = nullptr;
-                if (instance.get_instance().createWin32SurfaceKHR(&create_info, nullptr, &surface) != vk::Result::eSuccess) {
-                        throw std::runtime_error("Surface cannot be created.");
-                }
-#else
                 VkSurfaceKHR surface{};
                 /// @todo check if not to provide the allocator
                 if (!SDL_Vulkan_CreateSurface(s->window, (VkInstance) instance.get_instance(), nullptr, &surface)) {
                         std::cout << SDL_GetError() << std::endl;
                         throw std::runtime_error("SDL cannot create surface.");
                 }
-#endif
                 s->vulkan = new vkd::VulkanDisplay{};
                 s->vulkan->init(std::move(instance), vk::SurfaceKHR(surface),
                                 initial_frame_count, *s->window_callback,
