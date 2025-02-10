@@ -719,7 +719,21 @@ void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
         LOG(log_level) << MOD_NAME << sv << std::endl;
 }
 
+void
+sdl_set_log_level()
+{
+        if (log_level <= LOG_LEVEL_INFO) {
+                return;
+        }
+        // SDL_INFO corresponds rather to UG verbose and SDL_VERBOSE is actually
+        // more detailed than SDL_DEBUG so map this to UG debug
+        SDL_SetLogPriorities(log_level == LOG_LEVEL_VERBOSE
+                                 ? SDL_LOG_PRIORITY_INFO
+                                 : SDL_LOG_PRIORITY_VERBOSE);
+}
+
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
+        sdl_set_log_level();
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL3 module currently doesn't support audio!\n");
                 return nullptr;
