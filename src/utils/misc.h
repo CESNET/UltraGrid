@@ -73,6 +73,8 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
 
 bool invalid_arg_is_numeric(const char *what);
 
+const char *get_stat_color(double ratio);
+
 #ifdef __cplusplus
 }
 #endif

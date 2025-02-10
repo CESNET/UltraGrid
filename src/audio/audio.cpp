@@ -86,6 +86,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
+#include "utils/misc.h"                 // for get_stat_color
 #include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
@@ -987,9 +988,14 @@ struct asend_stats_processing_data {
 static void *asend_compute_and_print_stats(void *arg) {
         auto *d = (struct asend_stats_processing_data*) arg;
 
-        log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
-                        d->frame.get_sample_count(),
-                        d->seconds);
+        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
+        const char  *dec_cnt_warn_col =
+            get_stat_color(d->frame.get_sample_count() / exp_samples);
+
+        log_msg(LOG_LEVEL_INFO,
+                "[Audio sender] Sent %s%d samples" TERM_FG_RESET
+                " in last %f seconds.\n",
+                dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
 
         char volume[STR_LEN];
         char *vol_start = volume;

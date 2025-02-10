@@ -344,3 +344,22 @@ bool invalid_arg_is_numeric(const char *what) {
         return strncmp(what, "stoi", 4) == 0 || strncmp(what, "stod", 4) == 0;
 }
 
+/**
+ * get warning color for status printout
+ *
+ * If ratio is <= 0.98 or >= 1.02, return "warning" color (different for 2% and
+ * 5% outside the range). Note that the caller must also output TERM_RESET or
+ * TERM_FG_RESET to reset the terminal FG color.
+ *
+ * @returns the color (or "")
+ */
+const char *
+get_stat_color(double ratio)
+{
+        const double diff = fabs(1 - ratio);
+        if (diff < 0.02) {
+                return "";
+        }
+        return diff < 0.05 ? T256_FG_SYM(T_ARCTIC_LIME)
+                           : T256_FG_SYM(T_SADDLE_BROWN);
+}
