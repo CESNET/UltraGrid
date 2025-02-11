@@ -105,6 +105,7 @@ constexpr int initial_frame_count = 0;
 
 void display_vulkan_new_message(module*);
 video_frame* display_vulkan_getf(void* state);
+void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv);
 
 class WindowCallback final : public vkd::WindowChangedCallback {
         SDL_Window* window = nullptr;
@@ -427,7 +428,7 @@ void print_gpus() {
         std::vector<const char*>required_extensions{};
         std::vector<std::pair<std::string, bool>> gpus{};
         try {
-                instance.init(required_extensions, false);
+                instance.init(required_extensions, false, vulkan_display_log);
                 instance.get_available_gpus(gpus);
         } 
         catch (std::exception& e) { log_and_exit_uv(e); return; }
