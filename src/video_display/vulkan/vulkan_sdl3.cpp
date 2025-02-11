@@ -707,17 +707,17 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
 void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
         using L = vkd::LogLevel;
 
-        int log_level = LOG_LEVEL_INFO;
+        int ug_log_level = LOG_LEVEL_INFO;
         switch(vkd_log_level){
-                case L::fatal:   log_level = LOG_LEVEL_FATAL;   break;
-                case L::error:   log_level = LOG_LEVEL_ERROR;   break;
-                case L::warning: log_level = LOG_LEVEL_WARNING; break;
-                case L::notice:  log_level = LOG_LEVEL_NOTICE;  break;
-                case L::info:    log_level = LOG_LEVEL_INFO;    break;
-                case L::verbose: log_level = LOG_LEVEL_VERBOSE; break;
-                case L::debug:   log_level = LOG_LEVEL_DEBUG;   break;
+                case L::fatal:   ug_log_level = LOG_LEVEL_FATAL;   break;
+                case L::error:   ug_log_level = LOG_LEVEL_ERROR;   break;
+                case L::warning: ug_log_level = LOG_LEVEL_WARNING; break;
+                case L::notice:  ug_log_level = LOG_LEVEL_NOTICE;  break;
+                case L::info:    ug_log_level = LOG_LEVEL_INFO;    break;
+                case L::verbose: ug_log_level = LOG_LEVEL_VERBOSE; break;
+                case L::debug:   ug_log_level = LOG_LEVEL_DEBUG;   break;
         }
-        LOG(log_level) << MOD_NAME << sv << std::endl;
+        LOG(ug_log_level) << MOD_NAME << sv << std::endl;
 }
 
 void
