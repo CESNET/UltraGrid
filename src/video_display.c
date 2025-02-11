@@ -80,6 +80,7 @@
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/misc.h"                  // for get_stat_color
 #include "utils/thread.h"
 #include "video.h"
 #include "video_display/splashscreen.h"
@@ -363,13 +364,8 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
         if (seconds_ns > 5 * NS_IN_SEC) {
                 const double seconds = (double) seconds_ns / NS_IN_SEC;
                 const double fps      = d->frames / seconds;
-                const int    fps_perc = floor(fps / frame->fps * 100.);
-                const char  *fps_col  = "";
-                if (fps_perc < MIN_FPS_PERC_WARN) {
-                        fps_col = fps_perc >= MIN_FPS_PERC_WARN2
-                                      ? T256_FG_SYM(T_ARCTIC_LIME)
-                                      : T256_FG_SYM(T_SADDLE_BROWN);
-                }
+                const char *const fps_col  = get_stat_color(fps / frame->fps);
+
                 log_msg(LOG_LEVEL_INFO,
                         TERM_BOLD TERM_FG_MAGENTA
                         "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD
