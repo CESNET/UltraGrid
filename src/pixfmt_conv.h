@@ -106,6 +106,10 @@ decoder_func_t vc_copylineUYVYtoGrayscale;
 /// dummy conversion - ptr to it returned if no conversion needed
 decoder_func_t vc_memcpy;
 
+void v210_to_p010le(char *__restrict *__restrict out_data,
+                    const int *__restrict out_linesize,
+                    const char *__restrict in_data, int width, int height);
+
 #ifdef __cplusplus
 }
 #endif

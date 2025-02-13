@@ -3067,4 +3067,71 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         return get_decoder_from_to(in, *out);
 }
 
+void
+v210_to_p010le(char *__restrict *__restrict out_data,
+               const int *__restrict out_linesize,
+               const char *__restrict in_data, int width, int height)
+{
+        assert((uintptr_t) in_data % 4 == 0);
+        assert(out_linesize[0] % 2 == 0);
+        assert(out_linesize[1] % 2 == 0);
+
+        for(int y = 0; y < height; y += 2) {
+                /*  every even row */
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
+                /*  every odd row */
+                const uint32_t *src2 = (const uint32_t *)(const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * (y + 1));
+                uint16_t *dst_cbcr = (uint16_t *)(void *) (out_data[1] + out_linesize[1] * y / 2);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+			//block 1, bits  0 -  9: U0+0
+			//block 1, bits 10 - 19: Y0
+			//block 1, bits 20 - 29: V0+1
+			//block 2, bits  0 -  9: Y1
+			//block 2, bits 10 - 19: U2+3
+			//block 2, bits 20 - 29: Y2
+			//block 3, bits  0 -  9: V2+3
+			//block 3, bits 10 - 19: Y3
+			//block 3, bits 20 - 29: U4+5
+			//block 4, bits  0 -  9: Y4
+			//block 4, bits 10 - 19: V4+5
+			//block 4, bits 20 - 29: Y5
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src++;
+                        w0_1 = *src++;
+                        w0_2 = *src++;
+                        w0_3 = *src++;
+                        w1_0 = *src2++;
+                        w1_1 = *src2++;
+                        w1_2 = *src2++;
+                        w1_3 = *src2++;
+
+                        *dst_y++ = ((w0_0 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_1 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_1 >> 20) & 0x3ff) << 6;
+                        *dst_y++ = ((w0_2 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_3 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_3 >> 20) & 0x3ff) << 6;
+
+                        *dst_y2++ = ((w1_0 >> 10) & 0x3ff) << 6;
+                        *dst_y2++ = (w1_1 & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_1 >> 20) & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_2 >> 10) & 0x3ff) << 6;
+                        *dst_y2++ = (w1_3 & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_3 >> 20) & 0x3ff) << 6;
+
+                        *dst_cbcr++ = (((w0_0 & 0x3ff) + (w1_0 & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = ((((w0_0 >> 20) & 0x3ff) + ((w1_0 >> 20) & 0x3ff)) / 2) << 6; // Cr
+                        *dst_cbcr++ = ((((w0_1 >> 10) & 0x3ff) + ((w1_1 >> 10) & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = (((w0_2 & 0x3ff) + (w1_2 & 0x3ff)) / 2) << 6; // Cr
+                        *dst_cbcr++ = ((((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = ((((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2) << 6; // Cr
+                }
+        }
+}
+
 /* vim: set expandtab sw=8: */
