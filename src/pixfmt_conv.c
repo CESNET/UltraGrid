@@ -3067,6 +3067,12 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         return get_decoder_from_to(in, *out);
 }
 
+/**
+ * cconverts v210 to P010 - 2-plane 10-bit YCbCr with U/V combined (samples are
+ * stored in MSB of 16b word)
+ *
+ * neither input nor output need to be padded
+ */
 void
 v210_to_p010le(char *__restrict *__restrict out_data,
                const int *__restrict out_linesize,
@@ -3075,6 +3081,8 @@ v210_to_p010le(char *__restrict *__restrict out_data,
         assert((uintptr_t) in_data % 4 == 0);
         assert(out_linesize[0] % 2 == 0);
         assert(out_linesize[1] % 2 == 0);
+
+        void *garbage = NULL;
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -3085,7 +3093,18 @@ v210_to_p010le(char *__restrict *__restrict out_data,
                 uint16_t *dst_y2 = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * (y + 1));
                 uint16_t *dst_cbcr = (uint16_t *)(void *) (out_data[1] + out_linesize[1] * y / 2);
 
-                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                // handle height % 2 == 1 (last line)
+                if (height - y == 1) {
+                        dst_y2 = garbage = malloc(out_linesize[0]);
+                        src2 = src;
+                }
+                // handle margin of width % 6 != 0
+                int w = (width + 5) / 6 * 6;
+                if (height - y == 1 || height - y == 2) {
+                        w = width;
+                }
+
+                OPTIMIZED_FOR (int x = 0; x < w / 6; ++x) {
 			//block 1, bits  0 -  9: U0+0
 			//block 1, bits 10 - 19: Y0
 			//block 1, bits 20 - 29: V0+1
@@ -3131,7 +3150,21 @@ v210_to_p010le(char *__restrict *__restrict out_data,
                         *dst_cbcr++ = ((((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2) << 6; // Cb
                         *dst_cbcr++ = ((((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2) << 6; // Cr
                 }
+
+                // handle margin of width % 6 != 0 - just copy last at most 5
+                // pix from above for simplicity (1 or 2 lines)
+                if ((height - y == 1 || height - y == 2) && width % 6 != 0) {
+                        const size_t pix_cnt = width % 6;
+                        memcpy(dst_y, dst_y - out_linesize[0], pix_cnt * 2);
+                        if (height - y == 2) {
+                                memcpy(dst_y2, dst_y - out_linesize[0],
+                                       pix_cnt * 2);
+                        }
+                        memcpy(dst_cbcr, dst_cbcr - out_linesize[1], pix_cnt * 2);
+                }
         }
+
+        free(garbage);
 }
 
 /* vim: set expandtab sw=8: */
