@@ -71,46 +71,21 @@ void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint3
 
 /**
  * @param[in] in buffer in UYVY
- * @retval       buffer in I420 (must be deallocated by the caller)
- * @note
- * Caller must deallocate returned buffer
+ * @retval       buffer in I420
  */
-static void toI420(unsigned char *out, const unsigned char *input, int width, int height)
+static void
+toI420(unsigned char *out, const unsigned char *input, int width, int height)
 {
-        const unsigned char *in = (const unsigned char *) input;
-        int w_ch = (width + 1) / 2;
-        int h_ch = (height + 1) / 2;
-        unsigned char *y = out;
-        unsigned char *u0 = out + width * height;
-        unsigned char *v0 = out + width * height + w_ch * h_ch;
-        unsigned char *u1 = u0, *v1 = v0;
-
-        for (int i = 0; i < height; i += 1) {
-                for (int j = 0; j < ((width + 1) & ~1); j += 2) {
-                        // U
-                        if (i % 2 == 0) {
-                                *u0++ = *in++;
-                        } else { // average with every 2nd row
-                                *u1 = (*u1 + *in++) / 2;
-                                u1++;
-                        }
-                        // Y
-                        *y++ = *in++;
-                        // V
-                        if (i % 2 == 0) {
-                                *v0++ = *in++;
-                        } else { // average with every 2nd row
-                                *v1 = (*v1 + *in++) / 2;
-                                v1++;
-                        }
-                        // Y
-                        if (j + 1 == width) {
-                                in++;
-                        } else {
-                                *y++ = *in++;
-                        }
-                }
-        }
+        const size_t y_h = height;
+        const size_t chr_h = (y_h + 1) / 2;
+        int          out_linesize[3] = { width,
+                                         (width + 1) / 2,
+                                         (width + 1) / 2 };
+        unsigned char *out_data[3] = { out,
+                                       out + (y_h * out_linesize[0]),
+                                       out + (y_h * out_linesize[0]) +
+                                           (chr_h * out_linesize[1]) };
+        uyvy_to_i420(out_data, out_linesize, input, width, height);
 }
 
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)

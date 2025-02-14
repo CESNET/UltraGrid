@@ -79,51 +79,8 @@
 
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        int y;
-        for (y = 0; y < height - 1; y += 2) {
-                /*  every even row */
-                const unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
-                /*  every odd row */
-                const unsigned char *src2 = in_data + (y + 1) * (((width + 1) & ~1) * 2);
-                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-                unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
-                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
-                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * (y / 2);
-
-                int x;
-                OPTIMIZED_FOR (x = 0; x < width - 1; x += 2) {
-                        *dst_cb++ = (*src++ + *src2++) / 2;
-                        *dst_y++ = *src++;
-                        *dst_y2++ = *src2++;
-                        *dst_cr++ = (*src++ + *src2++) / 2;
-                        *dst_y++ = *src++;
-                        *dst_y2++ = *src2++;
-                }
-                if (x < width) {
-                        *dst_cb++ = (*src++ + *src2++) / 2;
-                        *dst_y++ = *src++;
-                        *dst_y2++ = *src2++;
-                        *dst_cr++ = (*src++ + *src2++) / 2;
-                }
-        }
-        if (y < height) {
-                const unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
-                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
-                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * (y / 2);
-                int x;
-                OPTIMIZED_FOR (x = 0; x < width - 1; x += 2) {
-                        *dst_cb++ = *src++;
-                        *dst_y++ = *src++;
-                        *dst_cr++ = *src++;
-                        *dst_y++ = *src++;
-                }
-                if (x < width) {
-                        *dst_cb++ = *src++;
-                        *dst_y++ = *src++;
-                        *dst_cr++ = *src++;
-                }
-        }
+        uyvy_to_i420(out_frame->data, out_frame->linesize, in_data, width,
+                     height);
 }
 
 static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
@@ -181,86 +138,10 @@ static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, const unsigned char 
         }
 }
 
-static void uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        for(int y = 0; y < height; y += 2) {
-                /*  every even row */
-                const unsigned char *src = in_data + y * (width * 2);
-                /*  every odd row */
-                const unsigned char *src2 = in_data + (y + 1) * (width * 2);
-                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-                unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
-                unsigned char *dst_cbcr = out_frame->data[1] + out_frame->linesize[1] * y / 2;
-
-                int x = 0;
-#ifdef __SSE3__
-                __m128i yuv;
-                __m128i yuv2;
-                __m128i y1;
-                __m128i y2;
-                __m128i y3;
-                __m128i y4;
-                __m128i uv;
-                __m128i uv2;
-                __m128i uv3;
-                __m128i uv4;
-                __m128i ymask = _mm_set1_epi32(0xFF00FF00);
-                __m128i dsty;
-                __m128i dsty2;
-                __m128i dstuv;
-
-                for (; x < (width - 15); x += 16){
-                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
-                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
-                        src += 16;
-                        src2 += 16;
-
-                        y1 = _mm_and_si128(ymask, yuv);
-                        y1 = _mm_bsrli_si128(y1, 1);
-                        y2 = _mm_and_si128(ymask, yuv2);
-                        y2 = _mm_bsrli_si128(y2, 1);
-
-                        uv = _mm_andnot_si128(ymask, yuv);
-                        uv2 = _mm_andnot_si128(ymask, yuv2);
-
-                        uv = _mm_avg_epu8(uv, uv2);
-
-                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
-                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
-                        src += 16;
-                        src2 += 16;
-
-                        y3 = _mm_and_si128(ymask, yuv);
-                        y3 = _mm_bsrli_si128(y3, 1);
-                        y4 = _mm_and_si128(ymask, yuv2);
-                        y4 = _mm_bsrli_si128(y4, 1);
-
-                        uv3 = _mm_andnot_si128(ymask, yuv);
-                        uv4 = _mm_andnot_si128(ymask, yuv2);
-
-                        uv3 = _mm_avg_epu8(uv3, uv4);
-
-                        dsty = _mm_packus_epi16(y1, y3);
-                        dsty2 = _mm_packus_epi16(y2, y4);
-                        dstuv = _mm_packus_epi16(uv, uv3);
-                        _mm_storeu_si128((__m128i *)(void *) dst_y, dsty);
-                        _mm_storeu_si128((__m128i *)(void *) dst_y2, dsty2);
-                        _mm_storeu_si128((__m128i *)(void *) dst_cbcr, dstuv);
-                        dst_y += 16;
-                        dst_y2 += 16;
-                        dst_cbcr += 16;
-                }
-#endif
-
-                OPTIMIZED_FOR (; x < width - 1; x += 2) {
-                        *dst_cbcr++ = (*src++ + *src2++) / 2;
-                        *dst_y++ = *src++;
-                        *dst_y2++ = *src2++;
-                        *dst_cbcr++ = (*src++ + *src2++) / 2;
-                        *dst_y++ = *src++;
-                        *dst_y2++ = *src2++;
-                }
-        }
+        uyvy_to_nv12(out_frame->data, out_frame->linesize, in_data, width,
+                     height);
 }
 
 static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -547,9 +428,8 @@ to_lavc_v210_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        char *out_data[2] = { (char *) out_frame->data[0], (char *) out_frame->data[1]};
-        v210_to_p010le(out_data, out_frame->linesize, (const char *) in_data,
-                       width, height);
+        v210_to_p010le(out_frame->data, out_frame->linesize, in_data, width,
+                       height);
 }
 
 static void
@@ -557,9 +437,8 @@ to_lavc_y216_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        char *out_data[2] = { (char *) out_frame->data[0], (char *) out_frame->data[1]};
-        y216_to_p010le(out_data, out_frame->linesize, (const char *) in_data,
-                       width, height);
+        y216_to_p010le(out_frame->data, out_frame->linesize, in_data, width,
+                       height);
 }
 
 #if P210_PRESENT
@@ -1092,14 +971,13 @@ static void rgba_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * _
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 4);
 }
 
-static void rgba_to_bgra(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void
+to_lavc_rgba_to_bgra(AVFrame *__restrict out_frame,
+                     const unsigned char *__restrict in_data, int width,
+                     int height)
 {
-        int linesize = vc_get_linesize(width, RGBA);
-        for (ptrdiff_t y = 0; y < height; ++y) {
-                const unsigned char *src = in_data + y * linesize;
-                unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
-                vc_copylineRGBA(dst, src, linesize, 16, 8, 0);
-        }
+        rgba_to_bgra(out_frame->data, out_frame->linesize, in_data, width,
+                     height);
 }
 
 #if defined __GNUC__
@@ -1311,7 +1189,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #endif
                 { UYVY, AV_PIX_FMT_YUV420P,     uyvy_to_yuv420p },
                 { UYVY, AV_PIX_FMT_YUVJ420P,    uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_NV12,        uyvy_to_nv12 },
+                { UYVY, AV_PIX_FMT_NV12,        to_lavc_uyvy_to_nv12 },
                 { UYVY, AV_PIX_FMT_YUV444P,     uyvy_to_yuv444p },
                 { UYVY, AV_PIX_FMT_YUVJ444P,    uyvy_to_yuv444p },
                 { Y216, AV_PIX_FMT_YUV422P10LE, y216_to_yuv422p10le },
@@ -1321,7 +1199,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RGB, AV_PIX_FMT_GBRP,         rgb_to_gbrp },
                 { RGB, AV_PIX_FMT_YUV444P,      rgb_to_yuv444p },
                 { RGBA, AV_PIX_FMT_GBRP,        rgba_to_gbrp },
-                { RGBA, AV_PIX_FMT_BGRA,        rgba_to_bgra },
+                { RGBA, AV_PIX_FMT_BGRA,        to_lavc_rgba_to_bgra },
                 { R10k, AV_PIX_FMT_BGR0,        r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE,    r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_GBRP16LE,    r10k_to_gbrp16le },

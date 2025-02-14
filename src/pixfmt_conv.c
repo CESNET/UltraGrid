@@ -64,6 +64,9 @@
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, CLAMP
 #include "video_codec.h"
 
+#ifdef __SSE3__
+#include "pmmintrin.h"
+#endif
 #ifdef __SSSE3__
 #include "tmmintrin.h"
 #endif
@@ -3074,9 +3077,9 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
  * neither input nor output need to be padded
  */
 void
-v210_to_p010le(char *__restrict *__restrict out_data,
+v210_to_p010le(unsigned char *__restrict *__restrict out_data,
                const int *__restrict out_linesize,
-               const char *__restrict in_data, int width, int height)
+               const unsigned char *__restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert(out_linesize[0] % 2 == 0);
@@ -3168,9 +3171,9 @@ v210_to_p010le(char *__restrict *__restrict out_data,
 }
 
 void
-y216_to_p010le(char *__restrict *__restrict out_data,
+y216_to_p010le(unsigned char *__restrict *__restrict out_data,
                const int *__restrict out_linesize,
-               const char *__restrict in_data, int width, int height)
+               const unsigned char *__restrict in_data, int width, int height)
 {
         const size_t src_linesize = vc_get_linesize(width, Y216);
         for (int i = 0; i < height / 2; ++i) {
@@ -3191,6 +3194,155 @@ y216_to_p010le(char *__restrict *__restrict out_data,
                         in++;             // Cb
                         *out_y++ = *in++; // Y2
                         in++;             // Cr
+                }
+        }
+}
+
+void
+uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
+             const int *__restrict out_linesize,
+             const unsigned char *__restrict in_data, int width, int height)
+{
+        for (size_t y = 0; y < (size_t) height; y += 2) {
+                /*  every even row */
+                const unsigned char *src = in_data + (y * ((size_t) width * 2));
+                /*  every odd row */
+                const unsigned char *src2 = src + ((size_t) width * 2);
+                unsigned char *dst_y      = out_data[0] + (out_linesize[0] * y);
+                unsigned char *dst_y2     = dst_y + out_linesize[0];
+                unsigned char *dst_cbcr =
+                    out_data[1] + (out_linesize[1] * (y / 2));
+
+                int x = 0;
+#ifdef __SSE3__
+                __m128i yuv;
+                __m128i yuv2;
+                __m128i y1;
+                __m128i y2;
+                __m128i y3;
+                __m128i y4;
+                __m128i uv;
+                __m128i uv2;
+                __m128i uv3;
+                __m128i uv4;
+                __m128i ymask = _mm_set1_epi32(0xFF00FF00);
+                __m128i dsty;
+                __m128i dsty2;
+                __m128i dstuv;
+
+                for (; x < (width - 15); x += 16){
+                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
+                        src += 16;
+                        src2 += 16;
+
+                        y1 = _mm_and_si128(ymask, yuv);
+                        y1 = _mm_bsrli_si128(y1, 1);
+                        y2 = _mm_and_si128(ymask, yuv2);
+                        y2 = _mm_bsrli_si128(y2, 1);
+
+                        uv = _mm_andnot_si128(ymask, yuv);
+                        uv2 = _mm_andnot_si128(ymask, yuv2);
+
+                        uv = _mm_avg_epu8(uv, uv2);
+
+                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
+                        src += 16;
+                        src2 += 16;
+
+                        y3 = _mm_and_si128(ymask, yuv);
+                        y3 = _mm_bsrli_si128(y3, 1);
+                        y4 = _mm_and_si128(ymask, yuv2);
+                        y4 = _mm_bsrli_si128(y4, 1);
+
+                        uv3 = _mm_andnot_si128(ymask, yuv);
+                        uv4 = _mm_andnot_si128(ymask, yuv2);
+
+                        uv3 = _mm_avg_epu8(uv3, uv4);
+
+                        dsty = _mm_packus_epi16(y1, y3);
+                        dsty2 = _mm_packus_epi16(y2, y4);
+                        dstuv = _mm_packus_epi16(uv, uv3);
+                        _mm_storeu_si128((__m128i *)(void *) dst_y, dsty);
+                        _mm_storeu_si128((__m128i *)(void *) dst_y2, dsty2);
+                        _mm_storeu_si128((__m128i *)(void *) dst_cbcr, dstuv);
+                        dst_y += 16;
+                        dst_y2 += 16;
+                        dst_cbcr += 16;
+                }
+#endif
+
+                OPTIMIZED_FOR (; x < width - 1; x += 2) {
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                }
+        }
+}
+
+void
+rgba_to_bgra(unsigned char *__restrict *__restrict out_data,
+             const int *__restrict out_linesize,
+             const unsigned char *__restrict in_data, int width, int height)
+{
+        const size_t src_linesize = vc_get_linesize(width, RGBA);
+        for (size_t i = 0; i < (size_t) height; ++i) {
+                const uint8_t *in  = in_data + (i * src_linesize);
+                uint8_t       *out = out_data[0] + (i * out_linesize[0]);
+                for (int i = 0; i < width; ++i) {
+                        *out++ = in[2]; // B
+                        *out++ = in[1]; // G
+                        *out++ = in[0]; // R
+                        *out++ = in[3]; // A
+                        in += 4;
+                }
+        }
+}
+
+/**
+ * converts UYVY to planar YUV 4:2:0
+ *
+ * @sa uyvy_to_i422
+ */
+void
+uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
+             const int *__restrict out_linesize, const unsigned char *__restrict in_data,
+             int width, int height)
+{
+        size_t                     src_linesize = vc_get_linesize(width, UYVY);
+        for (size_t i = 0; i < (size_t) (height + 1) / 2; ++i) {
+                const unsigned char *in1 = in_data + (2 * i * src_linesize);
+                const unsigned char *in2 = in1 + src_linesize;
+                unsigned char       *y1 =
+                    out_data[0] + ((2ULL * i) * out_linesize[0]);
+                unsigned char *y2 = y1 + out_linesize[0];
+                unsigned char *u  = out_data[1] + (i * out_linesize[1]);
+                unsigned char *v  = out_data[2] + (i * out_linesize[2]);
+
+                // handle height % 2 == 1
+                if (i + 1 == (size_t) height) {
+                        y2  = y1;
+                        in2 = in1;
+                }
+
+                int j = 0;
+                for (; j < width / 2; ++j) {
+                        *u++  = (*in1++ + *in2++ + 1) / 2;
+                        *y1++ = *in1++;
+                        *y2++ = *in2++;
+                        *v++  = (*in1++ + *in2++ + 1) / 2;
+                        *y1++ = *in1++;
+                        *y2++ = *in2++;
+                }
+                if (width % 2 == 1) { // do not overwrite EOL
+                        *u++  = (*in1++ + *in2++ + 1) / 2;
+                        *y1++ = *in1++;
+                        *y2++ = *in2++;
+                        *v++  = (*in1++ + *in2++ + 1) / 2;
                 }
         }
 }

@@ -95,22 +95,24 @@ struct video_frame_sdl3_data {
 };
 
 static void convert_UYVY_IYUV(const struct video_frame *uv_frame,
-                              char *tex_data, size_t y_pitch);
+                              unsigned char *tex_data, size_t y_pitch);
+static void convert_UYVY_NV12(const struct video_frame *uv_frame,
+                              unsigned char *tex_data, size_t y_pitch);
 static void convert_R10k_ARGB2101010(const struct video_frame *uv_frame,
-                                     char *tex_data, size_t y_pitch);
+                                     unsigned char *tex_data, size_t y_pitch);
 static void convert_R10k_ABGR2101010(const struct video_frame *uv_frame,
-                                     char *tex_data, size_t y_pitch);
+                                     unsigned char *tex_data, size_t y_pitch);
 static void convert_RGBA_BGRA(const struct video_frame *uv_frame,
-                                     char *tex_data, size_t y_pitch);
-static void convert_Y216_P010(const struct video_frame *uv_frame, char *tex_data,
-                          size_t y_pitch);
-static void convert_v210_P010(const struct video_frame *uv_frame, char *tex_data,
-                          size_t y_pitch);
+                              unsigned char *tex_data, size_t y_pitch);
+static void convert_Y216_P010(const struct video_frame *uv_frame,
+                              unsigned char *tex_data, size_t y_pitch);
+static void convert_v210_P010(const struct video_frame *uv_frame,
+                              unsigned char *tex_data, size_t y_pitch);
 struct fmt_data {
         codec_t              ug_codec;
         enum SDL_PixelFormat sdl_tex_fmt;
-        void (*convert)(const struct video_frame *uv_frame, char *tex_data,
-                        size_t tex_pitch);
+        void (*convert)(const struct video_frame *uv_frame,
+                        unsigned char *tex_data, size_t tex_pitch);
 };
 // order matters relative to fixed ug codec - first usable SDL fmt is used
 static const struct fmt_data pf_mapping_template[] = {
@@ -121,6 +123,7 @@ static const struct fmt_data pf_mapping_template[] = {
         { RGBA, SDL_PIXELFORMAT_BGRX32,      convert_RGBA_BGRA        }, // gles2,ogl,gpu,sw,vk,d3d12
         { UYVY, SDL_PIXELFORMAT_UYVY,        NULL                     }, // mac ogl
         { UYVY, SDL_PIXELFORMAT_IYUV,        convert_UYVY_IYUV        }, // fallback
+        { UYVY, SDL_PIXELFORMAT_NV12,        convert_UYVY_NV12        }, // ditto
         { YUYV, SDL_PIXELFORMAT_YUY2,        NULL                     },
         { RGB,  SDL_PIXELFORMAT_RGB24,       NULL                     },
         { BGR,  SDL_PIXELFORMAT_BGR24,       NULL                     },
@@ -230,7 +233,7 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
 
         int pitch = 0;
         if (s->cs_data->convert != NULL) {
-                char *tex_data = NULL;
+                unsigned char *tex_data = NULL;
                 SDL_CHECK(SDL_LockTexture(frame_data->texture, NULL,
                                           (void **) &tex_data, &pitch));
                 s->cs_data->convert(frame, tex_data, pitch);
@@ -1093,8 +1096,8 @@ display_sdl3_getf(void *state)
 }
 
 static void
-convert_R10k_ARGB2101010(const struct video_frame *uv_frame, char *tex_data,
-                  size_t pitch)
+convert_R10k_ARGB2101010(const struct video_frame *uv_frame,
+                         unsigned char *tex_data, size_t pitch)
 {
         assert(pitch == (size_t) uv_frame->tiles[0].width * 4);
         assert((uintptr_t) uv_frame->tiles[0].data % 4 == 0);
@@ -1121,8 +1124,8 @@ convert_R10k_ARGB2101010(const struct video_frame *uv_frame, char *tex_data,
 }
 
 static void
-convert_R10k_ABGR2101010(const struct video_frame *uv_frame, char *tex_data,
-                  size_t pitch)
+convert_R10k_ABGR2101010(const struct video_frame *uv_frame,
+                         unsigned char *tex_data, size_t pitch)
 {
         const size_t src_linesize = vc_get_linesize(uv_frame->tiles[0].width, R10k);
         for (unsigned i = 0; i < uv_frame->tiles[0].height; ++i) {
@@ -1142,58 +1145,45 @@ convert_R10k_ABGR2101010(const struct video_frame *uv_frame, char *tex_data,
 }
 
 static void
-convert_RGBA_BGRA(const struct video_frame *uv_frame, char *tex_data,
+convert_RGBA_BGRA(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t pitch)
 {
-        const size_t src_linesize = vc_get_linesize(uv_frame->tiles[0].width, RGBA);
-        for (unsigned i = 0; i < uv_frame->tiles[0].height; ++i) {
-                const uint8_t *in =
-                    (uint8_t *) uv_frame->tiles[0].data + (i * src_linesize);
-                uint8_t *out = (uint8_t *) tex_data + (i * pitch);
-                for (unsigned i = 0; i < uv_frame->tiles[0].width ; ++i) {
-                        *out++ = in[2]; // B
-                        *out++ = in[1]; // G
-                        *out++ = in[0]; // R
-                        *out++ = in[3]; // A
-                        in += 4;
-                }
-        }
+        unsigned char *out_data[2]   = { tex_data, 0 };
+        int out_linesize[2] = { (int) pitch, 0 };
+        rgba_to_bgra(
+            out_data, out_linesize, (unsigned char *) uv_frame->tiles[0].data,
+            (int) uv_frame->tiles[0].width, (int) uv_frame->tiles[0].height);
 }
 
 static void
-convert_UYVY_IYUV(const struct video_frame *uv_frame, char *tex_data,
+convert_UYVY_IYUV(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
-        size_t cr_pitch = (y_pitch + 1) / 2;
-        char  *ubase    = tex_data + (y_pitch * uv_frame->tiles[0].height);
-        char  *vbase =
-            ubase + (cr_pitch * ((uv_frame->tiles[0].height + 1) / 2));
-        const char *in = uv_frame->tiles[0].data;
-        for (unsigned i = 0; i < (uv_frame->tiles[0].height + 1) / 2; ++i) {
-                char *y1 = tex_data + ((2ULL * i) * y_pitch);
-                char *y2 = y1 + y_pitch;
-                char *u  = ubase + (i * cr_pitch);
-                char *v  = vbase + (i * cr_pitch);
-                for (unsigned j = 0; j < (uv_frame->tiles[0].width + 1) / 2;
-                     ++j) {
-                        *u++  = *in++;
-                        *y1++ = *in++;
-                        *v++  = *in++;
-                        *y1++ = *in++;
-                }
-                // last line when height % 2 == 1
-                if (i * 2 + 1 == uv_frame->tiles[0].height) {
-                        break;
-                }
-                // take just lumas from second
-                for (unsigned j = 0; j < (uv_frame->tiles[0].width + 1) / 2;
-                     ++j) {
-                        in++; // drop U
-                        *y2++ = *in++;
-                        in++; // drop V
-                        *y2++ = *in++;
-                }
-        }
+        const size_t y_h = uv_frame->tiles[0].height;
+        const size_t chr_h = (y_h + 1) / 2;
+        int          out_linesize[3] = { (int) y_pitch,
+                                         (int) (y_pitch + 1) / 2,
+                                         (int) (y_pitch + 1) / 2 };
+        unsigned char *out_data[3] = { tex_data,
+                                       tex_data + (y_h * out_linesize[0]),
+                                       tex_data + (y_h * out_linesize[0]) +
+                                           (chr_h * out_linesize[1]) };
+        uyvy_to_i420(
+            out_data, out_linesize, (unsigned char *) uv_frame->tiles[0].data,
+            (int) uv_frame->tiles[0].width, (int) uv_frame->tiles[0].height);
+}
+
+static void
+convert_UYVY_NV12(const struct video_frame *uv_frame, unsigned char *tex_data,
+                  size_t y_pitch)
+{
+        unsigned char *out_data[2] = {
+                tex_data, tex_data + (y_pitch * uv_frame->tiles[0].height)
+        };
+        int out_linesize[2] = { (int) y_pitch, (int) ((y_pitch + 1) / 2) * 2 };
+        uyvy_to_nv12(
+            out_data, out_linesize, (unsigned char *) uv_frame->tiles[0].data,
+            (int) uv_frame->tiles[0].width, (int) uv_frame->tiles[0].height);
 }
 
 /**
@@ -1201,30 +1191,30 @@ convert_UYVY_IYUV(const struct video_frame *uv_frame, char *tex_data,
  * currently seem to work only on Metal
  */
 static void
-convert_Y216_P010(const struct video_frame *uv_frame, char *tex_data,
+convert_Y216_P010(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
-        char *out_data[2] = {
+        unsigned char *out_data[2] = {
                 tex_data, tex_data + (y_pitch * uv_frame->tiles[0].height)
         };
         int out_linesize[2] = { (int) y_pitch, (int) ((y_pitch + 1) / 2) * 2 };
-        y216_to_p010le(out_data, out_linesize, uv_frame->tiles[0].data,
-                       (int) uv_frame->tiles[0].width,
-                       (int) uv_frame->tiles[0].height);
+        y216_to_p010le(
+            out_data, out_linesize, (unsigned char *) uv_frame->tiles[0].data,
+            (int) uv_frame->tiles[0].width, (int) uv_frame->tiles[0].height);
 }
 
 /// @copydoc convert_Y216_P010
 static void
-convert_v210_P010(const struct video_frame *uv_frame, char *tex_data,
+convert_v210_P010(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
-        char *out_data[2] = {
+        unsigned char *out_data[2] = {
                 tex_data, tex_data + (y_pitch * uv_frame->tiles[0].height)
         };
         int out_linesize[2] = { (int) y_pitch, (int) ((y_pitch + 1) / 2) * 2 };
-        v210_to_p010le(out_data, out_linesize, uv_frame->tiles[0].data,
-                       (int) uv_frame->tiles[0].width,
-                       (int) uv_frame->tiles[0].height);
+        v210_to_p010le(
+            out_data, out_linesize, (unsigned char *) uv_frame->tiles[0].data,
+            (int) uv_frame->tiles[0].width, (int) uv_frame->tiles[0].height);
 }
 
 static bool
