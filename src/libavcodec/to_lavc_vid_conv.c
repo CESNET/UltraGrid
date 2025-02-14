@@ -552,6 +552,16 @@ to_lavc_v210_to_p010le(AVFrame *__restrict out_frame,
                        width, height);
 }
 
+static void
+to_lavc_y216_to_p010le(AVFrame *__restrict out_frame,
+                       const unsigned char *__restrict in_data, int width,
+                       int height)
+{
+        char *out_data[2] = { (char *) out_frame->data[0], (char *) out_frame->data[1]};
+        y216_to_p010le(out_data, out_frame->linesize, (const char *) in_data,
+                       width, height);
+}
+
 #if P210_PRESENT
 static void v210_to_p210le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
@@ -1289,6 +1299,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RG48, AV_PIX_FMT_YUV444P12LE, rg48_to_yuv444p12le },
                 { RG48, AV_PIX_FMT_YUV444P16LE, rg48_to_yuv444p16le },
                 { v210, AV_PIX_FMT_P010LE,      to_lavc_v210_to_p010le },
+                { Y216, AV_PIX_FMT_P010LE,      to_lavc_y216_to_p010le },
 #if P210_PRESENT
                 { v210, AV_PIX_FMT_P210LE,      v210_to_p210le },
 #endif

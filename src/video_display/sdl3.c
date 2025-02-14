@@ -1194,27 +1194,13 @@ static void
 convert_Y216_P010(const struct video_frame *uv_frame, char *tex_data,
                   size_t y_pitch)
 {
-        char *const  dst_chr = tex_data + (y_pitch * uv_frame->tiles[0].height);
-        const size_t src_linesize =
-            vc_get_linesize(uv_frame->tiles[0].width, Y216);
-        for (size_t  i = 0; i < uv_frame->tiles[0].height / 2; ++i) {
-                const uint16_t *in = (const void *) (uv_frame->tiles[0].data +
-                                                     (2 * i * src_linesize));
-                uint16_t       *out_y = (void *) (tex_data + (2 * i * y_pitch));
-                uint16_t       *out_chr = (void *) (dst_chr + (i * y_pitch));
-                for (unsigned j = 0; j < uv_frame->tiles[0].width / 2; ++j) {
-                        *out_y++   = *in++; // Y1
-                        *out_chr++ = *in++; // Cb
-                        *out_y++   = *in++; // Y2
-                        *out_chr++ = *in++; // Cr
-                }
-                for (unsigned j = 0; j < uv_frame->tiles[0].width / 2; ++j) {
-                        *out_y++ = *in++; // Y1
-                        in++;             // Cb
-                        *out_y++ = *in++; // Y2
-                        in++;             // Cr
-                }
-        }
+        char *out_data[2] = {
+                tex_data, tex_data + (y_pitch * uv_frame->tiles[0].height)
+        };
+        int out_linesize[2] = { (int) y_pitch, (int) ((y_pitch + 1) / 2) * 2 };
+        y216_to_p010le(out_data, out_linesize, uv_frame->tiles[0].data,
+                       (int) uv_frame->tiles[0].width,
+                       (int) uv_frame->tiles[0].height);
 }
 
 /// @copydoc convert_Y216_P010
