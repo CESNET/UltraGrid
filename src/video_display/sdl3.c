@@ -80,7 +80,7 @@
 
 struct state_sdl3;
 
-static void show_help(const char *driver);
+static void show_help(const char *driver, bool full);
 static void display_frame(struct state_sdl3 *s, struct video_frame *frame);
 static struct video_frame *display_sdl3_getf(void *state);
 static void                display_sdl3_new_message(struct module *mod);
@@ -146,6 +146,7 @@ struct state_sdl3 {
         int           x;
         int           y;
         char          req_renderers_name[STR_LEN];
+        SDL_BlendMode req_blend_mode; // SDL_BLENDMODE_NONE == 0
         SDL_Window   *window;
         SDL_Renderer *renderer;
 
@@ -469,7 +470,7 @@ static SDL_DisplayID get_display_id_to_idx(int idx)
 }
 
 static void
-show_help(const char *driver)
+show_help(const char *driver, bool full)
 {
         if (driver != NULL) {
                 SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver);
@@ -481,7 +482,7 @@ show_help(const char *driver)
                         "renderer=<name[s]>|:nodecorate|:size[=WxH]|:window_"
                         "flags=<f>|:keep-aspect]*]") "\n");
         color_printf(TBOLD(
-            "\t-d sdl[:driver=<drv>]:help") "\n");
+            "\t-d sdl[:driver=<drv>]:[full]help") "\n");
         printf("where:\n");
         color_printf(TBOLD(
             "\td[force]") " - deinterlace (force even for progresive video)\n");
@@ -515,6 +516,10 @@ show_help(const char *driver)
                 }
         }
         printf("\n");
+        if (full) {
+                color_printf(TBOLD("   blend[=<val>]") " - set alpha blending "
+                                                       "(default is opaque)\n");
+        }
         if (driver == NULL) {
                 color_printf(
                     TBOLD("*") " available values depend on the driver "
@@ -694,6 +699,7 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                 }
                 SDL_Texture *texture =
                     SDL_CreateTextureWithProperties(s->renderer, prop);
+                SDL_SetTextureBlendMode(texture, s->req_blend_mode);
                 SDL_DestroyProperties(prop);
                 if (!texture) {
                         log_msg(LOG_LEVEL_ERROR,
@@ -911,8 +917,8 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         ;
                 } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
-                } else if (IS_PREFIX(tok, "help")) {
-                        show_help(driver);
+                } else if (IS_PREFIX(tok, "help") || strcmp(tok, "fullhelp") == 0) {
+                        show_help(driver, strcmp(tok, "fullhelp") == 0);
                         free(s);
                         return INIT_NOERR;
                 } else if (IS_PREFIX(tok, "novsync")) {
@@ -957,6 +963,10 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_KEY_PREFIX(tok, "renderer")) {
                         snprintf_ch(s->req_renderers_name, "%s",
                                     strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "blend")) {
+                        s->req_blend_mode = atoi(strchr(tok, '=') + 1);
+                } else if (strcmp(tok, "blend") == 0) {
+                        s->req_blend_mode = SDL_BLENDMODE_BLEND;
                 } else {
                         MSG(ERROR, "Wrong option: %s\n", tok);
                         free(s);
