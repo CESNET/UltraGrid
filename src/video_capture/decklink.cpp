@@ -516,9 +516,11 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 {
 	col() << "\nDeckLink options:\n";
         col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
-              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << "\n";
+              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << " | "
+              << SBOLD(SRED("-t decklink") << ":help=FourCC") << "\n";
         col() << SBOLD(SRED("\t-t decklink")
-                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<colorspace>...<key>=<"
+                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<"
+                          "colorspace>...<key>=<"
                           "val>}*")
               << "\n";
         col() << SBOLD(SRED("\t-t decklink")
@@ -692,6 +694,12 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                        << " -t decklink:d=\"DeckLink 8K Pro (1)\":profile=1dfd")
               << " # capture from 8K Pro and set profile to 1-subdevice "
                  "full-duplex (useful for 3D capture)\n";
+        col() << "\t"
+              << SBOLD(uv_argv[0] << " -t "
+                                     "decklink:d=670600:con=Ethernet:DHCP=no:"
+                                     "nsip=10.0.0.3:nssm=255.255.255.0")
+              << " # DeckLink IP (identified by topological ID), use \""
+              << SBOLD(":help=FourCC") << "\" for list of options\n";
 
         printf("\n");
 

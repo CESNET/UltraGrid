@@ -971,7 +971,7 @@ bmd_opt_help()
         color_printf(TBOLD("aacl=on") " - set audio consumer levels (flag)\n");
         color_printf(TBOLD("voio=blac") " - display black when no output\n");
         color_printf(TBOLD("DHCP=yes") " - use DHCP config for DeckLink IP\n");
-        color_printf(TBOLD(
+        color_printf(TBOLD("DHCP=no:"
             "nsip=10.0.0.3:nssm=255.255.255.0:nsgw=10.0.0.1") " - use static "
                                                               "net config for "
                                                               "DeckLink IP\n");

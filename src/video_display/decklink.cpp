@@ -557,8 +557,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                        << "[:d[evice]=<device>][:Level{A|B}][:3D][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help") << " | "
-              << SBOLD(SRED("-d decklink") << ":query=<FourCC>"
-                                              "\n");
+              << SBOLD(SRED("-d decklink") << ":query=<FourCC>") << " | "
+              << SBOLD(SRED("-d decklink") << ":help=FourCC")
+                                              << "\n";
         col() << "\nOptions:\n";
         if (!full) {
                 col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
@@ -671,6 +672,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         if (!full) {
                 col() << "(use \"" << SBOLD("fullhelp") << "\" to see device modes)\n";
         }
+        col() << "(see also \"" << SBOLD("-t decklink:help")
+              << "\" for examples and other information)\n";
 
         decklink_uninitialize(&com_initialized);
 
