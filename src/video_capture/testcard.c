@@ -12,7 +12,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2024 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -317,7 +317,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
         if (pam_read(filename, &info, &data, malloc) == 0) {
                 return false;
         }
-        switch (info.depth) {
+        switch (info.ch_count) {
                 case 3:
                         desc->color_spec = info.maxval == 255 ? RGB : RG48;
                         break;
@@ -325,7 +325,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
                         desc->color_spec = RGBA;
                         break;
                 default:
-                        log_msg(LOG_LEVEL_ERROR, "Unsupported PAM/PNM channel count %d!\n", info.depth);
+                        log_msg(LOG_LEVEL_ERROR, "Unsupported PAM/PNM channel count %d!\n", info.ch_count);
                         return 0;
         }
         desc->width = info.width;
