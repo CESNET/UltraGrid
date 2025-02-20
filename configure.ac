@@ -3208,7 +3208,7 @@ fi
 if test "$FOUND_CINEFORM" = yes; then
         CINEFORM_CFLAGS="$CINEFORM_CFLAGS -I${CINEFORM_PATH}/Common/"
 
-        if test $system != Windows
+        if test "$system" = Linux
         then
                 CINEFORM_LIBS="${CINEFORM_LIBS} -luuid"
         fi
