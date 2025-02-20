@@ -626,14 +626,9 @@ struct video_frame *get_splashscreen()
 {
         struct video_desc desc;
 
-        enum {
-                FBUF_W  = 512,
-                FBUF_H  = 512,
-                FBUF_CS = RGBA,
-        };
-        desc.width       = FBUF_W;
-        desc.height      = FBUF_H;
-        desc.color_spec  = (codec_t) FBUF_CS;
+        desc.width       = splash_width;
+        desc.height      = splash_height;
+        desc.color_spec  = RGBA;
         desc.interlacing = PROGRESSIVE;
         desc.fps = 1;
         desc.tile_count = 1;
@@ -644,8 +639,7 @@ struct video_frame *get_splashscreen()
         memset(frame->tiles[0].data, 0, frame->tiles[0].data_len);
         // center the pixture; framebuffer size must be greater or equal
         // the splash size
-        _Static_assert(splash_width >= FBUF_W && splash_height >= FBUF_H,
-                       "framebuffer smaller than splash size");
+        assert(splash_width <= desc.width && splash_height <= desc.height);
         for (unsigned int y = 0; y < splash_height; ++y) {
                 char *line = frame->tiles[0].data;
                 line += vc_get_linesize(frame->tiles[0].width,
@@ -654,7 +648,7 @@ struct video_frame *get_splashscreen()
                 line += vc_get_linesize(
                                 (frame->tiles[0].width - splash_width)/2,
                                 frame->color_spec);
-                _Static_assert((codec_t) FBUF_CS == RGBA, "RGBA is expected");
+                assert(desc.color_spec == RGBA);
                 for (unsigned int x = 0; x < splash_width; ++x) {
                         HEADER_PIXEL(data,line);
                         line[3] = 0xFF; // alpha
