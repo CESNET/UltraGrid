@@ -80,6 +80,7 @@ static void audio_cap_sdl_mixer_probe(struct device_info **available_devices, in
 
 static void sdl_mixer_audio_callback(int chan, void *stream, int len, void *udata)
 {
+        // printf("%d\n", len);
         UNUSED(chan);
         struct state_sdl_mixer_capture *s = udata;
 
@@ -209,7 +210,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
         if( Mix_OpenAudio(SDL_MIXER_SAMPLE_RATE, audio_format,
-                                s->audio.ch_count, 4096 ) == -1 ) {
+                                s->audio.ch_count, 1024 ) == -1 ) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
                 goto error;
         }

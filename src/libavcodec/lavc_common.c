@@ -380,7 +380,9 @@ avc_get_supported_pix_fmts(const AVCodecContext *ctx, const AVCodec *codec)
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
         return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_PIX_FORMAT);
 #else
-        (void) ctx;
+        if (ctx != NULL) {
+          return ctx->codec->pix_fmts;
+        }
         return codec->pix_fmts;
 #endif
 }
@@ -391,7 +393,9 @@ avc_get_supported_sample_fmts(const AVCodecContext *ctx, const AVCodec *codec)
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
         return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT);
 #else
-        (void) ctx;
+        if (ctx != NULL) {
+          return ctx->codec->sample_fmts;
+        }
         return codec->sample_fmts;
 #endif
 }
@@ -401,7 +405,9 @@ const int *avc_get_supported_sample_rates(const AVCodecContext *ctx, const AVCod
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
         return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_SAMPLE_RATE);
 #else
-        (void) ctx;
+        if (ctx != NULL) {
+          return ctx->codec->supported_samplerates;
+        }
         return codec->supported_samplerates;
 #endif
 }
