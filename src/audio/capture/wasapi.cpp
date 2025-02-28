@@ -232,7 +232,12 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 } else if (strcmp(cfg, "loopback") == 0) {
                         index = IDX_LOOP;
                 } else {
-                        mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
+                        const char *uuid = cfg;
+                        mbstate_t state{};
+                        mbsrtowcs(deviceID, &uuid,
+                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
+                                  &state);
+                        assert(uuid == NULL);
                 }
         }
         auto s = new state_acap_wasapi();

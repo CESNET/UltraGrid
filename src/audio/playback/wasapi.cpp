@@ -203,7 +203,12 @@ static void * audio_play_wasapi_init(const char *cfg)
                 if (isdigit(cfg[0])) {
                         index = atoi(cfg);
                 } else {
-                        mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
+                        const char *uuid = cfg;
+                        mbstate_t state{};
+                        mbsrtowcs(deviceID, &uuid,
+                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
+                                  &state);
+                        assert(uuid == NULL);
                 }
         }
         auto s = new state_aplay_wasapi();
