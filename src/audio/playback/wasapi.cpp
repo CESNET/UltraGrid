@@ -35,8 +35,9 @@
 #include <cctype>                  // for isdigit
 #include <combaseapi.h>            // for CoTaskMemFree, CoCreateInstance
 #include <cstdio>                  // for snprintf
-#include <cstdlib>                 // for NULL, atoi, malloc, mbtowc, realloc
+#include <cstdlib>                 // for NULL, atoi, malloc, realloc
 #include <cstring>                 // for memset, strcmp, strlen, wcslen
+#include <cwchar>                  // for mbsrtowcs
 #include <iostream>
 #include <ksmedia.h>               // for KSAUDIO_SPEAKER_5POINT1_SURROUND
 #include <mediaobj.h>              // for REFERENCE_TIME
@@ -218,7 +219,12 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                 if (isdigit(opts->cfg[0])) {
                         index = atoi(opts->cfg);
                 } else {
-                        mbtowc(deviceID, opts->cfg, (sizeof deviceID / 2) - 1);
+                        const char *uuid = opts->cfg;
+                        mbstate_t state{};
+                        mbsrtowcs(deviceID, &uuid,
+                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
+                                  &state);
+                        assert(uuid == NULL);
                 }
         }
         auto s = new state_aplay_wasapi();

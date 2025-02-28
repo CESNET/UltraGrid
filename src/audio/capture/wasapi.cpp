@@ -26,14 +26,16 @@
  */
 
 
+#include <assert.h>               // for assert
 #include <audiosessiontypes.h>    // for AUDCLNT_STREAMFLAGS_LOOPBACK, _AUDC...
 #include <audioclient.h>
 #include <basetsd.h>              // for HRESULT, UINT, LPWSTR, GUID, UINT32
 #include <cctype>                 // for isdigit
 #include <cstdio>                 // for mesnprintf
-#include <cstdlib>                // for realloc, atoi, malloc, mbtowc, free
+#include <cstdlib>                // for realloc, atoi, malloc, free
 #include <cstring>                // for NULL, memset, strcmp, strlen, wcslen
 #include <combaseapi.h>           // for CoTaskMemFree, CoCreateInstance
+#include <cwchar>                 // for mbsrtowcs
 #include <guiddef.h>              // for IsEqualGUID
 #include <iomanip>
 #include <iostream>
@@ -248,7 +250,12 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 } else if (strcmp(cfg, "loopback") == 0) {
                         index = IDX_LOOP;
                 } else {
-                        mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
+                        const char *uuid = cfg;
+                        mbstate_t state{};
+                        mbsrtowcs(deviceID, &uuid,
+                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
+                                  &state);
+                        assert(uuid == NULL);
                 }
         }
         auto s = new state_acap_wasapi();
