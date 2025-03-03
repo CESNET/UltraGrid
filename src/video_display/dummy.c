@@ -40,6 +40,7 @@
 #include "config_win32.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -79,6 +80,7 @@ struct dummy_display_state {
 
         size_t dump_bytes;
         _Bool dump_to_file;
+        bool discard;       ///< do not recycle frame
         _Bool oneshot;
         _Bool raw;
         int dump_to_file_skip_frames;
@@ -137,6 +139,8 @@ static _Bool dummy_parse_opts(struct dummy_display_state *s, char *fmt) {
                         s->oneshot = 1;
                 } else if (strcmp(item, "raw") == 0) {
                         s->raw = 1;
+                } else if (strcmp(item, "discard") == 0) {
+                        s->discard = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
                         return 0;
@@ -161,6 +165,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
                         { "dump[:skip=<n>][:oneshot][:raw]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture; 'raw' - dump raw data" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
+                        { "discard", "realloc every frame (do not recycle)" },
                         { NULL, NULL }
                 };
                 print_module_usage("-d dummy", options, NULL, 0);
@@ -197,7 +202,11 @@ static void display_dummy_done(void *state)
 
 static struct video_frame *display_dummy_getf(void *state)
 {
-        return ((struct dummy_display_state *) state)->f;
+        struct dummy_display_state *s = state;
+        if (s->discard) {
+                return vf_alloc_desc_data(video_desc_from_frame(s->f));
+        }
+        return s->f;
 }
 
 static void dump_buf(unsigned char *buf, size_t len, int block_size) {
@@ -213,10 +222,13 @@ static void dump_buf(unsigned char *buf, size_t len, int block_size) {
 
 static bool display_dummy_putf(void *state, struct video_frame *frame, long long flags)
 {
+        struct dummy_display_state *s = state;
         if (flags == PUTF_DISCARD || frame == NULL) {
+                if (s->discard) {
+                        vf_free(frame);
+                }
                 return true;
         }
-        struct dummy_display_state *s = state;
         if (s->dump_bytes > 0) {
                 dump_buf((unsigned char *)(frame->tiles[0].data), MIN(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_bytes(frame->color_spec));
         }
@@ -233,6 +245,9 @@ static bool display_dummy_putf(void *state, struct video_frame *frame, long long
                                 exit_uv(0);
                         }
                 }
+        }
+        if (s->discard) {
+                vf_free(frame);
         }
 
         return true;
