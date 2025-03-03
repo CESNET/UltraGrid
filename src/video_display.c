@@ -351,6 +351,7 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
                 MIN_FPS_PERC_WARN  = 98,
                 MIN_FPS_PERC_WARN2 = 90,
         };
+        const double frame_fps = frame->fps;
         bool ret = d->funcs->putf(d->state, frame, timeout_ns);
         if (!d->funcs->generic_fps_indicator_prefix) {
                 return ret;
@@ -364,7 +365,7 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
         if (seconds_ns > 5 * NS_IN_SEC) {
                 const double seconds = (double) seconds_ns / NS_IN_SEC;
                 const double fps      = d->frames / seconds;
-                const char *const fps_col  = get_stat_color(fps / frame->fps);
+                const char *const fps_col  = get_stat_color(fps / frame_fps);
 
                 log_msg(LOG_LEVEL_INFO,
                         TERM_BOLD TERM_FG_MAGENTA
