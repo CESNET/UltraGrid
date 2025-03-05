@@ -180,6 +180,8 @@ struct message *check_message(struct module *);
 
 void free_message_for_child(void *m, struct response *r);
 
+void send_compess_change(struct module *mod, const char *compression);
+
 #ifdef __cplusplus
 }
 #endif

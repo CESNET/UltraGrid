@@ -122,15 +122,7 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 		if (m_sent_compress_change) {
 			return;
 		}
-		auto msg = (struct msg_change_compress_data *)
-			new_message(sizeof(struct msg_change_compress_data));
-		msg->what = CHANGE_COMPRESS;
-		strncpy(msg->config_string, DEFAULT_SDP_COMPRESSION, sizeof(msg->config_string) - 1);
-
-		const char *path = "sender.compress";
-                auto *resp = send_message(get_root_module(m_common.parent), path,
-                                         (struct message *) msg);
-		free_response(resp);
+		send_compess_change(m_common.parent, DEFAULT_SDP_COMPRESSION);
 		m_sent_compress_change = true;
 		return;
         }

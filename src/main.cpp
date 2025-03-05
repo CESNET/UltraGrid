@@ -1072,16 +1072,10 @@ static int adjust_params(struct ug_options *opt) {
         }
 
         // default values for different RXTX protocols
-        if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
-                if (opt->requested_compression == nullptr) {
-                        if (strcasecmp(opt->video_protocol, "rtsp") == 0) {
-                                opt->requested_compression = "lavc:enc=libx264:safe";
-                        } else {
-                                opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
-                        }
-                }
-        } else {
-                if (opt->requested_compression == nullptr) {
+        if (opt->requested_compression == nullptr) {
+                if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
+                        opt->requested_compression = "none"; // will be set later by video_rxtx::send_frame()
+                } else {
                         opt->requested_compression = DEFAULT_VIDEO_COMPRESSION;
                 }
         }

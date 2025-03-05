@@ -37,6 +37,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -55,6 +56,7 @@
 #include "module.h"
 #include "utils/list.h"
 #include "utils/lock_guard.h"
+#include "utils/macros.h"        // for snprintf_ch
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
@@ -402,3 +404,21 @@ struct message *check_message(struct module *mod)
         }
 }
 
+/**
+ * send compress change
+ * @param mod         any module that can reach the root module
+ * @param compression compression to be used
+ */
+void
+send_compess_change(struct module *mod, const char *compression)
+{
+        auto *msg = (struct msg_change_compress_data *) new_message(
+            sizeof(struct msg_change_compress_data));
+        msg->what = CHANGE_COMPRESS;
+        snprintf_ch(msg->config_string, "%s", compression);
+
+        const char *path = "sender.compress";
+        auto       *resp =
+            send_message(get_root_module(mod), path, (struct message *) msg);
+        free_response(resp);
+}
