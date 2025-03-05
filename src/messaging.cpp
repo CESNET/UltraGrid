@@ -6,7 +6,7 @@
  * UltraGrid modules.
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,19 +38,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include "messaging.h"
 
+#include <cassert>             // for assert
+#include <chrono>              // for milliseconds
 #include <condition_variable>
-#include <iostream>
+#include <cstdio>              // for printf
+#include <cstdlib>             // for free, malloc, calloc
 #include <memory>
 #include <mutex>
+#include <pthread.h>           // for pthread_mutex_unlock, pthread_mutex_lock
 #include <unordered_map>
+#include <utility>             // for pair
 
 #include "debug.h"
 #include "module.h"
