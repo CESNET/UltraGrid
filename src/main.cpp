@@ -493,7 +493,7 @@ struct ug_options {
                 // will be adjusted later
                 audio.recv_port = -1;
                 audio.send_port = -1;
-                audio.codec_cfg = "PCM";
+                audio.codec_cfg = nullptr;
                 common.mtu = 0;
         }
         ~ug_options() {
