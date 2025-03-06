@@ -33,38 +33,12 @@ sudo apt install libasound-dev libcaca-dev libjack-jackd2-dev libnatpmp-dev libv
 sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-openssl-dev # for RTSP client (vidcap)
 sudo apt install i965-va-driver-shaders libva-dev # instead of i965-va-driver
-sudo apt-mark hold libva2
-sudo apt install uuid-dev # Cineform
-
-(
-        . /etc/os-release
-        if [ "$ID" != ubuntu ] || [ "$VERSION_ID" != 20.04 ]; then
-                exit
-        fi
-        sudo apt install gcc-10 g++-10
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
-
-        # FFmpeg deps
-        for i in $(seq 10); do
-                [ "$i" -gt 1 ] && sleep $((2**i))
-                # openh264, new x265
-                sudo add-apt-repository --yes ppa:savoury1/ffmpeg4 && err=0 && break || err=$?
-        done
-        (exit "$err")
-)
 
 get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (BRE alternation)
         apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
 }
-sudo apt build-dep libsdl2
-sdl2_mix_build_dep=$(get_build_deps_excl libsdl2-mixer libsdl2-dev)
-sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
-# shellcheck disable=SC2086 # intentional
-sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
-# for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libva-dev')
+ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'nonexistent-placeholder')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
         libopenh264-dev libvulkan-dev
