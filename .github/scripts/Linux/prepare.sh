@@ -44,6 +44,14 @@ sudo apt install uuid-dev # Cineform
         sudo apt install gcc-10 g++-10
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
+
+        # FFmpeg deps
+        for i in $(seq 10); do
+                [ "$i" -gt 1 ] && sleep $((2**i))
+                # openh264, new x265
+                sudo add-apt-repository --yes ppa:savoury1/ffmpeg4 && err=0 && break || err=$?
+        done
+        (exit "$err")
 )
 
 get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (BRE alternation)
@@ -55,13 +63,6 @@ sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
 # shellcheck disable=SC2086 # intentional
 sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
-# FFmpeg deps
-for i in $(seq 10); do
-        [ "$i" -gt 1 ] && sleep $((2**i))
-        # openh264, new x265
-        sudo add-apt-repository --yes ppa:savoury1/ffmpeg4 && err=0 && break || err=$?
-done
-(exit "$err")
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libva-dev')
 # shellcheck disable=SC2086 # intentional
