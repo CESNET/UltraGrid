@@ -76,7 +76,9 @@ static const char *portaudio_get_device_details(PaDeviceIndex device) {
         assert(device >= 0 && device < Pa_GetDeviceCount());
         const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
         _Thread_local static char buffer[1024];
-        snprintf(buffer, sizeof buffer, "(output channels: %d; input channels: %d; %s)", device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        snprintf(buffer, sizeof buffer, "(max chan in: %d, out: %d; %s)",
+                 device_info->maxInputChannels, device_info->maxOutputChannels,
+                 portaudio_get_api_name(device));
         return buffer;
 }
 
