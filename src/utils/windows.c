@@ -56,7 +56,7 @@ bool com_initialize(bool *com_initialized, const char *err_prefix)
         }
         *com_initialized = false;
         // Initialize COM on this thread
-        HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        HRESULT result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
         if (SUCCEEDED(result)) {
                 *com_initialized = true;
                 return true;
