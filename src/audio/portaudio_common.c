@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,14 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <assert.h>           // for assert
 #include <portaudio.h>
 #include <stdbool.h>
+#include <stdio.h>            // for snprintf, printf, NULL
+#include <stdlib.h>           // for calloc
+#include <string.h>           // for strncpy, strstr
 
 #include "debug.h"
 #include "portaudio_common.h"
