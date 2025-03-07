@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -156,15 +156,18 @@ parse_fmt(const char *cfg, int *input_device_idx,
         return 1;
 }
 
-static void audio_play_portaudio_help(void) {
+static void
+audio_play_portaudio_help(bool full)
+{
         printf("PortAudio playback usage:\n");
+        color_printf("\t" TBOLD("-s portaudio:[full]help") "\n");
         color_printf("\t" TBOLD(TRED("-r portaudio") "[:<index>]") "\n");
         printf("or\n");
         color_printf("\t" TBOLD(TRED("-r portaudio") "[:device=<dev>]") "\n\n");
         printf("options:\n");
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
-        printf("\nAvailable PortAudio playback devices:\n");
-        portaudio_print_help(PORTAUDIO_OUT);
+        printf("\n");
+        portaudio_print_help(PORTAUDIO_OUT, full);
 }
 
 static void *
@@ -174,9 +177,10 @@ audio_play_portaudio_init(const struct audio_playback_opts *opts)
         char output_device_name[STR_LEN] = "";
 
         portaudio_print_version();
-        
-        if (strcmp(opts->cfg, "help") == 0) {
-                audio_play_portaudio_help();
+
+        if (strcmp(opts->cfg, "help") == 0 ||
+            strcmp(opts->cfg, "fullhelp") == 0) {
+                audio_play_portaudio_help(strcmp(opts->cfg, "fullhelp") == 0);
                 return INIT_NOERR;
         }
         if (!parse_fmt(opts->cfg, &output_device_idx, output_device_name)) {
@@ -206,7 +210,7 @@ audio_play_portaudio_init(const struct audio_playback_opts *opts)
         if (device_info == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio index %d.\n"
                                 MOD_NAME "Follows list of available Portaudio devices.\n", output_device_idx);
-                audio_play_portaudio_help();
+                audio_play_portaudio_help(false);
                 Pa_Terminate();
                 free(s);
                 return NULL;

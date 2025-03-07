@@ -80,8 +80,12 @@ static const char *portaudio_get_device_details(PaDeviceIndex device) {
         return buffer;
 }
 
-void portaudio_print_help(enum portaudio_device_direction kind)
+void
+portaudio_print_help(enum portaudio_device_direction kind, bool full)
 {
+        printf("\nAvailable PortAudio %s devices:\n",
+               kind == PORTAUDIO_OUT ? "playback" : "capture");
+
         int numDevices;
         int i;
 
@@ -128,6 +132,14 @@ void portaudio_print_help(enum portaudio_device_direction kind)
 
                 color_printf("\t%sportaudio:%d" TERM_RESET " - %s%s" TERM_RESET " %s", highlight, i, highlight, portaudio_get_device_name(i), portaudio_get_device_details(i));
                 printf("\n");
+        }
+
+        if (full) {
+                printf ("\nSupported APIs:\n");
+                for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
+                        const PaHostApiInfo *info = Pa_GetHostApiInfo(i);
+                        printf("\t" TBOLD("%s") "\n", info->name);
+                }
         }
 
 error:
