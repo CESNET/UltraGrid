@@ -1669,6 +1669,9 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
 #ifdef HWACC_VAAPI
         fmts[nb_fmts++] = AV_PIX_FMT_VAAPI;
 #endif
+#ifdef HWACC_VULKAN
+        fmts[nb_fmts++] = AV_PIX_FMT_VULKAN;
+#endif
 
         return nb_fmts;
 }
