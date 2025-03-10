@@ -1316,12 +1316,14 @@ AC_ARG_ENABLE(vulkan,
     )
 
 if test "$vulkan_req" != no; then
-        SAVED_LIBS=$LIBS
-        VULKAN_LIBS=-lMoltenVK # mac MoltenVK
-        LIBS="$LIBS $VULKAN_LIBS"
-        AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
-        LIBS=$SAVED_LIBS
-        if test "$found_vulkan" = no; then
+        if test "$vulkan_req" != nomoltenvk; then
+                SAVED_LIBS=$LIBS
+                VULKAN_LIBS=-lMoltenVK # mac MoltenVK
+                LIBS="$LIBS $VULKAN_LIBS"
+                AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
+                LIBS=$SAVED_LIBS
+        fi
+        if test "$found_vulkan" != yes; then
                 VULKAN_LIBS=
                 PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
         fi
