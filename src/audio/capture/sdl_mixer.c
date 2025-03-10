@@ -34,6 +34,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @todo errata (SDL3 vs SDL2)
+ * 1. 1 channel capture (-a ch=1) seem no longer work
+ * 2. unsufficient performance (generates overflow even in default config)
+ */
 
 #include "config.h"               // for HAVE_SDL3
 

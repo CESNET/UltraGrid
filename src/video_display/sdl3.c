@@ -42,6 +42,15 @@
  * Missing from SDL1:
  * * audio (would be perhaps better as an audio playback device)
  * * autorelease_pool (macOS) - perhaps not needed
+ * @todo errata (SDL3 vs SDL2)
+ * 1. [macOS] Vulkan renderer doesn't work (no matter if linked with MoltenVK or
+ * loader)
+ * 2. [all platforms] with `renderer=vulkan` - none YCbCr texture works
+ * (segfaults - wrong pitch/texture?)
+ * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point),
+ * corrupted on d3d[12] (which would currently break eg. v210 in default; but
+ * SDL2 didn't have 10+ bit YCbCr, anyways)
+ * 4. see todo in @ref ../audio/capture/sdl_mixer.c
  */
 
 #include <SDL3/SDL.h>
@@ -735,6 +744,19 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
         return true;
 }
 
+static void
+vulkan_warn(const char *req_renderers_name, const char *actual_renderer_name)
+{
+        if (strcmp(actual_renderer_name, "vulkan") != 0) {
+                return;
+        }
+        bool explicit = req_renderers_name[0] != '\0';
+        log_msg(explicit ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR,
+                "Selected renderer vulkan is known for having "
+                "issues!%s\n",
+                explicit ? "" : " Please report!");
+}
+
 static bool
 display_sdl3_reconfigure_real(void *state, struct video_desc desc)
 {
@@ -804,6 +826,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         const char *renderer_name = SDL_GetRendererName(s->renderer);
         if (renderer_name != NULL) {
                 MSG(NOTICE, "Using renderer: %s\n", renderer_name);
+                vulkan_warn(s->req_renderers_name, renderer_name);
         }
         query_renderer_supported_fmts(s->renderer, s->supp_fmts);
         s->cs_data = get_ug_to_sdl_format(s->supp_fmts, desc.color_spec);
