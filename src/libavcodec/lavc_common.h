@@ -98,6 +98,8 @@ enum {
 
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(56, 39, 100)
 #define AV_PIX_FMT_VULKAN AV_PIX_FMT_NONE
+#else
+#define HWACC_VULKAN
 #endif
 
 #ifdef __cplusplus
