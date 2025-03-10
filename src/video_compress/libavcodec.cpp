@@ -713,6 +713,42 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         return &s->module_data;
 }
 
+#ifdef HWACC_VULKAN
+static int vulkan_init(struct AVCodecContext *s){
+        log_msg(LOG_LEVEL_NOTICE, "Initializing vulkan ctx\n");
+        int pool_size = 20; //Default in ffmpeg examples
+
+        AVBufferRef *device_ref = nullptr;
+        AVBufferRef *hw_frames_ctx = nullptr;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VULKAN, &device_ref);
+        if(ret < 0)
+                goto fail;
+
+        if (s->active_thread_type & FF_THREAD_FRAME)
+                pool_size += s->thread_count;
+
+        ret = create_hw_frame_ctx(device_ref,
+                        s->width,
+                        s->height,
+                        AV_PIX_FMT_VULKAN,
+                        AV_PIX_FMT_NV12,
+                        pool_size,
+                        &hw_frames_ctx);
+        if(ret < 0)
+                goto fail;
+
+        s->hw_frames_ctx = hw_frames_ctx;
+
+        av_buffer_unref(&device_ref);
+        return 0;
+
+fail:
+        av_buffer_unref(&hw_frames_ctx);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
+#endif
+
 #ifdef HWACC_VAAPI
 static int vaapi_init(struct AVCodecContext *s){
 
@@ -1010,6 +1046,22 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
                 pix_fmt = AV_PIX_FMT_NV12;
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
+        }
+#endif
+#ifdef HWACC_VULKAN
+        if (pix_fmt == AV_PIX_FMT_VULKAN){
+                log_msg(LOG_LEVEL_NOTICE, "Trying vulkan\n");
+                int ret = vulkan_init(s->codec_ctx);
+                if (ret != 0) {
+                        avcodec_free_context(&s->codec_ctx);
+                        s->codec_ctx = NULL;
+                        return false;
+                }
+                s->hwenc = true;
+                s->hwframe = av_frame_alloc();
+                av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
+                pix_fmt = AV_PIX_FMT_NV12;
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Using vulkan with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
 #endif
 
