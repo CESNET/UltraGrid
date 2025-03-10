@@ -26,6 +26,7 @@ sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
 sudo apt install libmagickwand-dev
+sudo apt install libpipewire-0.3-dev
 sudo apt install libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev
 sudo apt install libsoxr-dev libspeexdsp-dev
 sudo apt install libssl-dev
@@ -40,8 +41,7 @@ get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (
 
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'nonexistent-placeholder')
 # shellcheck disable=SC2086 # intentional
-sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
-        libopenh264-dev libvulkan-dev
+sudo apt install $ffmpeg_build_dep libde265-dev libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
 sudo apt install qtbase5-dev
