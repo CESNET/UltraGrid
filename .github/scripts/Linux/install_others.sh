@@ -36,6 +36,23 @@ install_ndi() {(
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
 )}
 
+# TODO: needed only for U20.04, remove after upgrading to U22.04
+install_pipewire() {(
+        if { [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; } ||
+                { [ "${ID_LIKE-$ID}" = debian ] && [ "$VERSION_ID" -le 11 ]; }
+        then
+                sudo apt -y install libdbus-1-dev meson
+                git clone https://github.com/PipeWire/pipewire
+                cd pipewire
+                git checkout 19bcdaebe29b95edae2b285781dab1cc841be638 # last one supporting meson 0.53.2 in U20.04
+                ./autogen.sh -Dtests=disabled
+                make -j "$(nproc)"
+                sudo make install
+        else
+                sudo apt -y install libpipewire-0.3-dev
+        fi
+)}
+
 install_rav1e() {(
         # TODO: use avx2 later
         if expr "${UG_ARCH-}" : '.*avx' >/dev/null; then
@@ -73,7 +90,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi rav1e vulkan ximea
+        set -- gpujpeg ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then
