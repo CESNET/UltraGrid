@@ -32,6 +32,7 @@ apt -y install \
   libdrm-dev\
   libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev\
   libva-dev\
+  libvulkan-dev\
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi pipewire ximea
