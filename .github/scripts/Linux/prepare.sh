@@ -44,10 +44,14 @@ sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
 sudo apt install qt6-base-dev
-# https://bugs.launchpad.net/ubuntu/+source/qtchooser/+bug/1964763 bug workaround
-sudo qtchooser -install qt6 "$(command -v qmake6)" # askubuntu.com/a/1460243
-sudo ln -n "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/qt6.conf" \
- "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/default.conf"
+. /etc/os-release # source ID and VERSION_ID
+if [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 22.04 ]; then
+        # https://bugs.launchpad.net/ubuntu/+source/qtchooser/+bug/1964763 bug
+        # workaround proposed in https://askubuntu.com/a/1460243
+        sudo qtchooser -install qt6 "$(command -v qmake6)"
+        sudo ln -n "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/\
+qt6.conf" "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/default.conf"
+ fi
 
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
