@@ -2123,30 +2123,15 @@ get_opt_default_value(const AVOption *opt)
         }
 }
 
-/// @aram encoder - if bool, print for both encoder and decoder
-static bool
-show_coder_help(string const &name, bool encoder)
-{
-        bool dec_found = true;
-        if (encoder) {
-                dec_found = show_coder_help(name, false);
-        }
-        const auto *codec = encoder
-                                ? avcodec_find_encoder_by_name(name.c_str())
-                                : avcodec_find_decoder_by_name(name.c_str());
-        if (codec == nullptr) {
-                if (!dec_found) {
-                        MSG(ERROR,
-                            "Unable to find neither encoder nor decoder %s!\n",
-                            name.c_str());
-                }
-                return false;
-        }
+static void print_codec_opts(const std::string& name, bool encoder, const AVCodec *codec){
+        if(!codec->priv_class)
+                return;
+
         col() << "Options for " << SBOLD(name) << " "
               << (encoder ? "encoder" : "decoder") << ":\n";
         const auto *opt = codec->priv_class->option;
         if (opt == nullptr) {
-                return true;
+                return;
         }
         while (opt->name != nullptr) {
                 string default_val;
@@ -2175,6 +2160,28 @@ show_coder_help(string const &name, bool encoder)
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
         }
+}
+
+/// @aram encoder - if bool, print for both encoder and decoder
+static bool
+show_coder_help(string const &name, bool encoder)
+{
+        bool dec_found = true;
+        if (encoder) {
+                dec_found = show_coder_help(name, false);
+        }
+        const auto *codec = encoder
+                                ? avcodec_find_encoder_by_name(name.c_str())
+                                : avcodec_find_decoder_by_name(name.c_str());
+        if (codec == nullptr) {
+                if (!dec_found) {
+                        MSG(ERROR,
+                            "Unable to find neither encoder nor decoder %s!\n",
+                            name.c_str());
+                }
+                return false;
+        }
+        print_codec_opts(name, encoder, codec);
         print_codec_aux_usage(name);
         color_printf("\n");
         return true;
