@@ -45,20 +45,20 @@ using namespace vulkan_display;
 namespace {
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-        [[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-        [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
-        const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+        [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT message_type,
+        const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
         [[maybe_unused]] void* user_data)
 {
         LogLevel level = LogLevel::notice;
-        if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LogLevel::error;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LogLevel::warning;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LogLevel::info;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LogLevel::verbose;
+        if      (vk::DebugUtilsMessageSeverityFlagBitsEXT::eError & message_severity)   level = LogLevel::error;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning & message_severity) level = LogLevel::warning;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo & message_severity)    level = LogLevel::info;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose & message_severity) level = LogLevel::verbose;
 
         vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
 
-        if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
+        if (message_type != vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral){
                 //assert(false);
         }
 
