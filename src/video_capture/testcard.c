@@ -706,8 +706,7 @@ static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
 static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
 {
         struct testcard_state *state = arg;
-
-        if (state->video_frames + 1 == state->capture_frames) {
+        if (state->video_frames == state->capture_frames) {
                 return NULL;
         }
         time_ns_t curr_time = 0;
