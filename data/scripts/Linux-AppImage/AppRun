@@ -307,6 +307,7 @@ setup_wayland
 set_ld_preload ultragrid_aplay_portaudio.so libjack
 set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
 
+## @param $@   <tool> <arguments
 setup_firejail() {
         tool=$1
         if [ "${ULTRAGRID_USE_FIREJAIL:-0}" = 0 ] ||
@@ -324,7 +325,8 @@ setup_firejail() {
  --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR\
  --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
-                if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
+                if ! expr "$FIREJAIL_OPTS" : '.*--read-write="/\{1,\}tmp/*"' \
+                        > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
                 fi
         fi
@@ -362,9 +364,9 @@ fj_sigaction() {
 }
 
 run() {
+        setup_firejail "$@"
         tool=$1
         shift
-        setup_firejail "$tool"
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
                 stty_orig=$(stty -g)
