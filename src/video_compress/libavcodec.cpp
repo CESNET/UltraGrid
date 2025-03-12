@@ -201,7 +201,12 @@ static map<codec_t, codec_params_t> codec_params = {
                 103
         }},
         { VP9, codec_params_t{
-                nullptr,
+                [](bool) {
+                      return
+#ifdef __x86_64__
+                          !__builtin_cpu_supports("avx2") ? "libvpx-vp9" :
+#endif
+                          nullptr; },
                 0.4,
                 setparam_vp8_vp9,
                 104
