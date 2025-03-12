@@ -960,13 +960,19 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
         }
 
         // Else, try to open prefered encoder for requested codec
-        if (codec_params.find(*ug_codec) != codec_params.end() && codec_params[*ug_codec].get_prefered_encoder) {
-                const char *prefered_encoder = codec_params[*ug_codec].get_prefered_encoder(
+        const char *preferred_encoder = nullptr;
+        if (codec_params.find(*ug_codec) != codec_params.end() &&
+            codec_params[*ug_codec].get_prefered_encoder) {
+                preferred_encoder = codec_params[*ug_codec].get_prefered_encoder(
                                 src_rgb);
-                const AVCodec *codec = avcodec_find_encoder_by_name(prefered_encoder);
+        }
+        if (preferred_encoder != nullptr) {
+                const AVCodec *codec = avcodec_find_encoder_by_name(preferred_encoder);
                 if (!codec) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
-                                        prefered_encoder);
+                        MSG(WARNING,
+                            "Warning: preferred encoder \"%s\" not found! "
+                            "Trying default encoder.\n",
+                            preferred_encoder);
                 }
                 return codec;
         }
