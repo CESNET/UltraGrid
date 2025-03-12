@@ -4,5 +4,6 @@ astat_test
 benchmark_ff_convs
 convert
 decklink_temperature
+mux_ivf
 thumbnailgen
 uyvy2yuv422p

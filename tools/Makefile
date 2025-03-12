@@ -11,6 +11,7 @@ ifeq ($(ARCH), x86_64)
 endif
 
 TARGETS=astat_lib astat_test benchmark_ff_convs convert decklink_temperature \
+	mux_ivf \
 	thumbnailgen uyvy2yuv422p
 
 COMMON_OBJS = src/color.o src/debug.o src/video_codec.o src/pixfmt_conv.o \
@@ -53,6 +54,9 @@ convert: convert.o $(COMMON_OBJS)
 
 decklink_temperature: decklink_temperature.cpp ext-deps/DeckLink/Linux/DeckLinkAPIDispatch.o
 	$(CXX) $^ -o $@
+
+mux_ivf: mux_ivf.o
+	$(CC) $^ -o $@
 
 uyvy2yuv422p: uyvy2yuv422p.c
 	$(CC) -g -std=c99 -Wall $< -o $@
