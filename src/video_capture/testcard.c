@@ -120,6 +120,7 @@ struct testcard_state {
         struct audio_len_pattern apattern;
         int audio_frequency;
         long long capture_frames;
+        bool quit_after_capture_frames;
 
         char **tiles_data;
         int tiles_cnt_horizontal;
@@ -585,8 +586,12 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 } else if (strstr(tmp, "afrequency=") == tmp) {
                         s->audio_frequency = atoi(strchr(tmp, '=') + 1);
                 } else if (IS_KEY_PREFIX(tmp, "frames")) {
+                        char *endptr = NULL;
                         s->capture_frames =
-                            strtoll(strchr(tmp, '=') + 1, NULL, 0);
+                            strtoll(strchr(tmp, '=') + 1, &endptr, 0);
+                        if (*endptr == 'q') {
+                                s->quit_after_capture_frames = true;
+                        }
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
@@ -707,6 +712,9 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
 {
         struct testcard_state *state = arg;
         if (state->video_frames == state->capture_frames) {
+                if (state->quit_after_capture_frames) {
+                        exit_uv(0);
+                }
                 return NULL;
         }
         time_ns_t curr_time = 0;
