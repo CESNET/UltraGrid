@@ -279,7 +279,8 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
  --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR\
  --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
-                if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
+                if ! expr "$FIREJAIL_OPTS" : '.*--read-write="/\{1,\}tmp/*"' \
+                        > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
                 fi
         fi
