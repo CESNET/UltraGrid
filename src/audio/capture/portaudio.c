@@ -253,8 +253,12 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         inputParameters.suggestedLatency = latency == -1.0 ? Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency : latency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
-        s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
-                48000;
+        s->frame.sample_rate = audio_capture_sample_rate;
+        if (s->frame.sample_rate == 0) {
+                s->frame.sample_rate = (int) device_info->defaultSampleRate;
+                MSG(NOTICE, "Setting device default sample rate %d Hz\n",
+                    s->frame.sample_rate);
+        }
 
         error = Pa_OpenStream( &s->stream, &inputParameters, NULL, s->frame.sample_rate,
                         paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
