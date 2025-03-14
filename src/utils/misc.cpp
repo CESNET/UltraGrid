@@ -363,3 +363,26 @@ get_stat_color(double ratio)
         return diff < 0.05 ? T256_FG_SYM(T_ARCTIC_LIME)
                            : T256_FG_SYM(T_SADDLE_BROWN);
 }
+
+char *
+format_number_with_delim(size_t num, char *buf, size_t buflen)
+{
+        assert(buflen >= 1);
+        buf[buflen - 1] = '\0';
+        char *ptr       = buf + buflen - 1;
+        int   grp_count = 0;
+        do {
+                if (ptr == buf || (grp_count == 3 && ptr == buf + 1)) {
+                        snprintf(buf, buflen, "%s", "ERR");
+                        return buf;
+                }
+                if (grp_count++ == 3) {
+                        grp_count = 1;
+                        *--ptr    = ',';
+                }
+                *--ptr = (char) ('0' + (num % 10));
+                num /= 10;
+        } while (num != 0);
+
+        return ptr;
+}

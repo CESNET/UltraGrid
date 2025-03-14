@@ -52,6 +52,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/misc.h"    // for fmt_number_with_delim
 #include "video_display.h" /* flags */
 
 struct state_audio_playback {
@@ -125,9 +126,12 @@ void audio_playback_done(struct state_audio_playback *s)
                 struct timeval t1;
                 gettimeofday(&t1, NULL);
 
-                log_msg(LOG_LEVEL_INFO, "Played %lld audio samples in %f seconds (%f samples per second).\n",
-                                s->samples_played, tv_diff(t1, s->t0),
-                                s->samples_played / tv_diff(t1, s->t0));
+                log_msg(LOG_LEVEL_INFO,
+                        "Played %s audio samples in %.2f seconds (%f samples "
+                        "per second).\n",
+                        fmt_number_with_delim(s->samples_played),
+                        tv_diff(t1, s->t0),
+                        s->samples_played / tv_diff(t1, s->t0));
         }
 
         s->funcs->done(s->state);

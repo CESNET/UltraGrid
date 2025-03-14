@@ -994,7 +994,7 @@ static void *asend_compute_and_print_stats(void *arg) {
 
         log_msg(LOG_LEVEL_INFO,
                 "[Audio sender] Sent %s%d samples" TERM_FG_RESET
-                " in last %f seconds.\n",
+                " in last %.2f seconds.\n",
                 dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
 
         char volume[STR_LEN];
