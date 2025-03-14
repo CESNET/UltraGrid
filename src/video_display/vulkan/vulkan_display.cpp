@@ -199,9 +199,20 @@ public:
 bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Extent2D size, vk::Format format,
         vk::ImageTiling tiling, vk::ImageUsageFlags usage_flags)
 {
-        if (!is_yCbCr_supported && is_yCbCr_format(format)){
-                return false;
+        if(is_yCbCr_format(format)){
+                if(!is_yCbCr_supported)
+                        return false;
+
+                vk::FormatProperties fmt_props = {};
+                gpu.getFormatProperties(format, &fmt_props);
+
+                if(!(fmt_props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageYcbcrConversionLinearFilter))
+                {
+                        vulkan_log_msg(LogLevel::warning, "The GPU does not support linear filter with a YCbCr conversion sampler. Will attempt to fall back to shader conversion.\n");
+                        return false;
+                }
         }
+
         vk::ImageFormatProperties properties;
         auto result = gpu.getImageFormatProperties(
                 format,
