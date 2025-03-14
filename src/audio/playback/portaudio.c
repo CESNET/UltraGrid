@@ -254,14 +254,18 @@ static void cleanup(struct state_portaudio_playback * s)
  * @returns true if eligible format was found, false otherwise
  */
 static bool get_supported_format(int device_idx, int ch_count, int *sample_rate, int *bps) {
-        int sample_rates[] = { *sample_rate, 48000, 44100, 8000, 16000, 32000, 96000, 24000 };
         PaSampleFormat sample_formats[] = { paInt8, paInt16, paInt24, paInt32 };
         PaStreamParameters outputParameters = { 0 };
         outputParameters.device = device_idx >= 0 ? device_idx : Pa_GetDefaultOutputDevice();
         outputParameters.channelCount = ch_count;
-        outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowInputLatency;
+        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(outputParameters.device);
+        outputParameters.suggestedLatency = device_info->defaultLowInputLatency;
 
         assert(*bps >= 1 && *bps <= 4);
+        // @todo sort to select the best rate if not exactly the requested, not
+        // the first usable (which will be now the defaultSampleRate)
+        int sample_rates[] = { *sample_rate, device_info->defaultSampleRate,
+                48000, 44100, 8000, 16000, 32000, 96000, 24000 };
         for (int i = 0; i < (int)(sizeof sample_rates / sizeof sample_rates[0]); ++i) {
                 int j = *bps - 1;
                 while (true) {
