@@ -59,6 +59,7 @@ struct device_info;
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/qsort_s.h"
 #include "compat/strings.h"          // for  strdupa
 #include "debug.h"
 #include "host.h"                    // for get_commandline_param, INIT_NOERR
@@ -245,6 +246,17 @@ static void cleanup(struct state_portaudio_playback * s)
 	Pa_Terminate();
 }
 
+static QSORT_S_COMP_DEFINE(sample_rate_compare, a, b, c)
+{
+        int first       = *(const int *) a;
+        int second      = *(const int *) b;
+        int sample_rate = *(const int *) c; // actual received sample rate
+        if (first >= sample_rate && second >= sample_rate) {
+                return first - second;
+        }
+        return second - first;
+}
+
 /**
  * Tries to find format compatible with Portaudio
  *
@@ -266,10 +278,10 @@ static bool get_supported_format(int device_idx, int ch_count, int *sample_rate,
         outputParameters.suggestedLatency = device_info->defaultLowInputLatency;
 
         assert(*bps >= 1 && *bps <= 4);
-        // @todo sort to select the best rate if not exactly the requested, not
-        // the first usable (which will be now the defaultSampleRate)
         int sample_rates[] = { *sample_rate, device_info->defaultSampleRate,
                 48000, 44100, 8000, 16000, 32000, 96000, 24000 };
+        qsort_s(sample_rates, sizeof sample_rates / sizeof sample_rates[0],
+                sizeof sample_rates[0], sample_rate_compare, sample_rate);
         for (int i = 0; i < (int)(sizeof sample_rates / sizeof sample_rates[0]); ++i) {
                 int j = *bps - 1;
                 while (true) {

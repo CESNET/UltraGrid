@@ -1,9 +1,6 @@
 /**
  * @file   compat/qsort_s.h
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @note
- * Must be included before config*h because those include stdlib.h.
  */
 /*
  * Copyright (c) 2022-2023 CESNET z.s.p.o.
