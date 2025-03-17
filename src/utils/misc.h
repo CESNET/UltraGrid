@@ -84,6 +84,8 @@ char *format_number_with_delim(size_t num, char *buf, size_t buflen);
                                  FORMAT_NUM_MAX_SZ)
 #endif
 
+int parse_number(const char *str, int min, int base);
+
 #ifdef __cplusplus
 }
 #endif

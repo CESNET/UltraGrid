@@ -386,3 +386,40 @@ format_number_with_delim(size_t num, char *buf, size_t buflen)
 
         return ptr;
 }
+
+/// @returns INT_MIN on error, otherwise converted number
+int
+parse_number(const char *str, int min, int base)
+{
+        assert(min != INT_MIN);
+        if (base == 10 && str[0] == '0' && str[1] != '\0') {
+                log_msg(LOG_LEVEL_WARNING,
+                        "Input number %s will be interpreted in base 10, not "
+                        "as octal/hexadecimal!\n",
+                        str);
+        }
+        char      *endptr = nullptr;
+        const long ret    = strtol(str, &endptr, base);
+        if (*endptr != '\0') {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Input number %s contains non-numeric symbols!\n", str);
+                return INT_MIN;
+        }
+        if (endptr == str) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Empty string passed where expected a number!\n");
+                return INT_MIN;
+        }
+        if (ret < min) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Passed number %s where number >= %d expected!\n", str,
+                        min);
+                return INT_MIN;
+        }
+        if (ret > INT_MAX) {
+                log_msg(LOG_LEVEL_ERROR, "The number %s would overflow int!\n",
+                        str);
+                return INT_MIN;
+        }
+        return (int) ret;
+}

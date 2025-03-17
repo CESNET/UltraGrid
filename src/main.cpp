@@ -487,6 +487,23 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
         return true;
 }
 
+static int
+parse_mtu(const char *optarg)
+{
+        enum { IPV4_REQ_MIN_MTU = 576, };
+        const int ret = parse_number(optarg, 1, 10);
+        if (ret == INT_MIN) {
+                return -1;
+        }
+        if (ret < IPV4_REQ_MIN_MTU && optarg[strlen(optarg) - 1] != '!') {
+                MSG(WARNING,
+                    "MTU %s seems to be too low, use \"%d!\" to force.\n",
+                    optarg, ret);
+                return -1;
+        }
+        return ret;
+}
+
 struct ug_options {
         ug_options() {
                 vidcap_params_set_device(vidcap_params_head, "none");
@@ -759,13 +776,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         break;
                 case 'm':
-                        opt->common.mtu = atoi(optarg);
-                        if (opt->common.mtu < 576 &&
-                            optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING,
-                                        "MTU %s seems to be too low, use "
-                                        "\"%d!\" to force.\n",
-                                        optarg, opt->common.mtu);
+                        opt->common.mtu = parse_mtu(optarg);
+                        if (opt->common.mtu == -1) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
