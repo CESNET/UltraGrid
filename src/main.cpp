@@ -814,8 +814,12 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         break;
                 case 'm':
                         opt->requested_mtu = atoi(optarg);
-                        if (opt->requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt->requested_mtu);
+                        if (opt->requested_mtu < 576 &&
+                            optarg[strlen(optarg) - 1] != '!') {
+                                log_msg(LOG_LEVEL_WARNING,
+                                        "MTU %s seems to be too low, use "
+                                        "\"%d!\" to force.\n",
+                                        optarg, opt->requested_mtu);
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
