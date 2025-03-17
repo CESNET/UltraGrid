@@ -81,8 +81,8 @@ extern "C"
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
 }
-#include "hwaccel_libav_common.h"
 #endif
+#include "hwaccel_libav_common.h"
 
 #ifdef HAVE_SWSCALE
 extern "C"{
