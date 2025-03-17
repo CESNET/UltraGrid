@@ -763,9 +763,9 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         if (opt->common.mtu < 576 &&
                             optarg[strlen(optarg) - 1] != '!') {
                                 log_msg(LOG_LEVEL_WARNING,
-                                        "MTU %1$u seems to be too low, use "
-                                        "\"%1$u!\" to force.\n",
-                                        opt->common.mtu);
+                                        "MTU %s seems to be too low, use "
+                                        "\"%d!\" to force.\n",
+                                        optarg, opt->common.mtu);
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
