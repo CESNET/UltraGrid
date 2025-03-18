@@ -1,0 +1,71 @@
+From fa588aa3ff7598df3df7f51a6f7e51a67a9378d8 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Tue, 18 Mar 2025 12:39:21 +0100
+Subject: [PATCH] compat
+
+---
+ libpcp/src/net/pcp_socket.c           | 5 +++++
+ libpcp/src/pcp_client_db.h            | 1 -
+ libpcp/src/windows/pcp_gettimeofday.h | 2 ++
+ libpcp/src/windows/pcp_win_defines.h  | 2 +-
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/libpcp/src/net/pcp_socket.c b/libpcp/src/net/pcp_socket.c
+index fb4d002..2120846 100644
+--- a/libpcp/src/net/pcp_socket.c
++++ b/libpcp/src/net/pcp_socket.c
+@@ -50,6 +50,11 @@
+ #include "pcp_utils.h"
+ #include "unp.h"
+ 
++
++#undef IP_PKTINFO
++#undef IPV6_PKTINFO
++#undef IPV6_RECVPKTINFO
++
+ static PCP_SOCKET pcp_socket_create_impl(int domain, int type, int protocol);
+ static ssize_t pcp_socket_recvfrom_impl(PCP_SOCKET sock, void *buf, size_t len,
+                                         int flags, struct sockaddr *src_addr,
+diff --git a/libpcp/src/pcp_client_db.h b/libpcp/src/pcp_client_db.h
+index b5102c2..bf39de1 100644
+--- a/libpcp/src/pcp_client_db.h
++++ b/libpcp/src/pcp_client_db.h
+@@ -29,7 +29,6 @@
+ #include "pcp.h"
+ #include "pcp_event_handler.h"
+ #include "pcp_msg_structs.h"
+-#include <netinet/in.h>
+ #include <stdint.h>
+ #ifdef WIN32
+ #include "pcp_win_defines.h"
+diff --git a/libpcp/src/windows/pcp_gettimeofday.h b/libpcp/src/windows/pcp_gettimeofday.h
+index fb6f4fa..9249de2 100644
+--- a/libpcp/src/windows/pcp_gettimeofday.h
++++ b/libpcp/src/windows/pcp_gettimeofday.h
+@@ -26,6 +26,8 @@
+ #ifndef PCP_GETTIMEOFDAY
+ #define PCP_GETTIMEOFDAY
+ 
++struct timezone;
++struct timeval;
+ int gettimeofday(struct timeval *tv, struct timezone *tz);
+ 
+ #endif /*PCP_GETTIMEOFDAY*/
+diff --git a/libpcp/src/windows/pcp_win_defines.h b/libpcp/src/windows/pcp_win_defines.h
+index ae9987e..e24dad7 100644
+--- a/libpcp/src/windows/pcp_win_defines.h
++++ b/libpcp/src/windows/pcp_win_defines.h
+@@ -28,9 +28,9 @@
+ 
+ #include "stdint.h"
+ #include <time.h>
+-#include <winbase.h> /*GetCurrentProcessId*/ /*link with kernel32.dll*/
+ #include <winsock2.h>
+ #include <ws2ipdef.h>
++#include <ws2def.h>
+ #include <ws2tcpip.h>
+ /* windows uses Sleep(miliseconds) method, instead of UNIX sleep(seconds) */
+ #define sleep(x) Sleep((x)*1000)
+-- 
+2.48.1
+

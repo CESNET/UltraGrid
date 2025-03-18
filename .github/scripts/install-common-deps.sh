@@ -108,7 +108,7 @@ install_pcp() {
         (
                 cd pcp
                 if is_win; then # TODO TOREMOVE: check if still needed
-                        git checkout ee50f35
+                        git am "$curdir"/pcp-win.patch
                 fi
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared

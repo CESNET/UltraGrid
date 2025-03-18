@@ -7,9 +7,6 @@ LIBRARY_PATH=/usr/local/qt/lib\n\
 PKG_CONFIG_PATH=$PKG_CONFIG_PATH\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
-git config --global user.name "UltraGrid Builder"
-git config --global user.email "ultragrid@example.org"
-
 # add deb-src for build-dep ffmpeg
 if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then # deb822 (new) format
         sudo sed -i 's/Types: deb/Types: deb deb-src/' \
