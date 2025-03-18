@@ -15,7 +15,6 @@ install_ximea() {
         curl -LO https://www.ximea.com/downloads/recent/$filename
         tar xzf $filename
         cd package
-        touch bin/streamViewer.64 # TOREMOVE
         sudo ./install -noudev
 }
 
