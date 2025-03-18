@@ -107,9 +107,13 @@ install_pcp() {
         git clone https://github.com/libpcp/pcp.git
         (
                 cd pcp
-                if is_win; then # TODO TOREMOVE: check if still needed
-                        git am "$curdir"/pcp-win.patch
-                fi
+                # TODO TOREMOVE when not needed
+                sed "/int gettimeofday/i\\
+struct timezone;\\
+struct timeval;\\
+" libpcp/src/windows/pcp_gettimeofday.h > fixed
+                mv fixed libpcp/src/windows/pcp_gettimeofday.h
+
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
                 make -j "$(nproc)"
