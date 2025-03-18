@@ -107,6 +107,9 @@ install_pcp() {
         git clone https://github.com/libpcp/pcp.git
         (
                 cd pcp
+                if is_win; then # TODO TOREMOVE: check if still needed
+                        git checkout ee50f35
+                fi
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
                 make -j "$(nproc)"
