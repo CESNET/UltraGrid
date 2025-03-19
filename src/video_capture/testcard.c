@@ -524,6 +524,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
         strncat(s->pattern, DEFAULT_PATTERN, sizeof s->pattern - 1);
         s->audio_frequency = DEFAULT_AUIDIO_FREQUENCY;
+        s->capture_frames = -1;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
