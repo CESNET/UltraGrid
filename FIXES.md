@@ -1,3 +1,14 @@
+#### 1.9.9
+
+* build fixes: switch to U22, PCP
+* fix SDL2 I420
+* improve Firejail AppImage compatibility with various params
+* fix WASAPI device selection with UUID
+* CoInitialize: use COINIT_APARTMENTTHREADE (compat with PA/ASIO build)
+* select libvpx-vp9 for VP9 if AVX2 not present (avoid crasn with SVT impl)
+* portaudio: improved sample rate handling
+* Vulkan fixes
+
 #### 1.9.8
 
 * build fixes (SVT-VP9, Vulkan)
