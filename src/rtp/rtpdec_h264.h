@@ -91,7 +91,10 @@ struct video_desc;
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
                                       struct decode_data_rtsp *decode_data);
-int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
+int width_height_from_h264_sps(int *widthOut, int *heightOut,
+                               unsigned char *data, int data_len);
+int width_height_from_hevc_sps(int *widthOut, int *heightOut,
+                               unsigned char *data, int data_len);
 
 #ifdef __cplusplus
 }

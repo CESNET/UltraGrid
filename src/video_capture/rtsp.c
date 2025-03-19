@@ -68,6 +68,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -191,7 +192,7 @@ static void
 rtsp_teardown(CURL *curl, const char *uri);
 
 static int
-get_nals(FILE *sdp_file, char *nals, int *width, int *height);
+get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height);
 
 static bool setup_codecs_and_controls_from_sdp(FILE              *sdp_file,
                                                struct rtsp_state *rtspState);
@@ -442,7 +443,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-    if (s->vrtsp_state.desc.color_spec == H264 && !s->sps_pps_emitted) {
+    if (!s->sps_pps_emitted) {
         s->sps_pps_emitted = 1;
         return get_sps_pps_frame(&s->vrtsp_state.desc,
                                  &s->vrtsp_state.decode_data);
@@ -628,6 +629,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     pthread_mutex_init(&s->vrtsp_state.lock, NULL);
     pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
     pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
+
+    s->sps_pps_emitted = 1; // default when not H264/HEVC
 
     char *tmp = fmt;
     char *item = NULL;
@@ -919,14 +922,17 @@ init_rtsp(struct rtsp_state *s) {
             goto error;
         }
     }
-    if (s->vrtsp_state.desc.color_spec == H264) {
+    if (s->vrtsp_state.desc.color_spec == H264 ||
+        s->vrtsp_state.desc.color_spec == H265) {
         s->vrtsp_state.decode_data.decode = decode_frame_h264;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
+            s->vrtsp_state.desc.color_spec,
             (char *) s->vrtsp_state.decode_data.h264.offset_buffer,
             (int *) &s->vrtsp_state.desc.width,
             (int *) &s->vrtsp_state.desc.height);
         s->vrtsp_state.decode_data.offset_len = len_nals;
+        s->sps_pps_emitted = 0; // emit metadata with first grab
         MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
             "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
     } else if (s->vrtsp_state.desc.color_spec == JPEG) {
@@ -1234,20 +1240,31 @@ vidcap_rtsp_done(void *state) {
  * scan sdp file for media control attributes to generate coded frame required params (WxH and offset)
  */
 static int
-get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
+get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height) {
     int len_nals = 0;
     char s[1500];
-    char *sprop;
+    char *sprop = NULL;
 
-    while (fgets(s, sizeof s, sdp_file) != NULL) {
-        sprop = strstr(s, "sprop-parameter-sets=");
+    while (1) {
+        if (sprop == NULL) { // fetch new line
+                if (fgets(s, sizeof s, sdp_file) == NULL) {
+                    break;
+                }
+                sprop = s;
+        }
+        sprop = strstr(sprop, "sprop-");
         if (sprop == NULL) {
             continue;
         }
+        char *sprop_name = sprop;
         char *sprop_val = strchr(sprop, '=') + 1;
+        *strchr(sprop, '=') = '\0'; // end sprop_name
         char *term = strchr(sprop_val, ';');
         if (term) {
             *term = '\0';
+            sprop = term + 1;
+        } else {
+            sprop = sprop_val;
         }
 
         char *nal = 0;
@@ -1269,10 +1286,14 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             free(nal_decoded);
 
             uint8_t nalInfo = (uint8_t) nals[len_nals - length];
-            uint8_t type = nalInfo & 0x1f;
-            debug_msg(MOD_NAME "sprop-parameter %d (base64): %s\n", (int) type, nal);
+            uint8_t type = NALU_HDR_GET_TYPE(nalInfo, codec == H265);
+            MSG(DEBUG, "%s %s (%d) (base64): %s\n", sprop_name,
+                get_nalu_name(type), (int) type, nal);
             if (type == NAL_H264_SPS){
-                width_height_from_SDP(width, height, (unsigned char *) (nals+(len_nals - length)), length);
+                width_height_from_h264_sps(width, height, (unsigned char *) (nals+(len_nals - length)), length);
+            }
+            if (type == NAL_HEVC_SPS){
+                width_height_from_hevc_sps(width, height, (unsigned char *) (nals+(len_nals - length)), length);
             }
         }
     }

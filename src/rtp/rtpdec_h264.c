@@ -56,6 +56,7 @@
 #include "rtp/rtpdec_state.h"
 #include "types.h"              // for tile, video_frame, frame_type
 #include "utils/h264_stream.h"
+#include "utils/hevc_stream.h"
 #include "utils/bs.h"
 #include "video_frame.h"
 
@@ -83,9 +84,9 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
             get_nalu_name(type), (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
-        width_height_from_SDP((int *) &frame->tiles[0].width,
-                              (int *) &frame->tiles[0].height, data,
-                              data_len);
+        width_height_from_h264_sps((int *) &frame->tiles[0].width,
+                                   (int *) &frame->tiles[0].height, data,
+                                   data_len);
     }
 
     if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
@@ -306,7 +307,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
     return true;
 }
 
-int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len){
+int
+width_height_from_h264_sps(int *widthOut, int *heightOut, unsigned char *data,
+                           int data_len)
+{
     uint32_t width, height;
     sps_t* sps = (sps_t*)malloc(sizeof(sps_t));
     uint8_t* rbsp_buf = (uint8_t*)malloc(data_len);
@@ -350,5 +354,59 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
 
     return 0;
 }
+
+int
+width_height_from_hevc_sps(int *widthOut, int *heightOut, unsigned char *data,
+                           int data_len)
+{
+    uint32_t width, height;
+
+    /** @todo the more correct way than using the low-level functions will be
+     * the following, but we will use the low-level approach as for H.264 now:
+     * ```
+     * hevc_stream_t* h = hevc_new();
+     * read_hevc_nal_unit(h, data, data_len);
+     * ...process..
+     * hevc_free(h);
+     * ````
+     * Also this allow keeping just the SPS parser part from the HEVC streem
+     * decoder. */
+
+    uint8_t* rbsp_buf = (uint8_t*)malloc(data_len);
+    if (nal_to_rbsp(data, &data_len, rbsp_buf, &data_len) < 0){
+        free(rbsp_buf);
+        return -1;
+    }
+    bs_t* b = bs_new(rbsp_buf, data_len);
+    /* forbidden_zero_bit */ bs_skip_u(b, 1);
+    /* nal->nal_unit_type = */ bs_read_u(b, 6);
+    /* nal->nal_layer_id = */ bs_read_u(b, 6);
+    /* nal->nal_temporal_id_plus1 = */ bs_read_u(b, 3);
+    hevc_sps_t sps;
+    read_hevc_seq_parameter_set_rbsp(&sps, b);
+
+    width = sps.pic_width_in_luma_samples;
+    height = sps.pic_height_in_luma_samples;
+
+    if (sps.conformance_window_flag) {
+        width -= sps.conf_win_left_offset + sps.conf_win_right_offset;
+        height -= sps.conf_win_top_offset + sps.conf_win_bottom_offset;
+    }
+
+    debug_msg("\n\n[width_height_from_SDP] width: %d   height: %d\n\n",width,height);
+
+    if(width > 0){
+        *widthOut = width;
+    }
+    if(height > 0){
+        *heightOut = height;
+    }
+
+    bs_free(b);
+    free(rbsp_buf);
+
+    return 0;
+}
+
 
 // vi: set et sw=4 :
