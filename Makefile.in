@@ -582,12 +582,8 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
 	$(CP) $(srcdir)/data/template/bin/* $(BUNDLE)/Contents/MacOS
 	$(CP) -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
-	for n in $(BUNDLE)/Contents/MacOS/*; \
-		do echo quit \
-			| $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -cd -b \
-				-d $(BUNDLE)/Contents/libs/ -p @executable_path/../libs/ -x $$n; \
-	done
-	$(srcdir)/data/scripts/macos_fix_multiple_rpaths.sh $(BUNDLE)
+	$(srcdir)/data/scripts/macos_bundle_libs.sh "$(DYLIBBUNDLER)" \
+		"$(DYLIBBUNDLER_FLAGS)" "$(BUNDLE)"
 	if [ -d Frameworks ]; then $(CP) -R Frameworks $(BUNDLE)/Contents/; fi
 	if [ -n '@MANPAGES@' ]; then mkdir -p $(BUNDLE)/Contents/man/man1; \
 		$(CP) @MANPAGES@ $(BUNDLE)/Contents/man/man1/; fi
