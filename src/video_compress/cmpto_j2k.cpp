@@ -154,7 +154,7 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
         }
 };
 
-using cuda_allocator                        = cmpto_j2k_enc_cuda_buffer_data_allocator;
+using cuda_allocator                        = cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc, cuda_wrapper_free>;
 const cuda_convert_func_t r12l_to_rg48_cuda = preprocess_r12l_to_rg48;
 #else
 using cuda_allocator                        = default_data_allocator;
