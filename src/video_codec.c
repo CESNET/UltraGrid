@@ -236,6 +236,7 @@ static const struct alternative_codec_name codec_name_aliases[] = {
         {"2vuy", "UYVY"},
         {"AVC", "H.264"},
         {"H264", "H.264"},
+        {"H265", "H.265"},
         {"HEVC", "H.265"},
         {"MJPG", "JPEG"},
 };
