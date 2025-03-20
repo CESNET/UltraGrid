@@ -177,7 +177,6 @@ struct state_vulkan_sdl2 {
         Uint32 sdl_user_new_message_event;
 
         chrono::steady_clock::time_point time{};
-        uint64_t frames = 0;
 
         bool deinterlace = false;
         bool fullscreen = false;
@@ -397,21 +396,9 @@ void display_vulkan_run(void* state) {
         while (!s->should_exit) {
                 process_events(*s);
                 try {
-                        bool displayed = s->vulkan->display_queued_image();
-                        if (displayed) {
-                                s->frames++;
-                        }
+                        s->vulkan->display_queued_image();
                 } 
                 catch (std::exception& e) { log_and_exit_uv(e); break; }
-                auto now = chrono::steady_clock::now();
-                double seconds = chrono::duration<double>{ now - s->time }.count();
-                if (seconds > 5) {
-                        double fps = s->frames / seconds;
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "%llu frames in %g seconds = %g FPS\n",
-                                static_cast<long long unsigned>(s->frames), seconds, fps);
-                        s->time = now;
-                        s->frames = 0;
-                }
         }
         SDL_HideWindow(s->window);
 
@@ -1016,7 +1003,7 @@ const video_display_info display_vulkan_info = {
         display_vulkan_get_property,
         display_vulkan_put_audio_frame,
         display_vulkan_reconfigure_audio,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 } // namespace
