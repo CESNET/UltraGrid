@@ -381,6 +381,20 @@ decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
     return d->decode(cdata, decode_data);
 }
 
+static void
+set_desc_width_height_if_changed(struct video_desc        *desc,
+                                 const struct video_frame *frame)
+{
+        if (frame->tiles[0].width != 0 &&
+            desc->width != frame->tiles[0].width &&
+            desc->height != frame->tiles[0].height) {
+                MSG(VERBOSE, "Setting the stream size to %ux%u\n",
+                    frame->tiles[0].width, frame->tiles[0].height);
+                desc->width  = frame->tiles[0].width;
+                desc->height = frame->tiles[0].height;
+        }
+}
+
 static void *
 vidcap_rtsp_thread(void *arg) {
     struct rtsp_state *s;
@@ -388,7 +402,7 @@ vidcap_rtsp_thread(void *arg) {
 
     time_ns_t start_time = get_time_in_ns();
 
-    struct video_frame *frame = vf_alloc(1);
+    struct video_frame *frame = vf_alloc_desc(s->vrtsp_state.desc);
 
     while (!s->should_exit) {
         time_ns_t curr_time = get_time_in_ns();
@@ -417,7 +431,9 @@ vidcap_rtsp_thread(void *arg) {
                     }
                     if (s->vrtsp_state.out_frame == NULL) {
                         s->vrtsp_state.out_frame = frame;
-                        frame = vf_alloc(1); // alloc new
+                        set_desc_width_height_if_changed(&s->vrtsp_state.desc,
+                                                         frame);
+                        frame = vf_alloc_desc(s->vrtsp_state.desc); // alloc new
                         if (s->vrtsp_state.boss_waiting)
                             pthread_cond_signal(&s->vrtsp_state.boss_cv);
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
@@ -477,18 +493,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
-            if (frame->tiles[0].width != 0 &&
-                s->vrtsp_state.desc.width != frame->tiles[0].width &&
-                s->vrtsp_state.desc.height != frame->tiles[0].height) {
-                    MSG(VERBOSE, "Setting the stream size to %ux%u\n",
-                        frame->tiles[0].width, frame->tiles[0].height);
-                    s->vrtsp_state.desc.width  = frame->tiles[0].width;
-                    s->vrtsp_state.desc.height = frame->tiles[0].height;
-            }
-            frame->color_spec      = s->vrtsp_state.desc.color_spec;
-            frame->fps             = s->vrtsp_state.desc.fps;
-            frame->tiles[0].width  = s->vrtsp_state.desc.width;
-            frame->tiles[0].height = s->vrtsp_state.desc.height;
             if (frame->tiles[0].width == 0) {
                     MSG(WARNING,
                         "Dropped zero-sized frame - the size was not published "
