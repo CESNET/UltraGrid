@@ -1237,25 +1237,24 @@ vidcap_rtsp_done(void *state) {
  */
 static int
 get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
-    int max_len = 1500, len_nals = 0;
-    char *s = (char *) malloc(max_len);
+    int len_nals = 0;
+    char s[1500];
     char *sprop;
-    memset(s, 0, max_len);
-    nals[0] = '\0';
 
-    while (fgets(s, max_len - 2, sdp_file) != NULL) {
+    while (fgets(s, sizeof s, sdp_file) != NULL) {
         sprop = strstr(s, "sprop-parameter-sets=");
         if (sprop == NULL) {
             continue;
         }
-        char *sprop_val = strstr(sprop, "=") + 1;
+        char *sprop_val = strchr(sprop, '=') + 1;
         char *term = strchr(sprop_val, ';');
         if (term) {
             *term = '\0';
         }
 
         char *nal = 0;
-        while ((nal = strtok(sprop_val, ","))) {
+        char *endptr = NULL;
+        while ((nal = strtok_r(sprop_val, ",", &endptr))) {
             sprop_val = NULL;
             unsigned int length = 0;
             //convert base64 to binary
@@ -1280,7 +1279,6 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
         }
     }
 
-    free(s);
     rewind(sdp_file);
     return len_nals;
 }
