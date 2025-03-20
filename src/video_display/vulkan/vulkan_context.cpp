@@ -544,16 +544,23 @@ void VulkanContext::recreate_swapchain(WindowParameters parameters, vk::RenderPa
         create_swap_chain(std::move(old_swap_chain));
         create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
         create_framebuffers(render_pass);
+        swapchain_was_suboptimal = false;
 }
 
-uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) const {
+uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) {
+        if(swapchain_was_suboptimal){
+                return swapchain_image_out_of_date;
+        }
+
         constexpr uint64_t timeout = 1'000'000'000; // 1s = 1 000 000 000 nanoseconds
         uint32_t image_index;
         auto acquired = device.acquireNextImageKHR(swapchain, timeout, acquire_semaphore, nullptr, &image_index);
         switch (acquired) {
                 case vk::Result::eSuccess:
                         break;
-                case vk::Result::eSuboptimalKHR: [[fallthrough]];
+                case vk::Result::eSuboptimalKHR:
+                        swapchain_was_suboptimal = true;
+                        break;
                 case vk::Result::eErrorOutOfDateKHR:
                         image_index = swapchain_image_out_of_date;
                         break;
