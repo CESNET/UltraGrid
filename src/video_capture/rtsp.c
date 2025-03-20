@@ -731,9 +731,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.worker_waiting = false;
 
     if (s->vrtsp_state.decompress) {
-        struct video_desc decompress_desc = s->vrtsp_state.desc;
-        decompress_desc.color_spec = H264;
-        if (init_decompressor(&s->vrtsp_state, decompress_desc) == 0) {
+        if (init_decompressor(&s->vrtsp_state, s->vrtsp_state.desc) == 0) {
             vidcap_rtsp_done(s);
             return VIDCAP_INIT_FAIL;
         }
