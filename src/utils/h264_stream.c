@@ -54,7 +54,7 @@ int nal_to_rbsp(const uint8_t* nal_buf, int* nal_size, uint8_t* rbsp_buf, int* r
     int j     = 0;
     int count = 0;
 
-    for( i = 1; i < *nal_size; i++ )
+    for( i = 0; i < *nal_size; i++ )
     {
         // in NAL unit, 0x000000, 0x000001 or 0x000002 shall not occur at any byte-aligned position
         if( ( count == 2 ) && ( nal_buf[i] < 0x03) )

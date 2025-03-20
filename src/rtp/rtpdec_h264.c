@@ -316,6 +316,9 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
         return -1;
     }
     bs_t* b = bs_new(rbsp_buf, data_len);
+    /* nal->forbidden_zero_bit */ bs_skip_u(b, 1);
+    /* nal->nal_ref_idc = */ bs_read_u(b, 2);
+    /* nal->nal_unit_type = */ bs_read_u(b, 5);
     if(read_seq_parameter_set_rbsp(sps,b) < 0){
         bs_free(b);
         free(rbsp_buf);
