@@ -564,9 +564,12 @@ bool VulkanDisplay::display_queued_image() {
         int swapchain_recreation_attempt = 0;
         while (swapchain_image_id == swapchain_image_out_of_date || swapchain_image_id == swapchain_image_timeout) 
         {
+                const int swapchain_recreation_warn_tries = 50;
                 swapchain_recreation_attempt++;
-                if (swapchain_recreation_attempt > 3) {
-                        throw VulkanError{"Cannot acquire swapchain image"};
+                if (swapchain_image_id == swapchain_image_timeout){
+                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire timed out\n");
+                } else if (swapchain_recreation_attempt > swapchain_recreation_warn_tries) {
+                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire failed "s + std::to_string(swapchain_recreation_warn_tries) + "times in a row\n");
                 }
                 
                 auto window_parameters = window->get_window_parameters();
