@@ -70,10 +70,17 @@ enum h264_nal_type {
 };
 
 enum hevc_nal_type {
-        NAL_HEVC_VPS = 32,
-        NAL_HEVC_SPS = 33,
-        NAL_HEVC_PPS = 34,
-        NAL_HEVC_AUD = 35,
+        NAL_HEVC_TRAIL_N         = 1,
+        NAL_HEVC_BLA_W_LP        = 16,
+        NAL_HEVC_CODED_SLC_FIRST = NAL_HEVC_BLA_W_LP,
+        NAL_HEVC_IDR_N_LP        = 20,
+        NAL_HEVC_CRA_NUT         = 21,
+        NAL_HEVC_VPS             = 32,
+        NAL_HEVC_SPS             = 33,
+        NAL_HEVC_PPS             = 34,
+        NAL_HEVC_AUD             = 35,
+        NAL_HEVC_SUFFIX_SEI      = 40,
+        NAL_HEVC_MAX             = NAL_HEVC_SUFFIX_SEI, // last valid HEVC NALU
 };
 
 struct coded_data;
@@ -82,10 +89,13 @@ struct video_desc;
 
 #define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
 #define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
+#define HEVC_NALU_HDR_GET_TYPE(nal) ((nal) >> 1)
 #define NALU_HDR_GET_TYPE(nal, is_hevc) \
-        ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
+        ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
+                   : H264_NALU_HDR_GET_TYPE((nal)))
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
+int decode_frame_hevc(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
                                       struct decode_data_rtsp *decode_data);
 int width_height_from_h264_sps(int *widthOut, int *heightOut,

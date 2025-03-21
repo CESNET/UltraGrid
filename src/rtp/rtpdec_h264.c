@@ -77,7 +77,7 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
  *
  * @retval H.264 or RTP NAL type
  */
-static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
+static uint8_t process_h264_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
     uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %s (%d; nri: %d)\n",
@@ -99,16 +99,37 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     return type;
 }
 
+static uint8_t process_hevc_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
+    enum hevc_nal_type type = HEVC_NALU_HDR_GET_TYPE(nal);
+    log_msg(LOG_LEVEL_DEBUG2, "HEVC NAL type %s (%d)\n",
+            get_hevc_nalu_name(type), (int) type);
+
+    if (type == NAL_HEVC_SPS) {
+        width_height_from_hevc_sps((int *) &frame->tiles[0].width,
+                                   (int *) &frame->tiles[0].height, data,
+                                   data_len);
+    }
+
+    frame->frame_type = type >= NAL_HEVC_CODED_SLC_FIRST && type <= NAL_HEVC_MAX
+                            ? INTRA
+                            : OTHER;
+    return type;
+}
+
 /**
  * @param pass  0 - extracts frame metadata (type; width height if SPS present)
  * and computes required out buffer length;
  *              1 - copy NAL units to output buffer separated by start codes
  * ([0,]0,0,1i; Annex-B)
  */
-static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
+static bool
+decode_h264_nal_unit(struct video_frame *frame, int *total_length, int pass,
+                     unsigned char **dst, uint8_t *data, int data_len)
+{
     int fu_length = 0;
     uint8_t nal = data[0];
-    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : H264_NALU_HDR_GET_TYPE(nal);
+    uint8_t type      = pass == 0 ? process_h264_nal(nal, frame, data, data_len)
+                                  : H264_NALU_HDR_GET_TYPE(nal);
     if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
         type = H264_NAL;
     }
@@ -146,7 +167,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 if (nal_size <= data_len) {
                     if (pass == 0) {
                         *total_length += sizeof(start_sequence) + nal_size;
-                        process_nal(data[0], frame, data, data_len);
+                        process_h264_nal(data[0], frame, data, data_len);
                     } else {
                         assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
                         nal_sizes[nal_count++] = nal_size;
@@ -211,7 +232,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     }
                     if (start_bit) {
                         *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
-                        process_nal(reconstructed_nal, frame, data, fu_length);
+                        process_h264_nal(reconstructed_nal, frame, data, fu_length);
                     } else {
                         *total_length += data_len;
                     }
@@ -236,6 +257,27 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             return false;
     }
     return true;
+}
+
+static bool
+decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
+                     unsigned char **dst, uint8_t *data, int data_len)
+{
+    uint8_t nal = data[0];
+    uint8_t type = pass == 0 ? process_hevc_nal(nal, frame, data, data_len) : HEVC_NALU_HDR_GET_TYPE(nal);
+
+    if (type <= NAL_HEVC_MAX) {
+            if (pass == 0) {
+                *total_length += sizeof(start_sequence) + data_len;
+            } else {
+                *dst -= data_len + sizeof(start_sequence);
+                memcpy(*dst, start_sequence, sizeof(start_sequence));
+                memcpy(*dst + sizeof(start_sequence), data, data_len);
+            }
+            return true;
+    }
+    MSG(ERROR, "%s type not implemented!\n", get_hevc_nalu_name(type));
+    return false;
 }
 
 static void
@@ -292,7 +334,49 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
         while (cdata != NULL) {
             rtp_packet *pckt = cdata->data;
 
-            if (!decode_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
+            if (!decode_h264_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
+                return false;
+            }
+
+            cdata = cdata->nxt;
+        }
+    }
+
+    if (frame->frame_type == INTRA) {
+        write_sps_pps(frame, data);
+    }
+
+    return true;
+}
+
+int decode_frame_hevc(struct coded_data *cdata, void *decode_data) {
+    struct coded_data *orig = cdata;
+
+    int total_length = 0;
+
+    struct decode_data_rtsp *data = decode_data;
+    struct video_frame *frame = data->frame;
+    frame->frame_type = BFRAME;
+
+    for (int pass = 0; pass < 2; pass++) {
+        unsigned char *dst = NULL;
+
+        if (pass > 0) {
+            cdata = orig;
+            if(frame->frame_type == INTRA){
+                total_length+=data->offset_len;
+            }
+            frame->tiles[0].data_len = total_length;
+            assert(frame->tiles[0].data == NULL);
+            frame->tiles[0].data = malloc(total_length);
+            frame->callbacks.data_deleter = vf_data_deleter;
+            dst = (unsigned char *) frame->tiles[0].data + total_length;
+        }
+
+        while (cdata != NULL) {
+            rtp_packet *pckt = cdata->data;
+
+            if (!decode_hevc_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
                 return false;
             }
 

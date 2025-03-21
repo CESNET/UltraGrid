@@ -169,7 +169,16 @@ get_h264_nalu_name(enum h264_nal_type type)
 const char *
 get_hevc_nalu_name(enum hevc_nal_type type)
 {
+        #define ITEM_TO
         switch (type) {
+        case NAL_HEVC_TRAIL_N:
+                return "HEVC TRAIL R";
+        case NAL_HEVC_BLA_W_LP:
+                return "HEVC BLA W LP";
+        case NAL_HEVC_CRA_NUT:
+                return "HEVC CRA NUT";
+        case NAL_HEVC_IDR_N_LP:
+                return "HEVC IDR N LP";
         case NAL_HEVC_VPS:
                 return "HEVC VPS";
         case NAL_HEVC_SPS:
@@ -178,6 +187,8 @@ get_hevc_nalu_name(enum hevc_nal_type type)
                 return "HEVC PPS";
         case NAL_HEVC_AUD:
                 return "HEVC AUD";
+        case NAL_HEVC_SUFFIX_SEI:
+                return "HEVC SUFFIX SEI";
         }
         _Thread_local static char buf[32];
         snprintf(buf, sizeof buf, "(HEVC NALU %d)", type);

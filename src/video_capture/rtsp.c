@@ -928,7 +928,9 @@ init_rtsp(struct rtsp_state *s) {
     }
     if (s->vrtsp_state.desc.color_spec == H264 ||
         s->vrtsp_state.desc.color_spec == H265) {
-        s->vrtsp_state.decode_data.decode = decode_frame_h264;
+        s->vrtsp_state.decode_data.decode =
+            s->vrtsp_state.desc.color_spec == H264 ? decode_frame_h264
+                                                   : decode_frame_hevc;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
             s->vrtsp_state.desc.color_spec,
@@ -937,8 +939,10 @@ init_rtsp(struct rtsp_state *s) {
             (int *) &s->vrtsp_state.desc.height);
         s->vrtsp_state.decode_data.offset_len = len_nals;
         s->sps_pps_emitted = 0; // emit metadata with first grab
-        MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
-            "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+        MSG(VERBOSE, "playing %s video from server (size: WxH = %d x %d)...\n",
+            get_codec_name(s->vrtsp_state.desc.color_spec),
+            s->vrtsp_state.desc.width, s->vrtsp_state.desc.height);
+
     } else if (s->vrtsp_state.desc.color_spec == JPEG) {
         s->vrtsp_state.decode_data.decode = decode_frame_jpeg;
     } else {
@@ -963,8 +967,6 @@ error:
     }
     return false;
 }
-
-#define LEN 10
 
 static bool
 setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
@@ -1269,6 +1271,13 @@ get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height) {
             sprop = term + 1;
         } else {
             sprop = sprop_val;
+        }
+        if (strcmp(sprop_name, "sprop-parameter-sets") != 0 && // H.264
+            strcmp(sprop_name, "sprop-vps") != 0 &&            // HEVC
+            strcmp(sprop_name, "sprop-sps") != 0 &&
+            strcmp(sprop_name, "sprop-pps") != 0) {
+                MSG(VERBOSE, "Skipping unsupported %s\n", sprop_name);
+                continue; // do not process unknown sprops
         }
 
         char *nal = 0;
