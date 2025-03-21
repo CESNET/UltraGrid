@@ -894,7 +894,7 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                 s->sps_vps_found = 1;
                 log_msg(LOG_LEVEL_VERBOSE,
                         MOD_NAME "Received %s NALU, decoding begins.\n",
-                        get_nalu_name(nalu_type));
+                        get_nalu_name(nalu_type, s->desc.color_spec == H265));
                 return 1;
         default:
                 log_msg(LOG_LEVEL_WARNING,

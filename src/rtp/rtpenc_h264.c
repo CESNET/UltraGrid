@@ -123,16 +123,16 @@ rtpenc_get_first_nal(const unsigned char *src, long src_len, bool hevc)
                         return NULL;
                 }
                 nalu_type = NALU_HDR_GET_TYPE(nal[0], hevc);
-                debug_msg("Received %s NALU.\n", get_nalu_name(nalu_type));
+                debug_msg("Received %s NALU.\n", get_nalu_name(nalu_type, hevc));
         } while (nalu_type == NAL_H264_AUD || nalu_type == NAL_HEVC_AUD);
         return nal;
 }
 
-/// @returns name of NAL unit
+/// @returns name of H.264 NAL unit
 const char *
-get_nalu_name(int type)
+get_h264_nalu_name(enum h264_nal_type type)
 {
-        switch ((enum nal_type) type) {
+        switch (type) {
         case NAL_H264_NON_IDR:
                 return "H264 non-IDR";
         case NAL_H264_IDR:
@@ -145,16 +145,8 @@ get_nalu_name(int type)
                 return "H264 PPS";
         case NAL_H264_AUD:
                 return "H264 AUD";
-        case NAL_HEVC_VPS:
-                return "HEVC VPS";
-        case NAL_HEVC_SPS:
-                return "HEVC SPS";
-        case NAL_HEVC_PPS:
-                return "HEVC PPS";
-        case NAL_HEVC_AUD:
-                return "HEVC AUD";
-        }
-        switch ((enum aux_nal_types) type) {
+        case NAL_H264_RESERVED23:
+                return "H264 reserved type 23";
         case RTP_STAP_A:
                 return "RTP STAP A";
         case RTP_STAP_B:
@@ -169,6 +161,32 @@ get_nalu_name(int type)
                 return "RTP FU B";
         }
         _Thread_local static char buf[32];
-        snprintf(buf, sizeof buf, "(NALU %d)", type);
+        snprintf(buf, sizeof buf, "(H.264 NALU %d)", type);
         return buf;
+}
+
+/// @returns name of HEVC NAL unit
+const char *
+get_hevc_nalu_name(enum hevc_nal_type type)
+{
+        switch (type) {
+        case NAL_HEVC_VPS:
+                return "HEVC VPS";
+        case NAL_HEVC_SPS:
+                return "HEVC SPS";
+        case NAL_HEVC_PPS:
+                return "HEVC PPS";
+        case NAL_HEVC_AUD:
+                return "HEVC AUD";
+        }
+        _Thread_local static char buf[32];
+        snprintf(buf, sizeof buf, "(HEVC NALU %d)", type);
+        return buf;
+}
+
+const char *
+get_nalu_name(int type, bool hevc)
+{
+        return hevc ? get_hevc_nalu_name((enum hevc_nal_type) type)
+                    : get_h264_nalu_name((enum h264_nal_type) type);
 }

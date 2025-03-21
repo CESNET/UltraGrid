@@ -54,6 +54,8 @@
 /// custom orig format byte syntax - highest 1 bit zero, next 2 bits (depth-8)/2, next 3 bits subsampling (Y-1) from X:Y:Z, next 1 bit - vertical is subsampled, last bit RGB
 #define UG_ORIG_FORMAT_ISO_IEC_11578_GUID 0xDB, 0x69, 0xDA, 0x43, 0x42, 0x11, 0x40, 0xEC, 0xA2, 0xF1, 0x45, 0x96, 0x64, 0xFA, 0x14, 0x63
 
+#include "rtpdec_h264.h" // for h264_nal_type, hevc_nal_type
+
 #ifndef __cplusplus
 #include <stdbool.h>
 #else
@@ -65,7 +67,9 @@ const unsigned char *rtpenc_get_next_nal(const unsigned char *start, long len,
                                          const unsigned char **endptr);
 const unsigned char *rtpenc_get_first_nal(const unsigned char *src,
                                           long src_len, bool hevc);
-const char          *get_nalu_name(int type);
+const char          *get_nalu_name(int type, bool hevc);
+const char          *get_h264_nalu_name(enum h264_nal_type type);
+const char          *get_hevc_nalu_name(enum hevc_nal_type type);
 
 #ifdef __cplusplus
 }

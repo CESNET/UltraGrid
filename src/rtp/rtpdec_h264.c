@@ -81,7 +81,7 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
     uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %s (%d; nri: %d)\n",
-            get_nalu_name(type), (int) type, (int) nri);
+            get_h264_nalu_name(type), (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
         width_height_from_h264_sps((int *) &frame->tiles[0].width,

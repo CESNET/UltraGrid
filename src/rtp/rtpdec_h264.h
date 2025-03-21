@@ -49,34 +49,31 @@
 extern "C" {
 #endif
 
-enum {
-        NAL_H264_MIN = 1,
-        NAL_H264_MAX = 23,
-};
-
-enum nal_type {
+enum h264_nal_type {
         // H.264
         NAL_H264_NON_IDR = 1,
+        NAL_H264_MIN = NAL_H264_NON_IDR,
         NAL_H264_IDR = 5,
         NAL_H264_SEI = 6,
         NAL_H264_SPS = 7,
         NAL_H264_PPS = 8,
         NAL_H264_AUD = 9,
-        // HEVC
-        NAL_HEVC_VPS = 32,
-        NAL_HEVC_SPS = 33,
-        NAL_HEVC_PPS = 34,
-        NAL_HEVC_AUD = 35,
-};
-
-/// NAL values >23 are invalid in H.264 codestream but used by RTP
-enum aux_nal_types {
+        NAL_H264_RESERVED23 = 23,
+        NAL_H264_MAX = NAL_H264_RESERVED23, // last valid H264
+        /// NAL values >23 are invalid in H.264 codestream but used by RTP
         RTP_STAP_A = 24,
         RTP_STAP_B = 25,
         RTP_MTAP16 = 26,
         RTP_MTAP24 = 27,
         RTP_FU_A   = 28,
         RTP_FU_B   = 29,
+};
+
+enum hevc_nal_type {
+        NAL_HEVC_VPS = 32,
+        NAL_HEVC_SPS = 33,
+        NAL_HEVC_PPS = 34,
+        NAL_HEVC_AUD = 35,
 };
 
 struct coded_data;
