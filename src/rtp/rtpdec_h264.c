@@ -66,8 +66,6 @@
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
-int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
-
 /**
  * This function extracts important data for futher processing of the stream,
  * eg. frame type - for prepending RTSP/SDP sprop-parameter-sets to I-frame and
@@ -85,7 +83,9 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
             get_nalu_name(type), (int) type, (int) nri);
 
     if (type == NAL_H264_SPS) {
-        fill_coded_frame_from_sps(frame, data, data_len);
+        width_height_from_SDP((int *) &frame->tiles[0].width,
+                              (int *) &frame->tiles[0].height, data,
+                              data_len);
     }
 
     if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
@@ -304,45 +304,6 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
     }
 
     return true;
-}
-
-int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len){
-    uint32_t width, height;
-    sps_t* sps = (sps_t*)malloc(sizeof(sps_t));
-    uint8_t* rbsp_buf = (uint8_t*)malloc(data_len);
-    if (nal_to_rbsp(data, &data_len, rbsp_buf, &data_len) < 0){
-        free(rbsp_buf);
-        free(sps);
-        return -1;
-    }
-    bs_t* b = bs_new(rbsp_buf, data_len);
-    if(read_seq_parameter_set_rbsp(sps,b) < 0){
-        bs_free(b);
-        free(rbsp_buf);
-        free(sps);
-        return -1;
-    }
-    width = (sps->pic_width_in_mbs_minus1 + 1) * 16;
-    height = (2 - sps->frame_mbs_only_flag) * (sps->pic_height_in_map_units_minus1 + 1) * 16;
-    //NOTE: frame_mbs_only_flag = 1 --> only progressive frames
-    //      frame_mbs_only_flag = 0 --> some type of interlacing (there are 3 types contemplated in the standard)
-    if (sps->frame_cropping_flag){
-        width -= (sps->frame_crop_left_offset*2 + sps->frame_crop_right_offset*2);
-        height -= (sps->frame_crop_top_offset*2 + sps->frame_crop_bottom_offset*2);
-    }
-
-    if((width != rx_data->tiles[0].width) || (height != rx_data->tiles[0].height)) {
-        vf_get_tile(rx_data, 0)->width = width;
-        vf_get_tile(rx_data, 0)->height = height;
-//        free(rx_data->tiles[0].data);
-//        rx_data->tiles[0].data = calloc(1, rx_data->h264_width * rx_data->h264_height);
-    }
-
-    bs_free(b);
-    free(rbsp_buf);
-    free(sps);
-
-    return 0;
 }
 
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len){
