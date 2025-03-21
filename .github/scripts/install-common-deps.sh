@@ -58,11 +58,14 @@ install_pcp() {
         (
                 cd pcp
                 # TODO TOREMOVE when not needed
-                sed "/int gettimeofday/i\\
+                if is_win; then
+                        git checkout 46341d6
+                        sed "/int gettimeofday/i\\
 struct timezone;\\
 struct timeval;\\
 " libpcp/src/windows/pcp_gettimeofday.h > fixed
-                mv fixed libpcp/src/windows/pcp_gettimeofday.h
+                        mv fixed libpcp/src/windows/pcp_gettimeofday.h
+                fi
 
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
