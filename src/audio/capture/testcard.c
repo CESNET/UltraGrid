@@ -37,17 +37,23 @@
 
 #define MOD_NAME "[Audio testcard] "
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <assert.h>               // for assert
+#include <errno.h>                // for errno
+#include <limits.h>               // for INT_MAX
+#include <math.h>                 // for sin, pow, sqrt, M_PI, round
+#include <stdbool.h>              // for false, bool, true
+#include <stddef.h>               // for ptrdiff_t
+#include <stdint.h>               // for INT32_MAX, int32_t, INT32_MIN, int64_t
+#include <stdio.h>                // for fclose, fopen, perror, printf, FILE
+#include <stdlib.h>               // for NULL, calloc, free, size_t, strtol
+#include <string.h>               // for strlen, memcpy, strchr, memset, strcmp
+#include <strings.h>              // for strncasecmp, strcasecmp
+#include <unistd.h>               // for usleep
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
-#include "compat/misc.h"
 #include "compat/usleep.h"
 #include "debug.h"
 #include "host.h"
@@ -57,9 +63,6 @@
 #include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
-
-#include <assert.h>
-#include <string.h>
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
