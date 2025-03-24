@@ -433,7 +433,10 @@ void usage(bool full) {
         }
         col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options, works on decoders as well (also use keyword \"encoder\").\n";
         col() << "\n";
-        col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
+        const unsigned lavc_ver = avcodec_version();
+        color_printf("Libavcodec version (linked): " TBOLD("%d.%d.%d") "\n",
+                     AV_VERSION_MAJOR(lavc_ver), AV_VERSION_MINOR(lavc_ver),
+                     AV_VERSION_MICRO(lavc_ver));
         const char *swscale = "no";
 #ifdef HAVE_SWSCALE
         swscale = "yes";
