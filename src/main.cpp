@@ -1039,6 +1039,75 @@ parse_options(int argc, char *argv[], struct ug_options *opt)
         }
 }
 
+static void
+adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
+{
+        // use dyn ports if unset, sending only to ourselves or neither
+        // sending nor receiving
+        if (is_host_loopback(opt->requested_receiver)) {
+                const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
+                const bool     v_send_and_rcv =
+                    (opt->video_rxtx_mode & mode_both) == mode_both;
+                const bool v_no_send_or_recv =
+                    (opt->video_rxtx_mode & mode_both) == 0;
+                const bool v_ports_unset = opt->video_rx_port == -1 &&
+                                           opt->video_tx_port == -1 &&
+                                           opt->port_base == -1;
+                if ((v_send_and_rcv || v_no_send_or_recv) && v_ports_unset) {
+                        opt->video_rx_port = opt->video_tx_port = 0;
+                }
+                const bool a_send_and_recv =
+                    (audio_rxtx_mode & mode_both) == mode_both;
+                const bool a_no_send_or_recv =
+                    (audio_rxtx_mode & mode_both) == 0;
+                const bool a_ports_unset = opt->audio.recv_port == -1 &&
+                                           opt->audio.send_port == -1 &&
+                                           opt->port_base == -1;
+                if ((a_send_and_recv || a_no_send_or_recv) && a_ports_unset) {
+                        opt->audio.recv_port = opt->audio.send_port = 0;
+                }
+        }
+        if (opt->port_base == -1) {
+                opt->port_base = PORT_BASE;
+        };
+
+        if (opt->video_rx_port == -1) {
+                if ((opt->video_rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        opt->video_rx_port = 0;
+                } else {
+                        opt->video_rx_port = opt->port_base;
+                }
+        }
+
+        if (opt->video_tx_port == -1) {
+                if ((opt->video_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->video_tx_port = 0; // does not matter, we are receiver
+                } else {
+                        opt->video_tx_port = opt->port_base;
+                }
+        }
+
+        if (opt->audio.recv_port == -1) {
+                if ((audio_rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        opt->audio.recv_port = 0;
+                } else {
+                        opt->audio.recv_port = opt->video_rx_port ? opt->video_rx_port + 2 : opt->port_base + 2;
+                }
+        }
+
+        if (opt->audio.send_port == -1) {
+                if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->audio.send_port = 0;
+                } else {
+                        opt->audio.send_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
+                }
+        }
+}
+
 static int adjust_params(struct ug_options *opt) {
         unsigned int audio_rxtx_mode = 0;
         if (opt->is_server) {
@@ -1176,55 +1245,7 @@ static int adjust_params(struct ug_options *opt) {
                 opt->video_rxtx_mode |= MODE_SENDER;
         }
 
-        // use dyn ports if unset, sending only to ourselves or neither sending nor receiving
-        const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
-        if (is_host_loopback(opt->requested_receiver) && ((opt->video_rxtx_mode & mode_both) == mode_both || (opt->video_rxtx_mode & mode_both) == 0)
-                        && (opt->video_rx_port == -1 && opt->video_tx_port == -1 && opt->port_base == -1)) {
-                opt->video_rx_port = opt->video_tx_port = 0;
-        }
-        if (is_host_loopback(opt->requested_receiver) && ((audio_rxtx_mode & mode_both) == mode_both || (audio_rxtx_mode & mode_both) == 0)
-                        && (opt->audio.recv_port == -1 && opt->audio.send_port == -1 && opt->port_base == -1)) {
-                opt->audio.recv_port = opt->audio.send_port = 0;
-        }
-        if (opt->port_base == -1) {
-                opt->port_base = PORT_BASE;
-        };
-
-        if (opt->video_rx_port == -1) {
-                if ((opt->video_rxtx_mode & MODE_RECEIVER) == 0U) {
-                        // do not occupy recv port if we are not receiving (note that this disables communication with
-                        // our receiver, because RTCP ports are changed as well)
-                        opt->video_rx_port = 0;
-                } else {
-                        opt->video_rx_port = opt->port_base;
-                }
-        }
-
-        if (opt->video_tx_port == -1) {
-                if ((opt->video_rxtx_mode & MODE_SENDER) == 0U) {
-                        opt->video_tx_port = 0; // does not matter, we are receiver
-                } else {
-                        opt->video_tx_port = opt->port_base;
-                }
-        }
-
-        if (opt->audio.recv_port == -1) {
-                if ((audio_rxtx_mode & MODE_RECEIVER) == 0U) {
-                        // do not occupy recv port if we are not receiving (note that this disables communication with
-                        // our receiver, because RTCP ports are changed as well)
-                        opt->audio.recv_port = 0;
-                } else {
-                        opt->audio.recv_port = opt->video_rx_port ? opt->video_rx_port + 2 : opt->port_base + 2;
-                }
-        }
-
-        if (opt->audio.send_port == -1) {
-                if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
-                        opt->audio.send_port = 0;
-                } else {
-                        opt->audio.send_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
-                }
-        }
+        adjust_ports(opt, audio_rxtx_mode);
 
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
