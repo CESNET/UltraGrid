@@ -40,12 +40,6 @@
  * Remove deprecated instances of ca-disable-adaptive-buf after some transitio period.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
 #include <MacTypes.h>
