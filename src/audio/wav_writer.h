@@ -38,19 +38,15 @@
 #ifndef WAV_WRITER_H_722362F0_155A_11EC_88ED_B7401531ECA5
 #define WAV_WRITER_H_722362F0_155A_11EC_88ED_B7401531ECA5
 
-#ifdef __cplusplus
-#include <cstdio>
-#else
+#ifndef __cplusplus
 #include <stdbool.h>
-#include <stdio.h>
 #endif
-
-#include "audio/types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct audio_desc;
 struct wav_writer_file;
 
 /**

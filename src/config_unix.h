@@ -170,9 +170,6 @@ typedef int     fd_t;
 #define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
 
-#define _ftelli64 ftell
-#define _fseeki64 fseek
-
 #ifdef __cplusplus
 #define CONF_NIX_EXT_C extern "C"
 #else

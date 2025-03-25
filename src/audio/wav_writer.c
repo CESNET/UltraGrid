@@ -58,18 +58,17 @@
  * also follows the above rules.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
+#include <errno.h>        // for errno
+#include <limits.h>       // for CHAR_BIT
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "audio/types.h"  // for audio_desc
 #include "audio/utils.h"
 #include "audio/wav_writer.h"
+#define WANT_FSEEKO64
+#include "compat/misc.h"  // for fseeko, ftello
 
 /* Chunk size: 4 + 24 + (8 + M * Nc * Ns + (0 or 1)) */
 #define CK_MASTER_SIZE_OFFSET            4
@@ -177,7 +176,7 @@ bool wav_writer_close(struct wav_writer_file *wav)
                 }
         }
 
-        int64_t ret = _fseeki64(wav->outfile, CK_MASTER_SIZE_OFFSET, SEEK_SET);
+        int64_t ret = fseeko(wav->outfile, CK_MASTER_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
@@ -193,7 +192,7 @@ bool wav_writer_close(struct wav_writer_file *wav)
                 goto error;
         }
 
-        ret = _fseeki64(wav->outfile, CK_DATA_SIZE_OFFSET, SEEK_SET);
+        ret = fseeko(wav->outfile, CK_DATA_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
