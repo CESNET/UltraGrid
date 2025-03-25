@@ -1272,6 +1272,10 @@ get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height) {
         } else {
             sprop = sprop_val;
         }
+        if (strcmp(sprop_name, "sprop-max-don-diff") == 0) {
+            bug_msg(LOG_LEVEL_ERROR, "sprop-max-don-diff not implemented. ");
+            continue;
+        }
         if (strcmp(sprop_name, "sprop-parameter-sets") != 0 && // H.264
             strcmp(sprop_name, "sprop-vps") != 0 &&            // HEVC
             strcmp(sprop_name, "sprop-sps") != 0 &&

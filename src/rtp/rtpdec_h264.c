@@ -268,6 +268,7 @@ decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
                      unsigned char **dst, uint8_t *data, int data_len)
 {
     uint8_t nal[2] = { data[0], data[1] };
+    int fu_length = 0;
     enum hevc_nal_type type = pass == 0
                                   ? process_hevc_nal(nal, frame, data, data_len)
                                   : HEVC_NALU_HDR_GET_TYPE(&nal);
@@ -280,10 +281,61 @@ decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
                 memcpy(*dst, start_sequence, sizeof(start_sequence));
                 memcpy(*dst + sizeof(start_sequence), data, data_len);
             }
-            return true;
+    } else if (type == NAL_RTP_HEVC_FU) {
+            data += 2;
+            data_len -= 2;
+
+            if (data_len > 1) {
+                uint8_t fu_header = *data;
+                uint8_t start_bit = fu_header >> 7;
+                uint8_t end_bit       = (fu_header & 0x40) >> 6;
+                enum hevc_nal_type nal_type = fu_header & 0x3f;
+                uint8_t reconstructed_nal[2];
+
+                // Reconstruct this packet's true nal; only the data follows.
+                /* The original nal forbidden bit, layer ID and TID are stored
+                 * packet's nal. */
+                reconstructed_nal[0] = nal[0] & 0x81; // keep 1st and last bit
+                reconstructed_nal[0] |= nal_type << 1;
+                reconstructed_nal[1] = nal[1];
+
+                // skip the fu_header
+                data++;
+                data_len--;
+                // + skip DONL if present
+
+                if (pass == 0) {
+                    if (end_bit) {
+                        fu_length = data_len;
+                    } else {
+                        fu_length += data_len;
+                    }
+                    if (start_bit) {
+                        *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
+                        process_hevc_nal(reconstructed_nal, frame, data, fu_length);
+                    } else {
+                        *total_length += data_len;
+                    }
+                } else {
+                    if (start_bit) {
+                        *dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
+                        memcpy(*dst, start_sequence, sizeof(start_sequence));
+                        memcpy(*dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
+                        memcpy(*dst + sizeof(start_sequence) + sizeof(reconstructed_nal), data, data_len);
+                    } else {
+                        *dst -= data_len;
+                        memcpy(*dst, data, data_len);
+                    }
+                }
+            } else {
+                error_msg("Too short data for FU HEVC RTP packet\n");
+                return false;
+            }
+    } else {
+            MSG(ERROR, "%s type not implemented!\n", get_hevc_nalu_name(type));
+            return false;
     }
-    MSG(ERROR, "%s type not implemented!\n", get_hevc_nalu_name(type));
-    return false;
+    return true;
 }
 
 static void
