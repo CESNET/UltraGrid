@@ -78,8 +78,8 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
  * @retval H.264 or RTP NAL type
  */
 static uint8_t process_h264_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
-    uint8_t type = H264_NALU_HDR_GET_TYPE(nal);
-    uint8_t nri = H264_NALU_HDR_GET_NRI(nal);
+    uint8_t type = H264_NALU_HDR_GET_TYPE(&nal);
+    uint8_t nri = H264_NALU_HDR_GET_NRI(&nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %s (%d; nri: %d)\n",
             get_h264_nalu_name(type), (int) type, (int) nri);
 
@@ -99,10 +99,14 @@ static uint8_t process_h264_nal(uint8_t nal, struct video_frame *frame, uint8_t 
     return type;
 }
 
-static uint8_t process_hevc_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
+static uint8_t process_hevc_nal(const uint8_t nal[2], struct video_frame *frame, uint8_t *data, int data_len) {
+    unsigned char forbidden = nal[0] >> 7;
+    assert(forbidden == 0);
     enum hevc_nal_type type = HEVC_NALU_HDR_GET_TYPE(nal);
-    log_msg(LOG_LEVEL_DEBUG2, "HEVC NAL type %s (%d)\n",
-            get_hevc_nalu_name(type), (int) type);
+    unsigned layer_id = HEVC_NALU_HDR_GET_LAYER_ID(nal);
+    unsigned tid = HEVC_NALU_HDR_GET_TID(nal);
+    log_msg(LOG_LEVEL_DEBUG2, "HEVC NAL type %s (%d; layerID: %u, TID: %u)\n",
+            get_hevc_nalu_name(type), (int) type, layer_id, tid);
 
     if (type == NAL_HEVC_SPS) {
         width_height_from_hevc_sps((int *) &frame->tiles[0].width,
@@ -129,7 +133,7 @@ decode_h264_nal_unit(struct video_frame *frame, int *total_length, int pass,
     int fu_length = 0;
     uint8_t nal = data[0];
     uint8_t type      = pass == 0 ? process_h264_nal(nal, frame, data, data_len)
-                                  : H264_NALU_HDR_GET_TYPE(nal);
+                                  : H264_NALU_HDR_GET_TYPE(&nal);
     if (type >= NAL_H264_MIN && type <= NAL_H264_MAX) {
         type = H264_NAL;
     }
@@ -161,8 +165,8 @@ decode_h264_nal_unit(struct video_frame *frame, int *total_length, int pass,
 
                 log_msg(LOG_LEVEL_DEBUG2,
                         "STAP-A subpacket NAL type %d (nri: %d)\n",
-                        (int) H264_NALU_HDR_GET_TYPE(data[0]),
-                        (int) H264_NALU_HDR_GET_NRI(nal));
+                        (int) H264_NALU_HDR_GET_TYPE(data),
+                        (int) H264_NALU_HDR_GET_NRI(&nal));
 
                 if (nal_size <= data_len) {
                     if (pass == 0) {
@@ -211,7 +215,7 @@ decode_h264_nal_unit(struct video_frame *frame, int *total_length, int pass,
                 uint8_t fu_header = *data;
                 uint8_t start_bit = fu_header >> 7;
                 uint8_t end_bit       = (fu_header & 0x40) >> 6;
-                uint8_t nal_type = H264_NALU_HDR_GET_TYPE(fu_header);
+                uint8_t nal_type = H264_NALU_HDR_GET_TYPE(&fu_header);
                 uint8_t reconstructed_nal;
 
                 // Reconstruct this packet's true nal; only the data follows.
@@ -263,8 +267,10 @@ static bool
 decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
                      unsigned char **dst, uint8_t *data, int data_len)
 {
-    uint8_t nal = data[0];
-    uint8_t type = pass == 0 ? process_hevc_nal(nal, frame, data, data_len) : HEVC_NALU_HDR_GET_TYPE(nal);
+    uint8_t nal[2] = { data[0], data[1] };
+    enum hevc_nal_type type = pass == 0
+                                  ? process_hevc_nal(nal, frame, data, data_len)
+                                  : HEVC_NALU_HDR_GET_TYPE(&nal);
 
     if (type <= NAL_HEVC_MAX) {
             if (pass == 0) {

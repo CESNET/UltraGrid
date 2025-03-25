@@ -1298,7 +1298,7 @@ get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height) {
             len_nals += length;
             free(nal_decoded);
 
-            uint8_t nalInfo = (uint8_t) nals[len_nals - length];
+            char *nalInfo = nals + len_nals - length;
             uint8_t type = NALU_HDR_GET_TYPE(nalInfo, codec == H265);
             MSG(DEBUG, "%s %s (%d) (base64): %s\n", sprop_name,
                 get_nalu_name(type, codec == H265), (int) type, nal);

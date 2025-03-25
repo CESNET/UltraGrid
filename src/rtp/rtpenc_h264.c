@@ -122,7 +122,7 @@ rtpenc_get_first_nal(const unsigned char *src, long src_len, bool hevc)
                 if (!nal) {
                         return NULL;
                 }
-                nalu_type = NALU_HDR_GET_TYPE(nal[0], hevc);
+                nalu_type = NALU_HDR_GET_TYPE(nal, hevc);
                 debug_msg("Received %s NALU.\n", get_nalu_name(nalu_type, hevc));
         } while (nalu_type == NAL_H264_AUD || nalu_type == NAL_HEVC_AUD);
         return nal;

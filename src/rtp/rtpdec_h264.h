@@ -90,9 +90,17 @@ struct coded_data;
 struct decode_data_rtsp;
 struct video_desc;
 
-#define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
-#define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
-#define HEVC_NALU_HDR_GET_TYPE(nal) ((nal) >> 1)
+#define H264_NALU_HDR_GET_TYPE(nal) (*(const uint8_t *) (nal) & 0x1F)
+#define H264_NALU_HDR_GET_NRI(nal)  ((*(const uint8_t *) (nal) & 0x60) >> 5)
+
+/// @param nal pointer to **big-endian** NAL header
+#define HEVC_NALU_HDR_GET_TYPE(nal) (*(const uint8_t *) (nal) >> 1)
+#define HEVC_NALU_HDR_GET_LAYER_ID(nal) \
+        ((((const uint8_t *) (nal))[0] & 0x1) << 5 | \
+         ((const uint8_t *) (nal))[1] >> 3)
+#define HEVC_NALU_HDR_GET_TID(nal) \
+         (((const uint8_t *) (nal))[1] & 0x7)
+
 #define NALU_HDR_GET_TYPE(nal, is_hevc) \
         ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
                    : H264_NALU_HDR_GET_TYPE((nal)))

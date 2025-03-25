@@ -886,7 +886,7 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
                 return 0;
         }
         const bool hevc      = s->desc.color_spec == H265;
-        const int  nalu_type = NALU_HDR_GET_TYPE(nal[0], hevc);
+        const int  nalu_type = NALU_HDR_GET_TYPE(nal, hevc);
 
         if (hevc) {
                 if (nalu_type > NAL_HEVC_CODED_SLC_FIRST) {

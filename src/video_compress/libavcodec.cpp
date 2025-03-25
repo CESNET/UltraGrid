@@ -1453,7 +1453,7 @@ store_sps_pps_vps(state_video_compress_libav *s, AVPacket *pkt)
         int                  i      = 0;
         const unsigned char *endptr = nullptr;
         while (nal != nullptr) {
-                if (NALU_HDR_GET_TYPE(nal[0], is_hevc) != nalu_req[i++]) {
+                if (NALU_HDR_GET_TYPE(nal, is_hevc) != nalu_req[i++]) {
                         return;
                 }
                 if (nalu_req[i] == 0) { // correct seq of NALU
