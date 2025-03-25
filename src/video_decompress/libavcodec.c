@@ -57,6 +57,7 @@
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
+#include "utils/debug.h"          // for debug_file_dump
 #include "utils/macros.h"
 #include "video.h"
 #include "video_codec.h"
@@ -206,12 +207,6 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         }
 }
 
-static void jpeg_callback(void)
-{
-        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
-                        "will use full-scale YUV.\n");
-}
-
 enum {
         MAX_PREFERED = 10,
         MAX_DECODERS = MAX_PREFERED + 1 + 1, ///< + user forced + default
@@ -221,7 +216,6 @@ enum {
 struct decoder_info {
         codec_t ug_codec;
         enum AVCodecID avcodec_id;
-        void (*codec_callback)(void);
         // Note:
         // Make sure that if adding hw decoders to prefered_decoders[] that
         // that decoder fails if there is not the HW during init, not while decoding
@@ -235,24 +229,23 @@ struct decoder_info {
 };
 
 static const struct decoder_info decoders[] = {
-        { H264, AV_CODEC_ID_H264, NULL, { NULL /* "h264_cuvid" */ } },
-        { H265, AV_CODEC_ID_HEVC, NULL, { NULL /* "hevc_cuvid" */ } },
-        { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
-        { JPEG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
-        { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
-        { J2KR, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
-        { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
-        { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
-        { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
-        { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
-        { AV1, AV_CODEC_ID_AV1, NULL, { "libdav1d" } },
-        { PRORES_4444, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_4444_XQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_HQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_PROXY, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { PRORES_422_LT, AV_CODEC_ID_PRORES, NULL, { NULL } },
-        { CFHD, AV_CODEC_ID_CFHD, NULL, { NULL } }
+        { H264,             AV_CODEC_ID_H264,     { NULL /* "h264_cuvid" */ } },
+        { H265,             AV_CODEC_ID_HEVC,     { NULL /* "hevc_cuvid" */ } },
+        { JPEG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
+        { J2K,              AV_CODEC_ID_JPEG2000, { NULL }                    },
+        { J2KR,             AV_CODEC_ID_JPEG2000, { NULL }                    },
+        { VP8,              AV_CODEC_ID_VP8,      { NULL }                    },
+        { VP9,              AV_CODEC_ID_VP9,      { NULL }                    },
+        { HFYU,             AV_CODEC_ID_HUFFYUV,  { NULL }                    },
+        { FFV1,             AV_CODEC_ID_FFV1,     { NULL }                    },
+        { AV1,              AV_CODEC_ID_AV1,      { "libdav1d" }              },
+        { PRORES_4444,      AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_4444_XQ,   AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_HQ,    AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422,       AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_PROXY, AV_CODEC_ID_PRORES,   { NULL }                    },
+        { PRORES_422_LT,    AV_CODEC_ID_PRORES,   { NULL }                    },
+        { CFHD,             AV_CODEC_ID_CFHD,     { NULL }                    }
 };
 
 static bool
@@ -350,10 +343,6 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         if (dec == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
                 return false;
-        }
-
-        if (dec->codec_callback) {
-                dec->codec_callback();
         }
 
         // priority list of decoders that can be used for the codec
@@ -769,11 +758,11 @@ static void lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
 }
 #endif
 
-static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s, enum AVPixelFormat av_codec, codec_t out_codec, int width, int height) {
-        assert(av_codec != AV_PIX_FMT_NONE);
-        if (s->convert_in == av_codec) {
-                return 1;
-        }
+static _Bool
+reconf_internal(struct state_libavcodec_decompress *s,
+                     enum AVPixelFormat av_codec, codec_t out_codec, int width,
+                     int height)
+{
         av_to_uv_conversion_destroy(&s->convert);
         s->convert = get_av_to_uv_conversion(av_codec, out_codec);
         if (s->convert != NULL) {
@@ -807,6 +796,26 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
 #endif
 }
 
+static bool
+reconfigure_convert_if_needed(struct state_libavcodec_decompress *s,
+                              enum AVPixelFormat av_codec, codec_t out_codec,
+                              int width, int height)
+{
+        assert(av_codec != AV_PIX_FMT_NONE);
+        if (s->convert_in == av_codec) { // no reconf needed
+                return true;
+        }
+        MSG(VERBOSE,
+            "Codec characteristics: CS=%s, range=%s, primaries=%s, "
+            "transfer=%s, chr_loc=%s\n",
+            av_color_space_name(s->codec_ctx->colorspace),
+            av_color_range_name(s->codec_ctx->color_range),
+            av_color_primaries_name(s->codec_ctx->color_primaries),
+            av_color_transfer_name(s->codec_ctx->color_trc),
+            av_chroma_location_name(s->codec_ctx->chroma_sample_location));
+        return reconf_internal(s, av_codec, out_codec, width, height);
+}
+
 /**
  * Changes pixel format from frame to native
  *
@@ -821,14 +830,14 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
  */
 static void
 change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
-              codec_t out_codec, int width, int height, int pitch,
+              codec_t out_codec, int pitch,
               int rgb_shift[static restrict 3],
               struct state_libavcodec_decompress_sws *sws)
 {
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (!sws->ctx) {
-                av_to_uv_convert(convert, (char *) dst, frame, width, height,
+                av_to_uv_convert(convert, (char *) dst, frame,
                                  pitch, rgb_shift);
                 return;
         }
@@ -840,7 +849,7 @@ change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
         }
 
         lavd_sws_convert(sws, frame);
-        av_to_uv_convert(convert, (char *) dst, sws->frame, width, height,
+        av_to_uv_convert(convert, (char *) dst, sws->frame,
                          pitch, rgb_shift);
 #else
         (void) out_codec;
@@ -1076,8 +1085,14 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                         return DECODER_UNSUPP_PIXFMT;
                 }
+                if (s->codec_ctx->codec->id ==
+                        AV_CODEC_ID_MJPEG &&s->frame->colorspace ==
+                        AVCOL_SPC_BT470BG &&s->frame->color_range ==
+                        AVCOL_RANGE_MPEG) {
+                        s->frame->colorspace = AVCOL_SPC_BT709;
+                }
                 change_pixfmt(s->frame, dst, s->convert, s->out_codec,
-                              s->desc.width, s->desc.height, s->pitch,
+                              s->pitch,
                               s->rgb_shift, &s->sws);
         }
         time_ns_t t2 = get_time_in_ns();

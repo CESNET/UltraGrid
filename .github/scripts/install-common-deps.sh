@@ -89,7 +89,7 @@ download_build_live555() {(
                 pacman -Rs --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
                 ./genMakefiles linux-with-shared-libraries
-                make -j "$(nproc)"
+                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DNO_STD_LIB"
         else
                 ./genMakefiles macosx-no-openssl
                 make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
@@ -107,6 +107,16 @@ install_pcp() {
         git clone https://github.com/libpcp/pcp.git
         (
                 cd pcp
+                # TODO TOREMOVE when not needed
+                if is_win; then
+                        git checkout 46341d6
+                        sed "/int gettimeofday/i\\
+struct timezone;\\
+struct timeval;\\
+" libpcp/src/windows/pcp_gettimeofday.h > fixed
+                        mv fixed libpcp/src/windows/pcp_gettimeofday.h
+                fi
+
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
                 make -j "$(nproc)"

@@ -189,6 +189,15 @@ static void fec_auto_callback(Option &opt, bool /*subopt*/, void *){
 	}
 }
 
+static void network_mode_callback(Option &opt, bool /*subopt*/, void *){
+	Settings *settings = opt.getSettings();
+
+	const std::string &mode = opt.getValue();
+	Option& destinationOpt = settings->getOption("network.destination");
+
+	destinationOpt.setEnabled(mode != " -S");
+}
+
 const static struct{
 	const char *name;
 	Option::OptType type;
@@ -223,6 +232,7 @@ const static struct{
 	{"audio.playback", Option::StringOpt, " -r ", "", false, "", ""},
 	{"audio.compress", Option::StringOpt, " --audio-codec ", "", false, "", ""},
 	{"bitrate", Option::StringOpt, ":bitrate=", "", false, "audio.compress", ""},
+	{"network.mode", Option::StringOpt, " ", "", false, "", ""},
 	{"network.destination", Option::StringOpt, " ", "", false, "", ""},
 	{"network.port", Option::StringOpt, " -P ", "5004", false, "", ""},
 	{"network.control_port", Option::StringOpt, " --control-port ", "8888", true, "", ""},
@@ -253,6 +263,7 @@ const struct {
 	{"network.fec", fec_builder_callback},
 	{"video.compress", fec_auto_callback},
 	{"network.fec.auto", fec_auto_callback},
+	{"network.mode", network_mode_callback},
 };
 
 Settings::Settings() : dummy(this){
@@ -340,6 +351,7 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("network.port").getLaunchOption();
 	out += getOption("network.control_port").getParam();
 	out += getControlPort();
+	out += getOption("network.mode").getLaunchOption();
 	out += getOption("network.destination").getLaunchOption();
 	out += getOption("decode.hwaccel").getLaunchOption();
 	out += getOption("errors_fatal").getLaunchOption();

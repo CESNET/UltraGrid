@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,14 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <assert.h>           // for assert
 #include <portaudio.h>
 #include <stdbool.h>
+#include <stdio.h>            // for snprintf, printf, NULL
+#include <stdlib.h>           // for calloc
+#include <string.h>           // for strncpy, strstr
 
 #include "debug.h"
 #include "portaudio_common.h"
@@ -78,12 +76,18 @@ static const char *portaudio_get_device_details(PaDeviceIndex device) {
         assert(device >= 0 && device < Pa_GetDeviceCount());
         const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
         _Thread_local static char buffer[1024];
-        snprintf(buffer, sizeof buffer, "(output channels: %d; input channels: %d; %s)", device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        snprintf(buffer, sizeof buffer, "(max chan in: %d, out: %d; %s)",
+                 device_info->maxInputChannels, device_info->maxOutputChannels,
+                 portaudio_get_api_name(device));
         return buffer;
 }
 
-void portaudio_print_help(enum portaudio_device_direction kind)
+void
+portaudio_print_help(enum portaudio_device_direction kind, bool full)
 {
+        printf("\nAvailable PortAudio %s devices:\n",
+               kind == PORTAUDIO_OUT ? "playback" : "capture");
+
         int numDevices;
         int i;
 
@@ -130,6 +134,14 @@ void portaudio_print_help(enum portaudio_device_direction kind)
 
                 color_printf("\t%sportaudio:%d" TERM_RESET " - %s%s" TERM_RESET " %s", highlight, i, highlight, portaudio_get_device_name(i), portaudio_get_device_details(i));
                 printf("\n");
+        }
+
+        if (full) {
+                printf ("\nSupported APIs:\n");
+                for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
+                        const PaHostApiInfo *info = Pa_GetHostApiInfo(i);
+                        printf("\t" TBOLD("%s") "\n", info->name);
+                }
         }
 
 error:

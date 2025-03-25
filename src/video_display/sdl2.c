@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,33 +44,40 @@
  * * autorelease_pool (macOS) - perhaps not needed
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-#include "host.h"
-#include "keyboard_control.h" // K_*
-#include "lib_common.h"
-#include "messaging.h"
-#include "module.h"
-#include "utils/color_out.h"
-#include "utils/list.h"
-#include "video_display.h"
-#include "video.h"
-
 /// @todo remove the defines when no longer needed
 #ifdef __arm64__
 #define SDL_DISABLE_MMINTRIN_H 1
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
-#if __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
 #include <SDL.h>
-#endif
+
+#include <assert.h>             // for assert
+#include <ctype.h>              // for toupper
+#include <inttypes.h>           // for PRIu8
+#include <math.h>               // for sqrt
+#include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
+#include <stdbool.h>            // for true, bool, false
+#include <stdint.h>             // for int64_t, uint32_t
+#include <stdio.h>              // for printf, sscanf, snprintf
+#include <stdlib.h>             // for atoi, free, calloc
+#include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
+#include <time.h>               // for timespec_get, TIME_UTC, timespec
+
+#include "compat/net.h"         // for htonl
+#include "debug.h"              // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
+#include "host.h"               // for get_commandline_param, exit_uv, ADD_T...
+#include "keyboard_control.h"   // for keycontrol_register_key, keycontrol_s...
+#include "lib_common.h"         // for REGISTER_MODULE, library_class
+#include "messaging.h"          // for new_response, msg_universal, RESPONSE...
+#include "module.h"             // for module, get_root_module, module_done
+#include "tv.h"                 // for ts_add_nsec
+#include "types.h"              // for video_desc, tile, video_frame, device...
+#include "utils/color_out.h"    // for color_printf, TBOLD, TRED
+#include "utils/list.h"         // for simple_linked_list_append, simple_lin...
+#include "utils/macros.h"       // for STR_LEN
+#include "video_codec.h"        // for get_codec_name, codec_is_planar, vc_d...
+#include "video_display.h"      // for display_property, get_splashscreen
+#include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
 
 #define SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x327058e5
 #define MAGIC_SDL2   0x3cc234a1
@@ -79,11 +86,11 @@
 
 struct state_sdl2;
 
-static void show_help(void);
+static void show_help(const char *driver);
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame);
 static struct video_frame *display_sdl2_getf(void *state);
 static void display_sdl2_new_message(struct module *mod);
-static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
+static bool display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 static void loadSplashscreen(struct state_sdl2 *s);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
@@ -143,7 +150,15 @@ static const struct {
         {'q', "quit"},
 };
 
-#define SDL_CHECK(cmd) do { int ret = cmd; if (ret < 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
+#define SDL_CHECK(cmd, ...) \
+        do { \
+                int ret = cmd; \
+                if (ret < 0) { \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
+                                #cmd, SDL_GetError()); \
+                        __VA_ARGS__; \
+                } \
+        } while (0)
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -331,9 +346,10 @@ static void sdl2_print_displays() {
         printf("\n");
 }
 
-static void show_help(void)
+static void
+show_help(const char *driver)
 {
-        SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
+        SDL_CHECK(SDL_VideoInit(driver));
         printf("SDL options:\n");
         color_printf(TBOLD(
             TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
@@ -358,11 +374,12 @@ static void show_help(void)
                                       "                   "
                                       "(syntax: " TBOLD(
                                           "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
-        color_printf(TBOLD("\t  <ridx>") " - renderer index: ");
+        color_printf(TBOLD("\t  <renderer>") " - renderer, one of:");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
                 if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
-                        color_printf("%s" TBOLD("%d") " - " TBOLD("%s"), (i == 0 ? "" : ", "), i, renderer_info.name);
+                        color_printf("%s" TBOLD("%s"), (i == 0 ? " " : ", "),
+                                     renderer_info.name);
                 }
         }
         printf("\n");
@@ -370,6 +387,11 @@ static void show_help(void)
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0]; ++i) {
                 color_printf("\t" TBOLD("'%c'") "\t - %s\n", keybindings[i].key, keybindings[i].description);
         }
+        SDL_version ver;
+        SDL_GetVersion(&ver);
+        printf("\nSDL version (linked): %" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n",
+               ver.major, ver.minor, ver.patch);
+        SDL_VideoQuit();
         SDL_Quit();
 }
 
@@ -379,6 +401,11 @@ static bool display_sdl2_reconfigure(void *state, struct video_desc desc)
 
         if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == DEINT_OFF) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n");
+        }
+        if (desc.color_spec == R10k) {
+                MSG(WARNING,
+                    "Displaying 10-bit RGB, which is experimental. In case of "
+                    "problems use '--param decoder-use-codec='!R10k'` and please report.\n");
         }
 
         pthread_mutex_lock(&s->lock);
@@ -411,13 +438,10 @@ static const struct {
 #else
         { RGBA, SDL_PIXELFORMAT_ABGR8888 },
 #endif
+        { R10k, SDL_PIXELFORMAT_ARGB2101010 },
 };
 
 static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
-        if (ug_codec == R10k) {
-                return SDL_PIXELFORMAT_ARGB2101010;
-        }
-
         for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
                 if (pf_mapping[i].first == ug_codec) {
                         return pf_mapping[i].second;
@@ -427,18 +451,11 @@ static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
         return SDL_PIXELFORMAT_UNKNOWN;
 }
 
-ADD_TO_PARAM("sdl2-r10k",
-         "* sdl2-r10k\n"
-         "  Enable 10-bit RGB support for SDL2 (EXPERIMENTAL)\n");
-
 static int get_supported_pfs(codec_t *codecs) {
-        int count = 0;
+        const int count = sizeof pf_mapping / sizeof pf_mapping[0];
 
-        for (unsigned int i = 0; i < sizeof pf_mapping / sizeof pf_mapping[0]; ++i) {
-                codecs[count++] = pf_mapping[i].first;
-        }
-        if (get_commandline_param("sdl2-r10k") != NULL) {
-                codecs[count++] = R10k;
+        for (int i = 0; i < count; ++i) {
+                codecs[i] = pf_mapping[i].first;
         }
         return count;
 }
@@ -467,8 +484,13 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 }
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
-                SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch));
-                f->tiles[0].data_len = desc.height * s->texture_pitch;
+                SDL_CHECK(SDL_LockTexture(texture, NULL,
+                                          (void **) &f->tiles[0].data,
+                                          &s->texture_pitch),
+                          return false);
+                if (!codec_is_planar(desc.color_spec)) {
+                        f->tiles[0].data_len = desc.height * s->texture_pitch;
+                }
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
@@ -476,7 +498,26 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
         return true;
 }
 
-static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
+static void
+print_renderer_info(SDL_Renderer *renderer)
+{
+        SDL_RendererInfo renderer_info;
+        if (SDL_GetRendererInfo(renderer, &renderer_info) != 0) {
+                MSG(WARNING, "Cannot get renderer info.\n");
+                return;
+        }
+        MSG(NOTICE, "Using renderer: %s\n", renderer_info.name);
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
+        MSG(DEBUG, "Supported texture types:\n");
+        for (unsigned int i = 0; i < renderer_info.num_texture_formats; i++)
+                MSG(DEBUG, " - %s\n",
+                    SDL_GetPixelFormatName(renderer_info.texture_formats[i]));
+}
+
+static bool
+display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -506,7 +547,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
-                return FALSE;
+                return false;
         }
 
         if (s->renderer) {
@@ -515,28 +556,29 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         s->renderer = SDL_CreateRenderer(s->window, s->renderer_idx, SDL_RENDERER_ACCELERATED | (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
         if (!s->renderer) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
-                return FALSE;
+                return false;
         }
-        SDL_RendererInfo renderer_info;
-        if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n", renderer_info.name);
-        }
+        print_renderer_info(s->renderer);
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
 
         if (!recreate_textures(s, desc)) {
-                return FALSE;
+                return false;
         }
 
         s->current_display_desc = desc;
 
-        return TRUE;
+        return true;
 }
 
 static void loadSplashscreen(struct state_sdl2 *s) {
         struct video_frame *frame = get_splashscreen();
-        display_sdl2_reconfigure_real(s, video_desc_from_frame(frame));
+        if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
+                MSG(WARNING, "Cannot render splashscreeen!\n");
+                vf_free(frame);
+                return;
+        }
         struct video_frame *splash = display_sdl2_getf(s);
         memcpy(splash->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
         vf_free(frame);
@@ -572,6 +614,45 @@ static bool set_size(struct state_sdl2 *s, const char *tok)
         return true;
 }
 
+/**
+ * @retval -1  default renderer (can be passed to SDL_CreateRenderer)
+ * @retval -2  error
+ * @retva. >= 0 renderer index according to the param
+ */
+static int
+get_renderer_idx(const char *renderer)
+{
+        if (renderer == NULL) {
+                return -1; // default
+        }
+        const int renderer_cnt = SDL_GetNumRenderDrivers();
+
+        char *endptr = NULL;
+        const long number = strtol(renderer, &endptr, 0);
+        if (*endptr == '\0') { // valid number
+                if (number < 0 || number >= renderer_cnt) {
+                        MSG(ERROR,
+                            "Invalid renderer index - valid range [0,%d], got "
+                            "%ld\n",
+                            renderer_cnt, number);
+                        return -2;
+                }
+                return (int) number;
+        }
+
+        for (int i = 0; i < renderer_cnt; ++i) {
+                SDL_RendererInfo renderer_info;
+                if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
+                        if (strcmp(renderer, renderer_info.name) == 0) {
+                                return i;
+                        }
+                }
+        }
+
+        MSG(ERROR, "Unknown renderer name: %s\n", renderer);
+        return -2;
+}
+
 static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
@@ -579,40 +660,41 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 return NULL;
         }
         const char *driver = NULL;
+        const char *renderer = NULL;
         struct state_sdl2 *s = calloc(1, sizeof *s);
 
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
-        s->renderer_idx = -1;
         s->vsync = true;
 
         if (fmt == NULL) {
                 fmt = "";
         }
-        char *tmp = (char *) alloca(strlen(fmt) + 1);
-        strcpy(tmp, fmt);
+        char buf[STR_LEN];
+        snprintf(buf, sizeof buf, "%s", fmt);
+        char *tmp = buf;
         char *tok, *save_ptr;
         while((tok = strtok_r(tmp, ":", &save_ptr)))
         {
                 if (strcmp(tok, "d") == 0 || strcmp(tok, "dforce") == 0) {
                         s->deinterlace = strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
-                } else if (strncmp(tok, "display=", strlen("display=")) == 0) {
-                        s->display_idx = atoi(tok + strlen("display="));
-                } else if (strncmp(tok, "driver=", strlen("driver=")) == 0) {
-                        driver = tok + strlen("driver=");
-                } else if (strcmp(tok, "fs") == 0) {
+                } else if (IS_KEY_PREFIX(tok, "display")) {
+                        s->display_idx = atoi(strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "driver")) {
+                        driver = strchr(tok, '=') + 1;;
+                } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
-                } else if (strcmp(tok, "help") == 0) {
-                        show_help();
+                } else if (IS_PREFIX(tok, "help")) {
+                        show_help(driver);
                         free(s);
                         return INIT_NOERR;
-                } else if (strcmp(tok, "novsync") == 0) {
+                } else if (IS_PREFIX(tok, "novsync")) {
                         s->vsync = false;
-                } else if (strcmp(tok, "nodecorate") == 0) {
+                } else if (IS_PREFIX(tok, "nodecorate")) {
                         s->window_flags |= SDL_WINDOW_BORDERLESS;
-                } else if (strcmp(tok, "keep-aspect") == 0) {
+                } else if (IS_PREFIX(tok, "keep-aspect")) {
                         s->keep_aspect = true;
-                } else if (strstr(tok, "fixed_size=") == tok ||
-                           strstr(tok, "size=") == tok) {
+                } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
+                           IS_KEY_PREFIX(tok, "siz=")) {
                         if (!set_size(s, tok)) {
                                 free(s);
                                 return NULL;
@@ -622,16 +704,16 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                                 MOD_NAME "fixed_size deprecated, use size with "
                                          "dimensions\n");
                         s->fixed_size = true;
-                } else if (strstr(tok, "window_flags=") == tok) {
+                } else if (IS_KEY_PREFIX(tok, "window_flags")) {
                         int f;
-                        if (sscanf(tok + strlen("window_flags="), "%i", &f) != 1) {
+                        if (sscanf(strchr(tok, '=') + 1, "%i", &f) != 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong window_flags: %s\n", tok);
                                 free(s);
                                 return NULL;
                         }
                         s->window_flags |= f;
-		} else if (strstr(tok, "pos=") == tok) {
-                        tok += strlen("pos=");
+		} else if (IS_KEY_PREFIX(tok, "position")) {
+                        tok = strchr(tok, '=') + 1;
                         if (strchr(tok, ',') == NULL) {
                                 log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n", tok);
                                 free(s);
@@ -643,8 +725,8 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                                 MOD_NAME "pos is deprecated, use "
                                          "\"size=%+d%+d\" instead.\n",
                                 s->x, s->y);
-                } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
-                        s->renderer_idx = atoi(tok + strlen("renderer="));
+		} else if (IS_KEY_PREFIX(tok, "renderer")) {
+                        renderer = strchr(tok, '=') + 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n", tok);
                         free(s);
@@ -653,15 +735,32 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 tmp = NULL;
         }
 
-        int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
+        s->renderer_idx = get_renderer_idx(renderer);
+        if (s->renderer_idx == -2) {
+                return NULL;
+        }
+
+#ifdef __linux__
+        if (driver == NULL && getenv("DISPLAY") == NULL &&
+            getenv("WAYLAND_DISPLAY") == NULL) {
+                MSG(NOTICE, "X11/Wayland doesn't seem to be running (according "
+                            "to env vars). Setting driver=KMSDRM.\n");
+                driver = "KMSDRM";
+        }
+#endif // defined __linux__
+        SDL_SetYUVConversionMode(get_commandline_param("color-601") != NULL
+                                     ? SDL_YUV_CONVERSION_BT601
+                                     : SDL_YUV_CONVERSION_BT709);
+
+        if (SDL_VideoInit(driver) < 0) {
+                MSG(ERROR, "Unable to initialize SDL2 video: %s\n",
+                    SDL_GetError());
                 free(s);
                 return NULL;
         }
-        ret = SDL_VideoInit(driver);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
+        if (SDL_Init(SDL_INIT_EVENTS) < 0) {
+                MSG(ERROR, "Unable to initialize SDL2 events: %s\n",
+                    SDL_GetError());
                 free(s);
                 return NULL;
         }
@@ -749,11 +848,45 @@ static struct video_frame *display_sdl2_getf(void *state)
         return buffer;
 }
 
+static void
+r10k_to_sdl2(size_t count, uint32_t *buf)
+{
+        enum {
+                LOOP_ITEMS = 16,
+        };
+        unsigned int i = 0;
+        for (; i < count / LOOP_ITEMS; ++i) {
+                for (int j = 0; j < LOOP_ITEMS; ++j) {
+                        uint32_t val = htonl(*buf);
+                        *buf++       = val >> 2;
+                }
+        }
+        i *= LOOP_ITEMS;
+        for (; i < count; ++i) {
+                uint32_t val = htonl(*buf);
+                *buf++       = val >> 2;
+        }
+}
+
 static bool display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
+
+        if (frame == NULL) { // posion pill
+                SDL_Event event;
+                event.type       = s->sdl_user_new_frame_event;
+                event.user.data1 = NULL;
+                SDL_CHECK(SDL_PushEvent(&event));
+                return true;
+        }
+
+        // fix endianity
+        if (frame->color_spec == R10k) {
+                r10k_to_sdl2(frame->tiles[0].data_len / 4,
+                             (uint32_t *) frame->tiles[0].data);
+        }
 
         pthread_mutex_lock(&s->lock);
         if (timeout_ns == PUTF_DISCARD) {
@@ -763,7 +896,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                 return true;
         }
 
-        if (frame != NULL && timeout_ns > 0) {
+        if (timeout_ns > 0) {
                 int rc = 0;
                 while (rc == 0 && simple_linked_list_size(s->free_frame_queue) == 0) {
                         if (timeout_ns == PUTF_BLOCKING) {
@@ -776,7 +909,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                         }
                 }
         }
-        if (frame != NULL && simple_linked_list_size(s->free_frame_queue) == 0) {
+        if (simple_linked_list_size(s->free_frame_queue) == 0) {
                 simple_linked_list_append(s->free_frame_queue, frame);
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "1 frame(s) dropped!\n");
                 pthread_mutex_unlock(&s->lock);

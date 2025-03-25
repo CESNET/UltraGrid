@@ -1,6 +1,8 @@
 #ifndef GL_VDPAU_HPP_667244de5757
 #define GL_VDPAU_HPP_667244de5757
 
+#include "config.h"  // for HWACC_VDPAU
+
 #ifdef HWACC_VDPAU
 
 #ifdef __APPLE__

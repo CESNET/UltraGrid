@@ -42,6 +42,14 @@
 
 #define AUDIO_COMPRESS_ABI_VERSION 4
 
+#ifdef __cplusplus
+#include <cstddef>        // for size_t
+#include <cstdint>        // for uint32_t
+#else
+#include <stddef.h>       // for size_t
+#include <stdint.h>       // for uint32_t
+#endif
+
 typedef enum {
         AUDIO_CODER,
         AUDIO_DECODER
@@ -69,6 +77,7 @@ typedef struct {
 #ifdef __cplusplus
 #include <string>
 #include <tuple>
+#include <vector>         // for vector
 struct audio_codec_state;
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec, audio_codec_direction_t);

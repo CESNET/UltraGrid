@@ -141,19 +141,39 @@ const char *get_install_root(void) {
  * Reason for this file is because the linker complains about tmpnam as unsafe
  * thus we create a "safer" workaround (at least for POSIX systems) returning
  * both FILE pointer and file name.
+ *
+ * @param[out] filename  filename associated with returned FILE, may be NULL if
+ * not needed
  */
 FILE *get_temp_file(const char **filename) {
         static _Thread_local char filename_buf[MAX_PATH_SIZE];
 #ifdef _WIN32
-        *filename = tmpnam(filename_buf);
-        return fopen(*filename, "wbx");
+        char *fname = tmpnam(filename_buf);
+        FILE *ret = fopen(fname, "w+bx");
+        if (ret == NULL) {
+                return NULL;
+        }
+        if (filename != NULL) {
+                *filename = fname;
+        }
+        return ret;
 #else
-        *filename = filename_buf;
         strncpy(filename_buf, get_temp_dir(), sizeof filename_buf - 1);
         strncat(filename_buf, "/uv.XXXXXX", sizeof filename_buf - strlen(filename_buf) - 1);
         umask(S_IRWXG|S_IRWXO);
+        printf("%s\n", filename_buf);
         int fd = mkstemp(filename_buf);
-        return fd == -1 ? NULL : fdopen(fd, "wb");
+        if (fd == -1) {
+                return NULL;
+        };
+        FILE *ret = fdopen(fd, "w+b");
+        if (ret == NULL) {
+                return NULL;
+        }
+        if (filename != NULL) {
+                *filename = filename_buf;
+        }
+        return ret;
 #endif
 }
 

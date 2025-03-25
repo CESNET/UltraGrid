@@ -35,6 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ #ifdef __cplusplus
+ #include <csdint>
+ #else
+ #include <stdint.h>
+ #endif
+
 typedef uint32_t glx_opengl_version_t;
 #define OPENGL_VERSION_UNSPECIFIED 0u
 #define MK_OPENGL_VERSION(major,minor) (major << 8u | minor)

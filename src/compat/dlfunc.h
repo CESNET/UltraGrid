@@ -49,6 +49,7 @@ EXTERN_C const char *dlerror(void);
 #else // ! defined _WIN32
 #include <dlfcn.h>
 #define LIB_HANDLE void *
+#define FARPROC void *
 #endif // defined _WIN32
 
 #endif // ! defined COMPAT_DLFUNC_H_08AEAEE7_485F_4969_8FDF_FBC2E4A78713

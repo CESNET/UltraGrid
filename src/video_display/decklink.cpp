@@ -74,7 +74,7 @@
 
 #include "audio/types.h"
 #include "blackmagic_common.hpp"
-#include "compat/htonl.h"
+#include "compat/net.h"                          // for ntohl
 #include "compat/strings.h"
 #include "debug.h"
 #include "host.h"
@@ -508,6 +508,7 @@ struct state_decklink {
         IDeckLinkOutput            *deckLinkOutput;
         IDeckLinkConfiguration     *deckLinkConfiguration;
         IDeckLinkProfileAttributes *deckLinkAttributes;
+        BMDNotificationCallback    *notificationCallback = nullptr;
 
         DeckLinkTimecode    *timecode{}; ///< @todo Should be actually allocated dynamically and
                                        ///< its lifespan controlled by AddRef()/Release() methods
@@ -556,8 +557,9 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                        << "[:d[evice]=<device>][:Level{A|B}][:3D][:half-"
                           "duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help") << " | "
-              << SBOLD(SRED("-d decklink") << ":query=<FourCC>"
-                                              "\n");
+              << SBOLD(SRED("-d decklink") << ":query=<FourCC>") << " | "
+              << SBOLD(SRED("-d decklink") << ":help=FourCC")
+                                              << "\n";
         col() << "\nOptions:\n";
         if (!full) {
                 col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
@@ -575,6 +577,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         col() << SBOLD("\t<option_FourCC>=<value>")
               << "\tarbitrary BMD option (given a FourCC) and corresponding "
                  "value, i.a.:\n";
+
+        col() << SBOLD("\t\thelp=FourCC") << "\tshow FourCC opts syntax\n";
         col()
             << SBOLD("\t\taacl[=no]")
             << "\tset maximum analog audio attenuation (consumer line level)\n";
@@ -615,6 +619,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\tUse1080PsF[=true|false|keep]") << " flag sets use of PsF on output instead of progressive (default is false)\n";
                 col() << SBOLD("\tprofile=<P>") << "\tuse desired device profile:\n";
                 print_bmd_device_profiles("\t\t");
+                col() << SBOLD("\tconnection=<conn>") << " set output video connection (usually unneeded)\n";
                 col() << SBOLD("\tmaxresample=<N>") << " maximum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
@@ -667,6 +672,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
         if (!full) {
                 col() << "(use \"" << SBOLD("fullhelp") << "\" to see device modes)\n";
         }
+        col() << "(see also \"" << SBOLD("-t decklink:help")
+              << "\" for examples and other information)\n";
 
         decklink_uninitialize(&com_initialized);
 
@@ -1202,12 +1209,12 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 return true;
         }
 
-        auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
-        strcpy(tmp, fmt);
-        char *ptr;
+        bool ret = true;
+        char tmp[STR_LEN];
+        snprintf_ch(tmp, "%s", fmt);
+        replace_all(tmp, ESCAPED_COLON, DELDEL); // replace all '\:' with 2xDEL
         char *save_ptr = nullptr;
-
-        ptr = strtok_r(tmp, ":", &save_ptr);
+        char *ptr = strtok_r(tmp, ":", &save_ptr);
         assert(ptr != nullptr);
         int i = 0;
         bool first_option_is_device = true;
@@ -1299,6 +1306,17 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
+                } else if (IS_KEY_PREFIX(ptr, "connection")) {
+                        const char *connection = strchr(ptr, '=') + 1;
+                        auto bmd_conn = bmd_get_connection_by_name(connection);
+                        if (bmd_conn == bmdVideoConnectionUnspecified) {
+                                MSG(ERROR, "Unrecognized connection %s.\n",
+                                    connection);
+                                return false;
+                        }
+                        s->device_options
+                            [bmdDeckLinkConfigVideoOutputConnection] =
+                            bmd_option((int64_t) bmd_conn);
                 } else if (strstr(ptr, "keep-settings") == ptr) {
                         s->keep_device_defaults = true;
                 } else if (strstr(ptr, "drift_fix") == ptr) {
@@ -1310,7 +1328,12 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
-                        s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(ptr)].parse(strchr(ptr, '=') + 1);
+                        char val[STR_LEN];
+                        snprintf_ch(val, "%s", strchr(ptr, '=') + 1);
+                        replace_all(val, DELDEL, ":");
+                        ret &= s->device_options[(BMDDeckLinkConfigurationID)
+                                                     bmd_read_fourcc(ptr)]
+                                   .parse(val);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in config string: %s\n", ptr);
                         return false;
@@ -1318,7 +1341,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 ptr = strtok_r(nullptr, ":", &save_ptr);
         }
 
-        return true;
+        return ret;
 }
 
 /// only 2, 8, 16, 32 and 64 are supported according to BMD SDK doc
@@ -1405,10 +1428,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return INIT_NOERR;
         }
 
-        if (!blackmagic_api_version_check()) {
-                return NULL;
-        }
-
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
 
@@ -1416,8 +1435,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         try {
                 succeeded = settings_init(s, fmt, cardId);
         } catch (exception &e) {
-                if (strcmp(e.what(), "stoi") == 0 ||
-                    strcmp(e.what(), "stod") == 0) {
+                if (invalid_arg_is_numeric(e.what())) {
                         MSG(ERROR, "Invalid number passed where numeric "
                                    "argument expected!\n");
                 } else {
@@ -1425,6 +1443,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
         }
         if (!succeeded) {
+                delete s;
+                return NULL;
+        }
+
+        if (!blackmagic_api_version_check()) {
                 delete s;
                 return NULL;
         }
@@ -1567,6 +1590,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->delegate.SetDecklinkOutput(s->deckLinkOutput);
         }
         // s->state.at(i).deckLinkOutput->DisableAudioOutput();
+        s->notificationCallback =
+            bmd_print_status_subscribe_notify(s->deckLink, MOD_NAME, false);
 
         return (void *)s;
 }
@@ -1594,6 +1619,7 @@ static void display_decklink_done(void *state)
                                "DisableVideoOutput");
         }
 
+        bmd_unsubscribe_notify(s->notificationCallback);
         RELEASE_IF_NOT_NULL(s->deckLinkAttributes);
         RELEASE_IF_NOT_NULL(s->deckLinkConfiguration);
         RELEASE_IF_NOT_NULL(s->deckLinkOutput);
@@ -2161,6 +2187,7 @@ HRESULT DeckLink3DFrame::GetFrameForRightEye(IDeckLinkVideoFrame ** frame)
 static void
 print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
 {
+        IDeckLinkProfileAttributes             *deckLinkAttributes  = nullptr;
         IDeckLinkOutput*                        deckLinkOutput = NULL;
         IDeckLinkDisplayModeIterator*           displayModeIterator = NULL;
         IDeckLinkDisplayMode*                   displayMode = NULL;
@@ -2230,28 +2257,25 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
         }
         color_printf(TERM_RESET "\n");
 
-        if (query_prop_fcc != nullptr) {
-                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
-                if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
-                                             (void **) &deckLinkAttributes) ==
-                    S_OK) {
+        if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
+                                     (void **) &deckLinkAttributes) == S_OK) {
+                if (query_prop_fcc != nullptr) {
                         cout << "\n";
                         print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
-                        deckLinkAttributes->Release();
-                } else {
-                        MSG(ERROR, "Could not query device attributes.\n\n");
                 }
-        }
+                print_bmd_connections(deckLinkAttributes,
+                                      BMDDeckLinkVideoOutputConnections,
+                                      MOD_NAME);
 
-        color_printf("\n");
+        } else {
+                MSG(ERROR, "Could not query device attributes.\n\n");
+        }
 
 bail:
         // Ensure that the interfaces we obtained are released to prevent a memory leak
-        if (displayModeIterator != NULL)
-                displayModeIterator->Release();
-
-        if (deckLinkOutput != NULL)
-                deckLinkOutput->Release();
+        RELEASE_IF_NOT_NULL(deckLinkAttributes);
+        RELEASE_IF_NOT_NULL(displayModeIterator);
+        RELEASE_IF_NOT_NULL(deckLinkOutput);
 }
 
 static const struct video_display_info display_decklink_info = {

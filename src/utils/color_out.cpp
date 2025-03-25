@@ -125,21 +125,16 @@ static bool isMsysPty(int fd) {
 }
 #endif // defined _WIN32
 
-// conditional include here (and below) is to allow compilation outside UG
-// without the need to link with host.o, which seems to be tricky
-#ifdef HAVE_CONFIG_H
 ADD_TO_PARAM("log-color", "* log-color[=no]\n"
                  "  Force enable/disable ANSI text formatting.\n");
 ADD_TO_PARAM("log-nocolor", "* log-nocolor\n"
                  "  Force disable ANSI text formatting.\n");
-#endif
 /**
  * @returns whether stdout can process ANSI escape sequences
  */
 static bool
 is_output_color()
 {
-#ifdef HAVE_CONFIG_H
         const char *const param_val = get_commandline_param("log-color");
         if (param_val != nullptr) {
                 return strcmp(param_val, "no") != 0;
@@ -150,7 +145,6 @@ is_output_color()
                                  "'log-color=no' instead\n");
                 return false;
         }
-#endif
         const char *env_val = getenv("ULTRAGRID_COLOR_OUT");
         if (env_val != nullptr && strlen(env_val) > 0) {
                 return strcmp(env_val, "0") != 0;

@@ -3,16 +3,16 @@
 
 #include <vector>
 
-template<typename T, typename Ts_type>
+template<typename Key_type, typename Val_type, typename Ts_type>
 class SSRC_container{
 public:
 	struct Holder{
-		T item;
-		uint32_t ssrc;
+		Key_type key;
+		Val_type item;
 		Ts_type timestamp;
 	};
 
-	void insert(uint32_t ssrc, const T& item, Ts_type timestamp);
+	void insert(const Key_type& key, const Val_type& item, Ts_type timestamp);
 	const std::vector<Holder>& get() const { return items; }
 	void remove_timed_out(Ts_type timeout, Ts_type now);
 	void clear() { items.clear(); }
@@ -21,18 +21,18 @@ private:
 	std::vector<Holder> items;
 };
 
-template<typename T, typename Ts_type>
-inline void SSRC_container<T, Ts_type>::insert(uint32_t ssrc, const T& item, Ts_type timestamp){
+template<typename Key_type, typename Val_type, typename Ts_type>
+inline void SSRC_container<Key_type, Val_type, Ts_type>::insert(const Key_type& key, const Val_type& item, Ts_type timestamp){
 	Holder *h = nullptr;
 	for(auto& i : items){
-		if(i.ssrc == ssrc){
+		if(i.key == key){
 			h = &i;
 		}
 	}
 
 	if(!h){
 		Holder newItem = {};
-		newItem.ssrc = ssrc;
+		newItem.key = key;
 		items.push_back(newItem);
 		h = &items.back();
 	}
@@ -41,8 +41,8 @@ inline void SSRC_container<T, Ts_type>::insert(uint32_t ssrc, const T& item, Ts_
 	h->timestamp = timestamp;
 }
 
-template<typename T, typename Ts_type>
-inline void SSRC_container<T, Ts_type>::remove_timed_out(Ts_type timeout, Ts_type now){
+template<typename Key_type, typename Val_type, typename Ts_type>
+inline void SSRC_container<Key_type, Val_type, Ts_type>::remove_timed_out(Ts_type timeout, Ts_type now){
 	auto endIt = std::remove_if(items.begin(), items.end(),
 			[now, timeout](const Holder& h){ return now - h.timestamp > timeout; });
 

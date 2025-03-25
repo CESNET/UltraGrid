@@ -163,6 +163,7 @@ void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
 	bool enableEdit = false;
 	QString toolTip;
 	QString qualityLabel;
+        QString placeholder;
 
 	for(const auto& compMod : data->availSettings->getVideoCompressModules()){
 		if(compMod.name == mod){
@@ -171,6 +172,7 @@ void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
 					enableEdit = true;
 					toolTip = QString::fromStdString(modOpt.displayDesc);
 					qualityLabel = QString::fromStdString(modOpt.displayName);
+					placeholder = QString::fromStdString(modOpt.placeholder);
 					break;
 				}
 			}
@@ -180,6 +182,7 @@ void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
 	data->lineEditUi->setOpt("video.compress." + mod + ".quality");
 	data->lineEditUi->setEnabled(enableEdit);
 	data->lineEditUi->setToolTip(toolTip);
+	data->lineEditUi->setPlaceholder(placeholder);
 	if(data->label){
 		data->label->setEnabled(enableEdit);
 		data->label->setToolTip(toolTip);

@@ -1,11 +1,9 @@
 /**
- * @file   compat/htonl.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
- *
- * This file just picks the correct header for [nh]to[nh]l functions.
+ * @file   debug.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2024 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,8 +35,44 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef _WIN32
-#include <winsock2.h>
-#else
-#include <arpa/inet.h>
+#ifndef UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44
+#define UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"      // for DEBUG
 #endif
+
+#include "../debug.h"    // for log_msg
+#include "tv.h"          // for get_time_in_ns
+
+#ifdef __cplusplus
+#include <cstdio>        // for FILE
+#define EXTERNC extern "C"
+#else
+#include <stdio.h>
+#define EXTERNC          // for FILE
+#endif
+
+#ifdef DEBUG
+
+EXTERNC void debug_file_dump(const char *key,
+                             void (*serialize)(const void *data, FILE *),
+                             void *data);
+#define DEBUG_TIMER_EVENT(name) time_ns_t name = get_time_in_ns()
+#define DEBUG_TIMER_START(name) DEBUG_TIMER_EVENT(name##_start);
+#define DEBUG_TIMER_STOP(name) \
+        DEBUG_TIMER_EVENT(name##_stop); \
+        log_msg(LOG_LEVEL_DEBUG2, "%s duration: %lf s\n", #name, \
+                (name##_stop - name##_start) / NS_IN_SEC_DBL) \
+                // NOLINT(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
+
+#else
+
+#define debug_file_dump(key, serialize, data) \
+        (void) (key), (void) (serialize), (void) (data)
+#define DEBUG_TIMER_START(name)
+#define DEBUG_TIMER_STOP(name)
+
+#endif // ! defined DEBUG
+
+#endif // ! defined UTILS_DEBUG_H_36CF2E79_AF28_4308_BA8D_56D403BDCC44

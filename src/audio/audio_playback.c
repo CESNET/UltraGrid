@@ -52,6 +52,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/misc.h"    // for fmt_number_with_delim
 #include "video_display.h" /* flags */
 
 struct state_audio_playback {
@@ -69,11 +70,11 @@ void audio_playback_help(bool full)
         list_modules(LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION, full);
 }
 
-int audio_playback_init(const char *device, const char *cfg, struct state_audio_playback **state)
+int
+audio_playback_init(const char *device, const struct audio_playback_opts *opts,
+                    struct state_audio_playback **state)
 {
-        struct state_audio_playback *s;
-
-        s = calloc(1, sizeof(struct state_audio_playback));
+        struct state_audio_playback *s= calloc(1, sizeof(*s));
         gettimeofday(&s->t0, NULL);
         s->funcs = load_library(device, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
@@ -83,7 +84,7 @@ int audio_playback_init(const char *device, const char *cfg, struct state_audio_
         }
 
         strncpy(s->name, device, sizeof s->name - 1);
-        s->state = s->funcs->init(cfg);
+        s->state = s->funcs->init(opts);
 
         if(!s->state) {
                 log_msg(LOG_LEVEL_ERROR, "Error initializing audio playback.\n");
@@ -105,8 +106,9 @@ error:
 
 struct state_audio_playback *audio_playback_init_null_device(void)
 {
+        const struct audio_playback_opts opts = { 0 };
         struct state_audio_playback *device = NULL;
-        int ret = audio_playback_init("none", "", &device);
+        int ret = audio_playback_init("none", &opts, &device);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize null audio playback: %d\n", ret);
         }
@@ -124,9 +126,12 @@ void audio_playback_done(struct state_audio_playback *s)
                 struct timeval t1;
                 gettimeofday(&t1, NULL);
 
-                log_msg(LOG_LEVEL_INFO, "Played %lld audio samples in %f seconds (%f samples per second).\n",
-                                s->samples_played, tv_diff(t1, s->t0),
-                                s->samples_played / tv_diff(t1, s->t0));
+                log_msg(LOG_LEVEL_INFO,
+                        "Played %s audio samples in %.2f seconds (%f samples "
+                        "per second).\n",
+                        fmt_number_with_delim(s->samples_played),
+                        tv_diff(t1, s->t0),
+                        s->samples_played / tv_diff(t1, s->t0));
         }
 
         s->funcs->done(s->state);

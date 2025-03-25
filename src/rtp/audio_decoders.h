@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2021 CESNET z.s.p.o.
+ * Copyright (c) 2012-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,12 +35,23 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef RTP_AUDIO_DECODERS_H_54DFB935_A1FC_48EF_A375_A044581B869F
+#define RTP_AUDIO_DECODERS_H_54DFB935_A1FC_48EF_A375_A044581B869F
+
 #ifdef __cplusplus
+#include <cstddef>   // for size_t
+#include <cstdint>   // for uint32_t
 extern "C" {
+#else
+#include <stdbool.h> // for bool
+#include <stddef.h>  // for size_t
+#include <stdint.h>  // for uint32_t
 #endif
 
+struct audio_desc;
 struct coded_data;
 struct module;
+struct pbuf_stats;
 
 typedef bool (*audio_playback_ctl_t)(void *state, int request, void *data, size_t *len);
 
@@ -61,3 +72,4 @@ bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
 }
 #endif
 
+#endif // defined RTP_AUDIO_DECODERS_H_54DFB935_A1FC_48EF_A375_A044581B869F

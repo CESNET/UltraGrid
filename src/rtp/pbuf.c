@@ -53,17 +53,20 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "rtp/pbuf.h"
 
+#include <assert.h>           // for assert, static_assert
 #include <inttypes.h>
+#include <limits.h>           // for CHAR_BIT, ULLONG_MAX
+#include <stdbool.h>          // for bool
+#include <stddef.h>           // for size_t
+#include <stdint.h>           // for uint16_t
+#include <stdio.h>            // for snprintf
+#include <stdlib.h>           // for free, calloc, malloc, abs
+#include <string.h>           // for strlen
 
 #include "debug.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
-#include "rtp/ptime.h"
-#include "rtp/pbuf.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
@@ -111,6 +114,7 @@ struct pbuf {
         int out_of_order_pkts;
         int max_out_of_order_dist;
         int dups; // duplicite packets
+        char stream_identifier[STR_LEN];
 };
 
 static void free_cdata(struct coded_data *head);
@@ -171,7 +175,8 @@ static void pbuf_validate(struct pbuf *playout_buf)
 #endif
 }
 
-struct pbuf *pbuf_init(volatile int *delay_ms)
+struct pbuf *
+pbuf_init(const char *stream_id, volatile int *delay_ms)
 {
         struct pbuf *playout_buf = NULL;
 
@@ -186,6 +191,7 @@ struct pbuf *pbuf_init(volatile int *delay_ms)
                 playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
                 playout_buf->last_report_seq = -1;
                 playout_buf->stats_interval = DEFAULT_STATS_INTERVAL;
+                snprintf_ch(playout_buf->stream_identifier, "%s", stream_id);
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }
@@ -387,8 +393,8 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
         if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
                         playout_buf->expected_pkts > 0) {
                 // print stats
-                double loss_pct = (double) playout_buf->received_pkts /
-                        playout_buf->expected_pkts * 100.0;
+                const double recv_pct = (double) playout_buf->received_pkts /
+                                        playout_buf->expected_pkts * 100.0;
                 char oo_dups_str[1024];
                 oo_dups_str[0] = '\0';
                 if (playout_buf->out_of_order_pkts > 0) {
@@ -397,9 +403,21 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                 if (playout_buf->dups > 0) {
                         snprintf(oo_dups_str + strlen(oo_dups_str), sizeof oo_dups_str - strlen(oo_dups_str), ", %d dups", playout_buf->dups);
                 }
-                log_msg(LOG_LEVEL_INFO, "SSRC 0x%08" PRIx32 ": %d/%d packets received (%s%.4f%%" TERM_FG_RESET "), %d lost, max loss %d%s\n",
-                                pkt->ssrc, playout_buf->received_pkts, playout_buf->expected_pkts, (loss_pct < 100.0 ? TERM_FG_RED : ""), loss_pct,
-                                playout_buf->expected_pkts - playout_buf->received_pkts, playout_buf->longest_gap, oo_dups_str);
+
+                char ssrc_str[STR_LEN];
+                if (log_level >= LOG_LEVEL_VERBOSE) {
+                        snprintf_ch(ssrc_str, " %08" PRIx32, pkt->ssrc);
+                } else {
+                        ssrc_str[0] = '\0';
+                }
+                MSG(INFO,
+                    "[%s%s] %d/%d packets received (%s%.4f%%" TERM_FG_RESET
+                    "), %d lost, max loss %d%s\n",
+                    playout_buf->stream_identifier, ssrc_str, playout_buf->received_pkts,
+                    playout_buf->expected_pkts,
+                    (recv_pct < 100.0 ? TERM_FG_RED : ""), recv_pct,
+                    playout_buf->expected_pkts - playout_buf->received_pkts,
+                    playout_buf->longest_gap, oo_dups_str);
 
                 if (playout_buf->max_out_of_order_dist >= playout_buf->stats_interval) {
                         size_t new_val = (playout_buf->max_out_of_order_dist + STAT_INT_MIN_DIVISOR - 1) / STAT_INT_MIN_DIVISOR * STAT_INT_MIN_DIVISOR;
@@ -552,10 +570,7 @@ static int frame_complete(struct pbuf_node *frame)
 
 int pbuf_is_empty(struct pbuf *playout_buf)
 {
-        if (playout_buf->frst == NULL)
-                return TRUE;
-        else
-                return FALSE;
+        return playout_buf->frst == NULL;
 }
 
 int

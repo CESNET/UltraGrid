@@ -43,6 +43,7 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "config.h"                // for PACKAGE_NAME
 #include "debug.h"
 #include "host.h"
 #include "jack_common.h"
@@ -151,18 +152,17 @@ static void audio_play_jack_help(const char *client_name)
         free(available_devices);
 }
 
-static void * audio_play_jack_init(const char *cfg)
+static void *
+audio_play_jack_init(const struct audio_playback_opts *opts)
 {
-        struct state_jack_playback *s;
         const char **ports;
         jack_status_t status;
-        char *client_name;
+        char client_name[STR_LEN];
         const char *source_name = "";
 
-        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
-        strcpy(client_name, PACKAGE_NAME);
+        snprintf_ch(client_name, "%s", PACKAGE_NAME);
 
-        s = calloc(1, sizeof(struct state_jack_playback));
+        struct state_jack_playback *s = calloc(1, sizeof(*s));
         if(!s) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
@@ -174,16 +174,16 @@ static void * audio_play_jack_init(const char *cfg)
                 return NULL;
         }
 
-        char *dup = strdup(cfg);
-        assert(dup != NULL);
+        char dup[STR_LEN];
+        snprintf_ch(dup, "%s", opts->cfg);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (strcmp(item, "help") == 0) {
                         audio_play_jack_help(client_name);
                         free(s);
-                        free(dup);
                         return INIT_NOERR;
-                } else if (strstr(item, "first_channel=") == item) {
+                }
+                if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
                         errno = 0;
@@ -193,15 +193,13 @@ static void * audio_play_jack_init(const char *cfg)
                                 goto error;
                         }
                 } else if (strstr(item, "name=") == item) {
-                        strcpy(client_name, item + strlen("name="));
+                        snprintf_ch(client_name, "%s", strchr(item, '=') + 1);
                 } else { // the rest is the device name
-                        source_name = cfg + (item - dup);
+                        source_name = opts->cfg + (item - dup);
                         break;
                 }
                 tmp = NULL;
         }
-        free(dup);
-        dup = NULL;
 
         s->jack_ports_pattern = strdup(source_name);
 
@@ -253,7 +251,6 @@ release_client:
         s->libjack->client_close(s->client);
 error:
         close_libjack(s->libjack);
-        free(dup);
         free(s);
         return NULL;
 }

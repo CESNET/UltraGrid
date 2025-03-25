@@ -74,6 +74,13 @@
 #define MOD_NAME "[ALSA play.] "
 #define SCRATCHPAD_SIZE (1024*1024)
 
+enum {
+        BUFFER_CHUNK_LEN_MS =
+            24, ///< audio buffer unit size (the amount that will be read from
+                ///< the buffer at once, buffer will be allocated to hold 2x the
+                ///< size)
+};
+
 /**
  * Speex jitter buffer use is currently not stable and not ready for production use.
  * Moreover, it is unclear whether is suitable for our use case.
@@ -153,7 +160,8 @@ static void audio_play_alsa_write_frame(void *state, const struct audio_frame *f
  * the file /proc/sys/kernel/sched_latency_ns is no longer present
  * in current Linuxes - remove the function?
  */
-static long get_sched_latency_ns(void)
+[[maybe_unused]] static long
+get_sched_latency_ns(void)
 {
         const char *proc_file = "/proc/sys/kernel/sched_latency_ns";
 
@@ -834,21 +842,27 @@ init_local_config_with_workaround(char const * pcm_node_name)
 
 ADD_TO_PARAM("alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
                                 "  ALSA API.\n");
-static void * audio_play_alsa_init(const char *cfg)
+static void *
+audio_play_alsa_init(const struct audio_playback_opts *opts)
 {
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_alsa_help();
+                return INIT_NOERR;
+        }
+
         int rc;
-        const char *name;
 
         struct state_alsa_playback *s = calloc(1, sizeof(struct state_alsa_playback));
 
-        long latency_ns = get_sched_latency_ns();
-        if (latency_ns > 0) {
-                s->sched_latency_ms = latency_ns / 1000 / 1000;
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Sched latency: %ld ms.\n", s->sched_latency_ms);
-        } else {
-                s->sched_latency_ms = 24;
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get latency, assuming %ld.\n", s->sched_latency_ms);
-        }
+        // long latency_ns = get_sched_latency_ns();
+        // if (latency_ns > 0) {
+        //         s->sched_latency_ms = latency_ns / 1000 / 1000;
+        //         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Sched latency: %ld ms.\n", s->sched_latency_ms);
+        // } else {
+        //         s->sched_latency_ms = 24;
+        //         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get latency, assuming %ld.\n", s->sched_latency_ms);
+        // }
+        s->sched_latency_ms = BUFFER_CHUNK_LEN_MS;
 
         const char *use_api;
         use_api = get_commandline_param("alsa-playback-api");
@@ -866,32 +880,17 @@ static void * audio_play_alsa_init(const char *cfg)
                 }
         }
 
-        if (s->playback_mode == THREAD) {
-		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using new API. In case of problems, you may try to use '--param alsa-playback-api=sync'.\n");
-	}
-
         if (s->playback_mode == ASYNC) {
 		log_msg(LOG_LEVEL_WARNING, MOD_NAME "Async API is experimental, in case of problems use either \"thread\" or \"sync\" API\n");
 	}
 
-        if (strlen(cfg) > 0) {
-                if(strcmp(cfg, "help") == 0) {
-                        audio_play_alsa_help();
-                        free(s);
-                        return INIT_NOERR;
-                }
-                name = cfg;
-        } else {
-                if (is_default_pulse()) {
-                        name = "pulse";
-                } else {
-                        name = "default";
-                }
+        const char *name = is_default_pulse() ? "pulse" : "default";
+        if (strlen(opts->cfg) > 0) {
+                name = opts->cfg;
         }
 
-        char device[1024] = "pcm.";
-
-        strncat(device, name, sizeof(device) - strlen(device) - 1);
+        char device[STR_LEN + 4];
+        snprintf_ch(device, "pcm.%s", name);
 
         if (s->playback_mode == SYNC) {
                 s->local_config = init_local_config_with_workaround(device);

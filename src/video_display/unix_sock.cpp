@@ -61,9 +61,9 @@
 #include "utils/macros.h"
 #include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"
-#include "tools/ipc_frame.h"
-#include "tools/ipc_frame_ug.h"
-#include "tools/ipc_frame_unix.h"
+#include "../tools/ipc_frame.h"
+#include "../tools/ipc_frame_ug.h"
+#include "../tools/ipc_frame_unix.h"
 
 #define MOD_NAME "[unix sock disp] "
 

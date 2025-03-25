@@ -42,10 +42,9 @@
 #include <winsock2.h> // needs to be included prior to windows.h which will be
                       // included by foolowing include; wsock2.h needed for
                       // htonl used by vcap/vdisp
-#include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
-#else
-#include "DeckLinkAPI.h" /*  From DeckLink SDK */
 #endif
+
+#include "DeckLinkAPI.h" /*  From DeckLink SDK */
 
 #include <cctype>
 #include <cstdbool>
@@ -110,7 +109,7 @@ public:
         bool get_flag() const;
         int64_t get_int() const;
         [[nodiscard]] const char *get_string() const;
-        void parse(const char *);
+        bool parse(const char *);
         void set_flag(bool val_);
         void set_int(int64_t val_);
         void set_float(double val_);
@@ -163,6 +162,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
                 }\
         } while (0)
 
+#define BMD_NOOP ///<  can be passed to @ref BMD_CHECK
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
 #define BMD_NAT_SORT "bmd-sort-natural"
@@ -178,6 +178,10 @@ decklink_supports_codec<IDeckLinkInput>(IDeckLinkInput *deckLink,
 bool bmd_parse_audio_levels(const char *opt) noexcept(false);
 void print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                          const char                 *query_prop_fcc);
+void print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
+                           BMDDeckLinkAttributeID      id,
+                           const char                 *module_prefix);
+BMDVideoConnection bmd_get_connection_by_name(const char *connection);
 
 /**
  * @details parameters:
@@ -191,6 +195,11 @@ using bmd_dev = std::tuple<std::unique_ptr<IDeckLink, void (*)(IDeckLink *)>,
 std::vector<bmd_dev> bmd_get_sorted_devices(bool *com_initialized,
                                             bool  verbose      = true,
                                             bool  natural_sort = false);
+class BMDNotificationCallback;
+BMDNotificationCallback *
+bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
+                                  bool capture);
+void bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

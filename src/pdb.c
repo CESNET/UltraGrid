@@ -60,14 +60,16 @@
  * $Date: 2009/12/11 15:29:39 $
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "debug.h"
-#include "rtp/rtp.h"            /* Needed by pbuf.h */
 #include "rtp/pbuf.h"
+
+#include <assert.h>    // for assert
+#include <stdlib.h>    // for NULL, free, malloc
+
+#include "config.h"    // for DEBUG
+#include "debug.h"
 #include "tfrc.h"
 #include "pdb.h"
+#include "utils/macros.h" // for IF_NOT_NULL_ELSE, STR_LEN
 
 #define PDB_MAGIC	0x10101010
 #define PDB_NODE_MAGIC	0x01010101
@@ -86,6 +88,7 @@ struct pdb {
         uint32_t magic;
         int count;
         volatile int *delay_ms;
+        char stream_identifier[STR_LEN];
 };
 
 /*****************************************************************************/
@@ -241,7 +244,7 @@ static pdb_node_t *pdb_delete_node(struct pdb *tree, pdb_node_t * z)
 
 /*****************************************************************************/
 
-struct pdb *pdb_init(volatile int *delay_ms)
+struct pdb *pdb_init(const char *stream_id, volatile int *delay_ms)
 {
         struct pdb *db = malloc(sizeof(struct pdb));
         if (db != NULL) {
@@ -249,6 +252,8 @@ struct pdb *pdb_init(volatile int *delay_ms)
                 db->count = 0;
                 db->root = NULL;
                 db->delay_ms = delay_ms;
+                snprintf_ch(db->stream_identifier, "%s",
+                            IF_NOT_NULL_ELSE(stream_id, "unknown"));
         }
         return db;
 }
@@ -274,7 +279,8 @@ void pdb_destroy(struct pdb **db_p)
         *db_p = NULL;
 }
 
-static struct pdb_e *pdb_create_item(uint32_t ssrc, volatile int *delay_ms)
+static struct pdb_e *
+pdb_create_item(uint32_t ssrc, const char *stream_id, volatile int *delay_ms)
 {
         struct pdb_e *p = malloc(sizeof(struct pdb_e));
         if (p != NULL) {
@@ -290,7 +296,7 @@ static struct pdb_e *pdb_create_item(uint32_t ssrc, volatile int *delay_ms)
                 p->decoder_state = NULL;
                 p->decoder_state_deleter = NULL;
                 p->pt = 255;
-                p->playout_buffer = pbuf_init(delay_ms);
+                p->playout_buffer = pbuf_init(stream_id ,delay_ms);
                 p->tfrc_state = tfrc_init(p->creation_time);
         }
         return p;
@@ -311,7 +317,7 @@ int pdb_add(struct pdb *db, uint32_t ssrc)
                 return 1;
         }
 
-        i = pdb_create_item(ssrc, db->delay_ms);
+        i = pdb_create_item(ssrc, db->stream_identifier, db->delay_ms);
         if (i == NULL) {
                 debug_msg("Unable to create database entry - ssrc %x\n", ssrc);
                 return 2;

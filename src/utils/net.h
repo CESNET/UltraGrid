@@ -47,7 +47,29 @@
 #include <stdint.h>
 #endif // __cplusplus
 
-#define IN6_MAX_ASCII_LEN 39 // 32 nibbles + 7 colons
+#ifdef _WIN32
+#include <winsock2.h>   // dep for netioapi.h, ntddnidis.h
+#include <ntddndis.h>   // dep for IF_NAMESIZE
+#include <iphlpapi.h>   // for IF_NAMESIZE
+#else
+#include <net/if.h>     // for IF_NAMESIZE
+#endif
+
+enum {
+        IN4_MAX_ASCII_LEN = 4 * 3 + 3, ///< max len of IPv4 addr str (w/o '\0')
+        /// maximal length of textual representation of IPv6 address including
+        /// eventual scope ID but without terminating NUL byte
+        IN6_MAX_ASCII_LEN = 40 /* 32 nibbles + 7 colons + "%" */ + IF_NAMESIZE,
+        /// not including terminating NUL
+        IN_PORT_STR_LEN = 5,
+        /**
+         * buffer for host:port represenation. If IPv6 address is presented,
+         * enclosed in []. Including terminating NUL byte.
+         * @sa get_sockaddr_str
+         */
+        ADDR_STR_BUF_LEN =
+            IN6_MAX_ASCII_LEN + 3 /* []: */ + IN_PORT_STR_LEN + 1 /* \0 */,
+};
 // RFC 6666 prefix 100::/64, suffix 'UltrGrS'
 #define IN6_BLACKHOLE_SERVER_MODE_STR "100::556C:7472:4772:6453"
 
@@ -57,6 +79,8 @@ extern "C" {
 
 struct sockaddr;
 struct sockaddr_storage;
+bool is_addr4(const char *addr);
+bool is_addr6(const char *addr);
 bool is_addr_linklocal(struct sockaddr *sa);
 bool is_addr_loopback(struct sockaddr *sa);
 bool is_addr_private(struct sockaddr *sa);
@@ -66,10 +90,11 @@ bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
-void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n);
-unsigned get_sockaddr_addr_port(struct sockaddr *sa);
-const char *get_sockaddr_str(struct sockaddr *sa);
+char *get_sockaddr_str(const struct sockaddr *sa, unsigned sa_len, char *buf,
+                       size_t n);
+struct sockaddr_storage get_sockaddr(const char *hostport, int mode);
 const char *ug_gai_strerror(int errcode);
+int sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y);
 
 #ifdef _WIN32
 #define CLOSESOCKET closesocket

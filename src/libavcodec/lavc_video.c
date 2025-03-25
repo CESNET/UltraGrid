@@ -44,6 +44,7 @@
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
 
+#include "config.h" // for HAVE_SWSCALE
 #include "debug.h"
 #include "lib_common.h"
 #include "libavcodec/lavc_common.h"

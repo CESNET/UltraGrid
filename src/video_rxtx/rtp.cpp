@@ -41,6 +41,7 @@
 #include <sstream>
 #include <string>
 
+#include "config.h"              // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
@@ -53,6 +54,7 @@
 #include "rtp/video_decoders.h"
 #include "transmit.h"
 #include "ug_runtime_error.hpp"
+#include "utils/misc.h"          // for format_in_si_units
 #include "utils/net.h" // IN6_BLACKHOLE_STR
 #include "video.h"
 #include "video_compress.h"
@@ -194,7 +196,7 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params), m_fec_state(NULL), m_video_desc{}
 {
-        m_participants = pdb_init(&video_offset);
+        m_participants = pdb_init("video", &video_offset);
         m_requested_receiver = params.at("receiver").str;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;
@@ -240,28 +242,40 @@ rtp_video_rxtx::~rtp_video_rxtx()
 
 void rtp_video_rxtx::display_buf_increase_warning(int size)
 {
-        log_msg(LOG_LEVEL_INFO, "\n***\n"
-                        "Unable to set buffer size to %d B.\n"
-#if defined _WIN32
-                        "See https://github.com/CESNET/UltraGrid/wiki/Extending-Network-Buffers-%%28Windows%%29 for details.\n",
-#else
-                        "Please set net.core.rmem_max value to %d or greater (see also\n"
-                        "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
-#ifdef __APPLE__
-                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
-                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
-#else
-                        "\tsysctl -w net.core.rmem_max=%d\n"
-#endif
-                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                        "\n***\n\n",
-                        size, size,
-#ifdef __APPLE__
-                        size * 4,
-#endif /* __APPLE__ */
-#endif /* ! defined _WIN32 */
-                        size);
+        log_msg(LOG_LEVEL_INFO, "\n***\nUnable to set buffer size to %sB.\n",
+                format_in_si_units(size));
 
+#if defined _WIN32
+        log_msg(LOG_LEVEL_INFO, "See "
+                                "https://github.com/CESNET/UltraGrid/wiki/"
+                                "Extending-Network-Buffers-%%28Windows%%29 "
+                                "for details.\n");
+        return;
+#endif /* defined _WIN32 */
+
+#ifdef __APPLE__
+#define SYSCTL_ENTRY "net.inet.udp.recvspace"
+#else
+#define SYSCTL_ENTRY "net.core.rmem_max"
+#endif
+        log_msg(
+            LOG_LEVEL_INFO,
+            "Please set " SYSCTL_ENTRY " value to %d or greater (see also\n"
+            "https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid):\n"
+#ifdef __APPLE__
+            "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
+#endif
+            "\tsysctl -w " SYSCTL_ENTRY "=%d\n"
+            "To make this persistent, add these options (key=value) to "
+            "/etc/sysctl.d/60-ultragrid.conf\n"
+            "\n***\n\n",
+            size,
+#ifdef __APPLE__
+            size * 4,
+#endif /* __APPLE__ */
+            size
+        );
+#undef SYSCTL_ENTRY
 }
 
 struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,

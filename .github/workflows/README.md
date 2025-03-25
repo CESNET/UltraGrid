@@ -26,7 +26,7 @@ Further subsection briefly describe individual assets and how to obtain them.  A
 are unmodified files downloaded from vendor website. However, rename may be required.
 
 ### macOS
-- **videomaster-macos-dev.zip** - VideoMaster SDK for Mac from
+- **videomaster-macos-dev.tar.gz** - VideoMaster SDK for Mac from
   [DELTACAST](https://www.deltacast.tv/support/download-center)
 
 ### Windows

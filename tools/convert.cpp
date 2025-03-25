@@ -37,7 +37,14 @@ static void benchmark() {
                                 continue;
                         }
                         auto t0 = high_resolution_clock::now();
-                        conv(out.data(), in.data(), vc_get_linesize(width, outc) * height, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+                        const size_t src_linesize = vc_get_linesize(width, inc);
+                        const size_t dst_linesize = vc_get_linesize(width, outc);
+                        for (int i = 0; i < height; ++i) {
+                                conv(out.data() + i * src_linesize,
+                                     in.data() + i * dst_linesize,
+                                     (int) dst_linesize, DEFAULT_R_SHIFT,
+                                     DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+                        }
                         auto t1 = high_resolution_clock::now();
                         cout << get_codec_name(inc) << "->" << get_codec_name(outc) << ": " << duration_cast<microseconds>(t1 - t0).count() / 1000.0 << " ms\n";
                 }

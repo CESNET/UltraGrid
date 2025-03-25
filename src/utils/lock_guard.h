@@ -5,12 +5,6 @@
 #ifndef LOCK_GUARD_H_
 #define LOCK_GUARD_H_
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <pthread.h>
 
 namespace ultragrid {

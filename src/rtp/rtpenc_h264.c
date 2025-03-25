@@ -44,18 +44,15 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
-#include <stddef.h>
-#include <stdint.h>
-
-#include "debug.h"
-#include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
+
+#include <stddef.h>           // for NULL
+#include <stdint.h>           // for uint32_t
+#include <stdio.h>            // for snprintf
+
+#include "debug.h"            // for debug_msg
+#include "rtp/rtpdec_h264.h"  // for nal_type, aux_nal_types, NALU_HDR_GET_TYPE
 
 static uint32_t get4Bytes(const unsigned char *ptr) {
         return (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];

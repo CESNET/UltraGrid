@@ -59,9 +59,6 @@ extern "C" {
  * Video codec identificator
  * @see video_frame::color_spec
  */
-/** @var codec_t::MJPG
- * @note May include features not compatible with GPUJPEG.
- */
 typedef enum {
         VIDEO_CODEC_NONE = 0, ///< dummy color spec
         VC_NONE          = VIDEO_CODEC_NONE, // shortcut
@@ -82,7 +79,6 @@ typedef enum {
         RAW,      ///< RAW HD-SDI frame
         H264,     ///< H.264 frame
         H265,     ///< H.264 frame
-        MJPG,     ///< JPEG image, without restart intervals.
         VP8,      ///< VP8 frame
         VP9,      ///< VP9 frame
         BGR,      ///< 8-bit BGR

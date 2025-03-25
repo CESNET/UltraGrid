@@ -50,7 +50,7 @@
 #include "aja_common.hpp" // include after color_out to override its stuff for MSVC
 
 #ifndef BYTE_SWAP
-#ifdef WORDS_BIGENDIAN
+#if !defined  _MSC_VER && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x

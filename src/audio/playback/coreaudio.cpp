@@ -40,19 +40,17 @@
  * Remove deprecated instances of ca-disable-adaptive-buf after some transitio period.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
+#include <MacTypes.h>
+#include <cassert>
+#include <cstdio>
 #include <chrono>
 #include <cinttypes>
 #include <climits>
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string>
 #include <string.h>
@@ -403,9 +401,14 @@ static void audio_play_ca_help()
         deleter ? deleter(available_devices) : free(available_devices);
 }
 
-
-static void * audio_play_ca_init(const char *cfg)
+static void *
+audio_play_ca_init(const struct audio_playback_opts *opts)
 {
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_ca_help();
+                return INIT_NOERR;
+        }
+
         OSStatus ret = noErr;
         AudioComponent comp;
         AudioComponentDescription comp_desc;
@@ -455,22 +458,17 @@ static void * audio_play_ca_init(const char *cfg)
                 goto error;
         }
 
-        if (strcmp(cfg, "help") == 0) {
-                audio_play_ca_help();
-                delete s;
-                return INIT_NOERR;
-        }
-        if (strlen(cfg) > 0) {
+        if (strlen(opts->cfg) > 0) {
                 try {
-                        device = stoi(cfg);
+                        device = stoi(opts->cfg);
                 } catch (std::invalid_argument &e) {
-                        device = audio_ca_get_device_by_name(cfg, CA_DIR);
+                        device = audio_ca_get_device_by_name(opts->cfg, CA_DIR);
                         if (device == UINT_MAX) {
                                 log_msg(LOG_LEVEL_ERROR,
                                         MOD_NAME
                                         "Wrong device index "
                                         "or unrecognized name \"%s\"!\n",
-                                        cfg);
+                                        opts->cfg);
                                 goto error;
                         }
                 }

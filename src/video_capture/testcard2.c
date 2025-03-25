@@ -39,7 +39,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL2
+#include "config.h"                     // for HAVE_LIBSDL_TTF
 #endif // defined HAVE_CONFIG_H
 
 #include <assert.h>                     // for assert
@@ -57,15 +57,12 @@
 #include <time.h>                       // for time
 
 #ifdef HAVE_LIBSDL_TTF
-#ifdef HAVE_SDL2
-#include <SDL2/SDL_ttf.h>
-#else
-#include <SDL/SDL_ttf.h>
-#endif
+#include <SDL_ttf.h>
 #endif
 
 #include "audio/types.h"                // for audio_frame
 #include "compat/platform_semaphore.h"  // for platform_sem_post, platform_s...
+#include "compat/usleep.h"              // for usleep
 #include "debug.h"                      // for log_msg, LOG_LEVEL_ERROR, LOG...
 #include "host.h"                       // for exit_uv, audio_capture_channels
 #include "lib_common.h"                 // for REGISTER_MODULE, library_class

@@ -35,12 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-
+#include <algorithm>                    // for min
+#include <cassert>                      // for assert
+#include <cstddef>                      // for byte, size_t
+#include <cstdint>                      // for INT32_MAX, uint32_t
+#include <cstdlib>                      // for calloc, free
+#include <cstring>                      // for strcpy, memcpy
 #include <memory>
+#include <string>                       // for char_traits, basic_string
+#include <string_view>                  // for operator==, basic_string_view
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
@@ -118,10 +121,10 @@ static void on_process(void *userdata) noexcept{
         }
 }
 
-static void * audio_play_pw_init(const char *cfg){
+static void * audio_play_pw_init(const struct audio_playback_opts *opts){
         auto s = std::make_unique<state_pipewire_play>();
 
-        std::string_view cfg_sv(cfg);
+        std::string_view cfg_sv(opts->cfg);
         while(!cfg_sv.empty()){
                 auto tok = tokenize(cfg_sv, ':', '"');
                 auto key = tokenize(tok, '=');

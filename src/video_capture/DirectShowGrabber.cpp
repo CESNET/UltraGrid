@@ -1348,7 +1348,7 @@ static const struct {
         { &GUID_V210,            "V210",             v210,    nullptr           },
         { &MEDIASUBTYPE_UYVY,    "UYVY",             UYVY,    nullptr           },
         { &GUID_HDYC,            "HDYC",             UYVY,    nullptr           },
-        { &MEDIASUBTYPE_MJPG,    "MJPG",             MJPG,    nullptr           },
+        { &MEDIASUBTYPE_MJPG,    "MJPG",             JPEG,    nullptr           },
         { &GUID_H264,            "H264",             H264,    nullptr           },
         { &GUID_HEVC,            "HEVC",             H265,    nullptr           },
         { &GUID_AV01,            "AV1",              AV1,     nullptr           },

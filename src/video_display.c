@@ -59,19 +59,30 @@
  * however, not reflected by decoder which queried the data before.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "video_display.h"
+
+#include <assert.h>                      // for assert
+#include <errno.h>                       // for errno
+#include <math.h>                        // for floor
+#include <pthread.h>                     // for pthread_create, pthread_join
+#include <stdint.h>                      // for uint32_t
+#include <stdio.h>                       // for perror, printf
+#include <stdlib.h>                      // for free, abort, calloc
+#include <string.h>                      // for strcmp, strncpy, memcpy, strlen
+
+#include "compat/strings.h"              // for strncasecmp
 #include "debug.h"
+#include "host.h"                        // for exit_uv, mainloop, EXIT_FAIL...
 #include "lib_common.h"
+#include "messaging.h"                   // for new_response, msg_universal
 #include "module.h"
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/misc.h"                  // for get_stat_color
 #include "utils/thread.h"
 #include "video.h"
-#include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "vo_postprocess.h"
 
@@ -336,6 +347,11 @@ struct video_frame *display_get_frame(struct display *d)
 
 static bool display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
+        enum {
+                MIN_FPS_PERC_WARN  = 98,
+                MIN_FPS_PERC_WARN2 = 90,
+        };
+        const double frame_fps = frame->fps;
         bool ret = d->funcs->putf(d->state, frame, timeout_ns);
         if (!d->funcs->generic_fps_indicator_prefix) {
                 return ret;
@@ -347,10 +363,16 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
         time_ns_t t = get_time_in_ns();
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS" TERM_RESET "\n",
-                                d->funcs->generic_fps_indicator_prefix,
-                                d->frames, (double) seconds_ns / NS_IN_SEC,
-                                (double) d->frames * NS_IN_SEC / seconds_ns);
+                const double seconds = (double) seconds_ns / NS_IN_SEC;
+                const double fps      = d->frames / seconds;
+                const char *const fps_col  = get_stat_color(fps / frame_fps);
+
+                log_msg(LOG_LEVEL_INFO,
+                        TERM_BOLD TERM_FG_MAGENTA
+                        "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD
+                        "%s%g FPS" TERM_RESET "\n",
+                        d->funcs->generic_fps_indicator_prefix, d->frames,
+                        seconds, fps_col, fps);
                 d->frames = 0;
                 d->t0 = t;
         }
@@ -584,8 +606,8 @@ void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
  * @param               quant_samples   number of bits per sample
  * @param               channels        count of channels
  * @param               sample_rate     samples per second
- * @retval              TRUE            if reconfiguration succeeded
- * @retval              FALSE           if reconfiguration failed
+ * @retval              true            if reconfiguration succeeded
+ * @retval              false           if reconfiguration failed
  */
 bool display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
@@ -593,7 +615,7 @@ bool display_reconfigure_audio(struct display *d, int quant_samples, int channel
         if (!d->funcs->reconfigure_audio) {
                 log_msg(LOG_LEVEL_FATAL, MOD_NAME "Selected display '%s' doesn't support audio!\n", d->display_name);
                 exit_uv(EXIT_FAIL_USAGE);
-                return FALSE;
+                return false;
         }
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
@@ -605,9 +627,9 @@ struct video_frame *get_splashscreen()
 {
         struct video_desc desc;
 
-        desc.width = 512;
-        desc.height = 512;
-        desc.color_spec = RGBA;
+        desc.width       = splash_width;
+        desc.height      = splash_height;
+        desc.color_spec  = RGBA;
         desc.interlacing = PROGRESSIVE;
         desc.fps = 1;
         desc.tile_count = 1;
@@ -616,6 +638,9 @@ struct video_frame *get_splashscreen()
 
         const char *data = splash_data;
         memset(frame->tiles[0].data, 0, frame->tiles[0].data_len);
+        // center the pixture; framebuffer size must be greater or equal
+        // the splash size
+        assert(splash_width <= desc.width && splash_height <= desc.height);
         for (unsigned int y = 0; y < splash_height; ++y) {
                 char *line = frame->tiles[0].data;
                 line += vc_get_linesize(frame->tiles[0].width,
@@ -624,8 +649,10 @@ struct video_frame *get_splashscreen()
                 line += vc_get_linesize(
                                 (frame->tiles[0].width - splash_width)/2,
                                 frame->color_spec);
+                assert(desc.color_spec == RGBA);
                 for (unsigned int x = 0; x < splash_width; ++x) {
                         HEADER_PIXEL(data,line);
+                        line[3] = 0xFF; // alpha
                         line += 4;
                 }
         }

@@ -888,11 +888,9 @@ public:
                                 log_msg(LOG_LEVEL_NOTICE, "Removing participant\n");
                                 std::string msg = "delete-port ";
                                 auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
-                                char addr_str[128];
-                                get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
-                                char *replica_name = get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
-                                msg += replica_name;
-                                free(replica_name);
+                                char replica_name[ADDR_STR_BUF_LEN];
+                                msg += get_sockaddr_str(addr, sizeof sin, replica_name,
+                                                        sizeof replica_name);
 
                                 std::swap(*it, participants.back());
                                 participants.pop_back();
@@ -918,7 +916,10 @@ public:
 
                         log_msg(LOG_LEVEL_NOTICE, "New participant\n");
                         std::string msg = "create-port ";
-                        msg += get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin));
+                        char buf[ADDR_STR_BUF_LEN];
+                        msg +=
+                            get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin),
+                                             addrlen, buf, sizeof buf);
                         if(!compression.empty()){
                                 msg += " ";
                                 msg += compression;
@@ -1026,8 +1027,7 @@ int main(int argc, char **argv)
     try {
         ret = parse_fmt(argc, argv, &params);
     } catch (invalid_argument &e) {
-        if (strcmp(e.what(), "stoi") != 0 &&
-            strcmp(e.what(), "stod") != 0) {
+        if (!invalid_arg_is_numeric(e.what())) {
             throw;
         }
         MSG(ERROR, "Non-numeric value passed to option "

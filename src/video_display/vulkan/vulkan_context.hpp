@@ -130,7 +130,11 @@ struct SwapchainImage {
 
 class VulkanContext {
         vk::Instance instance;
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher{};
+#else
         std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher{};
+#endif
         vk::DebugUtilsMessengerEXT messenger;
         uint32_t vulkan_version{};
 
@@ -154,6 +158,7 @@ class VulkanContext {
         vk::PresentModeKHR preferred_present_mode{};
 
         vulkan_display::WindowParameters window_parameters;
+        bool swapchain_was_suboptimal = false;
 public:
         //getters
         uint32_t get_vulkan_version() const { return vulkan_version; }
@@ -195,7 +200,7 @@ public:
 
         void create_framebuffers(vk::RenderPass render_pass);
 
-        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) const;
+        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore);
 
         vk::Framebuffer get_framebuffer(uint32_t framebuffer_id) {
                 return swapchain_images[framebuffer_id].framebuffer;
@@ -221,7 +226,11 @@ inline void cout_msg([[maybe_unused]] LogLevel log_level, std::string_view msg) 
 
 class VulkanInstance {
         vk::Instance instance{};
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#else
         std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#endif
         vk::DebugUtilsMessengerEXT messenger{};
         uint32_t vulkan_version = VK_API_VERSION_1_1;
 

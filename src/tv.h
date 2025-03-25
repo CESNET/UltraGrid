@@ -45,10 +45,6 @@
 #ifndef TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 #define TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #ifdef __cplusplus
 #include <cstdint>
 #include <ctime>
@@ -96,27 +92,21 @@ typedef long long time_ns_t;
 #define US_TO_MS(val_us) ((val_us) / 1000)
 #define MS_TO_US(val_ms) ((val_ms) * 1000)
 #define NS_TO_MS(val_ns) ((val_ns) / 1000 / 1000)
+#define NS_TO_US(val_ns) ((val_ns) / 1000)
 #define MS_TO_NS(val_ms) ((val_ms) * 1000)
+#define SEC_TO_NS(val_sec) ((val_sec) * 1000LL * 1000 * 1000)
+
+// old macOS compat
+#if defined __APPLE__ && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101500
+#define TIME_UTC 1
+int timespec_get(struct timespec *ts, int base);
+#endif
 
 static inline time_ns_t get_time_in_ns() {
-#ifdef HAVE_TIMESPEC_GET
         struct timespec ts = { 0, 0 };
         timespec_get(&ts, TIME_UTC);
         return ts.tv_sec * NS_IN_SEC + ts.tv_nsec;
-#else
-        struct timeval tv = { 0, 0 };
-        gettimeofday(&tv, NULL);
-        return tv.tv_sec * NS_IN_SEC + tv.tv_usec * NS_IN_US;
-#endif
 }
-
-// old macOS compat
-#if !defined HAVE_TIMESPEC_GET
-#ifndef TIME_UTC
-#define TIME_UTC 1
-#endif
-int timespec_get(struct timespec *ts, int base);
-#endif
 
 #ifdef __cplusplus
 }

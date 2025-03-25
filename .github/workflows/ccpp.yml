@@ -51,7 +51,7 @@ jobs:
   Ubuntu:
     name: run Ubuntu
     needs: prepare
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,7 +63,7 @@ jobs:
       id: etags
       run: |
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -76,7 +76,7 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
-    - name: Cache FFmpeg
+    - name: Run actions/cache for FFmpeg
       id: cache-ffmpeg
       uses: actions/cache@main
       with:
@@ -97,7 +97,7 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: check libc/libstdc++ ABI
-      run: .github/scripts/Linux/check_abi.sh 2.31 3.4.28 1.3.12 bin/* lib/ultragrid/*
+      run: .github/scripts/Linux/check_abi.sh 2.35 3.4.30 1.3.13 bin/* lib/ultragrid/*
     - name: Create AppImage
       run: data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync
     - name: Check AppImage
@@ -134,7 +134,7 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        os: [macos-12, macos-14]
+        os: [macos-13, macos-14]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     env:
@@ -149,25 +149,25 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)" >> $GITHUB_OUTPUT
+        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh "$SDK_URL/$DELTA_MAC_ARCHIVE")" >> $GITHUB_OUTPUT
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Set environment
       run: . .github/scripts/environment.sh
-    - name: Cache Non-Free SDKs
+    - name: Run actions/cache for Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ steps.etags.outputs.nonfree }}
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         rm -rf ${{ env.SDK_NONFREE_PATH }}
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
-        curl -S -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
-    - name: Cache XIMEA
+        curl -S -f -O "$SDK_URL/$DELTA_MAC_ARCHIVE" || true
+    - name: Run actions/cache for XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
       with:
@@ -176,7 +176,7 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg -o /private/var/tmp/XIMEA_OSX_SP.dmg
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -215,7 +215,7 @@ jobs:
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
       run: |
-        brew list jq 2>/dev/null || brew install jq
+        brew list jq >/dev/null 2>&1 || brew install jq
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20$(uname -m)%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
@@ -248,7 +248,7 @@ jobs:
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -267,7 +267,7 @@ jobs:
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl 'https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe' -o 'C:\XIMEA_API_Installer.exe'
 
-    - name: Cache libajantv2 build
+    - name: Run actions/cache for libajantv2 build
       id: cache-aja
       uses: actions/cache@main
       with:
@@ -283,7 +283,7 @@ jobs:
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache JACK
+    - name: Run actions/cache for JACK
       id: cache-jack
       uses: actions/cache@main
       with:
@@ -296,7 +296,7 @@ jobs:
     - name: bootsrap MSYS2
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
 
-    - name: Cache Spout build
+    - name: Run actions/cache for Spout build
       id: cache-spout
       uses: actions/cache@main
       with:
@@ -308,7 +308,7 @@ jobs:
     - name: Install Spout
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
 
-    - name: Cache CineForm build
+    - name: Run actions/cache for CineForm build
       id: cache-cineform
       uses: actions/cache@main
       with:

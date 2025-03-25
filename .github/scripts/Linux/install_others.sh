@@ -15,7 +15,6 @@ install_ximea() {
         curl -LO https://www.ximea.com/downloads/recent/$filename
         tar xzf $filename
         cd package
-        touch bin/streamViewer.64 # TOREMOVE
         sudo ./install -noudev
 }
 
@@ -68,13 +67,29 @@ install_rav1e() {(
                 /usr/local/lib/pkgconfig/rav1e.pc
 )}
 
+# FFmpeg master needs at least v1.3.277 as for 6th Mar '25
+install_vulkan() {(
+        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
+        mkdir Vulkan-Headers/build
+        cd Vulkan-Headers/build
+        cmake ..
+        sudo make install
+        cd ../..
+        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
+        mkdir Vulkan-Loader/build
+        cd Vulkan-Loader/build
+        cmake ..
+        cmake --build . --parallel "$(nproc)"
+        sudo make install
+)}
+
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi pipewire rav1e ximea
+        set -- gpujpeg ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then

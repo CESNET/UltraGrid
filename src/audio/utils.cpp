@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET z.s.p.o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,32 +36,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
+#include "audio/utils.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>             // for isdigit
 #include <climits>
 #include <cmath>
+#include <cstdio>             // for snprintf
+#include <cstdlib>            // for free, malloc, abort, atoi, abs, calloc
 #include <cstring>
+#include <memory>             // for unique_ptr
+#include <ostream>            // for operator<<, basic_ostream, basic_ostrea...
+#include <string>             // for char_traits, basic_string, stoi, hash
+#include <unordered_map>      // for operator==, unordered_map, _Node_iterat...
+#include <vector>             // for vector
 
-#include "audio/codec.h"
+#include "utils/color_out.h"  // for color_printf, TBOLD, TERM_RESET
 #include "audio/types.h"
-#include "audio/utils.h"
 #include "debug.h"
 #include "host.h" // ADD_TO_PARAM
 #include "utils/macros.h"
 #include "utils/misc.h"
 
+
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
               "The code below assumes little endianness.");
 
-using std::clamp;
 using std::max;
-using std::numeric_limits;
 using std::stoi;
 using std::string;
 using std::unique_ptr;
@@ -813,4 +815,27 @@ void channel_map::compute_contributors() {
         }
 }
 
-
+/**
+ * @brief format per channel incrementally volume string (eg. "[0]
+ * -18.00/-14.99, [1] -18.00/-14.99")
+ * @param rms                   volume RMS in range [0,1]
+ * @param peak                  value of sample with maximal absolute value in
+ *                              range [0,1]
+ * @param[in,out] volume_start  string to be wwritten to, after function exit
+ * will to point after just written data
+ */
+void
+format_audio_channel_volume(int chan_idx, double rms, double peak, const char *format_color,
+                            char **volume_start, char *volume_end)
+{
+        if (chan_idx > 0) {
+                *volume_start +=
+                    snprintf(*volume_start, volume_end - *volume_start, ", ");
+        }
+        const double rms_dbfs  = 20.0 * log(rms) / log(10.0);
+        const double peak_dbfs = 20.0 * log(peak) / log(10.0);
+        *volume_start +=
+            snprintf(*volume_start, volume_end - *volume_start,
+                     "[%d] %s%.2f" TERM_RESET "/%s%.2f" TERM_RESET, chan_idx,
+                     format_color, rms_dbfs, format_color, peak_dbfs);
+}

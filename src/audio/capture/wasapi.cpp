@@ -26,14 +26,16 @@
  */
 
 
+#include <assert.h>               // for assert
 #include <audiosessiontypes.h>    // for AUDCLNT_STREAMFLAGS_LOOPBACK, _AUDC...
 #include <audioclient.h>
 #include <basetsd.h>              // for HRESULT, UINT, LPWSTR, GUID, UINT32
 #include <cctype>                 // for isdigit
 #include <cstdio>                 // for mesnprintf
-#include <cstdlib>                // for realloc, atoi, malloc, mbtowc, free
+#include <cstdlib>                // for realloc, atoi, malloc, free
 #include <cstring>                // for NULL, memset, strcmp, strlen, wcslen
 #include <combaseapi.h>           // for CoTaskMemFree, CoCreateInstance
+#include <cwchar>                 // for mbsrtowcs
 #include <guiddef.h>              // for IsEqualGUID
 #include <iomanip>
 #include <iostream>
@@ -216,7 +218,11 @@ static void show_help() {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 string dev_id = win_wstr_to_str(pwszID);
-                                col() << (dev_id == default_dev_id ? "(*)" : "") << "\t" << SBOLD(i) << ") " << SBOLD(get_name(pDevice)) << " (ID: " << dev_id << ")\n";
+                                color_printf(
+                                    "%s\t" TBOLD("%2d") ") " TBOLD(
+                                        "%s") " (ID: %s)\n",
+                                    (dev_id == default_dev_id ? "(*)" : ""), i,
+                                    get_name(pDevice).c_str(), dev_id.c_str());
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
@@ -228,7 +234,7 @@ static void show_help() {
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
-        col() << " " << SBOLD("loopback") << ") " << SBOLD("computer audio output") << " (ID: loopback)\n";
+        col() << "  " << SBOLD("loopback") << ") " << SBOLD("computer audio output") << " (ID: loopback)\n";
 }
 
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
@@ -248,7 +254,12 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 } else if (strcmp(cfg, "loopback") == 0) {
                         index = IDX_LOOP;
                 } else {
-                        mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
+                        const char *uuid = cfg;
+                        mbstate_t state{};
+                        mbsrtowcs(deviceID, &uuid,
+                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
+                                  &state);
+                        assert(uuid == NULL);
                 }
         }
         auto s = new state_acap_wasapi();

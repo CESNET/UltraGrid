@@ -55,30 +55,30 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
-#include <inttypes.h>
-#include <stdint.h>
-
-#include "debug.h"
-#include "host.h"
-#include "pdb.h"
-#include "video_display.h"
-#include "video_codec.h"
-#include "ntp.h"
-#include "tv.h"
-#include "rtp/rtp.h"
-#include "rtp/pbuf.h"
 #include "rtp/rtp_callback.h"
-#include "tfrc.h"
+
+#include <assert.h>      // for assert
+#include <inttypes.h>    // for uint32_t, PRIx32
+#include <stdio.h>       // for printf
+#include <stdlib.h>      // for free, NULL, calloc
+#include <string.h>      // for strncmp, strncpy
+
+#include "debug.h"       // for debug_msg, log_msg, LOG_LEVEL_INFO
+#include "ntp.h"         // for ntp64_time, ntp64_to_ntp32
+#include "pdb.h"         // for pdb_e, pdb_get, pdb_add, pdb_destroy_item
+#include "rtp/pbuf.h"    // for pbuf_insert
+#include "rtp/rtp.h"     // for rtp_my_ssrc, rtcp_rr, rtcp_app, rtcp_sdes_item
+#include "tfrc.h"        // for tfrc_recv_data
+#include "tv.h"          // for get_time_in_ns
+
+struct pdb;
+struct rtp;
 
 extern char *frame;
 
 char hdr_buf[100];
-struct msghdr msg;
-struct iovec iov[10];
+// struct msghdr msg;
+// struct iovec iov[10];
 
 extern uint32_t RTT;
 

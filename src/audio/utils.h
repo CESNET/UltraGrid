@@ -179,6 +179,10 @@ struct channel_map {
 
 bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg);
 
+void format_audio_channel_volume(int chan_idx, double rms, double peak,
+                                 const char *format_color, char **volume_start,
+                                 char *volume_end);
+
 #endif
 
 #ifdef __cplusplus

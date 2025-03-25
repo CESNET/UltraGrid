@@ -37,18 +37,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cassert>                 // for assert
+#include <cstdint>                 // for uint32_t
+#include <cstdio>                  // for printf, fprintf, stderr
+#include <cstdlib>                 // for NULL, free, atoi, calloc, malloc
+#include <cstring>                 // for memcpy, strlen, strcpy, strtok_r
 #include <iostream>
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "blackmagic_common.hpp"
+#include "compat/strings.h"        // for strcasecmp, strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -182,8 +182,14 @@ static void audio_play_decklink_help()
         } 
 }
 
-static void *audio_play_decklink_init(const char *cfg)
+static void *
+audio_play_decklink_init(const struct audio_playback_opts *opts)
 {
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_decklink_help();
+                return INIT_NOERR;
+        }
+
         struct state_decklink *s = NULL;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
@@ -202,15 +208,11 @@ static void *audio_play_decklink_init(const char *cfg)
         s->magic = DECKLINK_MAGIC;
         s->audio_consumer_levels = -1;
         
-        if (strlen(cfg) == 0) {
+        if (strlen(opts->cfg) == 0) {
                 cardIdx = 0;
                 fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
-        } else if (strcmp(cfg, "help") == 0) {
-                audio_play_decklink_help();
-                free(s);
-                return INIT_NOERR;
         } else  {
-                char *tmp = strdup(cfg);
+                char *tmp = strdup(opts->cfg);
                 char *item, *save_ptr;
                 item = strtok_r(tmp, ":", &save_ptr);
                 if (item) {
@@ -224,10 +226,10 @@ static void *audio_play_decklink_init(const char *cfg)
                                 }
                                 item = strtok_r(NULL, ":", &save_ptr);
                                 if (item) {
-                                        cardIdx = atoi(cfg);
+                                        cardIdx = atoi(opts->cfg);
                                 }
                         } else {
-                                cardIdx = atoi(cfg);
+                                cardIdx = atoi(opts->cfg);
                         }
                 }
                 free(tmp);

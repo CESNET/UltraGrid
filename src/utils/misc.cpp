@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,27 +36,28 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "utils/misc.h"
+
+#ifdef _WIN32
+#include <windows.h>          // for GetModuleHandle, GetProcAddress
+#else
+#include <unistd.h>           // for sysconf, _SC_NPROCESSORS_ONLN
 #endif
-#include "config_unix.h"
-#include "config_win32.h"
-
-#include <unistd.h>
-
 #include <cassert>
+#include <cctype>             // for toupper
 #include <cerrno>
 #include <climits>
 #include <cmath>
+#include <cstdio>             // for perror, snprintf
+#include <cstdlib>            // for strtod
 #include <cstring>
-#include <stdexcept>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include "compat/strings.h" // sterror_s
 #include "debug.h"
 #include "utils/macros.h"
-#include "utils/misc.h"
 #include "utils/color_out.h"
 
 #ifdef __APPLE__
@@ -328,4 +329,97 @@ bool is_arm_mac() {
 #else
         return false;
 #endif
+}
+
+/**
+ * @param what  value returned by std::logic_error::what()
+ * @returns if given std::invalid_argument message belongs to a stoi/stof
+ * converison
+ */
+
+bool invalid_arg_is_numeric(const char *what) {
+        if (what == nullptr) {
+                return false;
+        }
+        return strncmp(what, "stoi", 4) == 0 || strncmp(what, "stod", 4) == 0;
+}
+
+/**
+ * get warning color for status printout
+ *
+ * If ratio is <= 0.98 or >= 1.02, return "warning" color (different for 2% and
+ * 5% outside the range). Note that the caller must also output TERM_RESET or
+ * TERM_FG_RESET to reset the terminal FG color.
+ *
+ * @returns the color (or "")
+ */
+const char *
+get_stat_color(double ratio)
+{
+        const double diff = fabs(1 - ratio);
+        if (diff < 0.02) {
+                return "";
+        }
+        return diff < 0.05 ? T256_FG_SYM(T_ARCTIC_LIME)
+                           : T256_FG_SYM(T_SADDLE_BROWN);
+}
+
+char *
+format_number_with_delim(size_t num, char *buf, size_t buflen)
+{
+        assert(buflen >= 1);
+        buf[buflen - 1] = '\0';
+        char *ptr       = buf + buflen - 1;
+        int   grp_count = 0;
+        do {
+                if (ptr == buf || (grp_count == 3 && ptr == buf + 1)) {
+                        snprintf(buf, buflen, "%s", "ERR");
+                        return buf;
+                }
+                if (grp_count++ == 3) {
+                        grp_count = 1;
+                        *--ptr    = ',';
+                }
+                *--ptr = (char) ('0' + (num % 10));
+                num /= 10;
+        } while (num != 0);
+
+        return ptr;
+}
+
+/// @returns INT_MIN on error, otherwise converted number
+int
+parse_number(const char *str, int min, int base)
+{
+        assert(min != INT_MIN);
+        if (base == 10 && str[0] == '0' && str[1] != '\0') {
+                log_msg(LOG_LEVEL_WARNING,
+                        "Input number %s will be interpreted in base 10, not "
+                        "as octal/hexadecimal!\n",
+                        str);
+        }
+        char      *endptr = nullptr;
+        const long ret    = strtol(str, &endptr, base);
+        if (*endptr != '\0') {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Input number %s contains non-numeric symbols!\n", str);
+                return INT_MIN;
+        }
+        if (endptr == str) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Empty string passed where expected a number!\n");
+                return INT_MIN;
+        }
+        if (ret < min) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Passed number %s where number >= %d expected!\n", str,
+                        min);
+                return INT_MIN;
+        }
+        if (ret > INT_MAX) {
+                log_msg(LOG_LEVEL_ERROR, "The number %s would overflow int!\n",
+                        str);
+                return INT_MIN;
+        }
+        return (int) ret;
 }

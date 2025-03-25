@@ -47,9 +47,6 @@
 #include <stdio.h> // FILE
 #endif // defined __cplusplus
 
-#ifdef HAVE_CONFIG_H
-#include "config.h" // DEBUG
-#endif // defined HAVE_CONFIG_H
 #include "tv.h"
 
 #define UNUSED(x)	(x=x)
@@ -80,11 +77,6 @@ extern "C" {
 #endif
 
 void debug_dump(const void*lp, int len);
-#ifdef DEBUG
-void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data);
-#else
-#define debug_file_dump(key, serialize, data) (void) (key), (void) (serialize), (void) (data)
-#endif
 
 #define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
@@ -94,7 +86,14 @@ void log_msg(int log_level, const char *format, ...) __attribute__((format (prin
 void log_msg_once(int log_level, uint32_t id, const char *msg, ...) __attribute__((format (printf, 3, 4)));
 void log_perror(int log_level, const char *msg);
 #define MSG(l, fmt, ...) \
-        log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
+        if (log_level >= LOG_LEVEL_##l) \
+                log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
+#define MSG_ONCE(l, fmt, ...) \
+        if (log_level >= LOG_LEVEL_##l) \
+                log_msg_once(LOG_LEVEL_##l, \
+                             (0x80000000U | (((uintptr_t) MOD_NAME) & \
+                                 0x7FFFFFFF)) +  __COUNTER__, \
+                             "%s" fmt, MOD_NAME, ##__VA_ARGS__)
 
 bool parse_log_cfg(const char *conf_str,
 		int *log_lvl,
@@ -314,15 +313,6 @@ private:
 if ((level) <= log_level) Logger(level).Get()
 
 
-#endif
-
-#ifdef DEBUG
-#define DEBUG_TIMER_EVENT(name) time_ns_t name = get_time_in_ns()
-#define DEBUG_TIMER_START(name) DEBUG_TIMER_EVENT(name##_start);
-#define DEBUG_TIMER_STOP(name) DEBUG_TIMER_EVENT(name##_stop); log_msg(LOG_LEVEL_DEBUG2, "%s duration: %lf s\n", #name, (name##_stop - name##_start) / NS_IN_SEC_DBL) // NOLINT(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
-#else
-#define DEBUG_TIMER_START(name)
-#define DEBUG_TIMER_STOP(name)
 #endif
 
 #endif

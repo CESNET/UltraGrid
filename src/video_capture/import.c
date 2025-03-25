@@ -44,22 +44,41 @@
  * most 1 frame AV-desync.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <assert.h>                // for assert
+#include <errno.h>                 // for ENOENT, errno
+#include <fcntl.h>                 // for SEEK_SET, open, O_DIRECT, O_RDONLY
+#include <limits.h>                // for LONG_MIN, INT_MAX, LONG_MAX
+#include <math.h>                  // for HUGE_VAL
+#include <pthread.h>               // for pthread_mutex_unlock, pthread_mute...
+#include <stdbool.h>               // for bool, false, true
+#include <stdint.h>                // for uint32_t
+#include <stdio.h>                 // for NULL, perror, snprintf, fprintf
+#include <stdlib.h>                // for free, malloc, abort, atof, atoi
+#include <string.h>                // for strlen, strncmp, strcmp, memcpy
+#include <sys/stat.h>              // for stat, fstat
+#include <sys/time.h>              // for gettimeofday, timeval
+#include <sys/types.h>             // for ssize_t
+#include <time.h>                  // for timespec_get, TIME_UTC, timespec
 
+#ifdef _WIN32
+#include <io.h>                    // for close, read
+#include <fcntl.h>                 // for O_RDONLY
+#else
+#include <unistd.h>                // for close, read
+#endif
+ 
 #include "audio/types.h"
 #include "audio/wav_reader.h"
+#include "compat/aligned_malloc.h" // for aligned_free, aligned_malloc
+#include "compat/strings.h"        // for strcasecmp, strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "keyboard_control.h"
 #include "messaging.h"
 #include "module.h"
 #include "playback.h"
 #include "tv.h"
+#include "types.h"                  // for video_desc, video_frame, tile
 #include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/macros.h"
@@ -67,18 +86,8 @@
 #include "utils/worker.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture_params.h"   // for vidcap_params_get_flags, vidcap_p...
 #include "video_export.h"
-
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #define BUFFER_LEN_MAX 40
 #define MAX_CLIENTS 16
@@ -288,13 +297,14 @@ static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_cou
                         desc.height = val;
                         items_found |= 1U<<2U;
                 } else if(strncmp(line, "fourcc ", strlen("fourcc ")) == 0) {
-                        char *ptr = line + strlen("fourcc ");
-                        if(strlen(ptr) != 5) { // including '\n'
+                        char fcc[6];
+                        sscanf(line + strlen("fourcc "), "%5[^\r\n]", fcc);
+                        if (strlen(fcc) != 4) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot read video FourCC tag.\n");
                                 return (struct video_desc) { 0 };
                         }
                         uint32_t fourcc = 0U;
-                        memcpy((void *) &fourcc, ptr, sizeof(fourcc));
+                        memcpy((void *) &fourcc, fcc, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
                         if(desc.color_spec == VIDEO_CODEC_NONE) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested codec not known.\n");

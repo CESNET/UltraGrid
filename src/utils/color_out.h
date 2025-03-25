@@ -60,9 +60,9 @@
 #define TERM_BG_BLACK   "\033[40m"
 #define TERM_BG_RESET   "\033[49m"
 // 256 color palette
-#define T_DARKER_ORANGE 130 // (3,1,0)
+#define T_SADDLE_BROWN  130 // (3,1,0)
 #define T_ARCTIC_LIME   190 // (4,5,0)
-#define T_PEACH_FUZZ    209 // (5,2,1)
+#define T_TOMATO        209 // (5,2,1)
 #define T256_FG_SYM(col) "\033[38;5;" STRINGIFY(col) "m"
 #define T256_FG(col, x) T256_FG_SYM(col) x TERM_FG_RESET
 #define S256_FG(col, x) T256_FG(col, << x <<)
