@@ -885,22 +885,26 @@ static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned
         if (nal == NULL) {
                 return 0;
         }
-        const int nalu_type =
-            NALU_HDR_GET_TYPE(nal[0], s->desc.color_spec == H265);
+        const bool hevc      = s->desc.color_spec == H265;
+        const int  nalu_type = NALU_HDR_GET_TYPE(nal[0], hevc);
 
-        switch (nalu_type) {
-        case NAL_H264_SPS:
-        case NAL_HEVC_VPS:
-                s->sps_vps_found = 1;
-                log_msg(LOG_LEVEL_VERBOSE,
-                        MOD_NAME "Received %s NALU, decoding begins.\n",
-                        get_nalu_name(nalu_type, s->desc.color_spec == H265));
-                return 1;
-        default:
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "Waiting for first SPS/VPS NALU...\n");
-                return 0;
+        if (hevc) {
+                if (nalu_type > NAL_HEVC_CODED_SLC_FIRST) {
+                        s->sps_vps_found = true;
+                }
+        } else {
+                if (nalu_type == NAL_H264_SPS) {
+                        s->sps_vps_found = true;
+                }
         }
+        if (!s->sps_vps_found)  {
+                MSG(WARNING, "Got %s, waiting for first IDR NALU...\n",
+                    get_nalu_name(nalu_type, hevc));
+        } else {
+                MSG(VERBOSE, "Got %s, decode will begin...\n",
+                    get_nalu_name(nalu_type, hevc));
+        }
+        return s->sps_vps_found;
 }
 
 /// print hint to improve performance if not making it
