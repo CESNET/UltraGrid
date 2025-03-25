@@ -35,18 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cstdio>                  // for printf
+#include <cstdlib>                 // for free
+#include <cstring>                 // for memcpy, size_t, strcmp, strlen, NULL
+#include <memory>                  // for unique_ptr
 #include <string>
 
-#include "debug.h"
 #include "audio/export.h"
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "host.h"                  // for INIT_NOERR
 #include "lib_common.h"
 
 namespace{

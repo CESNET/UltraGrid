@@ -37,18 +37,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cassert>                 // for assert
+#include <cstdint>                 // for uint32_t
+#include <cstdio>                  // for printf, fprintf, stderr
+#include <cstdlib>                 // for NULL, free, atoi, calloc, malloc
+#include <cstring>                 // for memcpy, strlen, strcpy, strtok_r
 #include <iostream>
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "blackmagic_common.hpp"
+#include "compat/strings.h"        // for strcasecmp, strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

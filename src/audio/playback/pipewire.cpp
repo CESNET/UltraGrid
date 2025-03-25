@@ -35,12 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-
+#include <algorithm>                    // for min
+#include <cassert>                      // for assert
+#include <cstddef>                      // for byte, size_t
+#include <cstdint>                      // for INT32_MAX, uint32_t
+#include <cstdlib>                      // for calloc, free
+#include <cstring>                      // for strcpy, memcpy
 #include <memory>
+#include <string>                       // for char_traits, basic_string
+#include <string_view>                  // for operator==, basic_string_view
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"

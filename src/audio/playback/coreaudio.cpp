@@ -48,11 +48,15 @@
 
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
+#include <MacTypes.h>
+#include <cassert>
+#include <cstdio>
 #include <chrono>
 #include <cinttypes>
 #include <climits>
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string>
 #include <string.h>
