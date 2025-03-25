@@ -81,6 +81,9 @@ enum hevc_nal_type {
         NAL_HEVC_AUD             = 35,
         NAL_HEVC_SUFFIX_SEI      = 40,
         NAL_HEVC_MAX             = NAL_HEVC_SUFFIX_SEI, // last valid HEVC NALU
+        NAL_RTP_HEVC_AP          = 48,
+        NAL_RTP_HEVC_FU          = 49,
+        NAL_RTP_HEVC_PACI        = 50,
 };
 
 struct coded_data;

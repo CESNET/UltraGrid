@@ -189,6 +189,12 @@ get_hevc_nalu_name(enum hevc_nal_type type)
                 return "HEVC AUD";
         case NAL_HEVC_SUFFIX_SEI:
                 return "HEVC SUFFIX SEI";
+        case NAL_RTP_HEVC_AP:
+                return "RTP HEVC AP";
+        case NAL_RTP_HEVC_FU:
+                return "RTP HEVC FU";
+        case NAL_RTP_HEVC_PACI:
+                return "RTP HEVC PACI";
         }
         _Thread_local static char buf[32];
         snprintf(buf, sizeof buf, "(HEVC NALU %d)", type);
