@@ -124,6 +124,7 @@ COMMON_OBJS     = \
 		src/capture_filter.o \
 		src/color.o \
 		src/compat/alarm.o \
+		src/compat/aligned_malloc.o \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
 		src/compat/platform_semaphore.o \

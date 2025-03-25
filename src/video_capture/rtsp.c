@@ -60,6 +60,7 @@
 
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
+#include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
 #include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
