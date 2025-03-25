@@ -44,6 +44,7 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "compat/platform_semaphore.h"
+#include "config.h"  // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "jack_common.h"

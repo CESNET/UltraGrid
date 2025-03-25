@@ -35,16 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include "compat/platform_pipe.h"
-#include "rtp/net_udp.h" // socket_error
 
+#include <cstdio>         // for perror, NULL, fprintf, stderr
+#include <cstring>        // for memset
+#include <sys/time.h>     // for timeval
 #include <thread>
+
+#ifndef _WIN32
+#include <unistd.h>       // for pipe
+#endif
+
+#include "rtp/net_udp.h" // socket_error
+#include "compat/net.h"  // htons etc.
 
 using std::thread;
 
