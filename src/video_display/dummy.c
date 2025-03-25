@@ -35,12 +35,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>            // for printf
 #include <stdlib.h>
 #include <string.h>
 
@@ -48,6 +45,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "pixfmt_conv.h"
+#include "types.h"            // for codec_t, R10k, RGBA, UYVY, tile, v210
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
@@ -55,6 +53,8 @@
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
+
+struct module;
 
 #define DEFAULT_DUMP_LEN 32
 #define MOD_NAME "[dummy] "
@@ -179,7 +179,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
         memcpy(s.codecs, default_codecs, sizeof default_codecs);
         int rgb_shift_init[] = DEFAULT_RGB_SHIFT_INIT;
         memcpy(s.rgb_shift, &rgb_shift_init, sizeof s.rgb_shift);
-        char *ccpy = alloca(strlen(cfg) + 1);
+        char ccpy[strlen(cfg) + 1];
         strcpy(ccpy, cfg);
 
         if (!dummy_parse_opts(&s, ccpy)) {
