@@ -1172,7 +1172,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         return session;
 }
 
-rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback)
+rtp_t
+rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
+                         unsigned len, rtp_callback callback)
 {
         struct rtp *session;
         int i, j;

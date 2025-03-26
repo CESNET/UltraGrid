@@ -58,13 +58,19 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include <vector>
+#ifdef _WIN32
+#include <windef.h>                   // for LARGE_INTEGER
+#endif
 
 #include "audio/codec.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/net.h"              // for htonl etc.
 #include "control_socket.h"
 #include "crypto/openssl_encrypt.h"
 #include "debug.h"
@@ -432,12 +438,12 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
         for(i = 0; i < frame->tile_count; ++i)
         {
-                int last = FALSE;
+                bool last = false;
                 int fragment_offset = 0;
                 
                 if (i == frame->tile_count - 1) {
                         if(!frame->fragment || frame->last_fragment)
-                                last = TRUE;
+                                last = true;
                 }
                 if(frame->fragment)
                         fragment_offset = vf_get_tile(frame, i)->offset;

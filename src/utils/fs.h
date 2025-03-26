@@ -41,7 +41,7 @@
 
 // maximal platform path length including terminating null byte
 #ifdef _WIN32
-#include <windows.h>
+#include <windef.h>            /// for MAX_PATH
 #define MAX_PATH_SIZE (MAX_PATH + 1)
 #define PATH_SEPARATOR "\\"
 #else

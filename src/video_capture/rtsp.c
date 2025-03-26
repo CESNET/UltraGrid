@@ -57,6 +57,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>                  // for timespec
+#ifndef _WIN32
+#include <unistd.h>                // for unlink
+#endif // defined _WIN32
 
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
@@ -356,7 +359,7 @@ keep_alive_thread(void *arg){
         // actual keepalive
         MSG(DEBUG, "GET PARAMETERS %s:\n", s->uri);
         if (!rtsp_get_parameters(s->curl, s->uri)) {
-            s->should_exit = TRUE;
+            s->should_exit = true;
             exit_uv(1);
         }
     }
@@ -722,7 +725,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.desc.fps = 30;
     s->vrtsp_state.desc.interlacing = PROGRESSIVE;
 
-    s->should_exit = FALSE;
+    s->should_exit = false;
 
     s->vrtsp_state.boss_waiting = false;
     s->vrtsp_state.worker_waiting = false;

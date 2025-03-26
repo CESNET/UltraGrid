@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cassert>
 #include <cinttypes>
 #include <map>
 #include <mutex>
@@ -295,17 +296,17 @@ struct rtp *rtp_video_rxtx::initialize_network(const char *addr, int recv_port,
         }
         struct rtp *device =
             rtp_init_if(addr, mcast_if, recv_port, send_port, ttl, rtcp_bw,
-                        FALSE, rtp_recv_callback, (uint8_t *) participants,
+                        false, rtp_recv_callback, (uint8_t *) participants,
                         force_ip_version, multithreaded);
         if (device == nullptr) {
                 return nullptr;
         }
-        rtp_set_option(device, RTP_OPT_WEAK_VALIDATION, TRUE);
-        rtp_set_option(device, RTP_OPT_PROMISC, TRUE);
+        rtp_set_option(device, RTP_OPT_WEAK_VALIDATION, true);
+        rtp_set_option(device, RTP_OPT_PROMISC, true);
         rtp_set_sdes(device, rtp_my_ssrc(device),
                      RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
         if (strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0) {
-                rtp_set_option(device, RTP_OPT_SEND_BACK, TRUE);
+                rtp_set_option(device, RTP_OPT_SEND_BACK, true);
         }
 
         rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);

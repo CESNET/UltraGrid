@@ -52,6 +52,12 @@
 #include <thread>
 #include <utility>                 // for move, pair
 #include <vector>
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>            // for sockaddr_in, sockaddr_in6
+#include <sys/socket.h>            // for sockaddr_storage, AF_UNSPEC, AF_INET
+#endif
 
 #include "audio/audio_playback.h"
 #include "audio/codec.h"

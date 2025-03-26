@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cassert>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -46,6 +47,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define WANT_MKDIR
 #include "compat/misc.h"           // for mkdir
