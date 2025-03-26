@@ -928,9 +928,7 @@ init_rtsp(struct rtsp_state *s) {
     }
     if (s->vrtsp_state.desc.color_spec == H264 ||
         s->vrtsp_state.desc.color_spec == H265) {
-        s->vrtsp_state.decode_data.decode =
-            s->vrtsp_state.desc.color_spec == H264 ? decode_frame_h264
-                                                   : decode_frame_hevc;
+        s->vrtsp_state.decode_data.decode = decode_frame_h2645;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
             s->vrtsp_state.desc.color_spec,

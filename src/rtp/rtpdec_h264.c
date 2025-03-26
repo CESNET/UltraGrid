@@ -63,7 +63,7 @@
 /// type was 1-23 representing H.264 NAL type
 #define H264_NAL   32
 
-#define MOD_NAME "[rtpdec_h264] "
+#define MOD_NAME "[rtpdec_h2645] "
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
@@ -415,7 +415,7 @@ get_sps_pps_frame(const struct video_desc *desc,
         return frame;
 }
 
-int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
+int decode_frame_h2645(struct coded_data *cdata, void *decode_data) {
     struct coded_data *orig = cdata;
 
     int total_length = 0;
@@ -423,6 +423,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
     struct decode_data_rtsp *data = decode_data;
     struct video_frame *frame = data->frame;
     frame->frame_type = BFRAME;
+    assert(frame->color_spec == H264 || frame->color_spec == H265);
+    bool (*const decode_nal_unit)(struct video_frame *, int *, int,
+                                  unsigned char **, uint8_t *, int) =
+        frame->color_spec == H264 ? decode_h264_nal_unit : decode_hevc_nal_unit;
 
     for (int pass = 0; pass < 2; pass++) {
         unsigned char *dst = NULL;
@@ -442,49 +446,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
         while (cdata != NULL) {
             rtp_packet *pckt = cdata->data;
 
-            if (!decode_h264_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
-                return false;
-            }
-
-            cdata = cdata->nxt;
-        }
-    }
-
-    if (frame->frame_type == INTRA) {
-        write_sps_pps(frame, data);
-    }
-
-    return true;
-}
-
-int decode_frame_hevc(struct coded_data *cdata, void *decode_data) {
-    struct coded_data *orig = cdata;
-
-    int total_length = 0;
-
-    struct decode_data_rtsp *data = decode_data;
-    struct video_frame *frame = data->frame;
-    frame->frame_type = BFRAME;
-
-    for (int pass = 0; pass < 2; pass++) {
-        unsigned char *dst = NULL;
-
-        if (pass > 0) {
-            cdata = orig;
-            if(frame->frame_type == INTRA){
-                total_length+=data->offset_len;
-            }
-            frame->tiles[0].data_len = total_length;
-            assert(frame->tiles[0].data == NULL);
-            frame->tiles[0].data = malloc(total_length);
-            frame->callbacks.data_deleter = vf_data_deleter;
-            dst = (unsigned char *) frame->tiles[0].data + total_length;
-        }
-
-        while (cdata != NULL) {
-            rtp_packet *pckt = cdata->data;
-
-            if (!decode_hevc_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
+            if (!decode_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
                 return false;
             }
 

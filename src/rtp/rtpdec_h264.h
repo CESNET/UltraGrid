@@ -105,8 +105,7 @@ struct video_desc;
         ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
                    : H264_NALU_HDR_GET_TYPE((nal)))
 
-int decode_frame_h264(struct coded_data *cdata, void *decode_data);
-int decode_frame_hevc(struct coded_data *cdata, void *decode_data);
+int decode_frame_h2645(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
                                       struct decode_data_rtsp *decode_data);
 int width_height_from_h264_sps(int *widthOut, int *heightOut,
