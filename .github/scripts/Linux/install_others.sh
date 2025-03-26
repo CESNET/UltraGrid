@@ -35,7 +35,8 @@ install_ndi() {(
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
 )}
 
-# TODO: needed only for U20.04, remove after upgrading to U22.04
+# TODO: currently needed for Debian 11, which is used for ARM builds
+#       remove when not needed
 install_pipewire() {(
         if { [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; } ||
                 { [ "${ID_LIKE-$ID}" = debian ] && [ "$VERSION_ID" -le 11 ]; }
