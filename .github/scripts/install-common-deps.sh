@@ -116,6 +116,9 @@ struct timeval;\\
 " libpcp/src/windows/pcp_gettimeofday.h > fixed
                         mv fixed libpcp/src/windows/pcp_gettimeofday.h
                 fi
+                sed 's/AC_PREREQ(.*)/AC_PREREQ(\[2.69\])/' configure.ac \
+                        > configure.ac.fixed
+                mv configure.ac.fixed configure.ac
 
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
