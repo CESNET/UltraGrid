@@ -585,9 +585,9 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                 } else if (strcasecmp(item, "rgb") == 0 || strcasecmp(item, "yuv") == 0) {
                         s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
                 } else if (strstr(item, "intra_refresh") != nullptr) {
-                        s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
+                        s->params.periodic_intra = (int) (strstr(item, "intra_refresh") == item);
                 } else if (strstr(item, "interlaced_dct") != nullptr) {
-                        s->params.interlaced_dct = strstr(item, "disable_") == item ? 0 : 1;
+                        s->params.interlaced_dct = (int) (strstr(item, "interlaced_dct") == item);
                 } else if (IS_KEY_PREFIX(item, "threads")) {
                         char *threads = strchr(item, '=') + 1;
                         if (strchr(threads, ',')) {
@@ -603,9 +603,8 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                         s->requested_gop = atoi(gop);
                 } else if (strstr(item, "header_inserter") == item) {
                         s->params.header_inserter_req =
-                            strstr(item, "=no") == nullptr ? 1 : 0;
+                            strstr(item, "no") == nullptr ? 1 : 0;
                 } else if (strcmp(item, "safe") == 0) {
-                        s->params.periodic_intra     = 0;
                         s->params.periodic_intra     = 0;
                         s->params.interlaced_dct     = 0;
                         s->req_conv_prop.depth       = 8;
