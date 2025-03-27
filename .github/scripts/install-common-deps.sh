@@ -104,9 +104,9 @@ install_live555() {(
 )}
 
 install_pcp() {
-        git clone https://github.com/libpcp/pcp.git
+        git clone https://github.com/libpcpnatpmp/libpcpnatpmp.git
         (
-                cd pcp
+                cd libpcpnatpmp
                 # TODO TOREMOVE when not needed
                 if is_win; then
                         git checkout 46341d6
@@ -125,7 +125,7 @@ struct timeval;\\
                 make -j "$(nproc)"
                 sudo make install
         )
-        rm -rf pcp
+        rm -rf libpcpnatpmp
 }
 
 install_zfec() {(
