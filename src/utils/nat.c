@@ -38,10 +38,21 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "config_unix.h"
-#include "config_win32.h"
 
+#include <assert.h>                      // for assert
+#include <errno.h>                       // for ETIMEDOUT
 #include <pthread.h>
+#include <stdbool.h>                     // for false, bool, true
+#include <stdio.h>                       // for NULL, printf, perror, size_t
+#include <stdlib.h>                      // for free, calloc, atoi
+#include <string.h>                      // for strchr, strcmp, strlen, strcpy
+#include <time.h>                        // for time, timespec, ctime_r
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>                  // for sockaddr_in, sockaddr_in6
+#include <sys/socket.h>                  // for sockaddr_storage, AF_UNSPEC, AF_INET
+#endif
 
 #ifdef HAVE_NATPMP
 #define ENABLE_STRNATPMPERR 1
@@ -53,6 +64,7 @@
 #endif // defined HAVE_PCP
 
 #include "debug.h"
+#include "compat/net.h"                  // for inet_ntop, htons, ntohs, ine...
 #include "rtp/net_udp.h" // socket_error
 #include "utils/color_out.h"
 #include "utils/nat.h"
