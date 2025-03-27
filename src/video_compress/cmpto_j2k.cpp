@@ -590,11 +590,12 @@ static void usage() {
                 if (opt.is_boolean) {
                         col() << TBOLD("\t" << opt.opt_str + 1 <<);
                 } else {
-                        col() << TBOLD("\t<" << opt.opt_str[1] << ">");
+                        col() << SBOLD("\t" << opt.opt_str + 1 << "<"
+                                            << opt.opt_str[1] << ">");
                 }
-                col() << " - " << opt.description << "\n";
+                col() << "\t- " << opt.description << "\n";
         }
-        col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
+        col() << TBOLD("\t<c_index>") << "\t- CUDA device(s) to use (comma separated)\n";
         col() << TBOLD("\t--param " CPU_CONV_PARAM)
               << " - use CPU for pixfmt conversion (useful if GPU\n\t\tis fully "
                  "occupied by the encoder; an option for decoder exists as "
