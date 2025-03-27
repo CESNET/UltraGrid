@@ -57,9 +57,9 @@
                 #define fseeko _fseeki64
         #else
                 #ifndef __cplusplus
-                        #include <assert.h> // static_assert macro (until c32)
+                        #include <assert.h> // static_assert macro (until C23)
                 #endif
-                static_assert(sizeof(off_t) > 4, "32b off_t");
+                static_assert(sizeof(off_t) >= 8, "off_t less than 64b");
         #endif // !defined _WIN32
 #endif // defined WANT_FSEEKO
 
