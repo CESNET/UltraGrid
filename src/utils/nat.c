@@ -60,7 +60,11 @@
 #include <natpmp.h>
 #endif // defined HAVE_NATPMP
 #ifdef HAVE_PCP
-#include <pcp-client/pcp.h>
+        #ifdef HAVE_PCP_NEW
+                #include <pcpnatpmp-client/pcpnatpmp.h>
+        #else
+                #include <pcp-client/pcp.h>
+        #endif
 #endif // defined HAVE_PCP
 
 #include "debug.h"
