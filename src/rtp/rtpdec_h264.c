@@ -483,8 +483,8 @@ width_height_from_h264_sps(int *widthOut, int *heightOut, unsigned char *data,
     //NOTE: frame_mbs_only_flag = 1 --> only progressive frames
     //      frame_mbs_only_flag = 0 --> some type of interlacing (there are 3 types contemplated in the standard)
     if (sps->frame_cropping_flag){
-        width -= (sps->frame_crop_left_offset*2 + sps->frame_crop_right_offset*2);
-        height -= (sps->frame_crop_top_offset*2 + sps->frame_crop_bottom_offset*2);
+        width -= (sps->frame_crop_left_offset + sps->frame_crop_right_offset);
+        height -= (sps->frame_crop_top_offset + sps->frame_crop_bottom_offset);
     }
 
     debug_msg("\n\n[width_height_from_SDP] width: %d   height: %d\n\n",width,height);
