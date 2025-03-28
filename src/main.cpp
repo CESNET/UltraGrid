@@ -488,14 +488,19 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
 }
 
 static int
-parse_mtu(const char *optarg)
+parse_mtu(char *optarg)
 {
         enum { IPV4_REQ_MIN_MTU = 576, };
+        bool enforce = false;
+        if (optarg[0] != '\0' && optarg[strlen(optarg) - 1] == '!') {
+                enforce = true;
+                optarg[strlen(optarg) - 1] = '\0';
+        }
         const int ret = parse_number(optarg, 1, 10);
         if (ret == INT_MIN) {
                 return -1;
         }
-        if (ret < IPV4_REQ_MIN_MTU && optarg[strlen(optarg) - 1] != '!') {
+        if (ret < IPV4_REQ_MIN_MTU && !enforce) {
                 MSG(WARNING,
                     "MTU %s seems to be too low, use \"%d!\" to force.\n",
                     optarg, ret);
