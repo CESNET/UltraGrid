@@ -46,6 +46,7 @@
  *     docker run --rm -it --network=host bluenviron/mediamtx
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  *     ffmpeg -re -f lavfi -i smptebars=s=1280x720 -vcodec mjpeg -huffman 0 -f rtsp rtsp://localhost:8554/mystream
+ *     test also with testsrc (bigger frames -> fragments), also -pix_fmt yuv444p (implied by testsrc)
  */
 
 #include <assert.h>                // for assert

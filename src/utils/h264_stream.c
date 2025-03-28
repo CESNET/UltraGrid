@@ -1,37 +1,34 @@
-/*
+/* 
  * h264bitstream - a library for reading and writing H.264 video
  * Copyright (C) 2005-2007 Auroras Entertainment, LLC
  * Copyright (C) 2008-2011 Avail-TVN
+ * Copyright (C) 2012 Alex Izvorski
  *
  * Written by Alex Izvorski <aizvorski@gmail.com> and Alex Giladi <alex.giladi@gmail.com>
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- *
+ * 
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // defined HAVE_CONFIG_H
 
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-#include "debug.h"
+#include "bs.h"
 #include "h264_stream.h"
+// #include "h264_sei.h"
 
 /***************************** reading ******************************/
 
@@ -103,13 +100,21 @@ int nal_to_rbsp(const uint8_t* nal_buf, int* nal_size, uint8_t* rbsp_buf, int* r
     return j;
 }
 
-//7.3.2.1 Sequence parameter set RBSP syntax
-int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
+static void read_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, int* useDefaultScalingMatrixFlag );
+static void read_vui_parameters(sps_t* sps, bs_t* b);
+static void read_hrd_parameters(hrd_t* hrd, bs_t* b);
 
+//7.3.2.1 Sequence parameter set RBSP syntax
+void read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b)
+{
     int i;
 
-    memset(sps, 0, sizeof(sps_t));
-
+    if( 1 )
+    {
+        memset(sps, 0, sizeof(sps_t));
+        sps->chroma_format_idc = 1; 
+    }
+ 
     sps->profile_idc = bs_read_u8(b);
     sps->constraint_set0_flag = bs_read_u1(b);
     sps->constraint_set1_flag = bs_read_u1(b);
@@ -117,13 +122,17 @@ int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
     sps->constraint_set3_flag = bs_read_u1(b);
     sps->constraint_set4_flag = bs_read_u1(b);
     sps->constraint_set5_flag = bs_read_u1(b);
-    sps->reserved_zero_2bits  = bs_read_u(b,2);  /* all 0's */
+    /* reserved_zero_2bits */ bs_skip_u(b, 2);
     sps->level_idc = bs_read_u8(b);
     sps->seq_parameter_set_id = bs_read_ue(b);
 
-    sps->chroma_format_idc = 1;
     if( sps->profile_idc == 100 || sps->profile_idc == 110 ||
-        sps->profile_idc == 122 || sps->profile_idc == 144 )
+        sps->profile_idc == 122 || sps->profile_idc == 244 ||
+        sps->profile_idc == 44 || sps->profile_idc == 83 ||
+        sps->profile_idc == 86 || sps->profile_idc == 118 ||
+        sps->profile_idc == 128 || sps->profile_idc == 138 ||
+        sps->profile_idc == 139 || sps->profile_idc == 134
+       )
     {
         sps->chroma_format_idc = bs_read_ue(b);
         if( sps->chroma_format_idc == 3 )
@@ -136,7 +145,7 @@ int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
         sps->seq_scaling_matrix_present_flag = bs_read_u1(b);
         if( sps->seq_scaling_matrix_present_flag )
         {
-            for( i = 0; i < 8; i++ )
+            for( i = 0; i < ((sps->chroma_format_idc != 3) ? 8 : 12); i++ )
             {
                 sps->seq_scaling_list_present_flag[ i ] = bs_read_u1(b);
                 if( sps->seq_scaling_list_present_flag[ i ] )
@@ -144,12 +153,12 @@ int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
                     if( i < 6 )
                     {
                         read_scaling_list( b, sps->ScalingList4x4[ i ], 16,
-                                      sps->UseDefaultScalingMatrix4x4Flag[ i ]);
+                                                 &( sps->UseDefaultScalingMatrix4x4Flag[ i ] ) );
                     }
                     else
                     {
                         read_scaling_list( b, sps->ScalingList8x8[ i - 6 ], 64,
-                                      sps->UseDefaultScalingMatrix8x8Flag[ i - 6 ] );
+                                                 &( sps->UseDefaultScalingMatrix8x8Flag[ i - 6 ] ) );
                     }
                 }
             }
@@ -195,33 +204,38 @@ int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
     {
         read_vui_parameters(sps, b);
     }
-    read_rbsp_trailing_bits(b);
-
-    return 0;
 }
 
-
 //7.3.2.1.1 Scaling list syntax
-void read_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, int useDefaultScalingMatrixFlag )
+void read_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, int* useDefaultScalingMatrixFlag )
 {
-    UNUSED(useDefaultScalingMatrixFlag);
-    int j;
-    if(scalingList == NULL)
-    {
-        return;
-    }
-
+    // NOTE need to be able to set useDefaultScalingMatrixFlag when reading, hence passing as pointer
     int lastScale = 8;
     int nextScale = 8;
-    for( j = 0; j < sizeOfScalingList; j++ )
+    int delta_scale;
+    for( int j = 0; j < sizeOfScalingList; j++ )
     {
         if( nextScale != 0 )
         {
-            int delta_scale = bs_read_se(b);
-            nextScale = ( lastScale + delta_scale + 256 ) % 256;
-            useDefaultScalingMatrixFlag = ( j == 0 && nextScale == 0 );
+            if( 0 )
+            {
+                nextScale = scalingList[ j ];
+                if (useDefaultScalingMatrixFlag[0]) { nextScale = 0; }
+                delta_scale = (nextScale - lastScale) % 256 ;
+            }
+
+            delta_scale = bs_read_se(b);
+
+            if( 1 )
+            {
+                nextScale = ( lastScale + delta_scale + 256 ) % 256;
+                useDefaultScalingMatrixFlag[0] = ( j == 0 && nextScale == 0 );
+            }
         }
-        scalingList[ j ] = ( nextScale == 0 ) ? lastScale : nextScale;
+        if( 1 )
+        {
+            scalingList[ j ] = ( nextScale == 0 ) ? lastScale : nextScale;
+        }
         lastScale = scalingList[ j ];
     }
 }
@@ -229,15 +243,14 @@ void read_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, int use
 //Appendix E.1.1 VUI parameters syntax
 void read_vui_parameters(sps_t* sps, bs_t* b)
 {
-
     sps->vui.aspect_ratio_info_present_flag = bs_read_u1(b);
     if( sps->vui.aspect_ratio_info_present_flag )
     {
         sps->vui.aspect_ratio_idc = bs_read_u8(b);
         if( sps->vui.aspect_ratio_idc == SAR_Extended )
         {
-            sps->vui.sar_width = bs_read_u(b,16);
-            sps->vui.sar_height = bs_read_u(b,16);
+            sps->vui.sar_width = bs_read_u(b, 16);
+            sps->vui.sar_height = bs_read_u(b, 16);
         }
     }
     sps->vui.overscan_info_present_flag = bs_read_u1(b);
@@ -248,7 +261,7 @@ void read_vui_parameters(sps_t* sps, bs_t* b)
     sps->vui.video_signal_type_present_flag = bs_read_u1(b);
     if( sps->vui.video_signal_type_present_flag )
     {
-        sps->vui.video_format = bs_read_u(b,3);
+        sps->vui.video_format = bs_read_u(b, 3);
         sps->vui.video_full_range_flag = bs_read_u1(b);
         sps->vui.colour_description_present_flag = bs_read_u1(b);
         if( sps->vui.colour_description_present_flag )
@@ -267,19 +280,19 @@ void read_vui_parameters(sps_t* sps, bs_t* b)
     sps->vui.timing_info_present_flag = bs_read_u1(b);
     if( sps->vui.timing_info_present_flag )
     {
-        sps->vui.num_units_in_tick = bs_read_u(b,32);
-        sps->vui.time_scale = bs_read_u(b,32);
+        sps->vui.num_units_in_tick = bs_read_u(b, 32);
+        sps->vui.time_scale = bs_read_u(b, 32);
         sps->vui.fixed_frame_rate_flag = bs_read_u1(b);
     }
     sps->vui.nal_hrd_parameters_present_flag = bs_read_u1(b);
     if( sps->vui.nal_hrd_parameters_present_flag )
     {
-        read_hrd_parameters(sps, b);
+        read_hrd_parameters(&sps->hrd_nal, b);
     }
     sps->vui.vcl_hrd_parameters_present_flag = bs_read_u1(b);
     if( sps->vui.vcl_hrd_parameters_present_flag )
     {
-        read_hrd_parameters(sps, b);
+        read_hrd_parameters(&sps->hrd_vcl, b);
     }
     if( sps->vui.nal_hrd_parameters_present_flag || sps->vui.vcl_hrd_parameters_present_flag )
     {
@@ -301,38 +314,28 @@ void read_vui_parameters(sps_t* sps, bs_t* b)
 
 
 //Appendix E.1.2 HRD parameters syntax
-void read_hrd_parameters(sps_t* sps, bs_t* b)
+void read_hrd_parameters(hrd_t* hrd, bs_t* b)
 {
-    int SchedSelIdx;
-
-    sps->hrd.cpb_cnt_minus1 = bs_read_ue(b);
-    sps->hrd.bit_rate_scale = bs_read_u(b,4);
-    sps->hrd.cpb_size_scale = bs_read_u(b,4);
-    for( SchedSelIdx = 0; SchedSelIdx <= sps->hrd.cpb_cnt_minus1; SchedSelIdx++ )
+    hrd->cpb_cnt_minus1 = bs_read_ue(b);
+    hrd->bit_rate_scale = bs_read_u(b, 4);
+    hrd->cpb_size_scale = bs_read_u(b, 4);
+    for( int SchedSelIdx = 0; SchedSelIdx <= hrd->cpb_cnt_minus1; SchedSelIdx++ )
     {
-        sps->hrd.bit_rate_value_minus1[ SchedSelIdx ] = bs_read_ue(b);
-        sps->hrd.cpb_size_value_minus1[ SchedSelIdx ] = bs_read_ue(b);
-        sps->hrd.cbr_flag[ SchedSelIdx ] = bs_read_u1(b);
+        hrd->bit_rate_value_minus1[ SchedSelIdx ] = bs_read_ue(b);
+        hrd->cpb_size_value_minus1[ SchedSelIdx ] = bs_read_ue(b);
+        hrd->cbr_flag[ SchedSelIdx ] = bs_read_u1(b);
     }
-    sps->hrd.initial_cpb_removal_delay_length_minus1 = bs_read_u(b,5);
-    sps->hrd.cpb_removal_delay_length_minus1 = bs_read_u(b,5);
-    sps->hrd.dpb_output_delay_length_minus1 = bs_read_u(b,5);
-    sps->hrd.time_offset_length = bs_read_u(b,5);
-}
-
-//7.3.2.11 RBSP trailing bits syntax
-void read_rbsp_trailing_bits(bs_t* b)
-{
-    /* int rbsp_stop_one_bit = */ bs_read_u1( b ); // equal to 1
-
-    while( !bs_byte_aligned(b) )
-    {
-        /* int rbsp_alignment_zero_bit = */ bs_read_u1( b ); // equal to 0
-    }
+    hrd->initial_cpb_removal_delay_length_minus1 = bs_read_u(b, 5);
+    hrd->cpb_removal_delay_length_minus1 = bs_read_u(b, 5);
+    hrd->dpb_output_delay_length_minus1 = bs_read_u(b, 5);
+    hrd->time_offset_length = bs_read_u(b, 5);
 }
 
 /***************************** debug ******************************/
 
+// not used in code but useful for debugging, needs to be fixed in order to
+// compile
+#if 0
 void debug_sps(sps_t* sps)
 {
     printf("======= SPS =======\n");
@@ -429,6 +432,7 @@ void debug_sps(sps_t* sps)
     printf(" dpb_output_delay_length_minus1 : %d \n", sps->hrd.dpb_output_delay_length_minus1 );
     printf(" time_offset_length : %d \n", sps->hrd.time_offset_length );
 }
+#endif
 
 
 

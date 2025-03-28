@@ -477,12 +477,7 @@ width_height_from_h264_sps(int *widthOut, int *heightOut, unsigned char *data,
     /* nal->forbidden_zero_bit */ bs_skip_u(b, 1);
     /* nal->nal_ref_idc = */ bs_read_u(b, 2);
     /* nal->nal_unit_type = */ bs_read_u(b, 5);
-    if(read_seq_parameter_set_rbsp(sps,b) < 0){
-        bs_free(b);
-        free(rbsp_buf);
-        free(sps);
-        return -1;
-    }
+    read_seq_parameter_set_rbsp(sps,b);
     width = (sps->pic_width_in_mbs_minus1 + 1) * 16;
     height = (2 - sps->frame_mbs_only_flag) * (sps->pic_height_in_map_units_minus1 + 1) * 16;
     //NOTE: frame_mbs_only_flag = 1 --> only progressive frames
