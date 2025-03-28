@@ -271,7 +271,7 @@ decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
     int fu_length = 0;
     enum hevc_nal_type type = pass == 0
                                   ? process_hevc_nal(nal, frame, data, data_len)
-                                  : HEVC_NALU_HDR_GET_TYPE(&nal);
+                                  : HEVC_NALU_HDR_GET_TYPE(nal);
 
     if (type <= NAL_HEVC_MAX) {
             if (pass == 0) {

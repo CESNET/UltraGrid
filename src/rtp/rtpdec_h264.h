@@ -90,21 +90,6 @@ struct coded_data;
 struct decode_data_rtsp;
 struct video_desc;
 
-#define H264_NALU_HDR_GET_TYPE(nal) (*(const uint8_t *) (nal) & 0x1F)
-#define H264_NALU_HDR_GET_NRI(nal)  ((*(const uint8_t *) (nal) & 0x60) >> 5)
-
-/// @param nal pointer to **big-endian** NAL header
-#define HEVC_NALU_HDR_GET_TYPE(nal) (*(const uint8_t *) (nal) >> 1)
-#define HEVC_NALU_HDR_GET_LAYER_ID(nal) \
-        ((((const uint8_t *) (nal))[0] & 0x1) << 5 | \
-         ((const uint8_t *) (nal))[1] >> 3)
-#define HEVC_NALU_HDR_GET_TID(nal) \
-         (((const uint8_t *) (nal))[1] & 0x7)
-
-#define NALU_HDR_GET_TYPE(nal, is_hevc) \
-        ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
-                   : H264_NALU_HDR_GET_TYPE((nal)))
-
 int decode_frame_h2645(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
                                       struct decode_data_rtsp *decode_data);
@@ -116,5 +101,36 @@ int width_height_from_hevc_sps(int *widthOut, int *heightOut,
 #ifdef __cplusplus
 }
 #endif
+
+// cast just pointers to character types to avoid mistakes
+#ifndef __cplusplus
+#define RTPDEC_SAFE_CAST(var) \
+        _Generic((var), \
+            char *: ((const uint8_t *) (var)), \
+            unsigned char *: ((const uint8_t *) (var)), \
+            const char *: ((const uint8_t *) (var)), \
+            const unsigned char *: ((const uint8_t *) (var)))
+#else
+template <typename T>
+static inline auto
+RTPDEC_SAFE_CAST(T var)
+{
+        static_assert(sizeof var[0] == 1);
+        return (const uint8_t *) var;
+}
+#endif
+
+#define H264_NALU_HDR_GET_TYPE(nal) (*RTPDEC_SAFE_CAST(nal) & 0x1F)
+#define H264_NALU_HDR_GET_NRI(nal)  ((*RTPDEC_SAFE_CAST(nal) & 0x60) >> 5)
+
+#define HEVC_NALU_HDR_GET_TYPE(nal) (*RTPDEC_SAFE_CAST(nal) >> 1)
+#define HEVC_NALU_HDR_GET_LAYER_ID(nal) \
+        (((RTPDEC_SAFE_CAST(nal))[0] & 0x1) << 5 | \
+         (RTPDEC_SAFE_CAST(nal))[1] >> 3)
+#define HEVC_NALU_HDR_GET_TID(nal) (RTPDEC_SAFE_CAST(nal)[1] & 0x7)
+
+#define NALU_HDR_GET_TYPE(nal, is_hevc) \
+        ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
+                   : H264_NALU_HDR_GET_TYPE((nal)))
 
 #endif
