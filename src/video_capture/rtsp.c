@@ -334,8 +334,8 @@ show_help(bool full) {
 
     color_printf(
         "Supported audio codecs: none (support is currently broken/WIP)\n");
-    color_printf(
-        "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+    color_printf("Supported video codecs: " TBOLD("H.264") ", " TBOLD(
+        "H.265") ", " TBOLD("JPEG") "\n");
     color_printf("\n");
 }
 
