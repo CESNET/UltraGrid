@@ -44,7 +44,7 @@ using namespace vulkan_display;
 
 namespace {
 
-#if VK_HEADER_VERSION > 169
+#if VK_HEADER_VERSION >= 304
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
         [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
         [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT message_type,
