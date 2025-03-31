@@ -1713,7 +1713,7 @@ fi
 if test $testcard2_req != no
 then
         TESTCARD2_OBJ="src/video_capture/testcard2.o"
-        if test "$sdl_ver_suffix" -lt 3; then
+        if test "$sdl_version" -lt 3; then
                 PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf],
                                   [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
         else
@@ -3340,7 +3340,7 @@ sdl_mixer=no
 
 if test $sdl = yes && test $sdl_mixer_req != no
 then
-        if test "$sdl_ver_suffix" -lt 3; then
+        if test "$sdl_version" -lt 3; then
                 PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer],
                                   [found_sdl_mixer=yes], [found_sdl_mixer=no])
         else
