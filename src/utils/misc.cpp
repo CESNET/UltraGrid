@@ -80,7 +80,8 @@ unit_evaluate(const char *str, const char **endptr)
 {
         double ret = unit_evaluate_dbl(str, false, endptr);
 
-        if (ret == NAN || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
+        if (std::isnan(ret) ||
+            ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
                 return LLONG_MIN;
         }
 
@@ -94,7 +95,7 @@ unit_evaluate(const char *str, const char **endptr)
  * @param    case_sensitive should 'm' be considered as mega
  * @param    endptr         if not NULL, point to suffix after parse
  * @returns                 positive floating point representation of the string
- * @returns                 NAN if error
+ * @returns                 NAN if error (isnan() must be called to check ret val)
  */
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
