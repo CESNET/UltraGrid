@@ -600,8 +600,9 @@ static void usage() {
               << " - use CPU for pixfmt conversion (useful if GPU\n\t\tis fully "
                  "occupied by the encoder; an option for decoder exists as "
                  "well)\n";
-        color_printf("\nOption prefixes (eg. 'q=' for quality) can be used. SI "
-                     "suffixes are recognized (eg. 'r=7.5M').\n");
+        color_printf(
+            "\nOption prefixes (eg. 'q=' for quality) can be used. SI or "
+            "binary suffixes are recognized (eg. 'r=7.5M:mem=1.5Gi').\n");
 #ifdef HAVE_CUDA
         constexpr char cuda_supported[] = "YES";
 #else
