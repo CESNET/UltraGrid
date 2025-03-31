@@ -178,6 +178,7 @@ public:
         void set_fec_params(int channel, fec_desc const &);
         [[nodiscard]] static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
+        void change_ch_count(int new_ch_count);
         /**
          * @note
          * bps of the frame needs to be 16 bits!

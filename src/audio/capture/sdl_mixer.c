@@ -37,7 +37,7 @@
 /**
  * @file
  * @todo errata (SDL3 vs SDL2)
- * 1. 1 channel capture (-a ch=1) seem no longer work
+ * 1. 1 channel capture (-a ch=1) seem no longer work but there is a workaround
  * 2. unsufficient performance (generates overflow even in default config)
  */
 
@@ -205,6 +205,24 @@ static void try_open_soundfont() {
         }
 }
 
+/// handle SDL 3.0.0 mixer not being able to capture mono
+static void
+adjust_ch_count(struct state_sdl_mixer_capture *s)
+{
+        int             frequency = 0;
+        SDL_AudioFormat format = { 0 };
+        int             channels = 0;
+        Mix_QuerySpec(&frequency, &format, &channels);
+        if (audio_capture_channels > 0 &&
+            channels != (int) audio_capture_channels) {
+                MSG(INFO,
+                    "%d channel capture seem to be broken with SDL3 "
+                    "mixer - capture %d and reduce drop second later\n",
+                    s->audio.ch_count, channels);
+                s->audio.ch_count = channels;
+        }
+}
+
 static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
@@ -234,10 +252,6 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
 #ifdef HAVE_SDL3
-        if (s->audio.ch_count == 1) {
-                MSG(WARNING,
-                    "! channel capture seem to be broken with SDL3 mixer...\n");
-        }
         SDL_AudioSpec spec = {
                 .format   = audio_format,
                 .channels = s->audio.ch_count,
@@ -251,6 +265,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
                 goto error;
         }
+        adjust_ch_count(s);
         const char *filename = s->req_filename;
         if (!filename) {
                 filename = load_song1();

@@ -332,6 +332,32 @@ void  audio_frame2::change_bps(int new_bps)
         channels = std::move(new_channels);
 }
 
+/**
+ * simple ch_count changer - excess channels dropped, missing copied from the
+ * last one
+ */
+void audio_frame2::change_ch_count(int ch_count)
+{
+        if ((unsigned) ch_count == channels.size()) {
+                return;
+        }
+
+        if ((unsigned) ch_count < channels.size()) {
+                channels.resize(ch_count);
+                return;
+        }
+
+        const channel &last_ch = channels.at(channels.size() - 1);
+        for (unsigned i = channels.size(); i < (unsigned) ch_count; ++i) {
+                std::unique_ptr<char[]> data =
+                    std::unique_ptr<char[]>(new char[last_ch.len]);
+                memcpy(data.get(), last_ch.data.get(), last_ch.len);
+                channel ch = { std::move(data), last_ch.len, last_ch.len,
+                               last_ch.fec_params };
+                channels.push_back(std::move(ch));
+        }
+}
+
 void audio_frame2::set_timestamp(int64_t ts)
 {
         assert(ts >= -1);

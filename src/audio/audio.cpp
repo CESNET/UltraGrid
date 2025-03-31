@@ -1141,6 +1141,11 @@ static void *audio_sender_thread(void *arg)
                                 continue;
 
                         audio_frame2 bf_n(buffer);
+                        if (audio_capture_channels != 0 &&
+                            (int) audio_capture_channels !=
+                                bf_n.get_channel_count()) {
+                                bf_n.change_ch_count((int) audio_capture_channels);
+                        }
 
                         // RESAMPLE
                         int resample_to = s->resample_to;
