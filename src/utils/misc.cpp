@@ -101,6 +101,10 @@ unit_evaluate(const char *str, const char **endptr)
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
 {
+        if (endptr != nullptr) {
+                *endptr = str;
+        }
+
         char *endptr_tmp = nullptr;
         errno = 0;
         double ret = strtod(str, &endptr_tmp);
