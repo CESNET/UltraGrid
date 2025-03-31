@@ -506,8 +506,8 @@ static void usage() {
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
         do { \
-                long long val = unit_evaluate_dbl(str, false, nullptr); \
-                if (val < (minval) || val > UINT_MAX) { \
+                const double val = unit_evaluate_dbl(str, false, nullptr); \
+                if (std::isnan(val) || val < (minval) || val > UINT_MAX) { \
                         LOG(LOG_LEVEL_ERROR) \
                             << "[J2K] Wrong value " << (str) \
                             << " for " #var "! Value must be >= " << (minval) \
