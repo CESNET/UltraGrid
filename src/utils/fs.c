@@ -161,7 +161,6 @@ FILE *get_temp_file(const char **filename) {
         strncpy(filename_buf, get_temp_dir(), sizeof filename_buf - 1);
         strncat(filename_buf, "/uv.XXXXXX", sizeof filename_buf - strlen(filename_buf) - 1);
         umask(S_IRWXG|S_IRWXO);
-        printf("%s\n", filename_buf);
         int fd = mkstemp(filename_buf);
         if (fd == -1) {
                 return NULL;
