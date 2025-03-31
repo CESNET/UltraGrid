@@ -90,7 +90,7 @@ unit_evaluate(const char *str, const char **endptr)
 }
 
 /**
- * Converts units in format <val>[.<val>][kMG] to floating point representation.
+ * Converts units in format <val>[.<val>][kMG[i]] to floating point representation.
  *
  * @param    str            string to be parsed, suffix following SI suffix is ignored (as in 1ms or 100MB)
  * @param    case_sensitive if true 'm' will be considered as milli, otherwise mega
@@ -101,6 +101,11 @@ unit_evaluate(const char *str, const char **endptr)
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
 {
+        enum {
+                SI  = 1000,
+                BIN = 1024,
+        };
+
         if (endptr != nullptr) {
                 *endptr = str;
         }
@@ -117,39 +122,52 @@ unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
                 return NAN;
         }
         char unit_prefix = case_sensitive ? *endptr_tmp : toupper(*endptr_tmp);
+        char *prefix_start = endptr_tmp;
         endptr_tmp += 1;
+        double unit = SI;
+        double mult = 1;
+        if (endptr_tmp[0] == 'i' || (!case_sensitive && endptr_tmp[0] == 'I')) {
+                endptr_tmp += 1;
+                unit = BIN;
+        }
         switch(unit_prefix) {
                 case 'n':
                 case 'N':
-                        ret /= 1000'000'000;
+                        mult = 1 / unit / unit / unit;
                         break;
                 case 'u':
                 case 'U':
-                        ret /= 1000'000;
+                        mult = 1 / unit / unit;
                         break;
                 case 'm':
-                        ret /= 1000;
+                        mult = 1 / unit;
                         break;
                 case 'k':
                 case 'K':
-                        ret *= 1000;
+                        mult = unit;
                         break;
                 case 'M':
-                        ret *= 1000'000LL;
+                        mult = unit * unit;
                         break;
                 case 'g':
                 case 'G':
-                        ret *= 1000'000'000LL;
+                        mult = unit * unit * unit;
                         break;
                 default:
-                        endptr_tmp -= 1;
+                        endptr_tmp = prefix_start;
         }
-
+        if (unit == BIN) { // sanity chwecks
+                if ((case_sensitive && isupper(unit_prefix)) // eg. GI
+                    || mult < 1) { // binary prefixes <1 undefined
+                        mult       = 1;
+                        endptr_tmp = prefix_start;
+                }
+        }
         if (endptr != nullptr) {
                 *endptr = endptr_tmp;
         }
 
-        return ret;
+        return ret * mult;
 }
 
 /**

@@ -5,9 +5,11 @@
 #include <cinttypes>
 #include <cstdio>
 #include <iostream>
+#include <string>
 #else
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #endif
 
 #define ASSERT(expr) \
@@ -38,6 +40,13 @@
                           << ", actual : " << (actual) << "\n"; \
                 return -1; \
         }
+/// compares cstr or std::string value
+#define ASSERT_EQUAL_STR(expected, actual) \
+        if (std::string(expected) != std::string(actual)) { \
+                std::cerr << "Assertion failed - expected \"" << (expected) \
+                          << "\", actual : \"" << (actual) << "\"\n"; \
+                return -1; \
+        }
 #else
 #define ASSERT_EQUAL(expected, actual) \
         if ((expected) != (actual)) { \
@@ -45,6 +54,15 @@
                         "Assertion failed - expected %" PRIdMAX \
                         ", actual %" PRIdMAX "\n", \
                         (intmax_t) (expected), (intmax_t) (actulal)); \
+                return -1; \
+        }
+/// compares cstr value
+#define ASSERT_EQUAL_STR(expected, actual) \
+        if (strcmp((expected), (actual)) != 0) { \
+                fprintf(stderr, \
+                        "Assertion failed - expected \"%s\"" \
+                        ", actual \"%s\"\n", \
+                        (expected), (actulal)); \
                 return -1; \
         }
 #endif

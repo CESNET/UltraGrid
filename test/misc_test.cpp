@@ -1,3 +1,4 @@
+#include <climits>
 #include <cstring>         // for strcmp
 #include <cmath>           // for abs
 #include <list>
@@ -6,6 +7,7 @@
 
 #include "color.h"
 #include "types.h"
+#include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/string.h"
 #include "unit_common.h"
@@ -18,6 +20,7 @@ int misc_test_net_getsockaddr();
 int misc_test_net_sockaddr_compare_v4_mapped();
 int misc_test_replace_all();
 int misc_test_video_desc_io_op_symmetry();
+int misc_test_unit_evaluate();
 }
 
 using namespace std;
@@ -131,6 +134,35 @@ int misc_test_replace_all()
                 replace_all(test[i], repl_from[i], repl_to[i]);
                 ASSERT(strcmp(test[i], res[i]) == 0);
         }
+        return 0;
+}
+
+int misc_test_unit_evaluate()
+{
+        struct {
+                const char *str;
+                long long exp_val;
+                const char *exp_endstr; // value, not ptr
+        } test_cases[] = {
+                { "1",     1,                 ""   },
+                { "1M",    1000 * 1000,       ""   },
+                { "1.2M",  1200 * 1000,       ""   },
+                { "0.5Gi", 512 * 1024 * 1024, ""   },
+                // partially parsed
+                { "1x",    1,                 "x"  },
+                // errors
+                { "x",     LLONG_MIN,         "x"  },
+                { "Gi",    LLONG_MIN,         "Gi" },
+        };
+
+        for (unsigned i = 0; i < sizeof test_cases / sizeof test_cases[0];
+             ++i) {
+              const char *endptr = nullptr;
+              long long val = unit_evaluate(test_cases[i].str, &endptr);
+              ASSERT_EQUAL(test_cases[i].exp_val, val);
+              ASSERT_EQUAL_STR(test_cases[i].exp_endstr, endptr);
+        }
+
         return 0;
 }
 
