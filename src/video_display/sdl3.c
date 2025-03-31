@@ -47,10 +47,9 @@
  * loader)
  * 2. [all platforms] with `renderer=vulkan` - none YCbCr texture works
  * (segfaults - wrong pitch/texture?)
- * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point),
- * corrupted on d3d[12] (which would currently break eg. v210 in default; but
- * SDL2 didn't have 10+ bit YCbCr, anyways)
- * 4. see todo in @ref ../audio/capture/sdl_mixer.c
+ * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point)
+ * 4. p010 corrupted on d3d[12] - pixfmts skipped in query*() as a workaround
+ * 5. see todo in @ref ../audio/capture/sdl_mixer.c
  */
 
 #include <SDL3/SDL.h>
@@ -611,7 +610,8 @@ get_supported_pfs(const struct fmt_data *supp_fmts, codec_t *codecs)
 }
 
 static void
-query_renderer_supported_fmts(SDL_Renderer *renderer, struct fmt_data *supp_fmts)
+query_renderer_supported_fmts(SDL_Renderer    *renderer,
+                              struct fmt_data *supp_fmts, bool blacklist_p010)
 {
         assert(renderer != NULL);
         assert(supp_fmts != NULL);
@@ -620,6 +620,7 @@ query_renderer_supported_fmts(SDL_Renderer *renderer, struct fmt_data *supp_fmts
         const SDL_PixelFormat *const fmts = SDL_GetPointerProperty(
             renderer_props, SDL_PROP_RENDERER_TEXTURE_FORMATS_POINTER, NULL);
         if (fmts == NULL) {
+                SDL_DestroyProperties(renderer_props);
                 MSG(ERROR, "No supported pixel format!\n");
                 return;
         }
@@ -635,6 +636,11 @@ query_renderer_supported_fmts(SDL_Renderer *renderer, struct fmt_data *supp_fmts
         for (unsigned i = 0; i < ARR_COUNT(pf_mapping_template); ++i) {
                 const SDL_PixelFormat *it = fmts;
                 while (*it != SDL_PIXELFORMAT_UNKNOWN) {
+                        if (*it == SDL_PIXELFORMAT_P010 && blacklist_p010) {
+                                MSG(VERBOSE, "Skipping P010 for D3D1[12] renderers.\n");
+                                it++;
+                                continue;
+                        }
                         if (*it == pf_mapping_template[i].sdl_tex_fmt) {
                                 memcpy(&supp_fmts[count++],
                                        &pf_mapping_template[i],
@@ -653,6 +659,7 @@ query_renderer_supported_fmts(SDL_Renderer *renderer, struct fmt_data *supp_fmts
                 }
         }
         memset(&supp_fmts[count], 0, sizeof supp_fmts[count]); // terminate
+        SDL_DestroyProperties(renderer_props);
 }
 
 static void
@@ -824,11 +831,13 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 }
         }
         const char *renderer_name = SDL_GetRendererName(s->renderer);
+        bool is_d3d = false;
         if (renderer_name != NULL) {
+                is_d3d = strstr(renderer_name, "direct3d") == renderer_name;
                 MSG(NOTICE, "Using renderer: %s\n", renderer_name);
                 vulkan_warn(s->req_renderers_name, renderer_name);
         }
-        query_renderer_supported_fmts(s->renderer, s->supp_fmts);
+        query_renderer_supported_fmts(s->renderer, s->supp_fmts, is_d3d);
         s->cs_data = get_ug_to_sdl_format(s->supp_fmts, desc.color_spec);
         if (s->cs_data == NULL) {
                 return false;
