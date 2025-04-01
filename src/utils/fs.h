@@ -43,10 +43,12 @@
 #ifdef _WIN32
 #include <windef.h>            /// for MAX_PATH
 #define MAX_PATH_SIZE (MAX_PATH + 1)
+#define NULL_FILE "NUL"
 #define PATH_SEPARATOR "\\"
 #else
 #include <limits.h>
 #define MAX_PATH_SIZE PATH_MAX
+#define NULL_FILE "/dev/null"
 #define PATH_SEPARATOR "/"
 #endif
 

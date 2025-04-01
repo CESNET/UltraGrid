@@ -41,21 +41,24 @@ int codec_conversion_test_testcard_uyvy_to_i420(void)
                 unsigned char uyvy_pattern[4] = { 'u', 'y', 'v', 'Y' };
                 size_t uyvy_buf_size = ((size_x + 1) & ~1) * 2 * size_y;
 
-                unsigned char uyvy_buf[uyvy_buf_size];
+                vector<unsigned char> uyvy_buf(uyvy_buf_size);
                 for (size_t i = 0; i < size_y * 2 * ((size_x + 1) & ~1); ++i) {
                         uyvy_buf[i] = uyvy_pattern[i % 4];
                 }
 
                 auto *i420_buf = (unsigned char *) malloc(vc_get_datalen(size_x, size_y, I420));
-                testcard_convert_buffer(UYVY, I420, i420_buf, uyvy_buf, size_x, size_y);
+                testcard_convert_buffer(UYVY, I420, i420_buf, uyvy_buf.data(),
+                                        size_x, size_y);
                 unsigned char *y_ptr = i420_buf;
                 for (size_t i = 0; i < size_y; ++i) {
                         for (size_t j = 0; j < size_x; ++j) {
                                 ostringstream oss;
                                 unsigned char expected = uyvy_pattern[((2 * j + 1) % 4)];
                                 unsigned char actual = *y_ptr++;
-                                oss << size_x << "X" << size_y << ": [" << i << ", " << j << "]";
-                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << "size: " << size_x << "x" << size_y
+                                    << ": [" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected,
+                                                     actual);
                         }
                 }
                 // U
@@ -65,7 +68,8 @@ int codec_conversion_test_testcard_uyvy_to_i420(void)
                                 ostringstream oss;
                                 unsigned char expected = 'u';
                                 unsigned char actual = *u_ptr++;
-                                oss << "[" << i << ", " << j << "]";
+                                oss << "size: " << size_x << "x" << size_y
+                                    << ": [" << i << ", " << j << "]";
                                 ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
                         }
                 }
@@ -136,7 +140,7 @@ codec_conversion_test_y216_to_p010le(void)
                 y216_to_p010le(out_data, out_linesize,
                                (unsigned char *) &y216_buf[0], size_x, size_y);
 
-                auto *y_ptr = (uint16_t *) out_data[0];
+                auto *y_ptr = (uint16_t *) (void *) out_data[0];
                 for (size_t i = 0; i < size_y; ++i) {
                         for (size_t j = 0; j < size_x; ++j) {
                                 ostringstream oss;
@@ -150,7 +154,8 @@ codec_conversion_test_y216_to_p010le(void)
                 }
                 // UV combined
                 for (size_t i = 0; i < (size_y + 1) / 2; ++i) {
-                        auto *uv_ptr = (uint16_t *) out_data[1] + i * ((size_x + 1) & ~1);
+                        auto *uv_ptr = ((uint16_t *) (void *) out_data[1]) +
+                                       i * ((size_x + 1) & ~1);
                         for (size_t j = 0; j < ((size_x + 1) & ~1); ++j) {
                                 ostringstream oss;
                                 auto expected = y216_pattern[((2 * j + 1) % 4)];

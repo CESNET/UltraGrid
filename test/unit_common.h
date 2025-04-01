@@ -78,9 +78,10 @@
 #define ASSERT_EQUAL_MESSAGE(msg, expected, actual) \
         if ((expected) != (actual)) { \
                 fprintf(stderr, \
-                        "Assertion failed - expected %" PRIdMAX \
-                        ", actual %" PRIdMAX ": %s\n", \
-                        (intmax_t) (expected), (intmax_t) (actual), (msg)); \
+                        "Assertion failed - expected %" PRIdMAX " (%#" PRIxMAX \
+                        "), actual %" PRIdMAX " (%#" PRIxMAX "): %s\n", \
+                        (intmax_t) (expected), (uintmax_t) (expected), \
+                        (intmax_t) (actual), (uintmax_t) (actual), (msg)); \
                 return -1; \
         }
 #endif

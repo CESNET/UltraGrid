@@ -1,12 +1,22 @@
 #include <climits>
-#include <cstring>         // for strcmp
 #include <cmath>           // for abs
+#include <cstring>         // for strcmp
 #include <list>
 #include <sstream>
 #include <string>          // for allocator, basic_string, operator+, string
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <cstdlib>
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #include "color.h"
 #include "types.h"
+#include "utils/fs.h"      // for NULL_FILE
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/string.h"
@@ -155,6 +165,12 @@ int misc_test_unit_evaluate()
                 { "Gi",    LLONG_MIN,         "Gi" },
         };
 
+        // temporarily redirect output to null file
+        int stdout_save = dup(STDOUT_FILENO);
+        int null_fd = open(NULL_FILE, O_WRONLY);
+        dup2(null_fd, STDOUT_FILENO);
+        close(null_fd);
+
         for (unsigned i = 0; i < sizeof test_cases / sizeof test_cases[0];
              ++i) {
               const char *endptr = nullptr;
@@ -162,6 +178,9 @@ int misc_test_unit_evaluate()
               ASSERT_EQUAL(test_cases[i].exp_val, val);
               ASSERT_EQUAL_STR(test_cases[i].exp_endstr, endptr);
         }
+        // restore output
+        dup2(stdout_save, STDOUT_FILENO);
+        close(stdout_save);
 
         return 0;
 }
