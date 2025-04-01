@@ -3217,6 +3217,11 @@ y216_to_p010le(unsigned char *__restrict *__restrict out_data,
         }
 }
 
+/**
+ * @todo
+ * write a unit test but may be ok (irregular size handling code copied from
+ * uyvy_to_i420 that is testec)
+ */
 void
 uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
              const int *__restrict out_linesize,
@@ -3231,6 +3236,11 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
                 unsigned char *dst_y2     = dst_y + out_linesize[0];
                 unsigned char *dst_cbcr =
                     out_data[1] + (out_linesize[1] * (y / 2));
+
+                if ((int) y == height - 1) { // last line when height % 2 != 0
+                        src2 = src;
+                        dst_y2 = dst_y;
+                }
 
                 int x = 0;
 #ifdef __SSE3__
@@ -3299,6 +3309,13 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
                         *dst_cbcr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
+                }
+
+                if (width % 2 == 1) { // last row - do not process 2nd Y
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
                 }
         }
 }
