@@ -3071,7 +3071,7 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
 }
 
 /**
- * cconverts v210 to P010 - 2-plane 10-bit YCbCr with U/V combined (samples are
+ * converts v210 to P010 - 2-plane 10-bit YCbCr 4:2;0 with U/V combined (samples are
  * stored in MSB of 16b word)
  *
  * neither input nor output need to be padded
@@ -3170,6 +3170,13 @@ v210_to_p010le(unsigned char *__restrict *__restrict out_data,
         free(garbage);
 }
 
+/**
+ * converts Y216 to P010 - 2-plane 10-bit YCbCr 4:2;0 with U/V combined like nv12
+ * (samples are stored in MSB of 16b word)
+ *
+ * @todo
+ * currently the choma from every second line is taken (not averaged)
+ */
 void
 y216_to_p010le(unsigned char *__restrict *__restrict out_data,
                const int *__restrict out_linesize,

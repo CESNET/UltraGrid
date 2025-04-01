@@ -76,6 +76,7 @@ long packet_rate = 13600;
 #define DEFINE_TEST(func) { #func, func, false }
 
 DECLARE_TEST(codec_conversion_test_testcard_uyvy_to_i420);
+DECLARE_TEST(codec_conversion_test_y216_to_p010le);
 DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k);
 DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48);
@@ -110,6 +111,7 @@ struct {
         DEFINE_QUIET_TEST(test_video_capture),
         DEFINE_QUIET_TEST(test_video_display),
 #endif
+        DEFINE_TEST(codec_conversion_test_y216_to_p010le),
         DEFINE_TEST(codec_conversion_test_testcard_uyvy_to_i420),
 #if defined HAVE_LAVC
         DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k),
