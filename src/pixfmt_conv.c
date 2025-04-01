@@ -3324,7 +3324,7 @@ uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
                 unsigned char *v  = out_data[2] + (i * out_linesize[2]);
 
                 // handle height % 2 == 1
-                if (i + 1 == (size_t) height) {
+                if (2 * i + 1 == (size_t) height) {
                         y2  = y1;
                         in2 = in1;
                 }
