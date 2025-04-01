@@ -27,6 +27,10 @@ using std::vector;
 extern "C" int codec_conversion_test_testcard_uyvy_to_i420(void);
 extern "C" int codec_conversion_test_y216_to_p010le(void);
 
+/**
+ * The test is intended mainly for support for odd sizes, the pattern is fixed,
+ * which is suboptimal.
+ */
 int codec_conversion_test_testcard_uyvy_to_i420(void)
 {
         list<pair<size_t,size_t>> sizes = { {1, 2}, {2, 1}, { 16, 1}, {16, 16}, {127, 255} };
@@ -81,15 +85,26 @@ int codec_conversion_test_testcard_uyvy_to_i420(void)
         return 0;
 }
 
+/**
+ * The test is intended mainly for support for odd sizes, the pattern is fixed,
+ * which is suboptimal.
+ */
 int
 codec_conversion_test_y216_to_p010le(void)
 {
         list<pair<size_t, size_t>> sizes = {
-                // { 1,   2   },
-                // { 2,   1   },
-                // { 16,  1   },
+                { 1,   1   },
+                { 1,   2   },
+                { 2,   1   },
+                { 2,   2   },
+                { 2,   3   },
+                { 15,  1   },
+                { 16,  1   },
                 { 16,  16  },
-                // { 127, 255 }
+                { 127, 255 },
+                { 128, 256 },
+                { 255, 1   },
+                { 255, 2   },
         };
         for (auto &i : sizes) {
                 size_t size_x = i.first;
@@ -100,7 +115,7 @@ codec_conversion_test_y216_to_p010le(void)
                 constexpr uint16_t v              = 'V' << 8 | 'v';
                 constexpr uint16_t y2             = 'Y' << 8 | '2';
                 constexpr uint16_t y216_pattern[] = { y1, u, y2, v };
-                size_t y216_buf_size = ((size_x + 1) & ~1) * 2 * size_y;
+                size_t y216_buf_size = vc_get_linesize(size_x, Y216) * size_y;
 
                 vector<uint16_t> y216_buf(y216_buf_size);
                 for (size_t i = 0; i < size_y; ++i) {
@@ -127,18 +142,23 @@ codec_conversion_test_y216_to_p010le(void)
                                 ostringstream oss;
                                 auto expected = y216_pattern[((2 * j) % 4)];
                                 auto actual = *y_ptr++;
-                                oss << size_x << "X" << size_y << ": [" << i << ", " << j << "]";
-                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << "size: " << size_x << "x" << size_y
+                                    << ": [" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected,
+                                                     actual);
                         }
                 }
-                auto *uv_ptr = (uint16_t *) out_data[1];
+                // UV combined
                 for (size_t i = 0; i < (size_y + 1) / 2; ++i) {
+                        auto *uv_ptr = (uint16_t *) out_data[1] + i * ((size_x + 1) & ~1);
                         for (size_t j = 0; j < ((size_x + 1) & ~1); ++j) {
                                 ostringstream oss;
                                 auto expected = y216_pattern[((2 * j + 1) % 4)];
                                 auto actual = *uv_ptr++;
-                                oss << "[" << i << ", " << j << "]";
-                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << "size: " << size_x << "x" << size_y
+                                    << ": [" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected,
+                                                     actual);
                         }
                 }
         }

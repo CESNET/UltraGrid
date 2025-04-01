@@ -3183,24 +3183,36 @@ y216_to_p010le(unsigned char *__restrict *__restrict out_data,
                const unsigned char *__restrict in_data, int width, int height)
 {
         const size_t src_linesize = vc_get_linesize(width, Y216);
-        for (int i = 0; i < height / 2; ++i) {
+        for (int i = 0; i < (height + 1) / 2; ++i) {
                 const uint16_t *in =
                     (const void *) (in_data + ((size_t) 2 * i * src_linesize));
                 uint16_t *out_y =
                     (void *) (out_data[0] + ((size_t) 2 * i * out_linesize[0]));
                 uint16_t *out_chr =
                     (void *) (out_data[1] + ((size_t) i * out_linesize[1]));
-                for (int j = 0; j < width / 2; ++j) {
+                int j = 0;
+                for ( ; j < width / 2; ++j) {
                         *out_y++   = *in++; // Y1
                         *out_chr++ = *in++; // Cb
                         *out_y++   = *in++; // Y2
                         *out_chr++ = *in++; // Cr
                 }
-                for (int j = 0; j < width / 2; ++j) {
-                        *out_y++ = *in++; // Y1
-                        in++;             // Cb
-                        *out_y++ = *in++; // Y2
-                        in++;             // Cr
+                if (width % 2 == 1) {
+                        *out_y++   = *in++; // Y1
+                        *out_chr++ = *in++; // Cb
+                        in++; // drop Y2
+                        *out_chr++ = *in++; // Cr
+                }
+                if (2 * i + 1 < height) {
+                        for (j = 0; j < width / 2; ++j) {
+                                *out_y++ = *in++; // Y1
+                                in++;             // Cb
+                                *out_y++ = *in++; // Y2
+                                in++;             // Cr
+                        }
+                        if (width % 2 == 1) {
+                                *out_y++   = *in++; // Y1
+                        }
                 }
         }
 }
