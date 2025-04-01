@@ -1252,7 +1252,12 @@ AC_ARG_ENABLE(sdl,
 
 if test "$sdl_req" != no; then
         sdl_req_ver=$sdl_req
-        if "$PKG_CONFIG" --print-provides sdl2 | grep -q sdl2_compat; then
+        sdl2_pc_path=$("$PKG_CONFIG" --path sdl2 2>/dev/null)
+        if "$PKG_CONFIG" --print-provides sdl2 | grep -q sdl2_compat ||
+                { test -f "$sdl2_pc_path" &&
+                        grep -q sdl2_compat -- "$sdl2_pc_path"; } ||
+                "$PKG_CONFIG" --debug sdl2 2>&1 | grep -q sdl2_compat
+        then
                 sdl2_is_compat=yes
         fi
         if test "$sdl_req" = yes || test "$sdl_req" = auto; then
