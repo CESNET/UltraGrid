@@ -138,7 +138,7 @@ class VulkanContext {
                 vk::SurfaceFormatKHR format;
                 vk::PresentModeKHR mode = vk::PresentModeKHR::eFifo;
                 vk::Extent2D image_size;
-        } swapchain_atributes;
+        } swapchain_attributes;
 
         std::vector<SwapchainImage> swapchain_images{};
         vk::PresentModeKHR preferred_present_mode{};
@@ -154,9 +154,9 @@ public:
         uint32_t get_queue_family_index() { return queue_family_index; }
         vk::Queue get_queue() { return queue; }
         vk::SwapchainKHR get_swapchain() { return swapchain; }
-        vk::Format get_swapchain_image_format() { return swapchain_atributes.format.format; };
+        vk::Format get_swapchain_image_format() { return swapchain_attributes.format.format; };
         size_t get_swapchain_image_count() { return swapchain_images.size(); }
-        vk::Extent2D get_render_area_size() { return swapchain_atributes.image_size; }
+        vk::Extent2D get_render_area_size() { return swapchain_attributes.image_size; }
 private:
         void create_logical_device();
 

@@ -513,11 +513,11 @@ void VulkanContext::create_logical_device() {
 void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
         constexpr int initialization_attempts = 3;
         for (int attempt = 0; attempt < initialization_attempts; attempt++) {
-                auto& capabilities = swapchain_atributes.capabilities;
+                auto& capabilities = swapchain_attributes.capabilities;
                 capabilities = gpu.getSurfaceCapabilitiesKHR(surface);
 
-                swapchain_atributes.format = get_surface_format(gpu, surface);
-                swapchain_atributes.mode = get_present_mode(gpu, surface, preferred_present_mode);
+                swapchain_attributes.format = get_surface_format(gpu, surface);
+                swapchain_attributes.mode = get_present_mode(gpu, surface, preferred_present_mode);
 
                 vk::Extent2D swapchain_image_size;
                 swapchain_image_size.width = std::clamp(window_parameters.width,
@@ -526,29 +526,29 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                 swapchain_image_size.height = std::clamp(window_parameters.height,
                         capabilities.minImageExtent.height,
                         capabilities.maxImageExtent.height);
-                swapchain_atributes.image_size = swapchain_image_size;
+                swapchain_attributes.image_size = swapchain_image_size;
 
                 uint32_t image_count = std::max(uint32_t{2}, capabilities.minImageCount);
                 if (capabilities.maxImageCount != 0) {
                         image_count = std::min(image_count, capabilities.maxImageCount);
                 }
 
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating swapchain, size: %dx%d, format %s\n", swapchain_image_size.width, swapchain_image_size.height, vk::to_string(swapchain_atributes.format.format).c_str());
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating swapchain, size: %dx%d, format %s\n", swapchain_image_size.width, swapchain_image_size.height, vk::to_string(swapchain_attributes.format.format).c_str());
 
                 //assert(capabilities.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferDst);
                 vk::SwapchainCreateInfoKHR swapchain_info{};
                 swapchain_info
                         .setSurface(surface)
-                        .setImageFormat(swapchain_atributes.format.format)
-                        .setImageColorSpace(swapchain_atributes.format.colorSpace)
-                        .setPresentMode(swapchain_atributes.mode)
+                        .setImageFormat(swapchain_attributes.format.format)
+                        .setImageColorSpace(swapchain_attributes.format.colorSpace)
+                        .setPresentMode(swapchain_attributes.mode)
                         .setMinImageCount(image_count)
                         .setImageExtent(swapchain_image_size)
                         .setImageArrayLayers(1)
                         .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
                         .setImageSharingMode(vk::SharingMode::eExclusive)
-                        .setPreTransform(swapchain_atributes.capabilities.currentTransform)
-                        .setCompositeAlpha(get_composite_alpha(swapchain_atributes.capabilities.supportedCompositeAlpha))
+                        .setPreTransform(swapchain_attributes.capabilities.currentTransform)
+                        .setCompositeAlpha(get_composite_alpha(swapchain_attributes.capabilities.supportedCompositeAlpha))
                         .setClipped(true)
                         .setOldSwapchain(old_swapchain);
                 try{
@@ -599,15 +599,15 @@ void VulkanContext::init(vulkan_display::VulkanInstance&& instance, vk::SurfaceK
         
         queue = device.getQueue(queue_family_index, 0);
         create_swap_chain();
-        create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
+        create_swapchain_views(device, swapchain, swapchain_attributes.format.format, swapchain_images);
 }
 
 void VulkanContext::create_framebuffers(vk::RenderPass render_pass) {
         vk::FramebufferCreateInfo framebuffer_info;
         framebuffer_info
                 .setRenderPass(render_pass)
-                .setWidth(swapchain_atributes.image_size.width)
-                .setHeight(swapchain_atributes.image_size.height)
+                .setWidth(swapchain_attributes.image_size.width)
+                .setHeight(swapchain_attributes.image_size.height)
                 .setLayers(1);
 
         for(auto& swapchain_image : swapchain_images){
@@ -627,7 +627,7 @@ void VulkanContext::recreate_swapchain(WindowParameters parameters, vk::RenderPa
         destroy_swapchain_views();
         vk::SwapchainKHR old_swap_chain = swapchain;
         create_swap_chain(std::move(old_swap_chain));
-        create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
+        create_swapchain_views(device, swapchain, swapchain_attributes.format.format, swapchain_images);
         create_framebuffers(render_pass);
         swapchain_was_suboptimal = false;
 }
