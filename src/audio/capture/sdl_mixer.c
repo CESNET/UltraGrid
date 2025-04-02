@@ -35,21 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
-
-#ifdef HAVE_SDL2
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
-#else
-#include <SDL/SDL.h>
-#include <SDL/SDL_mixer.h>
-#endif // defined HAVE_SDL2
-
-#include <stdio.h>
+#include <SDL.h>                  // for SDL_Init, SDL_INIT_AUDIO
+#include <SDL_audio.h>            // for AUDIO_S16LSB, AUDIO_S32LSB, AUDIO_S8
+#include <SDL_mixer.h>            // for MIX_MAX_VOLUME, Mix_GetError, Mix_C...
+#include <stdio.h>                // for NULL, fclose, fopen, size_t, FILE
+#include <stdlib.h>               // for free, calloc, getenv, atoi, malloc
+#include <string.h>               // for strlen, strncat, strchr, strcmp
+#include <unistd.h>               // for unlink
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"

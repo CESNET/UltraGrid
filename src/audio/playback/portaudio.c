@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -59,6 +59,7 @@ struct device_info;
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/qsort_s.h"
 #include "compat/strings.h"          // for  strdupa
 #include "debug.h"
 #include "host.h"                    // for get_commandline_param, INIT_NOERR
@@ -156,29 +157,34 @@ parse_fmt(const char *cfg, int *input_device_idx,
         return 1;
 }
 
-static void audio_play_portaudio_help(void) {
+static void
+audio_play_portaudio_help(bool full)
+{
         printf("PortAudio playback usage:\n");
+        color_printf("\t" TBOLD("-s portaudio:[full]help") "\n");
         color_printf("\t" TBOLD(TRED("-r portaudio") "[:<index>]") "\n");
         printf("or\n");
         color_printf("\t" TBOLD(TRED("-r portaudio") "[:device=<dev>]") "\n\n");
         printf("options:\n");
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
-        printf("\nAvailable PortAudio playback devices:\n");
-        portaudio_print_help(PORTAUDIO_OUT);
+        printf("\n");
+        portaudio_print_help(PORTAUDIO_OUT, full);
 }
 
-static void * audio_play_portaudio_init(const char *cfg)
-{	
+static void *
+audio_play_portaudio_init(const struct audio_playback_opts *opts)
+{
         int output_device_idx = -1;
         char output_device_name[STR_LEN] = "";
 
         portaudio_print_version();
-        
-        if (strcmp(cfg, "help") == 0) {
-                audio_play_portaudio_help();
+
+        if (strcmp(opts->cfg, "help") == 0 ||
+            strcmp(opts->cfg, "fullhelp") == 0) {
+                audio_play_portaudio_help(strcmp(opts->cfg, "fullhelp") == 0);
                 return INIT_NOERR;
         }
-        if (!parse_fmt(cfg, &output_device_idx, output_device_name)) {
+        if (!parse_fmt(opts->cfg, &output_device_idx, output_device_name)) {
                 return NULL;
         }
 
@@ -205,7 +211,7 @@ static void * audio_play_portaudio_init(const char *cfg)
         if (device_info == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio index %d.\n"
                                 MOD_NAME "Follows list of available Portaudio devices.\n", output_device_idx);
-                audio_play_portaudio_help();
+                audio_play_portaudio_help(false);
                 Pa_Terminate();
                 free(s);
                 return NULL;
@@ -240,6 +246,17 @@ static void cleanup(struct state_portaudio_playback * s)
 	Pa_Terminate();
 }
 
+static QSORT_S_COMP_DEFINE(sample_rate_compare, a, b, c)
+{
+        int first       = *(const int *) a;
+        int second      = *(const int *) b;
+        int sample_rate = *(const int *) c; // actual received sample rate
+        if (first >= sample_rate && second >= sample_rate) {
+                return first - second;
+        }
+        return second - first;
+}
+
 /**
  * Tries to find format compatible with Portaudio
  *
@@ -253,14 +270,18 @@ static void cleanup(struct state_portaudio_playback * s)
  * @returns true if eligible format was found, false otherwise
  */
 static bool get_supported_format(int device_idx, int ch_count, int *sample_rate, int *bps) {
-        int sample_rates[] = { *sample_rate, 48000, 44100, 8000, 16000, 32000, 96000, 24000 };
         PaSampleFormat sample_formats[] = { paInt8, paInt16, paInt24, paInt32 };
         PaStreamParameters outputParameters = { 0 };
         outputParameters.device = device_idx >= 0 ? device_idx : Pa_GetDefaultOutputDevice();
         outputParameters.channelCount = ch_count;
-        outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowInputLatency;
+        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(outputParameters.device);
+        outputParameters.suggestedLatency = device_info->defaultLowInputLatency;
 
         assert(*bps >= 1 && *bps <= 4);
+        int sample_rates[] = { *sample_rate, device_info->defaultSampleRate,
+                48000, 44100, 8000, 16000, 32000, 96000, 24000 };
+        qsort_s(sample_rates, sizeof sample_rates / sizeof sample_rates[0],
+                sizeof sample_rates[0], sample_rate_compare, sample_rate);
         for (int i = 0; i < (int)(sizeof sample_rates / sizeof sample_rates[0]); ++i) {
                 int j = *bps - 1;
                 while (true) {

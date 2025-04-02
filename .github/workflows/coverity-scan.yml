@@ -22,7 +22,7 @@ jobs:
       run: |
         FILENAME=$(curl -LI "https://scan.coverity.com/download/linux64?token=$coverity_token&project=UltraGrid"  | sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
         echo "filename=$FILENAME" >> $GITHUB_OUTPUT
-    - name: Cache Coverity build tool
+    - name: Run actions/cache for Coverity build tool
       if: ${{ env.coverity_token }}
       id: cache-coverity-tool
       uses: actions/cache@main
@@ -47,7 +47,7 @@ jobs:
       id: etags
       run: |
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       if: ${{ env.coverity_token }}
       id: cache-ndi
       uses: actions/cache@main

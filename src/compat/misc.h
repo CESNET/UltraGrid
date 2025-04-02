@@ -50,5 +50,18 @@
 #endif
 #endif // defined WANT_MKDIR
 
+#ifdef WANT_FSEEKO64
+        #include <stdio.h>
+        #ifdef _WIN32
+                #define ftello _ftelli64
+                #define fseeko _fseeki64
+        #else
+                #ifndef __cplusplus
+                        #include <assert.h> // static_assert macro (until c32)
+                #endif
+                static_assert(sizeof(off_t) > 4, "32b off_t");
+        #endif // !defined _WIN32
+#endif // defined WANT_FSEEKO
+
 #endif // defined COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 

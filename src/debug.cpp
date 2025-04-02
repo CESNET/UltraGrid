@@ -39,6 +39,9 @@
  * SUCH DAMAGE.
  */
 
+#include "debug.h"
+#include "utils/debug.h"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // defined HAVE_CONFIG_H
@@ -52,7 +55,6 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"
@@ -134,6 +136,12 @@ void log_msg(int level, const char *format, ...) {
         va_end(ap);
 }
 
+/**
+ * @param  id  the identifier that idetifies identical messages (only first
+ * message of given ID is printed); use values < 0x8000'0000 for manually
+ * generated IDs, the higher values are reserved for automatically generated
+ * ones as in MSG_ONCE()
+ */
 void log_msg_once(int level, uint32_t id, const char *msg, ...) {
         if (log_level < level) {
                 return;

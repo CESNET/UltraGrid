@@ -122,7 +122,9 @@ COMMON_OBJS     = \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
 		src/capture_filter.o \
+		src/color.o \
 		src/compat/alarm.o \
+		src/compat/aligned_malloc.o \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
 		src/compat/platform_semaphore.o \
@@ -299,7 +301,7 @@ src/libavcodec/to_lavc_vid_conv.o: src/libavcodec/to_lavc_vid_conv.c
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-src/video_codec.o: src/video_codec.c
+src/pixfmt_conv.o: src/pixfmt_conv.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
@@ -572,10 +574,9 @@ release:
 hd-rum-multi/hd-rum:
 	make -C hd-rum-multi
 
-# Makes dummy bundle (almost empty). May not be portable due to missing libs.
 $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	rm -rf $(BUNDLE)
-	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs $(BUNDLE)/Contents/Frameworks
+	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs
 	$(CP) $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
 	$(CP) -r data/template/macOS-bundle/* $(BUNDLE)/
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
@@ -586,7 +587,8 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 			| $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -cd -b \
 				-d $(BUNDLE)/Contents/libs/ -p @executable_path/../libs/ -x $$n; \
 	done
-	if [ -d Frameworks ]; then $(CP) -R Frameworks/* $(BUNDLE)/Contents/Frameworks/; fi
+	$(srcdir)/data/scripts/macos_fix_multiple_rpaths.sh $(BUNDLE)
+	if [ -d Frameworks ]; then $(CP) -R Frameworks $(BUNDLE)/Contents/; fi
 	if [ -n '@MANPAGES@' ]; then mkdir -p $(BUNDLE)/Contents/man/man1; \
 		$(CP) @MANPAGES@ $(BUNDLE)/Contents/man/man1/; fi
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
@@ -642,7 +644,11 @@ gui-bundle: $(GUI_BUNDLE)
 ## uv-qt rebuild which breaks fixed links by macdeployqt)
 osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
-	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
+	if [ $(MACOS_LEGACY) = yes ]; then \
+		LEGACY_README="-srcdir $(srcdir)/data/template/macOS-legacy/README.html"; \
+	fi; \
+	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) \
+		$$LEGACY_README -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 @TARGETS@
 

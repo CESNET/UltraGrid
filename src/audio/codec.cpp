@@ -35,20 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
+#include "audio/codec.h"
 
 #include <algorithm>
 #include <cassert>
 #include <climits>
+#include <cstdio>             // for printf
+#include <cstdlib>            // for NULL, calloc, free, realloc
+#include <cstring>            // for strchr, memset, strtok_r, strdupa
 #include <string>
 #include <unordered_map>
 
-#include "audio/codec.h"
 #include "audio/utils.h"
 #include "compat/strings.h" // strdup, strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"  // for col, SBOLD, SRED, TRED
 #include "utils/macros.h"
 #include "utils/misc.h"
 
@@ -340,6 +342,13 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                         ret.append(i, out->data, out->data_len);
                         nonzero_channels += 1;
                 }
+        }
+
+        if (nonzero_channels == 0 &&
+            frame->get_data_len() == 0) { // produced by acap/passive
+                ret.init(frame->get_channel_count(), AC_PCM, frame->get_bps(),
+                         frame->get_sample_rate());
+                return ret;
         }
 
         if (nonzero_channels != frame->get_channel_count()) {

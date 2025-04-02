@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,9 @@
 #ifndef UTILS_PORTAUDIO_H_
 #define UTILS_PORTAUDIO_H_
 
-#include "../types.h"
+#include <portaudio.h>  // for PaDeviceIndex
+#include <stdbool.h>    // for bool
+struct device_info;
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +51,7 @@ enum portaudio_device_direction {
         PORTAUDIO_OUT
 };
 
-void portaudio_print_help(enum portaudio_device_direction);
+void portaudio_print_help(enum portaudio_device_direction, bool full);
 const char *portaudio_get_device_name(PaDeviceIndex device);
 void audio_portaudio_probe(struct device_info **available_devices, int *count, enum portaudio_device_direction);
 void portaudio_print_version(void);

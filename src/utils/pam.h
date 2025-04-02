@@ -8,7 +8,7 @@
  * This file is part of GPUJPEG.
  */
 /*
- * Copyright (c) 2013-2023, CESNET z.s.p.o.
+ * Copyright (c) 2013-2025, CESNET
  *
  * All rights reserved.
  *
@@ -52,14 +52,15 @@ extern "C" {
 struct pam_metadata {
         int width;
         int height;
-        int depth; // == channel count
+        int ch_count;
         int maxval;
         bool bitmap_pbm; // bitmap data is stored in PBM format (1 bit per pixel, line aligned to whole byte, 1 is black /"ink on"/),
                          // otherwise 1 byte per pixel, 1 is white "light on"); if .depth != 1 || .maxval != 1, this value is undefined
 };
 
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t));
-bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, int maxval, const unsigned char *data, bool pnm);
+bool pam_write(const char *filename, unsigned int width, unsigned int height,
+               int ch_count, int maxval, const unsigned char *data, bool pnm);
 
 #ifdef __cplusplus
 } // extern "C"

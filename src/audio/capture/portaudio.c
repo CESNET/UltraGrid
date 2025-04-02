@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -110,11 +110,6 @@ static void audio_cap_portaudio_probe(struct device_info **available_devices, in
         audio_portaudio_probe(available_devices, count, PORTAUDIO_IN);
 }
 
-static void audio_cap_portaudio_help()
-{
-        portaudio_print_help(PORTAUDIO_IN);
-}
-
 static void portaudio_close(PaStream * stream)	// closes and frees all audio resources
 {
 	Pa_StopStream(stream);	// may not be necessary
@@ -152,17 +147,19 @@ parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx,
         return 1;
 }
 
-static void usage() {
+static void
+usage(bool full)
+{
         printf("PortAudio capture usage:\n");
+        color_printf("\t" TBOLD("-s portaudio:[full]help") "\n");
         color_printf("\t" TBOLD(TRED("-s portaudio") "[:<index>[:latency=<l>]]") "\n");
         printf("or\n");
         color_printf("\t" TBOLD(TRED("-s portaudio") "[:device=<dev>][:latency=<l>]") "\n\n");
         printf("options:\n");
         color_printf("\t" TBOLD(" <l> ") "\tsuggested latency in sec (experimental, use in case of problems)\n");
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
-        printf("\nAvailable PortAudio capture devices:\n");
-
-        audio_cap_portaudio_help();
+        printf("\n");
+        portaudio_print_help(PORTAUDIO_IN, full);
 }
 
 static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
@@ -170,8 +167,8 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         portaudio_print_version();
 
-        if (strcmp(cfg, "help") == 0) {
-                usage();
+        if (strcmp(cfg, "help") == 0 || strcmp(cfg, "fullhelp") == 0) {
+                usage(strcmp(cfg, "fullhelp") == 0);
                 return INIT_NOERR;
         }
 
@@ -223,7 +220,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         if(device_info == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device index %d.\n"
                                MOD_NAME "Follows list of available Portaudio devices.\n", input_device_idx);
-                audio_cap_portaudio_help();
+                portaudio_print_help(PORTAUDIO_IN, false);
                 free(s);
                 Pa_Terminate();
                 return NULL;
@@ -251,8 +248,12 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         inputParameters.suggestedLatency = latency == -1.0 ? Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency : latency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
-        s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
-                48000;
+        s->frame.sample_rate = audio_capture_sample_rate;
+        if (s->frame.sample_rate == 0) {
+                s->frame.sample_rate = (int) device_info->defaultSampleRate;
+                MSG(NOTICE, "Setting device default sample rate %d Hz\n",
+                    s->frame.sample_rate);
+        }
 
         error = Pa_OpenStream( &s->stream, &inputParameters, NULL, s->frame.sample_rate,
                         paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount

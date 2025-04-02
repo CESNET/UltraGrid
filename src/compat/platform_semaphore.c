@@ -46,13 +46,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "compat/platform_semaphore.h"
 
-#include "debug.h"
+#include <errno.h>      // for EINTR, errno
+#include <stdio.h>      // for perror
+#include <stdlib.h>     // for abort
 
 #ifdef __APPLE__
 #include <mach/semaphore.h>
@@ -62,12 +60,10 @@
 #include <semaphore.h>
 #endif                          /* __APPLE__ */
 
-#include "compat/platform_semaphore.h"
-
 void platform_sem_init(void *semStructure, int pshared, int initialValue)
 {
 #ifdef __APPLE__
-        UNUSED(pshared);
+        (void) pshared;
         semaphore_create(mach_task_self(), (semaphore_t *) semStructure,
                          SYNC_POLICY_FIFO, initialValue);
 #else

@@ -24,7 +24,7 @@ AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
 AC_C_CHAR_UNSIGNED
 AC_SYS_LARGEFILE
-PKG_PROG_PKG_CONFIG
+PKG_PROG_PKG_CONFIG([], [PKG_CONFIG=])
 if test -z "$PKG_CONFIG"; then
         PKG_CONFIG=$(command -v pkgconf)
         PKG_PROG_PKG_CONFIG
@@ -32,10 +32,8 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="${CFLAGS+$CFLAGS }-I$srcdir"
-CPPFLAGS="${CPPFLAGS+$CPPFLAGS }-I$srcdir"
-CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-I$srcdir -std=gnu++17"
-CUDA_FLAGS="${CUDA_FLAGS-}"
+CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-std=gnu++17"
+CUDA_FLAGS="$CUDA_FLAGS${CUDA_FLAGS:+${CUDAFLAGS:+ }}$CUDAFLAGS"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
 LIB_MODULES=     # modules libraries
@@ -299,7 +297,6 @@ fi
 AC_SUBST(DLL_LIBS)
 
 AC_CHECK_FUNCS(usleep)
-AC_CHECK_FUNCS(timespec_get)
 
 # ---------------------------------------------------------------------
 # Common shell utility functions
@@ -433,7 +430,7 @@ fi
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
-AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native])
+AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native; alterntatively CUDAFLAGS])
 AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
@@ -471,7 +468,7 @@ AC_ARG_ENABLE(cuda,
               [cuda_req=$build_default])
 
 AC_ARG_WITH(cuda,
-            [  --with-cuda=DIR         specify location of CUDA Toolkit],/FOUN
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
             ])
 
@@ -815,7 +812,7 @@ if test $decklink_req != no; then
                         AC_LANG_PUSH(C++)
                         AC_MSG_CHECKING([DeckLink usability])
                         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                                           #include "$DECKLINK_INC/DeckLinkAPI_h.h"
+                                           #include "$DECKLINK_INC/DeckLinkAPI.h"
                                            #include "$DECKLINK_INC/DeckLinkAPIVersion.h"
                                            #include <objbase.h>
                                            ]],
@@ -1264,7 +1261,6 @@ if test "$sdl_req" != no; then
                 if test "$sdl_version" = 1; then
                         SDL_LIBS="$SDL_LIBS -lX11" # X11 for x11_common.o
                 else
-                        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
                         sdl_ver_suffix=2
                 fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
@@ -1787,6 +1783,7 @@ ENSURE_FEATURE_PRESENT([$libswscale_req], [$libswscale], [Libswscale not found])
 # -------------------------------------------------------------------------------------------------
 # Libav
 # -------------------------------------------------------------------------------------------------
+lavc_cuda=no
 libavcodec=no
 libavcodec_audio=no
 AC_ARG_ENABLE(libavcodec,
@@ -1869,7 +1866,8 @@ else
 fi
 
 ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
-ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$FOUND_CUDA], [CUDA not found for lavc CUDA convs])
+ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$lavc_cuda],
+        [either libavcodec or CUDA>=9 missing for lavc_cuda])
 
 # -------------------------------------------------------------------------------------------------
 # File vidcap/display
@@ -2108,8 +2106,10 @@ AC_ARG_ENABLE(screen,
 
 case "$system" in
 	MacOSX)
-                screen_cap=yes
-                SCREEN_CAP_LIB="-framework CoreFoundation"
+                if test "$os_version_major" -lt 24; then # Darwin 24.0.0 is macOS 15
+                        screen_cap=yes
+                        SCREEN_CAP_LIB="-framework CoreFoundation"
+                fi
 	;;
         Windows)
                 screen_cap=$dshow
@@ -3095,14 +3095,18 @@ if test "$cmpto_j2k_req" != no &&
         test "$FOUND_CMPTO_J2K_ENC_L" = yes &&
         test "$FOUND_CMPTO_J2K_DEC_L" = yes
 then
+        cmpto_libs=
         kernels=
         if test "$FOUND_CUDA" = yes; then
+                cmpto_libs="$CUDA_LIB"
                 kernels="src/cuda_wrapper/kernels.o"
         else
                 UG_MSG_WARN([CUDA is recommended for optimal cmpto_j2k performance but not found])
         fi
-        add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o $kernels" -lcmpto_j2k_enc
-        add_module vdecompress_cmpto_j2k "src/video_decompress/cmpto_j2k.o $kernels" -lcmpto_j2k_dec
+        add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o \
+$kernels" "-lcmpto_j2k_enc $cmpto_libs"
+        add_module vdecompress_cmpto_j2k "src/video_decompress/cmpto_j2k.o \
+$kernels" "-lcmpto_j2k_dec $cmpto_libs"
         cmpto_j2k=yes
 fi
 
@@ -3126,10 +3130,15 @@ if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
 fi
 
 if test $ndi_req != no; then
+        S_CPATH=$CPATH
+        if test -n "$NDI_SDK_DIR"; then
+                CPATH="$CPATH;$NDI_SDK_DIR/Include"
+                export CPATH
+        fi
         AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
+        CPATH=$S_CPATH
 
-        # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
-        if test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows )
+        if test "$FOUND_NDI_H" = yes
         then
                 if test -n "$NDI_SDK_DIR" && test $system = Windows; then
                         COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
@@ -3199,7 +3208,7 @@ fi
 if test "$FOUND_CINEFORM" = yes; then
         CINEFORM_CFLAGS="$CINEFORM_CFLAGS -I${CINEFORM_PATH}/Common/"
 
-        if test $system != Windows
+        if test "$system" = Linux
         then
                 CINEFORM_LIBS="${CINEFORM_LIBS} -luuid"
         fi
@@ -3323,6 +3332,7 @@ fi
 
 if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
+        src/audio/capture/passive.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o
@@ -3341,6 +3351,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/grayscale.o
         src/capture_filter/logo.o
         src/capture_filter/matrix.o
+        src/capture_filter/matrix2.o
         src/capture_filter/mirror.o
         src/capture_filter/override_prop.o
         src/capture_filter/preview.o

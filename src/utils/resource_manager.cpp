@@ -40,22 +40,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include "resource_manager.h"
 
-#include "utils/lock_guard.h"
-
 #include <algorithm>
+#include <cstdlib>            // for NULL, calloc, free
 #include <map>
 #include <stdexcept>
 #include <string>
-#include <typeinfo>
 #include <utility>
+
+#include "utils/lock_guard.h"
 
 #define TYPE_LOCK 0
 #define TYPE_SHM 1

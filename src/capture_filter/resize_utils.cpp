@@ -64,6 +64,7 @@
 #include "capture_filter/resize_utils.h"
 #include "debug.h"
 #include "utils/color_out.h"
+#include "utils/debug.h"                 // for DEBUG_TIMER_*
 #include "video.h"
 
 #define DEFAULT_ALGO INTER_LINEAR

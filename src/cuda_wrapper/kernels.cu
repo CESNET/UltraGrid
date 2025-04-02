@@ -1,6 +1,9 @@
 /**
  * @file   cuda_wrapper/kernels.cu
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * This file hosts various CUDA kernels. Currently there are only kernels
+ * for cmpto_j2k compression and decompression.
  */
 /*
  * Copyright (c) 2024 CESNET
@@ -80,8 +83,9 @@ rt48_to_r12l_compute_blk(const uint8_t *in, uint8_t *out)
          auto    *in_t = (load_t *) in;
          uint32_t src_u32[12];
          for (unsigned i = 0; i < sizeof src_u32 / sizeof src_u32[0]; ++i) {
-                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4);
-                 if constexpr (sizeof(load_t) == 4) {
+                 static_assert(sizeof(load_t) == 2 || sizeof(load_t) == 4,
+                               "Just uint{16,32} supported!");
+                 if (sizeof(load_t) == 4) {
                          src_u32[i] = in_t[i];
                  } else {
                          src_u32[i] = in_t[2 * i] | in_t[2 * i + 1] << 16;
@@ -297,7 +301,7 @@ int postprocess_rg48_to_r12l(
 
         MEASURE_KERNEL_DURATION_STOP(stream)
 
-        return 0;
+        return cudaGetLastError();
 }
 
 //     ___   ___   ___    __      __     ___   _____  ____  ___
@@ -434,38 +438,53 @@ r12l_to_rg48_compute_blk(const uint8_t *in, uint8_t *out)
         // store the result
         auto *out_t = (store_t *) out;
         for (unsigned i = 0; i < sizeof dst_u32 / sizeof dst_u32[0]; ++i) {
-                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4);
-                if constexpr (sizeof(store_t) == 4) {
+                static_assert(sizeof(store_t) == 2 || sizeof(store_t) == 4,
+                              "Just uint{16,32} supported!");
+                if (sizeof(store_t) == 4) {
                         out_t[i] = dst_u32[i];
-                } else  {
+                } else {
                         out_t[2 * i] = dst_u32[i] & 0xFFFFU;
                         out_t[2 * i + 1] = dst_u32[i] >> 16;
                 }
         }
 }
 
-void
-preprocess_r12l_to_rg48(int width, int height, void *src, void *dst)
+int
+preprocess_r12l_to_rg48(void *preprocessor, void *img_custom_data,
+                        size_t img_custom_data_size, int size_x, int size_y,
+                        struct cmpto_j2k_enc_comp_format *comp_formats,
+                        int comp_count, void *input_samples,
+                        size_t input_samples_size, void *output_samples,
+                        size_t output_samples_size, void *vstream)
 {
-        (void) width, (void) height, (void) src, (void) dst;
-        dim3 threads_per_block(256);
-        dim3 blocks((((width + 7) / 8) + 255) / 256, height);
+        (void) preprocessor, (void) img_custom_data,
+            (void) img_custom_data_size, (void) comp_formats, (void) comp_count,
+            (void) input_samples_size, (void) output_samples_size;
 
-        MEASURE_KERNEL_DURATION_START(0)
-        if (width % 2 == 0) {
-                kernel_r12l_to_rg48<uint32_t><<<blocks, threads_per_block>>>(
-                    (uint8_t *) src, (uint8_t *) dst, width);
+        cudaStream_t stream = (cudaStream_t) vstream;
+        dim3 threads_per_block(256);
+        dim3 blocks((((size_x+ 7) / 8) + 255) / 256, size_y);
+
+        MEASURE_KERNEL_DURATION_START(stream)
+        if (size_x % 2 == 0) {
+                kernel_r12l_to_rg48<uint32_t>
+                    <<<blocks, threads_per_block, 0, stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_samples,
+                        size_x);
         } else {
                 thread_local bool warn_print;
                 if (!warn_print) {
                         fprintf(stderr,
                                 "%s: Odd width %d px will use slower kernel!\n",
-                                __func__, width);
+                                __func__, size_x);
                         warn_print = true;
                 }
-                kernel_r12l_to_rg48<uint16_t><<<blocks, threads_per_block>>>(
-                    (uint8_t *) src, (uint8_t *) dst, width);
+                kernel_r12l_to_rg48<uint16_t>
+                    <<<blocks, threads_per_block, 0, stream>>>(
+                        (uint8_t *) input_samples, (uint8_t *) output_samples,
+                        size_x);
         }
-        MEASURE_KERNEL_DURATION_STOP(0)
-}
+        MEASURE_KERNEL_DURATION_STOP(stream)
 
+        return cudaGetLastError();
+}

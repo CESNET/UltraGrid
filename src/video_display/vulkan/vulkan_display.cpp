@@ -199,9 +199,20 @@ public:
 bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Extent2D size, vk::Format format,
         vk::ImageTiling tiling, vk::ImageUsageFlags usage_flags)
 {
-        if (!is_yCbCr_supported && is_yCbCr_format(format)){
-                return false;
+        if(is_yCbCr_format(format)){
+                if(!is_yCbCr_supported)
+                        return false;
+
+                vk::FormatProperties fmt_props = {};
+                gpu.getFormatProperties(format, &fmt_props);
+
+                if(!(fmt_props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageYcbcrConversionLinearFilter))
+                {
+                        vulkan_log_msg(LogLevel::warning, "The GPU does not support linear filter with a YCbCr conversion sampler. Will attempt to fall back to shader conversion.\n");
+                        return false;
+                }
         }
+
         vk::ImageFormatProperties properties;
         auto result = gpu.getImageFormatProperties(
                 format,
@@ -564,9 +575,12 @@ bool VulkanDisplay::display_queued_image() {
         int swapchain_recreation_attempt = 0;
         while (swapchain_image_id == swapchain_image_out_of_date || swapchain_image_id == swapchain_image_timeout) 
         {
+                const int swapchain_recreation_warn_tries = 50;
                 swapchain_recreation_attempt++;
-                if (swapchain_recreation_attempt > 3) {
-                        throw VulkanError{"Cannot acquire swapchain image"};
+                if (swapchain_image_id == swapchain_image_timeout){
+                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire timed out\n");
+                } else if (swapchain_recreation_attempt > swapchain_recreation_warn_tries) {
+                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire failed "s + std::to_string(swapchain_recreation_warn_tries) + "times in a row\n");
                 }
                 
                 auto window_parameters = window->get_window_parameters();

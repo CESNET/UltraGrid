@@ -70,6 +70,7 @@
 #include "audio/playback/sdi.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
+#include "config.h"                     // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
 #include "module.h"
@@ -85,6 +86,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
+#include "utils/misc.h"                 // for get_stat_color
 #include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
@@ -333,7 +335,7 @@ int audio_init(struct state_audio **ret,
         
         assert(opt->host != nullptr);
         tmp = strdup(opt->host);
-        s->audio_participants = pdb_init(&audio_offset);
+        s->audio_participants = pdb_init("audio", &audio_offset);
         addr = strtok_r(tmp, ",", &unused);
         assert(addr != nullptr);
 
@@ -384,7 +386,11 @@ int audio_init(struct state_audio **ret,
 			cfg = delim + 1;
 		}
 
-                int ret = audio_playback_init(device, cfg, &s->audio_playback_device);
+                struct audio_playback_opts opts;
+                snprintf_ch(opts.cfg, "%s", cfg);
+                opts.parent = s->audio_receiver_module.get();
+                const int ret = audio_playback_init(device, &opts,
+                                                    &s->audio_playback_device);
                 free(device);
                 if (ret != 0) {
                         retval = ret;
@@ -572,6 +578,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
 
 struct audio_decoder {
         bool enabled;
+        bool decoded; ///< last frame was decoded
         struct pbuf_audio_data pbuf_data;
 };
 
@@ -775,6 +782,7 @@ static void *audio_receiver_thread(void *arg)
 
                                 struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
                                 if (dec_state && dec_state->enabled) {
+                                        dec_state->decoded = false;
                                         dec_state->pbuf_data.buffer.data_len = 0;
                                         dec_state->pbuf_data.buffer.timestamp = -1;
                                         // We iterate in loop since there can be more than one frmae present in
@@ -784,6 +792,7 @@ static void *audio_receiver_thread(void *arg)
 
                                                 current_pbuf = &dec_state->pbuf_data;
                                                 decoded = true;
+                                                dec_state->decoded = true;
                                         }
                                 }
 
@@ -844,7 +853,7 @@ static void *audio_receiver_thread(void *arg)
                                 cp = pdb_iter_init(s->audio_participants, &it);
                                 while (cp != NULL) {
                                         struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                        if (dec_state && dec_state->enabled && dec_state->pbuf_data.buffer.data_len > 0) {
+                                        if (dec_state && dec_state->enabled && dec_state->decoded) {
                                                 struct audio_frame *f = &dec_state->pbuf_data.buffer;
                                                 f->network_source = &dec_state->pbuf_data.source;
                                                 audio_playback_put_frame(s->audio_playback_device, f);
@@ -873,7 +882,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         delete old_fec_state;
                         break;
                 }
-                s->fec_state = fec::create_from_config(msg->fec_cfg);
+                s->fec_state = fec::create_from_config(msg->fec_cfg, true);
                 if (s->fec_state == nullptr) {
                         s->fec_state = old_fec_state;
                         if (strstr(msg->fec_cfg, "help") !=
@@ -979,21 +988,28 @@ struct asend_stats_processing_data {
 static void *asend_compute_and_print_stats(void *arg) {
         auto *d = (struct asend_stats_processing_data*) arg;
 
-        log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
-                        d->frame.get_sample_count(),
-                        d->seconds);
+        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
+        const char  *dec_cnt_warn_col =
+            get_stat_color(d->frame.get_sample_count() / exp_samples);
 
-        ostringstream volume;
-        volume << fixed << setprecision(2);
-        using namespace std::string_literals;
+        log_msg(LOG_LEVEL_INFO,
+                "[Audio sender] Sent %s%d samples" TERM_FG_RESET
+                " in last %.2f seconds.\n",
+                dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
+
+        char volume[STR_LEN];
+        char *vol_start = volume;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                volume << (i > 0 ? ", ["s : "["s) << i << "] " << SBOLD(SGREEN(20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0)));
+                format_audio_channel_volume(
+                    i, rms, peak, TERM_BOLD TERM_FG_GREEN, &vol_start,
+                    volume + sizeof volume);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << volume.str() << " dBFS RMS/peak" << (d->muted_sender ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
+        log_msg(LOG_LEVEL_INFO, "[Audio sender] Volume: %s dBFS RMS/peak%s\n",
+                volume, d->muted_sender ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 

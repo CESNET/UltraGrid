@@ -72,7 +72,6 @@ void main(){
 }
 )END";
 
-
 PanoramaScene::PanoramaScene(): PanoramaScene(GlProgram(persp_vert_src, persp_frag_src),
         Model::get_sphere()) { }
 

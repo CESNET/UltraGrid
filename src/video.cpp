@@ -300,7 +300,10 @@ struct video_desc get_video_desc_from_string(const char *string)
                 {"cif", { 352, 288, UYVY, 29.97, PROGRESSIVE, 1 }},
                 {"4cif", { 704, 576, UYVY, 29.97, PROGRESSIVE, 1 }},
                 {"ntsc", { 720, 480, UYVY, 29.97, INTERLACED_MERGED, 1 }},
+                /// NTSC with 6 lines overscan (486 lines), compatible with BMD
+                {"ntos", { 720, 486, UYVY, 29.97, INTERLACED_MERGED, 1 }},
                 {"pal", { 720, 576, UYVY, 25, INTERLACED_MERGED, 1 }},
+                {"sd", { 720, 540, UYVY, 25, PROGRESSIVE, 1 }},
                 {"cga", { 320, 200, UYVY, 60, PROGRESSIVE, 1 }},
                 {"vga", { 640, 480, UYVY, 60, PROGRESSIVE, 1 }},
                 {"svga", { 800, 600, UYVY, 60, PROGRESSIVE, 1 }},
@@ -319,14 +322,25 @@ struct video_desc get_video_desc_from_string(const char *string)
                 {"dci", { 2048, 1080, UYVY, 23.98, PROGRESSIVE, 1 }},
                 {"dci4", { 4096, 2160, UYVY, 23.98, PROGRESSIVE, 1 }},
         };
-        if (strcasecmp(string, "help") == 0) {
-                printf("Recognized video formats: ");
+        if (strcasecmp(string, "help") == 0 ||
+            strcasecmp(string, "fullhelp") == 0) {
+                const bool full = strcasecmp(string, "fullhelp") == 0;
+                printf("Recognized video formats: %s", full ? "\n" : "");
                 for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
-                        color_printf(TBOLD("%s") ", ", map[i].name);
+                        if (full) {
+                                color_printf("- " TBOLD("%s") ": %s\n",
+                                             map[i].name,
+                                             video_desc_to_string(map[i].desc));
+                        } else {
+                                color_printf(TBOLD("%s") ", ", map[i].name);
+                        }
+                }
+                if (full) {
+                        color_printf("Further formats with (optional) direct "
+                                     "FPS spec: ");
                 }
                 color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{23,24,25,29,30,59,60}") "\n");
                 return {};
-
         }
         for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
                 if (strcasecmp(map[i].name, string) == 0 || (strlen(string) == 4 && string[3] == ' ' && strncasecmp(map[i].name, string, 3) == 0)) {

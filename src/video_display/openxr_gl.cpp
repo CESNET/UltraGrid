@@ -306,7 +306,7 @@ public:
                 return images[idx].image;
         }
 
-        Framebuffer& get_framebuffer(size_t idx){
+        Gl_framebuffer& get_framebuffer(size_t idx){
                 return framebuffers[idx];
         }
 
@@ -342,7 +342,7 @@ private:
         }
 
         Openxr_swapchain xr_swapchain;
-        std::vector<Framebuffer> framebuffers;
+        std::vector<Gl_framebuffer> framebuffers;
         std::vector<XrSwapchainImageOpenGLKHR> images;
 };
 

@@ -125,10 +125,11 @@ struct {
         const char *key;
         const char *description;
         const char *opt_str;
+        const char *placeholder;
 } usage_opts[] = {
-        {"Quality", "quality", "specifies encode quality, range 1-6 (default: 4)", ":quality="},
-        {"Threads", "num_threads", "specifies number of threads for encoding (default: " TOSTRING(DEFAULT_THREAD_COUNT) ")", ":num_threads="},
-        {"Pool size", "pool_size", "specifies the size of encoding pool (default: " TOSTRING(DEFAULT_POOL_SIZE) ")", ":pool_size="},
+        {"Quality", "quality", "specifies encode quality, range 1-6 (default: 4)", ":quality=", "4"},
+        {"Threads", "num_threads", "specifies number of threads for encoding (default: " TOSTRING(DEFAULT_THREAD_COUNT) ")", ":num_threads=", ""},
+        {"Pool size", "pool_size", "specifies the size of encoding pool (default: " TOSTRING(DEFAULT_POOL_SIZE) ")", ":pool_size=", ""},
 };
 
 static void usage() {
@@ -516,7 +517,7 @@ static compress_module_info get_cineform_module_info(){
 
         for(const auto& opt : usage_opts){
                 module_info.opts.emplace_back(module_option{opt.label,
-                                opt.description, opt.key, opt.opt_str, false});
+                                opt.description, opt.placeholder, opt.key, opt.opt_str, false});
         }
 
         codec codec_info;

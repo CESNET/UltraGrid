@@ -13,9 +13,6 @@ APPNAME=UltraGrid-latest-${ARCH}.AppImage
 # shellcheck disable=SC2086 # intentional
 set -- $FEATURES
 set -- "$@" --enable-drm_disp
-if [ "$ARCH" != arm64 ]; then
-        set -- "$@" --disable-vulkan
-fi
 
 ./autogen.sh "$@"
 make -j "$(nproc)"

@@ -38,21 +38,24 @@
  * @file
  * @todo Add audio support
  */
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
-#include <stdint.h>
+#include <assert.h>           // for assert
+#include <stdbool.h>          // for true, bool, false
+#include <stdlib.h>           // for NULL, free, calloc, malloc, size_t
+#include <string.h>           // for memcpy, strcmp, strlen
+#include <time.h>             // for strftime, time, time_t, tm
 
 #include "compat/time.h"
 #include "debug.h"
 #include "export.h"
 #include "host.h"
 #include "lib_common.h"
+#include "types.h"            // for video_frame, tile, video_desc, codec_t
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "video.h"
 #include "video_display.h"
+struct module;
 
 #define MOD_NAME "[dump] "
 
@@ -146,7 +149,7 @@ static bool display_dump_get_property(void *state, int property, void *val, size
                                 memcpy(val, codecs, sizeof(codecs));
                                 *len = sizeof(codecs);
                         } else {
-                                return FALSE;
+                                return false;
                         }
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
@@ -164,7 +167,7 @@ static bool display_dump_reconfigure(void *state, struct video_desc desc)
         struct dump_display_state *s = state;
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
-        s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? TRUE : FALSE;
+        s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? true : false;
         s->max_tile_data_len = MAX(8 * desc.width * desc.height, 1000000UL);
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
                 if (is_codec_opaque(desc.color_spec)) {

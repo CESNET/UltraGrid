@@ -32,7 +32,7 @@ private:
 		std::string type;
 	};
 
-	SSRC_container<BandwidthReport, decltype(elapsedTimer.elapsed())> reports;
+	SSRC_container<uint32_t, BandwidthReport, decltype(elapsedTimer.elapsed())> reports;
 
 	const int timeout_msec = 2500;
 };

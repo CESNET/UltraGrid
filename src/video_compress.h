@@ -172,6 +172,7 @@ typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(struct module
 struct module_option{
         std::string display_name; //Name displayed to user
         std::string display_desc; //Description displayed to user
+        std::string placeholder_text; //Displayed placeholder text if opt is a line edit
 
         /* internal name of option, options that are used in the same way should
          * have the same key (e.g. both bitrate for libavcodec and quality for jpeg

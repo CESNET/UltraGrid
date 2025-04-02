@@ -35,10 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define WANT_MKDIR
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -51,16 +47,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define WANT_MKDIR
+#include "compat/misc.h"           // for mkdir
 #include "debug.h"
 #include "host.h"
 #include "ldgm.h"
 #include "lib_common.h"
 
-#include "ldgm/src/ldgm-session.h"
-#include "ldgm/src/ldgm-session-cpu.h"
-#include "ldgm/src/ldgm-session-gpu.h"
-#include "ldgm/matrix-gen/matrix-generator.h"
-#include "ldgm/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+#include "../ldgm/src/ldgm-session.h"
+#include "../ldgm/src/ldgm-session-cpu.h"
+#include "../ldgm/src/ldgm-session-gpu.h"
+#include "../ldgm/matrix-gen/matrix-generator.h"
+#include "../ldgm/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -202,6 +200,8 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
         }
 
         m_coding_session->set_pcMatrix(filename);
+
+        MSG(INFO, "Using LDGM with k=%u m=%u c=%u\n", m_k, m_m, m_c);
 }
 
 ADD_TO_PARAM("ldgm-device", "* ldgm-device={CPU|GPU}\n"

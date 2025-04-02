@@ -12,6 +12,7 @@ public:
 
 	void setEnabled(bool enabled);
 	void setToolTip(const QString& toolTip);
+	void setPlaceholder(const QString& placeholder);
 
 private:
 	QLineEdit *line;

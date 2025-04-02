@@ -51,11 +51,16 @@
 #include "utils/text.h"
 #include "video.h"
 
-#define DEFAULT_K 200
-#define DEFAULT_N 240
+enum {
+        DEFAULT_K_AUDIO = 160,
+        DEFAULT_K_VIDEO = 200,
+        DEFAULT_N       = 240,
+};
 
 #define MAX_K 255
 #define MAX_N 255
+
+#define MOD_NAME "[fec/rs] "
 
 #ifdef HAVE_ZFEC
 extern "C" {
@@ -88,7 +93,7 @@ rs::rs(unsigned int k, unsigned int n)
 #endif
 }
 
-rs::rs(const char *c_cfg)
+rs::rs(const char *c_cfg, bool is_audio)
 {
         if (strcmp(c_cfg, "help") == 0) {
                 usage();
@@ -103,7 +108,7 @@ rs::rs(const char *c_cfg)
                 assert(item != NULL);
                 m_n = atoi(item);
         } else {
-                m_k = DEFAULT_K;
+                m_k = is_audio ? DEFAULT_K_AUDIO : DEFAULT_K_VIDEO;
                 m_n = DEFAULT_N;
         }
         free(cfg);
@@ -115,6 +120,7 @@ rs::rs(const char *c_cfg)
 #ifdef HAVE_ZFEC
         state = fec_new(m_k, m_n);
         assert(state != NULL);
+        MSG(INFO, "Using Reed-Solomon with k=%u n=%u\n", m_k, m_n);
 #else
         throw ug_runtime_error("zfec support is not compiled in");
 #endif
@@ -421,7 +427,7 @@ static void usage() {
                 "\t" TBOLD("<n>") " - length of block + parity "
                 "(default " TBOLD("%d") ", max %d),\n"
                 "\t\t\tmust be > <k>\n\n",
-                DEFAULT_K, MAX_K, DEFAULT_N, MAX_N);
+                DEFAULT_K_VIDEO, MAX_K, DEFAULT_N, MAX_N);
 
         char desc[] =
             "The n/k ratio determines the redundancy that the FEC provides. "

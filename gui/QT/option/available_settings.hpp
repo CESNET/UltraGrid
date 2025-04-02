@@ -41,6 +41,7 @@ struct DeviceMode{
 struct CapabOpt{
 	std::string displayName; //Name displayed to user
 	std::string displayDesc; //Description displayed to user
+        std::string placeholder; //Displayed placeholder if opt is a line edit
 
 	/* internal name of option, options that are used in the same way should
 	 * have the same key (e.g. both bitrate for libavcodec and quality for jpeg

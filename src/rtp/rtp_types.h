@@ -4,7 +4,7 @@
  *         Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -41,6 +41,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+#ifndef RTP_RTP_TYPES_H_EB786480_8B49_4BB4_9707_FF4AD8ED5A50
+#define RTP_RTP_TYPES_H_EB786480_8B49_4BB4_9707_FF4AD8ED5A50
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -170,3 +173,5 @@ typedef uint32_t mpa_hdr_t; /// RFC 2550 hdr for audio - 16b MBZ, 16b Frag_off
 enum {
         FPS_MAX = 1024, ///< given by UG RTP payload header
 };
+
+#endif // deined RTP_RTP_TYPES_H_EB786480_8B49_4BB4_9707_FF4AD8ED5A50

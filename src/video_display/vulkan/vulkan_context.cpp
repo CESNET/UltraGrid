@@ -43,8 +43,29 @@ using namespace vulkan_display_detail;
 using namespace vulkan_display;
 
 namespace {
-
+#if VK_HEADER_VERSION >= 304
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+        [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT message_type,
+        const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
+        [[maybe_unused]] void* user_data)
+{
+        LogLevel level = LogLevel::notice;
+        if      (vk::DebugUtilsMessageSeverityFlagBitsEXT::eError & message_severity)   level = LogLevel::error;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning & message_severity) level = LogLevel::warning;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo & message_severity)    level = LogLevel::info;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose & message_severity) level = LogLevel::verbose;
+
+        vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
+
+        if (message_type != vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral){
+                //assert(false);
+        }
+
+        return VK_FALSE;
+}
+#else /// compat (eg. Debian 11) @todo TOREMOVE later
+  VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
         [[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
         [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
         const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
@@ -64,6 +85,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 
         return VK_FALSE;
 }
+#endif
 
 void check_validation_layers(const std::vector<const char*>& required_layers) {
         std::vector<vk::LayerProperties>  layers = vk::enumerateInstanceLayerProperties();
@@ -328,7 +350,11 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
         }
 
         if (enable_validation) {
+#if VK_HEADER_VERSION >= 301
+                dynamic_dispatcher = std::make_unique<vk::detail::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#else
                 dynamic_dispatcher = std::make_unique<vk::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#endif
                 init_validation_layers_error_messenger();
         }
 }
@@ -540,16 +566,23 @@ void VulkanContext::recreate_swapchain(WindowParameters parameters, vk::RenderPa
         create_swap_chain(std::move(old_swap_chain));
         create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
         create_framebuffers(render_pass);
+        swapchain_was_suboptimal = false;
 }
 
-uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) const {
+uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) {
+        if(swapchain_was_suboptimal){
+                return swapchain_image_out_of_date;
+        }
+
         constexpr uint64_t timeout = 1'000'000'000; // 1s = 1 000 000 000 nanoseconds
         uint32_t image_index;
         auto acquired = device.acquireNextImageKHR(swapchain, timeout, acquire_semaphore, nullptr, &image_index);
         switch (acquired) {
                 case vk::Result::eSuccess:
                         break;
-                case vk::Result::eSuboptimalKHR: [[fallthrough]];
+                case vk::Result::eSuboptimalKHR:
+                        swapchain_was_suboptimal = true;
+                        break;
                 case vk::Result::eErrorOutOfDateKHR:
                         image_index = swapchain_image_out_of_date;
                         break;

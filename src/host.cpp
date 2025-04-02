@@ -89,7 +89,7 @@
 #include "capture_filter.h"
 #include "compat/platform_pipe.h"
 #include "compat/strings.h"  // strdupa
-#include "config_unix.h"                // for fd_t
+#include "compat/net.h"                 // for fd_t
 #include "cuda_wrapper.h"               // for cudaDeviceReset
 #include "debug.h"
 #include "keyboard_control.h"
@@ -709,6 +709,7 @@ static void probe_compress(std::string const & name, const void *mod) noexcept {
                         cout << "{"
                                 "\"display_name\":" << std::quoted(opt.display_name) << ", "
                                 "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
+                                "\"placeholder_text\":" << std::quoted(opt.placeholder_text) << ", "
                                 "\"key\":" << std::quoted(opt.key) << ", "
                                 "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
                                 "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
@@ -873,7 +874,8 @@ void print_version()
                 is_release = false;
         }
 #endif
-        col() << SBOLD(S256_FG(T_PEACH_FUZZ, PACKAGE_STRING <<
+
+        col() << SBOLD(S256_FG(T_TOMATO, PACKAGE_STRING <<
                 (is_release ? "" : "+"))) <<
                 " (" << get_version_details() << ")\n";
 }

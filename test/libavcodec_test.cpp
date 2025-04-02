@@ -1,8 +1,8 @@
 #ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "config.h"  // for HAVE_LAVC
 #endif
+
+extern "C" int libavcodec_test_get_decoder_from_uv_to_uv();
 
 #if defined HAVE_LAVC
 
@@ -22,7 +22,6 @@ using std::tuple;
 
 extern "C" decoder_t (*testable_get_decoder_from_uv_to_uv)(codec_t in, enum AVPixelFormat av, codec_t *out);
 
-extern "C" int libavcodec_test_get_decoder_from_uv_to_uv();
 
 int libavcodec_test_get_decoder_from_uv_to_uv()
 {
@@ -46,6 +45,12 @@ int libavcodec_test_get_decoder_from_uv_to_uv()
                                 + av_get_pix_fmt_name(get<4>(test_case)), (decoder_t) get<2>(test_case), dec);
         }
         return 0;
+}
+
+#else
+
+int libavcodec_test_get_decoder_from_uv_to_uv() {
+        return 1;
 }
 
 #endif // defined HAVE_LAVC

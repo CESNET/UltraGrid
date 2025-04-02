@@ -97,8 +97,8 @@ static struct {
 #ifdef V4L2_PIX_FMT_RGBA1010102
         {V4L2_PIX_FMT_RGBA1010102, R10k},
 #endif
-        {V4L2_PIX_FMT_MJPEG, MJPG},
-        {V4L2_PIX_FMT_JPEG, MJPG},
+        {V4L2_PIX_FMT_MJPEG, JPEG},
+        {V4L2_PIX_FMT_JPEG, JPEG},
         {V4L2_PIX_FMT_H264, H264},
         //{V4L2_PIX_FMT_H264_NO_SC, H264}, ///< H.264 without tart codes, @todo implement adding start codes (capture)
 #ifdef V4L2_PIX_FMT_HEVC

@@ -207,11 +207,6 @@ void ShowMessage(int level, char *msg);
 #include <sys/stat.h>
 #endif
 
-#ifdef WANT_MKDIR
-#include <direct.h>
-#define mkdir(path, mode) _mkdir(path)
-#endif
-
 #define SHUT_RD SD_RECEIVE
 #define SHUT_WR SD_SEND
 #define SHUT_RDWR SD_BOTH

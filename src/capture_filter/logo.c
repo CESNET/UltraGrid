@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,13 +79,16 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                 }
                 s->width = info.width;
                 s->height = info.height;
-                if (info.depth != 3 && info.depth != 4) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported depth %d in PAM file.\n", info.depth);
+                if (info.ch_count != 3 && info.ch_count != 4) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                MOD_NAME
+                                "Unsupported channel count %d in PAM file.\n",
+                                info.ch_count);
                         free(data);
                         return false;
                 }
-                rgb = info.depth == 3;
-                int datalen = info.depth * s->width * s->height;
+                rgb = info.ch_count == 3;
+                int datalen = info.ch_count * s->width * s->height;
                 if (rgb) {
                         datalen = 4 * s->width * s->height;
                         unsigned char * tmp =  malloc(datalen);

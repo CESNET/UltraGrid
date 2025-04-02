@@ -36,22 +36,23 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "video.h"
-#include "video_capture.h"
+#include <assert.h>                // for assert
+#include <stdio.h>                 // for fprintf, NULL, printf, stderr
+#include <stdlib.h>                // for free, calloc
+#include <string.h>                // for strcmp
+#include <sys/time.h>              // for gettimeofday, timeval
 
-#include "tv.h"
+#include "debug.h"                 // for log_msg, LOG_LEVEL_INFO
+#include "lib_common.h"            // for REGISTER_MODULE, library_class
+#include "tv.h"                    // for tv_diff
+#include "types.h"                 // for video_frame, tile, device_info (pt...
+#include "video_capture.h"         // for vidcap_done, VIDCAP_INIT_FAIL, ini...
+#include "video_capture_params.h"  // for vidcap_params_get_flags, vidcap_pa...
+#include "video_frame.h"           // for vf_get_tile, vf_alloc, vf_free
 
-#include "audio/types.h"
-
-#include <stdio.h>
-#include <stdlib.h>
+struct audio_frame;
+struct vidcap_params;
 
 /* prototypes of functions defined in this module */
 static void show_help(void);

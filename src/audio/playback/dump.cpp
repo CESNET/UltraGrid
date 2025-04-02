@@ -35,18 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
+#include <cstdio>                  // for printf
+#include <cstdlib>                 // for free
+#include <cstring>                 // for memcpy, size_t, strcmp, strlen, NULL
+#include <memory>                  // for unique_ptr
 #include <string>
 
-#include "debug.h"
 #include "audio/export.h"
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "host.h"                  // for INIT_NOERR
 #include "lib_common.h"
 
 namespace{
@@ -71,16 +69,15 @@ static void audio_play_dump_help() {
                         "\n");
 }
 
-static void * audio_play_dump_init(const char *cfg){
+static void * audio_play_dump_init(const struct audio_playback_opts *opts){
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_dump_help();
+                return INIT_NOERR;
+        }
         struct audio_dump_state *s = new audio_dump_state();
 
-        if (strlen(cfg) > 0) {
-                if (strcmp(cfg, "help") == 0) {
-                        audio_play_dump_help();
-                        delete s;
-                        return INIT_NOERR;
-                }
-                s->filename = cfg;
+        if (strlen(opts->cfg) > 0) {
+                s->filename = opts->cfg;
         } else {
                 s->filename = "audio_dump";
         }

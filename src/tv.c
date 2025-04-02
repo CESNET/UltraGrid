@@ -51,6 +51,7 @@
 #include "tv.h"
 #include "utils/random.h"
 
+#include <assert.h>
 #include <pthread.h>
 
 pthread_once_t once_control = PTHREAD_ONCE_INIT;
@@ -232,9 +233,10 @@ uint32_t get_std_video_local_mediatime(void)
         return ((double)standard_time.vtime.tv_sec + (((double)standard_time.vtime.tv_usec) / 1000000.0)) * vrate;
 }
 
-#if !defined HAVE_TIMESPEC_GET
+#if defined __APPLE__ && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101500
 int timespec_get(struct timespec *ts, int base)
 {
+        assert(base == TIME_UTC);
         struct timeval tv = { 0, 0 };
         gettimeofday(&tv, NULL);
         ts->tv_sec = tv.tv_sec;

@@ -270,31 +270,96 @@ static const char* jpeg_marker_name(enum jpeg_marker_code code)
         (uint16_t)(((*(image)) << 8) + (*((image) + 1))); \
         image += 2;
 
-static int read_marker(uint8_t** image)
+#define read_4byte(image) \
+    (uint32_t)(((uint32_t) (image)[0]) << 24U | ((uint32_t) (image)[1] << 16U) | ((uint32_t) (image)[2] << 8U) | ((uint32_t) (image)[3])); \
+    (image) += 4;
+
+#define SPIFF_VERSION 0x100 // Version 1.00
+#define SPIFF_COMPRESSION_JPEG 5
+#define SPIFF_ENTRY_TAG_EOD 0x1
+#define SPIFF_ENTRY_TAG_EOD_LENGHT 8 // length is 2 bytes longer for EOD to contain also following SOI
+#define SPIFF_MARKER_LEN 32 ///< including length field
+
+static const char*
+color_space_get_name(enum jpeg_color_spec color_space)
 {
-        uint8_t byte = read_byte(*image);
-        if( byte != 0xFF ) {
+    switch ( color_space ) {
+    case JPEG_COLOR_SPEC_NONE :
+        return "None";
+    case JPEG_COLOR_SPEC_RGB:
+        return "RGB";
+    case JPEG_COLOR_SPEC_YCBCR_601:
+        return "YCbCr BT.601 (limtted range)";
+    case JPEG_COLOR_SPEC_YCBCR_JPEG:
+        return "YCbCr BT.601 256 Levels (YCbCr JPEG)";
+    case JPEG_COLOR_SPEC_YCBCR_709:
+        return "YCbCr BT.709 (limited range)";
+    case JPEG_COLOR_SPEC_CMYK:
+        return "CMYK";
+    case JPEG_COLOR_SPEC_YCCK:
+        return "YCCK";
+    }
+    return "Unknown";
+}
+
+static int
+read_marker(uint8_t** image, const uint8_t* image_end)
+{
+    if(image_end - *image < 2) {
+        MSG(ERROR, "Failed to read marker from JPEG data (end of data)\n");
+        return -1;
+    }
+
+    uint8_t byte = read_byte(*image);
+    if( byte != 0xFF ) {
+        MSG(ERROR, "Failed to read marker from JPEG data (0xFF was expected but 0x%X was presented)\n", byte);
+        return -1;
+    }
+    int marker = read_byte(*image);
+    return marker;
+}
+
+static int
+skip_marker_content(uint8_t** image, const uint8_t* image_end)
+{
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Failed to skip marker content (end of data)\n");
                 return -1;
         }
-        int marker = read_byte(*image);
-        return marker;
+
+        int length = (int) read_2byte(*image);
+        length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "Marker content goes beyond data size\n");
+                return -1;
+        }
+        *image += length;
+        return 0;
 }
 
-static void skip_marker_content(uint8_t** image)
+static int
+read_sof0(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
-        int length = (int)read_2byte(*image);
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read SOF0 size (end of data)\n");
+                return -1;
+        }
 
-        *image += length - 2;
-}
-
-static int read_sof0(struct jpeg_info *param, uint8_t** image)
-{
-        int length = (int)read_2byte(*image);
-        if ( length < 6 ) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] SOF0 marker length should be greater than 6 but %d was presented!\n", length);
+        int length = (int) read_2byte(*image);
+        if (length < 8) {
+                MSG(ERROR,
+                    "SOF0 marker length should be greater than 8 but %d was "
+                    "presented!\n",
+                    length);
                 return -1;
         }
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "SOF0 goes beyond end of data\n");
+                return -1;
+        }
 
         int precision = (int)read_byte(*image);
         if ( precision != 8 ) {
@@ -306,6 +371,17 @@ static int read_sof0(struct jpeg_info *param, uint8_t** image)
         param->width = (int)read_2byte(*image);
         param->comp_count = (int)read_byte(*image);
         length -= 6;
+        if (param->comp_count == 0) {
+                MSG(ERROR, "SOF0 has 0 components!\n");
+                return -1;
+        }
+        if (param->comp_count > JPEG_MAX_COMPONENT_COUNT) {
+                MSG(ERROR,
+                    "SOF0 has %d components but JPEG can contain at most %d "
+                    "components\n",
+                    param->comp_count, (int) JPEG_MAX_COMPONENT_COUNT);
+                return -1;
+        }
 
         for ( int comp = 0; comp < param->comp_count; comp++ ) {
                 int index = (int)read_byte(*image);
@@ -320,7 +396,7 @@ static int read_sof0(struct jpeg_info *param, uint8_t** image)
 
                 int table_index = (int)read_byte(*image);
                 if (table_index > 3) {
-                        MSG(VERBOSE,
+                        MSG(ERROR,
                             "SOF0 marker contains unexpected quantization "
                             "table index %d!\n",
                             table_index);
@@ -339,8 +415,14 @@ static int read_sof0(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_dri(struct jpeg_info *param, uint8_t** image)
+static int
+read_dri(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 4) {
+                MSG(ERROR, "Could not read DRI (end of data)\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         if ( length != 4 ) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DRI marker length should be 4 but %d was presented!\n", length);
@@ -351,10 +433,21 @@ static int read_dri(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_dht(struct jpeg_info *param, uint8_t** image)
+static int
+read_dht(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read DHT size (end of data)\n");
+                return -1;
+        }
+
 	int length = (int)read_2byte(*image);
 	length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "DHT goes beyond end of data\n");
+                return -1;
+        }
 
 	while (length > 0) {
 		int index = read_byte(*image);
@@ -405,11 +498,21 @@ static int read_dht(struct jpeg_info *param, uint8_t** image)
 	return 0;
 }
 
-
-static int read_dqt(struct jpeg_info *param, uint8_t** image)
+static int
+read_dqt(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read dqt length\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "DQT marker goes beyond end of data\n");
+                return -1;
+        }
 
         if ( (length % 65) != 0 ) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DQT marker length should be 65 but %d was presented!\n", length);
@@ -442,9 +545,22 @@ static int read_dqt(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_com(struct jpeg_info *param, uint8_t** image) {
+static int
+read_com(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
+{
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read com length\n");
+                return -1;
+        }
+
         int length = (int)read_2byte(*image);
         length -= 2;
+
+        if (length > image_end - *image) {
+                MSG(ERROR, "COM goes beyond end of data\n");
+                return -1;
+        }
+
 
         for (int i = 0; i < length; ++i) {
                 param->com[i] = read_byte(*image);
@@ -456,22 +572,39 @@ static int read_com(struct jpeg_info *param, uint8_t** image) {
         return 0;
 }
 
-static int read_sos(struct jpeg_info *param, uint8_t** image)
+static int
+read_sos(struct jpeg_info *param, uint8_t **image, const uint8_t *image_end)
 {
-        int length = (int)read_2byte(*image);
-        length -= 2;
-
-        if (length == 0) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
+        if (*image + 3 > image_end) {
+                MSG(ERROR, "SOS goes beyond end of data\n");
                 return -1;
         }
-        int comp_count = (int)read_byte(*image);
+
+        const int length     = (int) read_2byte(*image);
+        const int comp_count = (int) read_byte(*image);
+        if (length != comp_count * 2 + 6) {
+                MSG(ERROR, "Wrong SOS length (expected %d, got %d)\n",
+                    comp_count * 2 + 6, length);
+                return -1;
+        }
+        if (*image + length - 3 > image_end) {
+                MSG(ERROR, "SOS goes beyond end of data\n");
+                return -1;
+        }
+        if (comp_count == 0) {
+                MSG(ERROR, "SOS has 0 components!\n");
+                return -1;
+        }
+        if (comp_count > param->comp_count) {
+                MSG(ERROR,
+                    "Segment contains %d components but the JPEG has only %d "
+                    "components\n",
+                    comp_count, param->comp_count);
+                return -1;
+        }
+
         if ( comp_count != param->comp_count ) {
                 param->interleaved = false;
-        }
-        if (length < 1 + comp_count * 2 + 3) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
-                return -1;
         }
 
         // Collect the component-spec parameters
@@ -505,9 +638,163 @@ static int read_sos(struct jpeg_info *param, uint8_t** image)
         return 0;
 }
 
-static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
+static int
+read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_spiff)
 {
-        int length = read_2byte(*image);
+    int version = read_2byte(*image); // version
+    int profile_id = read_byte(*image); // profile ID
+    int comp_count = read_byte(*image); // component count
+    int width = read_4byte(*image); // width
+    int height = read_4byte(*image); // height
+    int spiff_color_space = read_byte(*image);
+    int bps = read_byte(*image); // bits per sample
+    int compression = read_byte(*image);
+    int pixel_units = read_byte(*image); // resolution units
+    int pixel_xdpu = read_4byte(*image); // vertical res
+    int pixel_ydpu = read_4byte(*image); // horizontal res
+    (void) profile_id, (void) comp_count, (void) width, (void) height, (void) pixel_units, (void) pixel_xdpu, (void) pixel_ydpu;
+
+    if (version != SPIFF_VERSION) {
+        verbose_msg("Unknown SPIFF version %d.%d.\n", version >> 8, version & 0xFF);
+    }
+    if (bps != 8) {
+        error_msg("Wrong bits per sample %d, only 8 is supported.\n", bps);
+    }
+    if (compression != SPIFF_COMPRESSION_JPEG) {
+            error_msg("Unexpected compression index %d, expected %d (JPEG)\n", compression, SPIFF_COMPRESSION_JPEG);
+            return -1;
+    }
+
+    switch (spiff_color_space) {
+        // case 0: // Bi-level - one-bit, 1 = black
+        case 1: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_709;
+            break;
+        case 2: // NOLINT
+            MSG_ONCE(WARNING, "SPIFF color space not specified by header!\n");
+            break;
+        case 3: // NOLINT
+        case 8: /* grayscale */ // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_JPEG;
+            break;
+        case 4: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCBCR_601;
+            break;
+        // case 5: // reserved
+        // case 6: //  -"-
+        // case 7: //  -"-
+        // case 9: // PhotoYCC
+        case 10: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_RGB;
+            break;
+        // case 11: // CMY
+        case 12: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_CMYK;
+            break;
+        case 13: // NOLINT
+            *color_space = JPEG_COLOR_SPEC_YCCK;
+            break;
+        // case 14: // CIELab
+        // case 15: // Bi-level - one-bit, 1 = white
+        default:
+                error_msg(
+                    "Unsupported or unrecongnized SPIFF color space %d!\n",
+                    spiff_color_space);
+                return -1;
+    }
+
+    debug_msg("APP8 SPIFF parsed succesfully, internal color space: %s\n",
+              color_space_get_name(*color_space));
+    *in_spiff = 1;
+
+    return 0;
+}
+
+static int
+read_spiff_directory(uint8_t** image, const uint8_t* image_end, int length, _Bool *in_spiff)
+{
+    if (length < 4) {
+        fprintf(stderr, "[GPUJPEG] [Error] APP8 SPIFF directory too short (%d bytes)\n", length + 2);
+        image += length;
+        return -1;
+    }
+    uint32_t tag = read_4byte(*image);
+    debug_msg("Read SPIFF tag 0x%x with length %d.\n", tag, length + 2);
+    if (tag == SPIFF_ENTRY_TAG_EOD && length == SPIFF_ENTRY_TAG_EOD_LENGHT - 2) {
+        int marker_soi = read_marker(image, image_end);
+        if ( marker_soi != JPEG_MARKER_SOI ) {
+            verbose_msg("SPIFF entry 0x1 should be followed directly with SOI.\n");
+            return -1;
+        }
+        debug_msg("SPIFF EOD presented.\n");
+        *in_spiff = 0;
+    } else if (tag >> 24U != 0) {
+        verbose_msg( "Erroneous SPIFF tag 0x%x (first byte should be 0).", tag);
+    } else {
+        debug_msg("SPIFF tag 0x%x with length %d presented.\n", tag, length + 2);
+    }
+    return 0;
+}
+
+static int
+read_app8(uint8_t** image, const uint8_t* image_end, enum jpeg_color_spec *color_space, bool *in_spiff)
+{
+    if(image_end - *image < 2) {
+        fprintf(stderr, "[GPUJPEG] [Error] Could not read APP8 marker length (end of data)\n");
+        return -1;
+    }
+    int length = read_2byte(*image);
+    length -= 2;
+    if(image_end - *image < length) {
+        fprintf(stderr, "[GPUJPEG] [Error] APP8 marker goes beyond end of data\n");
+        return -1;
+    }
+
+    if (*in_spiff) {
+        return read_spiff_directory(image, image_end, length, in_spiff);
+    }
+
+    if (length + 2 != SPIFF_MARKER_LEN) {
+        verbose_msg("APP8 segment length is %d, expected 32 for SPIFF.\n", length + 2);
+        *image += length;
+        return 0;
+    }
+
+    const char spiff_marker_name[6] = { 'S', 'P', 'I', 'F', 'F', '\0' };
+    char marker_name[sizeof spiff_marker_name];
+    for (unsigned i = 0; i < sizeof marker_name; i++) {
+        marker_name[i] = read_byte(*image);
+        if (!isprint(marker_name[i])) {
+            marker_name[i] = '\0';
+        }
+    }
+    length -= sizeof marker_name;
+
+    if (strcmp(marker_name, spiff_marker_name) != 0) {
+        verbose_msg("APP8 marker identifier should be 'SPIFF\\0' but '%-6.6s' was presented!\n", marker_name);
+        *image += length - 2;
+        return 0;
+    }
+
+    return read_spiff_header(image, color_space, in_spiff);
+}
+
+static int
+read_adobe_app14(struct jpeg_info *param, uint8_t **image,
+                 const uint8_t *image_end)
+{
+        if (image_end - *image < 2) {
+                MSG(ERROR, "Could not read Adobe APP14 length\n");
+                return -1;
+        }
+
+        const int length = read_2byte(*image);
+
+        if (length - 2 > image_end - *image) {
+                MSG(ERROR, "Adobe APP14 goes beyond end of data\n");
+                return -1;
+        }
+
         if (length != 14) { // not an Adobe APP14 marker
                 return 0;
         }
@@ -518,7 +805,8 @@ static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
         adobe[2] = read_byte(*image);
         adobe[3] = read_byte(*image);
         adobe[4] = read_byte(*image);
-        if (strcmp(adobe, "Adobe") != 0) { // not an Adobe APP14 marker
+        adobe[5] = read_byte(*image);
+        if (memcmp(adobe, "Adobe", 6) != 0) { // not an Adobe APP14 marker
                 return 0;
         }
 
@@ -530,7 +818,7 @@ static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
 	if (color_transform == 0) {
 		param->color_spec = JPEG_COLOR_SPEC_CMYK; // or RGB - will be determined later
 	} else if (color_transform == 1) {
-		param->color_spec = JPEG_COLOR_SPEC_YCBCR;
+		param->color_spec = JPEG_COLOR_SPEC_YCBCR_JPEG;
 	} else if (color_transform == 2) {
 		param->color_spec = JPEG_COLOR_SPEC_YCCK;
 	} else {
@@ -551,9 +839,10 @@ static int read_adobe_app14(struct jpeg_info *param, uint8_t** image)
 int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
 {
         uint8_t *image_start = image;
+        const uint8_t *image_end = image + len;
 
         // Check first SOI marker
-        int marker_soi = read_marker(&image);
+        int marker_soi = read_marker(&image, image_end);
         if (marker_soi != JPEG_MARKER_SOI) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] JPEG data should begin with SOI marker, but marker %s was found!\n", jpeg_marker_name((enum jpeg_marker_code)marker_soi));
                 return -1;
@@ -567,14 +856,15 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         info->interleaved = true;
         info->restart_interval = 0; // if DRI is not present
         info->com[0] = '\0'; // if COM is not present
-        info->color_spec = JPEG_COLOR_SPEC_YCBCR; // default
+        info->color_spec = JPEG_COLOR_SPEC_YCBCR_JPEG; // default
         bool marker_present[255] = { 0 };
+        bool in_spiff = false;
 
         // currently reading up to SOS marker gives us all needed data
         while (!marker_present[JPEG_MARKER_EOI] && !marker_present[JPEG_MARKER_SOS]
                         && image < image_start + len) {
                 // Read marker
-                int marker = read_marker(&image);
+                int marker = read_marker(&image, image_end);
                 if ( marker == 0) { // not a marker (byte stuffing)
                         continue;
                 }
@@ -594,49 +884,55 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                 switch (marker)
                 {
                         case JPEG_MARKER_SOF0: // Baseline
-                                if ((rc = read_sof0(info, &image)) != 0) {
+                                if ((rc = read_sof0(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading SOF0!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_DHT:
-                                if ((rc = read_dht(info, &image)) != 0) {
+                                if ((rc = read_dht(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DQT!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_DQT:
-                                if ((rc = read_dqt(info, &image)) != 0) {
+                                if ((rc = read_dqt(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DQT!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_DRI:
-                                if ((rc = read_dri(info, &image)) != 0) {
+                                if ((rc = read_dri(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading DRI!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_COM:
-                                if ((rc = read_com(info, &image)) != 0) {
+                                if ((rc = read_com(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading COM!\n");
                                         return rc;
                                 }
                                 break;
 
+                        case JPEG_MARKER_APP8:
+                                if ( read_app8(&image, image_end, &info->color_spec, &in_spiff ) != 0 ) {
+                                        return -1;
+                                }
+                                break;
+
                         case JPEG_MARKER_APP14:
-                                if ((rc = read_adobe_app14(info, &image)) != 0) {
+                                if ((rc = read_adobe_app14(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading APP14!\n");
                                         return rc;
                                 }
                                 break;
 
                         case JPEG_MARKER_SOS:
-                                if ((rc = read_sos(info, &image)) != 0) {
+                                if ((rc = read_sos(info, &image, image_end)) != 0) {
                                         log_msg(LOG_LEVEL_ERROR, "Error reading SOS!\n");
                                         return rc;
                                 }
@@ -658,7 +954,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         default:
-                                skip_marker_content(&image);
+                                skip_marker_content(&image, image_end);
                                 break;
                 }
         }
@@ -740,9 +1036,21 @@ check_rtp_compatibility(const struct jpeg_info *info)
                 log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG component count: %d!\n", info->comp_count);
 		return false;
         }
-        if (info->color_spec != JPEG_COLOR_SPEC_YCBCR) {
-                log_msg(LOG_LEVEL_ERROR, "Unsupported JPEG color space (only YCbCr supported!\n");
-		return false;
+        if (info->color_spec != JPEG_COLOR_SPEC_YCBCR_JPEG) {
+                if (info->color_spec != JPEG_COLOR_SPEC_YCBCR_601 &&
+                    info->color_spec != JPEG_COLOR_SPEC_YCBCR_709) {
+                        MSG(ERROR,
+                            "Unsupported JPEG color space %s "
+                            "(only YCbCr supported)!\n",
+                            color_space_get_name(info->color_spec));
+                        return false;
+                }
+                MSG_ONCE(WARNING,
+                         "JPEG CS should be full-range BT.601, have: %s\n",
+                         color_space_get_name(info->color_spec));
+                if (strstr(info->com, "GPUJPEG") != NULL) {
+                        MSG_ONCE(INFO, "Try setting \"-c gpujpeg:Y601full\"\n");
+                }
         }
         if (!info->interleaved) {
                 if (strstr(info->com, "GPUJPEG")) {

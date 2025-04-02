@@ -44,19 +44,16 @@
  * connection and XInitThreads() is called (this also may not be required).
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include "x11_common.h"
 
+#include <X11/Xlib.h>                // for Display, XInternAtom, False, XCh...
+#include <limits.h>                  // for LONG_MAX
 #include <pthread.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
+#include <stdbool.h>                 // for bool, true
+#include <stdio.h>                   // for NULL, fprintf, stderr, size_t
+#include <stdlib.h>                  // for calloc, abort, free
+#include <string.h>                  // for memcpy
 
-#include "debug.h"
 #include "utils/resource_manager.h"
 
 #define resource_symbol "X11-state"
@@ -80,7 +77,7 @@ struct x11_state *get_state() {
         if(!state->initialized) {
                 state->display = NULL;
                 pthread_mutex_init(&state->lock, NULL);
-                state->display_opened_here = TRUE;
+                state->display_opened_here = true;
                 state->ref_num = 0;
                 state->initialized = true;
         }
@@ -101,7 +98,7 @@ void x11_set_display(void *disp)
                 abort();
         }
         s->display = d;
-        s->display_opened_here = FALSE;
+        s->display_opened_here = false;
         pthread_mutex_unlock(&s->lock);
 }
 
@@ -110,7 +107,7 @@ void * x11_acquire_display(void)
         struct x11_state *s = get_state();
         if(!s->display) {
                 s->display = XOpenDisplay(0);
-                s->display_opened_here = TRUE;
+                s->display_opened_here = true;
         }
         
         if ( !s->display )

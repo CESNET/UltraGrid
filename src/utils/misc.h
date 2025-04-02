@@ -52,6 +52,7 @@
 extern "C" {
 #endif
 
+
 bool is_wine(void);
 long long   unit_evaluate(const char *str, const char **endptr);
 double      unit_evaluate_dbl(const char *str, bool case_sensitive,
@@ -70,6 +71,20 @@ struct key_val {
         const char *val;
 };
 void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help);
+
+bool invalid_arg_is_numeric(const char *what);
+
+const char *get_stat_color(double ratio);
+
+enum { FORMAT_NUM_MAX_SZ = 27, /*20 dec num + 6 delim + '\0' */ };
+char *format_number_with_delim(size_t num, char *buf, size_t buflen);
+#if !defined __cplusplus
+#define fmt_number_with_delim(num) \
+        format_number_with_delim(num, (char[FORMAT_NUM_MAX_SZ]) { 0 }, \
+                                 FORMAT_NUM_MAX_SZ)
+#endif
+
+int parse_number(const char *str, int min, int base);
 
 #ifdef __cplusplus
 }

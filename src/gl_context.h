@@ -49,6 +49,15 @@
 #endif
 
 #ifdef __cplusplus
+#include <cstdio>     // for fprintf, stderr
+#include <cstdlib>    // for abort
+#else
+#include <stdbool.h>
+#include <stdio.h>    // for fprintf, stderr
+#include <stdlib.h>   // for abort
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 

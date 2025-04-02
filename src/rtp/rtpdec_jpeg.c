@@ -59,7 +59,7 @@
 
 #define GET_BYTE(data) *(*(data))++
 #define GET_2BYTE(data) \
-        ntohs(*((uint16_t *) (*(data)))); \
+        (uint16_t)(((**(data)) << 8) + (*(*(data) + 1))); \
         *(data) += sizeof(uint16_t)
 
 enum {

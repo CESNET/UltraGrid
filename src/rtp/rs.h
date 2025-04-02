@@ -48,7 +48,7 @@ struct video_frame;
 
 struct rs : public fec {
         rs(unsigned int k, unsigned int n);
-        rs(const char *cfg);
+        rs(const char *cfg, bool is_audio);
         virtual ~rs();
         std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame) override;
         virtual audio_frame2 encode(audio_frame2 const &) override;

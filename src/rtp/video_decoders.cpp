@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -93,14 +93,31 @@
  * in that, that it can be both internally and externally decompressed.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "rtp/video_decoders.h"
 
-#include "control_socket.h"
+#include <cassert>                     // for assert
+#include <chrono>                      // for duration, steady_clock, durati...
+#include <cstdlib>                     // for free, malloc, calloc
+#include <cstring>                     // for NULL, memcpy, size_t, memset
+#include <algorithm>                   // for find, max, sort
+#include <atomic>                      // for __atomic_base, atomic_ulong
+#include <condition_variable>          // for condition_variable
+#include <iterator>                    // for end
+#include <map>                         // for map, operator!=, _Rb_tree_cons...
+#include <memory>                      // for unique_ptr, allocator
+#include <mutex>                       // for mutex, unique_lock
+#include <set>                         // for set
+#include <sstream>                     // for basic_ostream, operator<<, cha...
+#include <string>                      // for basic_string, operator<<, oper...
+#include <thread>                      // for thread
+#include <unordered_map>               // for _Node_iterator, operator==
+#include <utility>                     // for pair, move
+#include <vector>                      // for vector
+
+#include "compat/net.h"                // for ntohl
 #include "crypto/openssl_decrypt.h"
+#include "crypto/openssl_encrypt.h"    // for openssl_mode
+#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -108,10 +125,10 @@
 #include "module.h"
 #include "pixfmt_conv.h"
 #include "rtp/fec.h"
-#include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
-#include "rtp/video_decoders.h"
+#include "rtp/rtp.h"
+#include "rtp/rtp_types.h"             // for video_payload_hdr_t, PT_ENCRYP...
+#include "tv.h"                        // for NS_IN_SEC
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
@@ -123,31 +140,36 @@
 #include "video_decompress.h"
 #include "video_display.h"
 
-#include <algorithm>
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <set>
-#include <sstream>
-#include <thread>
-
-#ifdef HAVE_LIBAVCODEC_AVCODEC_H
+#if __has_include(<libavcodec/avcodec.h>)
 #include <libavcodec/avcodec.h> // AV_INPUT_BUFFER_PADDING_SIZE
+constexpr int PADDING = std::max<int>(MAX_PADDING, AV_INPUT_BUFFER_PADDING_SIZE);
+#else
+constexpr int PADDING = MAX_PADDING;
 #endif
 
 #define MOD_NAME "[video dec.] "
 
 #define FRAMEBUFFER_NOT_READY(decoder) (decoder->frame == NULL && decoder->out_codec != VIDEO_CODEC_END)
 
-using namespace std;
 using namespace std::string_literals;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::nanoseconds;
+using std::chrono::seconds;
+using std::chrono::steady_clock;
+using std::atomic_ulong;
+using std::condition_variable;
+using std::map;
+using std::max;
+using std::mutex;
+using std::ostringstream;
+using std::pair;
+using std::set;
+using std::string;
+using std::thread;
+using std::unique_lock;
+using std::unique_ptr;
+using std::vector;
 
 struct state_video_decoder;
 
@@ -177,12 +199,6 @@ static int sum_map(map<int, int> const & m) {
 }
 
 namespace {
-
-#ifdef HAVE_LIBAVCODEC_AVCODEC_H
-constexpr int PADDING = AV_INPUT_BUFFER_PADDING_SIZE;
-#else
-constexpr int PADDING = 0;
-#endif
 /**
  * Enumerates 2 possibilities how to decode arriving data.
  */
@@ -212,7 +228,7 @@ struct reported_statistics_cumul {
                 print();
         }
         long long int last_buffer_number = -1; ///< last received buffer ID
-        chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
+        steady_clock::time_point t_last = steady_clock::now();
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         atomic_ulong fec_ok = 0, fec_corrected = 0, fec_nok = 0;
         void print() {
@@ -245,8 +261,9 @@ struct reported_statistics_cumul {
                         }
                 }
                 last_buffer_number = buffer_number;
-                auto now = chrono::steady_clock::now();
-                if (chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - t_last).count() > CUMULATIVE_REPORTS_INTERVAL) {
+                const auto now = steady_clock::now();
+                if (duration_cast<seconds>(now - t_last).count() >
+                    CUMULATIVE_REPORTS_INTERVAL) {
                         print();
                         t_last = now;
                 }
@@ -630,7 +647,7 @@ static void *decompress_thread(void *args) {
                 unique_ptr<char[]> tmp;
 
                 if (decoder->out_codec == VIDEO_CODEC_END) {
-                        tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + MAX_PADDING)]);
+                        tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + PADDING)]);
                 }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
@@ -680,7 +697,7 @@ static void *decompress_thread(void *args) {
                                 }
                         }
                 } else {
-                        if (decoder->frame->decoder_overrides_data_len == TRUE) {
+                        if (decoder->frame->decoder_overrides_data_len) {
                                 for (unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
                                         decoder->frame->tiles[i].data_len = msg->nofec_frame->tiles[i].data_len;
                                 }
@@ -826,7 +843,9 @@ ADD_TO_PARAM("decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified pixel format for decoding (eg. v210). This overrides automatic\n"
                 "  choice. The pixel format must be supported by the video display. Use 'help' to see\n"
-                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n");
+                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n"
+                "* decoder-use-codec=!<codec>\n"
+                "  Blacklist specified pixel format ('!<codec' may need to be quoted).\n");
 /**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
@@ -860,6 +879,11 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         }
         if (get_commandline_param("decoder-use-codec")) {
                 const char *codec_str = get_commandline_param("decoder-use-codec");
+                bool blacklist_codec = false;
+                if (codec_str[0] == '!') {
+                        blacklist_codec = true;
+                        codec_str += 1;
+                }
                 codec_t req_codec = get_codec_from_name(codec_str);
                 if ("help"s == codec_str) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
@@ -870,7 +894,16 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                         return false;
                 }
-                if (find(decoder->native_codecs.begin(), decoder->native_codecs.end(), req_codec) != end(decoder->native_codecs)) {
+                if (blacklist_codec) {
+                        auto to_erase = find(decoder->native_codecs.begin(),
+                                             decoder->native_codecs.end(),
+                                             req_codec);
+                        if (to_erase != decoder->native_codecs.end()) {
+                                decoder->native_codecs.erase(to_erase);
+                        }
+                } else if (find(decoder->native_codecs.begin(),
+                                decoder->native_codecs.end(),
+                                req_codec) != end(decoder->native_codecs)) {
                         decoder->native_codecs.clear();
                         decoder->native_codecs.push_back(req_codec);
                 } else {
@@ -1451,28 +1484,33 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
         }
         LOG(LOG_LEVEL_NOTICE)
             << "[video dec.] New incoming video format detected: "
-            << network_desc << endl;
+            << network_desc << "\n";
+
+        std::ostringstream oss;
+        oss << "new incoming video fmt: " << network_desc;
+        control_report_stats(decoder->control, oss.str());
+
         reconfigure_helper(decoder, network_desc, {});
 }
 
-#define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
+#define ERROR_GOTO_CLEANUP ret = false; goto cleanup;
 #define max(a, b)       (((a) > (b))? (a): (b))
 
 /**
  * @brief Decodes a participant buffer representing one video frame.
  * @param cdata        PBUF buffer
  * @param decoder_data @ref vcodec_state containing decoder state and some additional data
- * @retval TRUE        if decoding was successful.
+ * @retval true        if decoding was successful.
  *                     It stil doesn't mean that the frame will be correctly displayed,
  *                     decoding may fail in some subsequent (asynchronous) steps.
- * @retval FALSE       if decoding failed
+ * @retval false       if decoding failed
  */
 int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf_stats *stats)
 {
         struct vcodec_state *pbuf_data = (struct vcodec_state *) decoder_data;
         struct state_video_decoder *decoder = pbuf_data->decoder;
 
-        int ret = TRUE;
+        bool ret = true;
         int prints=0;
         int max_substreams = decoder->max_substreams;
 
@@ -1490,7 +1528,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         // We have no framebuffer assigned, exitting
         if(!decoder->display) {
                 vf_free(frame);
-                return FALSE;
+                return false;
         }
 
         main_msg_reconfigure *msg_reconf;
@@ -1571,7 +1609,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 crypto_mode = (enum openssl_mode) (crypto_hdr >> 24);
 				if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
 					log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
-					ret = FALSE;
+					ret = false;
 					goto cleanup;
 				}
                         }
@@ -1582,7 +1620,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pckt->pt << ".\n";
                         }
-                        ret = FALSE;
+                        ret = false;
                         goto cleanup;
                 }
 
@@ -1604,7 +1642,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         }
                         // we need skip this frame (variables are illegal in this iteration
                         // and in case that we got unrecognized number of substreams - exit
-                        ret = FALSE;
+                        ret = false;
                         goto cleanup;
                 }
 
@@ -1634,7 +1672,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         // check if we got it
                         if (FRAMEBUFFER_NOT_READY(decoder)) {
                                 vf_free(frame);
-                                return FALSE;
+                                return false;
                         }
                 }
 
@@ -1754,11 +1792,11 @@ next_packet:
         }
 
         if (FRAMEBUFFER_NOT_READY(decoder) && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
-                ret = FALSE;
+                ret = false;
                 goto cleanup;
         }
 
-        assert(ret == TRUE);
+        assert(ret);
 
         /// Zero missing parts of framebuffer - this may be useful for compressed video
         /// (which may be also with FEC - but we use systematic codes therefore it may
@@ -1807,7 +1845,7 @@ next_packet:
         }
 cleanup:
         ;
-        if(ret != TRUE) {
+        if (ret) {
                 vf_free(frame);
         }
         pbuf_data->decoded++;

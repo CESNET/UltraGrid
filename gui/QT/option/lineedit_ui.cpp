@@ -29,4 +29,8 @@ void LineEditUi::setToolTip(const QString& toolTip){
 	line->setToolTip(toolTip);
 }
 
+void LineEditUi::setPlaceholder(const QString& placeholder){
+        line->setPlaceholderText(placeholder);
+}
+
 

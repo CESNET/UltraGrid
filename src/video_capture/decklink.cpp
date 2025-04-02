@@ -73,7 +73,7 @@
 #include "blackmagic_common.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/htonl.h"
+#include "compat/net.h"            // for ntohl
 #include "compat/strings.h"
 #include "debug.h"
 #include "host.h"
@@ -82,6 +82,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/math.h"
+#include "utils/string.h"          // for replace_all, DELDEL, ESCAPED_COLON
 #include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
@@ -172,6 +173,7 @@ struct device_state {
         unique_ptr<VideoDelegate>  delegate;
         IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
+        BMDNotificationCallback    *notificationCallback  = nullptr;
         string                      device_id = "0"; // either numeric value or device name
         bool                        audio                 = false; /* wheather we process audio or not */
         struct tile                *tile                  = nullptr;
@@ -496,18 +498,8 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
         }
         color_printf(TERM_RESET "\n");
 
-        int64_t connections = 0;
-        if (deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
-        } else {
-                cout << "\n\tConnection can be one of following:\n";
-                for (auto const &it : get_connection_string_map()) {
-                        if (connections & it.first) {
-                                col() << "\t\t" << SBOLD(it.second) << "\n";
-                        }
-                }
-        }
-        cout << "\n";
+        print_bmd_connections(deckLinkAttributes,
+                              BMDDeckLinkVideoInputConnections, MOD_NAME);
 
         if (query_prop_fcc != nullptr) {
                 print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
@@ -524,9 +516,11 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 {
 	col() << "\nDeckLink options:\n";
         col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
-              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << "\n";
+              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << " | "
+              << SBOLD(SRED("-t decklink") << ":help=FourCC") << "\n";
         col() << SBOLD(SRED("\t-t decklink")
-                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<colorspace>...<key>=<"
+                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<"
+                          "colorspace>...<key>=<"
                           "val>}*")
               << "\n";
         col() << SBOLD(SRED("\t-t decklink")
@@ -604,8 +598,9 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
                 col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
+                col() << SBOLD("\thelp=FourCC") << "\tshow FourCC opts syntax\n";
                 col() << SBOLD("\taacl[=no]")
-                      << "\t\tset analog audio levels to maximum gain "
+                      << "\tset analog audio levels to maximum gain "
                          "(consumer audio level)\n";
                 col() << "\n";
         } else {
@@ -622,7 +617,14 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
         }
         cout << "\n";
         if (!full) {
-                col() << "Possible connections: " << TBOLD("SDI") << ", " << TBOLD("HDMI") << ", " << TBOLD("OpticalSDI") << ", " << TBOLD("Component") << ", " << TBOLD("Composite") << ", " << TBOLD("SVideo") << "\n";
+                col() << "Possible connections:";
+                for (const auto &i : get_connection_string_map()) {
+                        col() << (i == *get_connection_string_map().cbegin()
+                                      ? " "
+                                      : ", ")
+                              << SBOLD(i.second);
+                }
+                cout << "\n";
         }
         cout << "\n";
 
@@ -692,6 +694,12 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                        << " -t decklink:d=\"DeckLink 8K Pro (1)\":profile=1dfd")
               << " # capture from 8K Pro and set profile to 1-subdevice "
                  "full-duplex (useful for 3D capture)\n";
+        col() << "\t"
+              << SBOLD(uv_argv[0] << " -t "
+                                     "decklink:d=670600:con=Ethernet:DHCP=no:"
+                                     "nsip=10.0.0.3:nssm=255.255.255.0")
+              << " # DeckLink IP (identified by topological ID), use \""
+              << SBOLD(":help=FourCC") << "\" for list of options\n";
 
         printf("\n");
 
@@ -724,6 +732,7 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 /* Parses option in format key=value */
 static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
 {
+        bool ret = true;
         const char *val = strchr(opt, '=') + 1;
         if(strcasecmp(opt, "3D") == 0) {
                 s->stereo = true;
@@ -738,15 +747,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if (IS_KEY_PREFIX(opt, "connection")) {
                 const char *connection = strchr(opt, '=') + 1;
-                for (auto const & it : get_connection_string_map()) {
-                        if (strcasecmp(connection, it.second.c_str()) == 0) {
-                                s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option((int64_t) it.first);
-                        }
-                }
-                if (s->device_options.find(bmdDeckLinkConfigVideoInputConnection) == s->device_options.end()) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized connection %s.\n", connection);
+                auto        bmd_conn   = bmd_get_connection_by_name(connection);
+                if (bmd_conn == bmdVideoConnectionUnspecified) {
+                        MSG(ERROR, "Unrecognized connection %s.\n", connection);
                         return false;
                 }
+                s->device_options[bmdDeckLinkConfigVideoInputConnection] =
+                    bmd_option((int64_t) bmd_conn);
         } else if(strncasecmp(opt, "audio_level=",
                                 strlen("audio_level=")) == 0) {
                 s->device_options[bmdDeckLinkConfigAnalogAudioConsumerLevels] =
@@ -784,13 +791,19 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
-                s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)].parse(strchr(opt, '=') + 1);
+                char val[STR_LEN];
+                snprintf_ch(val, "%s", strchr(opt, '=') + 1);
+                replace_all(val, DELDEL, ":");
+                ret = s
+                          ->device_options[(
+                              BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)]
+                          .parse(val);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;
         }
 
-        return true;
+        return ret;
 }
 
 static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_ptr)
@@ -809,10 +822,12 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
 static bool
 settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
+        replace_all(fmt, ESCAPED_COLON, DELDEL); // replace all '\:' with 2xDEL
+
         char *tmp;
         char *save_ptr = NULL;
 
-        if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
+        if ((tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
                 MSG(INFO, "Auto-choosen device 0.\n");
                 return true;
         }
@@ -1407,6 +1422,10 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 
         displayModeIterator->Release();
         displayModeIterator = NULL;
+
+        notificationCallback =
+            bmd_print_status_subscribe_notify(deckLink,  MOD_NAME, true);
+
         return true;
 }
 
@@ -1422,10 +1441,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         if (IS_KEY_PREFIX(fmt, "query")) {
                 decklink_help(true, strchr(fmt, '=') + 1);
                 return VIDCAP_INIT_NOERR;
-        }
-
-        if (!blackmagic_api_version_check()) {
-                return VIDCAP_INIT_FAIL;
         }
 
         struct vidcap_decklink_state *s = nullptr;
@@ -1451,6 +1466,11 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 delete s;
 		return VIDCAP_INIT_FAIL;
 	}
+
+        if (!blackmagic_api_version_check()) {
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
 
         switch (get_bits_per_component(s->codec)) {
         case 0: s->requested_bit_depth = 0; break;
@@ -1503,6 +1523,7 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         }
 
         for (int i = 0; i < s->devices_cnt; ++i) {
+                bmd_unsubscribe_notify(s->state[i].notificationCallback);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkInput);

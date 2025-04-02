@@ -370,7 +370,7 @@ void state_decompress_j2k::parse_params() {
         }
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
-                cuda_mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"), nullptr);
+                cuda_mem_limit = unit_evaluate_dbl(get_commandline_param("j2k-dec-mem-limit"), false, nullptr);
         }
 
         if (get_commandline_param("j2k-dec-tile-limit")) {

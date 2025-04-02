@@ -60,9 +60,9 @@
 #include "utils/string_view_utils.hpp"
 #include "video.h"
 #include "video_codec.h"
-#include "tools/ipc_frame.h"
-#include "tools/ipc_frame_unix.h"
-#include "tools/ipc_frame_ug.h"
+#include "../tools/ipc_frame.h"
+#include "../tools/ipc_frame_unix.h"
+#include "../tools/ipc_frame_ug.h"
 
 #define MOD_NAME "[capture filter preview] "
 

@@ -307,11 +307,7 @@ print_fps(const char *prefix, steady_clock::time_point *t0, int *frames,
                 return;
         }
         const double fps      = *frames / seconds;
-        const int    fps_perc = (int) floor(fps / nominal_fps * 100.);
-        const char  *fps_col  = fps_perc >= MIN_FPS_PERC_WARN ? ""
-                                : fps_perc >= MIN_FPS_PERC_WARN2
-                                    ? T256_FG_SYM(T_ARCTIC_LIME)
-                                    : T256_FG_SYM(T_DARKER_ORANGE);
+        const char *const fps_col  = get_stat_color(fps / nominal_fps);
         log_msg(LOG_LEVEL_INFO,
                 TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN
                 "%s" TERM_RESET " %d frames in %g seconds = " TERM_BOLD
@@ -491,13 +487,30 @@ static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
         return true;
 }
 
+static int
+parse_mtu(const char *optarg)
+{
+        enum { IPV4_REQ_MIN_MTU = 576, };
+        const int ret = parse_number(optarg, 1, 10);
+        if (ret == INT_MIN) {
+                return -1;
+        }
+        if (ret < IPV4_REQ_MIN_MTU && optarg[strlen(optarg) - 1] != '!') {
+                MSG(WARNING,
+                    "MTU %s seems to be too low, use \"%d!\" to force.\n",
+                    optarg, ret);
+                return -1;
+        }
+        return ret;
+}
+
 struct ug_options {
         ug_options() {
                 vidcap_params_set_device(vidcap_params_head, "none");
                 // will be adjusted later
                 audio.recv_port = -1;
                 audio.send_port = -1;
-                audio.codec_cfg = "PCM";
+                audio.codec_cfg = nullptr;
                 common.mtu = 0;
         }
         ~ug_options() {
@@ -763,13 +776,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         break;
                 case 'm':
-                        opt->common.mtu = atoi(optarg);
-                        if (opt->common.mtu < 576 &&
-                            optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING,
-                                        "MTU %1$u seems to be too low, use "
-                                        "\"%1$u!\" to force.\n",
-                                        opt->common.mtu);
+                        opt->common.mtu = parse_mtu(optarg);
+                        if (opt->common.mtu == -1) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
@@ -1013,8 +1021,7 @@ parse_options(int argc, char *argv[], struct ug_options *opt)
         try {
                 return parse_options_internal(argc, argv, opt);
         } catch (logic_error &e) {
-                if (strcmp(e.what(), "stoi") != 0 &&
-                    strcmp(e.what(), "stod") != 0) {
+                if (!invalid_arg_is_numeric(e.what())) {
                         throw;
                 }
                 if (dynamic_cast<invalid_argument *>(&e) != nullptr) {
@@ -1077,16 +1084,10 @@ static int adjust_params(struct ug_options *opt) {
         }
 
         // default values for different RXTX protocols
-        if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
-                if (opt->requested_compression == nullptr) {
-                        if (strcasecmp(opt->video_protocol, "rtsp") == 0) {
-                                opt->requested_compression = "lavc:enc=libx264:safe";
-                        } else {
-                                opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
-                        }
-                }
-        } else {
-                if (opt->requested_compression == nullptr) {
+        if (opt->requested_compression == nullptr) {
+                if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
+                        opt->requested_compression = "none"; // will be set later by video_rxtx::send_frame()
+                } else {
                         opt->requested_compression = DEFAULT_VIDEO_COMPRESSION;
                 }
         }

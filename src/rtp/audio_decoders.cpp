@@ -5,7 +5,7 @@
  */
 /*
  * Copyright (c) 2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,48 +37,50 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "rtp/audio_decoders.h"
 
+#include <algorithm>                 // for min
+#include <atomic>                    // for atomic_uint64_t
+#include <cassert>                   // for assert
+#include <chrono>                    // for steady_clock, duration_cast, ope...
+#include <cmath>                     // for log
+#include <cstdlib>                   // for strtoll, atof, free, realloc
+#include <cstring>                   // for memcpy, strchr, strlen, memset
+#include <iomanip>                   // for setprecision
+#include <iostream>                  // for basic_ostream, operator<<, clog
+#include <map>                       // for map
+#include <string>                    // for char_traits, allocator, operator+
+#include <utility>                   // for pair, move, swap
+#include <vector>                    // for vector
+
+#include "audio/audio_playback.h"    // for AUDIO_PLAYBACK_CTL_QUERY_FORMAT
+#include "audio/codec.h"             // for get_audio_codec_to_tag, audio_co...
+#include "audio/resampler.hpp"       // for audio_frame2_resampler
+#include "audio/types.h"             // for audio_frame2, audio_desc, AC_PCM
+#include "audio/utils.h"             // for channel_map, calculate_rms, mux_...
+#include "compat/net.h"              // for ntohl, sockaddr_storage
+#include "compat/strings.h"          // for strcasecmp
 #include "control_socket.h"
+#include "crypto/openssl_decrypt.h"  // for openssl_decrypt_info, OPENSSL_DE...
+#include "crypto/openssl_encrypt.h"  // for openssl_mode
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"               // for new_response, msg_universal, che...
 #include "module.h"
+#include "rtp/fec.h"                 // for fec
+#include "rtp/pbuf.h"                // for pbuf_audio_data, coded_data
+#include "rtp/rtp.h"                 // for RTP_MAX_PACKET_LEN
+#include "rtp/rtp_types.h"           // for BUFNUM_BITS, audio_payload_hdr_t
 #include "tv.h"
-#include "rtp/fec.h"
-#include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
-#include "rtp/ptime.h"
-#include "rtp/pbuf.h"
-#include "rtp/audio_decoders.h"
-#include "audio/audio_playback.h"
-#include "audio/codec.h"
-#include "audio/resampler.hpp"
-#include "audio/types.h"
-#include "audio/utils.h"
-#include "crypto/crc.h"
-#include "crypto/openssl_decrypt.h"
+#include "types.h"                   // for fec_desc, fec_type
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
+#include "utils/misc.h"              // for get_stat_color
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
-
-#include <algorithm>
-#include <atomic>
-#include <cctype>
-#include <chrono>
-#include <cstring>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
 
 using std::chrono::duration_cast;
 using std::chrono::seconds;
@@ -277,7 +279,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
-                        log_msg(LOG_LEVEL_ERROR, "This " PACKAGE_NAME " version was build "
+                        log_msg(LOG_LEVEL_ERROR, "This UltraGrid version was build "
                                         "without OpenSSL support!\n");
                         delete s;
                         return NULL;
@@ -293,9 +295,9 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 if (!parse_channel_map_cfg(&s->channel_map, audio_channel_map)) {
                         goto error;
                 }
-                s->channel_remapping = TRUE;
+                s->channel_remapping = true;
         } else {
-                s->channel_remapping = FALSE;
+                s->channel_remapping = false;
                 s->channel_map.map = NULL;
                 s->channel_map.sizes = NULL;
                 s->channel_map.size = 0;
@@ -380,25 +382,30 @@ static void *adec_compute_and_print_stats(void *arg) {
         if (d->bytes_received < d->bytes_expected) {
                 loss = " (" + to_string(d->bytes_expected - d->bytes_received) + " lost)";
         }
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B%s, "
-                        "decoded %d samples in %.2f sec.\n",
-                        d->bytes_received,
-                        d->bytes_expected,
-                        loss.c_str(),
-                        d->frame.get_sample_count(),
-                        d->seconds);
 
-        using namespace std::string_literals;
-        ostringstream volume;
-        volume << fixed << setprecision(2);
+        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
+        const char  *dec_cnt_warn_col =
+            get_stat_color(d->frame.get_sample_count() / exp_samples);
+
+        MSG(INFO,
+            "Received %ld/%ld B%s, "
+            "decoded %s%d samples" TERM_RESET " in %.2f sec.\n",
+            d->bytes_received, d->bytes_expected, loss.c_str(),
+            dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
+
+        char volume[STR_LEN];
+        char       *vol_start = volume;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                volume << (i > 0 ? ", ["s : "["s) << i << "] " << SBOLD(SMAGENTA(20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0)));
+                format_audio_channel_volume(i, rms, peak,
+                                            TERM_BOLD TERM_FG_MAGENTA,
+                                            &vol_start, volume + sizeof volume);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio decoder] Volume: " << volume.str() << " dBFS RMS/peak" << (d->muted_receiver ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
+        MSG(INFO, "Volume: %s dBFS RMS/peak%s\n", volume,
+            d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 
@@ -424,6 +431,10 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
+
+        std::ostringstream oss;
+        oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
+        control_report_stats(decoder->control, oss.str());
 
         if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");
@@ -518,7 +529,7 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
                                 }
 
                                 if (!audio_decoder_reconfigure(decoder, s, received_frame, desc.ch_count, desc.bps, desc.sample_rate, audio_tag)) {
-                                        return FALSE;
+                                        return false;
                                 }
                         }
                         received_frame.replace(channel, 0, out + sizeof(audio_payload_hdr_t), out_len - sizeof(audio_payload_hdr_t));
@@ -540,13 +551,13 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         int bufnum = 0;
 
         if(!cdata) {
-                return FALSE;
+                return false;
         }
 
         if (!cdata->data->m) {
                 // skip frame without m-bit, we cannot determine number of channels
                 // (it is maximal substream number + 1 in packet with m-bit)
-                return FALSE;
+                return false;
         }
 
         DEBUG_TIMER_START(audio_decode);
@@ -570,13 +581,13 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         if(!decoder->decrypt) {
                                 log_msg(LOG_LEVEL_WARNING, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");
-                                return FALSE;
+                                return false;
                         }
                 } else if (PT_IS_AUDIO(pt) && !PT_AUDIO_IS_ENCRYPTED(pt)) {
                         if(decoder->decrypt) {
                                 log_msg(LOG_LEVEL_WARNING, "Receiving unencrypted audio data "
                                                 "while expecting encrypted.\n");
-                                return FALSE;
+                                return false;
                         }
                 } else {
                         if (pt == PT_Unassign_Type95) {
@@ -584,7 +595,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "Unknown audio packet type: %d\n", pt);
                         }
-                        return FALSE;
+                        return false;
                 }
 
                 unsigned int length;
@@ -595,7 +606,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         crypto_mode = (enum openssl_mode) (encryption_hdr >> 24);
                         if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
                                 log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
-                                return FALSE;
+                                return false;
                         }
                         char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
                                 main_hdr_len;
@@ -606,7 +617,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                         ciphertext, ciphertext_len,
                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                         plaintext, crypto_mode)) == 0) {
-                                return FALSE;
+                                return false;
                         }
                         data = plaintext;
                 } else {
@@ -649,7 +660,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         uint32_t audio_tag = ntohl(audio_hdr[4]);
 
                         if (!audio_decoder_reconfigure(decoder, s, received_frame, input_channels, bps, sample_rate, audio_tag)) {
-                                return FALSE;
+                                return false;
                         }
 
                         received_frame.replace(channel, offset, data, length);
@@ -674,21 +685,21 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         if (fec_params != 0) {
                 if (!audio_fec_decode(s, fec_data, fec_params, received_frame)) {
-                        return FALSE;
+                        return false;
                 }
         }
 
         s->frame_size = received_frame.get_data_len();
         audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
         if (!decompressed) {
-                return FALSE;
+                return false;
         }
 
         // Perform a variable rate resample if any output device has requested it
         if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
                 int resampler_bps = decoder->resampler.align_bps(decompressed.get_bps());
                 if (resampler_bps <= 0) {
-                        return FALSE;
+                        return false;
                 }
                 if (resampler_bps != decompressed.get_bps()) {
                         decompressed.change_bps(resampler_bps);
@@ -697,13 +708,13 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LLU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
-                                return FALSE;
+                                return false;
                         }
                         decoder->resample_remainder = std::move(remainder);
                 } else {
                         if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
-                                return FALSE;
+                                return false;
                         }
                 }
         }
@@ -809,7 +820,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         DEBUG_TIMER_STOP(audio_decode_compute_autoscale);
         DEBUG_TIMER_STOP(audio_decode);
         
-        return TRUE;
+        return true;
 }
 /*
  * Second version that uses external audio configuration,

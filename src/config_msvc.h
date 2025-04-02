@@ -67,8 +67,6 @@
 #define aligned_malloc _aligned_malloc
 #define aligned_free _aligned_free
 
-#define HAVE_TIMESPEC_GET 1
-
 #endif // defined _MSC_VER
 
 #endif // defined CONFIG_MSVC_H

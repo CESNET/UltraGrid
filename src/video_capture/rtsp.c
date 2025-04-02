@@ -60,6 +60,7 @@
 
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
+#include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
 #include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
@@ -72,6 +73,7 @@
 #include "rtp/rtpdec_state.h"
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
+#include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
@@ -612,7 +614,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.mcast_if = NULL;
     s->vrtsp_state.required_connections = 1;
 
-    s->vrtsp_state.participants = pdb_init(0);
+    s->vrtsp_state.participants = pdb_init("rtsp", 0);
 
     s->vrtsp_state.decode_data.offset_len = 0;
 
@@ -837,15 +839,16 @@ init_rtsp(struct rtsp_state *s) {
     }
 
     const char *range = "0.000-";
-    verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
-    verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
-    verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
+    MSG(DEBUG, "request %s\n", VERSION_STR);
+    MSG(DEBUG, "    Project web site: http://code.google.com/p/rtsprequest/\n");
+    MSG(DEBUG, "    Requires cURL V7.20 or greater\n\n");
     char Atransport[256] = "";
     char Vtransport[256] = "";
     int port = s->vrtsp_state.port;
     FILE *sdp_file = tmpfile();
+    const char *sdp_file_name = NULL;
     if (sdp_file == NULL) {
-        sdp_file = fopen("rtsp.sdp", "w+");
+        sdp_file = get_temp_file(&sdp_file_name);
         if (sdp_file == NULL) {
             perror("Creating SDP file");
             goto error;
@@ -944,6 +947,9 @@ init_rtsp(struct rtsp_state *s) {
 error:
     if(sdp_file)
             fclose(sdp_file);
+    if (sdp_file_name != NULL) {
+        unlink(sdp_file_name);
+    }
     return false;
 }
 

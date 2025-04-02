@@ -35,25 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include "gl_context.h"
 
-#include <stdio.h>
+#include <stdio.h>         // for NULL, fprintf, stderr
+#include <stdlib.h>        // for free, atoi
+#include <string.h>        // for strtok_r
 
 #ifdef __APPLE__
 #include "mac_gl_common.h"
 #elif defined __linux__
-#include "x11_common.h"
 #include "glx_common.h"
 #else // _WIN32
 #include "win32_gl_common.h"
 #endif
 
 #include "debug.h"
-#include "gl_context.h"
 #include "utils/macros.h"
 
 /**
@@ -72,14 +68,14 @@ bool init_gl_context(struct gl_context *context, int which) {
         if(which == GL_CONTEXT_ANY) {
                 debug_msg("Trying OpenGL 3.1 first.\n");
                 context->context = glx_init(MK_OPENGL_VERSION(3,1));
-                context->legacy = FALSE;
+                context->legacy = false;
         }
         if(!context->context) {
                 if(which != GL_CONTEXT_LEGACY) {
                         debug_msg("OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
                 }
                 context->context = glx_init(OPENGL_VERSION_UNSPECIFIED);
-                context->legacy = TRUE;
+                context->legacy = true;
         }
         if(context->context) {
                 glx_validate(context->context);
@@ -92,14 +88,14 @@ bool init_gl_context(struct gl_context *context, int which) {
                         if(!context->context) {
                                 debug_msg("OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
                         } else {
-                                context->legacy = FALSE;
+                                context->legacy = false;
                         }
                 }
         }
 
         if(!context->context) {
                 context->context = mac_gl_init(MAC_GL_PROFILE_LEGACY);
-                context->legacy = TRUE;
+                context->legacy = true;
         }
 #else // _WIN32
         if(which == GL_CONTEXT_ANY) {
@@ -108,7 +104,7 @@ bool init_gl_context(struct gl_context *context, int which) {
                 context->context = win32_context_init(OPENGL_VERSION_LEGACY);
         }
 
-        context->legacy = TRUE;
+        context->legacy = true;
 #endif
 
         {

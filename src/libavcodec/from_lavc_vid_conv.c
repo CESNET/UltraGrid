@@ -37,6 +37,8 @@
  */
 /**
  * @file
+ * To measure performance of conversions, use tools/benchmark_ff_convs
+ *
  * References:
  * 1. [v210](https://wiki.multimedia.cx/index.php/V210)
  *
@@ -45,6 +47,7 @@
  */
 
 #include <assert.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/hwcontext_drm.h>
 #include <stdbool.h>
@@ -52,6 +55,7 @@
 
 #include "color.h"
 #include "compat/qsort_s.h"
+#include "config.h"       // for HWACC_VDPAU
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -60,10 +64,13 @@
 #include "libavcodec/from_lavc_vid_conv_cuda.h"
 #include "libavcodec/lavc_common.h"
 #include "pixfmt_conv.h"
+#include "types.h"
+#include "utils/debug.h"  // for DEBUG_TIMER_*
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel
 #include "video.h"
+#include "video_codec.h"
 
 #ifdef __SSE3__
 #include "pmmintrin.h"
@@ -71,7 +78,7 @@
 
 #define MOD_NAME "[from_lavc_vid_conv] "
 
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x
@@ -83,21 +90,41 @@
 #define B B_SHIFT_IDX
 
 #define MK_RGBA(r, g, b, alpha_mask, depth) \
-        FORMAT_RGBA((r), (g), (b), (rgb_shift)[R], (rgb_shift)[G], \
-                    (rgb_shift)[B], (alpha_mask), (depth))
+        FORMAT_RGBA((r), (g), (b), (d.rgb_shift)[R], (d.rgb_shift)[G], \
+                    (d.rgb_shift)[B], (alpha_mask), (depth))
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
 
-static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+// prototypes
+static enum colorspace get_cs_for_conv(AVFrame *f, codec_t av_to_uv_pf,
+                                       int *lmt_rng);
+
+/// @brief data for av_to_uv conversions
+struct av_conv_data {
+        char *__restrict dst_buffer;
+        AVFrame *__restrict in_frame;
+        size_t pitch;
+        int    rgb_shift[3];
+        // currently following 2 parameters are tweaked only for input
+        // YCbCr->RGB conversion for RGB->YCbCr conversion, these should be
+        // CS_DFL and 1 always
+        enum colorspace cs_coeffs;
+        int             lmt_rng; // 0 for full-range src YCbCr, 1 otherwise
+};
+
+static void
+nv12_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < (int) height; ++y) {
                 char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 char *src_cbcr = (char *) in_frame->data[1] + in_frame->linesize[1] * (y / 2);
-                char *dst = dst_buffer + pitch * y;
+                char *dst = d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst++ = *src_cbcr++;
@@ -108,51 +135,66 @@ static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+rgb24_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         decoder_t vc_copylineRGBtoUYVY = get_decoder_from_to(RGB, UYVY);
         for (int y = 0; y < height; ++y) {
-                vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY), 0, 0, 0);
+                vc_copylineRGBtoUYVY((unsigned char *) d.dst_buffer + y * d.pitch,
+                                     frame->data[0] + y * frame->linesize[0],
+                                     vc_get_linesize(width, UYVY), 0, 0, 0);
         }
 }
 
-static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
-static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void memcpy_data(struct av_conv_data d) __attribute__((unused));
+static void
+memcpy_data(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
-        UNUSED(width);
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         for (int comp = 0; comp < AV_NUM_DATA_POINTERS; ++comp) {
                 if (frame->data[comp] == NULL) {
                         break;
                 }
                 for (int y = 0; y < height; ++y) {
-                        memcpy(dst_buffer + y * pitch, frame->data[comp] + y * frame->linesize[comp],
-                                        frame->linesize[comp]);
+                        memcpy(d.dst_buffer + y * d.pitch,
+                               frame->data[comp] + y * frame->linesize[comp],
+                               frame->linesize[comp]);
                 }
         }
 }
 
-static void rgb24_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+rgb24_to_rgb32(struct av_conv_data d)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         for (int y = 0; y < height; ++y) {
-                vc_copylineRGBtoRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                vc_get_linesize(width, RGBA), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                vc_copylineRGBtoRGBA(
+                    (unsigned char *) d.dst_buffer + y * d.pitch,
+                    frame->data[0] + y * frame->linesize[0],
+                    vc_get_linesize(width, RGBA), d.rgb_shift[0],
+                    d.rgb_shift[1], d.rgb_shift[2]);
         }
 }
 
-static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp_to_rgb(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
-        for (int y = 0; y < height; ++y) {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
 
+        for (int y = 0; y < height; ++y) {
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        uint8_t *buf = (uint8_t *) dst_buffer + y * pitch + x * 3;
+                        uint8_t *buf = (uint8_t *) d.dst_buffer + y * d.pitch + x * 3;
                         int src_idx = y * frame->linesize[0] + x;
                         buf[0] = frame->data[2][src_idx]; // R
                         buf[1] = frame->data[0][src_idx]; // G
@@ -161,38 +203,49 @@ static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame
         }
 }
 
-static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp_to_rgba(struct av_conv_data d)
 {
-        assert((uintptr_t) dst_buffer % 4 == 0);
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                              (0xFFU << d.rgb_shift[G]) ^
+                              (0xFFU << d.rgb_shift[B]);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
 
         for (int y = 0; y < height; ++y) {
-                uint32_t *line = (uint32_t *)(void *) (dst_buffer + y * pitch);
+                uint32_t *line = (void *) (d.dst_buffer + y * d.pitch);
                 int src_idx = y * frame->linesize[0];
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *line++ = alpha_mask |
-                                frame->data[2][src_idx] << rgb_shift[R] |
-                                frame->data[0][src_idx] << rgb_shift[G] |
-                                frame->data[1][src_idx] << rgb_shift[B];
+                                frame->data[2][src_idx] << d.rgb_shift[R] |
+                                frame->data[0][src_idx] << d.rgb_shift[G] |
+                                frame->data[1][src_idx] << d.rgb_shift[B];
                         src_idx += 1;
                 }
         }
 }
 
 #if defined __GNUC__
-static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, int comp_count)
+static inline void gbrap_to_rgb_rgba(struct av_conv_data d, int comp_count)
         __attribute__((always_inline));
 #endif
-static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, int comp_count)
+static inline void
+gbrap_to_rgb_rgba(struct av_conv_data d, int comp_count)
 {
-        assert(rgb_shift[R] == DEFAULT_R_SHIFT && rgb_shift[G] == DEFAULT_G_SHIFT && rgb_shift[B] == DEFAULT_B_SHIFT);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
+        assert(d.rgb_shift[R] == DEFAULT_R_SHIFT &&
+               d.rgb_shift[G] == DEFAULT_G_SHIFT &&
+               d.rgb_shift[B] == DEFAULT_B_SHIFT);
+
         for (int y = 0; y < height; ++y) {
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        uint8_t *buf = (uint8_t *) dst_buffer + y * pitch + x * comp_count;
+                        uint8_t *buf = (uint8_t *) d.dst_buffer + y * d.pitch + x * comp_count;
                         int src_idx = y * frame->linesize[0] + x;
                         buf[0] = frame->data[2][src_idx]; // R
                         buf[1] = frame->data[0][src_idx]; // G
@@ -204,36 +257,38 @@ static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __r
         }
 }
 
-static void gbrap_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrap_to_rgba(struct av_conv_data d)
 {
-        gbrap_to_rgb_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 4);
+        gbrap_to_rgb_rgba(d, 4);
 }
 
-static void gbrap_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrap_to_rgb(struct av_conv_data d)
 {
-        gbrap_to_rgb_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 3);
+        gbrap_to_rgb_rgba(d, 3);
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void gbrpXXle_to_r10k(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void
+gbrpXXle_to_r10k(struct av_conv_data d, unsigned int in_depth)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst = (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ = *src_r >> (in_depth - 8U);
@@ -244,45 +299,49 @@ static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __re
         }
 }
 
-static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp10le_to_r10k(struct av_conv_data d)
 {
-        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 10U);
+        gbrpXXle_to_r10k(d, DEPTH10);
 }
 
-static void gbrp16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp16le_to_r10k(struct av_conv_data d)
 {
-        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+        gbrpXXle_to_r10k(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
         __attribute__((always_inline));
 #endif
-static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void
+yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
                         // r g b is now on 10 bit scale
 
                         r = CLAMP_FULL(r, 10);
@@ -297,54 +356,58 @@ static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, 
         }
 }
 
-static void yuv444p10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_r10k(struct av_conv_data d)
 {
-        yuv444pXXle_to_r10k(10, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r10k(d, DEPTH10);
 }
 
-static void yuv444p12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p12le_to_r10k(struct av_conv_data d)
 {
-        yuv444pXXle_to_r10k(12, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r10k(d, DEPTH12);
 }
 
-static void yuv444p16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p16le_to_r10k(struct av_conv_data d)
 {
-        yuv444pXXle_to_r10k(16, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r10k(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
         __attribute__((always_inline));
 #endif
-static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void
+yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 for (int x = 0; x < width; x += 8) {
                         comp_type_t r[8];
                         comp_type_t g[8];
                         comp_type_t b[8];
                         OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
-                                comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
+                                comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                                 comp_type_t cr = *src_cr++ - (1<<(depth-1));
                                 comp_type_t cb = *src_cb++ - (1<<(depth-1));
-                                comp_type_t rr = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t gg = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t bb = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t rr = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t gg = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t bb = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
                                 r[j] = CLAMP_FULL(rr, 12);
                                 g[j] = CLAMP_FULL(gg, 12);
                                 b[j] = CLAMP_FULL(bb, 12);
@@ -391,52 +454,56 @@ static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, 
         }
 }
 
-static void yuv444p10le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_r12l(struct av_conv_data d)
 {
-        yuv444pXXle_to_r12l(10, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r12l(d, DEPTH10);
 }
 
-static void yuv444p12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p12le_to_r12l(struct av_conv_data d)
 {
-        yuv444pXXle_to_r12l(12, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r12l(d, DEPTH12);
 }
 
-static void yuv444p16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p16le_to_r12l(struct av_conv_data d)
 {
-        yuv444pXXle_to_r12l(16, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_r12l(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444pXXle_to_rg48(struct av_conv_data d, int depth)
         __attribute__((always_inline));
 #endif
-static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void
+yuv444pXXle_to_rg48(struct av_conv_data d, int depth)
 {
-        assert((uintptr_t) dst_buffer % 2 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
+        assert((uintptr_t) d.dst_buffer % 2 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        UNUSED(rgb_shift);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                uint16_t *dst = (uint16_t *)(void *) (dst_buffer + y * pitch);
+                uint16_t *dst =
+                    (uint16_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-16+depth);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-16+depth);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-16+depth);
                         // r g b is now on 16 bit scale
 
                         *dst++ = CLAMP_FULL(r, 16);
@@ -446,32 +513,35 @@ static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, 
         }
 }
 
-static void yuv444p10le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_rg48(struct av_conv_data d)
 {
-        yuv444pXXle_to_rg48(10, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_rg48(d, DEPTH10);
 }
 
-static void yuv444p12le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p12le_to_rg48(struct av_conv_data d)
 {
-        yuv444pXXle_to_rg48(12, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_rg48(d, DEPTH12);
 }
 
-static void yuv444p16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p16le_to_rg48(struct av_conv_data d)
 {
-        yuv444pXXle_to_rg48(16, dst_buffer, frame, width, height, pitch, rgb_shift);
+        yuv444pXXle_to_rg48(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void gbrpXXle_to_r12l(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void
+gbrpXXle_to_r12l(struct av_conv_data d, unsigned int in_depth)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
@@ -479,12 +549,12 @@ static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __re
 #undef S
 #define S(x) ((x) >> (in_depth - 12))
 
-        UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
                         dst[BYTE_SWAP(0)] = S(*src_r) & 0xff;
@@ -529,23 +599,26 @@ static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __re
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void gbrpXXle_to_rgb(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void
+gbrpXXle_to_rgb(struct av_conv_data d, unsigned int in_depth)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
-        UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + y * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ = *src_r++ >> (in_depth - 8U);
@@ -556,96 +629,107 @@ static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __res
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void gbrpXXle_to_rgba(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+static inline void
+gbrpXXle_to_rgba(struct av_conv_data d, unsigned int in_depth)
 {
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
         assert((uintptr_t) frame->data[0] % 2 == 0);
         assert((uintptr_t) frame->data[1] % 2 == 0);
         assert((uintptr_t) frame->data[2] % 2 == 0);
 
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                                    (0xFFU << d.rgb_shift[G]) ^
+                                    (0xFFU << d.rgb_shift[B]);
 
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
+                uint32_t *dst = (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst++ = alpha_mask | (*src_r++ >> (in_depth - 8U)) << rgb_shift[0] | (*src_g++ >> (in_depth - 8U)) << rgb_shift[1] |
-                                (*src_b++ >> (in_depth - 8U)) << rgb_shift[2];
+                        *dst++ =
+                            alpha_mask |
+                            (*src_r++ >> (in_depth - 8U)) << d.rgb_shift[0] |
+                            (*src_g++ >> (in_depth - 8U)) << d.rgb_shift[1] |
+                            (*src_b++ >> (in_depth - 8U)) << d.rgb_shift[2];
                 }
         }
 }
 
-static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp10le_to_rgb(struct av_conv_data d)
 {
-        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
+        gbrpXXle_to_rgb(d, DEPTH10);
 }
 
-static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp10le_to_rgba(struct av_conv_data d)
 {
-        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
+        gbrpXXle_to_rgba(d, DEPTH10);
 }
 
-static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp12le_to_r12l(struct av_conv_data d)
 {
-        gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+        gbrpXXle_to_r12l(d, DEPTH12);
 }
 
-static void gbrp12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp12le_to_r10k(struct av_conv_data d)
 {
-        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+        gbrpXXle_to_r10k(d, DEPTH12);
 }
 
-static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp12le_to_rgb(struct av_conv_data d)
 {
-        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+        gbrpXXle_to_rgb(d, DEPTH12);
 }
 
-static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp12le_to_rgba(struct av_conv_data d)
 {
-        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+        gbrpXXle_to_rgba(d, DEPTH12);
 }
 
-static void gbrp16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp16le_to_r12l(struct av_conv_data d)
 {
-        gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+        gbrpXXle_to_r12l(d, DEPTH16);
 }
 
-static void gbrp16le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp16le_to_rgb(struct av_conv_data d)
 {
-        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+        gbrpXXle_to_rgb(d, DEPTH16);
 }
 
-static void gbrp16le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp16le_to_rgba(struct av_conv_data d)
 {
-        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+        gbrpXXle_to_rgba(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, unsigned int in_depth)
+static inline void gbrpXXle_to_rg48(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, unsigned int in_depth)
+static inline void
+gbrpXXle_to_rg48(struct av_conv_data d, unsigned int in_depth)
 {
-        assert((uintptr_t) dst_buffer % 2 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
+        assert((uintptr_t) d.dst_buffer % 2 == 0);
         assert((uintptr_t) frame->data[0] % 2 == 0);
         assert((uintptr_t) frame->data[1] % 2 == 0);
         assert((uintptr_t) frame->data[2] % 2 == 0);
@@ -654,7 +738,7 @@ static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __re
                 uint16_t *src_g = (void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (void *) (frame->data[2] + frame->linesize[2] * y);
-                uint16_t *dst = (void *) (dst_buffer + y * pitch);
+                uint16_t *dst = (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ = *src_r++ << (16U - in_depth);
@@ -664,52 +748,66 @@ static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __re
         }
 }
 
-static void gbrp10le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp10le_to_rg48(struct av_conv_data d)
 {
-        (void) rgb_shift;
-        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 10);
+        gbrpXXle_to_rg48(d, DEPTH10);
 }
 
-static void gbrp12le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp12le_to_rg48(struct av_conv_data d)
 {
-        (void) rgb_shift;
-        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 12);
+        gbrpXXle_to_rg48(d, DEPTH12);
 }
 
-static void gbrp16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+gbrp16le_to_rg48(struct av_conv_data d)
 {
-        (void) rgb_shift;
-        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 16);
+        gbrpXXle_to_rg48(d, DEPTH16);
 }
 
-static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+rgb48le_to_rgba(struct av_conv_data d)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         decoder_t vc_copylineRG48toRGBA = get_decoder_from_to(RG48, RGBA);
         for (int y = 0; y < height; ++y) {
-                vc_copylineRG48toRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                vc_get_linesize(width, RGBA), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                vc_copylineRG48toRGBA(
+                    (unsigned char *) d.dst_buffer + y * d.pitch,
+                    frame->data[0] + y * frame->linesize[0],
+                    vc_get_linesize(width, RGBA), d.rgb_shift[0],
+                    d.rgb_shift[1], d.rgb_shift[2]);
         }
 }
 
-static void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+rgb48le_to_r12l(struct av_conv_data d)
 {
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
         decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L);
 
         for (int y = 0; y < height; ++y) {
-                vc_copylineRG48toR12L((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                vc_get_linesize(width, R12L), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                vc_copylineRG48toR12L(
+                    (unsigned char *) d.dst_buffer + y * d.pitch,
+                    frame->data[0] + y * frame->linesize[0],
+                    vc_get_linesize(width, R12L), d.rgb_shift[0],
+                    d.rgb_shift[1], d.rgb_shift[2]);
         }
 }
 
-static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv420p_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < (height + 1) / 2; ++y) {
                 int scnd_row = y * 2 + 1;
                 if (scnd_row == height) {
@@ -719,8 +817,8 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                 char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * scnd_row;
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst1 = dst_buffer + (y * 2) * pitch;
-                char *dst2 = dst_buffer + scnd_row * pitch;
+                char *dst1 = d.dst_buffer + (y * 2) * d.pitch;
+                char *dst2 = d.dst_buffer + scnd_row * d.pitch;
 
                 int x = 0;
 
@@ -808,17 +906,22 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv420p_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height / 2; ++y) {
                 uint8_t *src_y1 = (in_frame->data[0] + in_frame->linesize[0] * y * 2);
                 uint8_t *src_y2 = (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
                 uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
                 uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
-                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+                uint32_t *dst1 =
+                    (uint32_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
+                uint32_t *dst2 =
+                    (uint32_t *) (void *) (d.dst_buffer + (y * 2 + 1) * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -871,15 +974,18 @@ static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-static void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv422p_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst = dst_buffer + pitch * y;
+                char *dst = d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst++ = *src_cb++;
@@ -890,15 +996,19 @@ static void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-static void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv422p_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint8_t *src_y = (in_frame->data[0] + in_frame->linesize[0] * y);
                 uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
                 uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -927,15 +1037,18 @@ static void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst = dst_buffer + pitch * y;
+                char *dst = d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst++ = (*src_cb + *(src_cb + 1)) / 2;
@@ -948,15 +1061,19 @@ static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p16le_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y + 1;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y + 1;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y + 1;
-                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst++ = (*src_cb + *(src_cb + 2)) / 2;
@@ -971,15 +1088,19 @@ static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint8_t *src_y = (in_frame->data[0] + in_frame->linesize[0] * y);
                 uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
                 uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -1019,29 +1140,39 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 #if defined __GNUC__
-static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void nv12_to_rgb(struct av_conv_data d, bool rgba)
         __attribute__((always_inline));
 #endif
-static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void
+nv12_to_rgb(struct av_conv_data d, bool rgba)
 {
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
 
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        enum {
+                S_DEPTH = 8,
+        };
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
+
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                                    (0xFFU << d.rgb_shift[G]) ^
+                                    (0xFFU << d.rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cbcr = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y / 2);
-                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cbcr++ - 128;
                         comp_type_t cr = *src_cbcr++ - 128;
-                        comp_type_t y = (*src_y++ - 16) * Y_SCALE;
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
+                        comp_type_t y = (*src_y++ - 16) * cfs.y_scale;
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1051,7 +1182,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                                 *dst++ = CLAMP_FULL(b, 8);
                         }
 
-                        y = (*src_y++ - 16) * Y_SCALE;
+                        y = (*src_y++ - 16) * cfs.y_scale;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1064,36 +1195,43 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
         }
 }
 
-static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void nv12_to_rgb24(struct av_conv_data d)
 {
-        nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        nv12_to_rgb(d, false);
 }
 
-static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void nv12_to_rgb32(struct av_conv_data d)
 {
-        nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        nv12_to_rgb(d, true);
 }
 
 #if defined __GNUC__
-static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba) __attribute__((always_inline));
+static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgba) __attribute__((always_inline));
 #endif
 /**
  * Changes pixel format from planar 8-bit 422 and 420 YUV to packed RGB/A.
- * Color space is assumed ITU-T Rec. 709 limited range.
  */
-static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void yuv8p_to_rgb(struct av_conv_data d, int subsampling, bool rgba)
 {
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        enum {
+                S_DEPTH = 8,
+        };
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                              (0xFFU << d.rgb_shift[G]) ^
+                              (0xFFU << d.rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
-                unsigned char *dst1 = (unsigned char *) dst_buffer + pitch * (y * 2);
-                unsigned char *dst2 = (unsigned char *) dst_buffer + pitch * (y * 2 + 1);
+                unsigned char *dst1 =
+                    (unsigned char *) d.dst_buffer + d.pitch * (y * 2);
+                unsigned char *dst2 =
+                    (unsigned char *) d.dst_buffer + d.pitch * (y * 2 + 1);
 
                 unsigned char *src_cb1 = NULL;
                 unsigned char *src_cr1 = NULL;
@@ -1126,90 +1264,99 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cb1++ - 128;
                         comp_type_t cr = *src_cr1++ - 128;
-                        comp_type_t y = (*src_y1++ - 16) * Y_SCALE;
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
+                        comp_type_t y = (*src_y1++ - 16) * cfs.y_scale;
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
-                        y = (*src_y1++ - 16) * Y_SCALE;
-                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
+                        y = (*src_y1++ - 16) * cfs.y_scale;
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         if (subsampling == 422) {
                                 cb = *src_cb2++ - 128;
                                 cr = *src_cr2++ - 128;
                         }
-                        y = (*src_y2++ - 16) * Y_SCALE;
-                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
+                        y = (*src_y2++ - 16) * cfs.y_scale;
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
-                        y = (*src_y2++ - 16) * Y_SCALE;
-                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
-                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
-                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
+                        y = (*src_y2++ - 16) * cfs.y_scale;
+                        r = YCBCR_TO_R(cfs, y, cb, cr);
+                        g = YCBCR_TO_G(cfs, y, cb, cr);
+                        b = YCBCR_TO_B(cfs, y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
 }
 
-static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv420p_to_rgb24(struct av_conv_data d)
 {
-        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv8p_to_rgb(d, 420, false);
 }
 
-static void yuv420p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv420p_to_rgb32(struct av_conv_data d)
 {
-        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv8p_to_rgb(d, 420, true);
 }
 
-static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv422p_to_rgb24(struct av_conv_data d)
 {
-        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv8p_to_rgb(d, 422, false);
 }
 
-static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv422p_to_rgb32(struct av_conv_data d)
 {
-        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv8p_to_rgb(d, 422, true);
 }
-
 
 /**
  * Changes pixel format from planar YUV 444 to packed RGB/A.
  */
 #if defined __GNUC__
-static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void yuv444p_to_rgb(struct av_conv_data d, bool rgba)
         __attribute__((always_inline));
 #endif
-static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void
+yuv444p_to_rgb(struct av_conv_data d, bool rgba)
 {
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
 
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        enum {
+                S_DEPTH = 8,
+        };
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
+
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                              (0xFFU << d.rgb_shift[G]) ^
+                              (0xFFU << d.rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + d.pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
-                        int y = *src_y++ * Y_SCALE;
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
+                        int y = *src_y++ * cfs.y_scale;
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> COMP_BASE;
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> COMP_BASE;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1222,29 +1369,34 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
         }
 }
 
-static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p_to_rgb24(struct av_conv_data d)
 {
-        yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv444p_to_rgb(d, false);
 }
 
-static void yuv444p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p_to_rgb32(struct av_conv_data d)
 {
-        yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv444p_to_rgb(d, true);
 }
 
-static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv420p10le_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height / 2; ++y) {
                 uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
                 uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
-                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+                uint32_t *dst1 =
+                    (uint32_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
+                uint32_t *dst2 = (uint32_t *) (void *) (d.dst_buffer +
+                                                        (y * 2 + 1) * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -1297,15 +1449,19 @@ static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv422p10le_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -1335,19 +1491,21 @@ static void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 #if defined __GNUC__
-static inline void yuv444p1Xle_to_v210(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444p1Xle_to_v210(struct av_conv_data d, int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void yuv444p1Xle_to_v210(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444p1Xle_to_v210(struct av_conv_data d, int in_depth)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -1382,32 +1540,39 @@ static inline void yuv444p1Xle_to_v210(unsigned in_depth, char * __restrict dst_
         }
 }
 
-static void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) {
-        yuv444p1Xle_to_v210(10, dst_buffer, in_frame, width, height, pitch, rgb_shift);
-}
-
-static void yuv444p12le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) {
-        yuv444p1Xle_to_v210(12, dst_buffer, in_frame, width, height, pitch, rgb_shift);
-}
-
-static void yuv444p16le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) {
-        yuv444p1Xle_to_v210(16, dst_buffer, in_frame, width, height, pitch, rgb_shift);
-}
-
-static void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        yuv444p1Xle_to_v210(d, DEPTH10);
+}
+
+static void
+yuv444p12le_to_v210(struct av_conv_data d)
+{
+        yuv444p1Xle_to_v210(d, DEPTH12);
+}
+
+static void
+yuv444p16le_to_v210(struct av_conv_data d)
+{
+        yuv444p1Xle_to_v210(d, DEPTH16);
+}
+
+static void yuv420p10le_to_uyvy(struct av_conv_data d)
+{
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height / 2; ++y) {
                 uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
                 uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst1 = (uint8_t *)(void *)(dst_buffer + (y * 2) * pitch);
-                uint8_t *dst2 = (uint8_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+                uint8_t *dst1 =
+                    (uint8_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
+                uint8_t *dst2 =
+                    (uint8_t *) (void *) (d.dst_buffer + (y * 2 + 1) * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         uint8_t tmp;
@@ -1429,15 +1594,18 @@ static void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void yuv422p10le_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 for(int x = 0; x < width / 2; ++x) {
                         *dst++ = *src_cb++ >> 2;
@@ -1449,19 +1617,22 @@ static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 #if defined __GNUC__
-static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444p1Xle_to_uyvy(struct av_conv_data d, int in_depth)
         __attribute__((always_inline));
 #endif
-static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void
+yuv444p1Xle_to_uyvy(struct av_conv_data d, int in_depth)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < (int) height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst++ = (src_cb[0] + src_cb[1] + 1) / 2 >> (in_depth - 8U);
@@ -1474,36 +1645,38 @@ static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_
         }
 }
 
-static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_uyvy(struct av_conv_data d)
 {
-        yuv444p1Xle_to_uyvy(10, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        yuv444p1Xle_to_uyvy(d, DEPTH10);
 }
 
-static void yuv444p12le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void yuv444p12le_to_uyvy(struct av_conv_data d)
 {
-        yuv444p1Xle_to_uyvy(12, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        yuv444p1Xle_to_uyvy(d, DEPTH12);
 }
 
 #if defined __GNUC__
-static inline void yuv444p1Xle_to_y416(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static inline void yuv444p1Xle_to_y416(struct av_conv_data d, int in_depth)
         __attribute__((always_inline));
 #endif
-static void yuv444p1Xle_to_y416(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p1Xle_to_y416(struct av_conv_data d, int in_depth)
 {
-        assert((uintptr_t) dst_buffer % 2 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        assert((uintptr_t) d.dst_buffer % 2 == 0);
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
         assert((uintptr_t) in_frame->data[1] % 2 == 0);
         assert((uintptr_t) in_frame->data[2] % 2 == 0);
-        UNUSED(rgb_shift);
         for(int y = 0; y < (int) height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint16_t *dst = (uint16_t *)(void *)(dst_buffer + y * pitch);
+                uint16_t *dst =
+                    (uint16_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ = *src_cb++ << (16U - in_depth); // U
@@ -1514,40 +1687,52 @@ static void yuv444p1Xle_to_y416(unsigned in_depth, char * __restrict dst_buffer,
         }
 }
 
-static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_y416(struct av_conv_data d)
 {
-        yuv444p1Xle_to_y416(10, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        yuv444p1Xle_to_y416(d, DEPTH10);
 }
 
-static void yuv444p12le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p12le_to_y416(struct av_conv_data d)
 {
-        yuv444p1Xle_to_y416(12, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        yuv444p1Xle_to_y416(d, DEPTH12);
 }
 
-static void yuv444p16le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p16le_to_y416(struct av_conv_data d)
 {
-        yuv444p1Xle_to_y416(16, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        yuv444p1Xle_to_y416(d, DEPTH16);
 }
 
 #if defined __GNUC__
-static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth) __attribute__((always_inline));
+static inline void yuvp10le_to_rgb(struct av_conv_data d, int subsampling,
+                                   int out_bit_depth)
+    __attribute__((always_inline));
 #endif
-static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth)
+static inline void
+yuvp10le_to_rgb(struct av_conv_data d, int subsampling, int out_bit_depth)
 {
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *frame = d.in_frame;
+
+        enum {
+                S_DEPTH = 10,
+        };
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
         assert(subsampling == 422 || subsampling == 420);
         assert(out_bit_depth == 24 || out_bit_depth == 30 || out_bit_depth == 32);
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                                    (0xFFU << d.rgb_shift[G]) ^
+                                    (0xFFU << d.rgb_shift[B]);
         const int bpp = out_bit_depth == 30 ? 10 : 8;
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for (int y = 0; y < height / 2; ++y) {
                 uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
@@ -1565,15 +1750,17 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                         src_cr1 = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * (2 * y));
                         src_cr2 = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * (2 * y + 1));
                 }
-                unsigned char *dst1 = (unsigned char *) dst_buffer + (2 * y) * pitch;
-                unsigned char *dst2 = (unsigned char *) dst_buffer + (2 * y + 1) * pitch;
+                unsigned char *dst1 =
+                    (unsigned char *) d.dst_buffer + (2 * y) * d.pitch;
+                unsigned char *dst2 =
+                    (unsigned char *) d.dst_buffer + (2 * y + 1) * d.pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cr = *src_cr1++ - (1<<9);
                         comp_type_t cb = *src_cb1++ - (1<<9);
-                        comp_type_t rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                        comp_type_t gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                        comp_type_t bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t rr = YCBCR_TO_R(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t gg = YCBCR_TO_G(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t bb = YCBCR_TO_B(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
 
 #                       define WRITE_RES_YUV10P_TO_RGB(Y, DST) {\
                                 comp_type_t r = Y + rr;\
@@ -1583,7 +1770,10 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 g = CLAMP_FULL(g, bpp);\
                                 b = CLAMP_FULL(b, bpp);\
                                 if (out_bit_depth == 32) {\
-                                        *((uint32_t *)(void *) DST) = alpha_mask | (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
+                                        *((uint32_t *) (void *) (DST)) = \
+                                            alpha_mask | (r << d.rgb_shift[R] |\
+                                            g << d.rgb_shift[G] | \
+                                            b << d.rgb_shift[B]); \
                                         DST += 4;\
                                 } else if (out_bit_depth == 24) {\
                                         *DST++ = r;\
@@ -1596,24 +1786,24 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 }\
                         }
 
-                        comp_type_t y1 = (Y_SCALE * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y1 = (cfs.y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y1, dst1)
 
-                        comp_type_t y11 = (Y_SCALE * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y11 = (cfs.y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y11, dst1)
 
                         if (subsampling == 422) {
                                 cr = *src_cr2++ - (1<<9);
                                 cb = *src_cb2++ - (1<<9);
-                                rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                                gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
-                                bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                rr = YCBCR_TO_R(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                gg = YCBCR_TO_G(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                bb = YCBCR_TO_B(cfs, 0, cb, cr) >> (COMP_BASE + (10 - bpp));
                         }
 
-                        comp_type_t y2 = (Y_SCALE * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y2 = (cfs.y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y2, dst2)
 
-                        comp_type_t y22 = (Y_SCALE * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y22 = (cfs.y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y22, dst2)
                 }
         }
@@ -1621,10 +1811,12 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
 
 #define MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth) yuv ## subs ## p10le_to_rgb ## out_bit_depth
 
-#define MAKE_YUV_TO_RGB_FUNCTION(subs, out_bit_depth) static void MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth)(char * __restrict dst_buffer, AVFrame * __restrict in_frame,\
-                int width, int height, int pitch, const int * __restrict rgb_shift) {\
-        yuvp10le_to_rgb(subs, dst_buffer, in_frame, width, height, pitch, rgb_shift, out_bit_depth);\
-}
+#define MAKE_YUV_TO_RGB_FUNCTION(subs, out_bit_depth) \
+        static void MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth)( \
+            struct av_conv_data d) \
+        { \
+                yuvp10le_to_rgb(d, subs, out_bit_depth); \
+        }
 
 MAKE_YUV_TO_RGB_FUNCTION(420, 24)
 MAKE_YUV_TO_RGB_FUNCTION(420, 30)
@@ -1634,28 +1826,42 @@ MAKE_YUV_TO_RGB_FUNCTION(422, 30)
 MAKE_YUV_TO_RGB_FUNCTION(422, 32)
 
 #if defined __GNUC__
-static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
         __attribute__((always_inline));
 #endif
-static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+static inline void
+yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
 {
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        enum {
+                S_DEPTH = 10,
+        };
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
+                                    (0xFFU << d.rgb_shift[G]) ^
+                                    (0xFFU << d.rgb_shift[B]);
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
 
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t cb = (*src_cb++ >> 2) - 128;
-                        comp_type_t cr = (*src_cr++ >> 2) - 128;
-                        comp_type_t y = (*src_y++ >> 2) * Y_SCALE;
-                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
-                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
+                        comp_type_t cb = *src_cb++ - (1 << (S_DEPTH - 1));
+                        comp_type_t cr = *src_cr++ - (1 << (S_DEPTH - 1));
+                        comp_type_t y =
+                            (*src_y++ - (1 << (S_DEPTH - 4))) * cfs.y_scale;
+                        comp_type_t r =
+                            YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t g =
+                            YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t b =
+                            YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE + 2);
                         if (rgba) {
                                 *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
@@ -1668,30 +1874,34 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
         }
 }
 
-static void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_rgb24(struct av_conv_data d)
 {
-        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv444p10le_to_rgb(d, false);
 }
 
-static void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+yuv444p10le_to_rgb32(struct av_conv_data d)
 {
-        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv444p10le_to_rgb(d, true);
 }
 
 #if P210_PRESENT
-static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+p210le_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
         assert((uintptr_t) in_frame->data[1] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0 = *src_cbcr >> 6; // Cb0
@@ -1725,19 +1935,24 @@ static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
 }
 #endif
 
-static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+p010le_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
         assert((uintptr_t) in_frame->data[1] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0 && d.pitch % 4 == 0);
         for(int y = 0; y < height / 2; ++y) {
                 uint16_t *src_y1 = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y * 2);
                 uint16_t *src_y2 = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
                 uint16_t *src_cbcr = (uint16_t *)(void *) (in_frame->data[1] + in_frame->linesize[1] * y);
-                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
-                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+                uint32_t *dst1 =
+                    (uint32_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
+                uint32_t *dst2 = (uint32_t *) (void *) (d.dst_buffer +
+                                                        (y * 2 + 1) * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -1790,16 +2005,21 @@ static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
-static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+p010le_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height / 2; ++y) {
                 uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
                 uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
                 uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint8_t *dst1 = (uint8_t *)(void *)(dst_buffer + (y * 2) * pitch);
-                uint8_t *dst2 = (uint8_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+                uint8_t *dst1 =
+                    (uint8_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
+                uint8_t *dst2 =
+                    (uint8_t *) (void *) (d.dst_buffer + (y * 2 + 1) * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         uint8_t tmp;
@@ -1822,16 +2042,20 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
 }
 
 #if P210_PRESENT
-static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+p210le_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
         assert((uintptr_t) in_frame->data[1] % 2 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         *dst = *src_cbcr++ >> 8;
@@ -1844,14 +2068,16 @@ static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
 #endif
 
 #if XV3X_PRESENT
-static void xv30_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void xv30_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 4 == 0);
         for (ptrdiff_t y = 0; y < height; ++y) {
                 uint32_t *src = (void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint8_t *dst = (void *)(dst_buffer + y * pitch);
+                uint8_t *dst = (void *) (d.dst_buffer + y * d.pitch);
                 int x = 0;
                 OPTIMIZED_FOR ( ; x < width - 1; x += 2) {
                         uint32_t in1 = *src++;
@@ -1871,15 +2097,19 @@ static void xv30_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+xv30_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 4 == 0);
-        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0 && d.pitch % 4 == 0);
         for(int y = 0; y < height; ++y) {
                 uint32_t *src = (uint32_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
 #define FETCH_IN \
                 in0 = *src++; \
@@ -1907,15 +2137,18 @@ static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
 #undef FETCH_IN
 }
 
-static void xv30_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+xv30_to_y416(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 4 == 0);
-        assert((uintptr_t) dst_buffer % 2 == 0 && pitch % 2 == 0);
+        assert((uintptr_t) d.dst_buffer % 2 == 0 && d.pitch % 2 == 0);
         for (ptrdiff_t y = 0; y < height; ++y) {
                 uint32_t *src = (void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *dst = (void *)(dst_buffer + y * pitch);
+                uint16_t *dst = (void *)(d.dst_buffer + y * d.pitch);
                 OPTIMIZED_FOR (int x = 0; x < width; x += 1) {
                         uint32_t in = *src++;
                         *dst++ = (in & 0x3FFU) << 6U;
@@ -1928,15 +2161,18 @@ static void xv30_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_f
 #endif // XV3X_PRESENT
 
 #if Y210_PRESENT
-static void y210_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void y210_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0 && d.pitch % 4 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 // Y210 is like YUYV but with 10-bit in high bits of 16-bit container
 #define FETCH_IN \
@@ -1963,15 +2199,18 @@ static void y210_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
 #undef FETCH_IN
 }
 
-static void y210_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void
+y210_to_y416(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 2 == 0 && pitch % 2 == 0);
+        assert((uintptr_t) d.dst_buffer % 2 == 0 && d.pitch % 2 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src = (void *) (in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *dst = (void *) (dst_buffer + y * pitch);
+                uint16_t *dst = (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < (width + 1) / 2; ++x) {
                         unsigned y0, u, y1, v;
@@ -1992,13 +2231,15 @@ static void y210_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-static void y210_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void y210_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint8_t *src = (void *) (in_frame->data[0] + in_frame->linesize[0] * y);
-                uint8_t *dst = (void *) (dst_buffer + y * pitch);
+                uint8_t *dst = (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < (width + 1) / 2; ++x) {
                         unsigned y0, u, y1, v;
@@ -2018,21 +2259,15 @@ static void y210_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
 #endif // Y210_PRESENT
 
 #ifdef HWACC_VDPAU
-static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void av_vdpau_to_ug_vdpau(struct av_conv_data d)
 {
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(pitch);
-        UNUSED(rgb_shift);
+        struct video_frame_callbacks *callbacks = d.in_frame->opaque;
 
-        struct video_frame_callbacks *callbacks = in_frame->opaque;
-
-        hw_vdpau_frame *out = (hw_vdpau_frame *)(void *) dst_buffer;
+        hw_vdpau_frame *out = (hw_vdpau_frame *)(void *) d.dst_buffer;
 
         hw_vdpau_frame_init(out);
 
-        hw_vdpau_frame_from_avframe(out, in_frame);
+        hw_vdpau_frame_from_avframe(out, d.in_frame);
 
         callbacks->recycle = hw_vdpau_recycle_callback; 
         callbacks->copy = hw_vdpau_copy_callback; 
@@ -2049,17 +2284,14 @@ static void hw_drm_recycle_callback(struct video_frame *frame){
         frame->callbacks.recycle = NULL;
 }
 
-static void av_drm_prime_to_ug_drm_prime(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void av_drm_prime_to_ug_drm_prime(struct av_conv_data d)
 {
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(pitch);
-        UNUSED(rgb_shift);
+        const AVFrame *in_frame = d.in_frame;
 
         struct video_frame_callbacks *callbacks = in_frame->opaque;
 
-        struct drm_prime_frame *out = (struct drm_prime_frame *)(void *) dst_buffer;
+        struct drm_prime_frame *out =
+            (struct drm_prime_frame *) (void *) d.dst_buffer;
         memset(out, 0, sizeof(struct drm_prime_frame));
 
 
@@ -2084,16 +2316,19 @@ static void av_drm_prime_to_ug_drm_prime(char * __restrict dst_buffer, AVFrame *
         }
 
         out->av_frame = av_frame_clone(in_frame);
-        callbacks->recycle = hw_drm_recycle_callback; 
+        callbacks->recycle = hw_drm_recycle_callback;
 }
 
-static void ayuv64_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void ayuv64_to_uyvy(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for(int y = 0; y < height; ++y) {
                 uint8_t *src = (uint8_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < ((width + 1) & ~1); ++x) {
                         *dst++ = (src[1] + src[9] / 2);  // U
@@ -2104,15 +2339,18 @@ static void ayuv64_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
-static void ayuv64_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void ayuv64_to_y416(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 2 == 0);
+        assert((uintptr_t) d.dst_buffer % 2 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *dst = (uint16_t *)(void *)(dst_buffer + y * pitch);
+                uint16_t *dst =
+                    (uint16_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ = src[2]; // U
@@ -2124,15 +2362,18 @@ static void ayuv64_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
-static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void ayuv64_to_v210(struct av_conv_data d)
 {
-        UNUSED(rgb_shift);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         assert((uintptr_t) in_frame->data[0] % 2 == 0);
-        assert((uintptr_t) dst_buffer % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.dst_buffer + y * d.pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
                         uint32_t w;
@@ -2163,15 +2404,17 @@ static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
-static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
-static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift)
+static void vuya_to_uyvy(struct av_conv_data d) __attribute__((unused));
+static void
+vuya_to_uyvy(struct av_conv_data d)
 {
-        (void) rgb_shift;
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
         for (ptrdiff_t y = 0; y < height; ++y) {
                 unsigned char *src = in_frame->data[0] + in_frame->linesize[0] * y;
-                unsigned char *dst = (void *) (dst_buffer + pitch * y);
+                unsigned char *dst = (void *) (d.dst_buffer + d.pitch * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; x += 1) {
                         *dst++ = (src[1] + src[5] + 1U) >> 1U;
@@ -2190,17 +2433,19 @@ static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
 }
 
 #if defined __GNUC__
-static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, bool use_alpha)
+static inline void vuyax_to_y416(struct av_conv_data d, bool use_alpha)
         __attribute__((always_inline));
 #endif
-static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, bool use_alpha)
+static inline void vuyax_to_y416(struct av_conv_data d, bool use_alpha)
 {
-        assert((uintptr_t) dst_buffer % 2 == 0);
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        assert((uintptr_t) d.dst_buffer % 2 == 0);
         for (ptrdiff_t y = 0; y < height; ++y) {
                 unsigned char *src = in_frame->data[0] + in_frame->linesize[0] * y;
-                uint16_t *dst = (void *) (dst_buffer + pitch * y);
+                uint16_t *dst = (void *) (d.dst_buffer + d.pitch * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 1) {
                         *dst++ = src[1] << 8U;
@@ -2211,27 +2456,22 @@ static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restr
                 }
         }
 }
-static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
-static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) {
-        (void) rgb_shift;
-        vuyax_to_y416(dst_buffer, in_frame, width, height, pitch, true);
+static void vuya_to_y416(struct av_conv_data d) __attribute__((unused));
+static void vuya_to_y416(struct av_conv_data d) {
+        vuyax_to_y416(d, true);
 }
-static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
-static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) {
-        (void) rgb_shift;
-        vuyax_to_y416(dst_buffer, in_frame, width, height, pitch, false);
+static void vuyx_to_y416(struct av_conv_data d) __attribute__((unused));
+static void vuyx_to_y416(struct av_conv_data d) {
+        vuyax_to_y416(d, false);
 }
 
-typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
+typedef void av_to_uv_convert_f(struct av_conv_data d);
 typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
 struct av_to_uv_convert_state {
         av_to_uv_convert_fp convert;
-        codec_t src_pixfmt;
+        codec_t src_pixfmt; ///< after av_to_uv conversion (intermediate);
+                            ///< VC_NONE if no further conversion needed
         codec_t dst_pixfmt;
         decoder_t dec;
         struct av_to_uv_convert_cuda *cuda_conv_state;
@@ -2432,7 +2672,7 @@ av_to_uv_conversion_destroy(av_to_uv_convert_t **s)
 }
 
 static bool
-cuda_conv_enabled()
+from_lavc_cuda_conv_enabled()
 {
         if (!cuda_devices_explicit) {
                 return false;
@@ -2462,11 +2702,13 @@ get_first_supported_cuda(const enum AVPixelFormat *fmts)
         return AV_PIX_FMT_NONE;
 }
 
-av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+static av_to_uv_convert_t *
+get_av_to_uv_conversion_int(int av_codec, codec_t uv_codec)
+{
         av_to_uv_convert_t *ret = calloc(1, sizeof *ret);
         ret->dst_pixfmt = uv_codec;
 
-        if (cuda_conv_enabled()) {
+        if (from_lavc_cuda_conv_enabled()) {
                 enum AVPixelFormat f[2] = { av_codec, AV_PIX_FMT_NONE };
                 if (get_first_supported_cuda(f) != AV_PIX_FMT_NONE) {
                         ret->cuda_conv_state =
@@ -2520,6 +2762,17 @@ av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
         watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
 
+        return ret;
+}
+
+av_to_uv_convert_t *
+get_av_to_uv_conversion(int av_codec, codec_t uv_codec)
+{
+        av_to_uv_convert_t *ret =
+            get_av_to_uv_conversion_int(av_codec, uv_codec);
+        MSG(VERBOSE, "converting %s to %s over %s\n",
+            av_get_pix_fmt_name(av_codec), get_codec_name(ret->dst_pixfmt),
+            get_codec_name(ret->src_pixfmt));
         return ret;
 }
 
@@ -2609,7 +2862,7 @@ probe_cuda_ug_to_av(const enum AVPixelFormat *fmts)
 }
 
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel) {
-        if (cuda_conv_enabled() && probe_cuda_ug_to_av(fmt) != VC_NONE) {
+        if (from_lavc_cuda_conv_enabled() && probe_cuda_ug_to_av(fmt) != VC_NONE) {
                 return probe_cuda_ug_to_av(fmt);
         }
         codec_t c = VIDEO_CODEC_NONE;
@@ -2618,7 +2871,7 @@ codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel)
 }
 
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel) {
-        if (cuda_conv_enabled() &&
+        if (from_lavc_cuda_conv_enabled() &&
             get_first_supported_cuda(fmt) != AV_PIX_FMT_NONE) {
                 return get_first_supported_cuda(fmt);
         }
@@ -2670,32 +2923,51 @@ pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t **av_conv)
 
 static void
 do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
-                 AVFrame *__restrict in_frame, int width, int height, int pitch,
-                 const int *__restrict rgb_shift)
+                    AVFrame *__restrict inf, int                     pitch,
+                    const int *__restrict rgb_shift)
 {
-        unsigned char *dec_input = in_frame->data[0];
-        size_t src_linesize = in_frame->linesize[0];
+        int lmt_rng = 1; // 0 if src YCbCr is full-range (aka JPEG), 1 otherwise
+        const codec_t av_to_uv_pf = s->src_pixfmt != VC_NONE
+                                        ? s->src_pixfmt
+                                        : s->dst_pixfmt;
+        const enum colorspace cs_coeffs = get_cs_for_conv(
+            inf, av_to_uv_pf, &lmt_rng);
+
+        unsigned char *dec_input = inf->data[0];
+        size_t src_linesize = inf->linesize[0];
         unsigned char *tmp = NULL;
         if (s->convert) {
                 DEBUG_TIMER_START(lavd_av_to_uv);
                 if (!s->dec) {
-                        s->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+                        s->convert((struct av_conv_data){
+                            dst_buffer,
+                            inf,
+                            pitch,
+                            { rgb_shift[0], rgb_shift[1], rgb_shift[2] },
+                            cs_coeffs,
+                            lmt_rng,
+                        });
                         DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
                 }
-                src_linesize = vc_get_linesize(width, s->src_pixfmt);
+                src_linesize = vc_get_linesize(inf->width, s->src_pixfmt);
                 dec_input = tmp = malloc(
-                    vc_get_datalen(width, height, s->src_pixfmt) + MAX_PADDING);
-                int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT,
-                                            DEFAULT_B_SHIFT };
-                s->convert((char *) dec_input, in_frame, width, height,
-                           src_linesize, default_rgb_shift);
+                    vc_get_datalen(inf->width, inf->height, s->src_pixfmt) +
+                    MAX_PADDING);
+                s->convert((struct av_conv_data){
+                    (char *) dec_input,
+                    inf,
+                    src_linesize,
+                    DEFAULT_RGB_SHIFT_INIT,
+                    cs_coeffs,
+                    lmt_rng,
+                });
                 DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
         if (s->dec) {
                 DEBUG_TIMER_START(lavd_dec);
-                int dst_size = vc_get_size(width, s->dst_pixfmt);
-                for (ptrdiff_t i = 0; i < height; ++i) {
+                int dst_size = vc_get_size(inf->width, s->dst_pixfmt);
+                for (ptrdiff_t i = 0; i < inf->height; ++i) {
                         s->dec((unsigned char *) dst_buffer + i * pitch,
                                dec_input + i * src_linesize, dst_size,
                                rgb_shift[0], rgb_shift[1], rgb_shift[2]);
@@ -2706,9 +2978,9 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
         }
 
         // memcpy only
-        int linesize = vc_get_linesize(width, s->dst_pixfmt);
-        for (ptrdiff_t i = 0; i < height; ++i) {
-                memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
+        int linesize = vc_get_linesize(inf->width, s->dst_pixfmt);
+        for (ptrdiff_t i = 0; i < inf->height; ++i) {
+                memcpy(dst_buffer + i * pitch, inf->data[0] + i * inf->linesize[0], linesize);
         }
 }
 
@@ -2716,8 +2988,6 @@ struct convert_task_data {
         const av_to_uv_convert_t *convert;
         unsigned char            *out_data;
         AVFrame                  *in_frame;
-        int                       width;
-        int                       height;
         int                       pitch;
         const int                *rgb_shift;
 };
@@ -2727,24 +2997,88 @@ convert_task(void *arg)
 {
         struct convert_task_data *d = arg;
         do_av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame,
-                         d->width, d->height, d->pitch, d->rgb_shift);
+                            d->pitch, d->rgb_shift);
         return NULL;
+}
+
+/**
+ * @return check color space/range if we can correctly convert
+ */
+static void
+check_constraints(AVFrame *f, bool dst_rgb)
+{
+        const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
+        const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
+        if (f->color_range == AVCOL_RANGE_JPEG && !src_rgb && !dst_rgb) {
+                MSG_ONCE(WARNING, "Full-range YCbCr may be clipped!\n");
+        }
+}
+
+/**
+ * @param av_to_uv_pf  intermediate PF (after av_to_uv) because eventual
+ * uv_to_uv conv do not implement other CS coeffs than BT.709
+ * @note ensure that used AVFrame properties copied by av_to_uv_convert
+ */
+static enum colorspace
+get_cs_for_conv(AVFrame *f, codec_t av_to_uv_pf, int *lmt_rng)
+{
+        const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(f->format);
+        const bool src_rgb = (avd->flags & AV_PIX_FMT_FLAG_RGB) != 0;
+        const bool dst_rgb = codec_is_a_rgb(av_to_uv_pf);
+        const bool src_601 = f->colorspace == AVCOL_SPC_BT470BG ||
+                             f->colorspace == AVCOL_SPC_SMPTE170M ||
+                             f->colorspace == AVCOL_SPC_SMPTE240M;
+        *lmt_rng = !src_rgb && f->color_range == AVCOL_RANGE_JPEG ? 0 : 1;
+        if (src_rgb) {
+                return CS_DFL; // either no CS conv or to default YUV
+        }
+        // from now src is YUV
+        if (!dst_rgb) { // dst is YUV -> no CS conv!
+                if (f->colorspace != AVCOL_SPC_RGB &&
+                    f->colorspace != AVCOL_SPC_BT709 &&
+                    f->colorspace != AVCOL_SPC_UNSPECIFIED && !src_601) {
+                        MSG(WARNING,
+                            "Input color space %s is not supported by "
+                            "UltraGrid!\n",
+                            av_color_space_name(f->colorspace));
+                }
+                const bool have_pp = tok_in_argv(uv_argv, "y601_to_y709");
+                if (src_601 && get_default_cs() != CS_601 && !have_pp) {
+                        MSG(WARNING,
+                            "Got %s CS but not converted - consider \"--param "
+                            "color-601\" as a hint for supported displays or "
+                            "\"-p matrix2:y601_to_y709\"\n",
+                            av_color_space_name(f->colorspace));
+                }
+                return CS_DFL; // doesn't matter - won't be used anyways
+        }
+        if (src_601) {
+                return CS_601;
+        }
+        if (f->colorspace == AVCOL_SPC_BT709) {
+                return CS_709;
+        }
+        MSG(WARNING,
+            "Suspicious (unexpected) color space %s, using default "
+            "coeffs. Please report.!\n",
+            av_color_space_name(f->colorspace));
+        return CS_DFL;
 }
 
 void
 av_to_uv_convert(const av_to_uv_convert_t *convert,
-                 char *dst, AVFrame *in, int width, int height, int pitch,
+                 char *dst, AVFrame *in, int pitch,
                  const int rgb_shift[3])
 {
+        check_constraints(in, codec_is_a_rgb(convert->dst_pixfmt));
         if (convert->cuda_conv_state != NULL) {
-                av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in, width,
-                                      height, pitch, rgb_shift);
+                av_to_uv_convert_cuda(convert->cuda_conv_state, dst, in,
+                                      in->width, in->height, pitch, rgb_shift);
                 return;
         }
 
         if (codec_is_const_size(convert->dst_pixfmt)) { // VAAPI etc
-                do_av_to_uv_convert(convert, dst, in, width, height, pitch,
-                                 rgb_shift);
+                do_av_to_uv_convert(convert, dst, in, pitch, rgb_shift);
                 return;
         }
 
@@ -2753,10 +3087,18 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
         struct convert_task_data d[cpu_count];
         AVFrame                  parts[cpu_count];
         for (int i = 0; i < cpu_count; ++i) {
-                int row_height = (height / cpu_count) & ~1; // needs to be even
+                int row_height = (in->height / cpu_count) & ~1; // needs to be even
                 unsigned char *part_dst =
                     (unsigned char *) dst + (size_t) i * row_height * pitch;
+
+                // copy used props - av_frame_copy_props() can be used as well
+                // *but* AVFrame must have been alloced by av_frame_alloc()
+                // (but unsure if there isn't higher overhead of the calls)
                 memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
+                parts[i].colorspace  = in->colorspace;
+                parts[i].color_range = in->color_range;
+                parts[i].format      = in->format;
+
                 const AVPixFmtDescriptor *fmt_desc =
                     av_pix_fmt_desc_get(in->format);
                 for (int plane = 0; plane < AV_NUM_DATA_POINTERS; ++plane) {
@@ -2769,12 +3111,13 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                              (plane == 0 ? 0 : fmt_desc->log2_chroma_h));
                 }
                 if (i == cpu_count - 1) {
-                        row_height = height - row_height * (cpu_count - 1);
+                        row_height = in->height - row_height * (cpu_count - 1);
                 }
+                parts[i].width = in->width;
+                parts[i].height = row_height;
                 d[i] =
                     (struct convert_task_data){ convert,  part_dst,   &parts[i],
-                                                width,    row_height, pitch,
-                                                rgb_shift };
+                                                pitch, rgb_shift };
         }
         task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
 }

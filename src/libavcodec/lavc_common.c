@@ -66,7 +66,7 @@ static const struct {
 } av_to_uv_map[] = {
         { AV_CODEC_ID_H264, H264 },
         { AV_CODEC_ID_HEVC, H265 },
-        { AV_CODEC_ID_MJPEG, MJPG },
+        { AV_CODEC_ID_MJPEG, JPEG },
         { AV_CODEC_ID_JPEG2000, J2K },
         { AV_CODEC_ID_VP8, VP8 },
         { AV_CODEC_ID_VP9, VP9 },
@@ -178,18 +178,13 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         buf[0] = '\0';
 }
 
-#ifdef HAVE_CONFIG_H // built inside UG
 ADD_TO_PARAM("lavc-log-level",
                 "* lavc-log-level=<num>\n"
                 "  Set libavcodec log level (FFmpeg range semantics, bypasses UG logger)\n"
                 " - 'D' - use FFmpeg default log handler\n");
-#endif
 /// Sets specified log level either given explicitly or from UG-wide log_level
 void ug_set_av_logging() {
-        const char *param = NULL;
-#ifdef HAVE_CONFIG_H // built inside UG
-        param = get_commandline_param("lavc-log-level");
-#endif
+        const char *param = get_commandline_param("lavc-log-level");
         if (param == NULL) {
                 av_log_set_callback(av_log_ug_callback);
                 return;
@@ -351,5 +346,69 @@ get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
                 it++;
         }
         return buf;
+}
+
+/**
+ * @param ctx   may be nullptr if codec is not
+ * @param codec may be nullptr if ctx is not
+ *
+ * If passed ctx, values such as `strict_std_compliance` may afect the result.
+ */
+#if LIBAVCODEC_VERSION_INT >  AV_VERSION_INT(61, 13, 100)
+static const void *
+avc_get_supported_config(const AVCodecContext *ctx, const AVCodec *codec,
+                         enum AVCodecConfig config)
+{
+        const void *ret = NULL;
+        int         unused_count = 0;
+        const int   rc           = avcodec_get_supported_config(
+            ctx, codec, config, /*flags*/ 0, &ret,
+            &unused_count);
+        if (rc != 0) {
+                MSG(ERROR, "Cannot get list of supported config %d for %s!\n",
+                    (int) config, codec->name);
+                return NULL;
+        }
+
+        return ret;
+}
+#endif
+///< @copydoc avc_get_supported_config
+const enum AVPixelFormat *
+avc_get_supported_pix_fmts(const AVCodecContext *ctx, const AVCodec *codec)
+{
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
+        return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_PIX_FORMAT);
+#else
+        if (ctx != NULL) {
+          return ctx->codec->pix_fmts;
+        }
+        return codec->pix_fmts;
+#endif
+}
+///< @copydoc avc_get_supported_config
+const enum AVSampleFormat *
+avc_get_supported_sample_fmts(const AVCodecContext *ctx, const AVCodec *codec)
+{
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
+        return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT);
+#else
+        if (ctx != NULL) {
+          return ctx->codec->sample_fmts;
+        }
+        return codec->sample_fmts;
+#endif
+}
+///< @copydoc avc_get_supported_config
+const int *avc_get_supported_sample_rates(const AVCodecContext *ctx, const AVCodec *codec)
+{
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(61, 13, 100)
+        return avc_get_supported_config(ctx, codec, AV_CODEC_CONFIG_SAMPLE_RATE);
+#else
+        if (ctx != NULL) {
+          return ctx->codec->supported_samplerates;
+        }
+        return codec->supported_samplerates;
+#endif
 }
 /* vi: set expandtab sw=8: */

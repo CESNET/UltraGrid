@@ -7,10 +7,14 @@ LIBRARY_PATH=/usr/local/qt/lib\n\
 PKG_CONFIG_PATH=$PKG_CONFIG_PATH\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
-git config --global user.name "UltraGrid Builder"
-git config --global user.email "ultragrid@example.org"
-
-sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
+# add deb-src for build-dep ffmpeg
+if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then # deb822 (new) format
+        sudo sed -i 's/Types: deb/Types: deb deb-src/' \
+                /etc/apt/sources.list.d/ubuntu.sources
+else # one-line-style (old) format
+        sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list |
+                sudo tee /etc/apt/sources.list.d/sources.list
+fi
 sudo apt update
 sudo apt install appstream `# appstreamcli for mkappimage AppStream validation` \
         asciidoc
@@ -24,40 +28,27 @@ sudo apt install libsoxr-dev libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libcaca-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
 sudo apt install libopencv-core-dev libopencv-imgproc-dev
-sudo apt install libcurl4-nss-dev
+sudo apt install libcurl4-openssl-dev # for RTSP client (vidcap)
 sudo apt install i965-va-driver-shaders libva-dev # instead of i965-va-driver
-sudo apt-mark hold libva2
-sudo apt install uuid-dev # Cineform
-
-(
-        . /etc/os-release
-        if [ "$ID" != ubuntu ] || [ "$VERSION_ID" != 20.04 ]; then
-                exit
-        fi
-        sudo apt install gcc-10 g++-10
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
-)
 
 get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (BRE alternation)
         apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
 }
-sudo apt build-dep libsdl2
-sdl2_mix_build_dep=$(get_build_deps_excl libsdl2-mixer libsdl2-dev)
-sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
-# shellcheck disable=SC2086 # intentional
-sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
-# FFmpeg deps
-sudo add-apt-repository ppa:savoury1/ffmpeg4 # openh264, new x265
-# for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libva-dev')
+ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'nonexistent-placeholder')
 # shellcheck disable=SC2086 # intentional
-sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
-        libopenh264-dev libvulkan-dev
+sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
-sudo apt install qtbase5-dev
+sudo apt install qt6-base-dev
+. /etc/os-release # source ID and VERSION_ID
+if [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 22.04 ]; then
+        # https://bugs.launchpad.net/ubuntu/+source/qtchooser/+bug/1964763 bug
+        # workaround proposed in https://askubuntu.com/a/1460243
+        sudo qtchooser -install qt6 "$(command -v qmake6)"
+        sudo ln -n "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/\
+qt6.conf" "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/default.conf"
+ fi
 
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"

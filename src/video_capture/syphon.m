@@ -513,7 +513,7 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
 
         struct timespec ts;
         timespec_get(&ts, TIME_UTC);
-        ts_add_nsec(&ts, 100 * NS_IN_MS);
+        ts_add_nsec(&ts, MS_TO_NS(100LL));
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->q) == 0) {
                 if (pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &ts) != 0) {

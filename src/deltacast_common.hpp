@@ -84,8 +84,8 @@
 #else
 #include <VideoMasterHD_Ip_Board.h>
 #endif
-#if defined VHD_IP_FILTER_UDP_PORT_DEST
-#define VHD_MIN_6_19 1
+#if defined VHD_IP_FILTER_UDP_PORT_DEST && !defined VHD_IS_6_19
+#define VHD_MIN_6_20 1
 #endif
 
 // compat
@@ -96,7 +96,7 @@
 // Following items have been actually deprecated in 6.20. But 6.20 doesn't
 // bring any new define and thus it is undistinguishable from 6.19. As a
 // consequence, it won't compile with 6.19.
-#if defined VHD_MIN_6_19
+#if defined VHD_MIN_6_20
 #define VHD_BOARDTYPE_SD VHD_BOARDTYPE_SD_DEPRECATED
 #define VHD_BOARDTYPE_SDKEY VHD_BOARDTYPE_SDKEY_DEPRECATED
 #define VHD_CHNTYPE_SDSDI VHD_CHNTYPE_SDSDI_DEPRECATED
