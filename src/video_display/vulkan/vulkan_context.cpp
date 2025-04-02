@@ -43,7 +43,7 @@ using namespace vulkan_display_detail;
 using namespace vulkan_display;
 
 namespace {
-
+#if VK_HEADER_VERSION >= 304
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
         [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
         [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT message_type,
@@ -64,6 +64,28 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 
         return VK_FALSE;
 }
+#else /// compat (eg. Debian 11) @todo TOREMOVE later
+  VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+        [[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
+        const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+        [[maybe_unused]] void* user_data)
+{
+        LogLevel level = LogLevel::notice;
+        if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LogLevel::error;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LogLevel::warning;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LogLevel::info;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LogLevel::verbose;
+
+        vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
+
+        if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
+                //assert(false);
+        }
+
+        return VK_FALSE;
+}
+#endif
 
 void check_validation_layers(const std::vector<const char*>& required_layers) {
         std::vector<vk::LayerProperties>  layers = vk::enumerateInstanceLayerProperties();
