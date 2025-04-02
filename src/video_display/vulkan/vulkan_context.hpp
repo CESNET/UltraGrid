@@ -89,18 +89,6 @@ class VulkanInstance;
 
 namespace vulkan_display_detail {
 
-// todo C++20 - replace with std::format
-template<size_t count>
-std::string concat(size_t expected_result_size, std::array<std::string, count> const &strings){
-        std::string result;
-        result.reserve(expected_result_size);
-
-        for(auto const &sv: strings){
-                result+= sv;
-        }
-        return result;
-}
-
 constexpr bool is_yCbCr_format(vk::Format format) {
         auto f = static_cast<VkFormat>(format);
         return VK_FORMAT_G8B8G8R8_422_UNORM <= f && f <= VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM;
@@ -111,8 +99,6 @@ using namespace std::literals;
 constexpr uint32_t no_queue_index_found = UINT32_MAX;
 constexpr uint32_t swapchain_image_out_of_date = UINT32_MAX;
 constexpr uint32_t swapchain_image_timeout = UINT32_MAX - 1;
-
-inline std::function<void(vulkan_display::LogLevel, std::string_view)> vulkan_log_msg;
 
 inline vk::ImageViewCreateInfo default_image_view_create_info(vk::Format format) {
         vk::ImageViewCreateInfo image_view_info{ {}, {}, vk::ImageViewType::e2D, format };
@@ -220,10 +206,6 @@ namespace vulkan_display {
 
 namespace detail = vulkan_display_detail;
 
-inline void cout_msg([[maybe_unused]] LogLevel log_level, std::string_view msg) {
-        std::cout << msg << std::endl;
-}
-
 class VulkanInstance {
         vk::Instance instance{};
 #if VK_HEADER_VERSION >= 301
@@ -254,7 +236,7 @@ public:
          *                              usually needed for creating vulkan surface
          * @param enable_validation     Enable vulkan validation layers, they should be disabled in release build.
          */
-        void init(std::vector<const char*>& required_extensions, bool enable_validation, std::function<void(LogLevel, std::string_view)> logging_function = cout_msg);
+        void init(std::vector<const char*>& required_extensions, bool enable_validation);
         
         /**
          * @brief returns all available grafhics cards

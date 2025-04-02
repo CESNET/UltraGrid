@@ -699,22 +699,6 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
         return true;
 }
 
-void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
-        using L = vkd::LogLevel;
-
-        int ug_log_level = LOG_LEVEL_INFO;
-        switch(vkd_log_level){
-                case L::fatal:   ug_log_level = LOG_LEVEL_FATAL;   break;
-                case L::error:   ug_log_level = LOG_LEVEL_ERROR;   break;
-                case L::warning: ug_log_level = LOG_LEVEL_WARNING; break;
-                case L::notice:  ug_log_level = LOG_LEVEL_NOTICE;  break;
-                case L::info:    ug_log_level = LOG_LEVEL_INFO;    break;
-                case L::verbose: ug_log_level = LOG_LEVEL_VERBOSE; break;
-                case L::debug:   ug_log_level = LOG_LEVEL_DEBUG;   break;
-        }
-        LOG(ug_log_level) << MOD_NAME << sv << std::endl;
-}
-
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL2 module currently doesn't support audio!\n");
@@ -803,7 +787,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         LOG(LOG_LEVEL_INFO) << MOD_NAME "Path to shaders: " << path_to_shaders << '\n';
         try {
                 vkd::VulkanInstance instance;
-                instance.init(required_extensions, args.validation, vulkan_display_log);
+                instance.init(required_extensions, args.validation);
 #ifdef __MINGW32__
                 //SDL2 for MINGW has problem creating surface
                 SDL_SysWMinfo wmInfo{};

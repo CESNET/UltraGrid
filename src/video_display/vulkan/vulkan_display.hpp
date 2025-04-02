@@ -49,6 +49,7 @@
 #include <mutex>
 #include <string>
 #include <utility>
+#include "debug.h"
 
 namespace vulkan_display_detail {
 
@@ -146,8 +147,7 @@ public:
                         try {
                                 destroy();
                         } catch (vk::SystemError &e) {
-                                std::string err = std::string("~VulkanDisplay vk::SystemError: ") + e.what() + "\n";
-                                vulkan_display_detail::vulkan_log_msg(LogLevel::error, err);
+                                log_msg(LOG_LEVEL_ERROR, "[vulkan] ~VulkanDisplay vk::SystemError: %s\n", e.what());
                         }
                 }
         }

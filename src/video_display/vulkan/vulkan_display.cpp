@@ -47,6 +47,9 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "debug.h"
+
+#define MOD_NAME "[vulkan] "
 
 using namespace vulkan_display_detail;
 using namespace vulkan_display;
@@ -208,7 +211,7 @@ bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Ex
 
                 if(!(fmt_props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageYcbcrConversionLinearFilter))
                 {
-                        vulkan_log_msg(LogLevel::warning, "The GPU does not support linear filter with a YCbCr conversion sampler. Will attempt to fall back to shader conversion.\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "The GPU does not support linear filter with a YCbCr conversion sampler. Will attempt to fall back to shader conversion.\n");
                         return false;
                 }
         }
@@ -465,7 +468,7 @@ void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
         auto& image_format_info = image_description.format_info();
 
         if (image_description != current_image_description) {
-                vulkan_log_msg(LogLevel::info, "Recreating render_pipeline");
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating render_pipeline\n");
                 context.get_queue().waitIdle();
                 device.resetDescriptorPool(descriptor_pool);
 
@@ -578,9 +581,9 @@ bool VulkanDisplay::display_queued_image() {
                 const int swapchain_recreation_warn_tries = 50;
                 swapchain_recreation_attempt++;
                 if (swapchain_image_id == swapchain_image_timeout){
-                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire timed out\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Swapchain image acquire timed out\n");
                 } else if (swapchain_recreation_attempt > swapchain_recreation_warn_tries) {
-                        vulkan_log_msg(LogLevel::warning, "Swapchain image acquire failed "s + std::to_string(swapchain_recreation_warn_tries) + "times in a row\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Swapchain image acquire failed %d times in a row\n", swapchain_recreation_warn_tries);
                 }
                 
                 auto window_parameters = window->get_window_parameters();

@@ -39,6 +39,9 @@
 #include <algorithm>            // for std::any_of, std::find_if
 #include <cassert>
 #include <iostream>
+#include "debug.h"
+
+#define MOD_NAME "[vulkan] "
 
 using namespace vulkan_display_detail;
 using namespace vulkan_display;
@@ -52,13 +55,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
         const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
         [[maybe_unused]] void* user_data)
 {
-        LogLevel level = LogLevel::notice;
-        if      (vk::DebugUtilsMessageSeverityFlagBitsEXT::eError & message_severity)   level = LogLevel::error;
-        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning & message_severity) level = LogLevel::warning;
-        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo & message_severity)    level = LogLevel::info;
-        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose & message_severity) level = LogLevel::verbose;
+        int level = LOG_LEVEL_NOTICE;
+        if      (vk::DebugUtilsMessageSeverityFlagBitsEXT::eError & message_severity)   level = LOG_LEVEL_ERROR;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning & message_severity) level = LOG_LEVEL_WARNING;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo & message_severity)    level = LOG_LEVEL_INFO;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose & message_severity) level = LOG_LEVEL_VERBOSE;
 
-        vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
+        log_msg(level, MOD_NAME "validation layer: %s\n", callback_data->pMessage);
 
         if (message_type != vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral){
                 //assert(false);
@@ -72,18 +75,18 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
          [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
          const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
          [[maybe_unused]] void* user_data)
- {
-         LogLevel level = LogLevel::notice;
-         if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LogLevel::error;
-         else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LogLevel::warning;
-         else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LogLevel::info;
-         else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LogLevel::verbose;
+{
+        int level = LOG_LEVEL_NOTICE;
+        if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LOG_LEVEL_ERROR;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LOG_LEVEL_WARNING;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LOG_LEVEL_INFO;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LOG_LEVEL_VERBOSE;
 
-         vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
+        log_msg(level, MOD_NAME "validation layer: %s\n", callback_data->pMessage);
 
-         if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
-                 //assert(false);
-         }
+        if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
+                //assert(false);
+        }
 
         return VK_FALSE;
 }
@@ -137,11 +140,11 @@ handle_enumerate_portability_extension(
                 if (!std::any_of(required_extensions.begin(),
                                 required_extensions.end(),
                                 eq_portability_ext)) {
-                        vulkan_log_msg(
-                            LogLevel::debug,
-                            "adding"
+                        log_msg(
+                            LOG_LEVEL_DEBUG,
+                            MOD_NAME "adding"
                             " " VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-                            " to list of required extensions");
+                            " to list of required extensions\n");
                         required_extensions.push_back(
                             VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
                 }
@@ -152,10 +155,10 @@ handle_enumerate_portability_extension(
         const auto it = std::find_if(required_extensions.begin(),
                                required_extensions.end(), eq_portability_ext);
         if (it != required_extensions.end()) {
-                vulkan_log_msg(LogLevel::info,
-                               VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+                log_msg(LOG_LEVEL_INFO,
+                               MOD_NAME VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
                                " required but not found... erasing "
-                               "this extension...");
+                               "this extension...\n");
                 required_extensions.erase(it);
         }
 #endif
@@ -330,14 +333,10 @@ vk::PresentModeKHR get_present_mode(vk::PhysicalDevice gpu, vk::SurfaceKHR surfa
 }
 
 void log_gpu_info(vk::PhysicalDeviceProperties const &gpu_properties, uint32_t vulkan_version){
-        vulkan_log_msg(LogLevel::info, "Vulkan uses GPU called: "s + &gpu_properties.deviceName[0]);
-        std::string msg = concat(32, std::array{
-                "Used Vulkan API: "s,
-                std::to_string(VK_VERSION_MAJOR(vulkan_version)),
-                "."s,
-                std::to_string(VK_VERSION_MINOR(vulkan_version))
-                });
-        vulkan_log_msg(LogLevel::info, msg);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Vulkan uses GPU called: %s\n", &gpu_properties.deviceName[0]);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Used Vulkan API: %d.%d\n",
+                        VK_VERSION_MAJOR(vulkan_version),
+                        VK_VERSION_MINOR(vulkan_version));
 }
 
 vk::PhysicalDevice create_physical_device(vk::Instance instance, vk::SurfaceKHR surface, uint32_t gpu_index) {
@@ -376,8 +375,7 @@ void create_swapchain_views(vk::Device device, vk::SwapchainKHR swapchain, vk::F
 
 namespace vulkan_display {
 
-void VulkanInstance::init(std::vector<const char*>& required_extensions, bool enable_validation, std::function<void(LogLevel, std::string_view sv)> logging_function) {
-        vulkan_log_msg = std::move(logging_function);
+void VulkanInstance::init(std::vector<const char*>& required_extensions, bool enable_validation) {
         std::vector<const char*> validation_layers{};
         if (enable_validation) {
                 validation_layers.push_back("VK_LAYER_KHRONOS_validation");
@@ -501,7 +499,7 @@ void VulkanContext::create_logical_device() {
                 if (yCbCr_feature.samplerYcbcrConversion) {
                         yCbCr_supported = true;
                         device_info.setPNext(&features2);
-                        vulkan_log_msg(LogLevel::info, "yCbCr feature supported.");
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "yCbCr feature supported.\n");
                 }
         }
 
@@ -535,15 +533,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         image_count = std::min(image_count, capabilities.maxImageCount);
                 }
 
-                auto msg = concat(64, std::array{
-                        "Recreating swapchain, size: "s,
-                        std::to_string(swapchain_image_size.width),
-                        "x"s,
-                        std::to_string(swapchain_image_size.height),
-                        ", format: "s,
-                        vk::to_string(swapchain_atributes.format.format)
-                });
-                vulkan_log_msg(LogLevel::info, msg);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating swapchain, size: %dx%d, format %s\n", swapchain_image_size.width, swapchain_image_size.height, vk::to_string(swapchain_atributes.format.format).c_str());
 
                 //assert(capabilities.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferDst);
                 vk::SwapchainCreateInfoKHR swapchain_info{};
@@ -568,7 +558,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         return;
                 }
                 catch(std::exception& err){
-                        vulkan_log_msg(LogLevel::info, "Recreation unsuccesful: "s + err.what());
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Recreation unsuccesful: %s\n", err.what());
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
                         if(attempt + 1 == initialization_attempts){

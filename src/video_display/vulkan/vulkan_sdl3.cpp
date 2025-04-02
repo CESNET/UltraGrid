@@ -105,7 +105,6 @@ constexpr int initial_frame_count = 0;
 
 void display_vulkan_new_message(module*);
 video_frame* display_vulkan_getf(void* state);
-void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv);
 
 class WindowCallback final : public vkd::WindowChangedCallback {
         SDL_Window* window = nullptr;
@@ -428,7 +427,7 @@ void print_gpus() {
         std::vector<const char*>required_extensions{};
         std::vector<std::pair<std::string, bool>> gpus{};
         try {
-                instance.init(required_extensions, false, vulkan_display_log);
+                instance.init(required_extensions, false);
                 instance.get_available_gpus(gpus);
         } 
         catch (std::exception& e) { log_and_exit_uv(e); return; }
@@ -704,22 +703,6 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
         return true;
 }
 
-void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
-        using L = vkd::LogLevel;
-
-        int ug_log_level = LOG_LEVEL_INFO;
-        switch(vkd_log_level){
-                case L::fatal:   ug_log_level = LOG_LEVEL_FATAL;   break;
-                case L::error:   ug_log_level = LOG_LEVEL_ERROR;   break;
-                case L::warning: ug_log_level = LOG_LEVEL_WARNING; break;
-                case L::notice:  ug_log_level = LOG_LEVEL_NOTICE;  break;
-                case L::info:    ug_log_level = LOG_LEVEL_INFO;    break;
-                case L::verbose: ug_log_level = LOG_LEVEL_VERBOSE; break;
-                case L::debug:   ug_log_level = LOG_LEVEL_DEBUG;   break;
-        }
-        LOG(ug_log_level) << MOD_NAME << sv << std::endl;
-}
-
 void
 sdl_set_log_level()
 {
@@ -828,7 +811,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         LOG(LOG_LEVEL_INFO) << MOD_NAME "Path to shaders: " << path_to_shaders << '\n';
         try {
                 vkd::VulkanInstance instance;
-                instance.init(required_extensions, args.validation, vulkan_display_log);
+                instance.init(required_extensions, args.validation);
                 VkSurfaceKHR surface{};
                 /// @todo check if not to provide the allocator
                 if (!SDL_Vulkan_CreateSurface(s->window, (VkInstance) instance.get_instance(), nullptr, &surface)) {
