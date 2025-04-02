@@ -189,7 +189,7 @@ struct state_vulkan_sdl2 {
         // Use raw pointers because std::unique_ptr might not have standard layout
         vkd::VulkanDisplay* vulkan = nullptr;
         WindowCallback* window_callback = nullptr;
-        FrameMappings* frame_mappings = new FrameMappings();
+        std::unique_ptr<FrameMappings> frame_mappings = std::make_unique<FrameMappings>();
 
         std::atomic<bool> should_exit = false;
         video_desc current_desc{};
@@ -211,7 +211,6 @@ struct state_vulkan_sdl2 {
         state_vulkan_sdl2& operator=(state_vulkan_sdl2&& other) = delete;
 
         ~state_vulkan_sdl2() {
-                delete frame_mappings;
                 module_done(&mod);
         }
 };
