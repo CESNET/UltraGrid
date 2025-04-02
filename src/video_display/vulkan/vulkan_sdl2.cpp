@@ -97,7 +97,6 @@
 #include <queue>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <utility> // pair
 
@@ -216,9 +215,6 @@ struct state_vulkan_sdl2 {
                 module_done(&mod);
         }
 };
-
-// make sure that state_vulkan_sdl2 is C compatible
-static_assert(std::is_standard_layout_v<state_vulkan_sdl2>);
 
 //todo C++20 : change to to_array
 constexpr std::array<std::pair<char, std::string_view>, 3> display_vulkan_keybindings{{
