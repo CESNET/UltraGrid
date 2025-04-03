@@ -791,17 +791,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
-                char *val = nullptr;
-                char tmp[STR_LEN];
-                if (strchr(opt, '=') != nullptr) {
-                        snprintf_ch(tmp, "%s", strchr(opt, '=') + 1);
-                        replace_all(tmp, DELDEL, ":");
-                        val = tmp;
-                }
-                ret = s
-                          ->device_options[(
-                              BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)]
-                          .parse(val);
+                ret = bmd_parse_fourcc_arg(s->device_options, opt);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;

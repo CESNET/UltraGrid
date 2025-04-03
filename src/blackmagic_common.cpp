@@ -67,6 +67,7 @@
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"
+#include "utils/string.h"        // for DELDEL
 #include "utils/windows.h"
 #include "utils/worker.h"
 
@@ -1875,6 +1876,24 @@ bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback)
         }
 
         notificationCallback->Release();
+}
+
+/// parse bmd_option from given arg in format FourCC[=val]
+bool
+bmd_parse_fourcc_arg(
+    map<BMDDeckLinkConfigurationID, bmd_option> &device_options,
+    const char                                  *arg)
+{
+        const char *val = nullptr;
+
+        char tmp[STR_LEN];
+        if (strchr(arg, '=') != nullptr) {
+                snprintf_ch(tmp, "%s", strchr(arg, '=') + 1);
+                replace_all(tmp, DELDEL, ":");
+                val = tmp;
+        }
+        return device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(arg)]
+            .parse(val);
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

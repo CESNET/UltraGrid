@@ -201,5 +201,9 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
                                   bool capture);
 void bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback);
 
+bool bmd_parse_fourcc_arg(
+    std::map<BMDDeckLinkConfigurationID, bmd_option> &device_options,
+    const char                                       *arg);
+
 #endif // defined BLACKMAGIC_COMMON_HPP
 
