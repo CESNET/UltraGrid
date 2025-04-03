@@ -1535,6 +1535,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return nullptr;
          }
 
+        bmd_options_validate(s->device_options);
         for (const auto &o : s->device_options) {
                 if (s->keep_device_defaults && !o.second.is_user_set()) {
                         continue;

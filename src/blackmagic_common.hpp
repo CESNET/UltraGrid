@@ -204,6 +204,8 @@ void bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback);
 bool bmd_parse_fourcc_arg(
     std::map<BMDDeckLinkConfigurationID, bmd_option> &device_options,
     const char                                       *arg);
+void bmd_options_validate(
+    std::map<BMDDeckLinkConfigurationID, bmd_option> &device_options);
 
 #endif // defined BLACKMAGIC_COMMON_HPP
 

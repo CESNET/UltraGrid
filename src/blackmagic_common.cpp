@@ -1896,6 +1896,28 @@ bmd_parse_fourcc_arg(
             .parse(val);
 }
 
+/**
+ * validates bmd_option parameter combination, only issue warnings
+ *
+ * currently it just warns if IP address for DeckLink IP is given but no
+ * DHCP (disabled) because if not disabled, DHCP overrides the address
+ * (link-local IPv4 addr used if DHCP serv not present).
+ */
+void
+bmd_options_validate(
+    map<BMDDeckLinkConfigurationID, bmd_option> &device_options)
+{
+        if (device_options.find(
+                bmdDeckLinkConfigEthernetStaticLocalIPAddress) !=
+                device_options.end() &&
+            device_options.find(bmdDeckLinkConfigEthernetUseDHCP) ==
+                device_options.end()) {
+                MSG(WARNING,
+                    "IP address set but DHCP not disabled via command-line "
+                    "(but may be disabled in settings), consider adding ':DHCP=no'.\n");
+        }
+}
+
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
 ADD_TO_PARAM(BMD_NAT_SORT, "* " BMD_NAT_SORT "\n"
