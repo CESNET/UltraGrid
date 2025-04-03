@@ -54,8 +54,6 @@ static_assert(VK_HEADER_VERSION > 100); // minimum Vulkan SDK version is 1.1.101
 
 namespace vulkan_display {
 
-enum class LogLevel{fatal, error, warning, notice, info, verbose, debug};
-
 struct  VulkanError : public std::runtime_error {
         explicit VulkanError(const std::string& msg) :
                 std::runtime_error{ msg } { }
