@@ -1328,9 +1328,13 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
-                        char val[STR_LEN];
-                        snprintf_ch(val, "%s", strchr(ptr, '=') + 1);
-                        replace_all(val, DELDEL, ":");
+                        char *val = nullptr;
+                        char tmp[STR_LEN];
+                        if (strchr(ptr, '=') != nullptr) {
+                                snprintf_ch(tmp, "%s", strchr(ptr, '=') + 1);
+                                replace_all(tmp, DELDEL, ":");
+                                val = tmp;
+                        }
                         ret &= s->device_options[(BMDDeckLinkConfigurationID)
                                                      bmd_read_fourcc(ptr)]
                                    .parse(val);

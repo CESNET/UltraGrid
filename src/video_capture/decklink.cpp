@@ -791,9 +791,13 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
-                char val[STR_LEN];
-                snprintf_ch(val, "%s", strchr(opt, '=') + 1);
-                replace_all(val, DELDEL, ":");
+                char *val = nullptr;
+                char tmp[STR_LEN];
+                if (strchr(opt, '=') != nullptr) {
+                        snprintf_ch(tmp, "%s", strchr(opt, '=') + 1);
+                        replace_all(tmp, DELDEL, ":");
+                        val = tmp;
+                }
                 ret = s
                           ->device_options[(
                               BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)]
