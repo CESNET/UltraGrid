@@ -1177,6 +1177,74 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
         }
 }
 
+void tx_send_h265(struct tx *tx, struct video_frame *frame,
+		struct rtp *rtp_session) {
+        assert(frame->tile_count == 1);
+        assert(!frame->fragment);
+        const uint32_t ts   = get_std_video_local_mediatime();
+        struct tile   *tile = &frame->tiles[0];
+
+        const char pt = PT_DynRTP_Type96;
+        // assume IPv6 (we don't know a priori)
+        unsigned maxPacketSize = tx->mtu - get_tx_hdr_len(true);
+
+        const unsigned char       *endptr = nullptr;
+        const unsigned char       *nal    = (uint8_t *) tile->data;
+        const unsigned char *const end    = nal + tile->data_len;
+
+        while ((nal = rtpenc_get_next_nal(nal, end - nal, &endptr))) {
+                unsigned int nalsize = endptr - nal;
+
+                if (nalsize <= maxPacketSize) { // single NALU packet
+                        char *payload = const_cast<char *>(
+                            reinterpret_cast<const char *>(nal));
+                        if (rtp_send_data_hdr(rtp_session, ts, pt, 1 /* m */, 0,
+                                              nullptr, (char *) nullptr, 0,
+                                              payload, (int) nalsize, nullptr,
+                                              0, 0) < 0) {
+                                error_msg("There was a problem sending the RTP "
+                                          "packet\n");
+                        }
+                } else { // fragment
+                        uint8_t hdr[3];
+                        hdr[0] = (nal[0] & 0x81) | NAL_RTP_HEVC_FU << 1;
+                        hdr[1] = nal[1];
+                        hdr[2] =
+                            1 << 7 | (nal[0] >> 1 & 0x3F); // s=1,e=1+FU type
+                        nal += 2;
+                        nalsize -= 2;
+                        while (nalsize > 0) {
+                                unsigned size = nalsize;
+                                int      m    = 0;
+                                if (nalsize <= maxPacketSize) { // last packet
+                                        m = 1;
+                                        hdr[2] &= 0x40; // set end bit
+                                } else {
+                                        size = maxPacketSize;
+                                }
+                                char *payload = const_cast<char *>(
+                                    reinterpret_cast<const char *>(nal));
+                                if (rtp_send_data_hdr(
+                                        rtp_session, ts, pt, m, 0, nullptr,
+                                        (char *) hdr, sizeof hdr,
+                                        (char *) payload, (int) size, nullptr,
+                                        0, 0) < 0) {
+                                        error_msg("There was a problem sending "
+                                                  "the RTP "
+                                                  "packet\n");
+                                }
+                                hdr[2] &= 0x7F; // clear start bit
+                                nal += size;
+                                nalsize -= size;
+                        }
+                }
+        }
+
+        if (endptr != end) {
+                error_msg("No NAL found!\n");
+        }
+}
+
 void tx_send_jpeg(struct tx *tx, struct video_frame *frame,
                struct rtp *rtp_session) {
         uint32_t ts = 0;

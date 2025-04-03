@@ -87,13 +87,19 @@ void
 h264_rtp_video_rxtx::configure_rtsp_server_video()
 {
         assert((rtsp_params.avType & rtsp_type_video) != 0);
-        if (rtsp_params.video_codec == H264) {
+        switch (rtsp_params.video_codec) {
+        case H264:
                 tx_send_std = tx_send_h264;
-        } else if (rtsp_params.video_codec == JPEG) {
+                break;
+        case H265:
+                tx_send_std = tx_send_h265;
+                break;
+        case JPEG:
                 tx_send_std = tx_send_jpeg;
-        } else {
+                break;
+        default:
                 MSG(ERROR,
-                    "codecs other than H.264 and JPEG currently not "
+                    "codecs other than H.264/H.265 and JPEG currently not "
                     "supported, got %s\n",
                     get_codec_name(rtsp_params.video_codec));
                 return;

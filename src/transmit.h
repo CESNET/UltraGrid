@@ -80,6 +80,7 @@ void             format_video_header(struct video_frame *frame, int tile_idx, in
                 uint32_t *hdr);
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
+void tx_send_h265(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 void tx_send_jpeg(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 
 /**
