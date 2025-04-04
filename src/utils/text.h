@@ -39,6 +39,15 @@
 #define UTILS_TEXT_H_AFEA0012_0A4B_4DC5_95FC_4B070B9D79CD
 
 #ifdef __cplusplus
+#include <cstddef>    // for size_t
+#include <cstdint>    // for uint32_t
+#else
+#include <stdbool.h>  // for bool
+#include <stddef.h>   // for size_t
+#include <stdint.h>   // for uint32_t
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 

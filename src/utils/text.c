@@ -35,21 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include "utils/text.h"
 
-#include <string.h>
+#include <assert.h>             // for assert
+#include <ctype.h>              // for isalnum
+#include <limits.h>             // for INT_MAX, PATH_MAX
+#include <stdio.h>              // for fclose, fwrite, rewind, sprintf, sscanf
+#include <stdlib.h>             // for getenv, malloc, free, realloc
+#include <string.h>             // for memcpy, strlen, strpbrk
+#include <unistd.h>             // for unlink
 
 #include "debug.h"
 #include "utils/bitmap_font.h"
 #include "utils/color_out.h" // prune_ansi_sequences_inplace_cstr
 #include "utils/fs.h"
 #include "utils/pam.h"
-#include "utils/string.h"
-#include "utils/text.h"
 
 int urlencode_html5_eval(int c)
 {
