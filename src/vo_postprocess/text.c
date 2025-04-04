@@ -44,9 +44,14 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"       // WAND7
-#include "config_unix.h"
-#include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
+
+#include <assert.h>                      // for assert
+#include <pthread.h>                     // for pthread_once, PTHREAD_ONCE_INIT
+#include <stdbool.h>                     // for false, bool, true
+#include <stddef.h>                      // for NULL, size_t, ptrdiff_t
+#include <stdlib.h>                      // for free, atoi, atexit, calloc
+#include <string.h>                      // for strlen, strstr, memcpy, strdup
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
