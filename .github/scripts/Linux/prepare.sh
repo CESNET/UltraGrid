@@ -22,7 +22,7 @@ sudo apt install fonts-dejavu-core
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
-sudo apt install libmagickwand-dev
+sudo apt install imagemagick libmagickwand-dev
 sudo apt install libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev
 sudo apt install libsoxr-dev libspeexdsp-dev
 sudo apt install libssl-dev

@@ -58,6 +58,23 @@ if [ -n "$QT_DIR" ]; then
         PLUGIN_LIBS=$(find "$DST_PLUGIN_DIR" -type f)
 fi
 
+if [ -f $APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so ]; then
+        if ! command -v convert >/dev/null; then
+                handle_error 'IM convert missing! (needed for bundle)'
+        fi
+        # https://stackoverflow.com/a/53355763
+        conf_path=$(convert -list configure |
+                sed -n '/CONFIGURE_PATH/ { s/[A-Z_]* *//; p; q; }')
+        codr_path=$(convert -list configure |
+                sed -n '/CODER_PATH/ { s/[A-Z_]* *//; p; q; }')
+        filt_path=$(convert -list configure |
+                sed -n '/FILTER_PATH/ { s/[A-Z_]* *//; p; q; }')
+        mkdir $APPDIR/etc $APPPREFIX/share/IM
+        cp -r "$conf_path" $APPDIR/etc/IM
+        cp -r "$codr_path" $APPPREFIX/share/IM/coders
+        cp -r "$filt_path" $APPPREFIX/share/IM/filters
+fi
+
 add_fonts() { # for GUI+testcard2
         if ! command -v fc-match >/dev/null; then
                 handle_error "fc-match not found, not copying fonts!"
