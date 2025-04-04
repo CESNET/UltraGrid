@@ -60,6 +60,8 @@ size_t urldecode(char *out, size_t max_len, const char *in);
 
 bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid);
 
+const char *const *get_font_candidates(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -272,6 +272,22 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
 
+        const char *const *font_candidates = get_font_candidates();
+        while (*font_candidates != NULL) {
+                FILE *f = fopen(*font_candidates, "rb");
+                if (f != NULL) {
+                        fclose(f);
+                        DrawSetFont(s->dw, *font_candidates);
+                        MSG(INFO, "Using font: %s\n", *font_candidates);
+                        break;
+                }
+                MSG(VERBOSE, "font %s not found\n", *font_candidates);
+                font_candidates += 1;
+        }
+        while (*font_candidates == NULL) {
+                MSG(ERROR, "Could not find useable font!\n");
+                return false;
+        }
 
         status = MagickSetDepth(s->wand_bg, 8);
         status &= MagickSetDepth(s->wand_text, 8);

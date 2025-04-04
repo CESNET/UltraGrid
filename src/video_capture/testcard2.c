@@ -76,6 +76,7 @@
 #include "utils/color_out.h"            // for color_printf, TBOLD, TRED
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
+#include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
 #include "video.h"                      // for get_video_desc_from_string
 #include "video_capture.h"              // for VIDCAP_INIT_FAIL, VIDCAP_INIT...
@@ -94,29 +95,6 @@
 #define EPS_PLUS_1 1.0001
 #define FONT_HEIGHT 108
 #define MOD_NAME "[testcard2] "
-
-#ifdef HAVE_LIBSDL_TTF
-#ifdef _WIN32
-#define DEFAULT_FONT_DIR "C:\\windows\\fonts"
-static const char * const font_candidates[] = { "cour.ttf", };
-#elif defined __APPLE__
-#define DEFAULT_FONT_DIR "/System/Library/Fonts"
-static const char *const font_candidates[] = {
-        "Monaco.ttf",
-        "Monaco.dfont",
-        "Geneva.ttf",
-        "Keyboard.ttf",
-};
-#else
-#define DEFAULT_FONT_DIR "/usr/share/fonts"
-static const char *const font_candidates[] = {
-        "DejaVuSansMono.ttf", // bundled in AppImage
-        "truetype/freefont/FreeMonoBold.ttf", "truetype/dejavu/DejaVuSansMono.ttf", // Ubuntu
-        "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", // Arch
-        "liberation-mono/LiberationMono-Regular.ttf", // Fedora
-};
-#endif
-#endif // defined HAVE_LIBSDL_TTF
 
 #ifdef HAVE_SDL3
 #define TTF_GetError SDL_GetError
@@ -428,25 +406,22 @@ void * vidcap_testcard2_thread(void *arg)
           EXIT_THREAD
         }
 
-        const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
-        char font_path[MAX_PATH_SIZE] = "";
-        for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
-                strncpy(font_path, font_dir, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
-                strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
-                strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
-                font = TTF_OpenFont(font_path, FONT_HEIGHT);
-                if (font == NULL) {
-                        MSG(VERBOSE, "Tried font %s: %s\n", font_path,
-                            TTF_GetError());
+        const char *const *font_candidates = get_font_candidates();
+        while (*font_candidates != NULL) {
+                font = TTF_OpenFont(*font_candidates, FONT_HEIGHT);
+                if (font != NULL) {
+                        MSG(INFO, "using font %s\n", *font_candidates);
+                        break;
                 }
+                MSG(VERBOSE, "Tried font %s: %s\n", *font_candidates,
+                    TTF_GetError());
+                font_candidates += 1;
         }
         if(!font) {
-                MSG(ERROR,
-                    "Unable to load any usable font! Last font tried %s: %s\n",
-                    font_path, TTF_GetError());
+                MSG(ERROR, "Unable to load any usable font! Last errror: %s\n",
+                    TTF_GetError());
                 EXIT_THREAD
         }
-        MSG(INFO, "Using font: %s\n", font_path);
 
 #endif
         /// @note R12l has pixel block size 8 pixels, so the below won't work for that pixfmt
