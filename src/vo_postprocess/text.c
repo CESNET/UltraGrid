@@ -74,6 +74,8 @@
 #include "utils/string.h" // replace_all
 #include "utils/text.h"
 
+#define MOD_NAME "[text vo_pp.] "
+
 struct state_text {
         struct video_frame *in;
         char *data;
@@ -192,6 +194,13 @@ static int cf_text_init(struct module *parent, const char *cfg, void **state)
         }
 }
 
+static const char *
+get_magick_error(const MagickWand *wand)
+{
+        ExceptionType except = MagickGetExceptionType(wand);
+        return MagickGetException(wand, &except);
+}
+
 static bool
 text_postprocess_reconfigure(void *state, struct video_desc desc)
 {
@@ -278,7 +287,8 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         // glyph w, glyph h, ascender, descender, txt w, txt h
         double *metrics = MagickQueryFontMetrics(s->wand_text, s->dw, s->text);
         if(!metrics) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickQueryFontMetrics failed!\n");
+                MSG(WARNING, "MagickQueryFontMetrics failed: %s!\n",
+                    get_magick_error(s->wand_text));
                 return false;
         }
         double descender =  metrics[3];  // has negative value
@@ -289,7 +299,8 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         MagickRemoveImage(s->wand_text);
         status = MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg);
         if (!status) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickNewImage failed!\n");
+                MSG(WARNING, "MagickNewImage failed: %s!\n",
+                    get_magick_error(s->wand_text));
                 return false;
         }
 
@@ -298,8 +309,10 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         double rot = 0;
         status = MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
         if (!status) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n\n"
-                "Perhaps the text contains invalid characters?\n");
+                MSG(WARNING,
+                    "MagickAnnotateImage failed: %s!\n\n"
+                    "Perhaps the text contains invalid characters?\n",
+                    get_magick_error(s->wand_text));
                 return false;
         }
 
