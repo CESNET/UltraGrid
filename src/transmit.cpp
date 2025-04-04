@@ -1177,6 +1177,73 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
         }
 }
 
+/**
+ * send aggregate packet if possible to aggregate more NALUs (optional)
+ * @todo consider this also for tx_send_h264
+ */
+static bool
+send_h265_aggregate(struct rtp *rtp_session, const char pt, const uint32_t ts,
+                    unsigned max_packet_size, const unsigned char **nal_p,
+                    uint16_t nalsize_1st, const unsigned char *const end)
+{
+        enum {
+                AP_THRESH = 100, // aggregate just small pckts (will be copied)
+        };
+        if (nalsize_1st > AP_THRESH || end - *nal_p == nalsize_1st) {
+                return false;
+        }
+        unsigned char        ap_data[RTP_MAX_PACKET_LEN];
+        unsigned char       *pkt_end    = ap_data;
+        const unsigned char *nal        = *nal_p;
+        const int            layer_id0  = (nal[0] & 0x1) << 5 & nal[1] >> 3;
+        const int            tid0      = nal[1] & 0x7;
+        const unsigned char *endptr    = nullptr;
+        bool                 emit_ap    = false;
+        while ((nal = rtpenc_get_next_nal(nal, end - nal, &endptr)) !=
+               nullptr) {
+                const int layer_id = (nal[0] & 0x1) << 5 & nal[1] >> 3;
+                const int tid      = nal[1] & 0x7;
+                if (layer_id != layer_id0 || tid != tid0) { // not compatible
+                        break;
+                }
+                const uint16_t sz = endptr - nal;
+                if (sz > AP_THRESH) {
+                        break;
+                }
+                if (ap_data - pkt_end + sz > max_packet_size) {
+                        break; // woultd exceed MTU
+                }
+                if (!emit_ap) { // aggregate pkt will be generated -  write
+                                // first pkt data
+                        // AP header
+                        *pkt_end++ = NAL_RTP_HEVC_AP << 1 | layer_id >> 5;
+                        *pkt_end++ = layer_id << 3 | tid;
+                        const uint16_t sz_n = htons(nalsize_1st);
+                        memcpy(pkt_end, &sz_n, sizeof sz_n);
+                        pkt_end += sizeof sz_n;
+                        memcpy(pkt_end, *nal_p, nalsize_1st);
+                        pkt_end += nalsize_1st;
+                }
+                emit_ap             = true;
+                *nal_p              = nal;
+                const uint16_t sz_n = htons(sz);
+                memcpy(pkt_end, &sz_n, sizeof sz_n);
+                pkt_end += sizeof sz_n;
+                memcpy(pkt_end, nal, sz);
+                pkt_end += sz;
+        }
+        if (emit_ap) {
+                if (rtp_send_data_hdr(rtp_session, ts, pt, 1 /* m */, 0,
+                                      nullptr, (char *) nullptr, 0,
+                                      (char *) ap_data, pkt_end - ap_data,
+                                      nullptr, 0, 0) < 0) {
+                        error_msg("There was a problem sending the RTP "
+                                  "packet\n");
+                }
+        }
+        return emit_ap;
+}
+
 void tx_send_h265(struct tx *tx, struct video_frame *frame,
 		struct rtp *rtp_session) {
         assert(frame->tile_count == 1);
@@ -1194,6 +1261,11 @@ void tx_send_h265(struct tx *tx, struct video_frame *frame,
 
         while ((nal = rtpenc_get_next_nal(nal, end - nal, &endptr))) {
                 unsigned int nalsize = endptr - nal;
+
+                if (send_h265_aggregate(rtp_session, pt, ts, maxPacketSize,
+                                        &nal, nalsize, end)) {
+                        continue;
+                }
 
                 if (nalsize <= maxPacketSize) { // single NALU packet
                         char *payload = const_cast<char *>(
