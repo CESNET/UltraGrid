@@ -52,6 +52,7 @@
 #endif // HAVE_CONFIG_H
 
 #include <cassert>
+#include <cmath>
 #include <climits>
 #include <condition_variable>
 #include <mutex>
