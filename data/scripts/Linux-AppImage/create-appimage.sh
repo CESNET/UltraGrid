@@ -21,7 +21,11 @@ umask 022
 
 # soft fail - fail in CI, otherwise continue
 handle_error() {
+        red=1
+        tput setaf $red || true
+        tput bold || true
         echo "$1" >&2
+        tput sgr0 || true
         if [ -n "${GITHUB_REPOSITORY:-}" ]; then
                 exit 2
         fi
