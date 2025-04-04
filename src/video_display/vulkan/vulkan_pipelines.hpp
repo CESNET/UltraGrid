@@ -53,6 +53,18 @@ struct ImageSize{
 };
 
 class ConversionPipeline {
+public:
+        void create(vk::Device device, const std::string& shader_path, vk::Format format);
+        void destroy(vk::Device device);
+
+        void record_commands(vk::CommandBuffer cmd_buffer, ImageSize image_size, std::array<vk::DescriptorSet, 2> descriptor_set);
+
+        vk::DescriptorSetLayout get_source_image_desc_set_layout(){ return source_desc_set_layout; }
+        vk::DescriptorSetLayout get_destination_image_desc_set_layout() { return destination_desc_set_layout; }
+        vk::Sampler get_sampler(){ return sampler; }
+        vk::SamplerYcbcrConversion get_yCbCr_conversion(){ return yCbCr_conversion; };
+
+private:
         bool valid = false;
 
         vk::ShaderModule compute_shader{};
@@ -64,21 +76,6 @@ class ConversionPipeline {
 
         vk::SamplerYcbcrConversion yCbCr_conversion{};
         vk::Sampler sampler{};
-
-public:
-        void create(vk::Device device, const std::string& shader_path, vk::Format format);
-
-        void destroy(vk::Device device);
-
-        void record_commands(vk::CommandBuffer cmd_buffer, ImageSize image_size, std::array<vk::DescriptorSet, 2> descriptor_set);
-
-        vk::DescriptorSetLayout get_source_image_desc_set_layout(){ return source_desc_set_layout; }
-
-        vk::DescriptorSetLayout get_destination_image_desc_set_layout() { return destination_desc_set_layout; }
-
-        vk::Sampler get_sampler(){ return sampler; }
-
-        vk::SamplerYcbcrConversion get_yCbCr_conversion(){ return yCbCr_conversion; };
 };
 
 struct RenderArea {
@@ -89,6 +86,22 @@ struct RenderArea {
 };
 
 class RenderPipeline {
+public:
+        void create(VulkanContext& context, const std::string& path_to_shaders);
+        void destroy(vk::Device device);
+
+        void update_render_area(vk::Extent2D render_area_siza, vk::Extent2D image_size);
+        /** Invalidates descriptor sets created from stored descriptor set layout**/
+        void reconfigure(vk::Device device, vk::Format sampler);
+
+        void record_commands(vk::CommandBuffer cmd_buffer, vk::DescriptorSet image, vk::Framebuffer framebuffer);
+
+        vk::RenderPass get_render_pass(){ return render_pass; }
+        vk::DescriptorSetLayout get_image_desc_set_layout(){ return image_desc_set_layout; }
+        vk::Sampler get_sampler(){ return sampler; }
+        vk::SamplerYcbcrConversion get_yCbCr_conversion(){ return yCbCr_conversion; };
+
+private:
         bool valid = false;
 
         vk::SamplerYcbcrConversion yCbCr_conversion{};
@@ -108,26 +121,6 @@ class RenderPipeline {
         vk::DescriptorSetLayout image_desc_set_layout{};
         vk::PipelineLayout pipeline_layout{};
         vk::Pipeline pipeline{};
-
-public:
-        void create(VulkanContext& context, const std::string& path_to_shaders);
-
-        void destroy(vk::Device device);
-
-        void update_render_area(vk::Extent2D render_area_siza, vk::Extent2D image_size);
-
-        /** Invalidates descriptor sets created from stored descriptor set layout**/
-        void reconfigure(vk::Device device, vk::Format sampler);
-
-        void record_commands(vk::CommandBuffer cmd_buffer, vk::DescriptorSet image, vk::Framebuffer framebuffer);
-
-        vk::RenderPass get_render_pass(){ return render_pass; }
-
-        vk::DescriptorSetLayout get_image_desc_set_layout(){ return image_desc_set_layout; }
-
-        vk::Sampler get_sampler(){ return sampler; }
-
-        vk::SamplerYcbcrConversion get_yCbCr_conversion(){ return yCbCr_conversion; };
 };
 
 

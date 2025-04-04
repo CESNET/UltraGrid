@@ -83,53 +83,6 @@ public:
 };
 
 class VulkanDisplay {
-        std::string path_to_shaders;
-        WindowChangedCallback* window = nullptr;
-        detail::VulkanContext context;
-        
-        vk::Device device;
-        std::mutex device_mutex{};
-
-        bool format_conversion_enabled = false;
-        detail::ConversionPipeline conversion_pipeline;
-
-        detail::RenderPipeline render_pipeline;
-
-        vk::DescriptorPool descriptor_pool;
-        vk::CommandPool command_pool;
-
-        std::array<detail::PerFrameResources, 3> frame_resources;
-        std::vector<detail::PerFrameResources*> free_frame_resources;
-
-        ImageDescription current_image_description;
-
-        using TransferImageImpl = detail::TransferImageImpl;
-        std::deque<TransferImageImpl> transfer_images{};
-
-        /// available_img_queue - producer is the render thread, consumer is the provided thread
-        detail::ConcurrentQueue<TransferImageImpl*> available_img_queue{};
-        /// filled_img_queue - producer is the provider thread, consumer is the render thread
-        detail::ConcurrentQueue<TransferImageImpl*, detail::filled_img_max_count> filled_img_queue{};
-        /// local to provider thread
-        std::vector<TransferImageImpl*> available_images;
-
-        struct RenderedImage{
-                TransferImageImpl* image;
-                detail::PerFrameResources* gpu_commands;
-        };
-        std::queue<RenderedImage> rendered_images;
-
-        bool destroyed = false;
-private:
-        void bind_transfer_image(TransferImageImpl& image, detail::PerFrameResources& resources);
-        //void create_transfer_image(transfer_image*& result, image_description description);
-        [[nodiscard]] TransferImageImpl& acquire_transfer_image();
-
-        void record_graphics_commands(detail::PerFrameResources& commands, TransferImageImpl& transfer_image, uint32_t swapchain_image_id);
-
-        void reconfigure(const TransferImageImpl& transfer_image);
-
-        void destroy_format_dependent_resources();
 public:
         /// TERMINOLOGY:
         /// render thread - thread which renders queued images on the screen 
@@ -152,9 +105,12 @@ public:
                 }
         }
 
-        void init(VulkanInstance&& instance, vk::SurfaceKHR surface, uint32_t transfer_image_count,
-                WindowChangedCallback& window, uint32_t gpu_index = no_gpu_selected,
-                std::string path_to_shaders = "./shaders", bool vsync = true, bool tearing_permitted = false);
+        void init(VulkanInstance&& instance, vk::SurfaceKHR surface,
+                        uint32_t transfer_image_count,
+                        WindowChangedCallback& window,
+                        uint32_t gpu_index = no_gpu_selected,
+                        std::string path_to_shaders = "./shaders",
+                        bool vsync = true, bool tearing_permitted = false);
 
         void destroy();
 
@@ -163,34 +119,26 @@ public:
 
         /** Thread-safe to call from provider thread.*/
         TransferImage acquire_image(ImageDescription description);
-
         /** Thread-safe to call from provider thread.
          **
          ** @return true if image was discarded
          */
         bool queue_image(TransferImage img, bool discardable);
-
         /** Thread-safe to call from provider thread.*/
         void copy_and_queue_image(unsigned char* frame, ImageDescription description);
-
         /** Thread-safe to call from provider thread.*/
         void discard_image(TransferImage image) {
                 auto* ptr = image.get_transfer_image();
                 assert(ptr);
                 available_images.push_back(ptr);
         }
-
-
-
         /** Thread-safe to call from render thread.
          **
          ** @return true if image was displayed
          */
         bool display_queued_image();
-
         /** Thread-safe*/
         uint32_t get_vulkan_version() const { return context.get_vulkan_version(); }
-        
         /** Thread-safe*/
         bool is_yCbCr_supported() const { return context.is_yCbCr_supported(); }
 
@@ -199,12 +147,58 @@ public:
          * Thread-safe.
          */
         void window_parameters_changed(WindowParameters new_parameters);
-
-        
         /** Thread-safe */
         void window_parameters_changed() {
                 window_parameters_changed(window->get_window_parameters());
         }
+
+private:
+        using TransferImageImpl = detail::TransferImageImpl;
+        void bind_transfer_image(TransferImageImpl& image,
+                        detail::PerFrameResources& resources);
+        //void create_transfer_image(transfer_image*& result, image_description description);
+        [[nodiscard]] TransferImageImpl& acquire_transfer_image();
+        void record_graphics_commands(detail::PerFrameResources& commands,
+                        TransferImageImpl& transfer_image, uint32_t swapchain_image_id);
+        void reconfigure(const TransferImageImpl& transfer_image);
+        void destroy_format_dependent_resources();
+
+        std::string path_to_shaders;
+        WindowChangedCallback* window = nullptr;
+        detail::VulkanContext context;
+        
+        vk::Device device;
+        std::mutex device_mutex{};
+
+        bool format_conversion_enabled = false;
+        detail::ConversionPipeline conversion_pipeline;
+
+        detail::RenderPipeline render_pipeline;
+
+        vk::DescriptorPool descriptor_pool;
+        vk::CommandPool command_pool;
+
+        std::array<detail::PerFrameResources, 3> frame_resources;
+        std::vector<detail::PerFrameResources*> free_frame_resources;
+
+        ImageDescription current_image_description;
+
+        std::deque<TransferImageImpl> transfer_images{};
+
+        /// available_img_queue - producer is the render thread, consumer is the provided thread
+        detail::ConcurrentQueue<TransferImageImpl*> available_img_queue{};
+        /// filled_img_queue - producer is the provider thread, consumer is the render thread
+        detail::ConcurrentQueue<TransferImageImpl*, detail::filled_img_max_count> filled_img_queue{};
+        /// local to provider thread
+        std::vector<TransferImageImpl*> available_images;
+
+        struct RenderedImage{
+                TransferImageImpl* image;
+                detail::PerFrameResources* gpu_commands;
+        };
+        std::queue<RenderedImage> rendered_images;
+
+        bool destroyed = false;
 };
 
 } //vulkan_display

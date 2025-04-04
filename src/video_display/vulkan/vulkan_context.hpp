@@ -113,6 +113,58 @@ struct SwapchainImage {
 };
 
 class VulkanContext {
+public:
+        VulkanContext() = default;
+
+        void init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
+                vulkan_display::WindowParameters window_parameters, uint32_t gpu_index, vk::PresentModeKHR preferred_mode);
+
+        void destroy();
+
+        void create_framebuffers(vk::RenderPass render_pass);
+
+        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore);
+
+        vk::Framebuffer get_framebuffer(uint32_t framebuffer_id) {
+                return swapchain_images[framebuffer_id].framebuffer;
+        }
+
+        vulkan_display::WindowParameters get_window_parameters() const {
+                return window_parameters;
+        }
+
+        void recreate_swapchain(vulkan_display::WindowParameters parameters, vk::RenderPass render_pass);
+        //getters
+        uint32_t get_vulkan_version() const { return vulkan_version; }
+        vk::PhysicalDevice get_gpu() { return gpu; }
+        vk::Device get_device() { return device; }
+        bool is_yCbCr_supported() const { return yCbCr_supported; }
+        uint32_t get_queue_family_index() { return queue_family_index; }
+        vk::Queue get_queue() { return queue; }
+        vk::SwapchainKHR get_swapchain() { return swapchain; }
+        vk::Format get_swapchain_image_format() { return swapchain_attributes.format.format; };
+        size_t get_swapchain_image_count() { return swapchain_images.size(); }
+        vk::Extent2D get_render_area_size() { return swapchain_attributes.image_size; }
+
+private:
+        void create_logical_device();
+
+        void create_swap_chain(vk::SwapchainKHR&& old_swap_chain = vk::SwapchainKHR{});
+
+        void destroy_swapchain_views() {
+                for (auto& image : swapchain_images) {
+                        device.destroy(image.view);
+                        image.view = nullptr;
+                }
+        }
+
+        void destroy_framebuffers() {
+                for (auto& image : swapchain_images) {
+                        device.destroy(image.framebuffer);
+                        image.framebuffer = nullptr;
+                }
+        }
+
         vk::Instance instance;
 #if VK_HEADER_VERSION >= 301
         std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher{};
@@ -143,58 +195,6 @@ class VulkanContext {
 
         vulkan_display::WindowParameters window_parameters;
         bool swapchain_was_suboptimal = false;
-public:
-        //getters
-        uint32_t get_vulkan_version() const { return vulkan_version; }
-        vk::PhysicalDevice get_gpu() { return gpu; }
-        vk::Device get_device() { return device; }
-        bool is_yCbCr_supported() const { return yCbCr_supported; }
-        uint32_t get_queue_family_index() { return queue_family_index; }
-        vk::Queue get_queue() { return queue; }
-        vk::SwapchainKHR get_swapchain() { return swapchain; }
-        vk::Format get_swapchain_image_format() { return swapchain_attributes.format.format; };
-        size_t get_swapchain_image_count() { return swapchain_images.size(); }
-        vk::Extent2D get_render_area_size() { return swapchain_attributes.image_size; }
-private:
-        void create_logical_device();
-
-        void create_swap_chain(vk::SwapchainKHR&& old_swap_chain = vk::SwapchainKHR{});
-
-        void destroy_swapchain_views() {
-                for (auto& image : swapchain_images) {
-                        device.destroy(image.view);
-                        image.view = nullptr;
-                }
-        }
-
-        void destroy_framebuffers() {
-                for (auto& image : swapchain_images) {
-                        device.destroy(image.framebuffer);
-                        image.framebuffer = nullptr;
-                }
-        }
-
-public:
-        VulkanContext() = default;
-
-        void init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
-                vulkan_display::WindowParameters window_parameters, uint32_t gpu_index, vk::PresentModeKHR preferred_mode);
-
-        void destroy();
-
-        void create_framebuffers(vk::RenderPass render_pass);
-
-        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore);
-
-        vk::Framebuffer get_framebuffer(uint32_t framebuffer_id) {
-                return swapchain_images[framebuffer_id].framebuffer;
-        }
-
-        vulkan_display::WindowParameters get_window_parameters() const {
-                return window_parameters;
-        }
-
-        void recreate_swapchain(vulkan_display::WindowParameters parameters, vk::RenderPass render_pass);
 };
 
 }//namespace vulkan_display_detail ----------------------------------------------------------------
@@ -205,19 +205,6 @@ namespace vulkan_display {
 namespace detail = vulkan_display_detail;
 
 class VulkanInstance {
-        vk::Instance instance{};
-#if VK_HEADER_VERSION >= 301
-        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
-#else
-        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
-#endif
-        vk::DebugUtilsMessengerEXT messenger{};
-        uint32_t vulkan_version = VK_API_VERSION_1_1;
-
-        void init_validation_layers_error_messenger();
-
-        friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
-                vk::SurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 public:
         VulkanInstance() = default;
         VulkanInstance(const VulkanInstance& other) = delete;
@@ -248,6 +235,21 @@ public:
         }
 
         void destroy();
+        
+private:
+        vk::Instance instance{};
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#else
+        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#endif
+        vk::DebugUtilsMessengerEXT messenger{};
+        uint32_t vulkan_version = VK_API_VERSION_1_1;
+
+        void init_validation_layers_error_messenger();
+
+        friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
+                vk::SurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 };
 
 }
