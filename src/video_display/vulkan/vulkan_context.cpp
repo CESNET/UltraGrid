@@ -123,6 +123,7 @@ bool
 handle_enumerate_portability_extension(
     std::vector<const char *> &required_extensions)
 {
+#if VK_HEADER_VERSION >= 270
         std::vector<vk::ExtensionProperties> extensions =
             vk::enumerateInstanceExtensionProperties(nullptr);
 
@@ -162,6 +163,9 @@ handle_enumerate_portability_extension(
                 required_extensions.erase(it);
         }
 #endif
+#else // VK_HEADER_VERSION < 270
+        (void) required_extensions;
+#endif // VK_HEADER_VERSION < 270
 
         return false;
 }
@@ -401,7 +405,9 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
                 .setEnabledExtensionCount(static_cast<uint32_t>(required_extensions.size()))
                 .setPpEnabledExtensionNames(required_extensions.data());
         if (create_enumerate_portability_bit_supported) {
+#if VK_HEADER_VERSION >= 208
                 instance_info.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+#endif // VK_HEADER_VERSION >= 208
         }
         auto result = vk::createInstance(&instance_info, nullptr, &instance);
         
