@@ -251,7 +251,8 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         DrawSetFontSize(s->dw, s->text_height_pt);
         MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
+                MSG(WARNING, "DraweSetFont failed: %s!\n",
+                    get_magick_error(s->wand_text));
                 return false;
         }
         {
@@ -265,10 +266,16 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->wand_bg = NewMagickWand();
         status = MagickSetFormat(s->wand_bg, colorspace);
+        if (status != MagickTrue) {
+                MSG(WARNING, "MagickSetFormat bg failed: %s!\n",
+                    get_magick_error(s->wand_bg));
+                return false;
+        }
         s->wand_text = NewMagickWand();
-        status &= MagickSetFormat(s->wand_text, colorspace);
+        status = MagickSetFormat(s->wand_text, colorspace);
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
+                MSG(WARNING, "MagickSetFormat text failed: %s!\n",
+                    get_magick_error(s->wand_text));
                 return false;
         }
 
