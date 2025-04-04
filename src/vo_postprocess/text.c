@@ -468,9 +468,15 @@ static void text_done(void *state)
 
         vf_free(s->in);
 
-        DestroyMagickWand(s->wand_bg);
-        DestroyMagickWand(s->wand_text);
-        DestroyDrawingWand(s->dw);
+        if (s->wand_bg) {
+                DestroyMagickWand(s->wand_bg);
+        }
+        if (s->wand_text) {
+                DestroyMagickWand(s->wand_text);
+        }
+        if (s->dw) {
+                DestroyDrawingWand(s->dw);
+        }
 
         free(s->data);
         free(s->text);
