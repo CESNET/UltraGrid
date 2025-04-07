@@ -331,6 +331,17 @@ static bool audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                 const char *error = nullptr;
                 auto stream_state = pw_stream_get_state(s->stream.get(), &error);
                 if(stream_state == PW_STREAM_STATE_STREAMING){
+                        pw_time time;
+                        float delay = 0;
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO >= 50)
+                        pw_stream_get_time_n(s->stream.get(), &time, sizeof(time));
+                        delay += time.buffered * 1000.f / rate;
+#else
+                        pw_stream_get_time(s->stream.get(), &time);
+#endif
+
+                        delay += time.delay * 1000.f * time.rate.num / time.rate.denom;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured and pipewire reports %.2fms of playback delay\n", delay);
                         return true;
                 }
                 if(stream_state == PW_STREAM_STATE_ERROR){
