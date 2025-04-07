@@ -85,6 +85,7 @@ struct state_text {
         int width;                 // pixels
         int text_base_y;
         int margin_x, margin_y;
+        char *req_font;
         
         // font size
         int text_height_pt;   
@@ -133,7 +134,7 @@ static void * text_init(const char *config) {
                 color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");
                 color_printf("\t" TBOLD("-p text:<text>") "\n");
-                color_printf("\t" TBOLD("-p text:x=<x>:y=<y>:h=<text_height>:t=<text>") "\n");
+                color_printf("\t" TBOLD("-p text[:x=<x>:y=<y>:h=<text_height>:f=<font>]:t=<text>") "\n");
                 color_printf("\nExamples:\n");
                 color_printf(TBOLD("\t-p text:stream1\n"
                                         "\t-p text:x=100:y=100:h=20:t=text\n"
@@ -156,6 +157,8 @@ static void * text_init(const char *config) {
                         s->req_y = atoi(item + 2);
                 } else if (strstr(item, "h=") != NULL) {
                         s->req_h = atoi(item + 2);
+                } else if (strstr(item, "f=") != NULL) {
+                        s->req_font = strdup(strchr(item, '=') + 1);
                 } else if (strstr(item, "t=") != NULL) {
                         replace_all(item + 2, DELDEL, ":");
                         s->text = strdup(item + 2);
@@ -199,6 +202,35 @@ get_magick_error(const MagickWand *wand)
 {
         ExceptionType except = MagickGetExceptionType(wand);
         return MagickGetException(wand, &except);
+}
+
+/// @returns false if req_font specified but not found
+static MagickBooleanType
+set_font(DrawingWand *dw, const char *req_font)
+{
+        const char        *req_tmp[] = { req_font, NULL };
+        const char *const *font_candidates =
+            req_font != NULL ? req_tmp : get_font_candidates();
+        while (*font_candidates != NULL) {
+                FILE *f = fopen(*font_candidates, "rb");
+                if (f != NULL) {
+                        fclose(f);
+                        if (DrawSetFont(dw, *font_candidates) != MagickTrue) {
+                                MSG(WARNING, "DraweSetFont failed!\n");
+                                continue;
+                        }
+                        MSG(INFO, "Using font: %s\n", *font_candidates);
+                        return MagickTrue;
+                }
+                MSG(VERBOSE, "font %s not found\n", *font_candidates);
+                font_candidates += 1;
+        }
+        if (req_font != NULL) {
+                return MagickFalse;
+        }
+        MSG(ERROR,
+            "Could not find useable font! Continue using system one...\n");
+        return MagickTrue;
 }
 
 static bool
@@ -249,10 +281,8 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->dw = NewDrawingWand();
         DrawSetFontSize(s->dw, s->text_height_pt);
-        MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
+        MagickBooleanType status = set_font(s->dw, s->req_font);
         if(status != MagickTrue) {
-                MSG(WARNING, "DraweSetFont failed: %s!\n",
-                    get_magick_error(s->wand_text));
                 return false;
         }
         {
@@ -276,23 +306,6 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         if(status != MagickTrue) {
                 MSG(WARNING, "MagickSetFormat text failed: %s!\n",
                     get_magick_error(s->wand_text));
-                return false;
-        }
-
-        const char *const *font_candidates = get_font_candidates();
-        while (*font_candidates != NULL) {
-                FILE *f = fopen(*font_candidates, "rb");
-                if (f != NULL) {
-                        fclose(f);
-                        DrawSetFont(s->dw, *font_candidates);
-                        MSG(INFO, "Using font: %s\n", *font_candidates);
-                        break;
-                }
-                MSG(VERBOSE, "font %s not found\n", *font_candidates);
-                font_candidates += 1;
-        }
-        while (*font_candidates == NULL) {
-                MSG(ERROR, "Could not find useable font!\n");
                 return false;
         }
 
@@ -480,6 +493,7 @@ static void text_done(void *state)
 
         free(s->data);
         free(s->text);
+        free(s->req_font);
         free(s);
 }
 
