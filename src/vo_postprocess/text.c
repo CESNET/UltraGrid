@@ -219,7 +219,7 @@ set_font(DrawingWand *dw, const char *req_font)
                                 MSG(WARNING, "DraweSetFont failed!\n");
                                 continue;
                         }
-                        MSG(INFO, "Using font: %s\n", *font_candidates);
+                        MSG(INFO, "using font %s\n", *font_candidates);
                         return MagickTrue;
                 }
                 MSG(VERBOSE, "font %s not found\n", *font_candidates);
@@ -228,10 +228,18 @@ set_font(DrawingWand *dw, const char *req_font)
         if (req_font != NULL) {
                 return MagickFalse;
         }
-        MSG(ERROR,
-            "Could not find useable font! Continue using system one...\n");
+        MSG(WARNING,
+            "Could not find usable font! Continue using system one...\n");
         return MagickTrue;
 }
+
+#define HANDLE_WAND_ERROR(status, wand, msg) \
+        do { \
+                if ((status) != MagickTrue) { \
+                        MSG(ERROR, "%s: %s!\n", msg, get_magick_error(wand)); \
+                        return false; \
+                } \
+        } while (0)
 
 static bool
 text_postprocess_reconfigure(void *state, struct video_desc desc)
@@ -296,22 +304,15 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->wand_bg = NewMagickWand();
         status = MagickSetFormat(s->wand_bg, colorspace);
-        if (status != MagickTrue) {
-                MSG(WARNING, "MagickSetFormat bg failed: %s!\n",
-                    get_magick_error(s->wand_bg));
-                return false;
-        }
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetFormat bg failed");
         s->wand_text = NewMagickWand();
         status = MagickSetFormat(s->wand_text, colorspace);
-        if(status != MagickTrue) {
-                MSG(WARNING, "MagickSetFormat text failed: %s!\n",
-                    get_magick_error(s->wand_text));
-                return false;
-        }
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickSetFormat text failed");
 
         status = MagickSetDepth(s->wand_bg, 8);
-        status &= MagickSetDepth(s->wand_text, 8);
-        assert(status == MagickTrue && "[text vo_pp.] MagickSetDepth failed");
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetDepth bg failed");
+        status = MagickSetDepth(s->wand_text, 8);
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickSetDepth text failed");
         
         PixelWand *transparent_bg = NewPixelWand();
         // PixelSetColor(transparent_bg, "#cccccc80");  // for debugging
@@ -325,6 +326,7 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         if(!metrics) {
                 MSG(WARNING, "MagickQueryFontMetrics failed: %s!\n",
                     get_magick_error(s->wand_text));
+                DestroyPixelWand(transparent_bg);
                 return false;
         }
         double descender =  metrics[3];  // has negative value
@@ -334,25 +336,16 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         MagickRemoveImage(s->wand_text);
         status = MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg);
-        if (!status) {
-                MSG(WARNING, "MagickNewImage failed: %s!\n",
-                    get_magick_error(s->wand_text));
-                return false;
-        }
+        DestroyPixelWand(transparent_bg);
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickNewImage failed");
 
         double x_off = 0;
         double y_off_baseline = s->text_height_px - (-descender) + 1;
         double rot = 0;
         status = MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
-        if (!status) {
-                MSG(WARNING,
-                    "MagickAnnotateImage failed: %s!\n\n"
-                    "Perhaps the text contains invalid characters?\n",
-                    get_magick_error(s->wand_text));
-                return false;
-        }
-
-        DestroyPixelWand(transparent_bg);
+        HANDLE_WAND_ERROR(status, s->wand_text,
+                          "MagickAnnotateImage failed (Perhaps the text "
+                          "contains invalid characters?)");
 
         return true;
 }
@@ -398,13 +391,10 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         MagickRemoveImage(s->wand_bg);
 
         status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
-        assert(status == MagickTrue && "[text vo_pp.] MagickSetSize failed -- ");
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetSize failed");
 
         status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
-                return false;
-        }
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickReadImageBlob failed");
 
         // compose it with text
 #ifdef WAND7
@@ -412,16 +402,15 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
 #else
         status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, s->margin_x, 0);
 #endif
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickCompositeImage failed!\n");
-                return false;
-        }
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickCompositeImage failed");
 
         // extract the composed data
         unsigned char *data;
         size_t data_len;
         data = MagickGetImageBlob(s->wand_bg, &data_len);
-        assert(data != NULL && "[text vo_pp.] MagickGetImageBlob failed!");
+        if (data == NULL) {
+                HANDLE_WAND_ERROR(MagickFalse, s->wand_bg, "MagickGetImageBlob failed");
+        }
 
         // send the input stream...
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
