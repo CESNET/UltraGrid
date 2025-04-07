@@ -189,7 +189,7 @@ static bool audio_play_pw_ctl(void *state, int request, void *data, size_t *len)
 static void on_state_changed(void *state, enum pw_stream_state old, enum pw_stream_state new_state, const char *error)
 {
         auto s = static_cast<state_pipewire_play *>(state);
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stream state change: %s -> %s\n",
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Stream state change: %s -> %s\n",
                         pw_stream_state_as_string(old),
                         pw_stream_state_as_string(new_state));
 
