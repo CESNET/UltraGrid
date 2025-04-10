@@ -140,10 +140,14 @@ static int check_av_opt_set(void *state, const char *key, const char *val) {
         return ret;
 }
 
-ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S][n][d]\n"
-                "  Use <thread_count> decoding threads (0 is usually auto).\n"
-                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both (default slice), 'n' for none; 'd' - disable low delay\n");
-static void set_codec_context_params(struct state_libavcodec_decompress *s)
+ADD_TO_PARAM("lavd-thread-count",
+             "* lavd-thread-count=[<thread_count>][F][S][n][d]\n"
+             "  Use <thread_count> decoding threads (0 is usually auto).\n"
+             "  Flag 'F' enables frame parallelism (disabled by default), 'S' "
+             "slice based, can be both (default slice), 'n' for none; 'd' - "
+             "disable low delay\n");
+static void
+set_codec_context_params(struct state_libavcodec_decompress *s)
 {
         int thread_count = 0; ///< decoder may use <cpu_count> frame threads with AV_CODEC_CAP_OTHER_THREADS (latency)
         int req_thread_type = 0;
@@ -153,19 +157,21 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
                 char *endptr = NULL;
                 errno = 0;
                 long val = strtol(thread_count_opt, &endptr, 0);
-                if (errno == 0 && thread_count_opt[0] != '\0' && val >= 0 && val <= INT_MAX && (*endptr == '\0' || toupper(*endptr) == 'F' || toupper(*endptr) == 'S')) {
-                        thread_count = val;
-                        while (*endptr) {
-                                switch (toupper(*endptr)) {
-                                        case 'F': req_thread_type |= FF_THREAD_FRAME; break;
-                                        case 'S': req_thread_type |= FF_THREAD_SLICE; break;
-                                        case 'n': req_thread_type = -1; break;
-                                        case 'd': req_low_delay = false; break;
-                                }
-                                endptr++;
+                if (errno == 0 && val >= 0 && val <= INT_MAX) {
+                        thread_count = (int) val;
+                }
+                while (*endptr) {
+                        switch (toupper(*endptr)) {
+                                case 'F': req_thread_type |= FF_THREAD_FRAME; break;
+                                case 'S': req_thread_type |= FF_THREAD_SLICE; break;
+                                case 'n': req_thread_type = -1; break;
+                                case 'd': req_low_delay = false; break;
+                                default: errno = EINVAL; break;
                         }
-                } else {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count: %s\n", thread_count_opt);
+                        endptr++;
+                }
+                if (errno != 0) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count value: %s\n", thread_count_opt);
                 }
         }
 
