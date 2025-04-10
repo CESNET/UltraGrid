@@ -347,8 +347,8 @@ void audio_frame2::change_ch_count(int ch_count)
                 return;
         }
 
-        const channel &last_ch = channels.at(channels.size() - 1);
         for (unsigned i = channels.size(); i < (unsigned) ch_count; ++i) {
+                const channel &last_ch = channels.at(channels.size() - 1);
                 std::unique_ptr<char[]> data =
                     std::unique_ptr<char[]>(new char[last_ch.len]);
                 memcpy(data.get(), last_ch.data.get(), last_ch.len);
