@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,23 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "audio/types.h"
 
+#include <algorithm>            // for copy
+#include <cassert>              // for assert
+#include <cstring>              // for memcpy
+#include <sstream>              // for basic_ostringstream
+#include <stdexcept>            // for logic_error
+#include <utility>              // for move
 
 #include "audio/resampler.hpp"
-#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
-#include "host.h"
-#include "utils/macros.h"
-
-#include <chrono>
-#include <sstream>
-#include <stdexcept>
+#include "types.h"              // for fec_desc, frame_flags_common
 
 using std::copy;
 using std::logic_error;
