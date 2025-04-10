@@ -401,11 +401,16 @@ static int parse_cuda_device(char *optarg) {
                         LOG(LOG_LEVEL_ERROR) << "Maximal number of CUDA device exceeded.\n";
                         return -EXIT_FAILURE;
                 }
-                cuda_devices[i] = atoi(item);
+                const int val = parse_number(optarg, 0, 16);
+                if (val == INT_MIN) {
+                        return -EXIT_FAIL_USAGE;
+                }
+                cuda_devices[i] = val;
                 optarg = NULL;
                 ++i;
         }
         cuda_devices_count = i;
+        assert(cuda_devices_count >= 1);
         cuda_devices_explicit = true;
         return 0;
 }
