@@ -140,18 +140,20 @@ static int check_av_opt_set(void *state, const char *key, const char *val) {
         return ret;
 }
 
+/// @todo 'd' flag is not entirely thread-specific - maybe new param or rename
+/// this to "lavd-opts" or so?
 ADD_TO_PARAM("lavd-thread-count",
-             "* lavd-thread-count=[<thread_count>][F][S][n][d]\n"
+             "* lavd-thread-count=[<thread_count>][F][S][n][d][D]\n"
              "  Use <thread_count> decoding threads (0 is usually auto).\n"
              "  Flag 'F' enables frame parallelism (disabled by default), 'S' "
              "slice based, can be both (default slice), 'n' for none; 'd' - "
-             "disable low delay\n");
+             "disable low delay\n"
+             "  'D' - don't set anything (keep codec defaults)\n");
 static void
-set_codec_context_params(struct state_libavcodec_decompress *s)
+set_thread_count(struct state_libavcodec_decompress *s, bool *req_low_delay)
 {
         int thread_count = 0; ///< decoder may use <cpu_count> frame threads with AV_CODEC_CAP_OTHER_THREADS (latency)
         int req_thread_type = 0;
-        bool req_low_delay = true;
         const char *thread_count_opt = get_commandline_param("lavd-thread-count");
         if (thread_count_opt != NULL) {
                 char *endptr = NULL;
@@ -162,10 +164,11 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                 }
                 while (*endptr) {
                         switch (toupper(*endptr)) {
+                                case 'D': thread_count = -1; break;
                                 case 'F': req_thread_type |= FF_THREAD_FRAME; break;
                                 case 'S': req_thread_type |= FF_THREAD_SLICE; break;
                                 case 'n': req_thread_type = -1; break;
-                                case 'd': req_low_delay = false; break;
+                                case 'd': *req_low_delay = false; break;
                                 default: errno = EINVAL; break;
                         }
                         endptr++;
@@ -175,6 +178,9 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                             thread_count_opt);
                         handle_error(EXIT_FAIL_USAGE);
                 }
+        }
+        if (thread_count == -1) {
+                return;
         }
 
         s->codec_ctx->thread_count = thread_count; // zero should mean count equal to the number of virtual cores
@@ -199,6 +205,13 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                 }
         }
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Setting thread count to %d, type: %s\n", s->codec_ctx->thread_count, lavc_thread_type_to_str(s->codec_ctx->thread_type));
+}
+
+static void
+set_codec_context_params(struct state_libavcodec_decompress *s)
+{
+        bool req_low_delay = true;
+        set_thread_count(s, &req_low_delay);
 
         s->codec_ctx->flags |= req_low_delay ? AV_CODEC_FLAG_LOW_DELAY : 0;
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
