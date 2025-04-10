@@ -1195,13 +1195,13 @@ send_h265_aggregate(struct rtp *rtp_session, const char pt, const uint32_t ts,
         unsigned char        ap_data[RTP_MAX_PACKET_LEN];
         unsigned char       *pkt_end    = ap_data;
         const unsigned char *nal        = *nal_p;
-        const int            layer_id0  = (nal[0] & 0x1) << 5 & nal[1] >> 3;
+        const int            layer_id0  = (nal[0] & 0x1) << 5 | nal[1] >> 3;
         const int            tid0      = nal[1] & 0x7;
         const unsigned char *endptr    = nullptr;
         bool                 emit_ap    = false;
         while ((nal = rtpenc_get_next_nal(nal, end - nal, &endptr)) !=
                nullptr) {
-                const int layer_id = (nal[0] & 0x1) << 5 & nal[1] >> 3;
+                const int layer_id = (nal[0] & 0x1) << 5 | nal[1] >> 3;
                 const int tid      = nal[1] & 0x7;
                 if (layer_id != layer_id0 || tid != tid0) { // not compatible
                         break;
