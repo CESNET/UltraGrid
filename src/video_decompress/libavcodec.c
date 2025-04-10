@@ -171,7 +171,9 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                         endptr++;
                 }
                 if (errno != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count value: %s\n", thread_count_opt);
+                        MSG(ERROR, "Wrong value for thread count value: %s\n",
+                            thread_count_opt);
+                        handle_error(EXIT_FAIL_USAGE);
                 }
         }
 
