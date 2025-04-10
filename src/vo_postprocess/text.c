@@ -100,6 +100,8 @@ struct state_text {
         MagickWand *wand_text;
 };
 
+static void text_done(void *state);
+
 static bool text_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
@@ -172,13 +174,13 @@ static void * text_init(const char *config) {
 
         if(!s->text || strlen(s->text) == 0){
                 log_msg(LOG_LEVEL_ERROR, "[text] Text can not be empty!\n");
-                free(s);
+                text_done(s);
                 return NULL;
         }
 
         if (s->req_h < -1) {
                 log_msg(LOG_LEVEL_ERROR, "[text] Text height cannot be negative!\n");
-                free(s);
+                text_done(s);
                 return NULL;
         }
 
