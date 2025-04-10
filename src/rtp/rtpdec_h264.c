@@ -296,9 +296,11 @@ decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
                 data += 2;
                 data_len -= 2;
 
+                const enum hevc_nal_type type = HEVC_NALU_HDR_GET_TYPE(data);
                 log_msg(LOG_LEVEL_DEBUG2,
-                        "HEVC AP subpacket NAL type %d\n",
-                        (int) HEVC_NALU_HDR_GET_TYPE(data));
+                        "HEVC AP subpacket NAL type %s (%d)\n",
+                        get_hevc_nalu_name(type),
+                        (int) type);
 
                 if (nal_size <= data_len) {
                     if (pass == 0) {
