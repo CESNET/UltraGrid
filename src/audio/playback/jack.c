@@ -79,6 +79,7 @@ struct state_jack_playback {
         long int first_channel;
 };
 
+static void audio_play_jack_done(void *state);
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
 
@@ -211,13 +212,13 @@ audio_play_jack_init(const struct audio_playback_opts *opts)
 
         if (s->libjack->set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registering callback problem.\n");
-                goto release_client;
+                goto error;
         }
 
 
         if (s->libjack->set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Process callback registration problem.\n");
-                goto release_client;
+                goto error;
         }
 
         s->jack_sample_rate = s->libjack->get_sample_rate (s->client);
@@ -227,7 +228,7 @@ audio_play_jack_init(const struct audio_playback_opts *opts)
         ports = s->libjack->get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
-                goto release_client;
+                goto error;
         }
 
         s->jack_ports_count = 0;
@@ -247,11 +248,8 @@ audio_play_jack_init(const struct audio_playback_opts *opts)
 
         return s;
 
-release_client:
-        s->libjack->client_close(s->client);
 error:
-        close_libjack(s->libjack);
-        free(s);
+        audio_play_jack_done(s);
         return NULL;
 }
 
@@ -383,7 +381,9 @@ static void audio_play_jack_done(void *state)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
 
-        s->libjack->client_close(s->client);
+        if (s->client != NULL) {
+                s->libjack->client_close(s->client);
+        }
         free(s->tmp);
         free(s->converted);
         free(s->jack_ports_pattern);
