@@ -1200,6 +1200,9 @@ rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
 
         if (session->rtp_socket == NULL || session->rtcp_socket == NULL) {
                 printf("Unable to open network\n");
+                udp_exit(session->rtp_socket);
+                udp_exit(session->rtcp_socket);
+                free(session->opt);
                 free(session);
                 return NULL;
         }
