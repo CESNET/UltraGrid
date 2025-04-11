@@ -250,7 +250,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         s->create_settings.allow_video_fields = false;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
-                        delete s;
+                        vidcap_ndi_done(s);
                         return VIDCAP_INIT_NOERR;
                 }
         }
