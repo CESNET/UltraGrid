@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1145,6 +1145,7 @@ ADD_TO_PARAM("lavd-accept-corrupted",
                 "* lavd-accept-corrupted[=no]\n"
                 "  Pass corrupted frames to decoder. If decoder isn't error-resilient,\n"
                 "  may crash! Use \"no\" to disable even if enabled by default.\n");
+/// if not requesteed, disable just for MJPEG
 static bool
 accept_corrupted(const AVCodecContext *ctx)
 {
@@ -1152,13 +1153,10 @@ accept_corrupted(const AVCodecContext *ctx)
         if (val != NULL) {
                 return strcmp(val, "no") != 0;
         }
-        if (ctx == NULL) {
+        if (ctx == NULL && ctx->codec->id == AV_CODEC_ID_MJPEG) {
                 return false;
         }
-        if (ctx->codec->id == AV_CODEC_ID_H264) {
-                return true;
-        }
-        return false;
+        return true;
 }
 
 static int libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len)
