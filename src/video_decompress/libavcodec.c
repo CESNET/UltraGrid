@@ -213,6 +213,7 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
         bool req_low_delay = true;
         set_thread_count(s, &req_low_delay);
 
+        s->codec_ctx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
         s->codec_ctx->flags |= req_low_delay ? AV_CODEC_FLAG_LOW_DELAY : 0;
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
         // set by decoder
