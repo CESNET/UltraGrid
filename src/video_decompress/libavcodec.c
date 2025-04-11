@@ -189,6 +189,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         }
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Setting thread count to %d, type: %s\n", s->codec_ctx->thread_count, lavc_thread_type_to_str(s->codec_ctx->thread_type));
 
+        s->codec_ctx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
         s->codec_ctx->flags |= req_low_delay ? AV_CODEC_FLAG_LOW_DELAY : 0;
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
         // set by decoder
