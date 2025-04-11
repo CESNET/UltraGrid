@@ -1384,6 +1384,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
                                 &res, &size);
                 decoder->accepts_corrupted_frame = ret && res;
+                MSG(VERBOSE, "Decoder accepts corrupted frames: %d",
+                    (int) decoder->accepts_corrupted_frame);
         }
 
         // Pass metadata to receiver thread (it can tweak parameters)

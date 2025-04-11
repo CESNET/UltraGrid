@@ -1145,6 +1145,22 @@ ADD_TO_PARAM("lavd-accept-corrupted",
                 "* lavd-accept-corrupted[=no]\n"
                 "  Pass corrupted frames to decoder. If decoder isn't error-resilient,\n"
                 "  may crash! Use \"no\" to disable even if enabled by default.\n");
+static bool
+accept_corrupted(const AVCodecContext *ctx)
+{
+        const char *const val = get_commandline_param("lavd-accept-corrupted");
+        if (val != NULL) {
+                return strcmp(val, "no") != 0;
+        }
+        if (ctx == NULL) {
+                return false;
+        }
+        if (ctx->codec->id == AV_CODEC_ID_H264) {
+                return true;
+        }
+        return false;
+}
+
 static int libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_libavcodec_decompress *s =
@@ -1156,15 +1172,7 @@ static int libavcodec_decompress_get_property(void *state, int property, void *v
                         if (*len < sizeof(int)) {
                                 return false;
                         }
-                        *(int *) val = false;
-                        if (s->codec_ctx && strcmp(s->codec_ctx->codec->name, "h264") == 0) {
-                                *(int *) val = true;
-                        }
-                        if (get_commandline_param("lavd-accept-corrupted")) {
-                                *(int *) val =
-                                        strcmp(get_commandline_param("lavd-accept-corrupted"), "no") != 0;
-                        }
-
+                        *(int *) val = accept_corrupted(s->codec_ctx);
                         *len = sizeof(int);
                         ret = true;
                         break;
