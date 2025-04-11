@@ -87,6 +87,7 @@ struct state_vidcap_ximea {
         f->sym = (void *) dlsym(f->handle, #sym);\
         if (f->sym == NULL) {\
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find symbol %s: %s\n", #sym, dlerror());\
+                dlclose(f->handle);\
                 return false;\
         }\
 } while(0)
