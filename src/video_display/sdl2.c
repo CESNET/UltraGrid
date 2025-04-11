@@ -487,6 +487,7 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 SDL_CHECK(SDL_LockTexture(texture, NULL,
                                           (void **) &f->tiles[0].data,
                                           &s->texture_pitch),
+                          vf_free(f);
                           return false);
                 if (!codec_is_planar(desc.color_spec)) {
                         f->tiles[0].data_len = desc.height * s->texture_pitch;
