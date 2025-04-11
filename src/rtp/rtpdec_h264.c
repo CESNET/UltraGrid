@@ -189,6 +189,11 @@ decode_h264_nal_unit(struct video_frame *frame, int *total_length, int pass,
                 }
 
             }
+            if (nal_count <= 1) {
+                MSG(ERROR, "H.264 AP with %d aggregate units prohibited!\n",
+                    nal_count);
+                return false;
+            }
             if (pass > 0) {
                 for (int i = nal_count - 1; i >= 0; i--) {
                     int nal_size = nal_sizes[i];
@@ -322,6 +327,11 @@ decode_hevc_nal_unit(struct video_frame *frame, int *total_length, int pass,
                     return false;
                 }
 
+            }
+            if (nal_count <= 1) {
+                MSG(ERROR, "HEVC AP with %d aggregate units prohibited!\n",
+                    nal_count);
+                return false;
             }
             if (pass > 0) {
                 for (int i = nal_count - 1; i >= 0; i--) {
