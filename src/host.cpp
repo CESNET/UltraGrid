@@ -6,7 +6,7 @@
  * This file contains common external definitions.
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,7 +78,6 @@
 #include <sys/types.h>                  // for ssize_t
 #include <tuple>                        // for tuple, get, make_tuple
 #include <unistd.h>                     // for STDERR_FILENO
-#include <vector>                       // for vector
 
 #include "audio/audio_capture.h"
 #include "audio/audio_filter.h"
@@ -88,7 +87,6 @@
 #include "audio/utils.h"
 #include "capture_filter.h"
 #include "compat/platform_pipe.h"
-#include "compat/strings.h"  // strdupa
 #include "compat/net.h"                 // for fd_t
 #include "cuda_wrapper.h"               // for cudaDeviceReset
 #include "debug.h"
@@ -980,29 +978,27 @@ bool parse_params(const char *optarg, bool preinit)
                 print_param_doc();
                 return false;
         }
-        char *tmp = strdupa(optarg);
-        char *item = nullptr;
-        char *save_ptr = nullptr;
-        while ((item = strtok_r(tmp, ",", &save_ptr)) != nullptr) {
-                tmp = nullptr;
-                char *key_cstr = item;
-                const char *val_cstr = "";
-                if (char *delim = strchr(item, '=')) {
-                        val_cstr = delim + 1;
-                        *delim = '\0';
+        std::string_view sv = optarg;
+        while (!sv.empty()) {
+                std::string key = std::string(tokenize(sv, ','));
+                std::string val;
+                std::string::size_type delim_pos = key.find('=');
+                if (delim_pos != std::string::npos) {
+                        val = key.substr(delim_pos + 1);
+                        key.resize(delim_pos);
                 }
-                if (!validate_param(key_cstr)) {
+                if (!validate_param(key.c_str())) {
                         if (preinit) {
                                 continue;
                         }
-                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
+                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key << "\n";
                         LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
                         if (get_commandline_param("allow-unknown-params") ==
                             nullptr) {
                                 return false;
                         }
                 }
-                commandline_params[key_cstr] = val_cstr;
+                commandline_params[key] = std::move(val);
         }
         return true;
 }
