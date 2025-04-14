@@ -2874,6 +2874,10 @@ AC_ARG_ENABLE(v4l2,
 
 if test "$system" = Linux && test "$v4l2_req" != no
 then
+        AC_CHECK_HEADERS([linux/videodev2.h])
+fi
+
+if test "$ac_cv_header_linux_videodev2_h" = yes; then
         PKG_CHECK_MODULES([V4LCONVERT], [libv4lconvert], [found_v4lconvert=yes], [found_v4lconvert=no])
         if test $found_v4lconvert = yes; then
                 AC_DEFINE([HAVE_LIBV4LCONVERT], [1], [Build with libv4lconvert support])
