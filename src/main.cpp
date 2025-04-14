@@ -401,7 +401,7 @@ static int parse_cuda_device(char *optarg) {
                         LOG(LOG_LEVEL_ERROR) << "Maximal number of CUDA device exceeded.\n";
                         return -EXIT_FAILURE;
                 }
-                const int val = parse_number(optarg, 0, 16);
+                const int val = parse_number(item, 0, 16);
                 if (val == INT_MIN) {
                         return -EXIT_FAIL_USAGE;
                 }
