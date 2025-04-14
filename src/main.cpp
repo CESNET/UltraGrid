@@ -66,9 +66,6 @@
 #include <chrono>
 #include <cmath>                        // for floor
 #include <cstdlib>
-#ifndef _WIN32
-#include <execinfo.h>
-#endif // defined _WIN32
 #include <getopt.h>
 #include <iostream>
 #include <list>
