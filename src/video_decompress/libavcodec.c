@@ -1122,8 +1122,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                               s->rgb_shift, &s->sws);
         }
         time_ns_t t2 = get_time_in_ns();
-        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
-                NS_TO_MS((double) (t1 - t0)), NS_TO_MS((double) (t2 - t1)));
+        MSG(DEBUG,
+            "Decompressing %c frame (flags: %d) took %f ms, "
+            "pixfmt change %f ms.\n",
+            av_get_picture_type_char(s->frame->pict_type), s->frame->flags,
+            NS_TO_MS((double) (t1 - t0)), NS_TO_MS((double) (t2 - t1)));
         check_duration(s, (t2 - t0) / NS_IN_SEC_DBL, (t2 - t1) / NS_IN_SEC_DBL);
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
