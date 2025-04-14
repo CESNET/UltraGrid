@@ -1847,7 +1847,7 @@ next_packet:
         }
 cleanup:
         ;
-        if (ret) {
+        if (!ret) {
                 vf_free(frame);
         }
         pbuf_data->decoded++;
