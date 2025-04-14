@@ -150,15 +150,15 @@ get_cipher_from_str(char *str)
 static int
 openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase)
 {
-        enum openssl_mode mode = DEFAULT_CIPHER_MODE;
-
-        struct openssl_encrypt *s = (struct openssl_encrypt *)
-                calloc(1, sizeof(struct openssl_encrypt));
-
         if (strcmp(passphrase, "help") == 0) {
                 usage();
                 return 1;
         }
+
+        enum openssl_mode mode = DEFAULT_CIPHER_MODE;
+
+        struct openssl_encrypt *s = (struct openssl_encrypt *)
+                calloc(1, sizeof(struct openssl_encrypt));
 
         char pass[STR_LEN];
         snprintf_ch(pass, "%s", passphrase);
