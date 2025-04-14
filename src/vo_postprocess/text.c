@@ -235,10 +235,14 @@ set_font(DrawingWand *dw, const char *req_font)
         return MagickTrue;
 }
 
-#define HANDLE_WAND_ERROR(status, wand, msg) \
+/**
+ * @param ... error action
+ */
+#define HANDLE_WAND_ERROR(status, wand, msg, ...) \
         do { \
                 if ((status) != MagickTrue) { \
                         MSG(ERROR, "%s: %s!\n", msg, get_magick_error(wand)); \
+                        __VA_ARGS__; \
                         return false; \
                 } \
         } while (0)
@@ -359,6 +363,9 @@ static struct video_frame * text_getf(void *state)
         return s->in;
 }
 
+#define HANDLE_POSTPROCESS_ERROR(status, wand, msg) \
+        HANDLE_WAND_ERROR((status), (wand), (msg), free(stripe))
+
 static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         MagickBooleanType status;
@@ -393,10 +400,10 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         MagickRemoveImage(s->wand_bg);
 
         status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
-        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetSize failed");
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickSetSize failed");
 
         status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
-        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickReadImageBlob failed");
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickReadImageBlob failed");
 
         // compose it with text
 #ifdef WAND7
@@ -404,14 +411,14 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
 #else
         status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, s->margin_x, 0);
 #endif
-        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickCompositeImage failed");
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickCompositeImage failed");
 
         // extract the composed data
         unsigned char *data;
         size_t data_len;
         data = MagickGetImageBlob(s->wand_bg, &data_len);
         if (data == NULL) {
-                HANDLE_WAND_ERROR(MagickFalse, s->wand_bg, "MagickGetImageBlob failed");
+                HANDLE_POSTPROCESS_ERROR(MagickFalse, s->wand_bg, "MagickGetImageBlob failed");
         }
 
         // send the input stream...
