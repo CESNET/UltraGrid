@@ -160,12 +160,15 @@ static void * text_init(const char *config) {
                 } else if (strstr(item, "h=") != NULL) {
                         s->req_h = atoi(item + 2);
                 } else if (strstr(item, "f=") != NULL) {
+                        free(s->req_font);
                         s->req_font = strdup(strchr(item, '=') + 1);
                 } else if (strstr(item, "t=") != NULL) {
                         replace_all(item + 2, DELDEL, ":");
+                        free(s->text);
                         s->text = strdup(item + 2);
                 } else {
                         replace_all(item, DELDEL, ":");
+                        free(s->text);
                         s->text = strdup(item);
                 }
                 tmp = NULL;
