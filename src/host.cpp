@@ -135,7 +135,7 @@ extern "C" {
 }
 #endif
 
-#ifdef __linux__
+#ifdef __gnu_linux__
 #include <mcheck.h>
 #endif
 
@@ -213,7 +213,7 @@ void common_cleanup(struct init_data *init)
         }
         delete init;
 
-#ifdef __linux__
+#ifdef __gnu_linux__
         muntrace();
 #endif
 
@@ -519,7 +519,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         ug_rand_init();
 
-#ifdef __linux__
+#ifdef __gnu_linux__
         mtrace();
 #endif
 
