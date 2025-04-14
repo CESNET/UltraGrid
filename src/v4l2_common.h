@@ -46,6 +46,7 @@
 #include <sys/mman.h>
 
 #include "types.h"
+#include "compat/strings.h" // for strerror_s
 
 #define V4L2_PROBE_MAX 64
 
@@ -171,8 +172,9 @@ static int try_open_v4l2_device(int log_level, const char *dev_name, int cap) {
         int fd = open(dev_name, O_RDWR);
         if (fd == -1) {
                 char errbuf[1024];
+                strerror_s(errbuf, sizeof errbuf, errno);
                 log_msg(log_level, MOD_NAME "Unable to open input device %s: %s\n",
-                                dev_name, strerror_r(errno, errbuf, sizeof errbuf));
+                                dev_name, errbuf);
                 return -1;
         }
 
