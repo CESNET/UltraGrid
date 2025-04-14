@@ -1153,7 +1153,7 @@ accept_corrupted(const AVCodecContext *ctx)
         if (val != NULL) {
                 return strcmp(val, "no") != 0;
         }
-        if (ctx == NULL && ctx->codec->id == AV_CODEC_ID_MJPEG) {
+        if (ctx == NULL || ctx->codec->id == AV_CODEC_ID_MJPEG) {
                 return false;
         }
         return true;
