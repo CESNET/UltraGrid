@@ -46,7 +46,7 @@
 
 #ifdef _WIN32
 #include <io.h>
-#else
+#elif defined(__GLIBC__)
 #include <execinfo.h>
 #include <fcntl.h>
 #endif // !defined _WIN32
@@ -196,6 +196,7 @@ struct init_data {
         list <void *> opened_libs;
 };
 
+static void print_backtrace();
 static void print_param_doc(void);
 static bool validate_param(const char *param);
 
@@ -286,10 +287,7 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
         UNUSED(d);
         log_msg(LOG_LEVEL_ERROR, "X11 error - code: %d, serial: %d, error: %d, request: %d, minor: %d\n",
                         e->error_code, e->serial, e->error_code, e->request_code, e->minor_code);
-        fprintf(stderr, "Backtrace:\n");
-        array<void *, 256> addresses{};
-        int num_symbols = backtrace(addresses.data(), addresses.size());
-        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+        print_backtrace();
         return 0;
 }
 #endif
@@ -299,7 +297,7 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
  */
 static void load_libgcc()
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && defined(__GLIBC__)
         array<void *, 1> addresses{};
         backtrace(addresses.data(), addresses.size());
 #endif
@@ -1202,12 +1200,11 @@ bool running_in_debugger(){
         return false;
 }
 
+#if defined(__GLIBC__)
+/// print stacktrace with backtrace_symbols_fd() (glibc or macOS)
 static void
-print_backtrace()
+print_stacktrace_glibc()
 {
-#ifdef _WIN32
-        print_stacktrace_win();
-#else
         // print to a temporary file to avoid interleaving from multiple
         // threads
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 27)
@@ -1248,7 +1245,20 @@ print_backtrace()
                 }
         }
         close(fd);
-#endif // defined _WIN32
+}
+#endif // defined(__GLIBC__)
+
+static void
+print_backtrace()
+{
+#ifdef _WIN32
+        print_stacktrace_win();
+#elif defined(__GLIBC__)
+        print_stacktrace_glibc();
+#else
+        const char *msg = "Stacktrace printout not supported!\n";
+        write(STDERR_FILENO, msg, strlen(msg));
+#endif
 }
 
 void crash_signal_handler(int sig)
