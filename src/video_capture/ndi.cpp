@@ -196,7 +196,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         // Not required, but "correct" (see the SDK documentation)
         if (!s->NDIlib->initialize()) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
-                delete s;
+                vidcap_ndi_done(s);
                 return VIDCAP_INIT_FAIL;
         }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0u) {
@@ -235,7 +235,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                                 ref_level = strtol(val, &endptr, 0);
                                 if (ref_level < 0 || ref_level >= INT_MAX || *val == '\0' || *endptr != '\0') {
                                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong value: " << val << "!\n";
-                                        delete s;
+                                        vidcap_ndi_done(s);
                                         return VIDCAP_INIT_NOERR;
                                 }
                         }
