@@ -132,6 +132,8 @@ struct testcard_state {
         char pattern[128];
 };
 
+static void vidcap_testcard_done(void *state);
+
 static void
 generate_audio_sine(struct testcard_state *s)
 {
@@ -663,9 +665,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
 error:
         free(fmt);
-        vf_free(s->frame);
-        free(in_file_contents);
-        free(s);
+        vidcap_testcard_done(s);
         return ret;
 }
 
