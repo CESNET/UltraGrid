@@ -67,6 +67,7 @@
 #define DEFAULT_AUDIO_LEVEL 0
 #define MOD_NAME "[NDI disp.] "
 
+static void display_ndi_done(void *state);
 typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
 static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out);
 static void ndi_disp_convert_Y416_to_PA16(const struct video_frame *f, char *out);
@@ -233,7 +234,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
         s->NDIlib = NDIlib_load(&s->lib);
         if (s->NDIlib == NULL) {
                 MSG(ERROR, "Cannot open NDI library!\n");
-                free(s);
+                display_ndi_done(s);
                 return NULL;
         }
 
@@ -241,7 +242,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
 
         if (!s->NDIlib->initialize()) {
                 MSG(ERROR, "Cannot initialize NDI library!\n");
-                free(s);
+                display_ndi_done(s);
                 return NULL;
         }
 
@@ -253,7 +254,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
         };
         s->pNDI_send = s->NDIlib->send_create(&NDI_send_create_desc);
         if (s->pNDI_send == NULL) {
-                free(s);
+                display_ndi_done(s);
                 return NULL;
         }
 
@@ -265,13 +266,18 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
 static void display_ndi_done(void *state)
 {
         struct display_ndi *s = (struct display_ndi *) state;
-
-        // wait for the async frame to be processed
-        s->NDIlib->send_send_video_async_v2(s->pNDI_send, NULL);
-
-        s->NDIlib->send_destroy(s->pNDI_send);
+        if (s == NULL) {
+                return;
+        }
+        if (s->pNDI_send != NULL) {
+                // wait for the async frame to be processed
+                s->NDIlib->send_send_video_async_v2(s->pNDI_send, NULL);
+                s->NDIlib->send_destroy(s->pNDI_send);
+        }
         free(s->convert_buffer);
-        s->NDIlib->destroy();
+        if (s->NDIlib != NULL) {
+                s->NDIlib->destroy();
+        }
         close_ndi_library(s->lib);
         vf_free(s->send_frame);
         free(s->video_metadata);
