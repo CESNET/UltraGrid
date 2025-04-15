@@ -93,6 +93,7 @@ struct vidcap_state_ndi {
         int audio_buf_idx = 0;
         bool capture_audio = false;
         struct video_desc last_desc{};
+        string req_extra_ips;
 
         NDIlib_video_frame_v2_t field_0{}; ///< stored to asssemble interleaved interlaced video together with field 1
 
@@ -116,9 +117,6 @@ struct vidcap_state_ndi {
                         frames = 0;
                         t0 = now;
                 }
-        }
-        ~vidcap_state_ndi() {
-                free(const_cast<char *>(find_create_settings.p_extra_ips));
         }
 };
 
@@ -241,7 +239,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         }
                         s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
                 } else if (strstr(item, "extra_ips=") == item) {
-                        s->find_create_settings.p_extra_ips = strdup(item + "extra_ips="s.length());
+                        s->req_extra_ips = strchr(item, '=') + 1;
+                        s->find_create_settings.p_extra_ips = s->req_extra_ips.c_str();
                 } else if (strstr(item, "bandwidth=") == item) {
                         s->create_settings.bandwidth = static_cast<NDIlib_recv_bandwidth_e>(stoi(strchr(item, '=') + 1));
                 } else if (strstr(item, "color=") == item) {
