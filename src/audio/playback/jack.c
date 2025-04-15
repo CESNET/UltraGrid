@@ -136,8 +136,6 @@ static void audio_play_jack_help(const char *client_name)
         int count = 0;
         int i = 0;
         struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsInput, &count);
-        if(!available_devices)
-                return;
 
         printf("Usage:\n");
         printf("\t-r jack[:first_channel=<f>][:name=<n>][:<device>]\n");

@@ -127,9 +127,6 @@ static void audio_cap_jack_help(const char *client_name)
         printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_NAME);
         printf("\n");
 
-        if(!available_devices)
-                return;
-
         printf("Available devices:\n");
         for(i = 0; i < count; i++){
                 printf("\t%s\n", available_devices[i].name);
