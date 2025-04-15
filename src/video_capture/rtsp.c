@@ -608,7 +608,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state.codec[0] = '\0';
     s->artsp_state.codec[0] = '\0';
-    s->artsp_state.control = strdup("");
+    s->vrtsp_state.control = strdup("");
     s->artsp_state.control = strdup("");
 
     char *save_ptr = NULL;
