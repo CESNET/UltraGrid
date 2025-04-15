@@ -87,6 +87,7 @@
 #include "module.h"
 #include "types.h"             // for video_desc
 #include "utils/color_out.h"
+#include "utils/misc.h"        // for ug_strerror
 #include "utils/thread.h"
 #include "video.h"
 
@@ -310,7 +311,15 @@ GETCH()
 {
         unsigned char ch = 0;
         const ssize_t ret = read(0, &ch, sizeof ch);
-        return ret <= 0 ? (int) ret - 1 : ch;
+        if (ret > 0) {
+                return ch;
+        }
+        if (ret == 0) {
+                MSG(WARNING, "read returned 0!\n");
+        } else {
+                MSG(WARNING, "read error: %s\n", ug_strerror(errno));
+        }
+        return -1;
 }
 #else
 #define GETCH getch
