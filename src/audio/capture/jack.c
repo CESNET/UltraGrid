@@ -145,11 +145,15 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         jack_status_t status;
         const char **ports;
         int i;
-        char *client_name;
+        char client_name[STR_LEN];
         const char *source_name = NULL;
 
-        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
-        strcpy(client_name, PACKAGE_NAME);
+        snprintf_ch(client_name, "%s", PACKAGE_NAME);
+
+        if (strcmp(cfg, "help") == 0) {
+                audio_cap_jack_help(client_name);
+                return INIT_NOERR;
+        }
 
         struct state_jack_capture *s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
         if(!s) {
@@ -167,12 +171,7 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         assert(dup != NULL);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (strcmp(item, "help") == 0) {
-                        audio_cap_jack_help(client_name);
-                        free(dup);
-                        free(s);
-                        return INIT_NOERR;
-                } else if (strstr(item, "first_channel=") == item) {
+                if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
                         errno = 0;
