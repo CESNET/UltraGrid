@@ -35,12 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <assert.h>         // for assert
+#include <pthread.h>        // for pthread_create, pthread_join, pthread_t
+#include <stdbool.h>        // for bool, false, true
+#include <stdint.h>         // for uint32_t
+#include <stdio.h>          // for NULL, printf, size_t, fprintf, stderr
+#include <stdlib.h>         // for free, calloc, malloc
+#include <string.h>         // for strdup, strchr, strtok_r, memcmp, memcpy
 
 #include "debug.h"
 #include "host.h"
@@ -48,9 +49,6 @@
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
-
-#include <assert.h>
-#include <host.h>
 
 #define MAGIC_AGGREGATE 0xbbcaa321
 
