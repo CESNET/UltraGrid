@@ -116,10 +116,6 @@ static void audio_cap_jack_probe(struct device_info **available_devices, int *co
 
 static void audio_cap_jack_help(const char *client_name)
 {
-        int count = 0;
-        int i = 0;
-        struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsOutput, &count);
-
         printf("Usage:\n");
         printf("\t-s jack[:first_channel=<f>][:name=<n>][:<device>]\n");
         printf("\twhere\n");
@@ -128,7 +124,10 @@ static void audio_cap_jack_help(const char *client_name)
         printf("\n");
 
         printf("Available devices:\n");
-        for(i = 0; i < count; i++){
+        int count = 0;
+        struct device_info *available_devices =
+            audio_jack_probe(client_name, JackPortIsOutput, &count);
+        for (int i = 0; i < count; i++) {
                 printf("\t%s\n", available_devices[i].name);
         }
         free(available_devices);
