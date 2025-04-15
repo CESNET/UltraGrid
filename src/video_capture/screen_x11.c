@@ -40,33 +40,36 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include "config.h"                // for HAVE_XFIXES
+#endif
+
+#include <X11/X.h>                 // for Window, ZPixmap
+#include <X11/Xlib.h>              // for DefaultRootWindow, XGetImage, XGet...
+#include <X11/Xutil.h>             // for XDestroyImage
+#ifdef HAVE_XFIXES
+#include <X11/extensions/Xfixes.h>
+#endif // HAVE_XFIXES
+#include <assert.h>                // for assert
+#include <pthread.h>               // for pthread_cond_signal, pthread_mutex...
+#include <stdbool.h>               // for false, bool, true
+#include <stdio.h>                 // for NULL, printf, snprintf, fprintf
+#include <stdlib.h>                // for free, atoi, calloc, getenv, malloc
+#include <string.h>                // for strchr, strstr, strcat, strdup
+#include <sys/time.h>              // for gettimeofday, timeval
 
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"           // for vc_copylineBGRAtoRGB
+#include "types.h"                 // for device_info, tile, mode, video_frame
 #include "utils/macros.h"
 #include "utils/misc.h" // get_cpu_core_count
 #include "utils/parallel_conv.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture_params.h"  // for vidcap_params_get_flags, vidcap_pa...
 
 #include "tv.h"
-
-#include "audio/types.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <strings.h>
-
-#include <X11/Xlib.h>
-#ifdef HAVE_XFIXES
-#include <X11/extensions/Xfixes.h>
-#endif // HAVE_XFIXES
-#include <X11/Xutil.h>
 
 #define MOD_NAME "[screen capture] "
 #define QUEUE_SIZE_MAX 3
@@ -84,8 +87,6 @@ static void show_help()
         printf("\t\tdisplay - display to capture (including the colon!)\n");
         printf("\t\tgeomoetry | size - viewport to use (both option mean the same - size is just a convenient name)\n");
 }
-
-struct grabbed_data;
 
 struct grabbed_data {
         XImage *data;
