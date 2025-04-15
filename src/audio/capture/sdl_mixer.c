@@ -85,6 +85,7 @@
 #endif
 
 struct state_sdl_mixer_capture {
+        Mix_Music *music;
         struct audio_frame audio;
         struct ring_buffer *sdl_mixer_buf;
         int volume;
@@ -234,7 +235,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         int ret = parse_opts(s, ccfg);
         free(ccfg);
         if (ret != 0) {
-                free(s);
+                audio_cap_sdl_mixer_done(s);
                 return ret < 0 ? NULL : INIT_NOERR;
         }
 
@@ -274,11 +275,11 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
                 }
         }
         try_open_soundfont();
-        Mix_Music *music = Mix_LoadMUS(filename);
+        s->music = Mix_LoadMUS(filename);
         if (filename != s->req_filename) {
                 unlink(filename);
         }
-        if (music == NULL) {
+        if (s->music == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error loading file: %s\n", Mix_GetError());
                 goto error;
         }
@@ -295,7 +296,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
         Mix_VolumeMusic(s->volume);
-        if (Mix_PlayMusic(music, -1) == SDL_ERR) {
+        if (Mix_PlayMusic(s->music, -1) == SDL_ERR) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error playing file: %s\n", Mix_GetError());
                 goto error;
         }
@@ -320,9 +321,10 @@ static struct audio_frame *audio_cap_sdl_mixer_read(void *state)
 
 static void audio_cap_sdl_mixer_done(void *state)
 {
-        Mix_HaltMusic();
-        Mix_CloseAudio();
         struct state_sdl_mixer_capture *s = state;
+        Mix_HaltMusic();
+        Mix_FreeMusic(s->music);
+        Mix_CloseAudio();
         free(s->audio.data);
         free(s->req_filename);
         free(s);
