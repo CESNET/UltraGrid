@@ -160,11 +160,13 @@ static void vidcap_ximea_show_help() {
         XI_RETURN ret = funcs.xiGetNumberDevices(&count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
+                vidcap_ximea_close_lib(&funcs);
                 return;
         }
 
         if (count == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "No devices found!\n");
+                vidcap_ximea_close_lib(&funcs);
                 return;
         }
 
