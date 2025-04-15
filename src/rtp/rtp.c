@@ -1106,6 +1106,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
 
         if (session->rtp_socket == NULL || session->rtcp_socket == NULL) {
                 printf("Unable to open network\n");
+                udp_exit(session->rtp_socket);
+                udp_exit(session->rtcp_socket);
+                free(session->opt);
                 free(session);
                 return NULL;
         }
