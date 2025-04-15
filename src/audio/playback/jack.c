@@ -162,6 +162,10 @@ audio_play_jack_init(const struct audio_playback_opts *opts)
         const char *source_name = "";
 
         snprintf_ch(client_name, "%s", PACKAGE_NAME);
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_jack_help(client_name);
+                return INIT_NOERR;
+        }
 
         struct state_jack_playback *s = calloc(1, sizeof(*s));
         if(!s) {
@@ -179,11 +183,6 @@ audio_play_jack_init(const struct audio_playback_opts *opts)
         snprintf_ch(dup, "%s", opts->cfg);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (strcmp(item, "help") == 0) {
-                        audio_play_jack_help(client_name);
-                        free(s);
-                        return INIT_NOERR;
-                }
                 if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
