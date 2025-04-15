@@ -130,6 +130,8 @@ static void on_process(void *userdata) noexcept{
                 buf->datas[0].chunk->stride = frame_size;
                 buf->datas[0].chunk->size = to_write_total * frame_size;
 
+                b->size = to_write_total;
+
                 pw_stream_queue_buffer(s->stream.get(), b);
         }
 }
