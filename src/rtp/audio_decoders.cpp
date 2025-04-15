@@ -242,7 +242,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         struct state_audio_decoder *s = NULL;
         bool scale_auto = false;
         double scale_factor = 1.0;
-        char *tmp = nullptr;
 
         assert(audio_scale != NULL);
 
@@ -281,13 +280,11 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 if (!s->dec_funcs) {
                         log_msg(LOG_LEVEL_ERROR, "This UltraGrid version was build "
                                         "without OpenSSL support!\n");
-                        delete s;
-                        return NULL;
+                        goto error;
                 }
                 if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
-                        delete s;
-                        return NULL;
+                        goto error;
                 }
         }
 
@@ -330,7 +327,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         return s;
 
 error:
-        free(tmp);
         if (s) {
                 audio_decoder_destroy(s);
         }
