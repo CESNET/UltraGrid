@@ -94,9 +94,13 @@ static void audio_play_pw_help(){
 static void on_process(void *userdata) noexcept{
         auto s = static_cast<state_pipewire_play *>(userdata);
 
-        auto avail = ring_get_current_size(s->ring_buf.get());
+        const int frame_size = s->desc.ch_count * s->desc.bps;
+        unsigned avail_frames = ring_get_current_size(s->ring_buf.get()) / frame_size;
 
-        while(avail > 0){
+        //Write at least quant frames to prevent underrun on pipewire side
+        auto remaining_write_frames = std::max(s->quant, avail_frames);
+
+        while(remaining_write_frames > 0){
                 struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
                 if (!b) {
                         pw_log_warn("out of buffers: %m");
@@ -108,14 +112,23 @@ static void on_process(void *userdata) noexcept{
                 if (!dst)
                         return;
 
-                int to_write = std::min<int>(buf->datas[0].maxsize, avail);
+                const int to_write_total = std::min<int>(buf->datas[0].maxsize / frame_size, remaining_write_frames);
+                const int to_write_audio = std::min<int>(to_write_total, avail_frames);
 
-                ring_buffer_read(s->ring_buf.get(), dst, to_write);
-                avail -= to_write;
+                if(to_write_audio > 0){
+                        ring_buffer_read(s->ring_buf.get(), dst, to_write_audio * frame_size);
+                        avail_frames -= to_write_audio;
+                        remaining_write_frames -= to_write_audio;
+                        dst += to_write_audio * frame_size;
+                }
+
+                const int to_write_silence = to_write_total - to_write_audio;
+                memset(dst, 0, to_write_silence * frame_size);
+                remaining_write_frames -= to_write_silence;
 
                 buf->datas[0].chunk->offset = 0;
-                buf->datas[0].chunk->stride = s->desc.ch_count * s->desc.bps;
-                buf->datas[0].chunk->size = to_write;
+                buf->datas[0].chunk->stride = frame_size;
+                buf->datas[0].chunk->size = to_write_total * frame_size;
 
                 pw_stream_queue_buffer(s->stream.get(), b);
         }
