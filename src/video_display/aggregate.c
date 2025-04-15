@@ -54,6 +54,7 @@
 
 struct display_aggregate_state {
         pthread_t               thread_id;
+        bool                    thread_started;
         struct display        **devices;
         unsigned int            devices_cnt;
         struct video_frame     *frame;
@@ -67,7 +68,9 @@ struct display_aggregate_state {
         struct timeval          t, t0;
 };
 
+static void display_aggregate_done(void *state);
 static void show_help(void);
+
 static void show_help() {
         printf("Aggregate display\n");
         printf("Usage:\n");
@@ -160,19 +163,12 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
         s->dev_frames = calloc(s->devices_cnt, sizeof(struct video_frame *));
 
         pthread_create(&s->thread_id, NULL, display_aggregate_run, s);
+        s->thread_started = true;
         return (void *)s;
 
 error:
         free(parse_string);
-        if(s->devices) {
-                unsigned int i;
-                for (i = 0u; i < s->devices_cnt; ++i) {
-                        if(s->devices[i]) {
-                                 display_done(s->devices[i]);
-                         }
-                }
-        }
-        free(s);
+        display_aggregate_done(s);
         return NULL;
 }
 
@@ -183,7 +179,9 @@ static void display_aggregate_done(void *state)
         assert(s != NULL);
         assert(s->magic == MAGIC_AGGREGATE);
 
-        pthread_join(s->thread_id, NULL);
+        if (s->thread_started) {
+                pthread_join(s->thread_id, NULL);
+        }
 
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 display_done(s->devices[i]);
