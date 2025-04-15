@@ -350,6 +350,7 @@ static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
         _Bool ret = parse_fmt(s, fmt_cpy);
         free(fmt_cpy);
         if (!ret) {
+                free(s->req_display);
                 free(s);
                 return VIDCAP_INIT_FAIL;
         }
