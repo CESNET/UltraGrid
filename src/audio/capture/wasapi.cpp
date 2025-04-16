@@ -95,6 +95,8 @@ struct state_acap_wasapi {
         UINT32 bufferSize;
 };
 
+enum { IDX_LOOP = -2, IDX_DFL = -1 };
+
 static string get_name(IMMDevice *pDevice);
 static void show_help();
 string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator);
@@ -238,36 +240,44 @@ static void show_help() {
         printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
+static void
+parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
+          size_t req_dev_name_sz, wchar_t *req_deviceID, size_t req_deviceID_sz)
+{
+        if (strlen(cfg) == 0) {
+                return;
+        }
+
+        if (isdigit(cfg[0])) {
+                *req_index = atoi(cfg);
+        } else if (strcmp(cfg, "loopback") == 0) {
+                *req_index = IDX_LOOP;
+        } else if (cfg[0] == '{') { // ID
+                const char *uuid = cfg;
+                mbstate_t   state{};
+                mbsrtowcs(req_deviceID, &uuid, req_deviceID_sz - 1, &state);
+                assert(uuid == NULL);
+        } else { // name
+                snprintf(req_dev_name, req_dev_name_sz, "%s", cfg);
+        }
+}
+
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
 {
+        if (strcmp(cfg, "help") == 0) {
+                show_help();
+                return INIT_NOERR;
+        }
         UNUSED(parent);
         WAVEFORMATEX *pwfx = NULL;
 
-        enum { IDX_LOOP = -2, IDX_DFL = -1 };
         int index = IDX_DFL;          // or
         char req_dev_name[1024] = ""; // or
         wchar_t deviceID[1024] = L"";
 
-        if (strlen(cfg) > 0) {
-                if (strcmp(cfg, "help") == 0) {
-                        show_help();
-                        return INIT_NOERR;
-                }
-                if (isdigit(cfg[0])) {
-                        index = atoi(cfg);
-                } else if (strcmp(cfg, "loopback") == 0) {
-                        index = IDX_LOOP;
-                } else if (cfg[0] == '{') { // ID
-                        const char *uuid = cfg;
-                        mbstate_t state{};
-                        mbsrtowcs(deviceID, &uuid,
-                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
-                                  &state);
-                        assert(uuid == NULL);
-                } else { // name
-                        snprintf_ch(req_dev_name, "%s", cfg);
-                }
-        }
+        parse_fmt(cfg, &index, req_dev_name, sizeof req_dev_name, deviceID,
+                  sizeof deviceID);
+
         auto s = new state_acap_wasapi();
         if (!com_initialize(&s->com_initialized, MOD_NAME)) {
                 delete s;
