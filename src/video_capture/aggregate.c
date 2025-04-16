@@ -163,6 +163,7 @@ vidcap_aggregate_done(void *state)
                         vidcap_done(s->devices[i]);
                 }
         }
+        free((void *) s->devices);
 
         vf_free(s->frame);
         free(s);

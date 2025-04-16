@@ -186,6 +186,7 @@ static void display_aggregate_done(void *state)
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 display_done(s->devices[i]);
         }
+        free((void *) s->devices);
                                         
         vf_free(s->frame);
         free(s->dev_frames);
