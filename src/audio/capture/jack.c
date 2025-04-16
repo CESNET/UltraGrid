@@ -181,7 +181,10 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
                                 goto error;
                         }
                 } else if (strstr(item, "name=") == item) {
-                        strcpy(client_name, item + strlen("name="));
+                        strncpy(client_name, item + strlen("name="),
+                                sizeof client_name - 1);
+                        // ensure termination if truncated
+                        client_name[sizeof client_name - 1] = '\0';
                 } else { // this is the device name
                         source_name = cfg + (item - dup);
                         break;
