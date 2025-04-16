@@ -1240,7 +1240,7 @@ fi
 # SDL1/2/3 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
-sdl_version=
+sdl_version=0
 sdl_version_str=
 sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
