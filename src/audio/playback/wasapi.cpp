@@ -165,9 +165,13 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
 }
 
 static void audio_play_wasapi_help() {
-        col() << "Usage:\n" <<
-                SBOLD(SRED("\t-r wasapi") << "[:<index>|:<ID>] --param audio-buffer-len=<ms>") << "\n" <<
-                "\nAvailable devices:\n";
+        col()
+            << "Usage:\n"
+            << SBOLD(
+                   SRED("\t-r wasapi")
+                   << "[:<index>|:<ID>|:<name>] --param audio-buffer-len=<ms>")
+            << "\n"
+            << "\nAvailable devices:\n";
 
         bool com_initialized = false;
         if (!com_initialize(&com_initialized, MOD_NAME)) {
@@ -203,6 +207,7 @@ static void audio_play_wasapi_help() {
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
+        printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
 static void *
@@ -213,18 +218,22 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                 return INIT_NOERR;
         }
 
-        wchar_t deviceID[1024] = L"";
-        int index = -1;
+        int index = -1;               // or:
+        wchar_t deviceID[1024] = L""; // or:
+        char req_dev_name[1024] = "";
+
         if (strlen(opts->cfg) > 0) {
                 if (isdigit(opts->cfg[0])) {
                         index = atoi(opts->cfg);
-                } else {
+                } else if (opts->cfg[0] == '{') { // ID
                         const char *uuid = opts->cfg;
                         mbstate_t state{};
                         mbsrtowcs(deviceID, &uuid,
                                   (sizeof deviceID / sizeof deviceID[0]) - 1,
                                   &state);
                         assert(uuid == NULL);
+                } else {                         // name
+                        snprintf_ch(req_dev_name, "%s", opts->cfg);
                 }
         }
         auto s = new state_aplay_wasapi();
@@ -239,7 +248,7 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                                         (void **) &enumerator));
                 if (wcslen(deviceID) > 0) {
                         THROW_IF_FAILED(enumerator->GetDevice(deviceID,  &s->pDevice));
-                } else if (index != -1)  {
+                } else if (index != -1 || strlen(req_dev_name) > 0)  {
                         IMMDeviceCollection *pEndpoints = nullptr;
                         try {
                                 THROW_IF_FAILED(enumerator->EnumAudioEndpoints(eRender, DEVICE_STATEMASK_ALL, &pEndpoints));
@@ -249,6 +258,18 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                                         if (i == (UINT) index) {
                                                 THROW_IF_FAILED(pEndpoints->Item(i, &s->pDevice));
                                                 break;
+                                        }
+                                        if (strlen(req_dev_name) > 0) {
+                                                IMMDevice *pDevice = nullptr;
+                                                pEndpoints->Item(i, &pDevice);
+                                                if (pDevice != nullptr &&
+                                                    get_name(pDevice).find(
+                                                        req_dev_name) !=
+                                                        std::string::npos) {
+                                                        s->pDevice = pDevice;
+                                                        break;
+                                                }
+                                                SAFE_RELEASE(pDevice);
                                         }
                                 }
                         } catch (ug_runtime_error &e) { // just continue with the next
