@@ -194,7 +194,7 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 
 static void show_help() {
         col() << "Usage:\n" <<
-                SBOLD(SRED("\t-s wasapi") << "[:<index>|:<ID>]") <<
+                SBOLD(SRED("\t-s wasapi") << "[:<index>|:<ID>|:<name>]") <<
                 "\n\nAvailable devices:\n";
 
         IMMDeviceEnumerator *enumerator = nullptr;
@@ -235,15 +235,19 @@ static void show_help() {
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
         col() << "  " << SBOLD("loopback") << ") " << SBOLD("computer audio output") << " (ID: loopback)\n";
+        printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        wchar_t deviceID[1024] = L"";
         WAVEFORMATEX *pwfx = NULL;
+
         enum { IDX_LOOP = -2, IDX_DFL = -1 };
-        int index = IDX_DFL;
+        int index = IDX_DFL;          // or
+        char req_dev_name[1024] = ""; // or
+        wchar_t deviceID[1024] = L"";
+
         if (strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         show_help();
@@ -253,13 +257,15 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                         index = atoi(cfg);
                 } else if (strcmp(cfg, "loopback") == 0) {
                         index = IDX_LOOP;
-                } else {
+                } else if (cfg[0] == '{') { // ID
                         const char *uuid = cfg;
                         mbstate_t state{};
                         mbsrtowcs(deviceID, &uuid,
                                   (sizeof deviceID / sizeof deviceID[0]) - 1,
                                   &state);
                         assert(uuid == NULL);
+                } else { // name
+                        snprintf_ch(req_dev_name, "%s", cfg);
                 }
         }
         auto s = new state_acap_wasapi();
@@ -274,7 +280,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                         (void **) &enumerator));
                 if (wcslen(deviceID) > 0) {
                         THROW_IF_FAILED(enumerator->GetDevice(deviceID,  &s->pDevice));
-                } else if (index >= 0)  {
+                } else if (index >= 0 || strlen(req_dev_name) > 0)  {
                         IMMDeviceCollection *pEndpoints = nullptr;
                         try {
                                 THROW_IF_FAILED(enumerator->EnumAudioEndpoints(eCapture, DEVICE_STATEMASK_ALL, &pEndpoints));
@@ -285,12 +291,24 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                                 THROW_IF_FAILED(pEndpoints->Item(i, &s->pDevice));
                                                 break;
                                         }
+                                        if (strlen(req_dev_name) > 0) {
+                                                IMMDevice *pDevice = nullptr;
+                                                pEndpoints->Item(i, &pDevice);
+                                                if (pDevice != nullptr &&
+                                                    get_name(pDevice).find(
+                                                        req_dev_name) !=
+                                                        std::string::npos) {
+                                                        s->pDevice = pDevice;
+                                                        break;
+                                                }
+                                                SAFE_RELEASE(pDevice);
+                                        }
                                 }
                         } catch (ug_runtime_error &e) { // just continue with the next
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << e.what() << "\n";
                         }
                         SAFE_RELEASE(pEndpoints);
-                } else {// default device
+                } else { // default or loopback device
                         THROW_IF_FAILED(enumerator->GetDefaultAudioEndpoint(
                             index == IDX_DFL ? eCapture : eRender, eConsole,
                             &s->pDevice));
