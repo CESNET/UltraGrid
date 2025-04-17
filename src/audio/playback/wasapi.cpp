@@ -147,11 +147,11 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
         com_uninitialize(&com_initialized);
 }
 
-static void audio_play_wasapi_help() {
+static void audio_play_wasapi_help(bool full) {
         col() << "Usage:\n"
               << SBOLD(SRED("\t-r wasapi") << "[:d[evice]=<index>|<ID>|<name>] "
-                                              "--param audio-buffer-len=<ms>")
-              << "\n"
+                                              "--param audio-buffer-len=<ms>") << "\n"
+              << SBOLD("\t-r wasapi:[full]help") << "\n"
               << "\nAvailable devices:\n";
 
         bool com_initialized = false;
@@ -178,8 +178,11 @@ static void audio_play_wasapi_help() {
                                 string dev_id = win_wstr_to_str(pwszID);
                                 col() << (dev_id == default_dev_id ? "(*)" : "")
                                       << "\t" << SBOLD(i) << ") "
-                                      << SBOLD(wasapi_get_name(pDevice))
-                                      << " (ID: " << dev_id << ")\n";
+                                      << SBOLD(wasapi_get_name(pDevice));
+                                if (full) {
+                                        col() << " (ID: " << dev_id  << ")";
+                                }
+                                col() << "\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
@@ -191,6 +194,9 @@ static void audio_play_wasapi_help() {
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
+        if (!full) {
+                printf("(use \"fullhelp\" to show device IDs)\n");
+        }
         printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
@@ -223,8 +229,9 @@ parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
 static void *
 audio_play_wasapi_init(const struct audio_playback_opts *opts)
 {
-        if (strcmp(opts->cfg, "help") == 0) {
-                audio_play_wasapi_help();
+        if (strcmp(opts->cfg, "help") == 0 ||
+            strcmp(opts->cfg, "fullhelp") == 0) {
+                audio_play_wasapi_help(strcmp(opts->cfg, "fullhelp") == 0);
                 return INIT_NOERR;
         }
 

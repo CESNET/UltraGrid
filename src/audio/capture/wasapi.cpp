@@ -97,7 +97,7 @@ struct state_acap_wasapi {
 enum { IDX_LOOP = -2, IDX_DFL = -1 };
 
 string wasapi_get_name(IMMDevice *pDevice);
-static void show_help();
+static void show_help(bool full);
 string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator);
 
 #define SAFE_RELEASE(u) \
@@ -197,10 +197,11 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
         return ret;
 }
 
-static void show_help() {
+static void show_help(bool full) {
         col() << "Usage:\n"
-              << SBOLD(SRED("\t-s wasapi") << "[:d[evice]=<index>|<ID>|<name>]")
-              << "\n\nAvailable devices:\n";
+              << SBOLD(SRED("\t-s wasapi") << "[:d[evice]=<index>|<ID>|<name>]") << "\n"
+              << SBOLD("\t-s wasapi:[full]help") << "\n"
+              << "\nAvailable devices:\n";
 
         IMMDeviceEnumerator *enumerator = nullptr;
         IMMDeviceCollection *pEndpoints = nullptr;
@@ -225,10 +226,13 @@ static void show_help() {
                                 string dev_id = win_wstr_to_str(pwszID);
                                 color_printf(
                                     "%s\t" TBOLD("%2d") ") " TBOLD(
-                                        "%s") " (ID: %s)\n",
+                                        "%s"),
                                     (dev_id == default_dev_id ? "(*)" : ""), i,
-                                    wasapi_get_name(pDevice).c_str(),
-                                    dev_id.c_str());
+                                    wasapi_get_name(pDevice).c_str());
+                                if (full) {
+                                        color_printf(" (ID: %s)", dev_id.c_str());
+                                }
+                                color_printf("\n");
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
@@ -241,6 +245,9 @@ static void show_help() {
         SAFE_RELEASE(pEndpoints);
         com_uninitialize(&com_initialized);
         col() << "  " << SBOLD("loopback") << ") " << SBOLD("computer audio output") << " (ID: loopback)\n";
+        if (!full) {
+                printf("(use \"fullhelp\" to show device IDs)\n");
+        }
         printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
@@ -272,8 +279,9 @@ parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
 
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
 {
-        if (strcmp(cfg, "help") == 0) {
-                show_help();
+        if (strcmp(cfg, "help") == 0 ||
+                strcmp(cfg, "fullhelp") == 0) {
+                show_help(strcmp(cfg, "fullhelp") == 0);
                 return INIT_NOERR;
         }
         UNUSED(parent);
