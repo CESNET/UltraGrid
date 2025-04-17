@@ -195,9 +195,9 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 }
 
 static void show_help() {
-        col() << "Usage:\n" <<
-                SBOLD(SRED("\t-s wasapi") << "[:<index>|:<ID>|:<name>]") <<
-                "\n\nAvailable devices:\n";
+        col() << "Usage:\n"
+              << SBOLD(SRED("\t-s wasapi") << "[:d[evice]=<index>|<ID>|<name>]")
+              << "\n\nAvailable devices:\n";
 
         IMMDeviceEnumerator *enumerator = nullptr;
         IMMDeviceCollection *pEndpoints = nullptr;
@@ -246,6 +246,10 @@ parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
 {
         if (strlen(cfg) == 0) {
                 return;
+        }
+
+        if (IS_KEY_PREFIX(cfg, "device")) {
+                cfg = strchr(cfg, '=') + 1;
         }
 
         if (isdigit(cfg[0])) {

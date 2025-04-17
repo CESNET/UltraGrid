@@ -165,13 +165,11 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
 }
 
 static void audio_play_wasapi_help() {
-        col()
-            << "Usage:\n"
-            << SBOLD(
-                   SRED("\t-r wasapi")
-                   << "[:<index>|:<ID>|:<name>] --param audio-buffer-len=<ms>")
-            << "\n"
-            << "\nAvailable devices:\n";
+        col() << "Usage:\n"
+              << SBOLD(SRED("\t-r wasapi") << "[:d[evice]=<index>|<ID>|<name>] "
+                                              "--param audio-buffer-len=<ms>")
+              << "\n"
+              << "\nAvailable devices:\n";
 
         bool com_initialized = false;
         if (!com_initialize(&com_initialized, MOD_NAME)) {
@@ -216,6 +214,10 @@ parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
 {
         if (strlen(cfg) == 0) {
                 return;
+        }
+
+        if (IS_KEY_PREFIX(cfg, "device")) {
+                cfg = strchr(cfg, '=') + 1;
         }
 
         if (isdigit(cfg[0])) {
