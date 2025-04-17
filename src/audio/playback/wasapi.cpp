@@ -70,8 +70,6 @@ const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
-const static GUID IDevice_FriendlyName = { 0xa45c254e, 0xdf1c, 0x4efd, { 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0 } };
-const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 };
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces" // not our issue - defined by Mingw-w64
 const static GUID UG_KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
@@ -94,31 +92,12 @@ struct state_aplay_wasapi {
 };
 
 string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator); // defined in WASAPI capture
+string wasapi_get_name(IMMDevice *pDevice); // defined in audio/playback/wasapi.cpp
 
 #define SAFE_RELEASE(u) \
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
 #undef THROW_IF_FAILED
 #define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
-
-static string get_name(IMMDevice *pDevice) {
-        wstring out;
-        IPropertyStore *pProps = NULL;
-        PROPVARIANT varName;
-        LPWSTR pwszID = NULL;
-        // Initialize container for property value.
-        PropVariantInit(&varName);
-        HRESULT hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
-        if (!FAILED(hr)) {
-                hr = pProps->GetValue(PKEY_Device_FriendlyName, &varName);
-                if (!FAILED(hr)) {
-                        out = varName.pwszVal;
-                }
-        }
-        SAFE_RELEASE(pProps);
-        CoTaskMemFree(pwszID);
-        PropVariantClear(&varName);
-        return win_wstr_to_str(out.c_str());
-}
 
 static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
@@ -149,7 +128,11 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
                                 *available_devices = (struct device_info *) realloc(*available_devices, (*dev_count + 1) * sizeof(struct device_info));
                                 memset(&(*available_devices)[*dev_count], 0, sizeof(struct device_info));
                                 snprintf((*available_devices)[*dev_count].dev, sizeof (*available_devices)[*dev_count].dev, ":%u", i); ///< @todo This may be rather id than index
-                                snprintf((*available_devices)[*dev_count].name, sizeof (*available_devices)[*dev_count].name, "WASAPI %s", get_name(pDevice).c_str());
+                                snprintf(
+                                    (*available_devices)[*dev_count].name,
+                                    sizeof(*available_devices)[*dev_count].name,
+                                    "WASAPI %s",
+                                    wasapi_get_name(pDevice).c_str());
                                 ++*dev_count;
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
@@ -193,7 +176,10 @@ static void audio_play_wasapi_help() {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 string dev_id = win_wstr_to_str(pwszID);
-                                col() << (dev_id == default_dev_id ? "(*)" : "") << "\t" << SBOLD(i) << ") " << SBOLD(get_name(pDevice)) << " (ID: " << dev_id << ")\n";
+                                col() << (dev_id == default_dev_id ? "(*)" : "")
+                                      << "\t" << SBOLD(i) << ") "
+                                      << SBOLD(wasapi_get_name(pDevice))
+                                      << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
@@ -276,8 +262,9 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                                                 IMMDevice *pDevice = nullptr;
                                                 pEndpoints->Item(i, &pDevice);
                                                 if (pDevice != nullptr &&
-                                                    get_name(pDevice).find(
-                                                        req_dev_name) !=
+                                                    wasapi_get_name(pDevice)
+                                                            .find(
+                                                                req_dev_name) !=
                                                         std::string::npos) {
                                                         s->pDevice = pDevice;
                                                         break;
@@ -298,7 +285,7 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                 THROW_IF_FAILED(s->pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
                                 (void **)&s->pAudioClient));
 
-                auto friendlyName = get_name(s->pDevice);
+                auto friendlyName = wasapi_get_name(s->pDevice);
                 if (!friendlyName.empty()) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: "
                                 << friendlyName << "\n";

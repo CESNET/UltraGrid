@@ -97,7 +97,7 @@ struct state_acap_wasapi {
 
 enum { IDX_LOOP = -2, IDX_DFL = -1 };
 
-static string get_name(IMMDevice *pDevice);
+string wasapi_get_name(IMMDevice *pDevice);
 static void show_help();
 string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator);
 
@@ -134,7 +134,11 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
                                 *available_devices = (struct device_info *) realloc(*available_devices, (*dev_count + 1) * sizeof(struct device_info));
                                 memset(&(*available_devices)[*dev_count], 0, sizeof(struct device_info));
                                 snprintf((*available_devices)[*dev_count].dev, sizeof (*available_devices)[*dev_count].dev, ":%u", i); ///< @todo This may be rather id than index
-                                snprintf((*available_devices)[*dev_count].name, sizeof (*available_devices)[*dev_count].name, "WASAPI %s", get_name(pDevice).c_str());
+                                snprintf(
+                                    (*available_devices)[*dev_count].name,
+                                    sizeof(*available_devices)[*dev_count].name,
+                                    "WASAPI %s", wasapi_get_name(pDevice).c_str());
+
                                 ++*dev_count;
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
@@ -158,7 +162,7 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
         *dev_count += 1;
 }
 
-static string get_name(IMMDevice *pDevice) {
+string wasapi_get_name(IMMDevice *pDevice) {
         wstring out;
         IPropertyStore *pProps = NULL;
         PROPVARIANT varName;
@@ -224,7 +228,8 @@ static void show_help() {
                                     "%s\t" TBOLD("%2d") ") " TBOLD(
                                         "%s") " (ID: %s)\n",
                                     (dev_id == default_dev_id ? "(*)" : ""), i,
-                                    get_name(pDevice).c_str(), dev_id.c_str());
+                                    wasapi_get_name(pDevice).c_str(),
+                                    dev_id.c_str());
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
@@ -309,8 +314,9 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                                 IMMDevice *pDevice = nullptr;
                                                 pEndpoints->Item(i, &pDevice);
                                                 if (pDevice != nullptr &&
-                                                    get_name(pDevice).find(
-                                                        req_dev_name) !=
+                                                    wasapi_get_name(pDevice)
+                                                            .find(
+                                                                req_dev_name) !=
                                                         std::string::npos) {
                                                         s->pDevice = pDevice;
                                                         break;
@@ -333,7 +339,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 THROW_IF_FAILED(s->pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
                                 (void **)&s->pAudioClient));
 
-                auto friendlyName = get_name(s->pDevice);
+                auto friendlyName = wasapi_get_name(s->pDevice);
                 if (!friendlyName.empty()) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: "
                                 << friendlyName << "\n";
