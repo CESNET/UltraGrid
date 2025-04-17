@@ -210,6 +210,28 @@ static void audio_play_wasapi_help() {
         printf("\nDevice " TBOLD("name") " can be a substring (selects first matching device).\n");
 }
 
+static void
+parse_fmt(const char *cfg, int *req_index, char *req_dev_name,
+          size_t req_dev_name_sz, wchar_t *req_deviceID, size_t req_deviceID_sz)
+{
+        if (strlen(cfg) == 0) {
+                return;
+        }
+
+        if (isdigit(cfg[0])) {
+                *req_index = atoi(cfg);
+        } else if (cfg[0] == '{') { // ID
+                const char *uuid = cfg;
+                mbstate_t state{};
+                mbsrtowcs(req_deviceID, &uuid,
+                          req_deviceID_sz - 1,
+                          &state);
+                assert(uuid == NULL);
+        } else {                         // name
+                snprintf(req_dev_name, req_dev_name_sz, "%s", cfg);
+        }
+}
+
 static void *
 audio_play_wasapi_init(const struct audio_playback_opts *opts)
 {
@@ -222,20 +244,9 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
         wchar_t deviceID[1024] = L""; // or:
         char req_dev_name[1024] = "";
 
-        if (strlen(opts->cfg) > 0) {
-                if (isdigit(opts->cfg[0])) {
-                        index = atoi(opts->cfg);
-                } else if (opts->cfg[0] == '{') { // ID
-                        const char *uuid = opts->cfg;
-                        mbstate_t state{};
-                        mbsrtowcs(deviceID, &uuid,
-                                  (sizeof deviceID / sizeof deviceID[0]) - 1,
-                                  &state);
-                        assert(uuid == NULL);
-                } else {                         // name
-                        snprintf_ch(req_dev_name, "%s", opts->cfg);
-                }
-        }
+        parse_fmt(opts->cfg, &index, req_dev_name, sizeof req_dev_name,
+                  deviceID, sizeof deviceID);
+
         auto s = new state_aplay_wasapi();
         if (!com_initialize(&s->com_initialized, MOD_NAME)) {
                 delete s;
