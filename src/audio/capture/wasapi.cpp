@@ -36,6 +36,7 @@
 #include <cstring>                // for NULL, memset, strcmp, strlen, wcslen
 #include <combaseapi.h>           // for CoTaskMemFree, CoCreateInstance
 #include <cwchar>                 // for mbsrtowcs
+#include <Functiondiscoverykeys_devpkey.h> // for PKEY_Device_FriendlyName
 #include <guiddef.h>              // for IsEqualGUID
 #include <iomanip>
 #include <iostream>
@@ -71,8 +72,6 @@
 //const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 //const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
-const static GUID IDevice_FriendlyName = { 0xa45c254e, 0xdf1c, 0x4efd, { 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0 } };
-const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 };
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces" // not our issue - defined by Mingw-w64
 const GUID KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
