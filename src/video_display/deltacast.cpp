@@ -87,7 +87,7 @@ static void show_help(void)
         printf("deltacast (output) options:\n");
         printf("\t-d deltacast[:device=<index>]\n");
 
-        print_available_delta_boards();
+        print_available_delta_boards(false);
 
         printf("\nDefault board is 0.\n");
 

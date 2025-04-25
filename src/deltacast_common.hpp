@@ -199,7 +199,7 @@ static std::unordered_map<ULONG, std::string> board_type_map = {
  */
 const char *delta_get_error_description(ULONG CodeError);
 std::string delta_format_version(uint32_t version, bool long_out);
-void print_available_delta_boards();
+void print_available_delta_boards(bool full);
 bool delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx, ULONG RequestedTx);
 
 #endif // defined DELTACAST_COMMON_HPP

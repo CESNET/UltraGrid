@@ -52,6 +52,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
@@ -80,13 +81,17 @@ struct vidcap_deltacast_state {
         bool              initialized;
 };
 
-static void usage(void);
-
-static void usage(void)
+static void
+usage(bool full)
 {
-        printf("\t-t deltacast[:device=<index>][:mode=<mode>][:codec=<codec>]\n");
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD(TRED("-t "
+                     "deltacast") "[:device=<index>][:mode=<mode>]["
+                     ":codec=<codec>]") "\n");
+        color_printf("\t" TBOLD("-t "
+                                "deltacast:[full]help") "\n");
 
-        print_available_delta_boards();
+        print_available_delta_boards(full);
 
         printf("\nAvailable modes:\n");
         for (int i = 0; i < deltacast_frame_modes_count; ++i)
@@ -308,12 +313,12 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
 	printf("vidcap_deltacast_init\n");
 
-        char *init_fmt = strdup(vidcap_params_get_fmt(params));
-        if (init_fmt && strcmp(init_fmt, "help") == 0) {
-                free(init_fmt);
-                usage();
+        const char *fmt = vidcap_params_get_fmt(params);
+        if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                usage(strcmp(fmt, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
+        char *init_fmt = strdup(fmt);
 
         s = (struct vidcap_deltacast_state *) calloc(1, sizeof(struct vidcap_deltacast_state));
 
@@ -361,7 +366,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                                 else {
                                         log_msg(LOG_LEVEL_ERROR, "Wrong "
                                         "codec entered.\n");
-                                        usage();
+                                        usage(false);
                                         goto error;
                                 }
                         } else {

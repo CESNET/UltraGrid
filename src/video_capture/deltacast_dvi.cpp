@@ -129,7 +129,7 @@ static void usage(void)
         col() << "where\n";
         
         col() << SBOLD("\t<index>") << " - index of DVI card\n";
-        print_available_delta_boards();
+        print_available_delta_boards(false);
 
         col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
         

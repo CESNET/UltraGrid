@@ -38,6 +38,7 @@
 #include "deltacast_common.hpp"
 
 #include <cstddef>               // for NULL
+#include <cstdio>                // for printf
 #include <iostream>              // for basic_ostream, operator<<, cout, bas...
 #include <map>                   // for map, operator!=, _Rb_tree_iterator
 
@@ -172,8 +173,51 @@ delta_format_version(uint32_t version, bool long_out) -> std::string
         return out;
 }
 
+static void
+print_avail_channels(HANDLE BoardHandle)
+{
+        ULONG avail_channs = 0;
+        ULONG Result       = VHD_GetBoardProperty(
+            BoardHandle, VHD_CORE_BP_CHN_AVAILABILITY, &avail_channs);
+        if (Result != VHDERR_NOERROR) {
+                LOG(LOG_LEVEL_ERROR)
+                    << "[DELTACAST] Unable to available channels: "
+                    << delta_get_error_description(Result) << "\n";
+                return;
+        }
+        printf("available channels:");
+        // RXx
+        // bit0 = RX0, bit1 = RX1, bit2 = RX2, bit3 = RX3
+        for (int i = 0; i < 4; ++i) {
+                if (((avail_channs >> i) & 0x1) != 0U) {
+                        printf(" RX%d", i);
+                }
+        }
+        // bit8 = RX4, bit9 = RX5, bit10 = RX6, bit11 = RX7
+        for (int i = 4; i < 8; ++i) {
+                if (((avail_channs >> (i + 4)) & 0x1) != 0U) {
+                        printf(" RX%d", i);
+                }
+        }
+
+        // TXx
+        // bit4 = TX0, bit5 = TX1, bit6 = TX2, bit7 = TX3
+        for (int i = 0; i < 4; ++i) {
+                if (((avail_channs >> (i + 4)) & 0x1) != 0U) {
+                        printf(" TX%d", i);
+                }
+        }
+        // bit12 = TX4, bit13 = TX5, bit14 = TX6, bit15 = TX7
+        for (int i = 4; i < 8; ++i) {
+                if (((avail_channs >> (i + 8)) & 0x1) != 0U) {
+                        printf(" TX%d", i);
+                }
+        }
+        printf("\n");
+}
+
 void
-print_available_delta_boards()
+print_available_delta_boards(bool full)
 {
         ULONG Result, DllVersion, NbBoards;
         Result = VHD_GetApiInfo(&DllVersion, &NbBoards);
@@ -231,6 +275,9 @@ print_available_delta_boards()
                 col() << "\t\t\tBoard " << SBOLD(i) << ": " << SBOLD(board)
                       << " (driver: "
                       << delta_format_version(DriverVersion, false) << ")\n";
+                if (full) {
+                        print_avail_channels(BoardHandle);
+                }
                 if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
                         LOG(LOG_LEVEL_WARNING)
                             << "[DELTACAST] API and driver version mismatch: "
