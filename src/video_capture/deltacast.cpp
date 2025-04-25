@@ -35,26 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
-#include <algorithm>
-#include <fcntl.h>
-#include <semaphore.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifndef _WIN32
-#include <sys/ioctl.h>
-#include <sys/poll.h>
-#endif
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <unistd.h>
+#include <algorithm>                  // for max
+#include <cassert>                    // for assert
+#include <cstdio>                     // for printf, NULL, snprintf
+#include <cstdlib>                    // for free, atoi, calloc
+#include <cstring>                    // for strlen, strcmp, memset, strdup
+#include <ostream>                    // for char_traits, basic_ostream, ope...
+#include <sys/time.h>                 // for timeval, gettimeofday
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/strings.h"           // for strncasecmp, strcasecmp
 #include "debug.h"
 #include "deltacast_common.hpp"
 #include "host.h"
