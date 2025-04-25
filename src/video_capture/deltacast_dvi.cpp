@@ -131,8 +131,10 @@ static void usage(void)
         col() << SBOLD("\t<index>") << " - index of DVI card\n";
         print_available_delta_boards(false);
 
-        col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
-        
+        col() << SBOLD("\t<channel>")
+              << " may be channel index (for cards which have multiple inputs, 0-"
+              << MAX_DELTA_CH << ")\n";
+
         col() << SBOLD("\t<preset>") << " may be one of following\n";
         for (const auto &it : edid_presets) {
                 col() << SBOLD("\t\t " << setw(2) << it.first) << " - " << it.second << "\n";
@@ -577,23 +579,10 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected board is not an DVI or HDMI one\n");
                 goto bad_channel;
         }
-        
-        switch(channel) {
-                case 0:
-                        ChannelId = VHD_ST_RX0;
-                        break;
-                case 1:
-                        ChannelId = VHD_ST_RX1;
-                        break;
-                case 2:
-                        ChannelId = VHD_ST_RX2;
-                        break;
-                case 3:
-                        ChannelId = VHD_ST_RX3;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Bad channel index!\n");
-                        goto no_stream;
+
+        ChannelId = delta_rx_ch_to_stream_t(channel);
+        if (ChannelId == NB_VHD_STREAMTYPES) {
+                goto no_stream;
         }
         Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId,
                         s->BoardType == VHD_BOARDTYPE_HDMI ? VHD_DV_STPROC_JOINED : VHD_DV_STPROC_DEFAULT,

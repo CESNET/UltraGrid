@@ -38,6 +38,8 @@
 #ifndef DELTACAST_COMMON_HPP
 #define DELTACAST_COMMON_HPP
 
+#define MAX_DELTA_CH 7 ///< maximal supported channel index
+
 #include <string>
 #include <unordered_map>
 #ifdef __APPLE__
@@ -201,6 +203,6 @@ const char *delta_get_error_description(ULONG CodeError);
 std::string delta_format_version(uint32_t version, bool long_out);
 void print_available_delta_boards(bool full);
 bool delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx, ULONG RequestedTx);
-
+VHD_STREAMTYPE delta_rx_ch_to_stream_t(unsigned channel);
 #endif // defined DELTACAST_COMMON_HPP
 

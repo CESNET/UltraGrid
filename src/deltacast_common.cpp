@@ -391,3 +391,31 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
             Result);
         return false;
 }
+
+/// @returns stream type corresponding channel ID or NB_VHD_STREAMTYPES if too
+/// high
+VHD_STREAMTYPE
+delta_rx_ch_to_stream_t(unsigned channel)
+{
+        switch (channel) {
+        case 0:
+                return VHD_ST_RX0;
+        case 1:
+                return VHD_ST_RX1;
+        case 2:
+                return VHD_ST_RX2;
+        case 3:
+                return VHD_ST_RX3;
+        case 4:
+                return VHD_ST_RX4;
+        case 5:
+                return VHD_ST_RX5;
+        case 6:
+                return VHD_ST_RX6;
+        case 7:
+                return VHD_ST_RX7;
+        }
+        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Channel index %u out of bound!\n",
+                channel);
+        return NB_VHD_STREAMTYPES;
+}
