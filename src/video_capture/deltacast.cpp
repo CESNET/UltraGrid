@@ -53,6 +53,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
@@ -347,16 +348,14 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 char *tmp = init_fmt;
 
                 while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
-                                BrdId = atoi(tok + strlen("device="));
-                        } else if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
-                                // compat, should be device= instead
-                                BrdId = atoi(tok + strlen("board="));
-                        } else if (strncasecmp(tok, "mode=", strlen("mode=")) == 0) {
-                                s->VideoStandard = atoi(tok + strlen("mode="));
+                        if (IS_KEY_PREFIX(tok, "device") ||
+                            IS_KEY_PREFIX(tok, "board")) { // compat, should be device= instead
+                                BrdId = atoi(strchr(tok, '=') + 1);
+                        } else if (IS_KEY_PREFIX(tok, "mode")) {
+                                s->VideoStandard = atoi(strchr(tok, '=') + 1);
                                 s->autodetect_format = FALSE;
-                        } else if (strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
-                                tok = tok + strlen("codec=");
+                        } else if (IS_KEY_PREFIX(tok, "codec")) {
+                                tok = strchr(tok, '=') + 1;
                                 if(strcasecmp(tok, "raw") == 0)
                                         s->frame->color_spec = RAW;
                                 else if(strcmp(tok, "UYVY") == 0)
