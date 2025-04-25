@@ -1126,8 +1126,10 @@ if test "$deltacast_req" != no; then
                 if test -n "$DELTACAST_PATH"; then
                         INC="$INC -I$DELTACAST_PATH/Include"
                 fi
-                add_module vidcap_deltacast "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
-                add_module display_deltacast src/video_display/deltacast.o "$DELTACAST_LIB"
+                add_module vidcap_deltacast "src/deltacast_common.o \
+src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
+                add_module display_deltacast "src/deltacast_common.o \
+src/video_display/deltacast.o" "$DELTACAST_LIB"
                 deltacast=yes
         fi
 fi

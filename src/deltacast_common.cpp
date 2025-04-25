@@ -1,0 +1,343 @@
+/**
+ * @file   deltacast_common.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
+/*
+ * Copyright (c) 2014-2025 CESNET
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, is permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "deltacast_common.hpp"
+
+#include <cstddef>               // for NULL
+#include <iostream>              // for basic_ostream, operator<<, cout, bas...
+#include <map>                   // for map, operator!=, _Rb_tree_iterator
+
+#include "debug.h"
+#include "utils/color_out.h"
+
+const char *
+delta_get_error_description(ULONG CodeError)
+{
+        switch (CodeError) {
+        case VHDERR_NOERROR:
+                return "No error";
+        case VHDERR_FATALERROR:
+                return "Fatal error occurred (should re-install)";
+        case VHDERR_OPERATIONFAILED:
+                return "Operation failed (undefined error)";
+        case VHDERR_NOTENOUGHRESOURCE:
+                return "Not enough resource to complete the operation";
+        case VHDERR_NOTIMPLEMENTED:
+                return "Not implemented yet";
+        case VHDERR_NOTFOUND:
+                return "Required element was not found";
+        case VHDERR_BADARG:
+                return "Bad argument value";
+        case VHDERR_INVALIDPOINTER:
+                return "Invalid pointer";
+        case VHDERR_INVALIDHANDLE:
+                return "Invalid handle";
+        case VHDERR_INVALIDPROPERTY:
+                return "Invalid property index";
+        case VHDERR_INVALIDSTREAM:
+                return "Invalid stream or invalid stream type";
+        case VHDERR_RESOURCELOCKED:
+                return "Resource is currently locked";
+        case VHDERR_BOARDNOTPRESENT:
+                return "Board is not available";
+        case VHDERR_INCOHERENTBOARDSTATE:
+                return "Incoherent board state or register value";
+        case VHDERR_INCOHERENTDRIVERSTATE:
+                return "Incoherent driver state";
+        case VHDERR_INCOHERENTLIBSTATE:
+                return "Incoherent library state";
+        case VHDERR_SETUPLOCKED:
+                return "Configuration is locked";
+        case VHDERR_CHANNELUSED:
+                return "Requested channel is already used or doesn't exist";
+        case VHDERR_STREAMUSED:
+                return "Requested stream is already used";
+        case VHDERR_READONLYPROPERTY:
+                return "Property is read-only";
+        case VHDERR_OFFLINEPROPERTY:
+                return "Property is off-line only";
+        case VHDERR_TXPROPERTY:
+                return "Property is of TX streams";
+        case VHDERR_TIMEOUT:
+                return "Time-out occurred";
+        case VHDERR_STREAMNOTRUNNING:
+                return "Stream is not running";
+        case VHDERR_BADINPUTSIGNAL:
+                return "Bad input signal, or unsupported standard";
+        case VHDERR_BADREFERENCESIGNAL:
+                return "Bad genlock signal or unsupported standard";
+        case VHDERR_FRAMELOCKED:
+                return "Frame already locked";
+        case VHDERR_FRAMEUNLOCKED:
+                return "Frame already unlocked";
+        case VHDERR_INCOMPATIBLESYSTEM:
+                return "Selected video standard is incompatible with running "
+                       "clock system";
+        case VHDERR_ANCLINEISEMPTY:
+                return "ANC line is empty";
+        case VHDERR_ANCLINEISFULL:
+                return "ANC line is full";
+        case VHDERR_BUFFERTOOSMALL:
+                return "Buffer too small";
+        case VHDERR_BADANC:
+                return "Received ANC aren't standard";
+        case VHDERR_BADCONFIG:
+                return "Invalid configuration";
+        case VHDERR_FIRMWAREMISMATCH:
+                return "The loaded firmware is not compatible with the "
+                       "installed driver";
+        case VHDERR_LIBRARYMISMATCH:
+                return "The loaded VideomasterHD library is not compatible "
+                       "with the installed driver";
+        case VHDERR_FAILSAFE:
+                return "The fail safe firmware is loaded. You need to upgrade "
+                       "your firmware";
+        case VHDERR_RXPROPERTY:
+                return "Property is of RX streams";
+        case VHDERR_ALREADYINITIALIZED:
+                return "Already initialized";
+        case VHDERR_NOTINITIALIZED:
+                return "Not initialized";
+        case VHDERR_CROSSTHREAD:
+                return "Cross-thread";
+        case VHDERR_INCOHERENTDATA:
+                return "Incoherent data";
+        case VHDERR_BADSIZE:
+                return "Bad size";
+        case VHDERR_WAKEUP:
+                return "Wake up";
+        case VHDERR_DEVICE_REMOVED:
+                return "Device removed";
+        case VHDERR_LTCSOURCEUNLOCKED:
+                return "LTC source unlocked";
+        case VHDERR_INVALIDACCESSRIGHT:
+                return "Invalid access right";
+        case VHDERR_INVALIDCAPABILITY:
+                return "Invalid capability index";
+#ifdef DELTA_DVI_DEPRECATED
+        case VHDERR_DEPRECATED:
+                return "Symbol is deprecated";
+#endif
+        default:
+                return "Unknown code error";
+        }
+}
+
+auto
+delta_format_version(uint32_t version, bool long_out) -> std::string
+{
+        using namespace std::string_literals;
+        std::string out = std::to_string(version >> 24U) + "."s +
+                          std::to_string((version >> 16U) & 0xFFU);
+        if (long_out) {
+                out += std::to_string((version >> 8U) & 0xFFU) + "."s +
+                       std::to_string(version & 0xFFU);
+        }
+        return out;
+}
+
+void
+print_available_delta_boards()
+{
+        ULONG Result, DllVersion, NbBoards;
+        Result = VHD_GetApiInfo(&DllVersion, &NbBoards);
+        if (Result != VHDERR_NOERROR) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "[DELTACAST] ERROR : Cannot query VideoMasterHD"
+                        " information. Result = 0x%08" PRIX_ULONG "\n",
+                        Result);
+                return;
+        }
+        std::cout << "\t\tAPI version: "
+                  << delta_format_version(DllVersion, false) << "\n";
+        if (NbBoards == 0) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "[DELTACAST] No DELTA board detected, exiting...\n");
+                return;
+        }
+
+        std::cout << "\n\t\tAvailable cards:\n";
+        /* Query DELTA boards information */
+        for (ULONG i = 0; i < NbBoards; i++) {
+                ULONG  BoardType     = 0U;
+                ULONG  DriverVersion = 0U;
+                HANDLE BoardHandle   = NULL;
+                ULONG  Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << "[DELTACAST] Unable to open board " << i << ": "
+                            << delta_get_error_description(Result) << "\n";
+                        continue;
+                }
+                Result = VHD_GetBoardProperty(
+                    BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << "[DELTACAST] Unable to get board " << i
+                            << " type: " << delta_get_error_description(Result)
+                            << "\n";
+                        continue;
+                }
+                Result = VHD_GetBoardProperty(
+                    BoardHandle, VHD_CORE_BP_DRIVER_VERSION, &DriverVersion);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << "[DELTACAST] Unable to get board " << i
+                            << " version: "
+                            << delta_get_error_description(Result) << "\n";
+                }
+
+                std::string board{ "Unknown board type" };
+                auto        it = board_type_map.find(BoardType);
+                if (it != board_type_map.end()) {
+                        board = it->second;
+                }
+                col() << "\t\t\tBoard " << SBOLD(i) << ": " << SBOLD(board)
+                      << " (driver: "
+                      << delta_format_version(DriverVersion, false) << ")\n";
+                if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
+                        LOG(LOG_LEVEL_WARNING)
+                            << "[DELTACAST] API and driver version mismatch: "
+                            << delta_format_version(DllVersion, true) << " vs "
+                            << delta_format_version(DriverVersion, true)
+                            << "\n";
+                }
+                VHD_CloseBoardHandle(BoardHandle);
+        }
+        std::cout << "\n";
+}
+
+bool
+delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
+                      ULONG RequestedTx)
+{
+        ULONG  Result;
+        ULONG  NbRxOnBoard = 0;
+        ULONG  NbTxOnBoard = 0;
+        ULONG  NbChanOnBoard;
+        BOOL32 IsBiDir = FALSE;
+
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_RXCHANNELS,
+                                      &NbRxOnBoard);
+        if (Result != VHDERR_NOERROR) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "[DELTACAST] ERROR: Cannot get number of RX channels. "
+                        "Result = 0x%08" PRIX_ULONG "\n",
+                        Result);
+                return false;
+        }
+
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_TXCHANNELS,
+                                      &NbTxOnBoard);
+        if (Result != VHDERR_NOERROR) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "[DELTACAST] ERROR: Cannot get number of TX channels. "
+                        "Result = 0x%08" PRIX_ULONG "\n",
+                        Result);
+                return false;
+        }
+
+        if (NbRxOnBoard >= RequestedRx && NbTxOnBoard >= RequestedTx) {
+                return true;
+        }
+
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR,
+                                      (ULONG *) &IsBiDir);
+        if (Result != VHDERR_NOERROR) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "[DELTACAST] ERROR: Cannot check whether board "
+                        "channels are bidirectional. Result = 0x%08" PRIX_ULONG
+                        "\n",
+                        Result);
+                return false;
+        }
+
+        NbChanOnBoard = NbRxOnBoard + NbTxOnBoard;
+
+        if (IsBiDir && NbChanOnBoard >= (RequestedRx + RequestedTx)) {
+                // key - (NbChanOnBoard, RequestedRX), value - member of
+                // VHD_BIDIRCFG_2C, VHD_BIDIRCFG_4C or VHD_BIDIRCFG_8C
+                std::map<std::pair<ULONG, ULONG>, ULONG> mapping = {
+                        //{{2, 0}, VHD_BIDIR_02},
+                        //{{2, 1}, VHD_BIDIR_11},
+                        //{{2, 2}, VHD_BIDIR_20},
+
+                        { { 4, 0 }, VHD_BIDIR_04 },
+                        { { 4, 1 }, VHD_BIDIR_13 },
+                        { { 4, 2 }, VHD_BIDIR_22 },
+                        { { 4, 3 }, VHD_BIDIR_31 },
+                        { { 4, 4 }, VHD_BIDIR_40 },
+
+                        { { 8, 0 }, VHD_BIDIR_08 },
+                        { { 8, 1 }, VHD_BIDIR_17 },
+                        { { 8, 2 }, VHD_BIDIR_26 },
+                        { { 8, 3 }, VHD_BIDIR_35 },
+                        { { 8, 4 }, VHD_BIDIR_44 },
+                        { { 8, 5 }, VHD_BIDIR_53 },
+                        { { 8, 6 }, VHD_BIDIR_62 },
+                        { { 8, 7 }, VHD_BIDIR_71 },
+                        { { 8, 8 }, VHD_BIDIR_80 }
+                };
+                auto it = mapping.find({ NbChanOnBoard, RequestedRx });
+                if (it != mapping.end()) {
+                        Result = VHD_SetBiDirCfg(BrdId, it->second);
+                        if (Result != VHDERR_NOERROR) {
+                                log_msg(LOG_LEVEL_ERROR,
+                                        "[DELTACAST] ERROR: Cannot "
+                                        "bidirectional set bidirectional "
+                                        "channels. Result = 0x%08" PRIX_ULONG
+                                        "\n",
+                                        Result);
+                                return false;
+                        } else {
+                                log_msg(LOG_LEVEL_VERBOSE,
+                                        "[DELTACAST] Successfully "
+                                        "bidirectional channels.\n");
+                                return true;
+                        }
+                }
+        }
+
+        log_msg(LOG_LEVEL_ERROR,
+                "[DELTACAST] ERROR: Insufficient number of channels - "
+                "requested %" PRIu_ULONG " RX + %" PRIu_ULONG
+                " TX, got %" PRIu_ULONG " RX + %" PRIu_ULONG
+                " TX. %s. Result = 0x%08" PRIX_ULONG "\n",
+                RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard,
+                IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
+        return false;
+}
