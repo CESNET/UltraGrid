@@ -75,7 +75,7 @@ struct state_deltacast {
 
         unsigned long int   frames;
         unsigned long int   frames_last;
-        bool                initialized;
+        bool                started;
         HANDLE              BoardHandle, StreamHandle;
         HANDLE              SlotHandle;
 
@@ -111,10 +111,11 @@ display_deltacast_getf(void *state)
         ULONG Result;
 
         assert(s->magic == DELTACAST_MAGIC);
-        
-        if(!s->initialized)
+
+        if (!s->started) {
                 return s->frame;
-        
+        }
+
         Result = VHD_LockSlotHandle(s->StreamHandle, &s->SlotHandle);
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to lock slot.\n");
@@ -197,12 +198,19 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         int VideoStandard = 0;
         int i;
         ULONG Result;
-        
-        if(s->initialized) {
-                if(s->SlotHandle)
-                        VHD_UnlockSlotHandle(s->SlotHandle);
+
+        if (s->SlotHandle != nullptr) {
+                VHD_UnlockSlotHandle(s->SlotHandle);
+                s->SlotHandle = nullptr;
+        }
+
+        if (s->started) {
                 VHD_StopStream(s->StreamHandle);
+                s->started = false;
+        }
+        if (s->StreamHandle != nullptr) {
                 VHD_CloseStreamHandle(s->StreamHandle);
+                s->StreamHandle = nullptr;
         }
 
         assert(desc.tile_count == 1);
@@ -254,7 +262,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 goto error;
         }
         
-        s->initialized = TRUE;
+        s->started = true;
         return true;
 
 error:
@@ -345,8 +353,9 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         s->frames = 0;
         
         gettimeofday(&s->tv, NULL);
+        pthread_mutex_init(&s->lock, NULL);
         
-        s->initialized = FALSE;
+        s->started = false;
         if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
         } else {
@@ -405,8 +414,6 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         /* Select a 1/1 clock system */
         VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,VHD_CLOCKDIV_1);
 
-        pthread_mutex_init(&s->lock, NULL);
-                  
 	return s;
 
 bad_channel:
@@ -420,16 +427,23 @@ error:
 static void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
+        assert(s != nullptr);
 
-        if(s->initialized) {
-                if(s->SlotHandle)
-                        VHD_UnlockSlotHandle(s->SlotHandle);
+        if (s->SlotHandle != nullptr) {
+                VHD_UnlockSlotHandle(s->SlotHandle);
+        }
+        if (s->started) {
                 VHD_StopStream(s->StreamHandle);
+        }
+        if (s->StreamHandle != nullptr) {
                 VHD_CloseStreamHandle(s->StreamHandle);
+        }
+        if (s->BoardHandle != nullptr) {
                 VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
 
+        pthread_mutex_destroy(&s->lock);
         vf_free(s->frame);
         free(s);
 }
