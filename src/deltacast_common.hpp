@@ -196,6 +196,11 @@ static std::unordered_map<ULONG, std::string> board_type_map = {
         { VHD_BOARDTYPE_HDMI, "HDMI board type"},
 };
 
+/// some DELTA enums use continuous values for a channel (RX or TX) < 4 and
+/// distinct for >= 4, so this is a simple displatcher
+#define DELTA_CH_TO_VAL(ch, base0, base4) \
+        ((ch) < 4 ? (base0) + (ch) : (base4) + ((ch) - 4))
+
 /**
  * GetErrorDescription from SDK
  */

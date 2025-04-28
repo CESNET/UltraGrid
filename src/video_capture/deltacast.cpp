@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z.s.p.o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,7 @@ struct vidcap_deltacast_state {
         struct tile        *tile;
         HANDLE            BoardHandle, StreamHandle;
         HANDLE            SlotHandle;
+        unsigned int      channel;
 
         struct audio_frame audio_frame;
         
@@ -91,7 +92,7 @@ usage(bool full)
 {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(TRED("-t "
-                     "deltacast") "[:device=<index>][:mode=<mode>]["
+                     "deltacast") "[:device=<index>][:channel=<idx>][:mode=<mode>]["
                      ":codec=<codec>]") "\n");
         color_printf("\t" TBOLD("-t "
                                 "deltacast:[full]help") "\n");
@@ -161,7 +162,11 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Interface = 0;
 
         /* Wait for channel locked */
-        Result = VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_STATUS, &Status);
+        Result = VHD_GetBoardProperty(s->BoardHandle,
+                                      DELTA_CH_TO_VAL(s->channel,
+                                                      VHD_CORE_BP_RX0_STATUS,
+                                                      VHD_CORE_BP_RX4_STATUS),
+                                      &Status);
 
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot get channel status. Result = 0x%08" PRIX_ULONG "\n",Result);
@@ -174,10 +179,17 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         }
 
         /* Auto-detect clock system */
-        Result = VHD_GetBoardProperty(s->BoardHandle,VHD_SDI_BP_RX0_CLOCK_DIV,&s->ClockSystem);
+        Result = VHD_GetBoardProperty(s->BoardHandle,
+                                      DELTA_CH_TO_VAL(s->channel,
+                                                      VHD_SDI_BP_RX0_CLOCK_DIV,
+                                                      VHD_SDI_BP_RX4_CLOCK_DIV),
+                                      &s->ClockSystem);
 
         if(Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot detect incoming clock system from RX0. Result = 0x%08" PRIX_ULONG "\n",Result);
+                MSG(ERROR,
+                    "ERROR : Cannot detect incoming clock "
+                    "system from RX%u. Result = 0x%08" PRIX_ULONG "\n",
+                    s->channel, Result);
                 throw delta_init_exception();
         } else {
                 printf("\nIncoming clock system : %s\n",(s->ClockSystem==VHD_CLOCKDIV_1)?"European":"American");
@@ -187,18 +199,27 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,s->ClockSystem);
 
         /* Create a logical stream to receive from RX0 connector */
+        const VHD_STREAMTYPE st = delta_rx_ch_to_stream_t(s->channel);
         if(!s->autodetect_format && s->frame->color_spec == RAW)
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
+                Result =
+                    VHD_OpenStreamHandle(s->BoardHandle, st, VHD_SDI_STPROC_RAW,
+                                         NULL, &s->StreamHandle, NULL);
         else if(s->initialize_flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
+                Result = VHD_OpenStreamHandle(s->BoardHandle, st,
+                                              VHD_SDI_STPROC_JOINED, NULL,
+                                              &s->StreamHandle, NULL);
         } else {
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);
+                Result = VHD_OpenStreamHandle(s->BoardHandle, st,
+                                              VHD_SDI_STPROC_DISJOINED_VIDEO,
+                                              NULL, &s->StreamHandle, NULL);
         }
-
 
         if (Result != VHDERR_NOERROR)
         {
-                log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot open RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08" PRIX_ULONG "\n",Result);
+                MSG(ERROR,
+                    "ERROR : Cannot open RX%d stream on DELTA-hd/sdi/codec "
+                    "board handle. Result = 0x%08" PRIX_ULONG "\n",
+                    s->channel, Result);
                 throw delta_init_exception();
         }
 
@@ -208,7 +229,10 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 
                 if ((Result == VHDERR_NOERROR) && (s->VideoStandard != NB_VHD_VIDEOSTANDARDS)) {
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Cannot detect incoming video standard from RX0. Result = 0x%08" PRIX_ULONG "\n",Result);
+                        MSG(ERROR,
+                            "Cannot detect incoming video standard from RX%u. "
+                            "Result = 0x%08" PRIX_ULONG "\n",
+                            s->channel, Result);
                         throw delta_init_exception();
                 }
         }
@@ -302,7 +326,10 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         if (Result == VHDERR_NOERROR){
                 printf("[DELTACAST] Stream started.\n");
         } else {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot start RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08" PRIX_ULONG "\n",Result);
+                MSG(ERROR,
+                    "ERROR : Cannot start RX%u stream on DELTA-hd/sdi/codec "
+                    "board handle. Result = 0x%08" PRIX_ULONG "\n",
+                    s->channel, Result);
                 throw delta_init_exception();
         }
 
@@ -335,6 +362,13 @@ parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
                         else {
                                 MSG(ERROR, "Wrong codec %s entered.\n", tok);
                                 usage(false);
+                                return false;
+                        }
+                } else if (IS_KEY_PREFIX(tok, "channel")) {
+                        s->channel = stoi(strchr(tok, '=') + 1);
+                        if (s->channel > MAX_DELTA_CH) {
+                                MSG(ERROR, "Index %u out of bound!\n",
+                                    s->channel);
                                 return false;
                         }
                 } else {
@@ -426,7 +460,9 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 HANDLE_ERROR
         }
 
-        VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_TYPE, &ChnType);
+        const auto Property = (VHD_CORE_BOARDPROPERTY) DELTA_CH_TO_VAL(
+            s->channel, VHD_CORE_BP_RX0_TYPE, VHD_CORE_BP_RX4_TYPE);
+        VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
                 HANDLE_ERROR
@@ -504,7 +540,10 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
         Result = VHD_LockSlotHandle(s->StreamHandle,&s->SlotHandle);
         if (Result != VHDERR_NOERROR) {
                 if (Result != VHDERR_TIMEOUT) {
-                        log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08" PRIX_ULONG "\n", Result);
+                        MSG(ERROR,
+                            "ERROR : Cannot lock slot on RX%u stream. Result = "
+                            "0x%08" PRIX_ULONG "\n",
+                            s->channel, Result);
                 }
                 else {
                         log_msg(LOG_LEVEL_ERROR, "Timeout \n");
