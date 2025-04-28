@@ -58,6 +58,8 @@
 #include "video_capture.h"
 #include "video_capture_params.h"
 
+#define MOD_NAME "[DELTACAST] "
+
 using namespace std;
 
 struct vidcap_deltacast_state {
@@ -329,14 +331,13 @@ parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
                         else if (strcmp(tok, "v210") == 0)
                                 s->frame->color_spec = v210;
                         else {
-                                log_msg(LOG_LEVEL_ERROR, "Wrong "
-                                                         "codec entered.\n");
+                                MSG(ERROR, "Wrong codec %s entered.\n", tok);
                                 usage(false);
                                 return false;
                         }
                 } else {
-                        log_msg(LOG_LEVEL_ERROR,
-                                "[DELTACAST] Wrong config option '%s'!\n", tok);
+                        MSG(ERROR, "Wrong config option '%s'!\n", tok);
+                        usage(false);
                         return false;
                 }
                 tmp = NULL;
