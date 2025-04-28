@@ -50,7 +50,6 @@
 #include <unordered_map>              // for operator!=, unordered_map, _Nod...
 #include <utility>                    // for pair
 
-#include "compat/strings.h"           // for strncasecmp
 #include "host.h"
 #include "debug.h"
 #include "deltacast_common.hpp"
@@ -60,9 +59,11 @@
 #include "video_display.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "utils/ring_buffer.h"
 
 #define DELTACAST_MAGIC 0x01005e02
+#define MOD_NAME "[DELTACAST] "
 
 struct state_deltacast {
         uint32_t            magic;
@@ -311,17 +312,15 @@ static bool
 parse_fmt(char *fmt, ULONG *BrdId)
 {
         char *save_ptr = nullptr;
-        char *tok = strtok_r(fmt, ":", &save_ptr);
-        if (tok == nullptr) {
-                show_help();
-                return false;
-        }
-        if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
-                *BrdId = std::stoi(tok + strlen("device="));
-        } else {
-                log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n\n", tok);
-                show_help();
-                return false;
+        while (char *tok = strtok_r(fmt, ":", &save_ptr)) {
+                fmt = nullptr;
+                if (IS_KEY_PREFIX(tok, "device")) {
+                        *BrdId = std::stoi(strchr(tok, '=') + 1);
+                } else {
+                        MSG(ERROR, "Unknown option: %s\n\n", tok);
+                        show_help();
+                        return false;
+                }
         }
         return true;
 }
