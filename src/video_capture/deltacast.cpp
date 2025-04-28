@@ -1,6 +1,9 @@
 /**
  * @file   video_capture/deltacast.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * code is written by DELTACAST's VideoMaster SDK example SampleRX and
+ * SampleRX4K
  */
 /*
  * Copyright (c) 2011-2025 CESNET
@@ -34,7 +37,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #include <algorithm>                  // for max
 #include <cassert>                    // for assert

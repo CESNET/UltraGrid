@@ -1,6 +1,8 @@
 /**
  * @file   video_display/deltacast.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * code is written by DELTACAST's VideoMaster SDK example SampleTX
  */
 /*
  * Copyright (c) 2012-2023 CESNET, z. s. p. o.
