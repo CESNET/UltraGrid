@@ -59,6 +59,7 @@
 #include "video_display.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "utils/color_out.h"          // for color_printf
 #include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "utils/ring_buffer.h"
 
@@ -87,19 +88,18 @@ struct state_deltacast {
         struct audio_desc  audio_desc;
         struct ring_buffer  *audio_channels[16];
         char            *audio_tmp;
- };
+};
 
-static void show_help(void);
-
-static void show_help(void)
+static void
+show_help(bool full)
 {
         printf("deltacast (output) options:\n");
-        printf("\t-d deltacast[:device=<index>]\n");
+        color_printf("\t" TBOLD(TRED("-d deltacast") "[:device=<index>]") "\n");
+        color_printf("\t" TBOLD("-d deltacast:[full]help") "\n");
 
-        print_available_delta_boards(false);
+        print_available_delta_boards(full);
 
         printf("\nDefault board is 0.\n");
-
 }
 
 static struct video_frame *
@@ -318,7 +318,7 @@ parse_fmt(char *fmt, ULONG *BrdId)
                         *BrdId = std::stoi(strchr(tok, '=') + 1);
                 } else {
                         MSG(ERROR, "Unknown option: %s\n\n", tok);
-                        show_help();
+                        show_help(false);
                         return false;
                 }
         }
@@ -332,8 +332,8 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
 
-        if(strcmp(fmt, "help") == 0) {
-                show_help();
+        if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                show_help(strcmp(fmt, "fullhelp") == 0);
                 return INIT_NOERR;
         }
 
