@@ -307,12 +307,36 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
 
 }
 
+static bool
+parse_fmt(char *fmt, ULONG *BrdId)
+{
+        char *save_ptr = nullptr;
+        char *tok = strtok_r(fmt, ":", &save_ptr);
+        if (tok == nullptr) {
+                show_help();
+                return false;
+        }
+        if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
+                *BrdId = std::stoi(tok + strlen("device="));
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n\n", tok);
+                show_help();
+                return false;
+        }
+        return true;
+}
+
 static void *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         struct state_deltacast *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
+
+        if(strcmp(fmt, "help") == 0) {
+                show_help();
+                return INIT_NOERR;
+        }
 
         s = (struct state_deltacast *)calloc(1, sizeof(struct state_deltacast));
         s->magic = DELTACAST_MAGIC;
@@ -332,38 +356,14 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
         s->audio_configured = FALSE;
-
-        if(fmt && strcmp(fmt, "help") == 0) {
-                show_help();
-                vf_free(s->frame);
-                free(s);
-                return INIT_NOERR;
-        }
         
-        if(fmt)
-        {
-                char *tmp = strdup(fmt);
-                char *save_ptr = NULL;
-                char *tok;
-                
-                tok = strtok_r(tmp, ":", &save_ptr);
-                if(!tok)
-                {
-                        free(tmp);
-                        show_help();
-                        goto error;
-                }
-                if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
-                        BrdId = atoi(tok + strlen("device="));
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n\n", tok);
-                        free(tmp);
-                        show_help();
-                        goto error;
-                }
+        char *tmp = strdup(fmt);
+        if (!parse_fmt(tmp, &BrdId)) {
                 free(tmp);
+                goto error;
         }
-
+        free(tmp);
+        
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
