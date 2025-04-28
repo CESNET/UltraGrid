@@ -37,12 +37,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <algorithm>                  // for max
+#include <cassert>                    // for assert
+#include <cmath>                      // for fabs
+#include <cstdint>                    // for uint32_t
+#include <cstdio>                     // for printf, snprintf
+#include <cstdlib>                    // for NULL, free, atoi, calloc, malloc
+#include <cstring>                    // for memcpy, memset, strlen, strcmp
+#include <pthread.h>                  // for pthread_mutex_unlock, pthread_m...
+#include <string>                     // for basic_string, string
+#include <sys/time.h>                 // for timeval, gettimeofday
+#include <unordered_map>              // for operator!=, unordered_map, _Nod...
+#include <utility>                    // for pair
 
+#include "compat/strings.h"           // for strncasecmp
 #include "host.h"
 #include "debug.h"
 #include "deltacast_common.hpp"
@@ -53,8 +61,6 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
-
-#include <algorithm>
 
 #define DELTACAST_MAGIC 0x01005e02
 
