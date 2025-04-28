@@ -84,6 +84,8 @@ struct vidcap_deltacast_state {
         bool              initialized;
 };
 
+static void vidcap_deltacast_done(void *state);
+
 static void
 usage(bool full)
 {
@@ -348,6 +350,7 @@ parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
 static int
 vidcap_deltacast_init(struct vidcap_params *params, void **state)
 {
+#define HANDLE_ERROR vidcap_deltacast_done(s); return VIDCAP_INIT_FAIL;
 	struct vidcap_deltacast_state *s = nullptr;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
@@ -383,7 +386,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         if (!parse_fmt(s, init_fmt, &BrdId)) {
                 free(init_fmt);
                 free(s);
-                goto error;
+                return VIDCAP_INIT_FAIL;
         }
         free(init_fmt);
 
@@ -399,16 +402,16 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
                                 " information. Result = 0x%08" PRIX_ULONG "\n",
                                 Result);
-                goto error;
+                HANDLE_ERROR
         }
         if (NbBoards == 0) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
-                goto error;
+                HANDLE_ERROR
         }
 
         if(BrdId >= NbBoards) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu_ULONG ". Found %" PRIu_ULONG " cards.\n", BrdId, NbBoards);
-                goto error;
+                HANDLE_ERROR
         }
 
         /* Open a handle on first DELTA-hd/sdi/codec board */
@@ -416,17 +419,17 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         if (Result != VHDERR_NOERROR)
         {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu_ULONG " handle. Result = 0x%08" PRIX_ULONG "\n",BrdId,Result);
-                goto error;
+                HANDLE_ERROR
         }
 
         if (!delta_set_nb_channels(BrdId, s->BoardHandle, 1, 0)) {
-                goto error;
+                HANDLE_ERROR
         }
 
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_TYPE, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
-                goto error;
+                HANDLE_ERROR
         }
 
         /* Disable RX0-TX0 by-pass relay loopthrough */
@@ -442,29 +445,12 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                         s->initialized = true;
                 }
         } catch(delta_init_exception &e) {
-                goto error;
+                HANDLE_ERROR
         }
 
         *state = s;
 	return VIDCAP_INIT_OK;
-
-error:
-
-        if (s) {
-                if(s->StreamHandle) {
-                        /* Close stream handle */
-                        VHD_CloseStreamHandle(s->StreamHandle);
-                }
-                if(s->BoardHandle) {
-                        /* Re-establish RX0-TX0 by-pass relay loopthrough */
-                        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
-                        VHD_CloseBoardHandle(s->BoardHandle);
-                }
-                vf_free(s->frame);
-        }
-
-        free(s);
-        return VIDCAP_INIT_FAIL;
+#undef HANDLE_ERROR
 }
 
 static void
@@ -473,14 +459,18 @@ vidcap_deltacast_done(void *state)
 	struct vidcap_deltacast_state *s = (struct vidcap_deltacast_state *) state;
 
 	assert(s != NULL);
-        
+
         if(s->SlotHandle)
                 VHD_UnlockSlotHandle(s->SlotHandle);
-        VHD_StopStream(s->StreamHandle);
-        VHD_CloseStreamHandle(s->StreamHandle);
-        /* Re-establish RX0-TX0 by-pass relay loopthrough */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
-        VHD_CloseBoardHandle(s->BoardHandle);
+        if(s->StreamHandle) {
+                VHD_StopStream(s->StreamHandle);
+                VHD_CloseStreamHandle(s->StreamHandle);
+        }
+        if(s->BoardHandle) {
+                /* Re-establish RX0-TX0 by-pass relay loopthrough */
+                VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+                VHD_CloseBoardHandle(s->BoardHandle);
+        }
         
         vf_free(s->frame);
         free(s->audio_frame.data);
