@@ -421,8 +421,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         char *init_fmt = strdup(fmt);
         if (!parse_fmt(s, init_fmt, &BrdId)) {
                 free(init_fmt);
-                free(s);
-                return VIDCAP_INIT_FAIL;
+                HANDLE_ERROR
         }
         free(init_fmt);
 
