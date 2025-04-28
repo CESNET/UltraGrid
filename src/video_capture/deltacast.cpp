@@ -305,6 +305,45 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         return true;
 }
 
+static bool
+parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
+{
+        char *save_ptr = NULL;
+        char *tok      = NULL;
+        char *tmp      = init_fmt;
+
+        while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                if (IS_KEY_PREFIX(tok, "device") ||
+                    IS_KEY_PREFIX(
+                        tok, "board")) { // compat, should be device= instead
+                        *BrdId = atoi(strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "mode")) {
+                        s->VideoStandard     = atoi(strchr(tok, '=') + 1);
+                        s->autodetect_format = FALSE;
+                } else if (IS_KEY_PREFIX(tok, "codec")) {
+                        tok = strchr(tok, '=') + 1;
+                        if (strcasecmp(tok, "raw") == 0)
+                                s->frame->color_spec = RAW;
+                        else if (strcmp(tok, "UYVY") == 0)
+                                s->frame->color_spec = UYVY;
+                        else if (strcmp(tok, "v210") == 0)
+                                s->frame->color_spec = v210;
+                        else {
+                                log_msg(LOG_LEVEL_ERROR, "Wrong "
+                                                         "codec entered.\n");
+                                usage(false);
+                                return false;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR,
+                                "[DELTACAST] Wrong config option '%s'!\n", tok);
+                        return false;
+                }
+                tmp = NULL;
+        }
+        return true;
+}
+
 static int
 vidcap_deltacast_init(struct vidcap_params *params, void **state)
 {
@@ -319,14 +358,11 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 usage(strcmp(fmt, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
-        char *init_fmt = strdup(fmt);
 
         s = (struct vidcap_deltacast_state *) calloc(1, sizeof(struct vidcap_deltacast_state));
 
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
-                free(init_fmt);
-                free(s);
 		return VIDCAP_INIT_FAIL;
 	}
 
@@ -342,41 +378,13 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        if (init_fmt) {
-                char *save_ptr = NULL;
-                char *tok;
-                char *tmp = init_fmt;
-
-                while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (IS_KEY_PREFIX(tok, "device") ||
-                            IS_KEY_PREFIX(tok, "board")) { // compat, should be device= instead
-                                BrdId = atoi(strchr(tok, '=') + 1);
-                        } else if (IS_KEY_PREFIX(tok, "mode")) {
-                                s->VideoStandard = atoi(strchr(tok, '=') + 1);
-                                s->autodetect_format = FALSE;
-                        } else if (IS_KEY_PREFIX(tok, "codec")) {
-                                tok = strchr(tok, '=') + 1;
-                                if(strcasecmp(tok, "raw") == 0)
-                                        s->frame->color_spec = RAW;
-                                else if(strcmp(tok, "UYVY") == 0)
-                                        s->frame->color_spec = UYVY;
-                                else if(strcmp(tok, "v210") == 0)
-                                        s->frame->color_spec = v210;
-                                else {
-                                        log_msg(LOG_LEVEL_ERROR, "Wrong "
-                                        "codec entered.\n");
-                                        usage(false);
-                                        goto error;
-                                }
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong config option '%s'!\n", tok);
-                                goto error;
-                        }
-                        tmp = NULL;
-                }
+        char *init_fmt = strdup(fmt);
+        if (!parse_fmt(s, init_fmt, &BrdId)) {
+                free(init_fmt);
+                free(s);
+                goto error;
         }
         free(init_fmt);
-        init_fmt = NULL;
 
         printf("[DELTACAST] Selected device %" PRIu_ULONG "\n", BrdId);
 
@@ -440,7 +448,6 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 	return VIDCAP_INIT_OK;
 
 error:
-        free(init_fmt);
 
         if (s) {
                 if(s->StreamHandle) {
