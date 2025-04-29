@@ -100,6 +100,12 @@ usage(bool full)
         color_printf("\t" TBOLD("-t "
                                 "deltacast:[full]help") "\n");
 
+        printf("\nOptions:\n");
+        color_printf("\t" TBOLD("device") " - board index\n");
+        color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
+        color_printf("\t" TBOLD("mode") " - capture mode (see below)\n");
+        color_printf("\t" TBOLD("codec") " - pixel format to capture (see list below)\n");
+
         print_available_delta_boards(full);
 
         printf("\nAvailable modes:\n");

@@ -101,6 +101,10 @@ show_help(bool full)
             TRED("-d deltacast") "[:device=<index>][:channel=<ch>]") "\n");
         color_printf("\t" TBOLD("-d deltacast:[full]help") "\n");
 
+        printf("\nOptions:\n");
+        color_printf("\t" TBOLD("device") " - board index\n");
+        color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
+
         print_available_delta_boards(full);
 
         printf("\nDefault board is 0.\n");
