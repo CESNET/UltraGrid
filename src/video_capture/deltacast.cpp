@@ -212,23 +212,18 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,s->ClockSystem);
 
         /* Create a logical stream to receive from RX0 connector */
-        const VHD_STREAMTYPE st = delta_rx_ch_to_stream_t(s->channel);
-        if(!s->autodetect_format && s->frame->color_spec == RAW)
-                Result =
-                    VHD_OpenStreamHandle(s->BoardHandle, st, VHD_SDI_STPROC_RAW,
-                                         NULL, &s->StreamHandle, NULL);
-        else if(s->initialize_flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                Result = VHD_OpenStreamHandle(s->BoardHandle, st,
-                                              VHD_SDI_STPROC_JOINED, NULL,
-                                              &s->StreamHandle, NULL);
+        const VHD_STREAMTYPE StrmType = delta_rx_ch_to_stream_t(s->channel);
+        ULONG ProcessingMode = 0;
+        if(!s->autodetect_format && s->frame->color_spec == RAW) {
+                ProcessingMode = VHD_SDI_STPROC_RAW;
+        } else if ((s->initialize_flags & VIDCAP_FLAG_AUDIO_EMBEDDED) != 0U) {
+                ProcessingMode = VHD_SDI_STPROC_JOINED;
         } else {
-                Result = VHD_OpenStreamHandle(s->BoardHandle, st,
-                                              VHD_SDI_STPROC_DISJOINED_VIDEO,
-                                              NULL, &s->StreamHandle, NULL);
+                ProcessingMode = VHD_SDI_STPROC_DISJOINED_VIDEO;
         }
-
-        if (Result != VHDERR_NOERROR)
-        {
+        Result = VHD_OpenStreamHandle(s->BoardHandle, StrmType, ProcessingMode,
+                                      nullptr, &s->StreamHandle, nullptr);
+        if (Result != VHDERR_NOERROR) {
                 MSG(ERROR,
                     "ERROR : Cannot open RX%d stream on DELTA-hd/sdi/codec "
                     "board handle. Result = 0x%08" PRIX_ULONG "\n",

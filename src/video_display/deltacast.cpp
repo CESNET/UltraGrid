@@ -241,14 +241,16 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
         
-        if(desc.color_spec == RAW) {
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
+        ULONG ProcessingMode = 0;
+        if (desc.color_spec == RAW) {
+                ProcessingMode = VHD_SDI_STPROC_RAW;
         } else if (s->play_audio == TRUE) {
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
+                ProcessingMode = VHD_SDI_STPROC_JOINED;
         } else {
-                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);
+                ProcessingMode = VHD_SDI_STPROC_DISJOINED_VIDEO;
         }
-        
+        Result = VHD_OpenStreamHandle(s->BoardHandle, VHD_ST_TX0, ProcessingMode,
+                                      nullptr, &s->StreamHandle, nullptr);
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to open stream handle.\n");
                 return false;
