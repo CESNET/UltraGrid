@@ -238,7 +238,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to obtain video format for incoming video: %dx%d @ %2.2f %s\n", desc.width, desc.height,
                                                                         (double) desc.fps, get_interlacing_description(desc.interlacing));
 
-                goto error;
+                return false;
         }
         
         if(desc.color_spec == RAW) {
@@ -251,7 +251,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to open stream handle.\n");
-                goto error;
+                return false;
         }
         
         VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,VideoStandard);
@@ -261,14 +261,11 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         Result = VHD_StartStream(s->StreamHandle);
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to start stream.\n");  
-                goto error;
+                return false;
         }
         
         s->started = true;
         return true;
-
-error:
-        return false;
 }
 
 static void display_deltacast_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
