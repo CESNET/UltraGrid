@@ -78,6 +78,7 @@ struct state_deltacast {
         bool                started;
         HANDLE              BoardHandle, StreamHandle;
         HANDLE              SlotHandle;
+        unsigned            channel;
 
         pthread_mutex_t     lock;
 
@@ -96,7 +97,8 @@ static void
 show_help(bool full)
 {
         printf("deltacast (output) options:\n");
-        color_printf("\t" TBOLD(TRED("-d deltacast") "[:device=<index>]") "\n");
+        color_printf("\t" TBOLD(
+            TRED("-d deltacast") "[:device=<index>][:channel=<ch>]") "\n");
         color_printf("\t" TBOLD("-d deltacast:[full]help") "\n");
 
         print_available_delta_boards(full);
@@ -156,7 +158,10 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_BUFFERTOOSMALL)
                 {
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX_ULONG "\n", Result);
+                        MSG(ERROR,
+                            "ERROR : Cannot embed audio on TX%d stream. Result "
+                            "= 0x%08" PRIX_ULONG "\n",
+                            s->channel, Result);
                 } else {
                         for(i = 0; i < s->audio_desc.ch_count; ++i) {
                                 int ret;
@@ -171,7 +176,10 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_NOERROR)
                 {
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX_ULONG "\n",Result);
+                        MSG(ERROR,
+                            "ERROR : Cannot embed audio on TX%d stream. Result "
+                            "= 0x%08" PRIX_ULONG "\n",
+                            s->channel, Result);
                 }
         }
         pthread_mutex_unlock(&s->lock);
@@ -241,6 +249,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
         
+        const VHD_STREAMTYPE StrmType = delta_tx_ch_to_stream_t(s->channel);
         ULONG ProcessingMode = 0;
         if (desc.color_spec == RAW) {
                 ProcessingMode = VHD_SDI_STPROC_RAW;
@@ -249,7 +258,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         } else {
                 ProcessingMode = VHD_SDI_STPROC_DISJOINED_VIDEO;
         }
-        Result = VHD_OpenStreamHandle(s->BoardHandle, VHD_ST_TX0, ProcessingMode,
+        Result = VHD_OpenStreamHandle(s->BoardHandle, StrmType, ProcessingMode,
                                       nullptr, &s->StreamHandle, nullptr);
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to open stream handle.\n");
@@ -318,13 +327,20 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
 }
 
 static bool
-parse_fmt(char *fmt, ULONG *BrdId)
+parse_fmt(struct state_deltacast *s, char *fmt, ULONG *BrdId)
 {
         char *save_ptr = nullptr;
         while (char *tok = strtok_r(fmt, ":", &save_ptr)) {
                 fmt = nullptr;
                 if (IS_KEY_PREFIX(tok, "device")) {
                         *BrdId = std::stoi(strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "channel")) {
+                        s->channel = std::stoi(strchr(tok, '=') + 1);
+                        if (s->channel > MAX_DELTA_CH) {
+                                MSG(ERROR, "Index %u out of bound!\n",
+                                    s->channel);
+                                return false;
+                        }
                 } else {
                         MSG(ERROR, "Unknown option: %s\n\n", tok);
                         show_help(false);
@@ -368,7 +384,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         s->audio_configured = FALSE;
         
         char *tmp = strdup(fmt);
-        if (!parse_fmt(tmp, &BrdId)) {
+        if (!parse_fmt(s, tmp, &BrdId)) {
                 free(tmp);
                 HANDLE_ERROR
         }
@@ -400,18 +416,20 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
                 HANDLE_ERROR
         }
 
-        if (!delta_set_nb_channels(BrdId, s->BoardHandle, 0, 1)) {
+        if (!delta_set_nb_channels(BrdId, s->BoardHandle, 0, s->channel + 1)) {
                 HANDLE_ERROR
         }
 
-        VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_TX0_TYPE, &ChnType);
+        const auto Property = (VHD_CORE_BOARDPROPERTY) DELTA_CH_TO_VAL(
+            s->channel, VHD_CORE_BP_TX0_TYPE, VHD_CORE_BP_TX4_TYPE);
+        VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
                 HANDLE_ERROR
         }
         
         /* Disable RX0-TX0 by-pass relay loopthrough */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,FALSE);
+        delta_set_loopback_state(s->BoardHandle, (int) s->channel, FALSE);
         
         /* Select a 1/1 clock system */
         VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,VHD_CLOCKDIV_1);
@@ -435,7 +453,8 @@ static void display_deltacast_done(void *state)
                 VHD_CloseStreamHandle(s->StreamHandle);
         }
         if (s->BoardHandle != nullptr) {
-                VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+                delta_set_loopback_state(s->BoardHandle, (int) s->channel,
+                                         TRUE);
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
 

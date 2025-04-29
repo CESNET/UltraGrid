@@ -421,6 +421,33 @@ delta_rx_ch_to_stream_t(unsigned channel)
         return NB_VHD_STREAMTYPES;
 }
 
+/// @copydoc delta_rx_ch_to_stream_t
+VHD_STREAMTYPE
+delta_tx_ch_to_stream_t(unsigned channel)
+{
+        switch (channel) {
+        case 0:
+                return VHD_ST_TX0;
+        case 1:
+                return VHD_ST_TX1;
+        case 2:
+                return VHD_ST_TX2;
+        case 3:
+                return VHD_ST_TX3;
+        case 4:
+                return VHD_ST_TX4;
+        case 5:
+                return VHD_ST_TX5;
+        case 6:
+                return VHD_ST_TX6;
+        case 7:
+                return VHD_ST_TX7;
+        }
+        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Channel index %u out of bound!\n",
+                channel);
+        return NB_VHD_STREAMTYPES;
+}
+
 /// @see SDK Is4KInterface()
 bool
 delta_is_quad_channel_interface(ULONG Interface)
