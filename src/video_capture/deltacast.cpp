@@ -82,6 +82,7 @@ struct vidcap_deltacast_state {
         ULONG             ClockSystem,VideoStandard;
         unsigned int      grab_audio:1;
         unsigned int      autodetect_format:1;
+        bool              quad_channel;
 
         unsigned int      initialize_flags;
         bool              initialized;
@@ -141,6 +142,17 @@ static void vidcap_deltacast_probe(device_info **available_cards, int *count, vo
 class delta_init_exception {
 };
 
+static const struct deltacast_frame_mode_t *
+delta_get_mode(ULONG VideoStandard)
+{
+        for (int i = 0; i < deltacast_frame_modes_count; ++i) {
+                if (VideoStandard == (ULONG) deltacast_frame_modes[i].mode) {
+                        return &deltacast_frame_modes[i];
+                }
+        }
+        return nullptr;
+}
+
 #define DELTA_TRY_CMD(cmd, msg) \
         do {\
                 Result = cmd;\
@@ -160,7 +172,6 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Result;
         ULONG             Packing;
         ULONG             Status = 0;
-        int               i;
         ULONG             Interface = 0;
 
         /* Wait for channel locked */
@@ -239,23 +250,23 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 }
         }
 
-        for (i = 0; i < deltacast_frame_modes_count; ++i)
-        {
-                if(s->VideoStandard == (ULONG) deltacast_frame_modes[i].mode) {
-                        s->frame->fps = deltacast_frame_modes[i].fps;
-                        s->frame->interlacing = deltacast_frame_modes[i].interlacing;
-                        s->tile->width = deltacast_frame_modes[i].width;
-                        s->tile->height = deltacast_frame_modes[i].height;
-                        Interface = deltacast_frame_modes[i].iface;
-                        printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", deltacast_frame_modes[i].name, s->tile->width, s->tile->height,
-                                        (double) s->frame->fps, get_interlacing_description(s->frame->interlacing));
-                        break;
-                }
-        }
-        if(i == deltacast_frame_modes_count) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to obtain information about video format %" PRIu_ULONG ".\n", s->VideoStandard);
+
+        const struct deltacast_frame_mode_t *mode = delta_get_mode(s->VideoStandard);
+        if (mode == nullptr) {
+                MSG(ERROR,
+                    "Failed to obtain information about video format "
+                    "%" PRIu_ULONG ".\n",
+                    s->VideoStandard);
                 throw delta_init_exception();
         }
+        s->frame->fps         = mode->fps;
+        s->frame->interlacing = mode->interlacing;
+        s->tile->width        = mode->width;
+        s->tile->height       = mode->height;
+        Interface             = mode->iface;
+        printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", mode->name,
+               s->tile->width, s->tile->height, (double) s->frame->fps,
+               get_interlacing_description(s->frame->interlacing));
 
         /* Configure stream */
         DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_SDI_SP_INTERFACE, Interface),
@@ -429,6 +440,11 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
+        } else {
+                const struct deltacast_frame_mode_t *mode =
+                    delta_get_mode(s->VideoStandard);
+                s->quad_channel = mode != nullptr &&
+                                  delta_is_quad_channel_interface(mode->iface);
         }
 
         /* Query VideoMasterHD information */
@@ -457,7 +473,9 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 HANDLE_ERROR
         }
 
-        if (!delta_set_nb_channels(BrdId, s->BoardHandle, 1, 0)) {
+        assert(!s->quad_channel || s->channel == 0);
+        ULONG NbRxRequired = s->quad_channel ? 4 : 1;
+        if (!delta_set_nb_channels(BrdId, s->BoardHandle, NbRxRequired, 0)) {
                 HANDLE_ERROR
         }
 
@@ -470,10 +488,13 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         }
 
         /* Disable RX0-TX0 by-pass relay loopthrough */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,FALSE);
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_1,FALSE);
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_2,FALSE);
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_3,FALSE);
+        delta_set_loopback_state(s->BoardHandle, (int) s->channel, FALSE);
+        if (s->quad_channel) {
+                assert(s->channel == 0);
+                delta_set_loopback_state(s->BoardHandle, 1, FALSE);
+                delta_set_loopback_state(s->BoardHandle, 2, FALSE);
+                delta_set_loopback_state(s->BoardHandle, 3, FALSE);
+        }
 
         s->initialize_flags = vidcap_params_get_flags(params);
         printf("\nWaiting for channel locked...\n");
@@ -504,8 +525,16 @@ vidcap_deltacast_done(void *state)
                 VHD_CloseStreamHandle(s->StreamHandle);
         }
         if(s->BoardHandle) {
-                /* Re-establish RX0-TX0 by-pass relay loopthrough */
-                VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+                /* Re-establish RX-TX by-pass relay loopthrough */
+                VHD_SetBoardProperty(s->BoardHandle, s->channel, TRUE);
+                delta_set_loopback_state(s->BoardHandle, (int) s->channel,
+                                         FALSE);
+                if (s->quad_channel) {
+                        assert(s->channel == 0);
+                        delta_set_loopback_state(s->BoardHandle, 1, TRUE);
+                        delta_set_loopback_state(s->BoardHandle, 2, TRUE);
+                        delta_set_loopback_state(s->BoardHandle, 3, TRUE);
+                }
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
         

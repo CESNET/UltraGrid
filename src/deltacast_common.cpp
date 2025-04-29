@@ -290,6 +290,7 @@ print_available_delta_boards(bool full)
         std::cout << "\n";
 }
 
+/// from SDK SetNbChannels()
 bool
 delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
                       ULONG RequestedTx)
@@ -418,4 +419,62 @@ delta_rx_ch_to_stream_t(unsigned channel)
         log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Channel index %u out of bound!\n",
                 channel);
         return NB_VHD_STREAMTYPES;
+}
+
+/// @see SDK Is4KInterface()
+bool
+delta_is_quad_channel_interface(ULONG Interface)
+{
+        bool Result = FALSE;
+        switch (Interface) {
+        case VHD_INTERFACE_4XHD_QUADRANT:
+        case VHD_INTERFACE_4X3G_A_QUADRANT:
+        case VHD_INTERFACE_4X3G_B_DL_QUADRANT:
+        // case VHD_INTERFACE_2X3G_B_DS_425_3:
+        case VHD_INTERFACE_4X3G_A_425_5:
+        case VHD_INTERFACE_4X3G_B_DL_425_5:
+        // case VHD_INTERFACE_2X3G_B_DS_425_3_DUAL:
+        case VHD_INTERFACE_4XHD_QUADRANT_DUAL:
+        case VHD_INTERFACE_4X3G_A_QUADRANT_DUAL:
+        case VHD_INTERFACE_4X3G_A_425_5_DUAL:
+        case VHD_INTERFACE_4X3G_B_DL_QUADRANT_DUAL:
+        case VHD_INTERFACE_4X3G_B_DL_425_5_DUAL:
+                Result = TRUE;
+                break;
+        default:
+                Result = FALSE;
+                break;
+        }
+
+        return Result;
+}
+
+/// equally named fn in SDK
+static VHD_CORE_BOARDPROPERTY GetPassiveLoopbackProperty(int ChannelIdx)
+{
+   switch (ChannelIdx)
+   {
+      case 0: return VHD_CORE_BP_BYPASS_RELAY_0;
+      case 1: return VHD_CORE_BP_BYPASS_RELAY_1;
+      case 2: return VHD_CORE_BP_BYPASS_RELAY_2;
+      case 3: return VHD_CORE_BP_BYPASS_RELAY_3;
+      default: return NB_VHD_CORE_BOARDPROPERTIES;
+   }
+}
+
+/// @sa SDK SetLoopbackState() since VideoMaster 6.21 but simplified to the extent
+/// of features suppoprted by the prior versions (passive loopback only)
+void
+delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex, BOOL32 State)
+{
+        VHD_CORE_BOARDPROPERTY prop = GetPassiveLoopbackProperty(ChannelIndex);
+
+        if (prop == NB_VHD_CORE_BOARDPROPERTIES) {
+                return;
+        }
+        ULONG err = VHD_SetBoardProperty(BoardHandle, prop, State);
+        if (err != VHDERR_NOERROR) {
+                MSG(VERBOSE, "Cannot set passive loopback for channel %d!\n",
+                    ChannelIndex);
+        }
 }

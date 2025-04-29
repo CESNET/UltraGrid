@@ -209,5 +209,9 @@ std::string delta_format_version(uint32_t version, bool long_out);
 void print_available_delta_boards(bool full);
 bool delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx, ULONG RequestedTx);
 VHD_STREAMTYPE delta_rx_ch_to_stream_t(unsigned channel);
+bool           delta_is_quad_channel_interface(ULONG Interface);
+void           delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex,
+                                        BOOL32 State);
+
 #endif // defined DELTACAST_COMMON_HPP
 
