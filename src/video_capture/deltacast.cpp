@@ -474,7 +474,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         }
 
         assert(!s->quad_channel || s->channel == 0);
-        ULONG NbRxRequired = s->quad_channel ? 4 : 1;
+        ULONG NbRxRequired = s->quad_channel ? 4 : s->channel + 1;
         if (!delta_set_nb_channels(BrdId, s->BoardHandle, NbRxRequired, 0)) {
                 HANDLE_ERROR
         }
