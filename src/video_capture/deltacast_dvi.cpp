@@ -103,7 +103,6 @@ struct vidcap_deltacast_dvi_state {
 #endif // defined DELTA_DVI_DEPRECATED
 
 
-static void usage(void);
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 
 const static map<VHD_DV_EEDID_PRESET, const char *> edid_presets = {
@@ -122,10 +121,12 @@ const static map<VHD_DV_EEDID_PRESET, const char *> edid_presets = {
         { (VHD_DV_EEDID_PRESET) -1,     "avoid E-EDID loading" },
 };
 
-static void usage(void)
+static void
+usage(bool full)
 {
         col() << "Usage:\n";
         col() << SBOLD(SRED("\t-t deltacast-dv") << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:preset=<preset>|:format=<format>]") << "\n";
+        col() << SBOLD("\t-t deltacast-dv:[full]help") << "\n";
         col() << "where\n";
         
         col() << SBOLD("\t<index>") << " - index of DVI card\n";
@@ -148,7 +149,7 @@ static void usage(void)
         col() << SBOLD("\t<format>") << " may be format description (DVI-A), E-EDID will be ignored\n";
         col() << "\t\tvideo format is in the format " << SBOLD("<width>x<height>@<fps>") << "\n";
 
-        print_available_delta_boards(false);
+        print_available_delta_boards(full);
 }
 
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256])
@@ -465,25 +466,25 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
-        char *init_fmt = NULL,
-             *tmp = NULL;
-        if (vidcap_params_get_fmt(params) != NULL)
-                tmp = init_fmt = strdup(vidcap_params_get_fmt(params));
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
-                free(tmp);
-                usage();
+        const char *cfg = vidcap_params_get_fmt(params);
+        if (strcmp(cfg, "help") == 0 ||
+            strcmp(cfg, "fullhelp") == 0) {
+                usage(strcmp(cfg, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
 
         s = new vidcap_deltacast_dvi_state();
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
-                goto error;
+                return VIDCAP_INIT_FAIL;
 	}
 
         s->codec = BGR;
         s->configured = false;
         s->BoardHandle = s->StreamHandle = NULL;
+
+        char *init_fmt = strdup(cfg);
+        char *tmp = init_fmt;
 
         if(init_fmt)
         {
