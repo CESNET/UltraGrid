@@ -129,7 +129,6 @@ static void usage(void)
         col() << "where\n";
         
         col() << SBOLD("\t<index>") << " - index of DVI card\n";
-        print_available_delta_boards(false);
 
         col() << SBOLD("\t<channel>")
               << " may be channel index (for cards which have multiple inputs, 0-"
@@ -149,6 +148,7 @@ static void usage(void)
         col() << SBOLD("\t<format>") << " may be format description (DVI-A), E-EDID will be ignored\n";
         col() << "\t\tvideo format is in the format " << SBOLD("<width>x<height>@<fps>") << "\n";
 
+        print_available_delta_boards(false);
 }
 
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256])

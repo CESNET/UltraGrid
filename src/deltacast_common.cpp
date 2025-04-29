@@ -185,7 +185,7 @@ print_avail_channels(HANDLE BoardHandle)
                     << delta_get_error_description(Result) << "\n";
                 return;
         }
-        printf("available channels:");
+        printf("\t\tavailable channels:");
         // RXx
         // bit0 = RX0, bit1 = RX1, bit2 = RX2, bit3 = RX3
         for (int i = 0; i < 4; ++i) {
@@ -228,15 +228,15 @@ print_available_delta_boards(bool full)
                         Result);
                 return;
         }
-        std::cout << "\t\tAPI version: "
+        std::cout << "\nAPI version: "
                   << delta_format_version(DllVersion, false) << "\n";
+        std::cout << "\nAvailable cards:\n";
         if (NbBoards == 0) {
                 log_msg(LOG_LEVEL_ERROR,
                         "[DELTACAST] No DELTA board detected, exiting...\n");
                 return;
         }
 
-        std::cout << "\n\t\tAvailable cards:\n";
         /* Query DELTA boards information */
         for (ULONG i = 0; i < NbBoards; i++) {
                 ULONG  BoardType     = 0U;
@@ -272,7 +272,7 @@ print_available_delta_boards(bool full)
                 if (it != board_type_map.end()) {
                         board = it->second;
                 }
-                col() << "\t\t\tBoard " << SBOLD(i) << ": " << SBOLD(board)
+                col() << "\tBoard " << SBOLD(i) << ": " << SBOLD(board)
                       << " (driver: "
                       << delta_format_version(DriverVersion, false) << ")\n";
                 if (full) {
