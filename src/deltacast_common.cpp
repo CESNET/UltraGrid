@@ -277,6 +277,15 @@ print_available_delta_boards(bool full)
                       << delta_format_version(DriverVersion, false) << ")\n";
                 if (full) {
                         print_avail_channels(BoardHandle);
+
+                        ULONG IsBiDir = 2;
+                        VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR,
+                                             &IsBiDir);
+                        printf("\t\tbidirectional (switchable) channels: "
+                               "%s\n",
+                               IsBiDir == 2      ? "ERROR"
+                               : IsBiDir == TRUE ? "supported"
+                                                 : "not supported");
                 }
                 if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
                         LOG(LOG_LEVEL_WARNING)
