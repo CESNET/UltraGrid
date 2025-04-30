@@ -98,12 +98,14 @@ show_help(bool full)
 {
         printf("deltacast (output) options:\n");
         color_printf("\t" TBOLD(
-            TRED("-d deltacast") "[:device=<index>][:channel=<ch>]") "\n");
+            TRED("-d deltacast") "[:device=<index>][:channel=<ch>]"
+            "[:ch_layout=RT]") "\n");
         color_printf("\t" TBOLD("-d deltacast:[full]help") "\n");
 
         printf("\nOptions:\n");
         color_printf("\t" TBOLD("device") " - board index\n");
         color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
+        delta_print_ch_layout_help(full);
 
         print_available_delta_boards(full);
 
@@ -331,7 +333,8 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
 }
 
 static bool
-parse_fmt(struct state_deltacast *s, char *fmt, ULONG *BrdId)
+parse_fmt(struct state_deltacast *s, char *fmt, ULONG *BrdId,
+          ULONG *NbRxRequired, ULONG *NbTxRequired)
 {
         char *save_ptr = nullptr;
         while (char *tok = strtok_r(fmt, ":", &save_ptr)) {
@@ -345,6 +348,10 @@ parse_fmt(struct state_deltacast *s, char *fmt, ULONG *BrdId)
                                     s->channel);
                                 return false;
                         }
+                } else if (IS_KEY_PREFIX(tok, "ch_layout")) {
+                        int val = std::stoi(strchr(tok, '=') + 1);
+                        *NbRxRequired = val / 10;
+                        *NbTxRequired = val % 10;
                 } else {
                         MSG(ERROR, "Unknown option: %s\n\n", tok);
                         show_help(false);
@@ -361,6 +368,8 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         struct state_deltacast *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
+        ULONG             NbRxRequired = 0;
+        ULONG             NbTxRequired = 0;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
@@ -388,7 +397,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         s->audio_configured = FALSE;
         
         char *tmp = strdup(fmt);
-        if (!parse_fmt(s, tmp, &BrdId)) {
+        if (!parse_fmt(s, tmp, &BrdId, &NbRxRequired, &NbTxRequired)) {
                 free(tmp);
                 HANDLE_ERROR
         }
@@ -420,7 +429,11 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
                 HANDLE_ERROR
         }
 
-        if (!delta_set_nb_channels(BrdId, s->BoardHandle, 0, s->channel + 1)) {
+        if (NbRxRequired == 0 && NbTxRequired == 0) {
+                NbTxRequired = s->channel + 1;
+        }
+        if (!delta_set_nb_channels(BrdId, s->BoardHandle, NbRxRequired,
+                                   NbTxRequired)) {
                 HANDLE_ERROR
         }
 

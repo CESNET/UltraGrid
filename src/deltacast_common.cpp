@@ -299,6 +299,23 @@ print_available_delta_boards(bool full)
         std::cout << "\n";
 }
 
+void
+delta_print_ch_layout_help(bool full)
+{
+        color_printf(
+            "\t" TBOLD("ch_layout") " - configure bidirectional channels%s\n",
+            full ? ":" : ", see \":fullhelp\" for details");
+        if (full) {
+                color_printf("\t\tSet the layout with a number in format RxTx, "
+                             "examples:\n"
+                             "\t\t\t- 80 - 8 Rx and 0 TX\n"
+                             "\t\t\t- 44 - 4 Rx and 4 TX\n"
+                             "\t\t\t- 13 - 1 Rx and 3 TX (4 channel device)\n"
+                             "\t\tIt is user responsibility to enter the valid "
+                             "number (not exceeding device channels).\n");
+        }
+}
+
 /// from SDK SetNbChannels()
 bool
 delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
@@ -399,6 +416,8 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
             "ERROR: Cannot set bidirectional channels. Result = "
             "0x%08" PRIX_ULONG "\n",
             Result);
+        MSG(WARNING, "See also option \":ch_layout\" to switch "
+                     "bidirectional channels layout.\n");
         return false;
 }
 

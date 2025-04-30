@@ -95,7 +95,7 @@ usage(bool full)
 {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(TRED("-t "
-                     "deltacast") "[:device=<index>][:channel=<idx>][:mode=<mode>]["
+                     "deltacast") "[:device=<index>][:channel=<idx>][:ch_layout=RL][:mode=<mode>]["
                      ":codec=<codec>]") "\n");
         color_printf("\t" TBOLD("-t "
                                 "deltacast:[full]help") "\n");
@@ -103,6 +103,7 @@ usage(bool full)
         printf("\nOptions:\n");
         color_printf("\t" TBOLD("device") " - board index\n");
         color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
+        delta_print_ch_layout_help(full);
         color_printf("\t" TBOLD("mode") " - capture mode (see below)\n");
         color_printf("\t" TBOLD("codec") " - pixel format to capture (see list below)\n");
 
@@ -350,8 +351,8 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         return true;
 }
 
-static bool
-parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
+static bool parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt,
+                      ULONG *BrdId, ULONG *NbRxRequired, ULONG *NbTxRequired)
 {
         char *save_ptr = NULL;
         char *tok      = NULL;
@@ -385,6 +386,10 @@ parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt, ULONG *BrdId)
                                     s->channel);
                                 return false;
                         }
+                } else if (IS_KEY_PREFIX(tok, "ch_layout")) {
+                        int val = stoi(strchr(tok, '=') + 1);
+                        *NbRxRequired = val / 10;
+                        *NbTxRequired = val % 10;
                 } else {
                         MSG(ERROR, "Wrong config option '%s'!\n", tok);
                         usage(false);
@@ -402,6 +407,8 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 	struct vidcap_deltacast_state *s = nullptr;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
+        ULONG             NbRxRequired = 0;
+        ULONG             NbTxRequired = 0;
 
 	printf("vidcap_deltacast_init\n");
 
@@ -431,7 +438,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
         char *init_fmt = strdup(fmt);
-        if (!parse_fmt(s, init_fmt, &BrdId)) {
+        if (!parse_fmt(s, init_fmt, &BrdId, &NbRxRequired, &NbTxRequired)) {
                 free(init_fmt);
                 HANDLE_ERROR
         }
@@ -474,9 +481,12 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 HANDLE_ERROR
         }
 
-        assert(!s->quad_channel || s->channel == 0);
-        ULONG NbRxRequired = s->quad_channel ? 4 : s->channel + 1;
-        if (!delta_set_nb_channels(BrdId, s->BoardHandle, NbRxRequired, 0)) {
+        if (NbRxRequired == 0 && NbTxRequired == 0) {
+                assert(!s->quad_channel || s->channel == 0);
+                NbRxRequired = s->quad_channel ? 4 : s->channel + 1;
+        }
+        if (!delta_set_nb_channels(BrdId, s->BoardHandle, NbRxRequired,
+                                   NbTxRequired)) {
                 HANDLE_ERROR
         }
 
