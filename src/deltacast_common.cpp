@@ -295,9 +295,9 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
                         "ERROR: Insufficient number of channels - "
                         "requested %" PRIu_ULONG " RX + %" PRIu_ULONG
                         " TX, got %" PRIu_ULONG " RX + %" PRIu_ULONG
-                        " TX. %s. Result = 0x%08" PRIX_ULONG "\n",
+                        " TX. %s\n",
                         RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard,
-                        IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
+                        IsBiDir ? "Bidirectional" : "Non-bidirectional");
                 return false;
         }
 
@@ -333,11 +333,13 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
         }
         Result = VHD_SetBiDirCfg(BrdId, it->second);
         if (Result == VHDERR_NOERROR) {
-                MSG(VERBOSE, "Successfully bidirectional channels.\n");
+                MSG(INFO,
+                    "Set bidirectional channel configuration %d In / %d Out\n",
+                    RequestedRx, NbChanOnBoard - RequestedRx);
                 return true;
         }
         MSG(ERROR,
-            "ERROR: Cannot bidirectional set bidirectional channels. Result = "
+            "ERROR: Cannot set bidirectional channels. Result = "
             "0x%08" PRIX_ULONG "\n",
             Result);
         return false;
