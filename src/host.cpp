@@ -1018,7 +1018,7 @@ parse_bitrate(char *optarg, long long int *bitrate)
                 return true;
         }
         if (strcmp(optarg, "help") == 0) {
-                constexpr char const *NUMERIC_PATTERN = "{1-9}{0-9}*[kMG][!][E]";
+                constexpr char const *NUMERIC_PATTERN = "[1-9][0-9]*[kMG][!][E]";
                 col()
                     << "Usage:\n"
                     << "\tuv " << TERM_BOLD "-l [auto | dynamic | unlimited | "
