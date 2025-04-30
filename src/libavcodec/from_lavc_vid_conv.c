@@ -3044,7 +3044,7 @@ get_cs_for_conv(AVFrame *f, codec_t av_to_uv_pf, int *lmt_rng)
                 }
                 const bool have_pp = tok_in_argv(uv_argv, "y601_to_y709");
                 if (src_601 && get_default_cs() != CS_601 && !have_pp) {
-                        MSG(WARNING,
+                        MSG_ONCE(WARNING,
                             "Got %s CS but not converted - consider \"--param "
                             "color-601\" as a hint for supported displays or "
                             "\"-p matrix2:y601_to_y709\"\n",
