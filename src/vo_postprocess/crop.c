@@ -35,12 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <assert.h>           // for assert
+#include <stdbool.h>          // for bool, true, false
+#include <stddef.h>           // for NULL, size_t
+#include <stdlib.h>           // for atoi, free, abort, calloc
+#include <string.h>           // for strlen, strchr, strcmp, memcpy, strdup
 
+#include "compat/strings.h"   // for strncasecmp
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
