@@ -44,6 +44,8 @@
 #include "debug.h"
 #include "utils/color_out.h"
 
+#define MOD_NAME "[DELTACAST] "
+
 const char *
 delta_get_error_description(ULONG CodeError)
 {
@@ -288,56 +290,55 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
 
         NbChanOnBoard = NbRxOnBoard + NbTxOnBoard;
 
-        if (IsBiDir && NbChanOnBoard >= (RequestedRx + RequestedTx)) {
-                // key - (NbChanOnBoard, RequestedRX), value - member of
-                // VHD_BIDIRCFG_2C, VHD_BIDIRCFG_4C or VHD_BIDIRCFG_8C
-                std::map<std::pair<ULONG, ULONG>, ULONG> mapping = {
-                        //{{2, 0}, VHD_BIDIR_02},
-                        //{{2, 1}, VHD_BIDIR_11},
-                        //{{2, 2}, VHD_BIDIR_20},
-
-                        { { 4, 0 }, VHD_BIDIR_04 },
-                        { { 4, 1 }, VHD_BIDIR_13 },
-                        { { 4, 2 }, VHD_BIDIR_22 },
-                        { { 4, 3 }, VHD_BIDIR_31 },
-                        { { 4, 4 }, VHD_BIDIR_40 },
-
-                        { { 8, 0 }, VHD_BIDIR_08 },
-                        { { 8, 1 }, VHD_BIDIR_17 },
-                        { { 8, 2 }, VHD_BIDIR_26 },
-                        { { 8, 3 }, VHD_BIDIR_35 },
-                        { { 8, 4 }, VHD_BIDIR_44 },
-                        { { 8, 5 }, VHD_BIDIR_53 },
-                        { { 8, 6 }, VHD_BIDIR_62 },
-                        { { 8, 7 }, VHD_BIDIR_71 },
-                        { { 8, 8 }, VHD_BIDIR_80 }
-                };
-                auto it = mapping.find({ NbChanOnBoard, RequestedRx });
-                if (it != mapping.end()) {
-                        Result = VHD_SetBiDirCfg(BrdId, it->second);
-                        if (Result != VHDERR_NOERROR) {
-                                log_msg(LOG_LEVEL_ERROR,
-                                        "[DELTACAST] ERROR: Cannot "
-                                        "bidirectional set bidirectional "
-                                        "channels. Result = 0x%08" PRIX_ULONG
-                                        "\n",
-                                        Result);
-                                return false;
-                        } else {
-                                log_msg(LOG_LEVEL_VERBOSE,
-                                        "[DELTACAST] Successfully "
-                                        "bidirectional channels.\n");
-                                return true;
-                        }
-                }
+        if (!IsBiDir || NbChanOnBoard < (RequestedRx + RequestedTx)) {
+                MSG(ERROR,
+                        "ERROR: Insufficient number of channels - "
+                        "requested %" PRIu_ULONG " RX + %" PRIu_ULONG
+                        " TX, got %" PRIu_ULONG " RX + %" PRIu_ULONG
+                        " TX. %s. Result = 0x%08" PRIX_ULONG "\n",
+                        RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard,
+                        IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
+                return false;
         }
 
-        log_msg(LOG_LEVEL_ERROR,
-                "[DELTACAST] ERROR: Insufficient number of channels - "
-                "requested %" PRIu_ULONG " RX + %" PRIu_ULONG
-                " TX, got %" PRIu_ULONG " RX + %" PRIu_ULONG
-                " TX. %s. Result = 0x%08" PRIX_ULONG "\n",
-                RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard,
-                IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
+        // key - (NbChanOnBoard, RequestedRX), value - member of
+        // VHD_BIDIRCFG_2C, VHD_BIDIRCFG_4C or VHD_BIDIRCFG_8C
+        std::map<std::pair<ULONG, ULONG>, ULONG> mapping = {
+                //{{2, 0}, VHD_BIDIR_02},
+                //{{2, 1}, VHD_BIDIR_11},
+                //{{2, 2}, VHD_BIDIR_20},
+
+                { { 4, 0 }, VHD_BIDIR_04 },
+                { { 4, 1 }, VHD_BIDIR_13 },
+                { { 4, 2 }, VHD_BIDIR_22 },
+                { { 4, 3 }, VHD_BIDIR_31 },
+                { { 4, 4 }, VHD_BIDIR_40 },
+
+                { { 8, 0 }, VHD_BIDIR_08 },
+                { { 8, 1 }, VHD_BIDIR_17 },
+                { { 8, 2 }, VHD_BIDIR_26 },
+                { { 8, 3 }, VHD_BIDIR_35 },
+                { { 8, 4 }, VHD_BIDIR_44 },
+                { { 8, 5 }, VHD_BIDIR_53 },
+                { { 8, 6 }, VHD_BIDIR_62 },
+                { { 8, 7 }, VHD_BIDIR_71 },
+                { { 8, 8 }, VHD_BIDIR_80 }
+        };
+        auto it = mapping.find({ NbChanOnBoard, RequestedRx });
+        if (it == mapping.end()) {
+                MSG(ERROR, "Sufficient number of channels and board is "
+                           "switchable  but cannot find a mapping! Please "
+                           "report...\n");
+                return false;
+        }
+        Result = VHD_SetBiDirCfg(BrdId, it->second);
+        if (Result == VHDERR_NOERROR) {
+                MSG(VERBOSE, "Successfully bidirectional channels.\n");
+                return true;
+        }
+        MSG(ERROR,
+            "ERROR: Cannot bidirectional set bidirectional channels. Result = "
+            "0x%08" PRIX_ULONG "\n",
+            Result);
         return false;
 }
