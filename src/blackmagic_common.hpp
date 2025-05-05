@@ -47,7 +47,6 @@
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
 
 #include <cctype>
-#include <cstdbool>
 #include <cstdint>
 #include <map>
 #include <memory>
