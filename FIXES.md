@@ -1,3 +1,10 @@
+#### 1.9.10
+
+* fix macOS >= 15.4 init crashes (LC_RPATH dups)
+* build fixes (XIMEA, PCP)
+* fix manual port assignment with send+recv over lo in single process
+* few other less important fixes
+
 #### 1.9.9
 
 * build fixes: switch to U22, PCP

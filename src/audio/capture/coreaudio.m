@@ -409,13 +409,13 @@ static struct audio_frame *audio_cap_ca_read(void *state)
         pthread_mutex_lock(&s->lock);
         ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
         if(!ret) {
+                s->data_ready = FALSE;
                 s->boss_waiting = TRUE;
                 while(!s->data_ready) {
                         pthread_cond_wait(&s->cv, &s->lock);
                 }
                 s->boss_waiting = FALSE;
                 ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
-                s->data_ready = FALSE;
         }
         pthread_mutex_unlock(&s->lock);
 
