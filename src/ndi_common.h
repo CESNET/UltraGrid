@@ -159,11 +159,11 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_printf( \
-            TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available " \
-                                   u8"from https://ndi.video/\n" \
-                                   u8"NDI® is a registered trademark of " \
-                                   u8"Vizrt NDI AB.\n\n" TERM_RESET); \
+        color_printf(TERM_BOLD TERM_FG_BLUE "%s\n\n" TERM_RESET, \
+                     u8"This application uses NDI® available " \
+                     u8"from https://ndi.video/\n" \
+                     u8"NDI® is a registered trademark of " \
+                     u8"Vizrt NDI AB."); \
         int not_defined_function
 
 #undef MOD_NAME

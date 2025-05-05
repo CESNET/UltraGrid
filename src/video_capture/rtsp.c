@@ -1040,6 +1040,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                                     pt, advertised_pt);
                                 snprintf(codec, SHORT_STR, "?");
                         }
+                        assert(strlen(buf) + strlen(codec) < SHORT_STR);
                         snprintf(codec + strlen(codec),
                                  SHORT_STR - strlen(codec), "%s", buf);
                 }
