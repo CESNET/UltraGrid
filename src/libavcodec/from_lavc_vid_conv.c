@@ -50,6 +50,9 @@
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/hwcontext_drm.h>
+#if __STDC_VERSION__ < 202311L
+#include <stdalign.h>     // for alignof
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -2294,8 +2297,10 @@ static void av_drm_prime_to_ug_drm_prime(struct av_conv_data d)
             (struct drm_prime_frame *) (void *) d.dst_buffer;
         memset(out, 0, sizeof(struct drm_prime_frame));
 
-
-        AVDRMFrameDescriptor *av_drm_frame = (struct AVDRMFrameDescriptor *) in_frame->data[0];
+        assert((uintptr_t) in_frame->data[0] % alignof(AVDRMFrameDescriptor) ==
+               0);
+        AVDRMFrameDescriptor *av_drm_frame =
+            (struct AVDRMFrameDescriptor *) (void *) in_frame->data[0];
         assert(av_drm_frame->nb_layers == 1);
         AVDRMLayerDescriptor *layer = &av_drm_frame->layers[0];
 
