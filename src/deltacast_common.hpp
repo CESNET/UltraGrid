@@ -83,7 +83,16 @@
 #include <VideoMasterHD_Ip_Board.h>
 #endif
 #if defined VHD_IP_FILTER_UDP_PORT_DEST && !defined VHD_IS_6_19
-#define VHD_MIN_6_20 1
+        #ifdef VHD_CORE_BP_BYPASS_RELAY_0
+                // enum membber until 6.20, macro since 6.21
+                #define VHD_MIN_6_21 1
+        #endif
+        #if !defined VHD_MIN_6_21 || !defined VHD_IS_6_20 // 6.19 or 6.20
+                #warning cannot determine if VideoMaster is 6.19 or 6.20 - \
+                        assuming 6.20. Pass -DVHD_IS_6_19 (or 6_20) to enforce \
+                        specific version.
+        #endif
+        #define VHD_MIN_6_20 1
 #endif
 
 // compat
