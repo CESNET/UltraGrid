@@ -6,7 +6,19 @@ bundle=$3
 
 rpath=@executable_path/../libs/
 
+# check if first 2 bytes is shebang ('#' and '!')
+starts_with_shebang() {
+        tmpf=${TMPDIR-/tmp}/ug-macos-bundle-sb-check$$
+        od -N2 -td1 -An "$1" > "$tmpf"
+        read -r first second < "$tmpf"
+        rm -f "$tmpf"
+        [ "$first" -eq 35 ] && [ "$second" -eq 33 ]
+}
+
 for n in "$bundle"/Contents/MacOS/*; do
+        if starts_with_shebang "$n"; then
+                continue
+        fi
         # shellcheck disable=SC2086 # intentional, even $dylibbundler
         # can have flags like 'dylibbundler -f'; obvious for _flags
         echo quit | $dylibbundler $dylibbundler_flags -of -cd -b \
