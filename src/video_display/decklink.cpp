@@ -529,7 +529,6 @@ struct state_decklink {
         bmd_option          profile_req;
         bmd_option          quad_square_division_split{true, false};
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
-                { bmdDeckLinkConfigOutput1080pAsPsF, bmd_option{false, false}},
                 { bmdDeckLinkConfigFieldFlickerRemoval, bmd_option{false, false}}, ///< required for interlaced video in low-latency
                 { bmdDeckLinkConfigLowLatencyVideoOutput, bmd_option{true, false}}
         };
