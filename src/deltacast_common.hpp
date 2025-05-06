@@ -87,7 +87,7 @@
                 // enum membber until 6.20, macro since 6.21
                 #define VHD_MIN_6_21 1
         #endif
-        #if !defined VHD_MIN_6_21 || !defined VHD_IS_6_20 // 6.19 or 6.20
+        #if !defined VHD_MIN_6_21 && !defined VHD_IS_6_20 // 6.19 or 6.20
                 #warning cannot determine if VideoMaster is 6.19 or 6.20 - \
                         assuming 6.20. Pass -DVHD_IS_6_19 (or 6_20) to enforce \
                         specific version.
