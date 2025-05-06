@@ -584,6 +584,8 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
             << "\tset maximum analog audio attenuation (consumer line level)\n";
         col() << SBOLD("\t\tvoio=blac|lafa")
               << "\tdisplay either black or last frame when idle\n";
+        col() << SBOLD("\t\tpfpr[=no]")
+            << "\tuse of PsF on output instead of progressive (no for the opposite)\n";
 
         if (!full) {
                 col() << SBOLD("\tconversion") << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
@@ -616,7 +618,6 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
                                 SBOLD("\t\tup1i") << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
                 col() << SBOLD("\tHDMI3DPacking") << " can be (used in conjunction with \"3D\" option):\n" <<
 				SBOLD("\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n");
-                col() << SBOLD("\tUse1080PsF[=true|false|keep]") << " flag sets use of PsF on output instead of progressive (default is false)\n";
                 col() << SBOLD("\tprofile=<P>") << "\tuse desired device profile:\n";
                 print_bmd_device_profiles("\t\t");
                 col() << SBOLD("\tconnection=<conn>") << " set output video connection (usually unneeded)\n";
@@ -1283,6 +1284,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (IS_KEY_PREFIX(ptr, "conversion")) {
                         s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
+                        MSG(WARNING, "Use1080pNotPsF/Use1080PsF deprecated, "
+                                     "use 'pfpr[=no] instead\n");
                         s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse(strchr(ptr, '=') + 1);
                         if (strncasecmp(ptr, "Use1080pNotPsF", strlen("Use1080pNotPsF")) == 0) { // compat, inverse
                                 s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].set_flag(s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].get_flag());

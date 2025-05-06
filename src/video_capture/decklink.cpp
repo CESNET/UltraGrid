@@ -573,10 +573,6 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
                 col() << "\n";
 
-                col() << SBOLD("Use1080PsF[=true|false]") << "\n";
-                col() << "\tIncoming signal should be treated as PsF instead of progressive.\n";
-                col() << "\n";
-
                 col() << SBOLD("nosig-send") << "\n";
                 col() << "\tSend video even if no signal was detected (useful when video interrupts\n"
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
@@ -602,6 +598,8 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << SBOLD("\taacl[=no]")
                       << "\tset analog audio levels to maximum gain "
                          "(consumer audio level)\n";
+                col() << SBOLD("\tcfpr[=no]")
+                      << "\tincoming signal should be treated as PsF instead of progressive\n";
                 col() << "\n";
         } else {
                 col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
@@ -771,6 +769,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
+                MSG(WARNING, "Use1080PsF deprecated, use 'cfpr[=no] instead\n");
                 s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '='), "false") != 0);
         } else if (strncasecmp(opt, "passthrough", 4) == 0 ||
                    strncasecmp(opt, "nopassthrough", 6) == 0) {
