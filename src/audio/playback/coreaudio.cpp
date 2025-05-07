@@ -305,6 +305,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
         assert(dir == -1 || dir == 1);
         *available_devices =
             (struct device_info *) calloc(1, sizeof(struct device_info));
+        assert(*available_devices != nullptr);
         snprintf((*available_devices)[0].dev, sizeof(*available_devices)[0].dev,
                  "");
         snprintf((*available_devices)[0].name,
@@ -342,6 +343,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 
                 (*count)++;
                 *available_devices = (struct device_info *) realloc(*available_devices, *count * sizeof(struct device_info));
+                assert(*available_devices != nullptr);
                 memset(&(*available_devices)[*count - 1], 0, sizeof(struct device_info));
 
                 audio_ca_get_device_name(dev_ids[i], sizeof (*available_devices)[*count - 1].name,
