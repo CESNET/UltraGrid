@@ -50,6 +50,7 @@
  * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point)
  * 4. p010 corrupted on d3d[12] - pixfmts skipped in query*() as a workaround
  * 5. see todo in @ref ../audio/capture/sdl_mixer.c
+ * 6. size= option doesn't seem to work with YCbCr formats
  */
 
 #include <SDL3/SDL.h>
@@ -78,6 +79,7 @@
 #include "utils/color_out.h"  // for color_printf, TBOLD, TRED
 #include "utils/list.h"       // for simple_linked_list_append, simple_lin...
 #include "utils/macros.h"     // for STR_LEN
+#include "video.h"            // for get_video_desc_from_string
 #include "video_codec.h"      // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"    // for display_property, get_splashscreen
 #include "video_frame.h"      // for vf_free, vf_alloc_desc, video_desc_fr...
@@ -517,7 +519,8 @@ show_help(const char *driver, bool full)
                                       "position\n"
                                       "                   "
                                       "(syntax: " TBOLD(
-                                          "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
+                                          "[<W>x<H>][{+-}<X>[{+-}<Y>]]")
+                                      " or mode name)\n");
         color_printf(TBOLD("      <renderer>") " - renderer, one or more of:");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 const char *renderer_name = SDL_GetRenderDriver(i);
@@ -886,6 +889,13 @@ set_size(struct state_sdl3 *s, const char *tok)
         }
         tok = strchr(tok, '=') + 1;
         if (strpbrk(tok, "x+-") == NULL) {
+                struct video_desc desc = get_video_desc_from_string(tok);
+                if (desc.width != 0) {
+                        s->fixed_size = true;
+                        s->fixed_w = desc.width;
+                        s->fixed_h = desc.height;
+                        return true;
+                }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
                 return false;
         }
