@@ -39,20 +39,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-#include "rtp/rtp_types.h" // FPS_MAX
-#include "utils/macros.h"
 #include "video.h"
 
-#include <iomanip>
-#include <sstream>
-#include <map>
+#include <cassert>            // for assert
+#include <cctype>             // for isalnum
+#include <cstdio>             // for printf, fprintf, sscanf, stderr
+#include <cstdlib>            // for atoi, strtol
+#include <cstring>            // for strncmp, strchr, strlen, strpbrk
+#include <iomanip>            // for operator<<, setiosflags, setprecision
+#include <map>                // for allocator, map, _Rb_tree_const_iterator
+#include <sstream>            // for basic_ostringstream
+#include <string>             // for basic_string, string
+#include <utility>            // for pair
+
+#include "debug.h"
+#include "compat/strings.h"    // for strcasecmp
+#include "rtp/rtp_types.h" // FPS_MAX
+#include "utils/color_out.h"  // for color_printf, TBOLD
+#include "utils/macros.h"
 
 #define MOD_NAME "[video] "
 
