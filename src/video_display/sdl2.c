@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -695,7 +695,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 } else if (IS_PREFIX(tok, "keep-aspect")) {
                         s->keep_aspect = true;
                 } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
-                           IS_KEY_PREFIX(tok, "siz=")) {
+                           IS_KEY_PREFIX(tok, "size")) {
                         if (!set_size(s, tok)) {
                                 free(s);
                                 return NULL;

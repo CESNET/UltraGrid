@@ -963,7 +963,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_PREFIX(tok, "keep-aspect")) {
                         s->keep_aspect = true;
                 } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
-                           IS_KEY_PREFIX(tok, "siz=")) {
+                           IS_KEY_PREFIX(tok, "size")) {
                         if (!set_size(s, tok)) {
                                 free(s);
                                 return NULL;
