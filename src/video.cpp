@@ -340,6 +340,9 @@ struct video_desc get_video_desc_from_string(const char *string)
                                      "FPS spec: ");
                 }
                 color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{23,24,25,29,30,59,60}") "\n");
+                if (!full) {
+                        color_printf("Use " TBOLD("fullhelp") " for further details.\n");
+                }
                 return {};
         }
         for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
