@@ -50,7 +50,6 @@
  * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point)
  * 4. p010 corrupted on d3d[12] - pixfmts skipped in query*() as a workaround
  * 5. see todo in @ref ../audio/capture/sdl_mixer.c
- * 6. size= option doesn't seem to work with YCbCr formats
  */
 
 #include <SDL3/SDL.h>
@@ -775,10 +774,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         MSG(NOTICE, "Reconfigure to size %dx%d\n", desc.width, desc.height);
 
         if (s->fixed_size && s->window) {
-                SDL_SetRenderLogicalPresentation(
-                    s->renderer, desc.width, desc.height,
-                    SDL_LOGICAL_PRESENTATION_LETTERBOX);
-                return recreate_textures(s, desc);
+                goto skip_window_creation;
         }
 
         if (s->window) {
@@ -841,6 +837,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 vulkan_warn(s->req_renderers_name, renderer_name);
         }
         query_renderer_supported_fmts(s->renderer, s->supp_fmts, is_d3d);
+skip_window_creation:
         s->cs_data = get_ug_to_sdl_format(s->supp_fmts, desc.color_spec);
         if (s->cs_data == NULL) {
                 return false;
