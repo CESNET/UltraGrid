@@ -254,38 +254,41 @@ const char *video_desc_to_string(struct video_desc d)
  * @retval <0.0 wrong FPS specification
  */
 static double
-parse_fps(const char *string, bool interlaced)
+parse_fps(const char *string, interlacing_t *interlacing)
 {
-        const char *fps_str = strpbrk(string, "DKdikp");
-        assert(fps_str != nullptr);
+        const char *fps_str = strpbrk(string, "DKdikp@");
+        if (fps_str == nullptr) {
+                return 0.0;
+        }
         fps_str += 1;
         if (strlen(fps_str) == 0) {
                 return 0.0;
         }
         char      *endptr = nullptr;
-        const long fps_l  = strtol(fps_str, &endptr, 10);
-        if (fps_l <= 0 || fps_l > FPS_MAX || *endptr != '\0') {
+        double fps = strtod(fps_str, &endptr);
+        if (fps <= 0 || fps > FPS_MAX) {
                 MSG(ERROR, "Wrong mode FPS specification: %s\n", string);
                 return -1;
         }
-        double fps = 0;
-        // adjust FPS (Hi29 has FPS 29.97)
-        switch (fps_l) {
-        case 23:
-                fps = 23.98;
-                break;
-        case 29:
-                fps = 29.97;
-                break;
-        case 59:
-                fps = 59.94;
-                break;
-        default:
-                fps = (double) fps_l;
-                break;
+        if (*endptr != '\0') {
+                *interlacing =  get_interlacing_from_suffix(endptr);
+                if (*interlacing == INTERLACING_MAX + 1) {
+                        MSG(ERROR, "Wrong mode FPS suffix (interlacing): %s\n", string);
+                        return -1;
+                }
+        }
+        if (fps_str[-1] != '@') { // only if no endptr as in the "Hp23" but not when "1920x1080@23p"
+                // adjust FPS (Hi29 has FPS 29.97)
+                if  (fps == 23) {
+                        fps = 23.98;
+                } else if (fps == 29) {
+                        fps = 29.97;
+                } else if (fps == 59) {
+                        fps = 59.94;
+                }
         }
         // convert field per sec to FPS if needed (interlaced)
-        return interlaced ? fps / 2.0 : fps;
+        return *interlacing != PROGRESSIVE ? fps / 2.0 : fps;
 }
 
 /**
@@ -343,7 +346,9 @@ struct video_desc get_video_desc_from_string(const char *string)
                         color_printf("Further formats with (optional) direct "
                                      "FPS spec: ");
                 }
-                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{23,24,25,29,30,59,60}") "\n");
+                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{"
+                                   "23,24,25,29,30,59,60}") " or " TBOLD(
+                    "<W>x<H>[@<FPS>[<suff>]]") "\n");
                 if (!full) {
                         color_printf("Use " TBOLD("fullhelp") " for further details.\n");
                 }
@@ -381,11 +386,15 @@ struct video_desc get_video_desc_from_string(const char *string)
                 ret.width = 4096;
                 ret.height = 2160;
         }
+
         if (ret.width == 0) {
-                MSG(ERROR, "Unrecognized video mode: %s\n", string);
-                return {};
+                // check if matches WIDTHxHEIGHT
+                if (sscanf(string, "%ux%u", &ret.width, &ret.height) != 2) {
+                        MSG(ERROR, "Unrecognized video mode: %s\n", string);
+                        return {};
+                }
         }
-        ret.fps = parse_fps(string, ret.interlacing != PROGRESSIVE);
+        ret.fps = parse_fps(string, &ret.interlacing);
         if (ret.fps < .0) {
                 return {};
         }
