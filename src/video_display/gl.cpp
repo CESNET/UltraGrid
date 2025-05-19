@@ -547,6 +547,10 @@ static void gl_show_help(bool full) {
               << "\twindow size in pixels, with optional position; full\n"
               << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
               << (full ? " [1]" : "") << "\n";
+        if (full) {
+                col() << TBOLD("\tsize=<mode_name>")
+                      << " mode name (eg. VGA), use \"help\" to show\n";
+        }
         col() << TBOLD("\tfixed_size") << "\tdo not resize window on new stream\n";
         col() << TBOLD("\tnoresizable") << "\twindow won't be resizable (useful with size=)\n";
 #ifdef SPOUT
@@ -614,6 +618,13 @@ static bool set_size(struct state_gl *s, const char *tok)
         if (strchr(tok, '%') != NULL) {
                 s->window_size_factor = atof(tok) / 100.0;
         } else if (strpbrk(tok, "x+-") == NULL) {
+                struct video_desc desc = get_video_desc_from_string(tok);
+                if (desc.width != 0) {
+                        s->fixed_size = true;
+                        s->fixed_w = desc.width;
+                        s->fixed_h = desc.height;
+                        return true;
+                }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
                 return false;
         }
