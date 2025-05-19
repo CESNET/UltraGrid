@@ -7,7 +7,7 @@
  * These function are neither video frame nor video codec related.
  */
 /*
- * Copyright (c) 2013 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -378,7 +378,7 @@ struct video_desc get_video_desc_from_string(const char *string)
                 MSG(ERROR, "Unrecognized video mode: %s\n", string);
                 return {};
         }
-        ret.fps = parse_fps(string, ret.interlacing == INTERLACED_MERGED);
+        ret.fps = parse_fps(string, ret.interlacing != PROGRESSIVE);
         if (ret.fps < .0) {
                 return {};
         }
