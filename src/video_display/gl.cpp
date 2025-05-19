@@ -699,14 +699,13 @@ list_hints()
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
-        if (strstr(ptr, "help") != 0) {
-                gl_show_help(strcmp(ptr, "fullhelp") == 0);
-                return INIT_NOERR;
-        }
-
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
+                if (strcmp(ptr, "help") == 0 || strcmp(ptr, "fullhelp") == 0) {
+                        gl_show_help(strcmp(ptr, "fullhelp") == 0);
+                        return INIT_NOERR;
+                }
                 if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
                         s->deinterlace = !strcmp(tok, "d") ? state_gl::deint::on : state_gl::deint::force;
                 } else if(!strncmp(tok, "fs", 2)) {
