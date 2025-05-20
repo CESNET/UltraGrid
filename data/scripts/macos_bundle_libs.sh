@@ -33,7 +33,7 @@ done
 
 ## output number of $rpath occurences in 'cmd LC_RPATH'
 num_rel_lc_rpath() {
-        otool -l "$1" | sed -n '/LC_RPATH/,+2p' | grep -c "$rpath" || true
+        otool -l "$1" | sed -n '/LC_RPATH/{N;N;p;}' | grep -c "$rpath" || true
 }
 
 find "$bundle" -type f -print0 |
