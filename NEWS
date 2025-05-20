@@ -56,7 +56,7 @@
 
 1.7
 ====
-* DeckLink - capture supports signal bit-depth detection (8-bit capture is
+* Deck Link - capture supports signal bit-depth detection (8-bit capture is
   no longer default if not explicitly requested), support for HDR metadata
   in display
 * Raspberry Pi - support for HW encoding of H.264
@@ -70,8 +70,7 @@
   encoded natively allowing faster encode/decode and possibly also better
   fidelity by avoiding color conversions
 * Support for 360 degree video stitching and playback
-* GUI - now it's possible to select a specific encoder for each codec
-
+* One
 1.6
 ====
 * added 10 and 12 bit and RGB video compression support
