@@ -165,29 +165,10 @@ typedef int     fd_t;
 
 #define USERNAMELEN	8
 
-static inline void *aligned_malloc(size_t size, size_t alignment) __attribute__((unused));
-static inline void *aligned_malloc(size_t size, size_t alignment)
-{
-	void *ptr = NULL;
-	int ret;
-	ret = posix_memalign(&ptr, alignment, size);
-	if(ret) {
-		errno = ret;
-	}
+#include "compat/aligned_malloc.h"
 
-	if(ret == 0) {
-		return ptr;
-	} else {
-		return NULL;
-	}
-}
-#define aligned_free free
-
-#define INVALID_SOCKET -1
+#define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
-
-#define _ftelli64 ftell
-#define _fseeki64 fseek
 
 #ifdef __cplusplus
 #define CONF_NIX_EXT_C extern "C"

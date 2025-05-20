@@ -37,6 +37,9 @@ download_install_cineform() {(
 
 download_build_aja() {
         git clone --depth 1 https://github.com/aja-video/libajantv2.git
+        # TODO TOREMOVE this workaround when not needed
+        tr -d '\n' < libajantv2/VERSION.txt > ver-fix-no-NL$$.txt &&
+                mv ver-fix-no-NL$$.txt libajantv2/VERSION.txt
         export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
@@ -89,7 +92,7 @@ download_build_live555() {(
                 pacman -Rs --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
                 ./genMakefiles linux-with-shared-libraries
-                make -j "$(nproc)"
+                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DNO_STD_LIB"
         else
                 ./genMakefiles macosx-no-openssl
                 make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
@@ -104,15 +107,28 @@ install_live555() {(
 )}
 
 install_pcp() {
-        git clone https://github.com/libpcp/pcp.git
+        git clone https://github.com/libpcpnatpmp/libpcpnatpmp.git
         (
-                cd pcp
+                cd libpcpnatpmp
+                # TODO TOREMOVE when not needed
+                if is_win; then
+                        git checkout 46341d6
+                        sed "/int gettimeofday/i\\
+struct timezone;\\
+struct timeval;\\
+" libpcp/src/windows/pcp_gettimeofday.h > fixed
+                        mv fixed libpcp/src/windows/pcp_gettimeofday.h
+                fi
+                sed 's/AC_PREREQ(.*)/AC_PREREQ(\[2.69\])/' configure.ac \
+                        > configure.ac.fixed
+                mv configure.ac.fixed configure.ac
+
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
                 make -j "$(nproc)"
                 sudo make install
         )
-        rm -rf pcp
+        rm -rf libpcpnatpmp
 }
 
 install_zfec() {(

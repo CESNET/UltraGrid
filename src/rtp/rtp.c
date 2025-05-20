@@ -143,7 +143,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
 #define RTCP_RX   205
 
 typedef struct {
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         unsigned short version:2;       /* packet type            */
         unsigned short p:1;     /* padding flag           */
         unsigned short count:5; /* varies by payload type */
@@ -1106,6 +1106,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
 
         if (session->rtp_socket == NULL || session->rtcp_socket == NULL) {
                 printf("Unable to open network\n");
+                udp_exit(session->rtp_socket);
+                udp_exit(session->rtcp_socket);
+                free(session->opt);
                 free(session);
                 return NULL;
         }
@@ -1172,7 +1175,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         return session;
 }
 
-rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback)
+rtp_t
+rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
+                         unsigned len, rtp_callback callback)
 {
         struct rtp *session;
         int i, j;
@@ -1198,6 +1203,9 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
 
         if (session->rtp_socket == NULL || session->rtcp_socket == NULL) {
                 printf("Unable to open network\n");
+                udp_exit(session->rtp_socket);
+                udp_exit(session->rtcp_socket);
+                free(session->opt);
                 free(session);
                 return NULL;
         }
@@ -1573,7 +1581,10 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
         if (!rtp_has_receiver(session)) {
                 session->opt->send_back = FALSE; // avoid multiple checks if already sending
                 struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
-                log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
+                MSG(NOTICE, "Redirecting stream to a client %s.\n",
+                    get_sockaddr_str(sa, sizeof(struct sockaddr_storage),
+                                     (char[ADDR_STR_BUF_LEN]){ 0 },
+                                     ADDR_STR_BUF_LEN));
                 udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
         }
 

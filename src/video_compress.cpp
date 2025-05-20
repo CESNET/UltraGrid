@@ -45,6 +45,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>                     // for move
 #include <vector>
 
 #include "messaging.h"
@@ -336,7 +337,8 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
-                s->funcs->compress_frame_async_push_func(s->state[0], frame);
+                s->funcs->compress_frame_async_push_func(s->state[0],
+                                                         std::move(frame));
                 return;
         }
         if (s->funcs->compress_tile_async_push_func) {
@@ -350,7 +352,8 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                         return;
                 }
 
-                vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
+                vector<shared_ptr<video_frame>> separate_tiles =
+                    vf_separate_tiles(std::move(frame));
 
                 for(unsigned i = 0; i < separate_tiles.size(); i++){
                         s->funcs->compress_tile_async_push_func(s->state[i], separate_tiles[i]);

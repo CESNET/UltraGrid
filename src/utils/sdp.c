@@ -65,7 +65,7 @@
 #endif
 
 #include "audio/types.h"
-#include "compat/htonl.h"         // for htons, htonl
+#include "compat/net.h"           // for htons, htonl
 #include "compat/strings.h"       // for strcasecmp
 #include "config.h"               // for SDP_HTTP
 #include "debug.h"
@@ -308,13 +308,13 @@ get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
     const char *rtpmap_codec = NULL;
     switch (codec) {
     case JPEG:
-    case MJPG:
             pt           = PT_JPEG;
             rtpmap_codec = "JPEG";
             break;
     case H264:
+    case H265:
             pt           = PT_DynRTP_Type96;
-            rtpmap_codec = "H264";
+            rtpmap_codec = codec == H264 ? "H264" : "H265";
             break;
     default:
             return -2;

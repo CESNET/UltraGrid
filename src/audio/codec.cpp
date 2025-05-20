@@ -35,22 +35,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
+#include "audio/codec.h"
 
 #include <algorithm>
 #include <cassert>
 #include <climits>
+#include <cstdio>             // for printf
+#include <cstdlib>            // for NULL, calloc, free, realloc
+#include <cstring>            // for strchr, memset, strtok_r
 #include <string>
 #include <unordered_map>
 
-#include "audio/codec.h"
 #include "audio/utils.h"
 #include "compat/strings.h" // strdup, strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"  // for col, SBOLD, SRED, TRED
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 
 #define MOD_NAME "[acodec] "
 
@@ -342,6 +345,13 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 }
         }
 
+        if (nonzero_channels == 0 &&
+            frame->get_data_len() == 0) { // produced by acap/passive
+                ret.init(frame->get_channel_count(), AC_PCM, frame->get_bps(),
+                         frame->get_sample_rate());
+                return ret;
+        }
+
         if (nonzero_channels != frame->get_channel_count()) {
                 log_msg(LOG_LEVEL_WARNING,
                         "[Audio decompress] %d empty channel(s) returned!\n",
@@ -401,27 +411,24 @@ get_audio_codec(const char *codec)
 struct audio_codec_params
 parse_audio_codec_params(const char *ccfg)
 {
-        char *cfg      = strdupa(ccfg);
-        char *save_ptr = nullptr;
-        char *tmp      = cfg;
-        char *item     = nullptr;
-
         struct audio_codec_params params {
         };
-        while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
-                tmp = nullptr;
+        std::string_view sv = ccfg;
+        while (!sv.empty()) {
+                std::string item = std::string(tokenize(sv, ':'));
                 if (params.codec == AC_NONE) {
-                        params.codec = get_audio_codec(item);
+                        params.codec = get_audio_codec(item.c_str());
                         if (params.codec == AC_NONE) {
                                 MSG(ERROR,
                                     "Unknown audio codec \"%s\" given!\n",
-                                    item);
+                                    item.c_str());
                                 return {};
                         }
                         continue;
                 }
-                if (IS_KEY_PREFIX(item, "sample_rate")) {
-                        params.sample_rate = stoi(strchr(item, '=') + 1);
+                if (IS_KEY_PREFIX(item.c_str(), "sample_rate")) {
+                        params.sample_rate =
+                            stoi(item.substr(item.find('=') + 1));
                         if (params.sample_rate < 0) {
                                 MSG(ERROR,
                                     "Sample rate cannot be negative! given "
@@ -429,10 +436,10 @@ parse_audio_codec_params(const char *ccfg)
                                     params.sample_rate);
                                 return {};
                         }
-                } else if (IS_KEY_PREFIX(item, "bitrate")) {
-                        const char *val = strchr(item, '=') + 1;
+                } else if (IS_KEY_PREFIX(item.c_str(), "bitrate")) {
+                        std::string val    = item.substr(item.find('=') + 1);
                         const char *endptr = nullptr;
-                        long long   rate = unit_evaluate(val, &endptr);
+                        long long   rate = unit_evaluate(val.c_str(), &endptr);
                         if (rate <= 0 || rate > INT_MAX || endptr[0] != '\0') {
                                 LOG(LOG_LEVEL_ERROR)
                                     << "Wrong bitrate: " << val << "\n";
@@ -440,7 +447,7 @@ parse_audio_codec_params(const char *ccfg)
                         }
                         params.bitrate = (int) rate;
                 } else {
-                        MSG(ERROR, "Unknown audio option: %s\n", item);
+                        MSG(ERROR, "Unknown audio option: %s\n", item.c_str());
                         return {};
                 }
         }

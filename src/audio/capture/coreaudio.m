@@ -44,6 +44,7 @@
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
 #include <CoreAudio/AudioHardware.h>
+#include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -271,6 +272,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         }
 
         struct state_ca_capture *s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
+        assert(s != NULL);
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->cv, NULL);
         s->boss_waiting = FALSE;
@@ -413,13 +415,13 @@ static struct audio_frame *audio_cap_ca_read(void *state)
         pthread_mutex_lock(&s->lock);
         ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
         if(!ret) {
+                s->data_ready = FALSE;
                 s->boss_waiting = TRUE;
                 while(!s->data_ready) {
                         pthread_cond_wait(&s->cv, &s->lock);
                 }
                 s->boss_waiting = FALSE;
                 ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
-                s->data_ready = FALSE;
         }
         pthread_mutex_unlock(&s->lock);
 

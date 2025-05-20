@@ -65,6 +65,14 @@ struct output_entry {
         struct output_entry *next;
 };
 
+static void
+destroy_output_entry(struct output_entry *entry)
+{
+        free(entry->data);
+        free(entry->filename);
+        free(entry);
+}
+
 struct video_export {
         char *path;
 
@@ -114,9 +122,7 @@ static void *video_export_thread(void *arg)
                         }
                         fclose(out);
                 }
-                free(current->data);
-                free(current->filename);
-                free(current);
+                destroy_output_entry(current);
         }
 
         // never get here
@@ -248,8 +254,7 @@ void video_export(struct video_export *s, struct video_frame *frame)
                                                 MAX_QUEUE_SIZE,
                                                 s->total); // we increment total size to keep the index
                                 pthread_mutex_unlock(&s->lock);
-                                free(entry->data);
-                                free(entry);
+                                destroy_output_entry(entry);
                                 return;
                         }
 

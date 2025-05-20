@@ -35,23 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
+#include <cstdio>                       // for printf
 #include <memory>
 #include <string_view>
 
-#include "debug.h"
 #include "module.h"
 #include "audio/audio_filter.h"
-#include "audio/types.h"
 #include "audio/audio_playback.h" 
+#include "audio/types.h"
 #include "lib_common.h"
-#include "utils/string_view_utils.hpp"
+#include "messaging.h"                  // for free_message, new_response
+#include "utils/macros.h"               // for snprintf_ch
 #include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
+
+struct state_audio_playback;
 
 namespace{
 struct Playback_dev_deleter{ void operator()(state_audio_playback *p){ audio_playback_done(p); } };
@@ -87,7 +85,11 @@ static af_result_code parse_cfg(state_playback *s, std::string_view cfg){
         auto dev = std::string(tok);
         auto dev_cfg = std::string(tokenize(cfg, ':'));
 
-        int ret = audio_playback_init(dev.c_str(), dev_cfg.c_str(), out_ptr(s->playback_dev));
+        struct audio_playback_opts opts;
+        snprintf_ch(opts.cfg, "%s", dev_cfg.c_str());
+        opts.parent = nullptr;
+
+        int ret = audio_playback_init(dev.c_str(), &opts, out_ptr(s->playback_dev));
 
         return ret == 0 ? AF_OK : AF_FAILURE;
 }
@@ -111,9 +113,9 @@ static af_result_code configure(void *state,
         s->ch_count = in_ch_count;
         s->sample_rate = in_sample_rate;
 
-        if (audio_playback_reconfigure(s->playback_dev.get(), s->bps * 8,
+        if (!audio_playback_reconfigure(s->playback_dev.get(), s->bps * 8,
                                 s->ch_count,
-                                s->sample_rate) != TRUE) {
+                                s->sample_rate)) {
                 return AF_FAILURE;
         }
 

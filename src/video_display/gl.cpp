@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@
 
 #include "color.h"
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"    // for HAVE_SPOUT, HAVE_SYPHON
 #endif
 #include "debug.h"
 #include "gl_context.h"
@@ -77,6 +77,7 @@
 #include "module.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/ref_count.hpp"
 #include "video.h"
@@ -346,6 +347,7 @@ static constexpr pair<int64_t, string_view> keybindings[] = {
 };
 
 /* Prototyping */
+static bool check_display_gl_version(bool print_ver);
 static bool display_gl_init_opengl(struct state_gl *s);
 static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
@@ -475,10 +477,6 @@ static constexpr codec_t gl_supp_codecs[] = {
 };
 
 static void gl_print_monitors(bool fullhelp) {
-        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
-                return;
-        }
         printf("\nmonitors:\n");
         int count = 0;
         GLFWmonitor **mon = glfwGetMonitors(&count);
@@ -510,8 +508,6 @@ static void gl_print_monitors(bool fullhelp) {
         if (!fullhelp) {
                 cout << "(use \"fullhelp\" to see modes)\n";
         }
-
-        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 }
 
 #define FEATURE_PRESENT(x) (strcmp(STRINGIFY(x), "1") == 0 ? "on" : "off")
@@ -551,6 +547,10 @@ static void gl_show_help(bool full) {
               << "\twindow size in pixels, with optional position; full\n"
               << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
               << (full ? " [1]" : "") << "\n";
+        if (full) {
+                col() << TBOLD("\tsize=<mode_name>")
+                      << " mode name (eg. VGA), use \"help\" to show\n";
+        }
         col() << TBOLD("\tfixed_size") << "\tdo not resize window on new stream\n";
         col() << TBOLD("\tnoresizable") << "\twindow won't be resizable (useful with size=)\n";
 #ifdef SPOUT
@@ -579,8 +579,21 @@ static void gl_show_help(bool full) {
                 col() << "\t" << TBOLD(<< keyname <<) << "\t\t" << i.second << "\n";
         }
 
+        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
+                return;
+        }
         gl_print_monitors(full);
-        col() << "\nCompiled " << SBOLD("features: ") << "SPOUT - "
+        color_printf("\n");
+        GLFWwindow *window = glfwCreateWindow(32, 32, DEFAULT_WIN_NAME, nullptr, nullptr);
+        if (window != nullptr) {
+                glfwMakeContextCurrent(window);
+                check_display_gl_version(true);
+                glfwDestroyWindow(window);
+        }
+        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
+
+        col() << "Compiled " << SBOLD("features: ") << "SPOUT - "
               << FEATURE_PRESENT(SPOUT) << ", Syphon - "
               << FEATURE_PRESENT(SYPHON) << ", VDPAU - "
               << FEATURE_PRESENT(HWACC_VDPAU) << "\n";
@@ -605,6 +618,13 @@ static bool set_size(struct state_gl *s, const char *tok)
         if (strchr(tok, '%') != NULL) {
                 s->window_size_factor = atof(tok) / 100.0;
         } else if (strpbrk(tok, "x+-") == NULL) {
+                struct video_desc desc = get_video_desc_from_string(tok);
+                if (desc.width != 0) {
+                        s->fixed_size = true;
+                        s->fixed_w = desc.width;
+                        s->fixed_h = desc.height;
+                        return true;
+                }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
                 return false;
         }
@@ -690,14 +710,13 @@ list_hints()
 }
 
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
-        if (strstr(ptr, "help") != 0) {
-                gl_show_help(strcmp(ptr, "fullhelp") == 0);
-                return INIT_NOERR;
-        }
-
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
+                if (strcmp(tok, "help") == 0 || strcmp(tok, "fullhelp") == 0) {
+                        gl_show_help(strcmp(ptr, "fullhelp") == 0);
+                        return INIT_NOERR;
+                }
                 if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
                         s->deinterlace = !strcmp(tok, "d") ? state_gl::deint::on : state_gl::deint::force;
                 } else if(!strncmp(tok, "fs", 2)) {
@@ -1443,7 +1462,9 @@ static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
         }
 }
 
-static bool display_gl_check_gl_version() {
+static bool
+check_display_gl_version(bool print_ver)
+{
         auto version = (const char *) glGetString(GL_VERSION);
         if (!version) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get OpenGL version!\n");
@@ -1453,8 +1474,12 @@ static bool display_gl_check_gl_version() {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
                 return false;
         }
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "OpenGL 2.0 is supported...\n");
-        MSG(VERBOSE, "Supported OpenGL version is %s.\n", version);
+        if (print_ver) { // from help
+                color_printf(TBOLD("OpenGL version:") " %s\n", version);
+        } else {
+                MSG(INFO, "OpenGL 2.0 is supported...\n");
+                MSG(VERBOSE, "Supported OpenGL version is %s.\n", version);
+        }
         return true;
 }
 
@@ -1525,12 +1550,20 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
                 }
         }
-        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+        if (get_commandline_param("color-601") != nullptr) {
+                index = 0;
+        }
+        const double cs_coeffs[2 * 4] = { KR_601,  KB_601,  KR_709, KB_709,
+                                          KR_2020, KB_2020, KR_P3,  KB_P3 };
         double kr = cs_coeffs[2 * index];
         double kb = cs_coeffs[2 * index + 1];
         const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };
-        double values[] =            {  Y_LIMIT_INV,            R_CR(kr,kb),        G_CB(kr,kb),        G_CR(kr,kb),        B_CB(kr,kb)};
-
+        const struct color_coeffs cfs = compute_color_coeffs(kr, kb, 8);
+        const double values[] = { (double) cfs.y_scale / (1 << COMP_BASE),
+                                  (double) cfs.r_cr / (1 << COMP_BASE),
+                                  (double) cfs.g_cb / (1 << COMP_BASE),
+                                  (double) cfs.g_cr / (1 << COMP_BASE),
+                                  (double) cfs.b_cb / (1 << COMP_BASE) };
         for (size_t i = 0; i < sizeof placeholders / sizeof placeholders[0]; ++i) {
                 char *tok = fp;
                 while ((tok = strstr(fp, placeholders[i])) != nullptr) {
@@ -1719,7 +1752,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 }
         }
 #endif
-        if (!display_gl_check_gl_version()) {
+        if (!check_display_gl_version(false)) {
                 glfwDestroyWindow(s->window);
                 s->window = nullptr;
                 return false;

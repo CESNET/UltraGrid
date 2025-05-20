@@ -1,7 +1,7 @@
 
 UltraGrid installation instructions
 
-   Copyright (c) 2005-2018 CESNET z.s.p.o.
+   Copyright (c) 2005-2025 CESNET
    Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
    Copyright (c) 2001-2004 University of Southern California 
    Copyright (c) 2003-2004 University of Glasgow
@@ -21,7 +21,7 @@ UltraGrid installation instructions
 
 
 Software Prerequisites
-  Modules may have some addition dependencies not necessarily included in system:
+  Modules may have additional dependencies not necessarily included in system:
 
   * OpenGL display and OpenGL-based processors (RTDXT, scale, screen capture)
         [ Linux only - this requirement do not apply to Mac OS X ] 
@@ -35,7 +35,7 @@ Software Prerequisites
   * JACK related [ Mac, Linux ]
         JACK library and headers (for Mac preferably from MacPorts)
 
-  * DVS[ Mac, Linux ]
+  * DVS [ Mac, Linux ]
         DVS SDK
 
   * SAGE [ Linux ]

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2022 CESNET
+ * Copyright (c) 2020-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "video_capture/testcard_common.h"
 
+#include <stdio.h>            // for printf
+#include <stdlib.h>           // for NULL, free, abort, malloc
+
+#include "debug.h"            // for LOG_LEVEL_FATAL, MSG
 #include "pixfmt_conv.h"
 #include "utils/color_out.h"
-#include "video.h"
-#include "video_capture/testcard_common.h"
+#include "video_codec.h"      // for get_codec_name, vc_get_size, get_bits_p...
+
+#define MOD_NAME "[testcard_common] "
 
 const uint32_t rect_colors[] = {
         0xff0000ffLU,
@@ -70,46 +71,21 @@ void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint3
 
 /**
  * @param[in] in buffer in UYVY
- * @retval       buffer in I420 (must be deallocated by the caller)
- * @note
- * Caller must deallocate returned buffer
+ * @retval       buffer in I420
  */
-static void toI420(unsigned char *out, const unsigned char *input, int width, int height)
+static void
+toI420(unsigned char *out, const unsigned char *input, int width, int height)
 {
-        const unsigned char *in = (const unsigned char *) input;
-        int w_ch = (width + 1) / 2;
-        int h_ch = (height + 1) / 2;
-        unsigned char *y = out;
-        unsigned char *u0 = out + width * height;
-        unsigned char *v0 = out + width * height + w_ch * h_ch;
-        unsigned char *u1 = u0, *v1 = v0;
-
-        for (int i = 0; i < height; i += 1) {
-                for (int j = 0; j < ((width + 1) & ~1); j += 2) {
-                        // U
-                        if (i % 2 == 0) {
-                                *u0++ = *in++;
-                        } else { // average with every 2nd row
-                                *u1 = (*u1 + *in++) / 2;
-                                u1++;
-                        }
-                        // Y
-                        *y++ = *in++;
-                        // V
-                        if (i % 2 == 0) {
-                                *v0++ = *in++;
-                        } else { // average with every 2nd row
-                                *v1 = (*v1 + *in++) / 2;
-                                v1++;
-                        }
-                        // Y
-                        if (j + 1 == width) {
-                                in++;
-                        } else {
-                                *y++ = *in++;
-                        }
-                }
-        }
+        const size_t y_h = height;
+        const size_t chr_h = (y_h + 1) / 2;
+        int          out_linesize[3] = { width,
+                                         (width + 1) / 2,
+                                         (width + 1) / 2 };
+        unsigned char *out_data[3] = { out,
+                                       out + (y_h * out_linesize[0]),
+                                       out + (y_h * out_linesize[0]) +
+                                           (chr_h * out_linesize[1]) };
+        uyvy_to_i420(out_data, out_linesize, input, width, height);
 }
 
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)
@@ -132,7 +108,11 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
                 return;
         }
         decoder_t decoder = get_decoder_from_to(in_c, out_c);
-        assert(decoder != NULL);
+        if (decoder == NULL) {
+                MSG(FATAL, "No decoder from %s to %s!\n", get_codec_name(in_c),
+                    get_codec_name(out_c));
+                abort();
+        }
         long out_linesize = vc_get_linesize(width, out_c);
         long in_linesize = vc_get_linesize(width, in_c);
         for (int i = 0; i < height; ++i) {

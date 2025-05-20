@@ -19,8 +19,7 @@ fi
 install_ximea() {(
         installer=/private/var/tmp/XIMEA_OSX_SP.dmg
         if [ ! -f $installer ]; then
-                curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP\
-.dmg -o $installer
+                curl -S -L "$XIMEA_DOWNLOAD_URL" -o $installer
         fi
         hdiutil mount $installer
         sudo cp -a /Volumes/XIMEA/m3api.framework \
@@ -31,12 +30,12 @@ install_ximea() {(
 )}
 
 install_deltacast() {
-        filename=videomaster-macos-dev.zip
-        if [ ! -f "$SDK_NONFREE_PATH/$filename" ]; then
+        if [ ! "${SDK_URL-}" ]; then
                 return
         fi
-        unzip "$SDK_NONFREE_PATH/$filename"
-        sudo cp -a Frameworks/VideoMasterHD* /Library/Frameworks/
+        tar xzf "$SDK_NONFREE_PATH/$DELTA_MAC_ARCHIVE"
+        sudo cp -a Deltacast/Library/Frameworks/VideoMasterHD* \
+                /Library/Frameworks/
         export FEATURES="${FEATURES+$FEATURES }--enable-deltacast"
         echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
         export COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS+$COMMON_OSX_FLAGS }\

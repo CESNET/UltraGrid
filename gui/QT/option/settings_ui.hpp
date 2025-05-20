@@ -84,6 +84,7 @@ private slots:
 	void buildSettingsCodecList();
 	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 	void buildCodecOptControls(const Codec& codec);
+	void networkModeTabChanged(int index);
 
 	void settingsDeviceSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 

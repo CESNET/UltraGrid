@@ -35,27 +35,27 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <cassert>                     // for assert
+#include <cstdio>                      // for printf, fprintf, stderr
+#include <cstring>                     // for strcmp
+#include <cstdlib>                     // for NULL, abort, calloc, EXIT_FAILURE
+#include <memory>                      // for shared_ptr
 
-#include <stdlib.h>
-
-#include "gl_context.h"
-
+#include "../dxt_compress/dxt_common.h"   // for dxt_format, dxt_type
+#include "../dxt_compress/dxt_encoder.h"
+#include "../dxt_compress/dxt_util.h"
+#include "compat/strings.h"            // for strcasecmp
 #include "debug.h"
-#include "dxt_compress/dxt_encoder.h"
-#include "dxt_compress/dxt_util.h"
+#include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "pixfmt_conv.h"               // for get_decoder_from_to, decoder_t
+#include "types.h"                     // for tile, video_frame, video_desc
 #include "utils/video_frame_pool.h"
-#include "video.h"
+#include "video_codec.h"               // for codec_is_a_rgb, get_bits_per_c...
 #include "video_compress.h"
-
-#include <memory>
+#include "video_frame.h"               // for vf_get_tile, video_desc_from_f...
 
 using namespace std;
 
@@ -94,7 +94,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
 
                         fprintf(stderr,"[RTDXT] Requested to compress tiles of different size!");
                         exit_uv(EXIT_FAILURE);
-                        return FALSE;
+                        return false;
                 }
         }
 
@@ -133,7 +133,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         }
         if (!s->decoder) {
                 fprintf(stderr, "[RTDXT] Unsupported codec: %d\n", frame->color_spec);
-                return FALSE;
+                return false;
         }
 
         int data_len = 0;
@@ -169,7 +169,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                 if(s->encoder[i] == NULL) {
                         fprintf(stderr, "[RTDXT] Unable to create decoder.\n");
                         exit_uv(EXIT_FAILURE);
-                        return FALSE;
+                        return false;
                 }
         }
 
@@ -199,17 +199,17 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         /* We will deinterlace the output frame */
         if(frame->interlacing  == INTERLACED_MERGED) {
                 compressed_desc.interlacing = PROGRESSIVE;
-                s->interlaced_input = TRUE;
+                s->interlaced_input = true;
                 fprintf(stderr, "[DXT compress] Enabling automatic deinterlacing.\n");
         } else {
-                s->interlaced_input = FALSE;
+                s->interlaced_input = false;
         }
         s->pool.reconfigure(compressed_desc, data_len);
 
         s->decoded = unique_ptr<char []>(new char[4 * compressed_desc.width * compressed_desc.height]);
 
-        s->configured = TRUE;
-        return TRUE;
+        s->configured = true;
+        return true;
 }
 
 struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)

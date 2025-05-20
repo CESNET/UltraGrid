@@ -12,7 +12,7 @@
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  * 
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2024 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -59,7 +59,17 @@
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
 
+#ifdef __cplusplus
+#include <cstddef>        // for size_t
+#include <cstdint>        // for uint16_t
+#else
+#include <stdbool.h>      // for bool
+#include <stddef.h>       // for size_t
+#include <stdint.h>       // for uint16_t
+#endif
+
 #include "audio/types.h"
+#include "compat/net.h"   // for sockaddr_storage
 #include "rtp/rtp.h"
 #include "tv.h"
 
@@ -82,8 +92,6 @@ struct pbuf_stats {
 
 /* The playout buffer */
 struct pbuf;
-struct state_decoder;
-struct state_audio_decoder;
 
 /**
  * This struct is used to pass data between decoder and receiver.
@@ -112,7 +120,7 @@ typedef int decode_frame_t(struct coded_data *cdata, void *decode_data, struct p
 /* 
  * External interface:
  */
-struct pbuf	*pbuf_init(volatile int *delay_ms);
+struct pbuf     *pbuf_init(const char *stream_id, volatile int *delay_ms);
 void             pbuf_destroy(struct pbuf *);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_is_empty(struct pbuf *playout_buf);

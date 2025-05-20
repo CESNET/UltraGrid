@@ -789,4 +789,5 @@ static const struct video_display_info display_sdl_info = {
 };
 
 REGISTER_MODULE(sdl, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
+REGISTER_HIDDEN_MODULE(sdl1, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY,
+                       VIDEO_DISPLAY_ABI_VERSION);

@@ -35,12 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-
+#include <algorithm>                    // for min
+#include <cassert>                      // for assert
+#include <cstddef>                      // for byte, size_t
+#include <cstdint>                      // for INT32_MAX, uint32_t
+#include <cstdlib>                      // for calloc, free
+#include <cstring>                      // for strcpy, memcpy
 #include <memory>
+#include <string>                       // for char_traits, basic_string
+#include <string_view>                  // for operator==, basic_string_view
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
@@ -91,9 +94,13 @@ static void audio_play_pw_help(){
 static void on_process(void *userdata) noexcept{
         auto s = static_cast<state_pipewire_play *>(userdata);
 
-        auto avail = ring_get_current_size(s->ring_buf.get());
+        const int frame_size = s->desc.ch_count * s->desc.bps;
+        unsigned avail_frames = ring_get_current_size(s->ring_buf.get()) / frame_size;
 
-        while(avail > 0){
+        //Write at least quant frames to prevent underrun on pipewire side
+        auto remaining_write_frames = std::max(s->quant, avail_frames);
+
+        while(remaining_write_frames > 0){
                 struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
                 if (!b) {
                         pw_log_warn("out of buffers: %m");
@@ -105,23 +112,34 @@ static void on_process(void *userdata) noexcept{
                 if (!dst)
                         return;
 
-                int to_write = std::min<int>(buf->datas[0].maxsize, avail);
+                const int to_write_total = std::min<int>(buf->datas[0].maxsize / frame_size, remaining_write_frames);
+                const int to_write_audio = std::min<int>(to_write_total, avail_frames);
 
-                ring_buffer_read(s->ring_buf.get(), dst, to_write);
-                avail -= to_write;
+                if(to_write_audio > 0){
+                        ring_buffer_read(s->ring_buf.get(), dst, to_write_audio * frame_size);
+                        avail_frames -= to_write_audio;
+                        remaining_write_frames -= to_write_audio;
+                        dst += to_write_audio * frame_size;
+                }
+
+                const int to_write_silence = to_write_total - to_write_audio;
+                memset(dst, 0, to_write_silence * frame_size);
+                remaining_write_frames -= to_write_silence;
 
                 buf->datas[0].chunk->offset = 0;
-                buf->datas[0].chunk->stride = s->desc.ch_count * s->desc.bps;
-                buf->datas[0].chunk->size = to_write;
+                buf->datas[0].chunk->stride = frame_size;
+                buf->datas[0].chunk->size = to_write_total * frame_size;
+
+                b->size = to_write_total;
 
                 pw_stream_queue_buffer(s->stream.get(), b);
         }
 }
 
-static void * audio_play_pw_init(const char *cfg){
+static void * audio_play_pw_init(const struct audio_playback_opts *opts){
         auto s = std::make_unique<state_pipewire_play>();
 
-        std::string_view cfg_sv(cfg);
+        std::string_view cfg_sv(opts->cfg);
         while(!cfg_sv.empty()){
                 auto tok = tokenize(cfg_sv, ':', '"');
                 auto key = tokenize(tok, '=');
@@ -186,7 +204,7 @@ static bool audio_play_pw_ctl(void *state, int request, void *data, size_t *len)
 static void on_state_changed(void *state, enum pw_stream_state old, enum pw_stream_state new_state, const char *error)
 {
         auto s = static_cast<state_pipewire_play *>(state);
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stream state change: %s -> %s\n",
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Stream state change: %s -> %s\n",
                         pw_stream_state_as_string(old),
                         pw_stream_state_as_string(new_state));
 
@@ -328,6 +346,17 @@ static bool audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                 const char *error = nullptr;
                 auto stream_state = pw_stream_get_state(s->stream.get(), &error);
                 if(stream_state == PW_STREAM_STATE_STREAMING){
+                        pw_time time;
+                        float delay = 0;
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO >= 50)
+                        pw_stream_get_time_n(s->stream.get(), &time, sizeof(time));
+                        delay += time.buffered * 1000.f / rate;
+#else
+                        pw_stream_get_time(s->stream.get(), &time);
+#endif
+
+                        delay += time.delay * 1000.f * time.rate.num / time.rate.denom;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured and pipewire reports %.2fms of playback delay\n", delay);
                         return true;
                 }
                 if(stream_state == PW_STREAM_STATE_ERROR){

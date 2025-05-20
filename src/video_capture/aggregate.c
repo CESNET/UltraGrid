@@ -56,6 +56,7 @@ struct vidcap_params;
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
+static void vidcap_aggregate_done(void *state);
 
 static void show_help()
 {
@@ -146,15 +147,7 @@ vidcap_aggregate_init(struct vidcap_params *params, void **state)
 	return VIDCAP_INIT_OK;
 
 error:
-        if(s->devices) {
-                int i;
-                for (i = 0u; i < s->devices_cnt; ++i) {
-                        if(s->devices[i]) {
-                                 vidcap_done(s->devices[i]);
-                        }
-                }
-        }
-        free(s);
+        vidcap_aggregate_done(s);
         return VIDCAP_INIT_FAIL;
 }
 
@@ -165,13 +158,13 @@ vidcap_aggregate_done(void *state)
 
 	assert(s != NULL);
 
-	if (s != NULL) {
-                int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
-                         vidcap_done(s->devices[i]);
-		}
-	}
-        
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                if (s->devices[i] != NULL) {
+                        vidcap_done(s->devices[i]);
+                }
+        }
+        free((void *) s->devices);
+
         vf_free(s->frame);
         free(s);
 }

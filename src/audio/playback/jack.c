@@ -43,6 +43,7 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "config.h"                // for PACKAGE_NAME
 #include "debug.h"
 #include "host.h"
 #include "jack_common.h"
@@ -78,6 +79,7 @@ struct state_jack_playback {
         long int first_channel;
 };
 
+static void audio_play_jack_done(void *state);
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
 
@@ -131,12 +133,6 @@ static void audio_play_jack_probe(struct device_info **available_devices, int *c
 
 static void audio_play_jack_help(const char *client_name)
 {
-        int count = 0;
-        int i = 0;
-        struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsInput, &count);
-        if(!available_devices)
-                return;
-
         printf("Usage:\n");
         printf("\t-r jack[:first_channel=<f>][:name=<n>][:<device>]\n");
         printf("\twhere\n");
@@ -145,24 +141,30 @@ static void audio_play_jack_help(const char *client_name)
         printf("\n");
 
         printf("Available devices:\n");
-        for(i = 0; i < count; i++){
+        int count = 0;
+        struct device_info *available_devices =
+            audio_jack_probe(client_name, JackPortIsInput, &count);
+        for (int i = 0; i < count; i++) {
                 printf("\t%s\n", available_devices[i].name);
         }
         free(available_devices);
 }
 
-static void * audio_play_jack_init(const char *cfg)
+static void *
+audio_play_jack_init(const struct audio_playback_opts *opts)
 {
-        struct state_jack_playback *s;
         const char **ports;
         jack_status_t status;
-        char *client_name;
+        char client_name[STR_LEN];
         const char *source_name = "";
 
-        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
-        strcpy(client_name, PACKAGE_NAME);
+        snprintf_ch(client_name, "%s", PACKAGE_NAME);
+        if (strcmp(opts->cfg, "help") == 0) {
+                audio_play_jack_help(client_name);
+                return INIT_NOERR;
+        }
 
-        s = calloc(1, sizeof(struct state_jack_playback));
+        struct state_jack_playback *s = calloc(1, sizeof(*s));
         if(!s) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
@@ -174,16 +176,11 @@ static void * audio_play_jack_init(const char *cfg)
                 return NULL;
         }
 
-        char *dup = strdup(cfg);
-        assert(dup != NULL);
+        char dup[STR_LEN];
+        snprintf_ch(dup, "%s", opts->cfg);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (strcmp(item, "help") == 0) {
-                        audio_play_jack_help(client_name);
-                        free(s);
-                        free(dup);
-                        return INIT_NOERR;
-                } else if (strstr(item, "first_channel=") == item) {
+                if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
                         errno = 0;
@@ -193,15 +190,13 @@ static void * audio_play_jack_init(const char *cfg)
                                 goto error;
                         }
                 } else if (strstr(item, "name=") == item) {
-                        strcpy(client_name, item + strlen("name="));
+                        snprintf_ch(client_name, "%s", strchr(item, '=') + 1);
                 } else { // the rest is the device name
-                        source_name = cfg + (item - dup);
+                        source_name = opts->cfg + (item - dup);
                         break;
                 }
                 tmp = NULL;
         }
-        free(dup);
-        dup = NULL;
 
         s->jack_ports_pattern = strdup(source_name);
 
@@ -213,13 +208,13 @@ static void * audio_play_jack_init(const char *cfg)
 
         if (s->libjack->set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registering callback problem.\n");
-                goto release_client;
+                goto error;
         }
 
 
         if (s->libjack->set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Process callback registration problem.\n");
-                goto release_client;
+                goto error;
         }
 
         s->jack_sample_rate = s->libjack->get_sample_rate (s->client);
@@ -229,7 +224,7 @@ static void * audio_play_jack_init(const char *cfg)
         ports = s->libjack->get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
-                goto release_client;
+                goto error;
         }
 
         s->jack_ports_count = 0;
@@ -249,12 +244,8 @@ static void * audio_play_jack_init(const char *cfg)
 
         return s;
 
-release_client:
-        s->libjack->client_close(s->client);
 error:
-        close_libjack(s->libjack);
-        free(dup);
-        free(s);
+        audio_play_jack_done(s);
         return NULL;
 }
 
@@ -386,7 +377,9 @@ static void audio_play_jack_done(void *state)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
 
-        s->libjack->client_close(s->client);
+        if (s->client != NULL) {
+                s->libjack->client_close(s->client);
+        }
         free(s->tmp);
         free(s->converted);
         free(s->jack_ports_pattern);

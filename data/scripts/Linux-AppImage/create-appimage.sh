@@ -4,6 +4,13 @@
 ##
 ## @param $1          (optional) zsync URL - location used for AppImage updater
 ## @env $appimage_key (optional) signing key
+## (new method, see https://github.com/probonopd/go-appimage/issues/318)
+## \n
+## Contains base64-encoded .tar.gz of pubkey.asc+privkey.asc.enc files
+## containing exported GPG public and private (encrypted) key.
+## \n
+## Private key is encrypted by OpenSSL (see appimagetool.go source):
+## `openssl aes-256-cbc -pass pass:dummy -in privkey.asc -out privkey.asc.enc -a -md sha256`
 ## @returns           name of created AppImage
 
 APPDIR=UltraGrid.AppDir
@@ -14,7 +21,11 @@ umask 022
 
 # soft fail - fail in CI, otherwise continue
 handle_error() {
+        red=1
+        tput setaf $red 2>/dev/null || true
+        tput bold 2>/dev/null || true
         echo "$1" >&2
+        tput sgr0 2>/dev/null || true
         if [ -n "${GITHUB_REPOSITORY:-}" ]; then
                 exit 2
         fi
@@ -49,6 +60,23 @@ if [ -n "$QT_DIR" ]; then
         mkdir -p "$DST_PLUGIN_DIR"
         cp -r "$SRC_PLUGIN_DIR"/* "$DST_PLUGIN_DIR"
         PLUGIN_LIBS=$(find "$DST_PLUGIN_DIR" -type f)
+fi
+
+if [ -f $APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so ]; then
+        if ! command -v convert >/dev/null; then
+                handle_error 'IM convert missing! (needed for bundle)'
+        fi
+        # https://stackoverflow.com/a/53355763
+        conf_path=$(convert -list configure |
+                sed -n '/CONFIGURE_PATH/ { s/[A-Z_]* *//; p; q; }')
+        codr_path=$(convert -list configure |
+                sed -n '/CODER_PATH/ { s/[A-Z_]* *//; p; q; }')
+        filt_path=$(convert -list configure |
+                sed -n '/FILTER_PATH/ { s/[A-Z_]* *//; p; q; }')
+        mkdir $APPDIR/etc $APPPREFIX/share/IM
+        cp -r "$conf_path" $APPDIR/etc/IM
+        cp -r "$codr_path" $APPPREFIX/share/IM/coders
+        cp -r "$filt_path" $APPPREFIX/share/IM/filters
 fi
 
 add_fonts() { # for GUI+testcard2
@@ -156,9 +184,12 @@ if [ -f /lib/x86_64-linux-gnu/libfuse.so.2 ]; then
         cp /lib/x86_64-linux-gnu/libfuse.so.2 $APPDIR/appimageupdatetool-lib
 fi
 
+# TODO: temporarily (? 2025-01-25) disable signing because validation fails
+unset appimage_key
 GIT_ROOT=$(git rev-parse --show-toplevel || true)
 if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
-        echo "$appimage_key" >> "$GIT_ROOT/pubkey.asc"
+        echo "$appimage_key" | base64 -d | tar -C "$GIT_ROOT" -xzaf -
+        export super_secret_password=dummy
 fi
 
 mkappimage=$(command -v ./mkappimage || command -v mkappimage-x86_64.AppImage || command -v mkappimage || true)

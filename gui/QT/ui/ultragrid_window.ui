@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>935</width>
-    <height>711</height>
+    <width>998</width>
+    <height>697</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -155,20 +155,50 @@
            <layout class="QHBoxLayout" name="remotePreviewBar"/>
           </item>
           <item>
-           <widget class="QLabel" name="label">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Remote</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="remoteLabelFormatLayout">
+            <item>
+             <widget class="QLabel" name="label">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Remote</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="recvAudioFmtLabel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="recvVideoFmtLabel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>
@@ -473,41 +503,129 @@
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_4">
          <item>
+          <widget class="QTabWidget" name="networkModeTabWidget">
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <property name="usesScrollButtons">
+            <bool>false</bool>
+           </property>
+           <property name="tabBarAutoHide">
+            <bool>true</bool>
+           </property>
+           <widget class="QWidget" name="normalTab">
+            <attribute name="title">
+             <string>Point to point</string>
+            </attribute>
+            <attribute name="toolTip">
+             <string>The normal mode where UltraGrid sends directly to the provided destination and receives incoming streams.</string>
+            </attribute>
+            <layout class="QFormLayout" name="formLayout_8">
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="networkDestinationEdit">
+               <property name="text">
+                <string extracomment="Target IP or host"/>
+               </property>
+               <property name="placeholderText">
+                <string>localhost</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="portLabel">
+               <property name="text">
+                <string>Port</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_10">
+               <property name="text">
+                <string>Destination</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="portLineEdit">
+               <property name="placeholderText">
+                <string>5004</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="serverTab">
+            <attribute name="title">
+             <string>Server</string>
+            </attribute>
+            <attribute name="toolTip">
+             <string>In this mode UltraGrid acts as a server and sends to a client that connects.</string>
+            </attribute>
+            <layout class="QFormLayout" name="formLayout_9">
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="portLineEdit_serverTab">
+               <property name="placeholderText">
+                <string>5004</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="portLabel_2">
+               <property name="text">
+                <string>Port</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="clientTab">
+            <attribute name="title">
+             <string>Client</string>
+            </attribute>
+            <attribute name="toolTip">
+             <string>Used to connect to a server mode instance.</string>
+            </attribute>
+            <layout class="QFormLayout" name="formLayout_10">
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="networkDestinationEdit_clientTab">
+               <property name="text">
+                <string extracomment="Target IP or host"/>
+               </property>
+               <property name="placeholderText">
+                <string>localhost</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_11">
+               <property name="text">
+                <string>Server</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="portLabel_3">
+               <property name="text">
+                <string>Port</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="portLineEdit_clientTab">
+               <property name="placeholderText">
+                <string>5004</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </widget>
+         </item>
+         <item>
           <layout class="QFormLayout" name="formLayout_7">
            <property name="formAlignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_10">
-             <property name="text">
-              <string>Destination</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="networkDestinationEdit">
-             <property name="text">
-              <string extracomment="Target IP or host"/>
-             </property>
-             <property name="placeholderText">
-              <string>localhost</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="portLabel">
-             <property name="text">
-              <string>Port</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="portLineEdit">
-             <property name="placeholderText">
-              <string>5004</string>
-             </property>
-            </widget>
-           </item>
            <item row="3" column="0">
             <widget class="QLabel" name="fECLabel">
              <property name="text">
@@ -604,7 +722,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>935</width>
+     <width>998</width>
      <height>24</height>
     </rect>
    </property>

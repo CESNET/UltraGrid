@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,9 +39,11 @@
 #define _MESSAGING_H
 
 #ifdef __cplusplus
+#include <cstdint>   // for uint16_t
 #include <cstring>
 #else
 #include <stdalign.h>
+#include <stdint.h>  // for uint16_t
 #endif
 
 #include "types.h"
@@ -179,6 +181,8 @@ const char *response_status_to_text(int status);
 struct message *check_message(struct module *);
 
 void free_message_for_child(void *m, struct response *r);
+
+void send_compess_change(struct module *mod, const char *compression);
 
 #ifdef __cplusplus
 }

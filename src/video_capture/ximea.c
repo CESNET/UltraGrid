@@ -87,6 +87,7 @@ struct state_vidcap_ximea {
         f->sym = (void *) dlsym(f->handle, #sym);\
         if (f->sym == NULL) {\
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find symbol %s: %s\n", #sym, dlerror());\
+                dlclose(f->handle);\
                 return false;\
         }\
 } while(0)
@@ -159,11 +160,13 @@ static void vidcap_ximea_show_help() {
         XI_RETURN ret = funcs.xiGetNumberDevices(&count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
+                vidcap_ximea_close_lib(&funcs);
                 return;
         }
 
         if (count == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "No devices found!\n");
+                vidcap_ximea_close_lib(&funcs);
                 return;
         }
 

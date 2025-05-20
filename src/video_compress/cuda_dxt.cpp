@@ -35,22 +35,23 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <cstdio>                      // for printf, fprintf, stderr
+#include <cstdlib>                    // for free, malloc
+#include <memory>                     // for shared_ptr
 
-#include "cuda_dxt/cuda_dxt.h"
+#include "../cuda_dxt/cuda_dxt.h"
+#include "compat/strings.h"            // for strcasecmp
 #include "cuda_wrapper.h"
 #include "debug.h"
-
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "pixfmt_conv.h"               // for get_decoder_from_to, decoder_t
+#include "types.h"                     // for tile, video_frame, video_desc
 #include "utils/video_frame_pool.h"
-#include "video.h"
+#include "video_codec.h"               // for codec_is_a_rgb, get_bits_per_c...
 #include "video_compress.h"
+#include "video_frame.h"               // for vf_get_tile, video_desc_from_f...
 
 using namespace std;
 

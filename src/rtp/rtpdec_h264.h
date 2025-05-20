@@ -49,28 +49,18 @@
 extern "C" {
 #endif
 
-enum {
-        NAL_H264_MIN = 1,
-        NAL_H264_MAX = 23,
-};
-
-enum nal_type {
+enum h264_nal_type {
         // H.264
         NAL_H264_NON_IDR = 1,
+        NAL_H264_MIN = NAL_H264_NON_IDR,
         NAL_H264_IDR = 5,
         NAL_H264_SEI = 6,
         NAL_H264_SPS = 7,
         NAL_H264_PPS = 8,
         NAL_H264_AUD = 9,
-        // HEVC
-        NAL_HEVC_VPS = 32,
-        NAL_HEVC_SPS = 33,
-        NAL_HEVC_PPS = 34,
-        NAL_HEVC_AUD = 35,
-};
-
-/// NAL values >23 are invalid in H.264 codestream but used by RTP
-enum aux_nal_types {
+        NAL_H264_RESERVED23 = 23,
+        NAL_H264_MAX = NAL_H264_RESERVED23, // last valid H264
+        /// NAL values >23 are invalid in H.264 codestream but used by RTP
         RTP_STAP_A = 24,
         RTP_STAP_B = 25,
         RTP_MTAP16 = 26,
@@ -79,22 +69,68 @@ enum aux_nal_types {
         RTP_FU_B   = 29,
 };
 
+enum hevc_nal_type {
+        NAL_HEVC_TRAIL_N         = 1,
+        NAL_HEVC_BLA_W_LP        = 16,
+        NAL_HEVC_CODED_SLC_FIRST = NAL_HEVC_BLA_W_LP,
+        NAL_HEVC_IDR_N_LP        = 20,
+        NAL_HEVC_CRA_NUT         = 21,
+        NAL_HEVC_VPS             = 32,
+        NAL_HEVC_SPS             = 33,
+        NAL_HEVC_PPS             = 34,
+        NAL_HEVC_AUD             = 35,
+        NAL_HEVC_SUFFIX_SEI      = 40,
+        NAL_HEVC_MAX             = NAL_HEVC_SUFFIX_SEI, // last valid HEVC NALU
+        NAL_RTP_HEVC_AP          = 48,
+        NAL_RTP_HEVC_FU          = 49,
+        NAL_RTP_HEVC_PACI        = 50,
+};
+
 struct coded_data;
 struct decode_data_rtsp;
 struct video_desc;
 
-#define H264_NALU_HDR_GET_TYPE(nal) ((nal) & 0x1F)
-#define H264_NALU_HDR_GET_NRI(nal) (((nal) & 0x60) >> 5)
-#define NALU_HDR_GET_TYPE(nal, is_hevc) \
-        ((is_hevc) ? (nal) >> 1 : H264_NALU_HDR_GET_TYPE((nal)))
-
-int decode_frame_h264(struct coded_data *cdata, void *decode_data);
+int decode_frame_h2645(struct coded_data *cdata, void *decode_data);
 struct video_frame *get_sps_pps_frame(const struct video_desc *desc,
                                       struct decode_data_rtsp *decode_data);
-int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
+int width_height_from_h264_sps(int *widthOut, int *heightOut,
+                               unsigned char *data, int data_len);
+int width_height_from_hevc_sps(int *widthOut, int *heightOut,
+                               unsigned char *data, int data_len);
 
 #ifdef __cplusplus
 }
 #endif
+
+// cast just pointers to character types to avoid mistakes
+#ifndef __cplusplus
+#define RTPDEC_SAFE_CAST(var) \
+        _Generic((var), \
+            char *: ((const uint8_t *) (var)), \
+            unsigned char *: ((const uint8_t *) (var)), \
+            const char *: ((const uint8_t *) (var)), \
+            const unsigned char *: ((const uint8_t *) (var)))
+#else
+template <typename T>
+static inline auto
+RTPDEC_SAFE_CAST(T var)
+{
+        static_assert(sizeof var[0] == 1);
+        return (const uint8_t *) var;
+}
+#endif
+
+#define H264_NALU_HDR_GET_TYPE(nal) (*RTPDEC_SAFE_CAST(nal) & 0x1F)
+#define H264_NALU_HDR_GET_NRI(nal)  ((*RTPDEC_SAFE_CAST(nal) & 0x60) >> 5)
+
+#define HEVC_NALU_HDR_GET_TYPE(nal) (*RTPDEC_SAFE_CAST(nal) >> 1)
+#define HEVC_NALU_HDR_GET_LAYER_ID(nal) \
+        (((RTPDEC_SAFE_CAST(nal))[0] & 0x1) << 5 | \
+         (RTPDEC_SAFE_CAST(nal))[1] >> 3)
+#define HEVC_NALU_HDR_GET_TID(nal) (RTPDEC_SAFE_CAST(nal)[1] & 0x7)
+
+#define NALU_HDR_GET_TYPE(nal, is_hevc) \
+        ((is_hevc) ? HEVC_NALU_HDR_GET_TYPE((nal)) \
+                   : H264_NALU_HDR_GET_TYPE((nal)))
 
 #endif

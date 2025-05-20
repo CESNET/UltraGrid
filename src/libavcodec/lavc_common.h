@@ -96,8 +96,10 @@ enum {
 #endif
 
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 39, 100)
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(56, 39, 100)
 #define AV_PIX_FMT_VULKAN AV_PIX_FMT_NONE
+#else
+#define HWACC_VULKAN
 #endif
 
 #ifdef __cplusplus
@@ -121,6 +123,13 @@ const char *lavc_thread_type_to_str(int thread_type);
 struct audio_desc audio_desc_from_av_frame(const AVFrame *frm);
 enum AVSampleFormat audio_bps_to_av_sample_fmt(int bps, bool planar);
 const char         *get_avpixfmts_names(const enum AVPixelFormat *pixfmts);
+
+const enum AVPixelFormat *avc_get_supported_pix_fmts(const AVCodecContext *ctx,
+                                                     const AVCodec *codec);
+const enum AVSampleFormat *
+avc_get_supported_sample_fmts(const AVCodecContext *ctx, const AVCodec *codec);
+const int *avc_get_supported_sample_rates(const AVCodecContext *ctx,
+                                          const AVCodec        *codec);
 
 #ifdef __cplusplus
 }

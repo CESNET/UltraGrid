@@ -12,7 +12,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2024 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -67,7 +67,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/htonl.h"
+#include "compat/net.h"                     // for ntohs
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -120,6 +120,7 @@ struct testcard_state {
         struct audio_len_pattern apattern;
         int audio_frequency;
         long long capture_frames;
+        bool quit_after_capture_frames;
 
         char **tiles_data;
         int tiles_cnt_horizontal;
@@ -130,6 +131,8 @@ struct testcard_state {
         bool still_image;
         char pattern[128];
 };
+
+static void vidcap_testcard_done(void *state);
 
 static void
 generate_audio_sine(struct testcard_state *s)
@@ -317,7 +320,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
         if (pam_read(filename, &info, &data, malloc) == 0) {
                 return false;
         }
-        switch (info.depth) {
+        switch (info.ch_count) {
                 case 3:
                         desc->color_spec = info.maxval == 255 ? RGB : RG48;
                         break;
@@ -325,7 +328,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
                         desc->color_spec = RGBA;
                         break;
                 default:
-                        log_msg(LOG_LEVEL_ERROR, "Unsupported PAM/PNM channel count %d!\n", info.depth);
+                        log_msg(LOG_LEVEL_ERROR, "Unsupported PAM/PNM channel count %d!\n", info.ch_count);
                         return 0;
         }
         desc->width = info.width;
@@ -523,6 +526,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
         strncat(s->pattern, DEFAULT_PATTERN, sizeof s->pattern - 1);
         s->audio_frequency = DEFAULT_AUIDIO_FREQUENCY;
+        s->capture_frames = -1;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
@@ -585,8 +589,12 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 } else if (strstr(tmp, "afrequency=") == tmp) {
                         s->audio_frequency = atoi(strchr(tmp, '=') + 1);
                 } else if (IS_KEY_PREFIX(tmp, "frames")) {
+                        char *endptr = NULL;
                         s->capture_frames =
-                            strtoll(strchr(tmp, '=') + 1, NULL, 0);
+                            strtoll(strchr(tmp, '=') + 1, &endptr, 0);
+                        if (*endptr == 'q') {
+                                s->quit_after_capture_frames = true;
+                        }
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
@@ -657,9 +665,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
 error:
         free(fmt);
-        vf_free(s->frame);
-        free(in_file_contents);
-        free(s);
+        vidcap_testcard_done(s);
         return ret;
 }
 
@@ -706,8 +712,10 @@ static audio_frame *vidcap_testcard_get_audio(struct testcard_state *s)
 static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
 {
         struct testcard_state *state = arg;
-
-        if (state->video_frames + 1 == state->capture_frames) {
+        if (state->video_frames == state->capture_frames) {
+                if (state->quit_after_capture_frames) {
+                        exit_uv(0);
+                }
                 return NULL;
         }
         time_ns_t curr_time = 0;

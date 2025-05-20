@@ -67,6 +67,7 @@
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/debug.h"                  // for debug_file_dump
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/string.h" // replace_all
@@ -80,8 +81,8 @@ extern "C"
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
 }
-#include "hwaccel_libav_common.h"
 #endif
+#include "hwaccel_libav_common.h"
 
 #ifdef HAVE_SWSCALE
 extern "C"{
@@ -120,7 +121,7 @@ enum {
         HOUSEKEEP_INTERVAL = 100, //< for metadata_storage
 };
 
-constexpr const codec_t DEFAULT_CODEC       = MJPG;
+constexpr const codec_t DEFAULT_CODEC       = JPEG;
 constexpr const int     DEFAULT_GOP_SIZE    = 20;
 constexpr int           DEFAULT_SLICE_COUNT = 32;
 
@@ -203,7 +204,7 @@ static map<codec_t, codec_params_t> codec_params = {
                 setparam_h264_h265_av1,
                 101
         }},
-        { MJPG, codec_params_t{
+        { JPEG, codec_params_t{
                 nullptr,
                 1.2,
                 setparam_jpeg,
@@ -222,7 +223,12 @@ static map<codec_t, codec_params_t> codec_params = {
                 103
         }},
         { VP9, codec_params_t{
-                nullptr,
+                [](bool) {
+                      return
+#ifdef __x86_64__
+                          !__builtin_cpu_supports("avx2") ? "libvpx-vp9" :
+#endif
+                          nullptr; },
                 0.4,
                 setparam_vp8_vp9,
                 104
@@ -450,7 +456,10 @@ void usage(bool full) {
               << "' to display encoder specific options/examples; works\nfor "
                  "decoders as well (use the keyword \"enc[oder]\", anyways).\n";
         col() << "\n";
-        col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
+        const unsigned lavc_ver = avcodec_version();
+        color_printf("Libavcodec version (linked): " TBOLD("%d.%d.%d") "\n",
+                     AV_VERSION_MAJOR(lavc_ver), AV_VERSION_MINOR(lavc_ver),
+                     AV_VERSION_MICRO(lavc_ver));
         const char *swscale = "no";
 #ifdef HAVE_SWSCALE
         swscale = "yes";
@@ -480,7 +489,8 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
                     avcodec_find_encoder_by_name(req_encoder.c_str());
                 if (codec != nullptr) {
                         cout << "\n";
-                        print_codec_supp_pix_fmts(codec->pix_fmts);
+                        print_codec_supp_pix_fmts(
+                            avc_get_supported_pix_fmts(nullptr, codec));
                 } else {
                         MSG(ERROR, "Cannot open encoder: %s\n",
                             req_encoder.c_str());
@@ -575,9 +585,9 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                 } else if (strcasecmp(item, "rgb") == 0 || strcasecmp(item, "yuv") == 0) {
                         s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
                 } else if (strstr(item, "intra_refresh") != nullptr) {
-                        s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
+                        s->params.periodic_intra = (int) (strstr(item, "intra_refresh") == item);
                 } else if (strstr(item, "interlaced_dct") != nullptr) {
-                        s->params.interlaced_dct = strstr(item, "disable_") == item ? 0 : 1;
+                        s->params.interlaced_dct = (int) (strstr(item, "interlaced_dct") == item);
                 } else if (IS_KEY_PREFIX(item, "threads")) {
                         char *threads = strchr(item, '=') + 1;
                         if (strchr(threads, ',')) {
@@ -593,9 +603,8 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                         s->requested_gop = atoi(gop);
                 } else if (strstr(item, "header_inserter") == item) {
                         s->params.header_inserter_req =
-                            strstr(item, "=no") == nullptr ? 1 : 0;
+                            strstr(item, "no") == nullptr ? 1 : 0;
                 } else if (strcmp(item, "safe") == 0) {
-                        s->params.periodic_intra     = 0;
                         s->params.periodic_intra     = 0;
                         s->params.interlaced_dct     = 0;
                         s->req_conv_prop.depth       = 8;
@@ -705,6 +714,42 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
 
         return &s->module_data;
 }
+
+#ifdef HWACC_VULKAN
+static int vulkan_init(struct AVCodecContext *s){
+        log_msg(LOG_LEVEL_NOTICE, "Initializing vulkan ctx\n");
+        int pool_size = 20; //Default in ffmpeg examples
+
+        AVBufferRef *device_ref = nullptr;
+        AVBufferRef *hw_frames_ctx = nullptr;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VULKAN, &device_ref);
+        if(ret < 0)
+                goto fail;
+
+        if (s->active_thread_type & FF_THREAD_FRAME)
+                pool_size += s->thread_count;
+
+        ret = create_hw_frame_ctx(device_ref,
+                        s->width,
+                        s->height,
+                        AV_PIX_FMT_VULKAN,
+                        AV_PIX_FMT_NV12,
+                        pool_size,
+                        &hw_frames_ctx);
+        if(ret < 0)
+                goto fail;
+
+        s->hw_frames_ctx = hw_frames_ctx;
+
+        av_buffer_unref(&device_ref);
+        return 0;
+
+fail:
+        av_buffer_unref(&hw_frames_ctx);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
+#endif
 
 #ifdef HWACC_VAAPI
 static int vaapi_init(struct AVCodecContext *s){
@@ -1005,12 +1050,32 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
 #endif
-
-        if (const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(pix_fmt)) { // defaults
-                s->codec_ctx->colorspace = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
-                s->codec_ctx->color_range = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
+#ifdef HWACC_VULKAN
+        if (pix_fmt == AV_PIX_FMT_VULKAN){
+                log_msg(LOG_LEVEL_NOTICE, "Trying vulkan\n");
+                int ret = vulkan_init(s->codec_ctx);
+                if (ret != 0) {
+                        avcodec_free_context(&s->codec_ctx);
+                        s->codec_ctx = NULL;
+                        return false;
+                }
+                s->hwenc = true;
+                s->hwframe = av_frame_alloc();
+                av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
+                pix_fmt = AV_PIX_FMT_NV12;
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Using vulkan with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
+#endif
+
         get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
+        // QSV always converts to limited BT.601 but writes to metadata contents
+        // of AVCodecContex so set the attribs to correspond
+        if (strstr(codec->name, "_qsv") != nullptr &&
+            codec_is_a_rgb(desc.color_spec)) {
+                s->codec_ctx->colorspace =
+                    AVCOL_SPC_BT470BG; // or AVCOL_SPC_SMPTE170M?
+                s->codec_ctx->color_range = AVCOL_RANGE_MPEG;
+        }
 
         /* open it */
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
@@ -1047,13 +1112,19 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
         }
 
         // Else, try to open prefered encoder for requested codec
-        if (codec_params.find(*ug_codec) != codec_params.end() && codec_params[*ug_codec].get_prefered_encoder) {
-                const char *prefered_encoder = codec_params[*ug_codec].get_prefered_encoder(
+        const char *preferred_encoder = nullptr;
+        if (codec_params.find(*ug_codec) != codec_params.end() &&
+            codec_params[*ug_codec].get_prefered_encoder) {
+                preferred_encoder = codec_params[*ug_codec].get_prefered_encoder(
                                 src_rgb);
-                const AVCodec *codec = avcodec_find_encoder_by_name(prefered_encoder);
+        }
+        if (preferred_encoder != nullptr) {
+                const AVCodec *codec = avcodec_find_encoder_by_name(preferred_encoder);
                 if (!codec) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
-                                        prefered_encoder);
+                        MSG(WARNING,
+                            "Warning: preferred encoder \"%s\" not found! "
+                            "Trying default encoder.\n",
+                            preferred_encoder);
                 }
                 return codec;
         }
@@ -1119,11 +1190,11 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
         return AV_PIX_FMT_NONE;
 #endif
         unsigned usable_fmt_cnt = 0;
-        if (codec->pix_fmts == nullptr) {
+        if (avc_get_supported_pix_fmts(nullptr, codec) == nullptr) {
                 return AV_PIX_FMT_NONE;
         }
-        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
-             ++pix) {
+        for (const auto *pix = avc_get_supported_pix_fmts(nullptr, codec);
+             *pix != AV_PIX_FMT_NONE; ++pix) {
                 usable_fmt_cnt += 1;
         }
         if (usable_fmt_cnt == fmts_tried.size()) {
@@ -1132,8 +1203,8 @@ try_open_remaining_pixfmts(state_video_compress_libav *s, video_desc desc,
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: "
                                << get_codec_name(desc.color_spec)
                                << ". Trying to convert with swscale instead.\n";
-        for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE;
-             ++pix) {
+        for (const auto *pix = avc_get_supported_pix_fmts(nullptr, codec);
+             *pix != AV_PIX_FMT_NONE; ++pix) {
                 const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                 if (fmts_tried.count(*pix) == 1 || fmt_desc == nullptr ||
                     (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0U) {
@@ -1175,7 +1246,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         set<AVPixelFormat> fmts_tried;
-        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+        while ((pix_fmt = get_first_matching_pix_fmt(
+                    requested_pix_fmt_it, requested_pix_fmt.cend(),
+                    avc_get_supported_pix_fmts(nullptr, codec))) !=
+               AV_PIX_FMT_NONE) {
                 fmts_tried.insert(pix_fmt);
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
@@ -1183,7 +1257,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
-                print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
+                print_pix_fmts(requested_pix_fmt,
+                               avc_get_supported_pix_fmts(nullptr, codec));
         }
 
         if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
@@ -1378,7 +1453,7 @@ store_sps_pps_vps(state_video_compress_libav *s, AVPacket *pkt)
         int                  i      = 0;
         const unsigned char *endptr = nullptr;
         while (nal != nullptr) {
-                if (NALU_HDR_GET_TYPE(nal[0], is_hevc) != nalu_req[i++]) {
+                if (NALU_HDR_GET_TYPE(nal, is_hevc) != nalu_req[i++]) {
                         return;
                 }
                 if (nalu_req[i] == 0) { // correct seq of NALU
@@ -2113,30 +2188,15 @@ get_opt_default_value(const AVOption *opt)
         }
 }
 
-/// @aram encoder - if bool, print for both encoder and decoder
-static bool
-show_coder_help(string const &name, bool encoder)
-{
-        bool dec_found = true;
-        if (encoder) {
-                dec_found = show_coder_help(name, false);
-        }
-        const auto *codec = encoder
-                                ? avcodec_find_encoder_by_name(name.c_str())
-                                : avcodec_find_decoder_by_name(name.c_str());
-        if (codec == nullptr) {
-                if (!dec_found) {
-                        MSG(ERROR,
-                            "Unable to find neither encoder nor decoder %s!\n",
-                            name.c_str());
-                }
-                return false;
-        }
+static void print_codec_opts(const std::string& name, bool encoder, const AVCodec *codec){
+        if(!codec->priv_class)
+                return;
+
         col() << "Options for " << SBOLD(name) << " "
               << (encoder ? "encoder" : "decoder") << ":\n";
         const auto *opt = codec->priv_class->option;
         if (opt == nullptr) {
-                return true;
+                return;
         }
         while (opt->name != nullptr) {
                 string default_val;
@@ -2165,6 +2225,28 @@ show_coder_help(string const &name, bool encoder)
                 col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
                 opt++;
         }
+}
+
+/// @aram encoder - if bool, print for both encoder and decoder
+static bool
+show_coder_help(string const &name, bool encoder)
+{
+        bool dec_found = true;
+        if (encoder) {
+                dec_found = show_coder_help(name, false);
+        }
+        const auto *codec = encoder
+                                ? avcodec_find_encoder_by_name(name.c_str())
+                                : avcodec_find_decoder_by_name(name.c_str());
+        if (codec == nullptr) {
+                if (!dec_found) {
+                        MSG(ERROR,
+                            "Unable to find neither encoder nor decoder %s!\n",
+                            name.c_str());
+                }
+                return false;
+        }
+        print_codec_opts(name, encoder, codec);
         print_codec_aux_usage(name);
         color_printf("\n");
         return true;

@@ -24,6 +24,7 @@ install_svt() {
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-HEVC && cd SVT-HEVC/Build/linux && ./build.sh release && cd Release && sudo cmake --install . || exit 1 )
         ( git clone --depth 1 https://gitlab.com/AOMediaCodec/SVT-AV1.git && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
+        git apply SVT-AV1/.gitlab/workflows/linux/ffmpeg_n7_fix.patch
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
         git am -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
         patch SVT-VP9/ffmpeg_plugin/master-*.patch < "$GITHUB_WORKSPACE/\
@@ -48,15 +49,13 @@ install_onevpl() {(
 )}
 
 rm -rf /var/tmp/ffmpeg
-git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
+git clone --depth $FFMPEG_GIT_DEPTH https://github.com/FFmpeg/FFmpeg.git \
+        /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
 # apply Intel patches
 git clone https://github.com/intel/cartwheel-ffmpeg.git
 git checkout "$(GIT_DIR=cartwheel-ffmpeg/.git git submodule status ffmpeg | sed 's/-\([[:xdigit:]]*\).*/\1/')"
 git am -3 cartwheel-ffmpeg/patches/*
-if [ "$(lsb_release -rs)" = 20.04 ]; then
-        git am -3 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto"
-fi
 install_aom
 install_libvpx
 install_nv_codec_headers

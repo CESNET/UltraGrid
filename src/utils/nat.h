@@ -38,10 +38,6 @@
 #ifndef UTILS_NAT_H_AC13CDA9_2B22_4441_A81A_9858C87CE0AA
 #define UTILS_NAT_H_AC13CDA9_2B22_4441_A81A_9858C87CE0AA
 
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif // ! defined __cplusplus
-
 #ifdef __cplusplus
 extern "C" {
 #endif

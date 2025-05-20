@@ -36,32 +36,50 @@
  */
 
 #include <algorithm>
+#include <atomic>                // for atomic
 #include <cassert>
 #include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
 #include <climits>               // for UINT_MAX
+#include <cinttypes>             // for PRId64
 #include <condition_variable>
+#include <csignal>
 #include <cstdio>                // for fprintf, stderr
 #include <cstdint>               // for int64_t, uint32_t
+#include <cstdlib>               // for free
 #include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
 #include <iomanip>
+#include <iterator>              // for pair
 #include <map>
 #include <mutex>                 // for mutex, lock_guard, unique_lock
 #include <sstream>
 #include <stdexcept>
-#include <unordered_map>
 #include <utility>
 
-#include "compat/htonl.h"
 #include "compat/misc.h"         // for strncasecmp
+#include "compat/net.h"          // for htonl, ntohl
+#include "compat/strings.h"      // for strncasecmp
 #include "DeckLinkAPIVersion.h"
 #include "blackmagic_common.hpp"
 #include "debug.h"
 #include "host.h"
+#include "tv.h"
 #include "utils/color_out.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"
+#include "utils/string.h"        // for DELDEL
 #include "utils/windows.h"
 #include "utils/worker.h"
+
+// BMD sometimes do a ABI bump that entirely breaks compatibility (eg. changing
+// GUIDs), this can be inspected by checking the "versioned" DeckLinkAPI here:
+// <https://github.com/MartinPulec/desktopvideo_sdk-api/tree/main/Linux/include>
+#define BMD_LAST_INCOMPATIBLE_ABI 0x0b050100 // 11.5.1
+
+#if BLACKMAGIC_DECKLINK_API_VERSION > 0x0c080000
+#warning \
+    "Increased BMD API - enum diffs recheck recommends (or just increase the compared API version)"
+#endif
 
 #define MOD_NAME "[DeckLink] "
 
@@ -79,7 +97,6 @@ using std::stod;
 using std::stoi;
 using std::string;
 using std::uppercase;
-using std::unordered_map;
 using std::vector;
 
 string bmd_hresult_to_string(HRESULT res)
@@ -227,14 +244,30 @@ bool blackmagic_api_version_check()
                 goto cleanup;
         }
 
-        if (BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
-                log_msg(LOG_LEVEL_ERROR, "The DeckLink drivers may not be installed or are outdated.\n");
-                log_msg(LOG_LEVEL_ERROR, "You should have at least the version UltraGrid has been linked with.\n");
-                log_msg(LOG_LEVEL_ERROR, "Vendor download page is http://www.blackmagic-design.com/support\n");
+        // this is safe comparision, for internal structure please see SDK
+        // documentation
+        if (value <= BMD_LAST_INCOMPATIBLE_ABI) {
+                MSG(ERROR, "The DeckLink drivers are be outdated.\n");
+                MSG(ERROR, "You must have drivers newer than %d.%d.%d.\n",
+                    BMD_LAST_INCOMPATIBLE_ABI >> 24,
+                    (BMD_LAST_INCOMPATIBLE_ABI >> 16) & 0xFF,
+                    (BMD_LAST_INCOMPATIBLE_ABI >> 8) & 0xFF);
+                MSG(ERROR, "Vendor download page is "
+                           "http://www.blackmagic-design.com/support\n");
                 print_decklink_version();
-                ret = false;
         } else {
                 ret = true;
+                if (BLACKMAGIC_DECKLINK_API_VERSION > value) {
+                        MSG(WARNING, "The DeckLink drivers are be outdated.\n");
+                        MSG(WARNING,
+                            "Although it will likely work, it is recommended "
+                            "to use drivers at least as the API that "
+                            "UltraGrid is linked with.\n");
+                        print_decklink_version();
+                        MSG(WARNING,
+                            "Vendor download page is "
+                            "http://www.blackmagic-design.com/support\n\n");
+                }
         }
 
 cleanup:
@@ -572,35 +605,198 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
         return output;
 }
 
-static string fcc_to_string(uint32_t fourcc) {
 #define BMDFCC(x) {x,#x}
-        static const unordered_map<uint32_t, const char *> conf_name_map = {
-                BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
-                BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
-                BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
-                BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
-                BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
-                BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
-                BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
-                BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
-                BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
-                BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
-                BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
-                BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
-                BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
-                BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
-                BMDFCC(bmdDeckLinkConfigVideoInputConnection),
-                BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
-                BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
-                BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
-                BMDFCC(bmdIdleVideoOutputBlack),
-                BMDFCC(bmdIdleVideoOutputLastFrame),
-                BMDFCC(bmdLinkConfigurationSingleLink), BMDFCC(bmdLinkConfigurationDualLink), BMDFCC(bmdLinkConfigurationQuadLink),
-        };
+static const struct {
+        uint32_t    fourcc;
+        const char *name;
+} opt_name_map[] = {
+
+        { 0, "Serial port Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigSwapSerialRxTx),
+
+        { 0, "Video Input/Output Integers" },
+
+        BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
+        BMDFCC(bmdDeckLinkConfigBypass),
+        BMDFCC(bmdDeckLinkConfigClockTimingAdjustment),
+
+        { 0, "Audio Input/Output Flags"    },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioConsumerLevels),
+        BMDFCC(bmdDeckLinkConfigSwapHDMICh3AndCh4OnInput),
+        BMDFCC(bmdDeckLinkConfigSwapHDMICh3AndCh4OnOutput),
+
+        { 0, "Video Output Flags"          },
+
+        BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
+        BMDFCC(bmdDeckLinkConfigHD1080p24ToHD1080i5994Conversion),
+        BMDFCC(bmdDeckLinkConfig444SDIVideoOutput),
+        BMDFCC(bmdDeckLinkConfigBlackVideoOutputDuringCapture),
+        BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+        BMDFCC(bmdDeckLinkConfigDownConversionOnAllAnalogOutput),
+        BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
+        BMDFCC(bmdDeckLinkConfigRec2020Output),
+        BMDFCC(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit),
+        BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
+
+        { 0, "Video Output Integers"       },
+
+        BMDFCC(bmdDeckLinkConfigVideoOutputConnection),
+        BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
+        BMDFCC(bmdDeckLinkConfigAnalogVideoOutputFlags),
+        BMDFCC(bmdDeckLinkConfigReferenceInputTimingOffset),
+        BMDFCC(bmdDeckLinkConfigReferenceOutputMode),
+        BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
+        BMDFCC(bmdDeckLinkConfigDefaultVideoOutputMode),
+        BMDFCC(bmdDeckLinkConfigDefaultVideoOutputModeFlags),
+        BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+        BMDFCC(bmdDeckLinkConfigHDMITimecodePacking),
+        BMDFCC(bmdDeckLinkConfigPlaybackGroup),
+
+        { 0, "Video Output Floats"         },
+
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentChromaBlueGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputComponentChromaRedGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputCompositeLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputCompositeChromaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputSVideoLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoOutputSVideoChromaGain),
+
+        { 0, "Video Input Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputScanning),
+        BMDFCC(bmdDeckLinkConfigUseDedicatedLTCInput),
+        BMDFCC(bmdDeckLinkConfigSDIInput3DPayloadOverride),
+        BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
+
+        { 0, "Video Input Integers"        },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputConnection),
+        BMDFCC(bmdDeckLinkConfigAnalogVideoInputFlags),
+        BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+        BMDFCC(bmdDeckLinkConfig32PulldownSequenceInitialTimecodeFrame),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine1Mapping),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine2Mapping),
+        BMDFCC(bmdDeckLinkConfigVANCSourceLine3Mapping),
+        BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+        BMDFCC(bmdDeckLinkConfigCaptureGroup),
+
+        { 0, "Video Input Floats"          },
+
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentChromaBlueGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputComponentChromaRedGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputCompositeLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputCompositeChromaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputSVideoLumaGain),
+        BMDFCC(bmdDeckLinkConfigVideoInputSVideoChromaGain),
+
+        { 0, "Keying Integers"             },
+
+        BMDFCC(bmdDeckLinkConfigInternalKeyingAncillaryDataSource),
+
+        { 0, "Audio Input Flags"           },
+
+        BMDFCC(bmdDeckLinkConfigMicrophonePhantomPower),
+
+        { 0, "Audio Input Integers"        },
+
+        BMDFCC(bmdDeckLinkConfigAudioInputConnection),
+
+        { 0, "Audio Input Floats"          },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel1),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel2),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel3),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioInputScaleChannel4),
+        BMDFCC(bmdDeckLinkConfigDigitalAudioInputScale),
+        BMDFCC(bmdDeckLinkConfigMicrophoneInputGain),
+
+        { 0, "Audio Output Integers"       },
+
+        BMDFCC(bmdDeckLinkConfigAudioOutputAESAnalogSwitch),
+
+        { 0, "Audio Output Floats"         },
+
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel1),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel2),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel3),
+        BMDFCC(bmdDeckLinkConfigAnalogAudioOutputScaleChannel4),
+        BMDFCC(bmdDeckLinkConfigDigitalAudioOutputScale),
+        BMDFCC(bmdDeckLinkConfigHeadphoneVolume),
+
+        { 0, "Network Flags"               },
+
+        BMDFCC(bmdDeckLinkConfigEthernetUseDHCP),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPFollowerOnly),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPUseUDPEncapsulation),
+
+        { 0, "Network Integers"            },
+
+        BMDFCC(bmdDeckLinkConfigEthernetPTPPriority1),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPPriority2),
+        BMDFCC(bmdDeckLinkConfigEthernetPTPDomain),
+
+        { 0, "Network Strings"             },
+
+        BMDFCC(bmdDeckLinkConfigEthernetStaticLocalIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticSubnetMask),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticGatewayIPAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticPrimaryDNS),
+        BMDFCC(bmdDeckLinkConfigEthernetStaticSecondaryDNS),
+        BMDFCC(bmdDeckLinkConfigEthernetVideoOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAncillaryOutputAddress),
+        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputChannelOrder),
+
+        { 0, "Device Information Strings"  },
+
+        BMDFCC(bmdDeckLinkConfigDeviceInformationLabel),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationSerialNumber),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationCompany),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationPhone),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationEmail),
+        BMDFCC(bmdDeckLinkConfigDeviceInformationDate),
+
+        { 0, "Deck Control Integers"       },
+
+        BMDFCC(bmdDeckLinkConfigDeckControlConnection),
+};
+
+static const struct {
+        uint32_t    fourcc;
+        const char *name;
+} val_name_map[] = {
+        BMDFCC(bmdVideo3DPackingSidebySideHalf),
+        BMDFCC(bmdVideo3DPackingLinebyLine),
+        BMDFCC(bmdVideo3DPackingTopAndBottom),
+        BMDFCC(bmdVideo3DPackingFramePacking),
+        BMDFCC(bmdVideo3DPackingRightOnly),
+        BMDFCC(bmdVideo3DPackingLeftOnly),
+        BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
+        BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
+        BMDFCC(bmdIdleVideoOutputBlack),
+        BMDFCC(bmdIdleVideoOutputLastFrame),
+        BMDFCC(bmdLinkConfigurationSingleLink),
+        BMDFCC(bmdLinkConfigurationDualLink),
+        BMDFCC(bmdLinkConfigurationQuadLink),
+};
 #undef BMDFCC
-        if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
-                return it->second;
+
+static string fcc_to_string(uint32_t fourcc) {
+        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+                if (opt_name_map[i].fourcc == fourcc) {
+                        return opt_name_map[i].name;
+                }
         }
+        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+                if (val_name_map[i].fourcc == fourcc) {
+                        return val_name_map[i].name;
+                }
+        }
+
         union {
                 char c[5];
                 uint32_t i;
@@ -712,11 +908,90 @@ bool bmd_option::is_help() const {
 bool bmd_option::is_user_set() const {
         return m_user_specified;
 }
+
+static void
+bmd_opt_help()
+{
+        color_printf(TBOLD("BMD") " option syntax:\n");
+        color_printf("\t" TBOLD("<FourCC>=<val>") "\n\n");
+        color_printf(
+            TBOLD("<FourCC>") " must have exactly " TBOLD("4 characters") "\n");
+        color_printf("\n");
+        color_printf("The value must corresponding type is deduced accordingly:\n");
+        color_printf("- " TBOLD("flag") " - values on/of, true/false, yes/no\n");
+        color_printf("- literal " TBOLD("keep") " - keep the preset value\n");
+        color_printf("- literal " TBOLD(
+            "help") " - show help (applicable to profile only)\n");
+        color_printf("- " TBOLD(
+            "int") " - any number without decimal point\n");
+        color_printf("- " TBOLD(
+            "float") " - a number with a decimal point\n");
+        color_printf(
+            "- " TBOLD("FourCC") " - a value with len <= 4 not listed above\n");
+        color_printf("\n");
+        color_printf("If the type deduction is not working, you can use also "
+                     "following syntax:\n");
+        color_printf("- \"value\" - assume the value is string\n");
+        color_printf("- 'vlue' - assume the value is FourCC\n");
+        color_printf("\n");
+
+        color_printf("List of keys:\n");
+        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+                if (opt_name_map[i].fourcc == 0) {
+                        color_printf("\n%s:\n", opt_name_map[0].name);
+                } else {
+                        uint32_t val = htonl(opt_name_map[i].fourcc);
+                        color_printf("- " TBOLD("%.4s") " - %s\n",
+                                     (char *) &val, opt_name_map[i].name);
+                }
+        }
+        color_printf("\n");
+        color_printf("See also\n" TUNDERLINE(
+            "https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
+            "DeckLink/Linux/DeckLinkAPIConfiguration.h") "\nfor details.\n");
+        color_printf("\n");
+        color_printf("Incomplete " TBOLD("(!)") " list of values:\n");
+        color_printf("(note that the value belongs to its appropriate key)\n");
+        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+                uint32_t val = htonl(val_name_map[i].fourcc);
+                color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
+                             val_name_map[i].name);
+        }
+        color_printf("\n");
+        color_printf("Avaliable values can be found here:\n" TUNDERLINE(
+            "https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
+            "DeckLink/Linux/DeckLinkAPI.h") "\n");
+        color_printf("\n");
+        color_printf("The actual key type and possible values must be, however "
+                     "consutlted with:\n" TUNDERLINE(
+                         "https://documents.blackmagicdesign.com/UserManuals/"
+                         "DeckLinkSDKManual.pdf") "\n");
+
+        color_printf("\n");
+        color_printf("Examples:\n");
+        color_printf(TBOLD("aacl=on") " - set audio consumer levels (flag)\n");
+        color_printf(TBOLD("voio=blac") " - display black when no output\n");
+        color_printf(TBOLD("DHCP=yes") " - use DHCP config for DeckLink IP\n");
+        color_printf(TBOLD("DHCP=no:"
+            "nsip=10.0.0.3:nssm=255.255.255.0:nsgw=10.0.0.1") " - use static "
+                                                              "net config for "
+                                                              "DeckLink IP\n");
+        color_printf(TBOLD(
+            "noaa=239.255.194.26\\:16384:noav=239.255.194.26\\:"
+            "163888") " - set output "
+                      "audio/video address\n(note that the shell will remove "
+                      "backslash if not quoted, so you may use eg.:\nuv -t "
+                      "'decklink:noaa=239.255.194.26\\:16384')\n");
+        color_printf("\n");
+}
+
 /**
- * @note
- * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
+ * @param val  can be empty or NULL - this allow specifying the flag without explicit value
+ * @retval true  value vas set
+ * @retval false help for FourCC syntas was print
  */
-void bmd_option::parse(const char *val)
+bool
+bmd_option::parse(const char *val)
 {
         // check flag
 #ifdef __clang__
@@ -726,24 +1001,29 @@ void bmd_option::parse(const char *val)
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
                         || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
                 set_flag(true);
-                return;
+                return true;
         }
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
         if (strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
                 set_flag(false);
-                return;
+                return true;
         }
 
         if (strcasecmp(val, "keep") == 0) {
                 set_keep();
-                return;
+                return true;
         }
 
         if (strcmp(val, "help") == 0) {
                 set_string(val);
-                return;
+                return true;
+        }
+
+        if (strcmp(val, "FourCC") == 0) { // help=FourCC
+                bmd_opt_help();
+                return false;
         }
 
         // explicitly typed (either "str" or 'fcc')
@@ -755,13 +1035,17 @@ void bmd_option::parse(const char *val)
                 } else {
                         set_int(bmd_read_fourcc(raw_val.c_str()));
                 }
-                return;
+                return true;
         }
 
         // check number
         bool is_number = true;
         bool decimal_point = false;
         for (size_t i = 0; i < strlen(val); ++i) {
+                if (i == 0 && strncasecmp(val, "0x", 2) == 0) {
+                        i += 1;
+                        continue;
+                }
                 if (val[i] == '.') {
                         if (decimal_point) { // there was already decimal point
                                 is_number = false;
@@ -781,14 +1065,15 @@ void bmd_option::parse(const char *val)
                 } else {
                         set_int(stoi(val, nullptr, 0));
                 }
-                return;
+                return true;
         }
         if (strlen(val) <= 4) {
                 set_int(bmd_read_fourcc(val));
-                return;
+                return true;
         }
 
         set_string(val);
+        return true;
 }
 
 bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, string const &log_prefix) const {
@@ -814,8 +1099,12 @@ bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                         return true;
         }
         ostringstream value_oss;
-        if (opt == bmdDeckLinkConfigVideoInputConnection && get_connection_string_map().find((BMDVideoConnection) get_int()) != get_connection_string_map().end()) {
-                value_oss << get_connection_string_map().at((BMDVideoConnection) get_int());
+        if ((opt == bmdDeckLinkConfigVideoInputConnection ||
+             opt == bmdDeckLinkConfigVideoOutputConnection) &&
+            get_connection_string_map().find((BMDVideoConnection) get_int()) !=
+                get_connection_string_map().end()) {
+                value_oss << get_connection_string_map().at(
+                    (BMDVideoConnection) get_int());
         } else {
                 value_oss << *this;
         }
@@ -952,7 +1241,9 @@ const map<BMDVideoConnection, string> &get_connection_string_map() {
                 { bmdVideoConnectionOpticalSDI, "OpticalSDI"},
                 { bmdVideoConnectionComponent, "Component"},
                 { bmdVideoConnectionComposite, "Composite"},
-                { bmdVideoConnectionSVideo, "SVideo"}
+                { bmdVideoConnectionSVideo, "SVideo"},
+                { bmdVideoConnectionEthernet, "Ethernet"},
+                { bmdVideoConnectionOpticalEthernet, "OpticalEthernet"},
         };
         return m;
 }
@@ -1150,6 +1441,481 @@ bmd_get_sorted_devices(bool *com_initialized, bool verbose, bool natural_sort)
                 std::get<char>(d) = new_idx++;
         }
         return out;
+}
+
+void
+print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
+                      BMDDeckLinkAttributeID id, const char *module_prefix)
+{
+        col() << "\n\tConnection can be one of following:\n";
+        int64_t connections = 0;
+        if (deckLinkAttributes->GetInt(id, &connections) != S_OK) {
+                log_msg(LOG_LEVEL_ERROR, "%sCould not get connections.\n\n",
+                        module_prefix);
+                return;
+        }
+        for (auto const &it : get_connection_string_map()) {
+                if ((connections & it.first) != 0) {
+                        col() << "\t\t" << SBOLD(it.second) << "\n";
+                }
+        }
+        col() << "\n";
+}
+
+BMDVideoConnection
+bmd_get_connection_by_name(const char *connection)
+{
+        for (auto const &it : get_connection_string_map()) {
+                if (strcasecmp(connection, it.second.c_str()) == 0) {
+                        return it.first;
+                }
+        }
+        return bmdVideoConnectionUnspecified;
+}
+
+/*   ____            _    _     _       _     ____  _        _             
+ *  |  _ \  ___  ___| | _| |   (_)_ __ | | __/ ___|| |_ __ _| |_ _   _ ___ 
+ *  | | | |/ _ \/ __| |/ / |   | | '_ \| |/ /\___ \| __/ _` | __| | | / __|
+ *  | |_| |  __/ (__|   <| |___| | | | |   <  ___) | || (_| | |_| |_| \__ \
+ *  |____/ \___|\___|_|\_\_____|_|_| |_|_|\_\|____/ \__\__,_|\__|\__,_|___/
+ */
+
+/// value map, needs to be zero-terminated
+/// if status_type == ST_BIT_FIELD, val==0 must be set
+struct bmd_status_val_map {
+        uint32_t    val;
+        const char *name;
+};
+/// FourCC based values (can be all in one array)
+static const struct bmd_status_val_map status_val_map_dfl[] = {
+        { bmdEthernetLinkStateDisconnected,     "disconnected"        },
+        { bmdEthernetLinkStateConnectedUnbound, "connected (unbound)" },
+        { bmdEthernetLinkStateConnectedBound,   "connected (bound)"   },
+        { 0,                                    nullptr               },
+};
+static const struct bmd_status_val_map bmd_busy_state_bit_field_map[] = {
+        { 0,                       "inactive"    }, // default val if no bit set
+        { bmdDeviceCaptureBusy,    "capture"     },
+        { bmdDevicePlaybackBusy,   "playback"    },
+        { bmdDeviceSerialPortBusy, "serial-port" },
+        { 0,                       nullptr       },
+};
+static const struct bmd_status_val_map bmd_dyn_range_map[] = {
+        { bmdDynamicRangeSDR,          "SDR"     },
+        { bmdDynamicRangeHDRStaticPQ,  "HDR PQ"  },
+        { bmdDynamicRangeHDRStaticHLG, "HDR HLG" },
+        { 0,                           nullptr}
+};
+static const struct bmd_status_val_map bmd_cs_map[] = {
+        { bmdColorspaceRec601,  "Rec.601"  },
+        { bmdColorspaceRec709,  "Rec.709"  },
+        { bmdColorspaceRec2020, "Rec.2020" },
+        { 0,                    nullptr    }
+};
+enum status_type {
+        ST_ENUM,      // set type_data.map
+        ST_BIT_FIELD, // set type_data.map
+        ST_INT,       // set type_data.int_fmt_str
+        ST_STRING,
+};
+static const struct status_property {
+        BMDDeckLinkStatusID prop;
+        const char         *prop_name;
+        enum status_type    type;
+        union type_data {
+                const char                      *int_fmt_str;
+                const struct bmd_status_val_map *map;
+        } type_data;
+        bool playback_only; ///< relevant only for playback;
+        int  req_log_level;
+} status_map[] = {
+        { bmdDeckLinkStatusBusy,
+         "Busy",                          ST_BIT_FIELD,
+         { .map = bmd_busy_state_bit_field_map },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusPCIExpressLinkWidth,
+         "PCIe Link Width",               ST_INT,
+         { .int_fmt_str = "%" PRIu64 "x" },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusPCIExpressLinkSpeed,
+         "PCIe Link Speed",               ST_INT,
+         { .int_fmt_str = "Gen. %" PRIu64 },
+         false, LOG_LEVEL_VERBOSE },
+        { bmdDeckLinkStatusDeviceTemperature,
+         "Temperature",                   ST_INT,
+         { .int_fmt_str = "%" PRIu64 " °C" },
+         false, LOG_LEVEL_VERBOSE }, // temperature info is rate-limited
+        { bmdDeckLinkStatusDetectedVideoInputColorspace,
+         "Video Colorspace",              ST_ENUM,
+         { .map = bmd_cs_map },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusDetectedVideoInputDynamicRange,
+         "Video Dynamic Range",           ST_ENUM,
+         { .map = bmd_dyn_range_map },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLink,
+         "Ethernet state",                ST_ENUM,
+         { .map = status_val_map_dfl },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLinkMbps,
+         "Ethernet link speed",           ST_INT,
+         { .int_fmt_str = "%" PRIu64 " Mbps" },
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetLocalIPAddress,
+         "Ethernet IP address",           ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetSubnetMask,
+         "Ethernet subnet mask",          ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetGatewayIPAddress,
+         "Ethernet gateway IP",           ST_STRING,
+         {},
+         false, LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetVideoOutputAddress,
+         "Ethernet video output address", ST_STRING,
+         {},
+         true,  LOG_LEVEL_INFO    },
+        { bmdDeckLinkStatusEthernetAudioOutputAddress,
+         "Ethernet audio output address", ST_STRING,
+         {},
+         true,  LOG_LEVEL_INFO    },
+};
+static void
+print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop,
+                  const char *log_prefix)
+{
+        const struct status_property *s_prop = nullptr;
+
+        for (unsigned i = 0; i < ARR_COUNT(status_map); ++i) {
+                if (status_map[i].prop == prop) {
+                        s_prop = &status_map[i];
+                        break;
+                }
+        }
+        if (s_prop == nullptr) { // not found
+                return;
+        }
+        if (log_level < s_prop->req_log_level) {
+                return;
+        }
+
+        int64_t int_val = 0;
+        BMD_STR string_val{};
+        HRESULT rc = s_prop->type == ST_STRING
+                         ? deckLinkStatus->GetString(s_prop->prop, &string_val)
+                         : deckLinkStatus->GetInt(s_prop->prop, &int_val);
+        if (!SUCCEEDED(rc)) {
+                if (FAILED(rc) && rc != E_NOTIMPL) {
+                        log_msg(LOG_LEVEL_WARNING,
+                                "%sObtain property %s (0x%08x) value: %s\n",
+                                log_prefix, s_prop->prop_name, (unsigned) prop,
+                                bmd_hresult_to_string(rc).c_str());
+                }
+                return;
+        }
+
+        switch (s_prop->type) {
+        case ST_STRING: {
+                string str = get_str_from_bmd_api_str(string_val);
+                release_bmd_api_str(string_val);
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, str.c_str());
+                break;
+        }
+        case ST_INT: {
+                char buf[STR_LEN];
+                snprintf_ch(buf, s_prop->type_data.int_fmt_str, int_val);
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n",
+                        log_prefix, s_prop->prop_name, buf);
+                break;
+        }
+        case ST_BIT_FIELD: {
+                char val[STR_LEN];
+                val[0] = '\0';
+                for (unsigned j = 0; s_prop->type_data.map[j].name != nullptr;
+                     ++j) {
+                        if ((int_val & s_prop->type_data.map[j].val) == 0) {
+                                continue;
+                        }
+                        snprintf(val + strlen(val), sizeof val - strlen(val),
+                                 "%s%s", val[0] != '\0' ? ", " : "",
+                                 s_prop->type_data.map[j].name);
+                }
+                if (val[0] == '\0') {
+                        snprintf_ch(val, "%s", s_prop->type_data.map[0].name);
+                }
+
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, val);
+                break;
+        }
+        case ST_ENUM: {
+                const char *val = "unknown";
+                for (unsigned j = 0; s_prop->type_data.map[j].name != nullptr;
+                     ++j) {
+                        if (s_prop->type_data.map[j].val == int_val) {
+                                val = s_prop->type_data.map[j].name;
+                                break;
+                        }
+                }
+
+                log_msg(LOG_LEVEL_INFO, "%s%s: %s\n", log_prefix,
+                        s_prop->prop_name, val);
+                break;
+        }
+        }
+}
+
+// from BMD SDK sample StatusMonitor.cpp
+class BMDNotificationCallback : public IDeckLinkNotificationCallback
+{
+      public:
+        explicit BMDNotificationCallback(
+            IDeckLinkStatus       *deckLinkStatus,
+            IDeckLinkNotification *deckLinkNotification, const char *log_prefix)
+            : m_deckLinkStatus(deckLinkStatus),
+              m_deckLinkNotification(deckLinkNotification),
+              m_logPrefix(log_prefix), m_refCount(1)
+
+        {
+                m_deckLinkStatus->AddRef();
+        }
+
+        // Implement the IDeckLinkNotificationCallback interface
+        HRESULT STDMETHODCALLTYPE Notify(BMDNotifications topic,
+                                         uint64_t         param1,
+                                         uint64_t /* param2 */) override
+        {
+                // Check whether the notification we received is a status
+                // notification
+                if (topic != bmdStatusChanged) {
+                        return S_OK;
+                }
+
+                // Print the updated status value
+                auto statusId = (BMDDeckLinkStatusID) param1;
+                if (statusId == bmdDeckLinkStatusDeviceTemperature) {
+                        HandleTemperature();
+                        return S_OK;
+                }
+                print_status_item(m_deckLinkStatus, statusId,
+                                  m_logPrefix.c_str());
+
+                return S_OK;
+        }
+
+        // IUnknown needs only a dummy implementation
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID /* iid */,
+                                                 LPVOID * /* ppv */) override
+        {
+                return E_NOINTERFACE;
+        }
+
+        ULONG STDMETHODCALLTYPE AddRef() override { return ++m_refCount; }
+
+        ULONG STDMETHODCALLTYPE Release() override
+        {
+                ULONG newRefValue = --m_refCount;
+
+                if (newRefValue == 0) {
+                        delete this;
+                }
+
+                return newRefValue;
+        }
+
+        void HandleTemperature() {
+                int64_t         cur_temp = 0;
+                m_deckLinkStatus->GetInt(bmdDeckLinkStatusDeviceTemperature,
+                                         &cur_temp);
+                // check overheating
+                if (cur_temp >= m_tempThresholdErr) {
+                        log_msg(LOG_LEVEL_ERROR,
+                                "%sDevice is overheating! The temperature is "
+                                "%" PRId64 " °C.\n",
+                                m_logPrefix.c_str(), cur_temp);
+                        return;
+                }
+                if (cur_temp < m_tempThresholdWarn &&
+                    log_level < LOG_LEVEL_VERBOSE) {
+                        return;
+                }
+                const time_ns_t now = get_time_in_ns();
+                if (cur_temp >= m_tempThresholdWarn &&
+                    now - m_tempWarnLastShown > m_tempShowIntervalWarn) {
+                        log_msg(
+                            LOG_LEVEL_WARNING,
+                            "%sDevice temperature is %" PRId64 " °C (>= %d °C).\n",
+                            m_logPrefix.c_str(), cur_temp, m_tempThresholdWarn);
+                        m_tempWarnLastShown = now;
+                        return;
+                }
+
+                // normal behavior - print once a minute in verbose
+                if (now - m_tempLastShown < m_tempShowInterval) {
+                        return;
+                }
+                print_status_item(m_deckLinkStatus,
+                                  bmdDeckLinkStatusDeviceTemperature,
+                                  m_logPrefix.c_str());
+                m_tempLastShown = now;
+        }
+
+      private:
+        IDeckLinkStatus       *m_deckLinkStatus;
+        IDeckLinkNotification *m_deckLinkNotification;
+        string                 m_logPrefix;
+        std::atomic<ULONG>     m_refCount;
+
+        // temperature check
+        static constexpr time_ns_t m_tempShowInterval     = SEC_TO_NS(60);
+        static constexpr time_ns_t m_tempShowIntervalWarn = SEC_TO_NS(20);
+        static constexpr int       m_tempThresholdWarn    = 77;
+        static constexpr int       m_tempThresholdErr     = 82;
+        time_ns_t                  m_tempLastShown        = 0;
+        time_ns_t                  m_tempWarnLastShown    = 0;
+
+        virtual ~BMDNotificationCallback()
+        {
+                BMD_CHECK(
+                    m_deckLinkNotification->Unsubscribe(bmdStatusChanged, this),
+                    "BMD device notification unsubscribe", BMD_NOOP);
+                m_deckLinkStatus->Release();
+                m_deckLinkNotification->Release();
+        }
+
+      public:
+};
+
+/**
+ * @brief dump DeckLink status + register to notifications
+ *
+ * Currently only Ethernet status for DeckLink IP devices are printed.
+ * @param capture   if true, skip irrelevant values like output addresses (A/V)
+ *
+ * @note
+ * Subscribing for notification is needed because if user sets eg. an IP
+ * address, the change isn't performed immediately so that the old value is
+ * actually printed while the new value is set later and it can be observed by
+ * the notification observer.
+ *
+ * @returns a pointer representing the notification callback, must be passed to
+ * destroy with bmd_unsubscribe_notify()
+ */
+BMDNotificationCallback *
+bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
+                                  bool capture)
+{
+        IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+        HRESULT                     result = deckLink->QueryInterface(
+            IID_IDeckLinkProfileAttributes, (void **) &deckLinkAttributes);
+        if (SUCCEEDED(result)) {
+                BMD_STR string_val{};
+                if (SUCCEEDED(deckLinkAttributes->GetString(
+                        BMDDeckLinkEthernetMACAddress, &string_val))) {
+                        string mac_addr = get_str_from_bmd_api_str(string_val);
+                        release_bmd_api_str(string_val);
+                        log_msg(LOG_LEVEL_INFO, "%sEthernet MAC address: %s\n",
+                                log_prefix, mac_addr.c_str());
+                }
+                deckLinkAttributes->Release();
+        } else {
+                log_msg(LOG_LEVEL_ERROR,
+                        "%sCannot obtain IID_IDeckLinkProfileAttributes from "
+                        "DeckLink: %s\n",
+                        log_prefix, bmd_hresult_to_string(result).c_str());
+        }
+
+        IDeckLinkStatus *deckLinkStatus = nullptr;
+        BMD_CHECK(deckLink->QueryInterface(IID_IDeckLinkStatus,
+                                           (void **) &deckLinkStatus),
+                  "Cannot obtain IID_IDeckLinkStatus from DeckLink",
+                  return nullptr);
+        // print status_map values now
+        for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
+                if (capture && status_map[u].playback_only) {
+                        continue;
+                }
+                print_status_item(deckLinkStatus, status_map[u].prop,
+                                  log_prefix);
+        }
+
+        // Obtain the notification interface
+        IDeckLinkNotification *deckLinkNotification = nullptr;
+        BMD_CHECK(deckLink->QueryInterface(IID_IDeckLinkNotification,
+                                           (void **) &deckLinkNotification),
+                  "Could not obtain the IDeckLinkNotification interface",
+                  deckLinkStatus->Release();
+                  return nullptr);
+
+        auto *notificationCallback = new BMDNotificationCallback(
+            deckLinkStatus, deckLinkNotification, log_prefix);
+        assert(notificationCallback != nullptr);
+
+        BMD_CHECK(deckLinkNotification->Subscribe(bmdStatusChanged,
+                                                  notificationCallback),
+                  "Could not subscribe to the status "
+                  "change notification",
+                  notificationCallback->Release();
+                  return nullptr);
+
+        return notificationCallback;
+}
+
+/**
+ * @param notificationCallback the pointer returned by
+ * bmd_print_status_subscribe_notify(); may be nullptr
+ */
+void
+bmd_unsubscribe_notify(BMDNotificationCallback *notificationCallback)
+{
+        if (notificationCallback == nullptr) {
+                return;
+        }
+
+        notificationCallback->Release();
+}
+
+/// parse bmd_option from given arg in format FourCC[=val]
+bool
+bmd_parse_fourcc_arg(
+    map<BMDDeckLinkConfigurationID, bmd_option> &device_options,
+    const char                                  *arg)
+{
+        const char *val = nullptr;
+
+        char tmp[STR_LEN];
+        if (strchr(arg, '=') != nullptr) {
+                snprintf_ch(tmp, "%s", strchr(arg, '=') + 1);
+                replace_all(tmp, DELDEL, ":");
+                val = tmp;
+        }
+        return device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(arg)]
+            .parse(val);
+}
+
+/**
+ * validates bmd_option parameter combination, only issue warnings
+ *
+ * currently it just warns if IP address for DeckLink IP is given but no
+ * DHCP (disabled) because if not disabled, DHCP overrides the address
+ * (link-local IPv4 addr used if DHCP serv not present).
+ */
+void
+bmd_options_validate(
+    map<BMDDeckLinkConfigurationID, bmd_option> &device_options)
+{
+        if (device_options.find(
+                bmdDeckLinkConfigEthernetStaticLocalIPAddress) !=
+                device_options.end() &&
+            device_options.find(bmdDeckLinkConfigEthernetUseDHCP) ==
+                device_options.end()) {
+                MSG(WARNING,
+                    "IP address set but DHCP not disabled via command-line "
+                    "(but may be disabled in settings), consider adding ':DHCP=no'.\n");
+        }
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

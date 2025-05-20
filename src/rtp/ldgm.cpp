@@ -35,10 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define WANT_MKDIR
-#include "config_unix.h"
-#include "config_win32.h"
-
+#include <cassert>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -50,17 +47,22 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
+#define WANT_MKDIR
+#include "compat/misc.h"           // for mkdir
 #include "debug.h"
 #include "host.h"
 #include "ldgm.h"
 #include "lib_common.h"
 
-#include "ldgm/src/ldgm-session.h"
-#include "ldgm/src/ldgm-session-cpu.h"
-#include "ldgm/src/ldgm-session-gpu.h"
-#include "ldgm/matrix-gen/matrix-generator.h"
-#include "ldgm/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+#include "../ldgm/src/ldgm-session.h"
+#include "../ldgm/src/ldgm-session-cpu.h"
+#include "../ldgm/src/ldgm-session-gpu.h"
+#include "../ldgm/matrix-gen/matrix-generator.h"
+#include "../ldgm/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"

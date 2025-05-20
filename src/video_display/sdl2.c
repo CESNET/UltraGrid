@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,14 +49,11 @@
 #define SDL_DISABLE_MMINTRIN_H 1
 #define SDL_DISABLE_IMMINTRIN_H 1
 #endif // defined __arm64__
-#if __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
 #include <SDL.h>
-#endif
 
 #include <assert.h>             // for assert
 #include <ctype.h>              // for toupper
+#include <inttypes.h>           // for PRIu8
 #include <math.h>               // for sqrt
 #include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
 #include <stdbool.h>            // for true, bool, false
@@ -66,7 +63,7 @@
 #include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
 #include <time.h>               // for timespec_get, TIME_UTC, timespec
 
-#include "compat/htonl.h"       // for htonl
+#include "compat/net.h"         // for htonl
 #include "debug.h"              // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
 #include "host.h"               // for get_commandline_param, exit_uv, ADD_T...
 #include "keyboard_control.h"   // for keycontrol_register_key, keycontrol_s...
@@ -78,6 +75,7 @@
 #include "utils/color_out.h"    // for color_printf, TBOLD, TRED
 #include "utils/list.h"         // for simple_linked_list_append, simple_lin...
 #include "utils/macros.h"       // for STR_LEN
+#include "video.h"              // for get_video_desc_from_string
 #include "video_codec.h"        // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"      // for display_property, get_splashscreen
 #include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
@@ -153,7 +151,15 @@ static const struct {
         {'q', "quit"},
 };
 
-#define SDL_CHECK(cmd) do { int ret = cmd; if (ret < 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
+#define SDL_CHECK(cmd, ...) \
+        do { \
+                int ret = cmd; \
+                if (ret < 0) { \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
+                                #cmd, SDL_GetError()); \
+                        __VA_ARGS__; \
+                } \
+        } while (0)
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -368,7 +374,8 @@ show_help(const char *driver)
                                       "position\n"
                                       "                   "
                                       "(syntax: " TBOLD(
-                                          "[<W>x<H>][{+-}<X>[{+-}<Y>]]") ")\n");
+                                          "[<W>x<H>][{+-}<X>[{+-}<Y>]]")
+                                      " or mode name)\n");
         color_printf(TBOLD("\t  <renderer>") " - renderer, one of:");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
@@ -479,13 +486,37 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 }
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
-                SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch));
-                f->tiles[0].data_len = desc.height * s->texture_pitch;
+                SDL_CHECK(SDL_LockTexture(texture, NULL,
+                                          (void **) &f->tiles[0].data,
+                                          &s->texture_pitch),
+                          vf_free(f);
+                          return false);
+                if (!codec_is_planar(desc.color_spec)) {
+                        f->tiles[0].data_len = desc.height * s->texture_pitch;
+                }
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
 
         return true;
+}
+
+static void
+print_renderer_info(SDL_Renderer *renderer)
+{
+        SDL_RendererInfo renderer_info;
+        if (SDL_GetRendererInfo(renderer, &renderer_info) != 0) {
+                MSG(WARNING, "Cannot get renderer info.\n");
+                return;
+        }
+        MSG(NOTICE, "Using renderer: %s\n", renderer_info.name);
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
+        MSG(DEBUG, "Supported texture types:\n");
+        for (unsigned int i = 0; i < renderer_info.num_texture_formats; i++)
+                MSG(DEBUG, " - %s\n",
+                    SDL_GetPixelFormatName(renderer_info.texture_formats[i]));
 }
 
 static bool
@@ -530,10 +561,7 @@ display_sdl2_reconfigure_real(void *state, struct video_desc desc)
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
                 return false;
         }
-        SDL_RendererInfo renderer_info;
-        if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
-                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n", renderer_info.name);
-        }
+        print_renderer_info(s->renderer);
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
@@ -551,6 +579,7 @@ static void loadSplashscreen(struct state_sdl2 *s) {
         struct video_frame *frame = get_splashscreen();
         if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
                 MSG(WARNING, "Cannot render splashscreeen!\n");
+                vf_free(frame);
                 return;
         }
         struct video_frame *splash = display_sdl2_getf(s);
@@ -569,6 +598,13 @@ static bool set_size(struct state_sdl2 *s, const char *tok)
         }
         tok = strchr(tok, '=') + 1;
         if (strpbrk(tok, "x+-") == NULL) {
+                struct video_desc desc = get_video_desc_from_string(tok);
+                if (desc.width != 0) {
+                        s->fixed_size = true;
+                        s->fixed_w = desc.width;
+                        s->fixed_h = desc.height;
+                        return true;
+                }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
                 return false;
         }
@@ -668,7 +704,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 } else if (IS_PREFIX(tok, "keep-aspect")) {
                         s->keep_aspect = true;
                 } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
-                           IS_KEY_PREFIX(tok, "siz=")) {
+                           IS_KEY_PREFIX(tok, "size")) {
                         if (!set_size(s, tok)) {
                                 free(s);
                                 return NULL;
@@ -722,6 +758,9 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 driver = "KMSDRM";
         }
 #endif // defined __linux__
+        SDL_SetYUVConversionMode(get_commandline_param("color-601") != NULL
+                                     ? SDL_YUV_CONVERSION_BT601
+                                     : SDL_YUV_CONVERSION_BT709);
 
         if (SDL_VideoInit(driver) < 0) {
                 MSG(ERROR, "Unable to initialize SDL2 video: %s\n",
@@ -958,4 +997,5 @@ static const struct video_display_info display_sdl2_info = {
 };
 
 REGISTER_MODULE(sdl, &display_sdl2_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
+REGISTER_HIDDEN_MODULE(sdl2, &display_sdl2_info, LIBRARY_CLASS_VIDEO_DISPLAY,
+                       VIDEO_DISPLAY_ABI_VERSION);

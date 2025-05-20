@@ -45,6 +45,10 @@
 #ifndef HWACCEL_VDPAU_H
 #define HWACCEL_VDPAU_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"         // for HWACC_VDPAU
+#endif
+
 #ifdef HWACC_VDPAU
 
 #include "hwaccel_libav_common.h"

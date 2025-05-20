@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2023 CESNET z.s.p.o.
+ * Copyright (c) 2016-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,30 +35,48 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include <algorithm>               // for max, min
+#include <cassert>                 // for assert
+#include <chrono>
+#include <cmath>                   // for fabs, log
+#include <cstdint>                 // for int16_t, int32_t
+#include <cstdio>                  // for printf
+#include <cstdlib>                 // for free, abort
+#include <cstring>                 // for NULL, strlen, strncmp, memcpy, memset
+#include <iostream>
+#include <limits>                  // for numeric_limits
+#include <map>
+#include <memory>                  // for unique_ptr, shared_ptr
+#include <mutex>
+#include <string>                  // for basic_string, operator==, string
+#include <thread>
+#include <utility>                 // for move, pair
+#include <vector>
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>            // for sockaddr_in, sockaddr_in6
+#include <sys/socket.h>            // for sockaddr_storage, AF_UNSPEC, AF_INET
 #endif
 
-#include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/types.h"
+#include "compat/net.h"            // for sockaddr_in, sockaddr_in6, in6_addr...
 #include "debug.h"
+#include "host.h"                  // for get_commandline_param, uv_argv
 #include "lib_common.h"
+#include "messaging.h"
 #include "module.h"
 #include "rtp/rtp.h"
 #include "transmit.h"
+#include "types.h"                 // for tx_media_type
 #include "utils/audio_buffer.h"
+#include "utils/macros.h"
+#include "utils/net.h"             // for get_sockaddr_addr_str
 #include "utils/thread.h"
-#include <chrono>
-#include <iostream>
-#include <map>
-#include <mutex>
-#include <thread>
-#include <vector>
+
+#define MOD_NAME "[audio mixer] "
 
 #define SAMPLE_RATE 48000
 #define BPS     2 /// @todo 4?
@@ -79,35 +97,8 @@ using namespace std::chrono;
 class sockaddr_storage_less {
 public:
         bool operator() (const sockaddr_storage & x, const sockaddr_storage & y) const {
-                if (x.ss_family != y.ss_family) {
-                        return x.ss_family < y.ss_family;
-                }
-
-                if (x.ss_family == AF_INET) {
-                        const auto &sin_x =
-                            reinterpret_cast<const sockaddr_in &>(x);
-                        const auto &sin_y =
-                            reinterpret_cast<const sockaddr_in &>(y);
-
-                        if (sin_x.sin_addr.s_addr != sin_y.sin_addr.s_addr) {
-                                return sin_x.sin_addr.s_addr < sin_y.sin_addr.s_addr;
-                        }
-                        return sin_x.sin_port < sin_y.sin_port;
-                } else if (x.ss_family == AF_INET6) {
-                        const auto &sin_x =
-                            reinterpret_cast<const sockaddr_in6 &>(x);
-                        const auto &sin_y =
-                            reinterpret_cast<const sockaddr_in6 &>(y);
-
-                        for (int i = 0; i < 16; ++i) {
-                                if (sin_x.sin6_addr.s6_addr[i] != sin_y.sin6_addr.s6_addr[i]) {
-                                        return sin_x.sin6_addr.s6_addr[i] < sin_y.sin6_addr.s6_addr[i];
-                                }
-                        }
-
-                        return sin_x.sin6_port < sin_y.sin6_port;
-                }
-                abort();
+                return sockaddr_compare((const sockaddr *) &x,
+                                        (const sockaddr *) &y) < 0;
         }
 };
 
@@ -115,7 +106,9 @@ static void mixer_dummy_rtp_callback(struct rtp *session [[gnu::unused]], rtp_ev
 }
 
 struct am_participant {
-        am_participant(struct socket_udp_local *l, struct sockaddr_storage *ss, string const & audio_codec) {
+        am_participant(struct socket_udp_local *l, struct sockaddr_storage *ss,
+                       string const &audio_codec)
+        {
                 assert(l != nullptr && ss != nullptr);
                 m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5);
                 assert(m_buffer != NULL);
@@ -225,32 +218,52 @@ public:
 };
 
 struct state_audio_mixer final {
-        state_audio_mixer(const char *cfg) {
-                if (cfg) {
-                        shared_ptr<char> tmp(strdup(cfg), free);
-                        char *item, *save_ptr;
-                        char *copy = tmp.get();
+private:
+        void parse_opts(const struct audio_playback_opts *opts) noexcept(false)
+        {
+                char copy[STR_LEN];
+                snprintf_ch(copy, "%s", opts->cfg);
+                char *tmp      = copy;
+                char *item     = nullptr;
+                char *save_ptr = nullptr;
 
-                        while ((item = strtok_r(copy, ":", &save_ptr))) {
-                                if (strncmp(item, "codec=", strlen("codec=")) == 0) {
-                                        audio_codec = item + strlen("codec=");
-                                } else if (strncmp(item, "algo=", strlen("algo=")) == 0) {
-                                        string algo = item + strlen("algo=");
-                                        if (algo == "linear") {
-                                                mixing_algorithm = decltype(mixing_algorithm)(new linear_mix_algo<sample_type_source, sample_type_mixed>());
-                                        } else if (algo == "logarithmic") {
-                                                mixing_algorithm = decltype(mixing_algorithm)(new logarithmic_mix_algo<sample_type_source, sample_type_mixed>());
-                                        } else {
-                                                LOG(LOG_LEVEL_ERROR) << "Unknown mixing algorithm: " << algo << "\n";
-                                                throw 1;
-                                        }
+                while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
+                        if (strncmp(item, "codec=", strlen("codec=")) == 0) {
+                                audio_codec = item + strlen("codec=");
+                        } else if (strncmp(item, "algo=", strlen("algo=")) ==
+                                   0) {
+                                string algo = item + strlen("algo=");
+                                if (algo == "linear") {
+                                        mixing_algorithm =
+                                            decltype(mixing_algorithm)(
+                                                new linear_mix_algo<
+                                                    sample_type_source,
+                                                    sample_type_mixed>());
+                                } else if (algo == "logarithmic") {
+                                        mixing_algorithm =
+                                            decltype(mixing_algorithm)(
+                                                new logarithmic_mix_algo<
+                                                    sample_type_source,
+                                                    sample_type_mixed>());
                                 } else {
-                                        LOG(LOG_LEVEL_ERROR) << "Unknown option: " << item << "\n";
+                                        LOG(LOG_LEVEL_ERROR)
+                                            << "Unknown mixing algorithm: "
+                                            << algo << "\n";
                                         throw 1;
                                 }
-                                copy = nullptr;
+                        } else {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << "Unknown option: " << item << "\n";
+                                throw 1;
                         }
+                        tmp = nullptr;
                 }
+        }
+public:
+        state_audio_mixer(const struct audio_playback_opts *opts) {
+                parse_opts(opts);
+
+                only_sender.ss_family = AF_UNSPEC;
 
                 struct audio_codec_state *audio_coder =
                         audio_codec_init_cfg(audio_codec.c_str(), AUDIO_CODER);
@@ -261,25 +274,90 @@ struct state_audio_mixer final {
                         audio_codec_done(audio_coder);
                 }
 
+                module_init_default(&mod);
+                mod.cls = MODULE_CLASS_DATA;
+                module_register(&mod, opts->parent);
+
                 thread_id = thread(&state_audio_mixer::worker, this);
         }
         ~state_audio_mixer() {
                 thread_id.join();
+                module_done(&mod);
         }
         bool should_exit = false;
         state_audio_mixer(state_audio_mixer const&)            = delete;
         state_audio_mixer& operator=(state_audio_mixer const&) = delete;
         void worker();
+        void check_messages();
 
         map<sockaddr_storage, am_participant, sockaddr_storage_less> participants;
         mutex participants_lock;
 
         struct socket_udp_local *recv_socket{};
         string audio_codec{"PCM"};
+        sockaddr_storage
+            only_sender{}; ///< if !AF_UNSPEC, use stream just from this sender
 private:
+        struct module mod;
         thread thread_id;
         unique_ptr<generic_mix_algo<sample_type_source, sample_type_mixed>> mixing_algorithm{new linear_mix_algo<sample_type_source, sample_type_mixed>()};
 };
+
+void
+state_audio_mixer::check_messages()
+{
+        struct message *msg = nullptr;
+        while ((msg = check_message(&mod))) {
+                auto *msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                MSG(VERBOSE, "Received message: %s\n", msg_univ->text);
+                if (strcmp(msg_univ->text, "help") == 0) {
+                        printf("Syntax:\n"
+                               "\trestrict <addr>\n"
+                               "\trestrict flush\n"
+                               "eg.:\n"
+                               "\trestrict [::ffff:10.0.1.20]:65426\n");
+                        free_message(msg, new_response(RESPONSE_OK, nullptr));
+                        continue;
+                }
+                if (strstr(msg_univ->text, "restrict ") != msg_univ->text) {
+                        MSG(ERROR,
+                            "Unknown message: %s!\nSend message \"help\" for "
+                            "syntax.\n",
+                            msg_univ->text);
+                        char resp_msg[sizeof msg_univ->text + 20];
+                        snprintf_ch(resp_msg, "unknown request: %s",
+                                    msg_univ->text);
+                        free_message(
+                            msg, new_response(RESPONSE_BAD_REQUEST, resp_msg));
+                        continue;
+                }
+                const char *val = msg_univ->text + strlen("restrict ");
+                if (strcmp(val, "flush") == 0) {
+                        MSG(INFO, "flushing the address restriction (defaulting to mix all)\n");
+                        only_sender.ss_family = AF_UNSPEC;
+                } else {
+                        struct sockaddr_storage ss = get_sockaddr(val, 0);
+                        if (ss.ss_family != AF_UNSPEC) {
+                                MSG(INFO, "restricting mixer to: %s\n", val);
+                                only_sender = ss;
+                                if (participants.find(only_sender) ==
+                                    participants.end()) {
+                                        MSG(WARNING,
+                                            "The requested participant %s is "
+                                            "not yet present...\n", val);
+                                }
+                        } else {
+                                MSG(ERROR, "Wrong addr spec: %s\n", val);
+                                free_message(msg,
+                                             new_response(RESPONSE_BAD_REQUEST,
+                                                          nullptr));
+                                continue;
+                        }
+                }
+
+                free_message(msg, new_response(RESPONSE_OK, nullptr));
+        }
+}
 
 void state_audio_mixer::worker()
 {
@@ -301,10 +379,17 @@ void state_audio_mixer::worker()
                 }
 
                 unique_lock<mutex> plk(participants_lock);
+                check_messages();
                 // check timeouts
                 for (auto it = participants.cbegin(); it != participants.cend(); )
                 {
                         if (duration_cast<seconds>(now - it->second.last_seen).count() > PARTICIPANT_TIMEOUT_S) {
+                                char buf[ADDR_STR_BUF_LEN];
+                                MSG(NOTICE, "removed participant: %s\n",
+                                    get_sockaddr_str(
+                                        (const struct sockaddr *) &it->first,
+                                        sizeof it->first, buf, sizeof buf));
+
                                 it = participants.erase(it);
                         } else {
                                 ++it;
@@ -375,14 +460,14 @@ static void audio_play_mixer_help()
                "\n"
                "Notes:\n"
                "1)\tYou do not need to specify audio participants explicitly,\n"
-               "\t" PACKAGE_NAME " simply sends the the stream back to the host\n"
+               "\tthe mixer simply sends the the stream back to the host\n"
                "\tthat is sending to mixer. Therefore it is necessary that the\n"
-               "\tparticipant uses single " PACKAGE_NAME " for both sending and\n"
+               "\tparticipant uses single UltraGrid for both sending and\n"
                "\treceiving audio.\n"
                "2)\tUses default port for receiving, therefore if you want to use it\n"
                "\ton machine that is a part of the conference, you should use something like:\n"
                "\t\t%s -s <your_capture> -P 5004:5004:5010:5006\n"
-               "\tfor the " PACKAGE_NAME " instance that is part of the conference (not mixer!)\n",
+               "\tfor the UltraGrid instance that is part of the conference (not mixer!)\n",
                uv_argv[0], uv_argv[0]);
 }
 
@@ -393,14 +478,15 @@ static void audio_play_mixer_probe(struct device_info **available_devices, int *
         *count = 0;
 }
 
-static void * audio_play_mixer_init(const char *cfg)
+static void *
+audio_play_mixer_init(const struct audio_playback_opts *opts)
 {
-        if (strcmp(cfg, "help") == 0) {
+        if (strcmp(opts->cfg, "help") == 0) {
                 audio_play_mixer_help();
                 return INIT_NOERR;
         }
         try {
-                return new state_audio_mixer{cfg};
+                return new state_audio_mixer(opts);
         } catch (...) {
                 return nullptr;
         }
@@ -415,11 +501,24 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
         auto ss = *(struct sockaddr_storage *) frame->network_source;
 
         if (s->participants.find(ss) == s->participants.end()) {
+                char buf[ADDR_STR_BUF_LEN];
+                MSG(NOTICE, "added participant: %s\n",
+                    get_sockaddr_str((struct sockaddr *) &ss,
+                                     sizeof(struct sockaddr_storage), buf,
+                                     sizeof buf));
                 s->participants.emplace(ss, am_participant{s->recv_socket, &ss, s->audio_codec});
         }
 
-        audio_buffer_write(s->participants.at(ss).m_buffer, frame->data, frame->data_len);
         s->participants.at(ss).last_seen = chrono::steady_clock::now();
+
+        // if mixer restricted to a single sender and this isn't me
+        if (s->only_sender.ss_family != AF_UNSPEC &&
+            sockaddr_compare((const sockaddr *) &ss,
+                             (const sockaddr *) &s->only_sender) != 0) {
+                return;
+        }
+
+        audio_buffer_write(s->participants.at(ss).m_buffer, frame->data, frame->data_len);
 }
 
 static void audio_play_mixer_done(void *state)

@@ -47,34 +47,32 @@
 
 #include "utils/macros.h" // CLAMP
 
-/* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
+/**
+ * @file
+ * @brief Color space coedfficients and limits
  *
- * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
+ * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], YCbCr
+ * limited, see [limits].
  *
- * Scaled by 1<<COMP_BASE, footroom 16/255, headroom 235/255 (luma), 240/255 (chroma); limits [2^(depth-8)..255*2^(depth-8)-1]
+ * The coefficients are scaled by 1<<COMP_BASE.
+ *
+ * limited footroom is (1<<(limited_depth - 4)), headroom 235*(limited_depth-8)
+ * /luma/, 240*(limited_depth-8)/255 /chroma/; full-range limits
+ * [2^(depth-8)..255*2^(depth-8)-1] (excludes vals with 0x00 and 0xFF MSB).
+ *
  * matrix Y = [ 0.182586, 0.614231, 0.062007; -0.100643, -0.338572, 0.4392157; 0.4392157, -0.398942, -0.040274 ]
  * * [coefficients]: https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a "Rec. 709 coefficients"
  * * [limits]:       https://tech.ebu.ch/docs/r/r103.pdf                             "SDI limits"
  *
- * @ingroup lavc_video_conversions
- *
  * @todo
  * Use this transformations in all conversions.
- * @{
  */
 typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 
-#define KG(kr,kb)  (1.-kr-kb)
-#ifdef YCBCR_FULL
-#define Y_LIMIT    1.0
-#define CBCR_LIMIT 1.0
-#else
-#define Y_LIMIT    (219.0/255.0)
-#define CBCR_LIMIT (224.0/255.0)
-#endif // !defined YCBCR_FULL
-
+#define KR_601 .299
+#define KB_601 .114
 #define KR_709 .212639
 #define KB_709 .072192
 #define KR_2020 .262700
@@ -82,48 +80,33 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define KR_P3 .228975
 #define KB_P3 .079287
 
-#define KG_709 KG(KR_709,KB_709)
-#define D (2.*(KR_709+KG_709))
-#define E (2.*(1.-KR_709))
-#define Y_R ((comp_type_t) ((KR_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define Y_G ((comp_type_t) ((KG_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define Y_B ((comp_type_t) ((KB_709*Y_LIMIT) * (1<<COMP_BASE)))
-#define CB_R ((comp_type_t) ((-KR_709/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CB_G ((comp_type_t) ((-KG_709/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CB_B ((comp_type_t) (((1-KB_709)/D*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_R ((comp_type_t) (((1-KR_709)/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_G ((comp_type_t) ((-KG_709/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define CR_B ((comp_type_t) ((-KB_709/E*CBCR_LIMIT) * (1<<COMP_BASE)))
-#define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
-#define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
-#define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
+#ifdef YCBCR_FULL
+#define LIMIT_LO(depth) 0
+#define LIMIT_HI_Y(depth) ((1<<(depth))-1)
+#define LIMIT_HI_CBCR(depth) ((1<<(depth))-1)
+#else
 #define LIMIT_LO(depth) (1<<((depth)-4))
 #define LIMIT_HI_Y(depth) (235 * (1<<((depth)-8)))
 #define LIMIT_HI_CBCR(depth) (240 * (1<<((depth)-8)))
-#ifdef YCBCR_FULL
+#endif
+// TODO: remove
 #define CLAMP_LIMITED_Y(val, depth) (val)
 #define CLAMP_LIMITED_CBCR(val, depth) (val)
-#else
-#define CLAMP_LIMITED_Y(val, depth) CLAMP((val), LIMIT_LO(depth), LIMIT_HI_Y(depth))
-#define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), LIMIT_HI_CBCR(depth))
-#endif
 
-#define R_CB(kr,kb) 0.0
-#define R_CR(kr,kb) ((2.*(1.-kr))/CBCR_LIMIT)
-#define G_CB(kr,kb) ((-kb*(2.*(kr+KG(kr,kb)))/KG(kr,kb))/CBCR_LIMIT)
-#define G_CR(kr,kb) ((-kr*(2.*(1.-kr))/KG(kr,kb))/CBCR_LIMIT)
-#define B_CB(kr,kb) ((2.*(kr+KG(kr,kb)))/CBCR_LIMIT)
-#define B_CR(kr,kb) 0.0
-#define SCALED(x) ((comp_type_t) ((x) * (1<<COMP_BASE)))
-#define Y_LIMIT_INV (1./Y_LIMIT)
-#define Y_SCALE SCALED(Y_LIMIT_INV) // precomputed value, Y multiplier is same for all channels
-#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * SCALED(r_cb(KR_709,KB_709)) */ + (cr) * SCALED(R_CR(KR_709,KB_709)))
-#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * SCALED(G_CB(KR_709,KB_709))    + (cr) * SCALED(G_CR(KR_709,KB_709)))
-#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * SCALED(B_CB(KR_709,KB_709)) /* + (cr) * SCALED(b_cr(KR_709,KB_709))) */)
-
-#define FULL_FOOT(depth) (1<<((depth)-8))
+#define FULL_FOOT(depth) (1 << ((depth) - 8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
+
+#define RGB_TO_Y(t, r, g, b) ((r) * (t).y_r + (g) * (t).y_g + (b) * (t).y_b)
+#define RGB_TO_CB(t, r, g, b) \
+        ((r) * (t).cb_r + (g) * (t).cb_g + (b) * (t).cb_b)
+#define RGB_TO_CR(t, r, g, b) \
+        ((r) * (t).cr_r + (g) * (t).cr_g + (b) * (t).cr_b)
+/// @param y_scaled Y scaled (multiplied) by Y_SCALE()
+#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + (cr) * (t).r_cr)
+#define YCBCR_TO_G(t, y_scaled, cb, cr) \
+        ((y_scaled) + (cb) * (t).g_cb + (cr) * (t).g_cr)
+#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + (cb) * (t).b_cb)
 
 /**
  * @param alpha_mask alpha mask already positioned at target bit offset
@@ -132,12 +115,46 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
         ((alpha_mask) | (CLAMP_FULL((r), (depth)) << (rshift) | \
                          CLAMP_FULL((g), (depth)) << (gshift) | \
                          CLAMP_FULL((b), (depth)) << (bshift)))
-/// @}
 
 #define MK_MONOCHROME(val) \
         FORMAT_RGBA((val), (val), (val), 0, 8, 16, 0xFF000000, 8)
 #define RGBA_BLACK MK_MONOCHROME(0x00)
 #define RGBA_GRAY  MK_MONOCHROME(0x80)
 #define RGBA_WHITE MK_MONOCHROME(0xFF)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+enum colorspace {
+        CS_DFL = 0,
+        CS_601 = 1,
+        CS_709 = 2,
+};
+
+struct color_coeffs {
+        // shorts are used the compiler can use 2-byte words in the vecotred
+        // instruction, which is faster (and the values fit)
+        short y_r,  y_g,  y_b;
+        short cb_r, cb_g, cb_b;
+        short cr_r, cr_g, cr_b;
+
+        // the shorts below doesn't seem to be necessary - it seems like the
+        // compiler doesn't vectorise those conversions (in contrary to the
+        // above coeffs)
+        short y_scale;
+        short r_cr, g_cb, g_cr;
+        int   b_cb; // is 34712 for 709  so doesn't fit to 16-bit short
+};
+const struct color_coeffs *get_color_coeffs(enum colorspace cs,
+                                            int             ycbcr_bit_depth);
+struct color_coeffs        compute_color_coeffs(double kr, double kb,
+                                                int ycbcr_bit_depth);
+enum colorspace            get_default_cs(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 
 #endif // !defined COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25

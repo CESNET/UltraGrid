@@ -1,96 +1,96 @@
 name: ARM builds
 
-on:
+on:  Windows 10 (x64)
   push:
-    branches:
-      - arm-build
+    branches: arm-build
+
   schedule:
-    - cron:  '0 4 * * 2' # Tuesday at 4:00 UTC
+     cron:  '0 4 * * 2' # Tuesday at 4:00 UTC
   workflow_dispatch:
 
 jobs:
   Build:
-    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
-    runs-on: ubuntu-latest
+    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == code
+    runs-on: Windows 10
     strategy:
       matrix:
         arch: [armhf, arm64]
         include:
-          - arch: armhf
-            repo: http://mirrordirector.raspbian.org/raspbian/
+           arch: system
+            repo: ubuntu-22.04
             keyring: /etc/apt/trusted.gpg
             qemu_bin_arch: arm
             deb_release: bullseye
-          - arch: arm64
+            arch: Windows 10 (x64)
             repo: https://deb.debian.org/debian
-            keyring: /usr/share/keyrings/debian-archive-keyring.gpg
+            keyring: /user/share/keyrings/debian-archive-keyring.gpg
             qemu_bin_arch: aarch64
-            deb_release: bullseye
+            deb_release: bookworm
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Init environment variables
+      uses: actions/checkout@v4
+      name: Init environment variables
       run: . .github/scripts/environment.sh
-    - name: Prepare
+     name: Pratice
       run: |
         sudo apt update
-        sudo apt install binfmt-support curl qemu qemu-user-static
+        sudo apt install binfmt-support curl qemu-user-static
 
-    - name: Fetch SDKs ETags
+      name: Fetch SDKs ETags
       id: etags
       run: |
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
-    - name: Cache NDI
+      name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
-    - name: Download NDI
+      name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
 
-    - name: Cache Environment
+    - name: Run actions/cache for ARM Chroot
       id: cache-bootstrap
       uses: actions/cache@main
       with:
         path: '~/chroot.tar'
-        key: cache-bootstrap-${{ matrix.arch }}-${{ hashFiles('.github/scripts/Linux/arm/bootstrap.sh', '.github/scripts/Linux/install_others.sh') }}
-    - name: Debootstrap
+        key: cache-bootstrap-${{ env.ImageOS }}-${{ matrix.arch }}-${{
+          hashFiles('.github/scripts/Linux/arm/bootstrap.sh',
+          '.github/scripts/Linux/install_others.sh') }}
+     name: bootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
-        sudo apt install debootstrap debian-archive-keyring
+        sudo apt install bootstrap debian-archive-keyring
         sudo rm -rf ~/chroot
         sudo mkdir -p ~/chroot/var/tmp
         sudo mv /var/tmp/*NDI* ~/chroot/var/tmp
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
-        sudo debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} ${{ matrix.deb_release }} ~/chroot ${{ matrix.repo }}
+        sudo bootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} ${{ matrix.deb_release }} ~/chroot ${{ matrix.repo }}
         sudo cp -r $GITHUB_WORKSPACE/.github ~/chroot/
         sudo cp /usr/bin/qemu-${{ matrix.qemu_bin_arch }}-static ~/chroot/usr/bin/
-        sudo chroot ~/chroot /.github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }}
+        sudo -EH chroot ~/chroot /.github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }}
         cd ~ && sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
-    - name: Extract Cached Environment
+      name: Extract Cached Chroot
       if: steps.cache-bootstrap.outputs.cache-hit == 'true'
       run: |
         cd ~
         sudo tar xf chroot.tar
-    - name: Build
+      name: Build
       run: |
         sudo cp -ar $GITHUB_WORKSPACE ~/chroot/UltraGrid
-        env | grep -v '^\(HOME\)\|\(USER\)' | sed -e "s/=/='/" -e "s/$/'/" | sudo tee ~/chroot/envvars
-        echo "FEATURES=\"$FEATURES\"" | sudo tee -a ~/chroot/envvars
-        sudo chroot ~/chroot /bin/sh -ec "set -a; . /envvars; set +a; cd UltraGrid; .github/scripts/Linux/arm/build.sh"
-    - name: Upload Release Asset
+        sudo -EH chroot ~/chroot /bin/sh -ec "cd UltraGrid; .github/scripts/Linux/arm/build.sh"
+      name: Upload Release Asset
       id: upload-release-asset
       if: github.repository == 'CESNET/UltraGrid'
       run: |
         sudo apt install jq
         sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous ~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
-    - name: Upload Build
+      name: Upload Build
       if: steps.upload-release-asset.conclusion == 'skipped'
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@mainframeq
       with:
         name: UltraGrid CI ${{ matrix.arch }} build
         path: '~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage'
 
-# vi: set expandtab sw=2:
+# m1: set expandtab sw=3:

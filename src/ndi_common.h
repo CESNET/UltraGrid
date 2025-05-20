@@ -49,7 +49,10 @@
 #include "compat/dlfunc.h"
 #include "debug.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // MAX, MERGE, TOSTRING
+#include "utils/fs.h"       // for MAX_PATH_SIZE, PATH_SEPARATOR
+#include "utils/macros.h"   // for MAX, MERGE, TOSTRING, snprintf_ch
+
+#define MOD_NAME "[NDI] "
 
 #ifndef USE_NDI_VERSION
 #define USE_NDI_VERSION 6
@@ -62,12 +65,18 @@
 #endif
 
 #ifdef __linux__
-#define FALLBACK_NDI_PATH "/usr/lib"
+#define FALLBACK_NDI_PATHS "/usr/local/lib", "/usr/lib"
 #elif defined __APPLE__
 // redist NDI for Apple uses /usr/local/lib, which is tried prior to this path
-#define FALLBACK_NDI_PATH "/Library/NDI SDK for Apple/Lib/macOS"
+#define FALLBACK_NDI_PATHS \
+        "/usr/local/lib", "/Library/NDI SDK for Apple/Lib/macOS", \
+            "/Applications/NDI Launcher.app/Contents/Frameworks/"
 #else
-#define FALLBACK_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
+#define FALLBACK_NDI_PATHS \
+        "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) \
+            " Runtime\\v" TOSTRING(USE_NDI_VERSION), \
+        "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) \
+            " Tools\\Runtime",
 #endif
 #define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(NDI_API_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
@@ -75,82 +84,47 @@ typedef MAKE_NDI_LIB_NAME(NDI_API_VERSION) NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
 
 static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
-#ifdef _WIN32
-        // We check whether the NDI run-time is installed
-        const char* p_ndi_runtime = getenv(NDILIB_REDIST_FOLDER);
-        if (!p_ndi_runtime) {
-                p_ndi_runtime = FALLBACK_NDI_PATH;
+        char ndi_path[MAX_PATH_SIZE];
+        const char *lib_cand[] = { getenv(NDILIB_REDIST_FOLDER)
+                                       ? getenv(NDILIB_REDIST_FOLDER)
+                                       : "",
+                                   FALLBACK_NDI_PATHS };
+        if (strlen(lib_cand[0]) == 0) {
                 log_msg(LOG_LEVEL_WARNING,
                         "[NDI] " NDILIB_REDIST_FOLDER " environment variable not defined. "
-                        "Trying fallback folder: %s\n",
-                        FALLBACK_NDI_PATH);
+                        "Trying fallback folders\n");
+        } else {
+                debug_msg("NDILIB_REDIST_FOLDER env set to %s\n",
+                          lib_cand[0]);
         }
-
-        // We now load the DLL as it is installed
-        const size_t path_len = strlen(p_ndi_runtime) + 2 + strlen(NDILIB_LIBRARY_NAME) + 1;
-        char *ndi_path = (char *)alloca(path_len);
-        strncpy(ndi_path, p_ndi_runtime, path_len - 1);
-        strncat(ndi_path, "\\", path_len - strlen(ndi_path) - 1);
-        strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
-
-        // Try to load the library
-        HMODULE hNDILib = LoadLibraryA(ndi_path);
-
-        // The main NDI entry point for dynamic loading if we got the library
-        const NDIlib_t* (*NDIlib_load)(void) = NULL;
-        if (hNDILib) {
-                *((FARPROC*)&NDIlib_load) = GetProcAddress(hNDILib, NDILIB_NDI_LOAD);
-        }
-
-        // If we failed to load the library then we tell people to re-install it
-        if (!NDIlib_load) {       // Unload the DLL if we loaded it
-                // The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
-                log_msg(LOG_LEVEL_ERROR, "[NDI] Failed to load " NDILIB_NDI_LOAD " from NDI: %s.\n"
-                                "Please install the NewTek NDI Runtimes to use this module from " NDILIB_REDIST_URL ".\n", dlerror());
-                if (hNDILib) {
-                        FreeLibrary(hNDILib);
-                }
-
-                return 0;
-        }
-#else
-        const char *lib_cand[3] = {getenv(NDILIB_REDIST_FOLDER) ? getenv(NDILIB_REDIST_FOLDER) : "",
-                                   "/usr/local/lib", FALLBACK_NDI_PATH};
-        void *hNDILib = NULL;
-        const char *last_err = "(none)";
+        LIB_HANDLE hNDILib = NULL;
         for (unsigned int i = 0; i < sizeof lib_cand / sizeof lib_cand[0]; i++) {
                 if (i > 0) {
                         log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n",
                                 lib_cand[i]);
                 }
-                size_t path_len = strlen(lib_cand[i]) + 1 + strlen(NDILIB_LIBRARY_NAME) + 1;
-                char *ndi_path = (char *)alloca(path_len);
-                strncpy(ndi_path, lib_cand[i], path_len - 1);
-                if (strlen(ndi_path) > 0) {
-                        strncat(ndi_path, "/", path_len - strlen(ndi_path) - 1);
-                }
-                strncat(ndi_path, NDILIB_LIBRARY_NAME, path_len - strlen(ndi_path) - 1);
+                snprintf_ch(ndi_path, "%s%s%s", lib_cand[i],
+                            strlen(lib_cand[i]) > 0 ? PATH_SEPARATOR : "",
+                            NDILIB_LIBRARY_NAME);
                 // Try to load the library
                 hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
                 if (hNDILib) {
                         break;
                 }
-                last_err = dlerror();
-                log_msg(LOG_LEVEL_WARNING,
-                        "[NDI] Failed to open the library: %s\n", last_err);
+                MSG(WARNING, "Failed to open the library %s: %s\n", ndi_path,
+                    dlerror());
         }
 
         // The main NDI entry point for dynamic loading if we got the library
         const NDIlib_t* (*NDIlib_load)(void) = NULL;
         if (hNDILib) {
-                *((void**)&NDIlib_load) = dlsym(hNDILib, NDILIB_NDI_LOAD);
+                *((FARPROC *) &NDIlib_load) =
+                    dlsym(hNDILib, NDILIB_NDI_LOAD);
         }
 
         // If we failed to load the library then we tell people to re-install it
         if (!NDIlib_load) {       // Unload the library if we loaded it
-                log_msg(LOG_LEVEL_ERROR,
-                        "[NDI] Failed to open the library: %s\n", last_err);
-
+                MSG(ERROR, "The NDI library could not have been found!\n");
                 if (strlen(NDILIB_REDIST_URL) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "[NDI] Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application.\n");
                 } else { // NDILIB_REDIST_URL is set to "" in Linux
@@ -164,7 +138,10 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
                 }
                 return 0;
         }
-#endif
+
+        verbose_msg("NDI lib loaded from %s - open: %s, load: %s\n", ndi_path,
+                    hNDILib == NULL ? "NOK" : "OK",
+                    NDIlib_load == NULL ? "NOK" : "OK");
         const NDIlib_t *ret = NDIlib_load();
         if (ret == NULL) {
                 dlclose(hNDILib);
@@ -182,12 +159,14 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_printf( \
-            TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available " \
-                                   u8"from https://ndi.video/\n" \
-                                   u8"NDI® is a registered trademark of " \
-                                   u8"Vizrt NDI AB.\n\n" TERM_RESET); \
+        color_printf(TERM_BOLD TERM_FG_BLUE "%s\n\n" TERM_RESET, \
+                     u8"This application uses NDI® available " \
+                     u8"from https://ndi.video/\n" \
+                     u8"NDI® is a registered trademark of " \
+                     u8"Vizrt NDI AB."); \
         int not_defined_function
+
+#undef MOD_NAME
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 

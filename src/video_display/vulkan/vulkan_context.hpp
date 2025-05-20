@@ -54,8 +54,6 @@ static_assert(VK_HEADER_VERSION > 100); // minimum Vulkan SDK version is 1.1.101
 
 namespace vulkan_display {
 
-enum class LogLevel{fatal, error, warning, notice, info, verbose, debug};
-
 struct  VulkanError : public std::runtime_error {
         explicit VulkanError(const std::string& msg) :
                 std::runtime_error{ msg } { }
@@ -89,18 +87,6 @@ class VulkanInstance;
 
 namespace vulkan_display_detail {
 
-// todo C++20 - replace with std::format
-template<size_t count>
-std::string concat(size_t expected_result_size, std::array<std::string, count> const &strings){
-        std::string result;
-        result.reserve(expected_result_size);
-
-        for(auto const &sv: strings){
-                result+= sv;
-        }
-        return result;
-}
-
 constexpr bool is_yCbCr_format(vk::Format format) {
         auto f = static_cast<VkFormat>(format);
         return VK_FORMAT_G8B8G8R8_422_UNORM <= f && f <= VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM;
@@ -111,8 +97,6 @@ using namespace std::literals;
 constexpr uint32_t no_queue_index_found = UINT32_MAX;
 constexpr uint32_t swapchain_image_out_of_date = UINT32_MAX;
 constexpr uint32_t swapchain_image_timeout = UINT32_MAX - 1;
-
-inline std::function<void(vulkan_display::LogLevel, std::string_view)> vulkan_log_msg;
 
 inline vk::ImageViewCreateInfo default_image_view_create_info(vk::Format format) {
         vk::ImageViewCreateInfo image_view_info{ {}, {}, vk::ImageViewType::e2D, format };
@@ -129,32 +113,27 @@ struct SwapchainImage {
 };
 
 class VulkanContext {
-        vk::Instance instance;
-        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher{};
-        vk::DebugUtilsMessengerEXT messenger;
-        uint32_t vulkan_version{};
-
-        vk::PhysicalDevice gpu;
-        vk::Device device;
-        bool yCbCr_supported = false;
-
-        uint32_t queue_family_index = no_queue_index_found;
-        vk::Queue queue;
-
-        vk::SurfaceKHR surface;
-        vk::SwapchainKHR swapchain;
-        struct {
-                vk::SurfaceCapabilitiesKHR capabilities;
-                vk::SurfaceFormatKHR format;
-                vk::PresentModeKHR mode = vk::PresentModeKHR::eFifo;
-                vk::Extent2D image_size;
-        } swapchain_atributes;
-
-        std::vector<SwapchainImage> swapchain_images{};
-        vk::PresentModeKHR preferred_present_mode{};
-
-        vulkan_display::WindowParameters window_parameters;
 public:
+        VulkanContext() = default;
+
+        void init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
+                vulkan_display::WindowParameters window_parameters, uint32_t gpu_index, vk::PresentModeKHR preferred_mode);
+
+        void destroy();
+
+        void create_framebuffers(vk::RenderPass render_pass);
+
+        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore);
+
+        vk::Framebuffer get_framebuffer(uint32_t framebuffer_id) {
+                return swapchain_images[framebuffer_id].framebuffer;
+        }
+
+        vulkan_display::WindowParameters get_window_parameters() const {
+                return window_parameters;
+        }
+
+        void recreate_swapchain(vulkan_display::WindowParameters parameters, vk::RenderPass render_pass);
         //getters
         uint32_t get_vulkan_version() const { return vulkan_version; }
         vk::PhysicalDevice get_gpu() { return gpu; }
@@ -163,9 +142,10 @@ public:
         uint32_t get_queue_family_index() { return queue_family_index; }
         vk::Queue get_queue() { return queue; }
         vk::SwapchainKHR get_swapchain() { return swapchain; }
-        vk::Format get_swapchain_image_format() { return swapchain_atributes.format.format; };
+        vk::Format get_swapchain_image_format() { return swapchain_attributes.format.format; };
         size_t get_swapchain_image_count() { return swapchain_images.size(); }
-        vk::Extent2D get_render_area_size() { return swapchain_atributes.image_size; }
+        vk::Extent2D get_render_area_size() { return swapchain_attributes.image_size; }
+
 private:
         void create_logical_device();
 
@@ -185,27 +165,36 @@ private:
                 }
         }
 
-public:
-        VulkanContext() = default;
+        vk::Instance instance;
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher{};
+#else
+        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher{};
+#endif
+        vk::DebugUtilsMessengerEXT messenger;
+        uint32_t vulkan_version{};
 
-        void init(vulkan_display::VulkanInstance&& instance, vk::SurfaceKHR surface,
-                vulkan_display::WindowParameters window_parameters, uint32_t gpu_index, vk::PresentModeKHR preferred_mode);
+        vk::PhysicalDevice gpu;
+        vk::Device device;
+        bool yCbCr_supported = false;
 
-        void destroy();
+        uint32_t queue_family_index = no_queue_index_found;
+        vk::Queue queue;
 
-        void create_framebuffers(vk::RenderPass render_pass);
+        vk::SurfaceKHR surface;
+        vk::SwapchainKHR swapchain;
+        struct {
+                vk::SurfaceCapabilitiesKHR capabilities;
+                vk::SurfaceFormatKHR format;
+                vk::PresentModeKHR mode = vk::PresentModeKHR::eFifo;
+                vk::Extent2D image_size;
+        } swapchain_attributes;
 
-        uint32_t acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) const;
+        std::vector<SwapchainImage> swapchain_images{};
+        vk::PresentModeKHR preferred_present_mode{};
 
-        vk::Framebuffer get_framebuffer(uint32_t framebuffer_id) {
-                return swapchain_images[framebuffer_id].framebuffer;
-        }
-
-        vulkan_display::WindowParameters get_window_parameters() const {
-                return window_parameters;
-        }
-
-        void recreate_swapchain(vulkan_display::WindowParameters parameters, vk::RenderPass render_pass);
+        vulkan_display::WindowParameters window_parameters;
+        bool swapchain_was_suboptimal = false;
 };
 
 }//namespace vulkan_display_detail ----------------------------------------------------------------
@@ -215,20 +204,7 @@ namespace vulkan_display {
 
 namespace detail = vulkan_display_detail;
 
-inline void cout_msg([[maybe_unused]] LogLevel log_level, std::string_view msg) {
-        std::cout << msg << std::endl;
-}
-
 class VulkanInstance {
-        vk::Instance instance{};
-        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
-        vk::DebugUtilsMessengerEXT messenger{};
-        uint32_t vulkan_version = VK_API_VERSION_1_1;
-
-        void init_validation_layers_error_messenger();
-
-        friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
-                vk::SurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 public:
         VulkanInstance() = default;
         VulkanInstance(const VulkanInstance& other) = delete;
@@ -245,7 +221,7 @@ public:
          *                              usually needed for creating vulkan surface
          * @param enable_validation     Enable vulkan validation layers, they should be disabled in release build.
          */
-        void init(std::vector<const char*>& required_extensions, bool enable_validation, std::function<void(LogLevel, std::string_view)> logging_function = cout_msg);
+        void init(std::vector<const char*>& required_extensions, bool enable_validation);
         
         /**
          * @brief returns all available grafhics cards
@@ -259,6 +235,21 @@ public:
         }
 
         void destroy();
+        
+private:
+        vk::Instance instance{};
+#if VK_HEADER_VERSION >= 301
+        std::unique_ptr<vk::detail::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#else
+        std::unique_ptr<vk::DispatchLoaderDynamic> dynamic_dispatcher = nullptr;
+#endif
+        vk::DebugUtilsMessengerEXT messenger{};
+        uint32_t vulkan_version = VK_API_VERSION_1_1;
+
+        void init_validation_layers_error_messenger();
+
+        friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
+                vk::SurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 };
 
 }

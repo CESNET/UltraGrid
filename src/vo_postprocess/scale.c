@@ -35,18 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <stdlib.h>
-#include <pthread.h>
+#include <assert.h>          // for assert
+#include <stdbool.h>         // for bool, true, false
+#include <stdio.h>           // for fprintf, printf, stderr
+#include <stdlib.h>          // for free, NULL, atoi, malloc, calloc, size_t
+#include <string.h>          // for memcpy, strtok_r, strcmp, strdup
 
 #include "debug.h"
 #include "lib_common.h"
-#include "gl_context.h"
+#include "gl_context.h"      // for GL_TEXTURE_2D, glTexParameteri, glBindTe...
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"

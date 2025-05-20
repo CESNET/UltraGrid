@@ -41,6 +41,7 @@
  */
 
 #include <jack/jack.h>
+#include <math.h>          // for nexttowardf
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>

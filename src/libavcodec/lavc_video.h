@@ -44,6 +44,7 @@
 #include <stdio.h>
 #endif
 
+#include "config.h"  // for HAVE_SWSCALE
 #include "libavcodec/lavc_common.h"
 
 #ifdef __cplusplus

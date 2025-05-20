@@ -6,7 +6,7 @@
  * This file contains common external definitions.
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,7 @@
 
 #ifdef _WIN32
 #include <io.h>
-#else
+#elif defined(__GLIBC__)
 #include <execinfo.h>
 #include <fcntl.h>
 #endif // !defined _WIN32
@@ -78,7 +78,6 @@
 #include <sys/types.h>                  // for ssize_t
 #include <tuple>                        // for tuple, get, make_tuple
 #include <unistd.h>                     // for STDERR_FILENO
-#include <vector>                       // for vector
 
 #include "audio/audio_capture.h"
 #include "audio/audio_filter.h"
@@ -88,8 +87,7 @@
 #include "audio/utils.h"
 #include "capture_filter.h"
 #include "compat/platform_pipe.h"
-#include "compat/strings.h"  // strdupa
-#include "config_unix.h"                // for fd_t
+#include "compat/net.h"                 // for fd_t
 #include "cuda_wrapper.h"               // for cudaDeviceReset
 #include "debug.h"
 #include "keyboard_control.h"
@@ -135,7 +133,7 @@ extern "C" {
 }
 #endif
 
-#ifdef __linux__
+#ifdef __gnu_linux__
 #include <mcheck.h>
 #endif
 
@@ -196,6 +194,7 @@ struct init_data {
         list <void *> opened_libs;
 };
 
+static void print_backtrace();
 static void print_param_doc(void);
 static bool validate_param(const char *param);
 
@@ -212,7 +211,7 @@ void common_cleanup(struct init_data *init)
         }
         delete init;
 
-#ifdef __linux__
+#ifdef __gnu_linux__
         muntrace();
 #endif
 
@@ -286,10 +285,7 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
         UNUSED(d);
         log_msg(LOG_LEVEL_ERROR, "X11 error - code: %d, serial: %d, error: %d, request: %d, minor: %d\n",
                         e->error_code, e->serial, e->error_code, e->request_code, e->minor_code);
-        fprintf(stderr, "Backtrace:\n");
-        array<void *, 256> addresses{};
-        int num_symbols = backtrace(addresses.data(), addresses.size());
-        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+        print_backtrace();
         return 0;
 }
 #endif
@@ -299,7 +295,7 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
  */
 static void load_libgcc()
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && defined(__GLIBC__)
         array<void *, 1> addresses{};
         backtrace(addresses.data(), addresses.size());
 #endif
@@ -521,7 +517,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         ug_rand_init();
 
-#ifdef __linux__
+#ifdef __gnu_linux__
         mtrace();
 #endif
 
@@ -874,7 +870,8 @@ void print_version()
                 is_release = false;
         }
 #endif
-        col() << SBOLD(S256_FG(T_PEACH_FUZZ, PACKAGE_STRING <<
+
+        col() << SBOLD(S256_FG(T_TOMATO, PACKAGE_STRING <<
                 (is_release ? "" : "+"))) <<
                 " (" << get_version_details() << ")\n";
 }
@@ -981,29 +978,27 @@ bool parse_params(const char *optarg, bool preinit)
                 print_param_doc();
                 return false;
         }
-        char *tmp = strdupa(optarg);
-        char *item = nullptr;
-        char *save_ptr = nullptr;
-        while ((item = strtok_r(tmp, ",", &save_ptr)) != nullptr) {
-                tmp = nullptr;
-                char *key_cstr = item;
-                const char *val_cstr = "";
-                if (char *delim = strchr(item, '=')) {
-                        val_cstr = delim + 1;
-                        *delim = '\0';
+        std::string_view sv = optarg;
+        while (!sv.empty()) {
+                std::string key = std::string(tokenize(sv, ','));
+                std::string val;
+                std::string::size_type delim_pos = key.find('=');
+                if (delim_pos != std::string::npos) {
+                        val = key.substr(delim_pos + 1);
+                        key.resize(delim_pos);
                 }
-                if (!validate_param(key_cstr)) {
+                if (!validate_param(key.c_str())) {
                         if (preinit) {
                                 continue;
                         }
-                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
+                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key << "\n";
                         LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
                         if (get_commandline_param("allow-unknown-params") ==
                             nullptr) {
                                 return false;
                         }
                 }
-                commandline_params[key_cstr] = val_cstr;
+                commandline_params[key] = std::move(val);
         }
         return true;
 }
@@ -1023,7 +1018,7 @@ parse_bitrate(char *optarg, long long int *bitrate)
                 return true;
         }
         if (strcmp(optarg, "help") == 0) {
-                constexpr char const *NUMERIC_PATTERN = "{1-9}{0-9}*[kMG][!][E]";
+                constexpr char const *NUMERIC_PATTERN = "[1-9][0-9]*[kMG][!][E]";
                 col()
                     << "Usage:\n"
                     << "\tuv " << TERM_BOLD "-l [auto | dynamic | unlimited | "
@@ -1201,12 +1196,11 @@ bool running_in_debugger(){
         return false;
 }
 
+#if defined(__GLIBC__)
+/// print stacktrace with backtrace_symbols_fd() (glibc or macOS)
 static void
-print_backtrace()
+print_stacktrace_glibc()
 {
-#ifdef _WIN32
-        print_stacktrace_win();
-#else
         // print to a temporary file to avoid interleaving from multiple
         // threads
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 27)
@@ -1247,7 +1241,20 @@ print_backtrace()
                 }
         }
         close(fd);
-#endif // defined _WIN32
+}
+#endif // defined(__GLIBC__)
+
+static void
+print_backtrace()
+{
+#ifdef _WIN32
+        print_stacktrace_win();
+#elif defined(__GLIBC__)
+        print_stacktrace_glibc();
+#else
+        const char *msg = "Stacktrace printout not supported!\n";
+        write(STDERR_FILENO, msg, strlen(msg));
+#endif
 }
 
 void crash_signal_handler(int sig)

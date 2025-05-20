@@ -44,9 +44,14 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"       // WAND7
-#include "config_unix.h"
-#include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
+
+#include <assert.h>                      // for assert
+#include <pthread.h>                     // for pthread_once, PTHREAD_ONCE_INIT
+#include <stdbool.h>                     // for false, bool, true
+#include <stddef.h>                      // for NULL, size_t, ptrdiff_t
+#include <stdlib.h>                      // for free, atoi, atexit, calloc
+#include <string.h>                      // for strlen, strstr, memcpy, strdup
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
@@ -69,6 +74,8 @@
 #include "utils/string.h" // replace_all
 #include "utils/text.h"
 
+#define MOD_NAME "[text vo_pp.] "
+
 struct state_text {
         struct video_frame *in;
         char *data;
@@ -78,6 +85,7 @@ struct state_text {
         int width;                 // pixels
         int text_base_y;
         int margin_x, margin_y;
+        char *req_font;
         
         // font size
         int text_height_pt;   
@@ -91,6 +99,8 @@ struct state_text {
         MagickWand *wand_bg;
         MagickWand *wand_text;
 };
+
+static void text_done(void *state);
 
 static bool text_get_property(void *state, int property, void *val, size_t *len)
 {
@@ -126,7 +136,7 @@ static void * text_init(const char *config) {
                 color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");
                 color_printf("\t" TBOLD("-p text:<text>") "\n");
-                color_printf("\t" TBOLD("-p text:x=<x>:y=<y>:h=<text_height>:t=<text>") "\n");
+                color_printf("\t" TBOLD("-p text[:x=<x>:y=<y>:h=<text_height>:f=<font>]:t=<text>") "\n");
                 color_printf("\nExamples:\n");
                 color_printf(TBOLD("\t-p text:stream1\n"
                                         "\t-p text:x=100:y=100:h=20:t=text\n"
@@ -149,11 +159,16 @@ static void * text_init(const char *config) {
                         s->req_y = atoi(item + 2);
                 } else if (strstr(item, "h=") != NULL) {
                         s->req_h = atoi(item + 2);
+                } else if (strstr(item, "f=") != NULL) {
+                        free(s->req_font);
+                        s->req_font = strdup(strchr(item, '=') + 1);
                 } else if (strstr(item, "t=") != NULL) {
                         replace_all(item + 2, DELDEL, ":");
+                        free(s->text);
                         s->text = strdup(item + 2);
                 } else {
                         replace_all(item, DELDEL, ":");
+                        free(s->text);
                         s->text = strdup(item);
                 }
                 tmp = NULL;
@@ -162,13 +177,13 @@ static void * text_init(const char *config) {
 
         if(!s->text || strlen(s->text) == 0){
                 log_msg(LOG_LEVEL_ERROR, "[text] Text can not be empty!\n");
-                free(s);
+                text_done(s);
                 return NULL;
         }
 
         if (s->req_h < -1) {
                 log_msg(LOG_LEVEL_ERROR, "[text] Text height cannot be negative!\n");
-                free(s);
+                text_done(s);
                 return NULL;
         }
 
@@ -186,6 +201,54 @@ static int cf_text_init(struct module *parent, const char *cfg, void **state)
                 return 0;
         }
 }
+
+static const char *
+get_magick_error(const MagickWand *wand)
+{
+        ExceptionType except = MagickGetExceptionType(wand);
+        return MagickGetException(wand, &except);
+}
+
+/// @returns false if req_font specified but not found
+static MagickBooleanType
+set_font(DrawingWand *dw, const char *req_font)
+{
+        const char        *req_tmp[] = { req_font, NULL };
+        const char *const *font_candidates =
+            req_font != NULL ? req_tmp : get_font_candidates();
+        while (*font_candidates != NULL) {
+                FILE *f = fopen(*font_candidates, "rb");
+                if (f != NULL) {
+                        fclose(f);
+                        if (DrawSetFont(dw, *font_candidates) != MagickTrue) {
+                                MSG(WARNING, "DraweSetFont failed!\n");
+                                continue;
+                        }
+                        MSG(INFO, "using font %s\n", *font_candidates);
+                        return MagickTrue;
+                }
+                MSG(VERBOSE, "font %s not found\n", *font_candidates);
+                font_candidates += 1;
+        }
+        if (req_font != NULL) {
+                return MagickFalse;
+        }
+        MSG(WARNING,
+            "Could not find usable font! Continue using system one...\n");
+        return MagickTrue;
+}
+
+/**
+ * @param ... error action
+ */
+#define HANDLE_WAND_ERROR(status, wand, msg, ...) \
+        do { \
+                if ((status) != MagickTrue) { \
+                        MSG(ERROR, "%s: %s!\n", msg, get_magick_error(wand)); \
+                        __VA_ARGS__; \
+                        return false; \
+                } \
+        } while (0)
 
 static bool
 text_postprocess_reconfigure(void *state, struct video_desc desc)
@@ -235,9 +298,8 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->dw = NewDrawingWand();
         DrawSetFontSize(s->dw, s->text_height_pt);
-        MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
+        MagickBooleanType status = set_font(s->dw, s->req_font);
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
                 return false;
         }
         {
@@ -251,17 +313,15 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->wand_bg = NewMagickWand();
         status = MagickSetFormat(s->wand_bg, colorspace);
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetFormat bg failed");
         s->wand_text = NewMagickWand();
-        status &= MagickSetFormat(s->wand_text, colorspace);
-        if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
-                return false;
-        }
-
+        status = MagickSetFormat(s->wand_text, colorspace);
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickSetFormat text failed");
 
         status = MagickSetDepth(s->wand_bg, 8);
-        status &= MagickSetDepth(s->wand_text, 8);
-        assert(status == MagickTrue && "[text vo_pp.] MagickSetDepth failed");
+        HANDLE_WAND_ERROR(status, s->wand_bg, "MagickSetDepth bg failed");
+        status = MagickSetDepth(s->wand_text, 8);
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickSetDepth text failed");
         
         PixelWand *transparent_bg = NewPixelWand();
         // PixelSetColor(transparent_bg, "#cccccc80");  // for debugging
@@ -273,7 +333,9 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
         // glyph w, glyph h, ascender, descender, txt w, txt h
         double *metrics = MagickQueryFontMetrics(s->wand_text, s->dw, s->text);
         if(!metrics) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickQueryFontMetrics failed!\n");
+                MSG(WARNING, "MagickQueryFontMetrics failed: %s!\n",
+                    get_magick_error(s->wand_text));
+                DestroyPixelWand(transparent_bg);
                 return false;
         }
         double descender =  metrics[3];  // has negative value
@@ -283,22 +345,16 @@ text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         MagickRemoveImage(s->wand_text);
         status = MagickNewImage(s->wand_text, s->text_width_px, s->text_height_px, transparent_bg);
-        if (!status) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickNewImage failed!\n");
-                return false;
-        }
+        DestroyPixelWand(transparent_bg);
+        HANDLE_WAND_ERROR(status, s->wand_text, "MagickNewImage failed");
 
         double x_off = 0;
         double y_off_baseline = s->text_height_px - (-descender) + 1;
         double rot = 0;
         status = MagickAnnotateImage(s->wand_text, s->dw, x_off, y_off_baseline, rot, s->text);
-        if (!status) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n\n"
-                "Perhaps the text contains invalid characters?\n");
-                return false;
-        }
-
-        DestroyPixelWand(transparent_bg);
+        HANDLE_WAND_ERROR(status, s->wand_text,
+                          "MagickAnnotateImage failed (Perhaps the text "
+                          "contains invalid characters?)");
 
         return true;
 }
@@ -309,6 +365,9 @@ static struct video_frame * text_getf(void *state)
 
         return s->in;
 }
+
+#define HANDLE_POSTPROCESS_ERROR(status, wand, msg) \
+        HANDLE_WAND_ERROR((status), (wand), (msg), free(stripe))
 
 static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
@@ -344,13 +403,10 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         MagickRemoveImage(s->wand_bg);
 
         status = MagickSetSize(s->wand_bg, s->width, s->text_height_px);
-        assert(status == MagickTrue && "[text vo_pp.] MagickSetSize failed -- ");
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickSetSize failed");
 
         status = MagickReadImageBlob(s->wand_bg, stripe, s->text_height_px * dst_linesize);
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
-                return false;
-        }
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickReadImageBlob failed");
 
         // compose it with text
 #ifdef WAND7
@@ -358,16 +414,15 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
 #else
         status = MagickCompositeImage(s->wand_bg, s->wand_text, OverCompositeOp, s->margin_x, 0);
 #endif
-        if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickCompositeImage failed!\n");
-                return false;
-        }
+        HANDLE_POSTPROCESS_ERROR(status, s->wand_bg, "MagickCompositeImage failed");
 
         // extract the composed data
         unsigned char *data;
         size_t data_len;
         data = MagickGetImageBlob(s->wand_bg, &data_len);
-        assert(data != NULL && "[text vo_pp.] MagickGetImageBlob failed!");
+        if (data == NULL) {
+                HANDLE_POSTPROCESS_ERROR(MagickFalse, s->wand_bg, "MagickGetImageBlob failed");
+        }
 
         // send the input stream...
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
@@ -427,12 +482,19 @@ static void text_done(void *state)
 
         vf_free(s->in);
 
-        DestroyMagickWand(s->wand_bg);
-        DestroyMagickWand(s->wand_text);
-        DestroyDrawingWand(s->dw);
+        if (s->wand_bg) {
+                DestroyMagickWand(s->wand_bg);
+        }
+        if (s->wand_text) {
+                DestroyMagickWand(s->wand_text);
+        }
+        if (s->dw) {
+                DestroyDrawingWand(s->dw);
+        }
 
         free(s->data);
         free(s->text);
+        free(s->req_font);
         free(s);
 }
 

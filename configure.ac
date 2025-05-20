@@ -32,10 +32,8 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="${CFLAGS+$CFLAGS }-I$srcdir"
-CPPFLAGS="${CPPFLAGS+$CPPFLAGS }-I$srcdir"
-CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-I$srcdir -std=gnu++17"
-CUDA_FLAGS="${CUDA_FLAGS-}"
+CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-std=gnu++17"
+CUDA_FLAGS="$CUDA_FLAGS${CUDA_FLAGS:+${CUDAFLAGS:+ }}$CUDAFLAGS"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
 LIB_MODULES=     # modules libraries
@@ -299,7 +297,6 @@ fi
 AC_SUBST(DLL_LIBS)
 
 AC_CHECK_FUNCS(usleep)
-AC_CHECK_FUNCS(timespec_get)
 
 # ---------------------------------------------------------------------
 # Common shell utility functions
@@ -433,7 +430,7 @@ fi
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
-AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native])
+AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native; alterntatively CUDAFLAGS])
 AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
@@ -471,7 +468,7 @@ AC_ARG_ENABLE(cuda,
               [cuda_req=$build_default])
 
 AC_ARG_WITH(cuda,
-            [  --with-cuda=DIR         specify location of CUDA Toolkit],/FOUN
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
             ])
 
@@ -815,7 +812,7 @@ if test $decklink_req != no; then
                         AC_LANG_PUSH(C++)
                         AC_MSG_CHECKING([DeckLink usability])
                         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                                           #include "$DECKLINK_INC/DeckLinkAPI_h.h"
+                                           #include "$DECKLINK_INC/DeckLinkAPI.h"
                                            #include "$DECKLINK_INC/DeckLinkAPIVersion.h"
                                            #include <objbase.h>
                                            ]],
@@ -1129,8 +1126,10 @@ if test "$deltacast_req" != no; then
                 if test -n "$DELTACAST_PATH"; then
                         INC="$INC -I$DELTACAST_PATH/Include"
                 fi
-                add_module vidcap_deltacast "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
-                add_module display_deltacast src/video_display/deltacast.o "$DELTACAST_LIB"
+                add_module vidcap_deltacast "src/deltacast_common.o \
+src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
+                add_module display_deltacast "src/deltacast_common.o \
+src/video_display/deltacast.o" "$DELTACAST_LIB"
                 deltacast=yes
         fi
 fi
@@ -1240,32 +1239,65 @@ then
 fi
 
 # ------------------------------------------------------------------------------
-# SDL1/2 Stuff
+# SDL1/2/3 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
 sdl_version=
 sdl_version_str=
 sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--enable-sdl[=1|2]], [enable SDL (optionally with version; default is auto), ]
-              [requires: sdl >= 1.2.14 | sdl2]),
+              AS_HELP_STRING([--enable-sdl[=1|2|3]], [enable SDL (optionally with version(s); default is auto), ]
+              [requires: sdl >= 1.2.14 | sdl2 | sdl3 >= 3.2.0]),
               [sdl_req=$enableval],
               [sdl_req=$build_default]
               )
 
 if test "$sdl_req" != no; then
-        if test "$sdl_req" != 1; then
-                PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2], [ ])
+        sdl_req_ver=$sdl_req
+        sdl2_pc_path=$("$PKG_CONFIG" --path sdl2 2>/dev/null)
+        if "$PKG_CONFIG" --print-provides sdl2 | grep -q sdl2_compat ||
+                { test -f "$sdl2_pc_path" &&
+                        grep -q sdl2_compat -- "$sdl2_pc_path"; } ||
+                "$PKG_CONFIG" --debug sdl2 2>&1 | grep -q sdl2_compat
+        then
+                sdl2_is_compat=yes
         fi
-        if test -z "$sdl_version" && test "$sdl_req" != 2; then
-                PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1], [ ])
+        if test "$sdl_req" = yes || test "$sdl_req" = auto; then
+                # temporarily prefer 2 over 3
+                sdl_req_ver=231
+                # but only if sdl2 is not sdl2_compat
+                if test "$sdl2_is_compat"; then
+                        sdl_req_ver=321
+                fi
+        fi
+
+        while test -n "$sdl_req_ver"; do
+                ver=$(echo "$sdl_req_ver" | cut -c1)
+                case "$ver" in
+                1) PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1], [ ]) ;;
+                2) PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2], [ ]) ;;
+                3) PKG_CHECK_MODULES([SDL], [sdl3 >= 3.2.0], [sdl_version=3], [ ]) ;;
+                esac
+                if test -n "$sdl_version"; then
+                        break
+                fi
+                sdl_req_ver=$(printf "$sdl_req_ver" | cut -c2-)
+        done
+
+        if test "$sdl_version" = 3 && test ! "$sdl2_is_compat"; then
+                UG_MSG_WARN([Using SDL 3, which is experimental. SDL 2 can be enforced with --enable-sdl=2])
+        fi
+        if test "$sdl_version" = 2 && test "$sdl2_is_compat" ; then
+                UG_MSG_WARN([Using SDL3 sdl2_compat, which is not recommended (use 3 directly)])
         fi
         if test -n "$sdl_version"; then
                 if test "$sdl_version" = 1; then
                         SDL_LIBS="$SDL_LIBS -lX11" # X11 for x11_common.o
                 else
-                        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
-                        sdl_ver_suffix=2
+                        sdl_ver_suffix=$sdl_version
+                fi
+                if test "$sdl_version" -eq 3; then
+                        AC_DEFINE([HAVE_SDL3], [1],  [Build with SDL3 support])
                 fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
@@ -1276,6 +1308,8 @@ if test "$sdl_req" != no; then
         fi
 fi
 
+sdl_version=${sdl_version:-0}
+
 ENSURE_FEATURE_PRESENT([$sdl_req], [$sdl], [SDL requested but found any version])
 
 # ------------------------------------------------------------------------------
@@ -1285,34 +1319,41 @@ vulkan=no
 
 AC_ARG_ENABLE(vulkan,
 [  --disable-vulkan            disable sdl2_vulkan display (default is auto)]
-[                          Requires:  sdl2 vulkan],
+[                          Requires:  sdl2|sdl3 vulkan],
     [vulkan_req=$enableval],
     [vulkan_req=$build_default]
     )
 
 if test "$vulkan_req" != no; then
-        SAVED_LIBS=$LIBS
-        VULKAN_LIBS=-lMoltenVK # mac MoltenVK
-        LIBS="$LIBS $VULKAN_LIBS"
-        AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
-        LIBS=$SAVED_LIBS
-        if test "$found_vulkan" = no; then
+        if test "$vulkan_req" != nomoltenvk; then
+                SAVED_LIBS=$LIBS
+                VULKAN_LIBS=-lMoltenVK # mac MoltenVK
+                LIBS="$LIBS $VULKAN_LIBS"
+                AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
+                LIBS=$SAVED_LIBS
+        fi
+        if test "$found_vulkan" != yes; then
                 VULKAN_LIBS=
                 PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
         fi
         AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
 
-        if test $sdl = yes && test $sdl_version = 2 && test $found_vulkan = yes; then
-                VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
+        if test $sdl = yes && test $sdl_version -ge 2 && test $found_vulkan = yes; then
+                VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl$sdl_version.o \
+                        src/video_display/vulkan/vulkan_display.o \
+                        src/video_display/vulkan/vulkan_context.o \
+                        src/video_display/vulkan/vulkan_transfer_image.o \
+                        src/video_display/vulkan/vulkan_pipelines.o"
                 VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
-                add_module display_vulkan_sdl2 "$VULKAN_OBJ" "$VULKAN_LIBS"
+                add_module display_vulkan "$VULKAN_OBJ" "$VULKAN_LIBS"
                 VULKAN=vulkanEnabled
                 AC_SUBST(VULKAN)
                 vulkan=yes
+                vulkan_sdl_ver=" (SDL$sdl_version)"
         fi
 fi
 
-ENSURE_FEATURE_PRESENT([$vulkan_req], [$vulkan], [Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2)!])
+ENSURE_FEATURE_PRESENT([$vulkan_req], [$vulkan], [Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2/3)!])
 
 # ------------------------------------------------------------------------------
 # GLM (OpenGL math library)
@@ -1511,7 +1552,8 @@ if test "$rtsp_req" != no; then
                 CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o \
+                RTSP_OBJ="src/utils/h264_stream.o src/utils/hevc_stream.o \
+src/video_capture/rtsp.o \
 src/rtp/rtpdec_h264.o src/rtp/rtpdec_jpeg.o src/utils/jpeg_writer.o"
                 add_module vidcap_rtsp "$RTSP_OBJ" "$RTSP_LIBS"
                 rtsp=yes
@@ -1680,7 +1722,13 @@ fi
 if test $testcard2_req != no
 then
         TESTCARD2_OBJ="src/video_capture/testcard2.o"
-        PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        if test "$sdl_version" -lt 3; then
+                PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf],
+                                  [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        else
+                PKG_CHECK_MODULES([SDL_TTF], [sdl${sdl_ver_suffix}-ttf],
+                                  [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        fi
         SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
         if test "$FOUND_SDL_TTF" = yes
         then
@@ -2830,6 +2878,10 @@ AC_ARG_ENABLE(v4l2,
 
 if test "$system" = Linux && test "$v4l2_req" != no
 then
+        AC_CHECK_HEADERS([linux/videodev2.h])
+fi
+
+if test "$ac_cv_header_linux_videodev2_h" = yes; then
         PKG_CHECK_MODULES([V4LCONVERT], [libv4lconvert], [found_v4lconvert=yes], [found_v4lconvert=no])
         if test $found_v4lconvert = yes; then
                 AC_DEFINE([HAVE_LIBV4LCONVERT], [1], [Build with libv4lconvert support])
@@ -3134,10 +3186,15 @@ if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
 fi
 
 if test $ndi_req != no; then
+        S_CPATH=$CPATH
+        if test -n "$NDI_SDK_DIR"; then
+                CPATH="$CPATH;$NDI_SDK_DIR/Include"
+                export CPATH
+        fi
         AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
+        CPATH=$S_CPATH
 
-        # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
-        if test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows )
+        if test "$FOUND_NDI_H" = yes
         then
                 if test -n "$NDI_SDK_DIR" && test $system = Windows; then
                         COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
@@ -3207,7 +3264,7 @@ fi
 if test "$FOUND_CINEFORM" = yes; then
         CINEFORM_CFLAGS="$CINEFORM_CFLAGS -I${CINEFORM_PATH}/Common/"
 
-        if test $system != Windows
+        if test "$system" = Linux
         then
                 CINEFORM_LIBS="${CINEFORM_LIBS} -luuid"
         fi
@@ -3265,10 +3322,18 @@ AC_ARG_ENABLE(pcp,
               )
 
 if test "$pcp_req" != no; then
-        PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=yes], [FOUND_PCP=no])
-        if test "$FOUND_PCP" = yes; then
+        PKG_CHECK_MODULES([PCP], [libpcpnatpmp], [FOUND_PCP=new],
+                [FOUND_PCP=no])
+        if test "$FOUND_PCP" = no; then
+                PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=old],
+                        [FOUND_PCP=no])
+        fi
+        if test "$FOUND_PCP" != no; then
                 LIBS="$PCP_LIBS $LIBS"
                 AC_DEFINE([HAVE_PCP], [1], [Build with PCP support])
+                if test "$FOUND_PCP" = new; then
+                        AC_DEFINE([HAVE_PCP_NEW], [1], [Build with new PCP name])
+                fi
                 pcp=yes
         fi
 fi
@@ -3288,7 +3353,13 @@ sdl_mixer=no
 
 if test $sdl = yes && test $sdl_mixer_req != no
 then
-        PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        if test "$sdl_version" -lt 3; then
+                PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer],
+                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        else
+                PKG_CHECK_MODULES([SDL_MIXER], [sdl${sdl_ver_suffix}-mixer],
+                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        fi
         if test "$found_sdl_mixer" = yes; then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
                 SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
@@ -3331,6 +3402,7 @@ fi
 
 if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
+        src/audio/capture/passive.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o
@@ -3349,6 +3421,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/grayscale.o
         src/capture_filter/logo.o
         src/capture_filter/matrix.o
+        src/capture_filter/matrix2.o
         src/capture_filter/mirror.o
         src/capture_filter/override_prop.o
         src/capture_filter/preview.o
@@ -3503,7 +3576,7 @@ RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL$sdl_version_str" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
-RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
+RESULT=`add_column "$RESULT" "Vulkan$vulkan_sdl_ver" $vulkan $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`end_section "$RESULT"`
 

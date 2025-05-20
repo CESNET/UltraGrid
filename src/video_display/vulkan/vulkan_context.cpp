@@ -36,27 +36,53 @@
  */
 
 #include "vulkan_context.hpp"
+#include <algorithm>            // for std::any_of, std::find_if
 #include <cassert>
 #include <iostream>
+#include "debug.h"
+
+#define MOD_NAME "[vulkan] "
 
 using namespace vulkan_display_detail;
 using namespace vulkan_display;
 
 namespace {
 
+#if VK_HEADER_VERSION >= 304
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-        [[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-        [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
-        const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+        [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT message_type,
+        const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
         [[maybe_unused]] void* user_data)
 {
-        LogLevel level = LogLevel::notice;
-        if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LogLevel::error;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LogLevel::warning;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LogLevel::info;
-        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LogLevel::verbose;
+        int level = LOG_LEVEL_NOTICE;
+        if      (vk::DebugUtilsMessageSeverityFlagBitsEXT::eError & message_severity)   level = LOG_LEVEL_ERROR;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning & message_severity) level = LOG_LEVEL_WARNING;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo & message_severity)    level = LOG_LEVEL_INFO;
+        else if (vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose & message_severity) level = LOG_LEVEL_VERBOSE;
 
-        vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
+        log_msg(level, MOD_NAME "validation layer: %s\n", callback_data->pMessage);
+
+        if (message_type != vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral){
+                //assert(false);
+        }
+
+        return VK_FALSE;
+}
+#else /// compat (eg. Debian 11) @todo TOREMOVE later
+ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+         [[maybe_unused]] VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+         [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
+         const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+         [[maybe_unused]] void* user_data)
+{
+        int level = LOG_LEVEL_NOTICE;
+        if      (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT & message_severity)   level = LOG_LEVEL_ERROR;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT & message_severity) level = LOG_LEVEL_WARNING;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LOG_LEVEL_INFO;
+        else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LOG_LEVEL_VERBOSE;
+
+        log_msg(level, MOD_NAME "validation layer: %s\n", callback_data->pMessage);
 
         if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
                 //assert(false);
@@ -64,6 +90,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 
         return VK_FALSE;
 }
+#endif
 
 void check_validation_layers(const std::vector<const char*>& required_layers) {
         std::vector<vk::LayerProperties>  layers = vk::enumerateInstanceLayerProperties();
@@ -78,6 +105,76 @@ void check_validation_layers(const std::vector<const char*>& required_layers) {
         }
 }
 
+/**
+ * handle VK_KHR_portability_enumeration (non-)presence
+ *
+ * @returns if VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR can be added
+ *
+ * Also append the extension if supported to handle non-native drivers (as
+ * MoltenVK, that set VK_KHR_portability_subset, otherwise those won't be
+ * enumerated).
+ *
+ * In case the VK_KHR_portability_enumeration is explicitly required but not
+ * present, remove it from extension list in macOS - this will allow linking
+ * directly to MoltenVK in mac (not to vulkan-loader), which doesn't have the
+ * enumerate extension.
+ */
+bool
+handle_enumerate_portability_extension(
+    std::vector<const char *> &required_extensions)
+{
+#if VK_HEADER_VERSION >= 270
+        std::vector<vk::ExtensionProperties> extensions =
+            vk::enumerateInstanceExtensionProperties(nullptr);
+
+        auto eq_portability_ext = [](const char *extension) {
+                return strcmp(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+                              extension) == 0;
+        };
+
+        if (std::any_of(
+                extensions.begin(), extensions.end(), [](auto const &exten) {
+                        return strcmp(
+                                   VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+                                   exten.extensionName) == 0;
+                })) {
+                if (!std::any_of(required_extensions.begin(),
+                                required_extensions.end(),
+                                eq_portability_ext)) {
+                        log_msg(
+                            LOG_LEVEL_DEBUG,
+                            MOD_NAME "adding"
+                            " " VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+                            " to list of required extensions\n");
+                        required_extensions.push_back(
+                            VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+                }
+                return true;
+        }
+#ifdef __APPLE__ // SDL3 sets it always in macOS  but not present if linked with
+                 // MoltenVK (only with vulkan-loader)
+        const auto it = std::find_if(required_extensions.begin(),
+                               required_extensions.end(), eq_portability_ext);
+        if (it != required_extensions.end()) {
+                log_msg(LOG_LEVEL_INFO,
+                               MOD_NAME VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+                               " required but not found... erasing "
+                               "this extension...\n");
+                required_extensions.erase(it);
+        }
+#endif
+#else // VK_HEADER_VERSION < 270
+        (void) required_extensions;
+#endif // VK_HEADER_VERSION < 270
+
+        return false;
+}
+
+/**
+ * this checks required_extensions prior to vk::createInstance(), which would
+ * throw the exception as well if extension is missing but without providing
+ * its name.
+ */
 void check_instance_extensions(const std::vector<const char*>& required_extensions) {
         std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
 
@@ -240,14 +337,10 @@ vk::PresentModeKHR get_present_mode(vk::PhysicalDevice gpu, vk::SurfaceKHR surfa
 }
 
 void log_gpu_info(vk::PhysicalDeviceProperties const &gpu_properties, uint32_t vulkan_version){
-        vulkan_log_msg(LogLevel::info, "Vulkan uses GPU called: "s + &gpu_properties.deviceName[0]);
-        std::string msg = concat(32, std::array{
-                "Used Vulkan API: "s,
-                std::to_string(VK_VERSION_MAJOR(vulkan_version)),
-                "."s,
-                std::to_string(VK_VERSION_MINOR(vulkan_version))
-                });
-        vulkan_log_msg(LogLevel::info, msg);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Vulkan uses GPU called: %s\n", &gpu_properties.deviceName[0]);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Used Vulkan API: %d.%d\n",
+                        VK_VERSION_MAJOR(vulkan_version),
+                        VK_VERSION_MINOR(vulkan_version));
 }
 
 vk::PhysicalDevice create_physical_device(vk::Instance instance, vk::SurfaceKHR surface, uint32_t gpu_index) {
@@ -286,8 +379,7 @@ void create_swapchain_views(vk::Device device, vk::SwapchainKHR swapchain, vk::F
 
 namespace vulkan_display {
 
-void VulkanInstance::init(std::vector<const char*>& required_extensions, bool enable_validation, std::function<void(LogLevel, std::string_view sv)> logging_function) {
-        vulkan_log_msg = std::move(logging_function);
+void VulkanInstance::init(std::vector<const char*>& required_extensions, bool enable_validation) {
         std::vector<const char*> validation_layers{};
         if (enable_validation) {
                 validation_layers.push_back("VK_LAYER_KHRONOS_validation");
@@ -297,6 +389,8 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
                 required_extensions.push_back(debug_extension);
         }
 
+        const bool create_enumerate_portability_bit_supported =
+            handle_enumerate_portability_extension(required_extensions);
         check_instance_extensions(required_extensions);
 
         vk::ApplicationInfo app_info{};
@@ -310,6 +404,11 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
                 .setPpEnabledLayerNames(validation_layers.data())
                 .setEnabledExtensionCount(static_cast<uint32_t>(required_extensions.size()))
                 .setPpEnabledExtensionNames(required_extensions.data());
+        if (create_enumerate_portability_bit_supported) {
+#if VK_HEADER_VERSION >= 208
+                instance_info.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+#endif // VK_HEADER_VERSION >= 208
+        }
         auto result = vk::createInstance(&instance_info, nullptr, &instance);
         
         switch (result) {
@@ -328,7 +427,11 @@ void VulkanInstance::init(std::vector<const char*>& required_extensions, bool en
         }
 
         if (enable_validation) {
+#if VK_HEADER_VERSION >= 301
+                dynamic_dispatcher = std::make_unique<vk::detail::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#else
                 dynamic_dispatcher = std::make_unique<vk::DispatchLoaderDynamic>((VkInstance) instance, vkGetInstanceProcAddr);
+#endif
                 init_validation_layers_error_messenger();
         }
 }
@@ -402,7 +505,7 @@ void VulkanContext::create_logical_device() {
                 if (yCbCr_feature.samplerYcbcrConversion) {
                         yCbCr_supported = true;
                         device_info.setPNext(&features2);
-                        vulkan_log_msg(LogLevel::info, "yCbCr feature supported.");
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "yCbCr feature supported.\n");
                 }
         }
 
@@ -416,11 +519,11 @@ void VulkanContext::create_logical_device() {
 void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
         constexpr int initialization_attempts = 3;
         for (int attempt = 0; attempt < initialization_attempts; attempt++) {
-                auto& capabilities = swapchain_atributes.capabilities;
+                auto& capabilities = swapchain_attributes.capabilities;
                 capabilities = gpu.getSurfaceCapabilitiesKHR(surface);
 
-                swapchain_atributes.format = get_surface_format(gpu, surface);
-                swapchain_atributes.mode = get_present_mode(gpu, surface, preferred_present_mode);
+                swapchain_attributes.format = get_surface_format(gpu, surface);
+                swapchain_attributes.mode = get_present_mode(gpu, surface, preferred_present_mode);
 
                 vk::Extent2D swapchain_image_size;
                 swapchain_image_size.width = std::clamp(window_parameters.width,
@@ -429,37 +532,29 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                 swapchain_image_size.height = std::clamp(window_parameters.height,
                         capabilities.minImageExtent.height,
                         capabilities.maxImageExtent.height);
-                swapchain_atributes.image_size = swapchain_image_size;
+                swapchain_attributes.image_size = swapchain_image_size;
 
                 uint32_t image_count = std::max(uint32_t{2}, capabilities.minImageCount);
                 if (capabilities.maxImageCount != 0) {
                         image_count = std::min(image_count, capabilities.maxImageCount);
                 }
 
-                auto msg = concat(64, std::array{
-                        "Recreating swapchain, size: "s,
-                        std::to_string(swapchain_image_size.width),
-                        "x"s,
-                        std::to_string(swapchain_image_size.height),
-                        ", format: "s,
-                        vk::to_string(swapchain_atributes.format.format)
-                });
-                vulkan_log_msg(LogLevel::info, msg);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating swapchain, size: %dx%d, format %s\n", swapchain_image_size.width, swapchain_image_size.height, vk::to_string(swapchain_attributes.format.format).c_str());
 
                 //assert(capabilities.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferDst);
                 vk::SwapchainCreateInfoKHR swapchain_info{};
                 swapchain_info
                         .setSurface(surface)
-                        .setImageFormat(swapchain_atributes.format.format)
-                        .setImageColorSpace(swapchain_atributes.format.colorSpace)
-                        .setPresentMode(swapchain_atributes.mode)
+                        .setImageFormat(swapchain_attributes.format.format)
+                        .setImageColorSpace(swapchain_attributes.format.colorSpace)
+                        .setPresentMode(swapchain_attributes.mode)
                         .setMinImageCount(image_count)
                         .setImageExtent(swapchain_image_size)
                         .setImageArrayLayers(1)
                         .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
                         .setImageSharingMode(vk::SharingMode::eExclusive)
-                        .setPreTransform(swapchain_atributes.capabilities.currentTransform)
-                        .setCompositeAlpha(get_composite_alpha(swapchain_atributes.capabilities.supportedCompositeAlpha))
+                        .setPreTransform(swapchain_attributes.capabilities.currentTransform)
+                        .setCompositeAlpha(get_composite_alpha(swapchain_attributes.capabilities.supportedCompositeAlpha))
                         .setClipped(true)
                         .setOldSwapchain(old_swapchain);
                 try{
@@ -469,7 +564,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         return;
                 }
                 catch(std::exception& err){
-                        vulkan_log_msg(LogLevel::info, "Recreation unsuccesful: "s + err.what());
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Recreation unsuccesful: %s\n", err.what());
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
                         if(attempt + 1 == initialization_attempts){
@@ -510,15 +605,15 @@ void VulkanContext::init(vulkan_display::VulkanInstance&& instance, vk::SurfaceK
         
         queue = device.getQueue(queue_family_index, 0);
         create_swap_chain();
-        create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
+        create_swapchain_views(device, swapchain, swapchain_attributes.format.format, swapchain_images);
 }
 
 void VulkanContext::create_framebuffers(vk::RenderPass render_pass) {
         vk::FramebufferCreateInfo framebuffer_info;
         framebuffer_info
                 .setRenderPass(render_pass)
-                .setWidth(swapchain_atributes.image_size.width)
-                .setHeight(swapchain_atributes.image_size.height)
+                .setWidth(swapchain_attributes.image_size.width)
+                .setHeight(swapchain_attributes.image_size.height)
                 .setLayers(1);
 
         for(auto& swapchain_image : swapchain_images){
@@ -538,18 +633,25 @@ void VulkanContext::recreate_swapchain(WindowParameters parameters, vk::RenderPa
         destroy_swapchain_views();
         vk::SwapchainKHR old_swap_chain = swapchain;
         create_swap_chain(std::move(old_swap_chain));
-        create_swapchain_views(device, swapchain, swapchain_atributes.format.format, swapchain_images);
+        create_swapchain_views(device, swapchain, swapchain_attributes.format.format, swapchain_images);
         create_framebuffers(render_pass);
+        swapchain_was_suboptimal = false;
 }
 
-uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) const {
+uint32_t VulkanContext::acquire_next_swapchain_image(vk::Semaphore acquire_semaphore) {
+        if(swapchain_was_suboptimal){
+                return swapchain_image_out_of_date;
+        }
+
         constexpr uint64_t timeout = 1'000'000'000; // 1s = 1 000 000 000 nanoseconds
         uint32_t image_index;
         auto acquired = device.acquireNextImageKHR(swapchain, timeout, acquire_semaphore, nullptr, &image_index);
         switch (acquired) {
                 case vk::Result::eSuccess:
                         break;
-                case vk::Result::eSuboptimalKHR: [[fallthrough]];
+                case vk::Result::eSuboptimalKHR:
+                        swapchain_was_suboptimal = true;
+                        break;
                 case vk::Result::eErrorOutOfDateKHR:
                         image_index = swapchain_image_out_of_date;
                         break;

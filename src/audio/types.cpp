@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,23 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "audio/types.h"
 
+#include <algorithm>            // for copy
+#include <cassert>              // for assert
+#include <cstring>              // for memcpy
+#include <sstream>              // for basic_ostringstream
+#include <stdexcept>            // for logic_error
+#include <utility>              // for move
 
 #include "audio/resampler.hpp"
-#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
-#include "host.h"
-#include "utils/macros.h"
-
-#include <chrono>
-#include <sstream>
-#include <stdexcept>
+#include "types.h"              // for fec_desc, frame_flags_common
 
 using std::copy;
 using std::logic_error;
@@ -330,6 +326,32 @@ void  audio_frame2::change_bps(int new_bps)
 
         desc.bps = new_bps;
         channels = std::move(new_channels);
+}
+
+/**
+ * simple ch_count changer - excess channels dropped, missing copied from the
+ * last one
+ */
+void audio_frame2::change_ch_count(int ch_count)
+{
+        if ((unsigned) ch_count == channels.size()) {
+                return;
+        }
+
+        if ((unsigned) ch_count < channels.size()) {
+                channels.resize(ch_count);
+                return;
+        }
+
+        for (unsigned i = channels.size(); i < (unsigned) ch_count; ++i) {
+                const channel &last_ch = channels.at(channels.size() - 1);
+                std::unique_ptr<char[]> data =
+                    std::unique_ptr<char[]>(new char[last_ch.len]);
+                memcpy(data.get(), last_ch.data.get(), last_ch.len);
+                channel ch = { std::move(data), last_ch.len, last_ch.len,
+                               last_ch.fec_params };
+                channels.push_back(std::move(ch));
+        }
 }
 
 void audio_frame2::set_timestamp(int64_t ts)

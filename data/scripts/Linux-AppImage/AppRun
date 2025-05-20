@@ -25,6 +25,10 @@ QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
+export MAGICK_CONFIGURE_PATH="$DIR/etc/IM"
+export MAGICK_CODER_FILTER_PATH="$DIR/usr/share/IM/filters"
+export MAGICK_CODER_MODULE_PATH="$DIR/usr/share/IM/coders"
+
 get_tools() {(
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
 )}
@@ -76,7 +80,7 @@ usage_aux() {
 update_check_days=90
 ## Trigger update if $ULTRAGRID_AUTOUPDATE days passed.
 ## If $ULTRAGRID_AUTOUPDATE unset or empty, print update hint if UG binary is older than $update_check_days days.
-handle_updates() {(
+handle_autoupdates() {(
         if [ "${ULTRAGRID_AUTOUPDATE-0}" -eq -1 ]; then
                 return
         fi
@@ -95,11 +99,21 @@ handle_updates() {(
                 return
         fi
         if [ "${ULTRAGRID_AUTOUPDATE-}" ] && [ "$ULTRAGRID_AUTOUPDATE" -ge 0 ]; then
-                if ! "$DIR/appimageupdatetool" -j "$APPIMAGE" && "$DIR/appimageupdatetool" "$APPIMAGE"; then
-                        ULTRAGRID_AUTOUPDATE=-1 # prevent update loops if the new version not stored for some reason
-                        exec "$APPIMAGE" "$@"  # launch the updated version
+                echo "Running the UltraGrid update because the interval" \
+                 "specified by ULTRAGRID_AUTOUPDATE env variable has passed..."
+                # update AppImage mtime otherwise if there are no updates
+                # after elapsing the interval, the check would run always
+                touch "$APPIMAGE"
+                if "$DIR/appimageupdatetool" -j "$APPIMAGE"; then
+                        debug_msg "No UltraGrid AppImage update available"
+                else
+                        if "$DIR/appimageupdatetool" "$APPIMAGE"; then
+                                # prevent update loops if the new version not
+                                # stored for some reason
+                                ULTRAGRID_AUTOUPDATE=-1
+                                exec "$APPIMAGE" "$@"  # launch updated version
+                        fi
                 fi
-                touch "$APPIMAGE" # update AppImage mtime otherwise if there are no updates after elapsing the interval, the check would run always
                 return
         fi
         printf "UltraGrid binary older than %d days, consider checking updates:\n" "$update_check_days"
@@ -297,6 +311,7 @@ setup_wayland
 set_ld_preload ultragrid_aplay_portaudio.so libjack
 set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
 
+## @param $@   <tool> <arguments
 setup_firejail() {
         tool=$1
         if [ "${ULTRAGRID_USE_FIREJAIL:-0}" = 0 ] ||
@@ -310,11 +325,12 @@ setup_firejail() {
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
                 FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all\
- --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp\
+ --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp\
  --private-bin=bash --private-opt=none --mkdir=$FJ_TMPDIR\
- --read-write=$FJ_TMPDIR --writable-var"
+ --read-write=$FJ_TMPDIR --writable-var --ignore=private-tmp"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
-                if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
+                if ! expr "$FIREJAIL_OPTS" : '.*--read-write="/\{1,\}tmp/*"' \
+                        > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
                 fi
         fi
@@ -352,9 +368,9 @@ fj_sigaction() {
 }
 
 run() {
+        setup_firejail "$@"
         tool=$1
         shift
-        setup_firejail "$tool"
         export LD_LIBRARY_PATH="$n_ld_library_path"
         if [ -n "${fj_opt_file-}" ] && [ "$tool" != uv-qt ]; then
                 stty_orig=$(stty -g)
@@ -373,8 +389,12 @@ if [ "${FIREJAIL_DEBUG-}" ]; then
 (replacement)${reset}\n"
 fi
 
+if [ "${APPIMAGE_DEBUG-undef}" = undef ] && [ "${ULTRAGRID_VERBOSE-}" ]; then
+        APPIMAGE_DEBUG=$ULTRAGRID_VERBOSE
+fi
+
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
-        handle_updates "$@"
+        handle_autoupdates "$@"
         if [ $# -eq 0 ]; then usage; else shift; fi
         if [ -x "$DIR/usr/bin/uv-qt" ]; then
                 run uv-qt --with-uv "$DIR/usr/bin/uv" "$@"
@@ -383,7 +403,7 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
                 exit 1
         fi
 elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
-        handle_updates "$@"
+        handle_autoupdates "$@"
         TOOL=$2
         shift 2
         if [ "$TOOL" = help ]; then
@@ -412,6 +432,6 @@ elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
 else
-        handle_updates "$@"
+        handle_autoupdates "$@"
         run uv "$@"
 fi

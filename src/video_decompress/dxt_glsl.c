@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET z.s.p.o.
+ * Copyright (c) 2011-2024 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,24 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <stdbool.h>                      // for false, true
+#include <stdio.h>                     // for fprintf, stderr
+#include <stdlib.h>                       // for free, malloc, EXIT_FAILURE
+#include <string.h>                    // for memcpy
+
+#include "../dxt_compress/dxt_common.h"   // for dxt_type, dxt_format
+#include "../dxt_compress/dxt_decoder.h"
+#include "../dxt_compress/dxt_util.h"
+//#include "compat/platform_semaphore.h"
 #include "debug.h"
+#include "gl_context.h"
 #include "host.h"
+#include "lib_common.h"
+#include "pixfmt_conv.h"               // for vc_copylineRGBA
+#include "types.h"                     // for video_desc, codec_t, RGBA, DXT1
+#include "video_codec.h"               // for vc_get_linesize
 #include "video_decompress.h"
 
-#include "dxt_compress/dxt_decoder.h"
-#include "dxt_compress/dxt_util.h"
-//#include "compat/platform_semaphore.h"
-#include "video.h"
-#include <pthread.h>
-#include <stdlib.h>
-#include "lib_common.h"
-
-#include "gl_context.h"
 
 struct state_decompress_rtdxt {
         struct dxt_decoder *decoder;
@@ -75,7 +75,7 @@ static int configure_with(struct state_decompress_rtdxt *decompressor, struct vi
                 fprintf(stderr, "[RTDXT decompress] Failed to create GL context.\n");
                 exit_uv(EXIT_FAILURE);
                 decompressor->compressed_len = 0;
-                return FALSE;
+                return false;
         }
 
         if(desc.color_spec == DXT5) {
@@ -86,7 +86,7 @@ static int configure_with(struct state_decompress_rtdxt *decompressor, struct vi
                 type = DXT_TYPE_DXT1_YUV;
         } else {
                 fprintf(stderr, "Wrong compressiong to decompress.\n");
-                return FALSE;
+                return false;
         }
         
         decompressor->desc = desc;
@@ -98,13 +98,13 @@ static int configure_with(struct state_decompress_rtdxt *decompressor, struct vi
 
         if (decompressor->decoder == NULL) {
                 fprintf(stderr, "[RTDXT decompress] State initialization failed.\n");
-                return FALSE;
+                return false;
         }
         
         decompressor->compressed_len = dxt_get_size(desc.width, desc.height, type);
-        decompressor->configured = TRUE;
+        decompressor->configured = true;
 
-        return TRUE;
+        return true;
 }
 
 static void * dxt_glsl_decompress_init(void)
@@ -112,7 +112,7 @@ static void * dxt_glsl_decompress_init(void)
         struct state_decompress_rtdxt *s;
         
         s = (struct state_decompress_rtdxt *) malloc(sizeof(struct state_decompress_rtdxt));
-        s->configured = FALSE;
+        s->configured = false;
 
         return s;
 }
@@ -121,7 +121,7 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
-        int ret = TRUE;
+        int ret = true;
         
         s->pitch = pitch;
         s->rshift = rshift;
@@ -198,18 +198,18 @@ static int dxt_glsl_decompress_get_property(void *state, int property, void *val
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(s);
-        int ret = FALSE;
+        int ret = false;
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if(*len >= sizeof(int)) {
-                                *(int *) val = TRUE;
+                                *(int *) val = true;
                                 *len = sizeof(int);
-                                ret = TRUE;
+                                ret = true;
                         }
                         break;
                 default:
-                        ret = FALSE;
+                        ret = false;
         }
 
         return ret;

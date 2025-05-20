@@ -39,7 +39,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL2
+#include "config.h"                     // for HAVE_LIBSDL_TTF, HAVE_SDL3
 #endif // defined HAVE_CONFIG_H
 
 #include <assert.h>                     // for assert
@@ -57,15 +57,16 @@
 #include <time.h>                       // for time
 
 #ifdef HAVE_LIBSDL_TTF
-#ifdef HAVE_SDL2
-#include <SDL2/SDL_ttf.h>
+#ifdef HAVE_SDL3
+#include <SDL3_ttf/SDL_ttf.h>
 #else
-#include <SDL/SDL_ttf.h>
-#endif
+#include <SDL_ttf.h>
+#endif // defined HAVE_SDL3
 #endif
 
 #include "audio/types.h"                // for audio_frame
 #include "compat/platform_semaphore.h"  // for platform_sem_post, platform_s...
+#include "compat/usleep.h"              // for usleep
 #include "debug.h"                      // for log_msg, LOG_LEVEL_ERROR, LOG...
 #include "host.h"                       // for exit_uv, audio_capture_channels
 #include "lib_common.h"                 // for REGISTER_MODULE, library_class
@@ -75,6 +76,7 @@
 #include "utils/color_out.h"            // for color_printf, TBOLD, TRED
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
+#include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
 #include "video.h"                      // for get_video_desc_from_string
 #include "video_capture.h"              // for VIDCAP_INIT_FAIL, VIDCAP_INIT...
@@ -94,28 +96,12 @@
 #define FONT_HEIGHT 108
 #define MOD_NAME "[testcard2] "
 
-#ifdef HAVE_LIBSDL_TTF
-#ifdef _WIN32
-#define DEFAULT_FONT_DIR "C:\\windows\\fonts"
-static const char * const font_candidates[] = { "cour.ttf", };
-#elif defined __APPLE__
-#define DEFAULT_FONT_DIR "/System/Library/Fonts"
-static const char *const font_candidates[] = {
-        "Monaco.ttf",
-        "Monaco.dfont",
-        "Geneva.ttf",
-        "Keyboard.ttf",
-};
+#ifdef HAVE_SDL3
+#define TTF_GetError SDL_GetError
+#define SDL_ERR false
 #else
-#define DEFAULT_FONT_DIR "/usr/share/fonts"
-static const char *const font_candidates[] = {
-        "DejaVuSansMono.ttf", // bundled in AppImage
-        "truetype/freefont/FreeMonoBold.ttf", "truetype/dejavu/DejaVuSansMono.ttf", // Ubuntu
-        "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", // Arch
-        "liberation-mono/LiberationMono-Regular.ttf", // Fedora
-};
+#define SDL_ERR (-1)
 #endif
-#endif // defined HAVE_LIBSDL_TTF
 
 void * vidcap_testcard2_thread(void *args);
 
@@ -414,32 +400,28 @@ void * vidcap_testcard2_thread(void *arg)
 #define EXIT_THREAD { free(banner); exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
         TTF_Font * font = NULL;
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
-        if(TTF_Init() == -1)
-        {
+        if (TTF_Init() == SDL_ERR) {
           log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
             TTF_GetError());
           EXIT_THREAD
         }
 
-        const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
-        char font_path[MAX_PATH_SIZE] = "";
-        for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
-                strncpy(font_path, font_dir, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
-                strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
-                strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
-                font = TTF_OpenFont(font_path, FONT_HEIGHT);
-                if (font == NULL) {
-                        MSG(VERBOSE, "Tried font %s: %s\n", font_path,
-                            TTF_GetError());
+        const char *const *font_candidates = get_font_candidates();
+        while (*font_candidates != NULL) {
+                font = TTF_OpenFont(*font_candidates, FONT_HEIGHT);
+                if (font != NULL) {
+                        MSG(INFO, "using font %s\n", *font_candidates);
+                        break;
                 }
+                MSG(VERBOSE, "Tried font %s: %s\n", *font_candidates,
+                    TTF_GetError());
+                font_candidates += 1;
         }
         if(!font) {
-                MSG(ERROR,
-                    "Unable to load any usable font! Last font tried %s: %s\n",
-                    font_path, TTF_GetError());
+                MSG(ERROR, "Unable to load any usable font! Last errror: %s\n",
+                    TTF_GetError());
                 EXIT_THREAD
         }
-        MSG(INFO, "Using font: %s\n", font_path);
 
 #endif
         /// @note R12l has pixel block size 8 pixels, so the below won't work for that pixfmt
@@ -508,7 +490,11 @@ void * vidcap_testcard2_thread(void *arg)
                                 (int) since_start % 60,
                                  s->count % (int) s->desc.fps);
                 SDL_Surface *text = TTF_RenderText_Solid(font,
+#ifdef HAVE_SDL3
+                        frames, 0, col);
+#else
                         frames, col);
+#endif
                 long xoff = ((long) s->desc.width - text->w) / 2;
                 long yoff = (BANNER_HEIGHT - text->h) / 2;
                 for (int i = 0 ; i < text->h; i++) {
@@ -521,7 +507,11 @@ void * vidcap_testcard2_thread(void *arg)
                         }
                 }
                 testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), (unsigned char *) banner, s->desc.width, BANNER_HEIGHT);
+#ifdef HAVE_SDL3
+                SDL_DestroySurface(text);
+#else
                 SDL_FreeSurface(text);
+#endif // HAVE_SDL3
 #endif
 
 next_frame:

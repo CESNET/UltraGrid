@@ -133,9 +133,8 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
 
                         int ret = create_filter(s, filter_name);
                         if (ret != 0) {
-                                module_done(&s->mod);
                                 free(tmp);
-                                free(s);
+                                capture_filter_destroy(s);
                                 return ret;
                         }
                         filter_list_str = NULL;

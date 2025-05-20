@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2024 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,20 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <errno.h>                                  // for errno
+#include <stdbool.h>                                // for bool, false, true
+#include <stdint.h>                                 // for uint16_t
+#include <stdio.h>                                  // for printf
+#include <stdlib.h>                                 // for NULL, free, calloc
+#include <string.h>                                 // for strcmp, strdup
 
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "video.h"
+#include "types.h"                                  // for tile, video_frame
 #include "video_codec.h"
+#include "video_frame.h"                            // for vf_free, VIDEO_FR...
 #include "vo_postprocess/capture_filter_wrapper.h"
+
+struct module;
 
 #define MOD_NAME "[matrix cap. f.] "
 
@@ -65,12 +69,17 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 printf("Performs matrix transformation on input pixels.\n\n"
                        "usage:\n");
-                color_printf(TERM_BOLD "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i[:no-bounds-check]\n" TERM_RESET);
+                color_printf(TERM_BOLD "\t-F/p matrix:a:b:c:d:e:f:g:h:i[:no-bounds-check]\n" TERM_RESET);
                 printf("where numbers a-i are members of 3x3 transformation matrix [a b c; d e f; g h i], decimals.\n"
                        "Coefficients are applied at unpacked pixels (eg. on Y Cb and Cr channels of UYVY). Result is marked as RGB.\n"
                        "Currently only RGB and UYVY is supported on input. No additional color transformation is performed.\n");
                 printf("\nOptional \"no-bounds-check\" options disables check for overflows/underflows which improves performance\n"
                                 "but may give incorrect results if operation oveflows or underflows.\n");
+                color_printf(
+                    "\n" TBOLD("Note: ") "This variant filter is a bit unusual, "
+                                        "expecially when handling UYVY.\n");
+                color_printf("You may want also to look at " TBOLD(
+                    "matrix2") " capture filter/postprocessor.\n\n");
                 return 1;
         }
         struct state_capture_filter_matrix *s = calloc(1, sizeof(struct state_capture_filter_matrix));

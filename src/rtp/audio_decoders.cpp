@@ -37,7 +37,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "src/rtp/audio_decoders.h"
+#include "rtp/audio_decoders.h"
 
 #include <algorithm>                 // for min
 #include <atomic>                    // for atomic_uint64_t
@@ -58,7 +58,7 @@
 #include "audio/resampler.hpp"       // for audio_frame2_resampler
 #include "audio/types.h"             // for audio_frame2, audio_desc, AC_PCM
 #include "audio/utils.h"             // for channel_map, calculate_rms, mux_...
-#include "compat/htonl.h"            // for ntohl, sockaddr_storage
+#include "compat/net.h"              // for ntohl, sockaddr_storage
 #include "compat/strings.h"          // for strcasecmp
 #include "control_socket.h"
 #include "crypto/openssl_decrypt.h"  // for openssl_decrypt_info, OPENSSL_DE...
@@ -76,7 +76,9 @@
 #include "types.h"                   // for fec_desc, fec_type
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
+#include "utils/misc.h"              // for get_stat_color
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
 
@@ -240,7 +242,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         struct state_audio_decoder *s = NULL;
         bool scale_auto = false;
         double scale_factor = 1.0;
-        char *tmp = nullptr;
 
         assert(audio_scale != NULL);
 
@@ -279,13 +280,11 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 if (!s->dec_funcs) {
                         log_msg(LOG_LEVEL_ERROR, "This UltraGrid version was build "
                                         "without OpenSSL support!\n");
-                        delete s;
-                        return NULL;
+                        goto error;
                 }
                 if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
-                        delete s;
-                        return NULL;
+                        goto error;
                 }
         }
 
@@ -328,7 +327,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         return s;
 
 error:
-        free(tmp);
         if (s) {
                 audio_decoder_destroy(s);
         }
@@ -380,13 +378,16 @@ static void *adec_compute_and_print_stats(void *arg) {
         if (d->bytes_received < d->bytes_expected) {
                 loss = " (" + to_string(d->bytes_expected - d->bytes_received) + " lost)";
         }
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B%s, "
-                        "decoded %d samples in %.2f sec.\n",
-                        d->bytes_received,
-                        d->bytes_expected,
-                        loss.c_str(),
-                        d->frame.get_sample_count(),
-                        d->seconds);
+
+        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
+        const char  *dec_cnt_warn_col =
+            get_stat_color(d->frame.get_sample_count() / exp_samples);
+
+        MSG(INFO,
+            "Received %ld/%ld B%s, "
+            "decoded %s%d samples" TERM_RESET " in %.2f sec.\n",
+            d->bytes_received, d->bytes_expected, loss.c_str(),
+            dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
 
         char volume[STR_LEN];
         char       *vol_start = volume;
@@ -399,8 +400,8 @@ static void *adec_compute_and_print_stats(void *arg) {
                                             &vol_start, volume + sizeof volume);
         }
 
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Volume: %s dBFS RMS/peak%s\n",
-                volume, d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
+        MSG(INFO, "Volume: %s dBFS RMS/peak%s\n", volume,
+            d->muted_receiver ? TBOLD(TRED(" (muted)")) : "");
 
         delete d;
 
@@ -426,6 +427,10 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
+
+        std::ostringstream oss;
+        oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
+        control_report_stats(decoder->control, oss.str());
 
         if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");

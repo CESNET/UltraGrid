@@ -47,6 +47,9 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "debug.h"
+
+#define MOD_NAME "[vulkan] "
 
 using namespace vulkan_display_detail;
 using namespace vulkan_display;
@@ -199,9 +202,20 @@ public:
 bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Extent2D size, vk::Format format,
         vk::ImageTiling tiling, vk::ImageUsageFlags usage_flags)
 {
-        if (!is_yCbCr_supported && is_yCbCr_format(format)){
-                return false;
+        if(is_yCbCr_format(format)){
+                if(!is_yCbCr_supported)
+                        return false;
+
+                vk::FormatProperties fmt_props = {};
+                gpu.getFormatProperties(format, &fmt_props);
+
+                if(!(fmt_props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageYcbcrConversionLinearFilter))
+                {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "The GPU does not support linear filter with a YCbCr conversion sampler. Will attempt to fall back to shader conversion.\n");
+                        return false;
+                }
         }
+
         vk::ImageFormatProperties properties;
         auto result = gpu.getImageFormatProperties(
                 format,
@@ -454,7 +468,7 @@ void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
         auto& image_format_info = image_description.format_info();
 
         if (image_description != current_image_description) {
-                vulkan_log_msg(LogLevel::info, "Recreating render_pipeline");
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating render_pipeline\n");
                 context.get_queue().waitIdle();
                 device.resetDescriptorPool(descriptor_pool);
 
@@ -564,9 +578,12 @@ bool VulkanDisplay::display_queued_image() {
         int swapchain_recreation_attempt = 0;
         while (swapchain_image_id == swapchain_image_out_of_date || swapchain_image_id == swapchain_image_timeout) 
         {
+                const int swapchain_recreation_warn_tries = 50;
                 swapchain_recreation_attempt++;
-                if (swapchain_recreation_attempt > 3) {
-                        throw VulkanError{"Cannot acquire swapchain image"};
+                if (swapchain_image_id == swapchain_image_timeout){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Swapchain image acquire timed out\n");
+                } else if (swapchain_recreation_attempt > swapchain_recreation_warn_tries) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Swapchain image acquire failed %d times in a row\n", swapchain_recreation_warn_tries);
                 }
                 
                 auto window_parameters = window->get_window_parameters();

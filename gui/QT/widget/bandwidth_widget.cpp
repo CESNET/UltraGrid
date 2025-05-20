@@ -38,7 +38,7 @@ void BandwidthWidget::updateVal(){
 	QString tooltip;
 	for(const auto& i : reports.get()){
 		total += i.item.bitsPerSecond;
-		tooltip += QString::number(i.ssrc, 16)
+		tooltip += QString::number(i.key, 16)
 			+ " (" + QString::fromStdString(i.item.type) + "): "
 			+ getBitrateStr(i.item.bitsPerSecond) + "\n";
 	}
@@ -79,7 +79,7 @@ void BandwidthWidget::parseLine(std::string_view line){
 	report.type = type;
 
 	for(const auto& r : reports.get()){
-		if(r.ssrc != ssrc)
+		if(r.key != ssrc)
 			continue;
 
 		auto duration = std::max<qint64>(elapsedTimer.elapsed() - r.timestamp, 1);

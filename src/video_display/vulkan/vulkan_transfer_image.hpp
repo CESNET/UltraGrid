@@ -133,20 +133,7 @@ enum class InitialImageData{
         preinitialised, undefined
 };
 
-class Image2D{
-public:
-        vk::DeviceMemory memory{};
-        vk::Image image{};
-        vk::ImageLayout layout{};
-        vk::AccessFlags access{};
-
-        vk::ImageView view{};
-
-        size_t byte_size{};
-
-        vk::Extent2D size{};
-        vk::Format format{};
-public:
+struct Image2D{
         void init(VulkanContext& context,
                 vk::Extent2D size, vk::Format format, vk::ImageUsageFlags usage,
                 vk::AccessFlags initial_access, InitialImageData preinitialised, MemoryLocation memory_location);
@@ -163,9 +150,53 @@ public:
         vk::ImageMemoryBarrier create_memory_barrier(vk::ImageLayout new_layout, vk::AccessFlags new_access_mask,
                 uint32_t src_queue_family_index = VK_QUEUE_FAMILY_IGNORED,
                 uint32_t dst_queue_family_index = VK_QUEUE_FAMILY_IGNORED);
+
+        vk::DeviceMemory memory{};
+        vk::Image image{};
+        vk::ImageLayout layout{};
+        vk::AccessFlags access{};
+
+        vk::ImageView view{};
+
+        size_t byte_size{};
+
+        vk::Extent2D size{};
+        vk::Format format{};
 };
 
 class TransferImageImpl {
+public:
+        TransferImageImpl() = default;
+        TransferImageImpl(vk::Device device, uint32_t id) {
+                init(device, id);
+        }
+
+        void init(vk::Device device, uint32_t id);
+        void recreate(VulkanContext& context, vulkan_display::ImageDescription description);
+        void destroy(vk::Device device);
+
+        void preprocess();
+
+        uint32_t get_id() const { return id; }
+
+        vulkan_display::ImageDescription get_image_description() const {
+                return image_description;
+        }
+        
+        Image2D& get_buffer() {
+                return buffer;        
+        }
+
+        vk::ImageView get_image_view(vk::Device device, vk::SamplerYcbcrConversion conversion) {
+            return buffer.get_image_view(device, conversion);
+        }
+
+        friend class vulkan_display::TransferImage;
+        static constexpr uint32_t NO_ID = UINT32_MAX;
+
+        vk::Fence is_available_fence; // is_available_fence becames signalled when gpu releases the image
+
+private:
         Image2D buffer;
         uint32_t id = NO_ID;
         unsigned char* ptr = nullptr;
@@ -176,40 +207,6 @@ class TransferImageImpl {
         PreprocessFunction preprocess_fun{ nullptr };
 
         vulkan_display::ImageDescription image_description;
-
-public:
-        friend class vulkan_display::TransferImage;
-
-        static constexpr uint32_t NO_ID = UINT32_MAX;
-
-        vk::Fence is_available_fence; // is_available_fence becames signalled when gpu releases the image
-
-        uint32_t get_id() const { return id; }
-
-        vulkan_display::ImageDescription get_image_description() const {
-                return image_description;
-        }
-        
-        void init(vk::Device device, uint32_t id);
-
-        void recreate(VulkanContext& context, vulkan_display::ImageDescription description);
-
-        Image2D& get_buffer() {
-                return buffer;        
-        }
-
-        vk::ImageView get_image_view(vk::Device device, vk::SamplerYcbcrConversion conversion) {
-            return buffer.get_image_view(device, conversion);
-        }
-
-        void preprocess();
-
-        void destroy(vk::Device device);
-
-        TransferImageImpl() = default;
-        TransferImageImpl(vk::Device device, uint32_t id) {
-                init(device, id);
-        }
 };
 
 } // vulkan_display_detail
@@ -218,8 +215,6 @@ public:
 namespace vulkan_display {
 
 class TransferImage {
-        
-        detail::TransferImageImpl* transfer_image = nullptr;
 public:
         TransferImage() = default;
         TransferImage(std::nullptr_t){}
@@ -264,6 +259,9 @@ public:
         bool operator==(TransferImage other) const {
                 return transfer_image == other.transfer_image;
         }
+
+private:
+        detail::TransferImageImpl* transfer_image = nullptr;
 };
 
 } //namespace vulkan_display

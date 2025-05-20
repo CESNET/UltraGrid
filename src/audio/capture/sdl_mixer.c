@@ -34,22 +34,28 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @todo errata (SDL3 vs SDL2)
+ * 1. 1 channel capture (-a ch=1) seem no longer work but there is a workaround
+ * 2. unsufficient performance (generates overflow even in default config)
+ */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
+#include "config.h"               // for HAVE_SDL3
 
-#ifdef HAVE_SDL2
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
+#ifdef HAVE_SDL3
+#include <SDL3/SDL.h>             // for SDL_Init, SDL_INIT_AUDIO
+#include <SDL3/SDL_audio.h>       // for AUDIO_S16LSB, AUDIO_S32LSB, AUDIO_S8
+#include <SDL3_mixer/SDL_mixer.h> // for MIX_MAX_VOLUME, Mix_GetError, Mix_C...
 #else
-#include <SDL/SDL.h>
-#include <SDL/SDL_mixer.h>
-#endif // defined HAVE_SDL2
-
-#include <stdio.h>
+#include <SDL.h>                  // for SDL_Init, SDL_INIT_AUDIO
+#include <SDL_audio.h>            // for AUDIO_S16LSB, AUDIO_S32LSB, AUDIO_S8
+#include <SDL_mixer.h>            // for MIX_MAX_VOLUME, Mix_GetError, Mix_C...
+#endif
+#include <stdio.h>                // for NULL, fclose, fopen, size_t, FILE
+#include <stdlib.h>               // for free, calloc, getenv, atoi, malloc
+#include <string.h>               // for strlen, strncat, strchr, strcmp
+#include <unistd.h>               // for unlink
 
 #include "audio/audio_capture.h"
 #include "audio/types.h"
@@ -68,7 +74,18 @@
 #define SDL_MIXER_SAMPLE_RATE 48000
 #define MOD_NAME "[SDL_mixer] "
 
+#ifdef HAVE_SDL3
+#define Mix_GetError SDL_GetError
+#define SDL_ERR false
+#else
+#define SDL_AUDIO_S8 AUDIO_S8
+#define SDL_AUDIO_S16LE AUDIO_S16LSB
+#define SDL_AUDIO_S32LE AUDIO_S32LSB
+#define SDL_ERR (-1)
+#endif
+
 struct state_sdl_mixer_capture {
+        Mix_Music *music;
         struct audio_frame audio;
         struct ring_buffer *sdl_mixer_buf;
         int volume;
@@ -189,6 +206,24 @@ static void try_open_soundfont() {
         }
 }
 
+/// handle SDL 3.0.0 mixer not being able to capture mono
+static void
+adjust_ch_count(struct state_sdl_mixer_capture *s)
+{
+        int             frequency = 0;
+        SDL_AudioFormat format = { 0 };
+        int             channels = 0;
+        Mix_QuerySpec(&frequency, &format, &channels);
+        if (audio_capture_channels > 0 &&
+            channels != (int) audio_capture_channels) {
+                MSG(INFO,
+                    "%d channel capture seem to be broken with SDL3 "
+                    "mixer - capture %d and reduce drop second later\n",
+                    s->audio.ch_count, channels);
+                s->audio.ch_count = channels;
+        }
+}
+
 static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
@@ -200,27 +235,38 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         int ret = parse_opts(s, ccfg);
         free(ccfg);
         if (ret != 0) {
-                free(s);
+                audio_cap_sdl_mixer_done(s);
                 return ret < 0 ? NULL : INIT_NOERR;
         }
 
         s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_SDL_MIXER_BPS;
-        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels
+                                                       : MIX_DEFAULT_CHANNELS;
         s->audio.sample_rate = SDL_MIXER_SAMPLE_RATE;
 
         int audio_format = 0;
         switch (s->audio.bps) {
-                case 1: audio_format = AUDIO_S8; break;
-                case 2: audio_format = AUDIO_S16LSB; break;
-                case 4: audio_format = AUDIO_S32LSB; break;
+                case 1: audio_format = SDL_AUDIO_S8; break;
+                case 2: audio_format = SDL_AUDIO_S16LE; break;
+                case 4: audio_format = SDL_AUDIO_S32LE; break;
                 default: UG_ASSERT(0 && "BPS can be only 1, 2 or 4");
         }
 
+#ifdef HAVE_SDL3
+        SDL_AudioSpec spec = {
+                .format   = audio_format,
+                .channels = s->audio.ch_count,
+                .freq     = s->audio.sample_rate,
+        };
+        if (!Mix_OpenAudio(0, &spec)) {
+#else
         if( Mix_OpenAudio(SDL_MIXER_SAMPLE_RATE, audio_format,
                                 s->audio.ch_count, 4096 ) == -1 ) {
+#endif
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
                 goto error;
         }
+        adjust_ch_count(s);
         const char *filename = s->req_filename;
         if (!filename) {
                 filename = load_song1();
@@ -229,11 +275,11 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
                 }
         }
         try_open_soundfont();
-        Mix_Music *music = Mix_LoadMUS(filename);
+        s->music = Mix_LoadMUS(filename);
         if (filename != s->req_filename) {
                 unlink(filename);
         }
-        if (music == NULL) {
+        if (s->music == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error loading file: %s\n", Mix_GetError());
                 goto error;
         }
@@ -250,7 +296,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         }
 
         Mix_VolumeMusic(s->volume);
-        if(Mix_PlayMusic(music,-1)==-1){
+        if (Mix_PlayMusic(s->music, -1) == SDL_ERR) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error playing file: %s\n", Mix_GetError());
                 goto error;
         }
@@ -275,9 +321,10 @@ static struct audio_frame *audio_cap_sdl_mixer_read(void *state)
 
 static void audio_cap_sdl_mixer_done(void *state)
 {
-        Mix_HaltMusic();
-        Mix_CloseAudio();
         struct state_sdl_mixer_capture *s = state;
+        Mix_HaltMusic();
+        Mix_FreeMusic(s->music);
+        Mix_CloseAudio();
         free(s->audio.data);
         free(s->req_filename);
         free(s);

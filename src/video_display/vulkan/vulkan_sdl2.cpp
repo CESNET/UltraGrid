@@ -97,7 +97,6 @@
 #include <queue>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <utility> // pair
 
@@ -177,7 +176,6 @@ struct state_vulkan_sdl2 {
         Uint32 sdl_user_new_message_event;
 
         chrono::steady_clock::time_point time{};
-        uint64_t frames = 0;
 
         bool deinterlace = false;
         bool fullscreen = false;
@@ -191,7 +189,7 @@ struct state_vulkan_sdl2 {
         // Use raw pointers because std::unique_ptr might not have standard layout
         vkd::VulkanDisplay* vulkan = nullptr;
         WindowCallback* window_callback = nullptr;
-        FrameMappings* frame_mappings = new FrameMappings();
+        std::unique_ptr<FrameMappings> frame_mappings = std::make_unique<FrameMappings>();
 
         std::atomic<bool> should_exit = false;
         video_desc current_desc{};
@@ -213,13 +211,9 @@ struct state_vulkan_sdl2 {
         state_vulkan_sdl2& operator=(state_vulkan_sdl2&& other) = delete;
 
         ~state_vulkan_sdl2() {
-                delete frame_mappings;
                 module_done(&mod);
         }
 };
-
-// make sure that state_vulkan_sdl2 is C compatible
-static_assert(std::is_standard_layout_v<state_vulkan_sdl2>);
 
 //todo C++20 : change to to_array
 constexpr std::array<std::pair<char, std::string_view>, 3> display_vulkan_keybindings{{
@@ -397,21 +391,9 @@ void display_vulkan_run(void* state) {
         while (!s->should_exit) {
                 process_events(*s);
                 try {
-                        bool displayed = s->vulkan->display_queued_image();
-                        if (displayed) {
-                                s->frames++;
-                        }
+                        s->vulkan->display_queued_image();
                 } 
                 catch (std::exception& e) { log_and_exit_uv(e); break; }
-                auto now = chrono::steady_clock::now();
-                double seconds = chrono::duration<double>{ now - s->time }.count();
-                if (seconds > 5) {
-                        double fps = s->frames / seconds;
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "%llu frames in %g seconds = %g FPS\n",
-                                static_cast<long long unsigned>(s->frames), seconds, fps);
-                        s->time = now;
-                        s->frames = 0;
-                }
         }
         SDL_HideWindow(s->window);
 
@@ -712,22 +694,6 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
         return true;
 }
 
-void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
-        using L = vkd::LogLevel;
-
-        int log_level = LOG_LEVEL_INFO;
-        switch(vkd_log_level){
-                case L::fatal:   log_level = LOG_LEVEL_FATAL;   break;
-                case L::error:   log_level = LOG_LEVEL_ERROR;   break;
-                case L::warning: log_level = LOG_LEVEL_WARNING; break;
-                case L::notice:  log_level = LOG_LEVEL_NOTICE;  break;
-                case L::info:    log_level = LOG_LEVEL_INFO;    break;
-                case L::verbose: log_level = LOG_LEVEL_VERBOSE; break;
-                case L::debug:   log_level = LOG_LEVEL_DEBUG;   break;
-        }
-        LOG(log_level) << MOD_NAME << sv << std::endl;
-}
-
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL2 module currently doesn't support audio!\n");
@@ -816,7 +782,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         LOG(LOG_LEVEL_INFO) << MOD_NAME "Path to shaders: " << path_to_shaders << '\n';
         try {
                 vkd::VulkanInstance instance;
-                instance.init(required_extensions, args.validation, vulkan_display_log);
+                instance.init(required_extensions, args.validation);
 #ifdef __MINGW32__
                 //SDL2 for MINGW has problem creating surface
                 SDL_SysWMinfo wmInfo{};
@@ -1016,11 +982,12 @@ const video_display_info display_vulkan_info = {
         display_vulkan_get_property,
         display_vulkan_put_audio_frame,
         display_vulkan_reconfigure_audio,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 } // namespace
 
 
 REGISTER_MODULE(vulkan_sdl2, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(vulkan, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

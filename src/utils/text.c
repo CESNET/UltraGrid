@@ -35,21 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include "utils/text.h"
 
-#include <string.h>
+#include <assert.h>             // for assert
+#include <ctype.h>              // for isalnum
+#include <limits.h>             // for INT_MAX, PATH_MAX
+#include <stdio.h>              // for fclose, fwrite, rewind, sprintf, sscanf
+#include <stdlib.h>             // for getenv, malloc, free, realloc
+#include <string.h>             // for memcpy, strlen, strpbrk
+#include <unistd.h>             // for unlink
 
 #include "debug.h"
 #include "utils/bitmap_font.h"
 #include "utils/color_out.h" // prune_ansi_sequences_inplace_cstr
 #include "utils/fs.h"
+#include "utils/macros.h"    // for snprintf_ch
 #include "utils/pam.h"
-#include "utils/string.h"
-#include "utils/text.h"
 
 int urlencode_html5_eval(int c)
 {
@@ -320,3 +321,49 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
         return true;
 }
 
+/// @returns null-terminated list of TTF font candidates
+const char *const *
+get_font_candidates()
+{
+#ifdef _WIN32
+#define DEFAULT_FONT_DIR "C:\\windows\\fonts"
+        static const char *const font_candidates[] = {
+                "cour.ttf",
+        };
+#elif defined __APPLE__
+#define DEFAULT_FONT_DIR "/System/Library/Fonts"
+        static const char *const font_candidates[] = {
+                "Monaco.ttf",
+                "Monaco.dfont",
+                "Geneva.ttf",
+                "Keyboard.ttf",
+        };
+#else
+#define DEFAULT_FONT_DIR "/usr/share/fonts"
+        static const char *const font_candidates[] = {
+                "DejaVuSansMono.ttf", // bundled in AppImage
+                "truetype/freefont/FreeMonoBold.ttf",
+                "truetype/dejavu/DejaVuSansMono.ttf", // Ubuntu
+                "TTF/DejaVuSansMono.ttf",
+                "liberation/LiberationMono-Regular.ttf",      // Arch
+                "liberation-mono/LiberationMono-Regular.ttf", // Fedora
+        };
+#endif
+
+        static const char *const *ret = NULL;
+        if (ret != NULL) {
+                return ret;
+        }
+
+        static char tmp[sizeof font_candidates / sizeof font_candidates[0]][PATH_MAX] = { 0 };
+        static char *ptrs[(sizeof tmp / sizeof tmp[0]) + 1] = { 0 };
+
+        const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
+        for (unsigned i = 0; i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
+                snprintf_ch(tmp[i], "%s/%s", font_dir, font_candidates[i]);
+                ptrs[i] = tmp[i];
+        }
+
+        ret = (const char *const *) ptrs;
+        return ret;
+}

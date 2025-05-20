@@ -36,6 +36,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"                // for HWACC_VDPAU
 #include "color.h"
 #include "debug.h"
 #include "host.h"
@@ -112,15 +113,16 @@ static void load_yuv_coefficients(GlProgram& program){
 
         glUseProgram(program.get());
         GLuint loc = glGetUniformLocation(program.get(), "luma_scale");
-        glUniform1f(loc, Y_LIMIT_INV);
+        const struct color_coeffs cfs = compute_color_coeffs(kr, kb, 8);
+        glUniform1f(loc, (double) cfs.y_scale / (1 << COMP_BASE));
         loc = glGetUniformLocation(program.get(), "r_cr");
-        glUniform1f(loc, R_CR(kr, kb));
+        glUniform1f(loc, (double) cfs.r_cr / (1 << COMP_BASE));
         loc = glGetUniformLocation(program.get(), "g_cr");
-        glUniform1f(loc, G_CR(kr, kb));
+        glUniform1f(loc, (double) cfs.g_cb / (1 << COMP_BASE));
         loc = glGetUniformLocation(program.get(), "g_cb");
-        glUniform1f(loc, G_CB(kr, kb));
+        glUniform1f(loc, (double) cfs.g_cr / (1 << COMP_BASE));
         loc = glGetUniformLocation(program.get(), "b_cb");
-        glUniform1f(loc, B_CB(kr, kb));
+        glUniform1f(loc, (double) cfs.b_cb / (1 << COMP_BASE));
 }
 
 class Rendering_convertor : public Frame_convertor{
@@ -160,7 +162,7 @@ protected:
 
         GlProgram program;
         Model quad;
-        Framebuffer fbuf;
+        Gl_framebuffer fbuf;
         GLint width_uniform_location = -1;
         Texture input_tex;
 };

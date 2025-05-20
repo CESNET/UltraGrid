@@ -427,7 +427,6 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
         if (s->conv_uv) {
                 int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
                 av_to_uv_convert(s->conv_uv, out->tiles[0].data, frame,
-                                 out->tiles[0].width, out->tiles[0].height,
                                  video_dst_linesize[0], rgb_shift);
         } else {
                 sws_scale(s->sws_ctx, (const uint8_t *const *)frame->data,

@@ -8,7 +8,7 @@
  * This file is part of GPUJPEG.
  */
 /*
- * Copyright (c) 2013-2023, CESNET z.s.p.o.
+ * Copyright (c) 2013-2025, CESNET
  *
  * All rights reserved.
  *
@@ -64,7 +64,7 @@ static bool parse_pam(FILE *file, struct pam_metadata *info) {
                 } else if (strcmp(key, "HEIGHT") == 0) {
                         info->height = atoi(val);
                 } else if (strcmp(key, "DEPTH") == 0) {
-                        info->depth = atoi(val);
+                        info->ch_count = atoi(val);
                 } else if (strcmp(key, "MAXVAL") == 0) {
                         info->maxval = atoi(val);
                 } else if (strcmp(key, "TUPLTYPE") == 0) {
@@ -92,15 +92,15 @@ static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
                         fprintf(stderr, "Plain (ASCII) PNM are not supported, input is P%c\n", pnm_id);
                         return false;
                 case '4':
-                        info->depth = 1;
+                        info->ch_count = 1;
                         info->maxval = 1;
                         info->bitmap_pbm = true;
                         break;
                 case '5':
-                        info->depth = 1;
+                        info->ch_count = 1;
                         break;
                 case '6':
-                        info->depth = 3;
+                        info->ch_count = 3;
                         break;
                 default:
                         fprintf(stderr, "Wrong PNM type P%c\n", pnm_id);
@@ -166,8 +166,8 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
                 fprintf(stderr, "Unspecified/incorrect size %dx%d!\n", info->width, info->height);
                 parse_rc = false;
         }
-        if (info->depth <= 0) {
-                fprintf(stderr, "Unspecified/incorrect depth %d!\n", info->depth);
+        if (info->ch_count <= 0) {
+                fprintf(stderr, "Unspecified/incorrect channel count %d!\n", info->ch_count);
                 parse_rc = false;
         }
         if (info->maxval <= 0 || info->maxval > 65535) {
@@ -178,7 +178,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
                 fclose(file);
                 return parse_rc;
         }
-        size_t datalen = (size_t) info->depth * info->width * info->height;
+        size_t datalen = (size_t) info->ch_count * info->width * info->height;
         if (info->maxval == 1 && info->bitmap_pbm) {
                 datalen = (info->width + 7) / 8 * info->height;
         } else if (info->maxval > 255) {
@@ -186,7 +186,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         }
         *data = (unsigned char *) allocator(datalen);
         if (!*data) {
-                fprintf(stderr, "Unspecified depth header field!\n");
+                fprintf(stderr, "Failed to allocate data!\n");
                 fclose(file);
                 return false;
         }
@@ -201,7 +201,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         return true;
 }
 
-bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, int maxval, const unsigned char *data, bool pnm) {
+bool pam_write(const char *filename, unsigned int width, unsigned int height, int ch_count, int maxval, const unsigned char *data, bool pnm) {
         errno = 0;
         FILE *file = fopen(filename, "wb");
         if (!file) {
@@ -209,7 +209,7 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
                 return false;
         }
         if (pnm) {
-                if (depth != 1 && depth != 3) {
+                if (ch_count != 1 && ch_count != 3) {
                         fprintf(stderr, "Only 1 or 3 channels supported for PNM!\n");
                         fclose(file);
                         return false;
@@ -217,16 +217,16 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
                 fprintf(file, "P%d\n"
                         "%u %u\n"
                         "%d\n",
-                        depth == 1 ? 5 : 6,
+                        ch_count == 1 ? 5 : 6,
                         width, height, maxval);
         } else {
                 const char *tuple_type = "INVALID";
-                switch (depth) {
+                switch (ch_count) {
                         case 4: tuple_type = "RGB_ALPHA"; break;
                         case 3: tuple_type = "RGB"; break;
                         case 2: tuple_type = "GRAYSCALE_ALPHA"; break;
                         case 1: tuple_type = "GRAYSCALE"; break;
-                        default: fprintf(stderr, "Wrong depth: %d\n", depth);
+                        default: fprintf(stderr, "Wrong channel count: %d\n", ch_count);
                 }
                 fprintf(file, "P7\n"
                         "WIDTH %u\n"
@@ -235,9 +235,9 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
                         "MAXVAL %d\n"
                         "TUPLTYPE %s\n"
                         "ENDHDR\n",
-                        width, height, depth, maxval, tuple_type);
+                        width, height, ch_count, maxval, tuple_type);
         }
-        size_t len = (size_t) width * height * depth * (maxval <= 255 ? 1 : 2);
+        size_t len = (size_t) width * height * ch_count * (maxval <= 255 ? 1 : 2);
         errno = 0;
         size_t bytes_written = fwrite((const char *) data, 1, len, file);
         if (bytes_written != len) {

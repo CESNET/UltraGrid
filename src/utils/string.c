@@ -181,8 +181,12 @@ append_sig_desc(char **ptr, const char *ptr_end, int signum)
         strappend(ptr, ptr_end, sigabbrev_np(signum));
         strappend(ptr, ptr_end, " - ");
         strappend(ptr, ptr_end, sigdescr_np(signum));
-#else
+#elif defined(__APPLE__)
         strappend(ptr, ptr_end, sys_siglist[signum]);
+#else
+        // not async-signal-safe in general
+        const char *strdesc = strsignal(signum);
+        strappend(ptr, ptr_end, strdesc);
 #endif
         strappend(ptr, ptr_end, ")");
 }

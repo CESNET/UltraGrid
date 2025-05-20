@@ -11,7 +11,7 @@ UltraGrid - A High Definition Collaboratory
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
    * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
-   * Copyright (c) 2005-2023 CESNET z.s.p.o.
+   * Copyright (c) 2005-2025 CESNET
    * All rights reserved.
 
    This software is distributed under license, see the file
@@ -98,13 +98,8 @@ Hardware and Software Requirements
    - **OpenGL** compatible graphics card recommended
      - *DXT* compression on GPU is tested with **OpenGL 3.3**
      - *GPUJPEG* compression requires a **NVidia** card
-     - various HW accelerated compressions supported with recent GPUs (**NVENC**/**NVDEC**,
-       **QuickSync**, **VA-API**, **VideoToolbox**, **VDPAU**)
-   - For uncompressed 1.5Gbps streams (either sending or receiving), **10GbE**
-     network interface card is needed
-     - We test with PCIe Myrinet 10GbE 
-   - For *SDI* send/receive capabilities, **AJA**, **Bluefish444**,
-     **Blackmagic**, **DELTACAST** or **Magewell** card is required
+     - various HW accelerated compressions supported with recent GPUs 
+
 
    Video capture card should be located on a separate PCI bus from network card if possible.
 

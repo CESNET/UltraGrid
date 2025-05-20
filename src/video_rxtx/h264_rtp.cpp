@@ -50,17 +50,19 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"  // for rtsp_types_t
 #include "transmit.h"
 #include "tv.h"
-#include "types.h"            // for video_frame, H264, JPEG, MJPG
+#include "types.h"            // for video_frame, H264, JPEG
 #include "utils/color_out.h"
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video_codec.h"      // for get_codec_name
 #include "video_rxtx.hpp"
 #include "video_rxtx/h264_rtp.hpp"
 
+constexpr char DEFAULT_RTSP_COMPRESSION[] = "lavc:enc=libx264:safe";
 #define MOD_NAME "[vrxtx/h264_rtp] "
 
 using std::shared_ptr;
@@ -85,14 +87,19 @@ void
 h264_rtp_video_rxtx::configure_rtsp_server_video()
 {
         assert((rtsp_params.avType & rtsp_type_video) != 0);
-        if (rtsp_params.video_codec == H264) {
+        switch (rtsp_params.video_codec) {
+        case H264:
                 tx_send_std = tx_send_h264;
-        } else if (rtsp_params.video_codec == JPEG ||
-                   rtsp_params.video_codec == MJPG) {
+                break;
+        case H265:
+                tx_send_std = tx_send_h265;
+                break;
+        case JPEG:
                 tx_send_std = tx_send_jpeg;
-        } else {
+                break;
+        default:
                 MSG(ERROR,
-                    "codecs other than H.264 and JPEG currently not "
+                    "codecs other than H.264/H.265 and JPEG currently not "
                     "supported, got %s\n",
                     get_codec_name(rtsp_params.video_codec));
                 return;
@@ -110,11 +117,26 @@ h264_rtp_video_rxtx::configure_rtsp_server_video()
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
+        // requestt compress reconfiguration if receivng raw data
+        if (!is_codec_opaque(tx_frame->color_spec)) {
+                if (!m_sent_compress_change) {
+                        send_compess_change(m_common.parent,
+                                            DEFAULT_RTSP_COMPRESSION);
+                        m_sent_compress_change = true;
+                }
+                return;
+        }
+
         if (m_rtsp_server == nullptr) {
                 rtsp_params.video_codec = tx_frame->color_spec;
                 configure_rtsp_server_video();
         }
         if (m_rtsp_server == nullptr) {
+                return;
+        }
+
+        if (tx_frame->color_spec != rtsp_params.video_codec) {
+                MSG(ERROR, "Video codec reconfiguration is not supported!\n");
                 return;
         }
 

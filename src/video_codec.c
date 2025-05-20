@@ -11,7 +11,7 @@
  * @brief This file contains video codec-related functions.
  *
  * This file contains video codecs' metadata and helper
- * functions as well as pixelformat converting functions.
+ * functions.
  */
 /* Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
@@ -53,7 +53,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"            // for HWACC_VDPAU
 #endif // HAVE_CONFIG_H
 #include "config_unix.h"
 #include "config_win32.h"
@@ -70,6 +70,7 @@
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_drm.h"
+#include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR
 #include "video_codec.h"
 
@@ -78,12 +79,6 @@
 #endif
 
 char pixfmt_conv_pref[] = "dsc"; ///< bitdepth, subsampling, color space
-
-#ifdef WORDS_BIGENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
 
 #ifdef __SSE2__
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
@@ -151,8 +146,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('A','V','C','1'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "h264"},
         [H265] = {"H.265", "H.265/HEVC",
                 to_fourcc('H','E','V','C'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "h265"},
-        [MJPG] = {"MJPEG", "MJPEG",
-                to_fourcc('M','J','P','G'), 1, 1, 0, 8, FALSE, TRUE, FALSE, FALSE, 0, "jpg"},
         [VP8] = {"VP8", "Google VP8",
                 to_fourcc('V','P','8','0'), 1, 1, 0, 8, FALSE, TRUE, TRUE, FALSE, 0, "vp8"},
         [VP9] = {"VP9", "Google VP9",
@@ -224,9 +217,8 @@ static const struct alternative_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
-        // following ones are rather for further compatibility (proposed codecs rename)
-        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
 
+        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
         {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('d', 'v', 's', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
@@ -244,7 +236,9 @@ static const struct alternative_codec_name codec_name_aliases[] = {
         {"2vuy", "UYVY"},
         {"AVC", "H.264"},
         {"H264", "H.264"},
+        {"H265", "H.265"},
         {"HEVC", "H.265"},
+        {"MJPG", "JPEG"},
 };
 
 void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12)

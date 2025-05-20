@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <X11/X.h>     // for Window
 #include <X11/Xlib.h>
 
 #ifdef __cplusplus

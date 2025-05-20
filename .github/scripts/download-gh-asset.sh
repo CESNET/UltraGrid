@@ -21,5 +21,10 @@ gh_path_json=$(fetch_json "$gh_release" "${GITHUB_TOKEN-}" array)
 gh_path=$(jq -r '[.[] | select(.name | test(".*'"$pattern"'.*"))] |
         .[0].browser_download_url' "$gh_path_json")
 rm -- "$gh_path_json"
-curl -sSL "$gh_path" -o "$file"
+if [ -n "${GITHUB_TOKEN-}" ]; then
+        set -- -H "Authorization: token $GITHUB_TOKEN"
+else
+        set --
+fi
+curl -sSL "$@" "$gh_path" -o "$file"
 

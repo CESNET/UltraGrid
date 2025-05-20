@@ -139,7 +139,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
                       rtsp_params.adesc.ch_count, rtpmapLine)
                   : get_video_rtp_pt_rtpmap(rtsp_params.video_codec, rtpmapLine);
         if (rtpPayloadType < 0) {
-                MSG(ERROR, "Unsupported %s codec %s!\n", mspec[avType].mname,
+                MSG(ERROR, "Unsupported %s codec %s!\n", mspec->mname,
                     avType == rtsp_type_audio
                         ? get_name_to_audio_codec(rtsp_params.adesc.codec)
                         : get_codec_name(rtsp_params.video_codec));

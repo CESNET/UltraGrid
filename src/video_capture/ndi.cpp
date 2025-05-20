@@ -45,23 +45,28 @@
 #include <algorithm>
 #include <array>
 #include <cassert>                 // for assert
+#include <cctype>                  // for isdigit
 #include <chrono>
 #include <climits>                 // for INT_MAX
 #include <cmath>                   // for log, pow
+#include <cstdint>                 // for uint32_t, int32_t, uint8_t, uint16_t
+#include <cstdio>                  // for snprintf, printf
+#include <cstdlib>                 // for free, calloc, malloc, strtol
+#include <cstring>                 // for strlen, strstr, strchr, strncmp
 #include <iostream>
 #include <memory>
-#include <regex>
 #include <string>
 #include <type_traits> // static_assert
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/strings.h"        // for strcasecmp, strncasecmp
 #include "compat/usleep.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "ndi_common.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // OPTIMIZED_FOR
+#include "utils/macros.h"          // OPTIMIZED_FOR, STR_LEN, snprintf_ch
 #include "video.h"
 #include "video_capture.h"
 
@@ -88,6 +93,7 @@ struct vidcap_state_ndi {
         int audio_buf_idx = 0;
         bool capture_audio = false;
         struct video_desc last_desc{};
+        string req_extra_ips;
 
         NDIlib_video_frame_v2_t field_0{}; ///< stored to asssemble interleaved interlaced video together with field 1
 
@@ -112,9 +118,6 @@ struct vidcap_state_ndi {
                         t0 = now;
                 }
         }
-        ~vidcap_state_ndi() {
-                free(const_cast<char *>(find_create_settings.p_extra_ips));
-        }
 };
 
 static void show_help(struct vidcap_state_ndi *s) {
@@ -129,7 +132,8 @@ static void show_help(struct vidcap_state_ndi *s) {
 
         col() << TBOLD("\tname\n") <<
                 "\t\tname of the NDI source in form "
-                "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n";
+                "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n" <<
+                "\t\tsource or machine name can be also used alone\n";
         col() << TBOLD("\turl\n") <<
                 "\t\tURL, typically <ip> or <ip>:<port>\n";
         col() << TBOLD("\taudio_level\n") <<
@@ -190,16 +194,16 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         // Not required, but "correct" (see the SDK documentation)
         if (!s->NDIlib->initialize()) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
-                delete s;
+                vidcap_ndi_done(s);
                 return VIDCAP_INIT_FAIL;
         }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0u) {
                 s->capture_audio = true;
         }
 
-        const char *fmt = vidcap_params_get_fmt(params);
-        auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
-        strcpy(tmp, fmt);
+        char fmt_cpy[STR_LEN];
+        snprintf_ch(fmt_cpy, "%s", vidcap_params_get_fmt(params));
+        char *tmp = fmt_cpy;
         char *item, *save_ptr;
         bool req_show_help = false;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
@@ -229,13 +233,14 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                                 ref_level = strtol(val, &endptr, 0);
                                 if (ref_level < 0 || ref_level >= INT_MAX || *val == '\0' || *endptr != '\0') {
                                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong value: " << val << "!\n";
-                                        delete s;
+                                        vidcap_ndi_done(s);
                                         return VIDCAP_INIT_NOERR;
                                 }
                         }
                         s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
                 } else if (strstr(item, "extra_ips=") == item) {
-                        s->find_create_settings.p_extra_ips = strdup(item + "extra_ips="s.length());
+                        s->req_extra_ips = strchr(item, '=') + 1;
+                        s->find_create_settings.p_extra_ips = s->req_extra_ips.c_str();
                 } else if (strstr(item, "bandwidth=") == item) {
                         s->create_settings.bandwidth = static_cast<NDIlib_recv_bandwidth_e>(stoi(strchr(item, '=') + 1));
                 } else if (strstr(item, "color=") == item) {
@@ -244,7 +249,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         s->create_settings.allow_video_fields = false;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
-                        delete s;
+                        vidcap_ndi_done(s);
                         return VIDCAP_INIT_NOERR;
                 }
         }
@@ -330,10 +335,7 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
 
         for (int i = 0; i < nr_sources; ++i) {
                 if (!s->requested_name.empty()) {
-                        if (s->requested_name != sources[i].p_ndi_name &&
-                                        // match also '.*(name)' if name was given and it doesn't contain whole name (`hostname (name)` -> brace pair is checked)
-                                        (std::regex_search(s->requested_name, std::regex("(.*)", std::regex::basic)) ||
-                                         !std::regex_match(sources[i].p_ndi_name, std::regex(string(".*(") + s->requested_name + ")", std::regex::basic)))) {
+                        if (s->requested_name != sources[i].p_ndi_name) {
                                 continue;
                         }
                 }
@@ -349,6 +351,30 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
                         }
                 }
                 return sources + i;
+        }
+
+        // partial name match
+        const char *name_c = s->requested_name.c_str();
+        const char *left_parenth = strchr(name_c, '(');
+        const char *right_parenth = strchr(name_c, ')');
+        if (left_parenth != nullptr && right_parenth != nullptr &&
+            left_parenth < right_parenth) {
+                return nullptr; // source already specified as "MACHINE (source)"
+        }
+        char source[STR_LEN];
+        snprintf_ch(source, "(%s)", name_c);
+        for (int i = 0; i < nr_sources; ++i) {
+                if (strstr(sources[i].p_ndi_name, source) != nullptr) {
+                        return sources + i;
+                }
+        }
+        char machine[STR_LEN];
+        snprintf_ch(machine, "%s ", name_c); // trailing ' ' to avoid prefixing
+        for (int i = 0; i < nr_sources; ++i) {
+                if (strncasecmp(sources[i].p_ndi_name, machine,
+                                strlen(machine)) == 0) {
+                        return sources + i;
+                }
         }
 
         return nullptr;
@@ -451,7 +477,15 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         {       // No data
         case NDIlib_frame_type_none:
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "No data received.\n";
-                break;
+                // check disconnect
+                if (s->NDIlib->recv_get_no_connections(s->pNDI_recv) > 0) {
+                        break;
+                }
+                MSG(WARNING, "The source has disconnected, starting "
+                             "new lookup!\n");
+                s->NDIlib->recv_destroy(s->pNDI_recv);
+                s->pNDI_recv = nullptr;
+                return nullptr;
 
                 // Video data
         case NDIlib_frame_type_video:

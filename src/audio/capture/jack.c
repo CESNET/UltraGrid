@@ -44,6 +44,7 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "compat/platform_semaphore.h"
+#include "config.h"  // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "jack_common.h"
@@ -115,10 +116,6 @@ static void audio_cap_jack_probe(struct device_info **available_devices, int *co
 
 static void audio_cap_jack_help(const char *client_name)
 {
-        int count = 0;
-        int i = 0;
-        struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsOutput, &count);
-
         printf("Usage:\n");
         printf("\t-s jack[:first_channel=<f>][:name=<n>][:<device>]\n");
         printf("\twhere\n");
@@ -126,11 +123,11 @@ static void audio_cap_jack_help(const char *client_name)
         printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_NAME);
         printf("\n");
 
-        if(!available_devices)
-                return;
-
         printf("Available devices:\n");
-        for(i = 0; i < count; i++){
+        int count = 0;
+        struct device_info *available_devices =
+            audio_jack_probe(client_name, JackPortIsOutput, &count);
+        for (int i = 0; i < count; i++) {
                 printf("\t%s\n", available_devices[i].name);
         }
         free(available_devices);
@@ -148,11 +145,15 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         jack_status_t status;
         const char **ports;
         int i;
-        char *client_name;
+        char client_name[STR_LEN];
         const char *source_name = NULL;
 
-        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
-        strcpy(client_name, PACKAGE_NAME);
+        snprintf_ch(client_name, "%s", PACKAGE_NAME);
+
+        if (strcmp(cfg, "help") == 0) {
+                audio_cap_jack_help(client_name);
+                return INIT_NOERR;
+        }
 
         struct state_jack_capture *s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
         if(!s) {
@@ -170,12 +171,7 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         assert(dup != NULL);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (strcmp(item, "help") == 0) {
-                        audio_cap_jack_help(client_name);
-                        free(dup);
-                        free(s);
-                        return INIT_NOERR;
-                } else if (strstr(item, "first_channel=") == item) {
+                if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
                         errno = 0;
@@ -185,7 +181,10 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
                                 goto error;
                         }
                 } else if (strstr(item, "name=") == item) {
-                        strcpy(client_name, item + strlen("name="));
+                        strncpy(client_name, item + strlen("name="),
+                                sizeof client_name - 1);
+                        // ensure termination if truncated
+                        client_name[sizeof client_name - 1] = '\0';
                 } else { // this is the device name
                         source_name = cfg + (item - dup);
                         break;

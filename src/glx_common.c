@@ -35,18 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-#include "debug.h"
+#include "glx_common.h"
 
 #include <GL/glew.h>
+#include <GL/glx.h>
+#include <X11/X.h>       // for None, AllocNone, CWBorderPixel, CWColormap
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <GL/glx.h>
+#include <assert.h>
+#include <stdbool.h>     // for false, true
+#include <stdio.h>       // for fprintf, stderr
+#include <stdlib.h>
+#include <string.h>
+
+#include "debug.h"
 #include "x11_common.h"
-#include "glx_common.h"
 
 #ifdef HAVE_GPUPERFAPI
 #include "GPUPerfAPI.h"
@@ -134,7 +137,7 @@ static int isExtensionSupported(const char *extList, const char *extension)
   /* Extension names should not have spaces. */
   where = strchr(extension, ' ');
   if ( where || *extension == '\0' )
-    return FALSE;
+    return false;
  
   /* It takes a bit of care to be fool-proof about parsing the
      OpenGL extensions string. Don't be fooled by sub-strings,
@@ -149,20 +152,20 @@ static int isExtensionSupported(const char *extList, const char *extension)
  
     if ( where == start || *(where - 1) == ' ' )
       if ( *terminator == ' ' || *terminator == '\0' )
-        return TRUE;
+        return true;
  
     start = terminator;
   }
  
-  return FALSE;
+  return false;
 }
  
-static int ctxErrorOccurred = FALSE;
+static int ctxErrorOccurred = false;
 static int ctxErrorHandler( Display *dpy, XErrorEvent *ev )
 {
         UNUSED(dpy);
         UNUSED(ev);
-    ctxErrorOccurred = TRUE;
+    ctxErrorOccurred = true;
     return 0;
 }
 
@@ -322,7 +325,7 @@ void *glx_init(glx_opengl_version_t version)
   // Note this error handler is global.  All display connections in all threads
   // of a process use the same error handler, so be sure to guard against other
   // threads issuing X commands while this code is running.
-  ctxErrorOccurred = FALSE;
+  ctxErrorOccurred = false;
   oldHandler = XSetErrorHandler(&ctxErrorHandler);
  
   // Check for the GLX_ARB_create_context extension string and the function.
@@ -374,7 +377,7 @@ void *glx_init(glx_opengl_version_t version)
         // GLX_CONTEXT_MINOR_VERSION_ARB = 0
         context_attribs[3] = 0;
    
-        ctxErrorOccurred = FALSE;
+        ctxErrorOccurred = false;
    
         debug_msg( "Failed to create GL 3.0 context"
                 " ... using old-style GLX context\n" );

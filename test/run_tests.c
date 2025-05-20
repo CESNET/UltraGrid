@@ -76,6 +76,7 @@ long packet_rate = 13600;
 #define DEFINE_TEST(func) { #func, func, false }
 
 DECLARE_TEST(codec_conversion_test_testcard_uyvy_to_i420);
+DECLARE_TEST(codec_conversion_test_y216_to_p010le);
 DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k);
 DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48);
@@ -86,7 +87,11 @@ DECLARE_TEST(get_framerate_test_3000);
 DECLARE_TEST(get_framerate_test_free);
 DECLARE_TEST(gpujpeg_test_simple);
 DECLARE_TEST(libavcodec_test_get_decoder_from_uv_to_uv);
+DECLARE_TEST(misc_test_color_coeff_range);
+DECLARE_TEST(misc_test_net_getsockaddr);
+DECLARE_TEST(misc_test_net_sockaddr_compare_v4_mapped);
 DECLARE_TEST(misc_test_replace_all);
+DECLARE_TEST(misc_test_unit_evaluate);
 DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
 struct {
@@ -106,6 +111,7 @@ struct {
         DEFINE_QUIET_TEST(test_video_capture),
         DEFINE_QUIET_TEST(test_video_display),
 #endif
+        DEFINE_TEST(codec_conversion_test_y216_to_p010le),
         DEFINE_TEST(codec_conversion_test_testcard_uyvy_to_i420),
 #if defined HAVE_LAVC
         DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k),
@@ -119,7 +125,11 @@ struct {
         DEFINE_TEST(get_framerate_test_free),
         DEFINE_TEST(gpujpeg_test_simple),
         DEFINE_TEST(libavcodec_test_get_decoder_from_uv_to_uv),
+        DEFINE_TEST(misc_test_color_coeff_range),
+        DEFINE_TEST(misc_test_net_getsockaddr),
+        DEFINE_TEST(misc_test_net_sockaddr_compare_v4_mapped),
         DEFINE_TEST(misc_test_replace_all),
+        DEFINE_TEST(misc_test_unit_evaluate),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
 };
 

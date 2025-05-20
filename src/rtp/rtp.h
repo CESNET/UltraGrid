@@ -37,9 +37,6 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
-#include "config_win32.h"
-#include "config_unix.h"
-
 #ifdef __cplusplus
 #include <cstddef> // offsetof
 #include <cstdint>
@@ -237,7 +234,10 @@ typedef enum {
                                         // RTP_POT_RECORD_SOURCE
 } rtp_option;
 
+struct msghdr;
+struct sockaddr;
 struct socket_udp_local;
+struct timeval;
 
 /* API */
 rtp_t		rtp_init(const char *addr, 
@@ -254,7 +254,7 @@ rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    rtp_callback callback,
 			    uint8_t *userdata,
                             int force_ip_version, bool multithreaded);
-rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback);
+rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, unsigned len, rtp_callback callback);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);

@@ -46,6 +46,7 @@
  *     docker run --rm -it --network=host bluenviron/mediamtx
  *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  *     ffmpeg -re -f lavfi -i smptebars=s=1280x720 -vcodec mjpeg -huffman 0 -f rtsp rtsp://localhost:8554/mystream
+ *     test also with testsrc (bigger frames -> fragments), also -pix_fmt yuv444p (implied by testsrc)
  */
 
 #include <assert.h>                // for assert
@@ -57,13 +58,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>                  // for timespec
+#ifndef _WIN32
+#include <unistd.h>                // for unlink
+#endif // defined _WIN32
 
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
+#include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
 #include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -72,6 +78,7 @@
 #include "rtp/rtpdec_state.h"
 #include "rtsp/rtsp_utils.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
+#include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
@@ -186,7 +193,7 @@ static void
 rtsp_teardown(CURL *curl, const char *uri);
 
 static int
-get_nals(FILE *sdp_file, char *nals, int *width, int *height);
+get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height);
 
 static bool setup_codecs_and_controls_from_sdp(FILE              *sdp_file,
                                                struct rtsp_state *rtspState);
@@ -327,8 +334,8 @@ show_help(bool full) {
 
     color_printf(
         "Supported audio codecs: none (support is currently broken/WIP)\n");
-    color_printf(
-        "Supported video codecs: " TBOLD("H.264") ", " TBOLD("JPEG") "\n");
+    color_printf("Supported video codecs: " TBOLD("H.264") ", " TBOLD(
+        "H.265") ", " TBOLD("JPEG") "\n");
     color_printf("\n");
 }
 
@@ -354,7 +361,7 @@ keep_alive_thread(void *arg){
         // actual keepalive
         MSG(DEBUG, "GET PARAMETERS %s:\n", s->uri);
         if (!rtsp_get_parameters(s->curl, s->uri)) {
-            s->should_exit = TRUE;
+            s->should_exit = true;
             exit_uv(1);
         }
     }
@@ -375,6 +382,20 @@ decode_frame_by_pt(struct coded_data *cdata, void *decode_data,
     return d->decode(cdata, decode_data);
 }
 
+static void
+set_desc_width_height_if_changed(struct video_desc        *desc,
+                                 const struct video_frame *frame)
+{
+        if (frame->tiles[0].width != 0 &&
+            desc->width != frame->tiles[0].width &&
+            desc->height != frame->tiles[0].height) {
+                MSG(VERBOSE, "Setting the stream size to %ux%u\n",
+                    frame->tiles[0].width, frame->tiles[0].height);
+                desc->width  = frame->tiles[0].width;
+                desc->height = frame->tiles[0].height;
+        }
+}
+
 static void *
 vidcap_rtsp_thread(void *arg) {
     struct rtsp_state *s;
@@ -382,7 +403,7 @@ vidcap_rtsp_thread(void *arg) {
 
     time_ns_t start_time = get_time_in_ns();
 
-    struct video_frame *frame = vf_alloc(1);
+    struct video_frame *frame = vf_alloc_desc(s->vrtsp_state.desc);
 
     while (!s->should_exit) {
         time_ns_t curr_time = get_time_in_ns();
@@ -411,7 +432,9 @@ vidcap_rtsp_thread(void *arg) {
                     }
                     if (s->vrtsp_state.out_frame == NULL) {
                         s->vrtsp_state.out_frame = frame;
-                        frame = vf_alloc(1); // alloc new
+                        set_desc_width_height_if_changed(&s->vrtsp_state.desc,
+                                                         frame);
+                        frame = vf_alloc_desc(s->vrtsp_state.desc); // alloc new
                         if (s->vrtsp_state.boss_waiting)
                             pthread_cond_signal(&s->vrtsp_state.boss_cv);
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
@@ -437,7 +460,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-    if (s->vrtsp_state.desc.color_spec == H264 && !s->sps_pps_emitted) {
+    if (!s->sps_pps_emitted) {
         s->sps_pps_emitted = 1;
         return get_sps_pps_frame(&s->vrtsp_state.desc,
                                  &s->vrtsp_state.decode_data);
@@ -471,18 +494,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             pthread_mutex_unlock(&s->vrtsp_state.lock);
             pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
-            if (frame->tiles[0].width != 0 &&
-                s->vrtsp_state.desc.width != frame->tiles[0].width &&
-                s->vrtsp_state.desc.height != frame->tiles[0].height) {
-                    MSG(VERBOSE, "Setting the stream size to %ux%u\n",
-                        frame->tiles[0].width, frame->tiles[0].height);
-                    s->vrtsp_state.desc.width  = frame->tiles[0].width;
-                    s->vrtsp_state.desc.height = frame->tiles[0].height;
-            }
-            frame->color_spec      = s->vrtsp_state.desc.color_spec;
-            frame->fps             = s->vrtsp_state.desc.fps;
-            frame->tiles[0].width  = s->vrtsp_state.desc.width;
-            frame->tiles[0].height = s->vrtsp_state.desc.height;
             if (frame->tiles[0].width == 0) {
                     MSG(WARNING,
                         "Dropped zero-sized frame - the size was not published "
@@ -597,7 +608,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state.codec[0] = '\0';
     s->artsp_state.codec[0] = '\0';
-    s->artsp_state.control = strdup("");
+    s->vrtsp_state.control = strdup("");
     s->artsp_state.control = strdup("");
 
     char *save_ptr = NULL;
@@ -612,7 +623,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.mcast_if = NULL;
     s->vrtsp_state.required_connections = 1;
 
-    s->vrtsp_state.participants = pdb_init(0);
+    s->vrtsp_state.participants = pdb_init("rtsp", 0);
 
     s->vrtsp_state.decode_data.offset_len = 0;
 
@@ -623,6 +634,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     pthread_mutex_init(&s->vrtsp_state.lock, NULL);
     pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
     pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
+
+    s->sps_pps_emitted = 1; // default when not H264/HEVC
 
     char *tmp = fmt;
     char *item = NULL;
@@ -720,15 +733,13 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.desc.fps = 30;
     s->vrtsp_state.desc.interlacing = PROGRESSIVE;
 
-    s->should_exit = FALSE;
+    s->should_exit = false;
 
     s->vrtsp_state.boss_waiting = false;
     s->vrtsp_state.worker_waiting = false;
 
     if (s->vrtsp_state.decompress) {
-        struct video_desc decompress_desc = s->vrtsp_state.desc;
-        decompress_desc.color_spec = H264;
-        if (init_decompressor(&s->vrtsp_state, decompress_desc) == 0) {
+        if (init_decompressor(&s->vrtsp_state, s->vrtsp_state.desc) == 0) {
             vidcap_rtsp_done(s);
             return VIDCAP_INIT_FAIL;
         }
@@ -837,15 +848,16 @@ init_rtsp(struct rtsp_state *s) {
     }
 
     const char *range = "0.000-";
-    verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
-    verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
-    verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
+    MSG(DEBUG, "request %s\n", VERSION_STR);
+    MSG(DEBUG, "    Project web site: http://code.google.com/p/rtsprequest/\n");
+    MSG(DEBUG, "    Requires cURL V7.20 or greater\n\n");
     char Atransport[256] = "";
     char Vtransport[256] = "";
     int port = s->vrtsp_state.port;
     FILE *sdp_file = tmpfile();
+    const char *sdp_file_name = NULL;
     if (sdp_file == NULL) {
-        sdp_file = fopen("rtsp.sdp", "w+");
+        sdp_file = get_temp_file(&sdp_file_name);
         if (sdp_file == NULL) {
             perror("Creating SDP file");
             goto error;
@@ -915,16 +927,21 @@ init_rtsp(struct rtsp_state *s) {
             goto error;
         }
     }
-    if (s->vrtsp_state.desc.color_spec == H264) {
-        s->vrtsp_state.decode_data.decode = decode_frame_h264;
+    if (s->vrtsp_state.desc.color_spec == H264 ||
+        s->vrtsp_state.desc.color_spec == H265) {
+        s->vrtsp_state.decode_data.decode = decode_frame_h2645;
         /* get start nal size attribute from sdp file */
         const int len_nals  = get_nals(sdp_file,
+            s->vrtsp_state.desc.color_spec,
             (char *) s->vrtsp_state.decode_data.h264.offset_buffer,
             (int *) &s->vrtsp_state.desc.width,
             (int *) &s->vrtsp_state.desc.height);
         s->vrtsp_state.decode_data.offset_len = len_nals;
-        MSG(VERBOSE, "playing H264 video from server (size: WxH = %d x %d)..."
-            "\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+        s->sps_pps_emitted = 0; // emit metadata with first grab
+        MSG(VERBOSE, "playing %s video from server (size: WxH = %d x %d)...\n",
+            get_codec_name(s->vrtsp_state.desc.color_spec),
+            s->vrtsp_state.desc.width, s->vrtsp_state.desc.height);
+
     } else if (s->vrtsp_state.desc.color_spec == JPEG) {
         s->vrtsp_state.decode_data.decode = decode_frame_jpeg;
     } else {
@@ -944,10 +961,11 @@ init_rtsp(struct rtsp_state *s) {
 error:
     if(sdp_file)
             fclose(sdp_file);
+    if (sdp_file_name != NULL) {
+        unlink(sdp_file_name);
+    }
     return false;
 }
-
-#define LEN 10
 
 static bool
 setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
@@ -1022,6 +1040,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                                     pt, advertised_pt);
                                 snprintf(codec, SHORT_STR, "?");
                         }
+                        assert(strlen(buf) + strlen(codec) < SHORT_STR);
                         snprintf(codec + strlen(codec),
                                  SHORT_STR - strlen(codec), "%s", buf);
                 }
@@ -1227,26 +1246,47 @@ vidcap_rtsp_done(void *state) {
  * scan sdp file for media control attributes to generate coded frame required params (WxH and offset)
  */
 static int
-get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
-    int max_len = 1500, len_nals = 0;
-    char *s = (char *) malloc(max_len);
-    char *sprop;
-    memset(s, 0, max_len);
-    nals[0] = '\0';
+get_nals(FILE *sdp_file, codec_t codec, char *nals, int *width, int *height) {
+    int len_nals = 0;
+    char s[1500];
+    char *sprop = NULL;
 
-    while (fgets(s, max_len - 2, sdp_file) != NULL) {
-        sprop = strstr(s, "sprop-parameter-sets=");
+    while (1) {
+        if (sprop == NULL) { // fetch new line
+                if (fgets(s, sizeof s, sdp_file) == NULL) {
+                    break;
+                }
+                sprop = s;
+        }
+        sprop = strstr(sprop, "sprop-");
         if (sprop == NULL) {
             continue;
         }
-        char *sprop_val = strstr(sprop, "=") + 1;
+        char *sprop_name = sprop;
+        char *sprop_val = strchr(sprop, '=') + 1;
+        *strchr(sprop, '=') = '\0'; // end sprop_name
         char *term = strchr(sprop_val, ';');
         if (term) {
             *term = '\0';
+            sprop = term + 1;
+        } else {
+            sprop = sprop_val;
+        }
+        if (strcmp(sprop_name, "sprop-max-don-diff") == 0) {
+            bug_msg(LOG_LEVEL_ERROR, "sprop-max-don-diff not implemented. ");
+            continue;
+        }
+        if (strcmp(sprop_name, "sprop-parameter-sets") != 0 && // H.264
+            strcmp(sprop_name, "sprop-vps") != 0 &&            // HEVC
+            strcmp(sprop_name, "sprop-sps") != 0 &&
+            strcmp(sprop_name, "sprop-pps") != 0) {
+                MSG(VERBOSE, "Skipping unsupported %s\n", sprop_name);
+                continue; // do not process unknown sprops
         }
 
         char *nal = 0;
-        while ((nal = strtok(sprop_val, ","))) {
+        char *endptr = NULL;
+        while ((nal = strtok_r(sprop_val, ",", &endptr))) {
             sprop_val = NULL;
             unsigned int length = 0;
             //convert base64 to binary
@@ -1262,16 +1302,19 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             len_nals += length;
             free(nal_decoded);
 
-            uint8_t nalInfo = (uint8_t) nals[len_nals - length];
-            uint8_t type = nalInfo & 0x1f;
-            debug_msg(MOD_NAME "sprop-parameter %d (base64): %s\n", (int) type, nal);
+            char *nalInfo = nals + len_nals - length;
+            uint8_t type = NALU_HDR_GET_TYPE(nalInfo, codec == H265);
+            MSG(DEBUG, "%s %s (%d) (base64): %s\n", sprop_name,
+                get_nalu_name(type, codec == H265), (int) type, nal);
             if (type == NAL_H264_SPS){
-                width_height_from_SDP(width, height, (unsigned char *) (nals+(len_nals - length)), length);
+                width_height_from_h264_sps(width, height, (unsigned char *) (nals+(len_nals - length)), length);
+            }
+            if (type == NAL_HEVC_SPS){
+                width_height_from_hevc_sps(width, height, (unsigned char *) (nals+(len_nals - length)), length);
             }
         }
     }
 
-    free(s);
     rewind(sdp_file);
     return len_nals;
 }

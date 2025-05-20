@@ -7,15 +7,10 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 install_ximea() {
-        if [ "$(dpkg --print-architecture | cut -b1-3)" = arm ]; then
-                filename=XIMEA_Linux_ARM_SP.tgz
-        else
-                filename=XIMEA_Linux_SP.tgz
-        fi
-        curl -LO https://www.ximea.com/downloads/recent/$filename
+        filename=XIMEA.tgz
+        curl -L "$XIMEA_DOWNLOAD_URL" -o "$filename"
         tar xzf $filename
         cd package
-        touch bin/streamViewer.64 # TOREMOVE
         sudo ./install -noudev
 }
 
@@ -36,7 +31,8 @@ install_ndi() {(
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include/
 )}
 
-# TODO: needed only for U20.04, remove after upgrading to U22.04
+# TODO: currently needed for Debian 11, which is used for ARM builds
+#       remove when not needed
 install_pipewire() {(
         if { [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 20.04 ]; } ||
                 { [ "${ID_LIKE-$ID}" = debian ] && [ "$VERSION_ID" -le 11 ]; }
@@ -68,13 +64,29 @@ install_rav1e() {(
                 /usr/local/lib/pkgconfig/rav1e.pc
 )}
 
+# FFmpeg master needs at least v1.3.277 as for 6th Mar '25
+install_vulkan() {(
+        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
+        mkdir Vulkan-Headers/build
+        cd Vulkan-Headers/build
+        cmake ..
+        sudo make install
+        cd ../..
+        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
+        mkdir Vulkan-Loader/build
+        cd Vulkan-Loader/build
+        cmake ..
+        cmake --build . --parallel "$(nproc)"
+        sudo make install
+)}
+
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi pipewire rav1e ximea
+        set -- gpujpeg ndi pipewire rav1e vulkan ximea
 fi
 
 if [ $show_help ]; then

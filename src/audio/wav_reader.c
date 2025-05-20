@@ -35,19 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
+#include <assert.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
+#define WANT_FSEEKO64
+#include "compat/misc.h"
 #include "debug.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
@@ -144,8 +144,8 @@ static _Bool is_member(const char *needle, const char **haystack) {
         return 0;
 }
 
-static int fskip(FILE *f, long off) {
-        if (_fseeki64(f, off, SEEK_CUR) == 0) {
+static int fskip(FILE *f, long long  off) {
+        if (fseeko(f, off, SEEK_CUR) == 0) {
                 return 1;
         }
         while (off-- > 0) {
@@ -162,21 +162,21 @@ static _Bool process_data_chunk(FILE *wav_file, uint32_t chunk_size, struct wav_
         if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
                 metadata->data_size = chunk_size;
         }
-        metadata->data_offset = _ftelli64(wav_file);
+        metadata->data_offset = ftello(wav_file);
         if (metadata->data_size != UINT32_MAX || metadata->data_offset == -1) {
                 return 1;
         }
 
         // for UINT32_MAX deduce the length from file length (as FFmpeg does)
-        if (_fseeki64(wav_file, 0, SEEK_END) != 0) {
+        if (fseeko(wav_file, 0, SEEK_END) != 0) {
                 return 1;
         }
-        int64_t data_end = _ftelli64(wav_file);
+        int64_t data_end = ftello(wav_file);
         if (data_end == -1) {
                 ug_perror(MOD_NAME "cannot get length of file");
                return 0;
         }
-        if (_fseeki64(wav_file, metadata->data_offset, SEEK_SET) != 0) {
+        if (fseeko(wav_file, metadata->data_offset, SEEK_SET) != 0) {
                 ug_perror(MOD_NAME "cannot seek back to data chunk");
                 return 0;
         }

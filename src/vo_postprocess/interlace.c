@@ -35,15 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-#include "debug.h"
+#include <assert.h>          // for assert
+#include <stdbool.h>         // for bool, false, true
+#include <stdio.h>           // for printf
+#include <stdlib.h>          // for NULL, free, malloc, size_t
+#include <string.h>          // for memcpy, strcmp
 
-#include <pthread.h>
-#include <stdlib.h>
+#include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"

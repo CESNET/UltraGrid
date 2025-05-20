@@ -27,37 +27,35 @@ void RecvLossWidget::reset(){
 }
 
 void RecvLossWidget::parseLine(std::string_view line){
-	if(!sv_is_prefix(line, "SSRC "))
+	static constexpr std::string_view prefix = "[Pbuf] ";
+	if(!sv_is_prefix(line, prefix))
 		return;
 
+        line.remove_prefix(prefix.size());
+
 	auto tmp = line;
-	tokenize(tmp, ' '); //"SSRC"
-	auto ssrc_sv = tokenize(tmp, ' '); //actual ssrc
-	if(ssrc_sv.substr(0, 2) == "0x")
-		ssrc_sv.remove_prefix(2);
+	auto ident = tokenize(tmp, ' '); //"[<identifier>]"
 	auto packet_counts = tokenize(tmp, ' '); //received/total
 
 	auto received_sv = tokenize(packet_counts, '/');
 	auto total_sv = tokenize(packet_counts, '/');
 
-	int ssrc;
 	int received;
 	int total;
 
 	if(!parse_num(received_sv, received)
-			|| !parse_num(total_sv, total)
-			|| !parse_num(ssrc_sv, ssrc, 16))
+			|| !parse_num(total_sv, total))
 		return;
 
-	addReport(ssrc, received, total);
+	addReport(std::string(ident), received, total);
 	updateVal();
 }
 
-void RecvLossWidget::addReport(int ssrc, int received, int total){
+void RecvLossWidget::addReport(std::string ident, int received, int total){
 	SSRC_report rep;
 	rep.received = received;
 	rep.total = total;
-	reports.insert(ssrc, rep, elapsedTimer.elapsed());
+	reports.insert(ident, rep, elapsedTimer.elapsed());
 }
 
 void RecvLossWidget::updateVal(){
@@ -70,7 +68,7 @@ void RecvLossWidget::updateVal(){
 	for(auto& r : reports.get()){
 		received += r.item.received;
 		total += r.item.total;
-		tooltip += QString::number(r.ssrc, 16) + ": "
+		tooltip += QString::fromStdString(r.key) + ": "
 			+ QString::number(r.item.received) + '/' + QString::number(r.item.total) + '\n';
 	}
 

@@ -82,7 +82,8 @@ unit_evaluate(const char *str, const char **endptr)
 {
         double ret = unit_evaluate_dbl(str, false, endptr);
 
-        if (ret == NAN || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
+        if (std::isnan(ret) ||
+            ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
                 return LLONG_MIN;
         }
 
@@ -90,17 +91,26 @@ unit_evaluate(const char *str, const char **endptr)
 }
 
 /**
- * Converts units in format <val>[.<val>][kMG] to floating point representation.
+ * Converts units in format <val>[.<val>][kMG[i]] to floating point representation.
  *
  * @param    str            string to be parsed, suffix following SI suffix is ignored (as in 1ms or 100MB)
  * @param    case_sensitive if true 'm' will be considered as milli, otherwise mega
  * @param    endptr         if not NULL, point to suffix after parse
  * @returns                 positive floating point representation of the string
- * @returns                 NAN if error
+ * @returns                 NAN if error (isnan() must be called to check ret val)
  */
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
 {
+        enum {
+                SI  = 1000,
+                BIN = 1024,
+        };
+
+        if (endptr != nullptr) {
+                *endptr = str;
+        }
+
         char *endptr_tmp = nullptr;
         errno = 0;
         double ret = strtod(str, &endptr_tmp);
@@ -113,39 +123,52 @@ unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
                 return NAN;
         }
         char unit_prefix = case_sensitive ? *endptr_tmp : toupper(*endptr_tmp);
+        char *prefix_start = endptr_tmp;
         endptr_tmp += 1;
+        double unit = SI;
+        double mult = 1;
+        if (endptr_tmp[0] == 'i' || (!case_sensitive && endptr_tmp[0] == 'I')) {
+                endptr_tmp += 1;
+                unit = BIN;
+        }
         switch(unit_prefix) {
                 case 'n':
                 case 'N':
-                        ret /= 1000'000'000;
+                        mult = 1 / unit / unit / unit;
                         break;
                 case 'u':
                 case 'U':
-                        ret /= 1000'000;
+                        mult = 1 / unit / unit;
                         break;
                 case 'm':
-                        ret /= 1000;
+                        mult = 1 / unit;
                         break;
                 case 'k':
                 case 'K':
-                        ret *= 1000;
+                        mult = unit;
                         break;
                 case 'M':
-                        ret *= 1000'000LL;
+                        mult = unit * unit;
                         break;
                 case 'g':
                 case 'G':
-                        ret *= 1000'000'000LL;
+                        mult = unit * unit * unit;
                         break;
                 default:
-                        endptr_tmp -= 1;
+                        endptr_tmp = prefix_start;
         }
-
+        if (unit == BIN) { // sanity chwecks
+                if ((case_sensitive && isupper(unit_prefix)) // eg. GI
+                    || mult < 1) { // binary prefixes <1 undefined
+                        mult       = 1;
+                        endptr_tmp = prefix_start;
+                }
+        }
         if (endptr != nullptr) {
                 *endptr = endptr_tmp;
         }
 
-        return ret;
+        return ret * mult;
 }
 
 /**
@@ -344,3 +367,82 @@ bool invalid_arg_is_numeric(const char *what) {
         return strncmp(what, "stoi", 4) == 0 || strncmp(what, "stod", 4) == 0;
 }
 
+/**
+ * get warning color for status printout
+ *
+ * If ratio is <= 0.98 or >= 1.02, return "warning" color (different for 2% and
+ * 5% outside the range). Note that the caller must also output TERM_RESET or
+ * TERM_FG_RESET to reset the terminal FG color.
+ *
+ * @returns the color (or "")
+ */
+const char *
+get_stat_color(double ratio)
+{
+        const double diff = fabs(1 - ratio);
+        if (diff < 0.02) {
+                return "";
+        }
+        return diff < 0.05 ? T256_FG_SYM(T_ARCTIC_LIME)
+                           : T256_FG_SYM(T_SADDLE_BROWN);
+}
+
+char *
+format_number_with_delim(size_t num, char *buf, size_t buflen)
+{
+        assert(buflen >= 1);
+        buf[buflen - 1] = '\0';
+        char *ptr       = buf + buflen - 1;
+        int   grp_count = 0;
+        do {
+                if (ptr == buf || (grp_count == 3 && ptr == buf + 1)) {
+                        snprintf(buf, buflen, "%s", "ERR");
+                        return buf;
+                }
+                if (grp_count++ == 3) {
+                        grp_count = 1;
+                        *--ptr    = ',';
+                }
+                *--ptr = (char) ('0' + (num % 10));
+                num /= 10;
+        } while (num != 0);
+
+        return ptr;
+}
+
+/// @returns INT_MIN on error, otherwise converted number
+int
+parse_number(const char *str, int min, int base)
+{
+        assert(min != INT_MIN);
+        if (base == 10 && str[0] == '0' && str[1] != '\0') {
+                log_msg(LOG_LEVEL_WARNING,
+                        "Input number %s will be interpreted in base 10, not "
+                        "as octal/hexadecimal!\n",
+                        str);
+        }
+        char      *endptr = nullptr;
+        const long ret    = strtol(str, &endptr, base);
+        if (*endptr != '\0') {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Input number %s contains non-numeric symbols!\n", str);
+                return INT_MIN;
+        }
+        if (endptr == str) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Empty string passed where expected a number!\n");
+                return INT_MIN;
+        }
+        if (ret < min) {
+                log_msg(LOG_LEVEL_ERROR,
+                        "Passed number %s where number >= %d expected!\n", str,
+                        min);
+                return INT_MIN;
+        }
+        if (ret > INT_MAX) {
+                log_msg(LOG_LEVEL_ERROR, "The number %s would overflow int!\n",
+                        str);
+                return INT_MIN;
+        }
+        return (int) ret;
+}
