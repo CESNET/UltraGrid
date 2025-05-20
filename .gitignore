@@ -1,10 +1,7 @@
 <<<<<<< Updated upstream
 configure
 Makefile
-config.guess
-config.h
-config.h.in
-config.sub
+
 *.o
 *.P
 *.lo
