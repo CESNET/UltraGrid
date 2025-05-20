@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,27 +43,31 @@
  * Refactor to use also different scalers than OpenGL (eg. libswscale)
  */
 
-#include <assert.h>
-#include <math.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-#include "audio/types.h"
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
-#include "tv.h"
 #include "utils/config_file.h"
-#include "utils/fs.h"
-#include "utils/list.h"
-#include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
 
+#include "tv.h"
+
+#include "audio/audio.h"
+
+#include <queue>
+#include <stdio.h>
+#include <stdlib.h>
+
 #define MAX_AUDIO_LEN (1024*1024)
+
+using namespace std;
 
 typedef enum {
         BICUBIC,
@@ -74,6 +78,7 @@ typedef enum {
  * Bicubic interpolation taken from:
  * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
  */
+#define STRINGIFY(A) #A
 static const char * bicubic_template = STRINGIFY(
 uniform sampler2D textureSampler;
 uniform float fWidth;
@@ -171,12 +176,11 @@ static bool get_slave_param_from_file(FILE* config, const char *slave_name, int 
                                         int *width, int *height);
 static bool get_device_config_from_file(FILE* config_file, char *slave_name,
                 char *device_name_config) __attribute__((unused));
-static void vidcap_swmix_done(void *state);
 
 static char *get_config_name()
 {
         const char *rc_suffix = "/.ug-swmix.rc";
-        static char buf[MAX_PATH_SIZE];
+        static char buf[PATH_MAX];
         if(!getenv("HOME")) {
                 return NULL;
         }
@@ -190,13 +194,13 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]][:layout=<X>x<Y>]] "
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]] "
                         "-t <dev1_config> -t <dev2_config>\n");
         printf("\tor\n");
-        printf("\t-t swmix:file[=<file_path>] -t <dev1_config> -t <dev2_config> ...\n");
+        printf("\t-t swmix:file -t <dev1_config> -t <dev2_config> ...\n");
         printf("\t\twhere <devn_config> is a configuration string of device as usual -\n"
-                        "\t\t\tdevice config string or alias from UG config file.\n");
-        printf("\t\t<width> width of resulting video\n");
+                        "\t\t\tdevice config string or alias from UG config file");
+        printf("\t\t<width> widht of resulting video\n");
         printf("\t\t<height> height of resulting video\n");
         printf("\t\t<fps> FPS of resulting video, may be eg. 25 or 50i\n");
         printf("\t\t<codec> codec of resulting video, may be one of RGBA, "
@@ -240,7 +244,7 @@ struct vidcap_swmix_state {
         int                 completed_audio_buffer_len;
         struct audio_frame  audio;
         int                 audio_device_index; ///< index of video device from which to take audio
-        struct simple_linked_list *free_buffer_queue;
+        queue<char *>       free_buffer_queue;
         pthread_cond_t      free_buffer_queue_not_empty_cv;
 
         int                 frames;
@@ -251,7 +255,6 @@ struct vidcap_swmix_state {
         pthread_cond_t      frame_sent_cv;
 
         pthread_t           master_thread_id;
-        bool                threads_started;
         bool                should_exit;
 
         struct slave_data  *slaves_data;
@@ -260,15 +263,21 @@ struct vidcap_swmix_state {
         char               *bicubic_algo;
         GLuint              bicubic_program;
         interpolation_t     interpolation;
-        int                 grid_x, grid_y;
 };
 
 
-static void vidcap_swmix_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
+static struct vidcap_type *
+vidcap_swmix_probe(bool verbose)
 {
-        *deleter = free;
-        *available_cards = NULL;
-        *count = 0;
+        UNUSED(verbose);
+	struct vidcap_type*		vt;
+
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
+	if (vt != NULL) {
+		vt->name        = "swmix";
+		vt->description = "SW mix video capture";
+	}
+	return vt;
 }
 
 struct slave_data {
@@ -285,22 +294,15 @@ struct slave_data {
         codec_t             decoder_from, decoder_to;
 };
 
-static struct slave_data *init_slave_data(struct vidcap_swmix_state *s, FILE *config) {
+static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
         struct slave_data *slaves_data = (struct slave_data *)
                 calloc(s->devices_cnt, sizeof(struct slave_data));
-        double m;
-        int n;
 
-        if (s->grid_x != 0) {
-                m = s->grid_x;
-                n = s->grid_y;
-        } else {
-                // arrangement
-                // we want to have least MxN, where N <= M + 1
-                m = (-1.0 + sqrt(1.0 + 4.0 * s->devices_cnt)) / 2.0;
-                m = ceil(m);
-                n = (s->devices_cnt + m - 1) / ((int) m);
-        }
+        // arrangement
+        // we want to have least MxN, where N <= M + 1
+        double m = (-1.0 + sqrt(1.0 + 4.0 * s->devices_cnt)) / 2.0;
+        m = ceil(m);
+        int n = (s->devices_cnt + m - 1) / ((int) m);
 
         for(int i = 0; i < s->devices_cnt; ++i) {
                 glGenTextures(2, slaves_data[i].texture);
@@ -347,9 +349,6 @@ static struct slave_data *init_slave_data(struct vidcap_swmix_state *s, FILE *co
 }
 
 static void destroy_slave_data(struct slave_data *data, int count) {
-        if (!data) {
-                return;
-        }
         for(int i = 0; i < count; ++i) {
                 glDeleteTextures(2, data[i].texture);
                 glDeleteFramebuffers(1, &data[i].fbo);
@@ -482,10 +481,14 @@ static void check_for_slave_format_change(struct slave_data *s)
 
                 // prepare decoder
                 if (!codec_is_in_set(desc.color_spec, natively_supported)) {
-                        codec_t c;
-                        if ((s->decoder = get_best_decoder_from(out_codec, natively_supported, &c)) != NULL) {
-                                s->decoder_from = desc.color_spec;
-                                desc.color_spec = s->decoder_to = c;
+                        int j = 0;
+                        while (natively_supported[j] != VIDEO_CODEC_NONE) {
+                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j], false))) {
+                                        s->decoder_from = desc.color_spec;
+                                        desc.color_spec = s->decoder_to = natively_supported[j];
+                                        break;
+                                }
+                                j++;
                         }
                 }
 
@@ -634,11 +637,12 @@ static void *master_worker(void *arg)
 
                 if(field == 0) {
                         pthread_mutex_lock(&s->lock);
-                        while(simple_linked_list_size(s->free_buffer_queue) == 0) {
+                        while(s->free_buffer_queue.empty()) {
                                 pthread_cond_wait(&s->free_buffer_queue_not_empty_cv,
                                                 &s->lock);
                         }
-                        current_buffer = simple_linked_list_pop(s->free_buffer_queue);
+                        current_buffer = s->free_buffer_queue.front();
+                        s->free_buffer_queue.pop();
                         pthread_mutex_unlock(&s->lock);
                 }
 
@@ -823,12 +827,12 @@ static void *slave_worker(void *arg)
                 frame = vidcap_grab(device, &audio);
                 if (frame) {
                         struct video_frame *frame_local;
-                        if (frame->callbacks.dispose) {
+                        if (frame->dispose) {
                                 frame_local = frame;
                         } else {
                                 frame_local = vf_get_copy(frame);
-                                frame_local->callbacks.dispose = vf_free;
-                                frame_local->callbacks.dispose_udata = NULL; // not needed
+                                frame_local->dispose = vf_free;
+                                frame_local->dispose_udata = NULL; // not needed
                         }
                         if (frame_local->interlacing == INTERLACED_MERGED) {
                                 vc_deinterlace((unsigned char *) frame_local->tiles[0].data,
@@ -871,7 +875,7 @@ static bool get_slave_param_from_file(FILE* config_file, const char *slave_name,
         ret = fgets(line, sizeof(line), config_file);  // skip first line
         if(!ret) return false;
         while (fgets(line, sizeof(line), config_file)) {
-                char name[129];
+                char name[128];
                 int x_, y_, width_, height_;
                 if(sscanf(line, "%128s %d %d %d %d", name, &x_, &y_, &width_, &height_) != 5)
                         continue;
@@ -895,8 +899,8 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
         ret = fgets(line, sizeof(line), config_file);  // skip first line
         if(!ret) return false;
         while (fgets(line, sizeof(line), config_file)) {
-                char name[129];
-                char dev_config[129];
+                char name[128];
+                char dev_config[128];
                 int x_, y_, width_, height_;
                 if(sscanf(line, "%128s %d %d %d %d %128s", name, &x_, &y_, &width_, &height_, dev_config) != 6)
                         continue;
@@ -913,7 +917,7 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, enum interlacing_t *interl, int *grid_x, int *grid_y, char **filepath)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl)
 {
         char *save_ptr = NULL;
         char *item;
@@ -923,18 +927,12 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 
         *interl = PROGRESSIVE;
 
-        parse_string = (char *) alloca(strlen(fmt) + 1);
-        strcpy(parse_string, fmt);
-        tmp = parse_string;
-
+        tmp = parse_string = strdup(fmt);
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 switch (token_nr) {
                         case 0:
-                                if(strncasecmp(item, "file", strlen("file")) == 0) {
-                                        char *eq = strchr(item, '=');
-                                        if(filepath && eq){
-                                            *filepath = strdup(eq + 1);
-                                        }
+                                if(strcasecmp(item, "file") == 0) {
+                                        free(parse_string);
                                         return PARSE_FILE;
                                 }
                                 *width = atoi(item);
@@ -956,6 +954,7 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 *color_spec = get_codec_from_name(item);
                                 if (*color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
+                                        free(parse_string);
                                         return PARSE_ERROR;
                                 }
                                 break;
@@ -969,26 +968,12 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                                         *bicubic_algo = strdup(strchr(item, ',') + 1);
                                                 }
                                         }
-                                } else if (strncasecmp(item, "layout=", strlen("layout=")) == 0) {
-                                        const char *l = item + strlen("layout=");
-                                        if (!strchr(l, 'x')) {
-                                                log_msg(LOG_LEVEL_ERROR, "Error parsing layout!\n");
-                                                return PARSE_ERROR;
-                                        }
-                                        *grid_x = atoi(l);
-                                        *grid_y = atoi(strchr(l, 'x') + 1);
-                                        if (*grid_x <= 0 || *grid_y <= 0) {
-                                                log_msg(LOG_LEVEL_ERROR, "Error parsing layout!\n");
-                                                return PARSE_ERROR;
-                                        }
-                                } else {
-                                        log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n", item);
-                                        return PARSE_ERROR;
                                 }
                 }
                 tmp = NULL;
                 token_nr += 1;
         }
+        free(parse_string);
 
         if(token_nr < 3)
                 return PARSE_ERROR;
@@ -1001,11 +986,10 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 const struct vidcap_params *params)
 {
         *config_file = NULL;
-        char *config_path = NULL;
         int ret;
 
         ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                        interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y, &config_path);
+                        interpolation, &s->bicubic_algo, &desc->interlacing);
         if(ret == PARSE_ERROR) {
                 show_help();
                 return false;
@@ -1013,26 +997,21 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 
         if(ret == PARSE_FILE) {
                 s->use_config_file = true;
-                if(!config_path)
-                    config_path = strdup(get_config_name());
 
-                *config_file = fopen(config_path, "r");
+                *config_file = fopen(get_config_name(), "r");
                 if(!*config_file) {
                         fprintf(stderr, "Params not set and config file %s not found.\n",
-                                        config_path);
-                        free(config_path);
+                                        get_config_name());
                         return false;
                 }
-                free(config_path);
-
                 char line[1024];
                 if(!fgets(line, sizeof(line), *config_file)) {
                         fprintf(stderr, "Input file is empty!\n");
                         return false;
                 }
-                for(int i = strlen(line); i > 0 && isspace(line[i - 1]); i--) line[i - 1] = '\0'; // trim trailing spaces
+                while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                                interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y, NULL);
+                                interpolation, &s->bicubic_algo, &desc->interlacing);
                 if(ret != PARSE_OK) {
                         fprintf(stderr, "Malformed input file! First line should contain config "
                                         "string same as for cmdline use (between first ':' and '#' "
@@ -1059,18 +1038,13 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                         break;
         }
 
-        if (s->grid_x != 0 && s->devices_cnt > s->grid_x * s->grid_y) {
-                log_msg(LOG_LEVEL_ERROR, "[swmix] Invalid layout! More devices given than layout size.\n");
-                return false;
-        }
-
         s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
+
         for (int i = 0; i < s->devices_cnt; ++i) {
                 s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
                 s->slaves[i].audio_frame.data = (char *)
                         malloc(s->slaves[i].audio_frame.max_size);
                 s->slaves[i].audio_frame.data_len = 0;
-                pthread_mutex_init(&(s->slaves[i].lock), NULL);
         }
 
         tmp = params;
@@ -1083,8 +1057,10 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 }
 
 static int
-vidcap_swmix_init(struct vidcap_params *params, void **state)
+vidcap_swmix_init(const struct vidcap_params *params, void **state)
 {
+	struct vidcap_swmix_state *s;
+        struct video_desc desc;
         GLenum format;
 
 	printf("vidcap_swmix_init\n");
@@ -1095,7 +1071,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        struct vidcap_swmix_state *s = calloc(1, sizeof *s);
+        s = new vidcap_swmix_state();
 	if(s == NULL) {
 		printf("Unable to allocate swmix capture state\n");
 		return VIDCAP_INIT_FAIL;
@@ -1109,9 +1085,22 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         s->audio_device_index = -1;
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
-        s->free_buffer_queue = simple_linked_list_init();
+
+        memset(&desc, 0, sizeof(desc));
+        desc.tile_count = 1;
+        desc.color_spec = RGBA;
 
         s->interpolation = BICUBIC;
+        FILE *config_file = NULL;
+
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
+        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
+                free(init_fmt);
+                goto error;
+        }
+        free(init_fmt);
+
+        s->frame = vf_alloc_desc(desc);
 
         s->should_exit = false;
         s->completed_buffer = NULL;
@@ -1121,17 +1110,6 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         pthread_cond_init(&s->frame_ready_cv, NULL);
         pthread_cond_init(&s->frame_sent_cv, NULL);
         pthread_cond_init(&s->free_buffer_queue_not_empty_cv, NULL);
-
-        char *init_fmt = strdup(vidcap_params_get_fmt(params));
-        struct video_desc desc = {.tile_count = 1, .color_spec = RGBA};
-        FILE *config_file = NULL;
-        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
-                free(init_fmt);
-                goto error;
-        }
-        free(init_fmt);
-
-        s->frame = vf_alloc_desc(desc);
 
         if(!init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY)) {
                 fprintf(stderr, "[swmix] Unable to initialize OpenGL context.\n");
@@ -1159,11 +1137,14 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
-                goto error;
+                free(config_file);
+                delete s;
+                return VIDCAP_INIT_FAIL;
         }
 
         if (config_file) {
                 fclose(config_file);
+                config_file = nullptr;
         }
 
         format = GL_RGBA;
@@ -1193,18 +1174,22 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
 
         gl_context_make_current(NULL);
 
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                pthread_mutex_init(&(s->slaves[i].lock), NULL);
+        }
+
         s->frame->tiles[0].data_len = vc_get_linesize(s->frame->tiles[0].width,
                                 s->frame->color_spec) * s->frame->tiles[0].height;
         for(int i = 0; i < 3; ++i) {
                 char *buffer = (char *) malloc(s->frame->tiles[0].data_len);
-                simple_linked_list_append(s->free_buffer_queue, buffer);
+                s->free_buffer_queue.push(buffer);
         }
 
         pthread_create(&s->master_thread_id, NULL, master_worker, (void *) s);
+
         for(int i = 0; i < s->devices_cnt; ++i) {
                 pthread_create(&(s->slaves[i].thread_id), NULL, slave_worker, (void *) &s->slaves[i]);
         }
-        s->threads_started = true;
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -1213,7 +1198,10 @@ error:
         if (config_file) {
                 fclose(config_file);
         }
-        vidcap_swmix_done(s);
+        if(s->slaves) {
+                free(s->slaves);
+        }
+        delete s;
         return VIDCAP_INIT_FAIL;
 }
 
@@ -1224,51 +1212,45 @@ vidcap_swmix_done(void *state)
 
 	assert(s != NULL);
 
-        if (s->threads_started) {
-                for(int i = 0; i < s->devices_cnt; ++i) {
-                        s->slaves[i].should_exit = true;
-                }
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                s->slaves[i].should_exit = true;
+        }
 
-                for(int i = 0; i < s->devices_cnt; ++i) {
-                        pthread_join(s->slaves[i].thread_id, NULL);
-                }
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                pthread_join(s->slaves[i].thread_id, NULL);
         }
 
         // wait for master thread to finish
         pthread_mutex_lock(&s->lock);
         s->should_exit = true;
         if(s->network_buffer) {
-                simple_linked_list_append(s->free_buffer_queue, s->network_buffer);
+                s->free_buffer_queue.push(s->network_buffer);
                 s->network_buffer = NULL;
                 pthread_cond_signal(&s->free_buffer_queue_not_empty_cv);
         }
         if(s->completed_buffer) {
-                simple_linked_list_append(s->free_buffer_queue, s->completed_buffer);
+                s->free_buffer_queue.push(s->completed_buffer);
                 s->completed_buffer = NULL;
                 pthread_cond_signal(&s->frame_sent_cv);
         }
         pthread_mutex_unlock(&s->lock);
-        if (s->threads_started) {
-                pthread_join(s->master_thread_id, NULL);
-        }
+        pthread_join(s->master_thread_id, NULL);
 
         if(s->completed_buffer)
                 free(s->completed_buffer);
-        char *buf = NULL;
-        while ((buf = simple_linked_list_pop(s->free_buffer_queue)) != NULL) {
-                free(buf);
+        while(!s->free_buffer_queue.empty()) {
+                free(s->free_buffer_queue.front());
+                s->free_buffer_queue.pop();
         }
 
-        if (s->slaves) {
-                for (int i = 0; i < s->devices_cnt; ++i) {
-                        pthread_mutex_destroy(&s->slaves[i].lock);
-                        VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
-                        VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
-                        free(s->slaves[i].audio_frame.data);
-                        vidcap_params_free_struct(s->slaves[i].device_params);
-                }
-                free(s->slaves);
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                pthread_mutex_destroy(&s->slaves[i].lock);
+                VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
+                VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
+                free(s->slaves[i].audio_frame.data);
+                vidcap_params_free(s->slaves[i].device_params);
         }
+        free(s->slaves);
 
         vf_free(s->frame);
 
@@ -1276,18 +1258,10 @@ vidcap_swmix_done(void *state)
 
         destroy_slave_data(s->slaves_data, s->devices_cnt);
 
-        if (s->tex_output) {
-                glDeleteTextures(1, &s->tex_output);
-        }
-        if (s->tex_output_uyvy) {
-                glDeleteTextures(1, &s->tex_output_uyvy);
-        }
-        if (s->fbo) {
-                glDeleteFramebuffers(1, &s->fbo);
-        }
-        if (s->fbo_uyvy) {
-                glDeleteFramebuffers(1, &s->fbo_uyvy);
-        }
+        glDeleteTextures(1, &s->tex_output);
+        glDeleteTextures(1, &s->tex_output_uyvy);
+        glDeleteFramebuffers(1, &s->fbo);
+        glDeleteFramebuffers(1, &s->fbo_uyvy);
 
         gl_context_make_current(NULL);
         destroy_gl_context(&s->gl_context);
@@ -1298,9 +1272,8 @@ vidcap_swmix_done(void *state)
         pthread_cond_destroy(&s->free_buffer_queue_not_empty_cv);
 
         free(s->bicubic_algo);
-        simple_linked_list_destroy(s->free_buffer_queue);
 
-        free(s);
+        delete s;
 }
 
 static struct video_frame *
@@ -1309,26 +1282,28 @@ vidcap_swmix_grab(void *state, struct audio_frame **audio)
 	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
 
         *audio = NULL;
-        if (s->network_audio_buffer) {
-                free(s->network_audio_buffer);
-                s->network_audio_buffer = NULL;
-        }
 
         pthread_mutex_lock(&s->lock);
         while(s->completed_buffer == NULL) {
                 pthread_cond_wait(&s->frame_ready_cv, &s->lock);
         }
         if(s->network_buffer) {
-                simple_linked_list_append(s->free_buffer_queue, s->network_buffer);
+                s->free_buffer_queue.push(s->network_buffer);
                 pthread_cond_signal(&s->free_buffer_queue_not_empty_cv);
         }
-        s->frame->tiles[0].data = s->network_buffer = s->completed_buffer;
+        if(s->network_audio_buffer) {
+                free(s->network_audio_buffer);
+                s->network_audio_buffer = NULL;
+        }
+        s->network_buffer = s->completed_buffer;
         s->completed_buffer = NULL;
         s->network_audio_buffer = s->completed_audio_buffer;
         s->completed_audio_buffer = NULL;
         s->audio.data_len = s->completed_audio_buffer_len;
         pthread_cond_signal(&s->frame_sent_cv);
         pthread_mutex_unlock(&s->lock);
+
+        s->frame->tiles[0].data = s->network_buffer;
 
         s->frames++;
         gettimeofday(&s->t, NULL);
@@ -1353,7 +1328,6 @@ static const struct video_capture_info vidcap_swmix_info = {
         vidcap_swmix_init,
         vidcap_swmix_done,
         vidcap_swmix_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(swmix, &vidcap_swmix_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
