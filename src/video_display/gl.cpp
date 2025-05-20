@@ -713,7 +713,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
-                if (strcmp(ptr, "help") == 0 || strcmp(ptr, "fullhelp") == 0) {
+                if (strcmp(tok, "help") == 0 || strcmp(tok, "fullhelp") == 0) {
                         gl_show_help(strcmp(ptr, "fullhelp") == 0);
                         return INIT_NOERR;
                 }
