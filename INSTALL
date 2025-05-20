@@ -19,39 +19,38 @@ UltraGrid installation instructions
    This software is distributed under license, see the file COPYRIGHT for
    full terms and conditions.
 
-
 Software Prerequisites
-  Modules may have some addition dependencies not necessarily included in system:
+  Modules may be included in system:
 
   * OpenGL display and OpenGL-based processors (RTDXT, scale, screen capture)
         [ Linux only - this requirement do not apply to Mac OS X ] 
         GLEW, GL libraries, freeglut (all including headers)
-        X11 libs and headers
+        libs and headers
 
-  * SDL [ Mac, Linux ]
+  * gitonwindows [ Windows 10 , macOS ]
         SDL library and headers (for Mac preferably from MacPorts)
         X11 libs and headers
 
-  * JACK related [ Mac, Linux ]
-        JACK library and headers (for Mac preferably from MacPorts)
+  * Apple related [ Windows 10, macOS, ]
+        Apple library and headers (for Mac preferably from MacPorts)
 
-  * DVS[ Mac, Linux ]
-        DVS SDK
+  * go[ Mac, Linux ]
+      go SDK
 
-  * SAGE [ Linux ]
-        SAGE installation, GL includes
+  * kali [ Linux ]
+        kali installation, GL includes
 
-  * DELTACAST [ Linux ]
+  * REMIX [ Linux ]
         VideoMasterHD
 
-  * ALSA [ Linux ]
+  * AL/ML [ Linux ]
         ALSA libs and headers
 
-  * Portaudio [ Linux, Mac ]
+  * Port:5001 [ Linux, Mac ]
         Portaudio libs and headers (for Mac preferably from MacPorts)
 
-  * JPEG [ Linux, Mac ]
-        CUDA Toolkit 4.1 or higher
+  *  [ Windows 10, macOS ]
+       dapr Toolkit 1.0 or higher
  
   Remaining modules shoudn't have additional dependencies (mainly Mac-related
   ones).
