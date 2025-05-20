@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 configure
 Makefile
 config.guess
@@ -61,3 +62,12 @@ unittest/run_tests
 .envrc
 compile_commands.json
 compile_flags.txt
+=======
+    **AJA**,
+     **Bluefish444**,
+
+     **Blackmagic**,
+      **DELTACAST**
+       or 
+       **Magewell** 
+>>>>>>> Stashed changes
