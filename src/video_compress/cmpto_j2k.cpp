@@ -392,9 +392,9 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         snprintf_ch(rate, "%s", s->rate == 0 ? "unset" : format_in_si_units(s->rate));
         MSG(INFO,
             "Using parameters: quality=%.2f, bitrate=%sbps, mem_limit=%sB, "
-            "img/tile_limit=%u, pool_size=%u, mct=%d\n",
+            "img/tile_limit=%u, pool_size=%u, mct=%d, technology=%s\n",
             s->quality, rate, format_in_si_units(s->mem_limit),
-            s->img_tile_limit, s->max_in_frames, mct);
+            s->img_tile_limit, s->max_in_frames, mct, s->tech->name);
 
         set_pool(s, cuda_convert_func != nullptr);
 
