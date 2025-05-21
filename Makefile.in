@@ -48,16 +48,15 @@ CUDA_COMPILER_0 = @echo "Compiling $<..."; $(REAL_CUDA_COMPILER)
 CUDA_COMPILER_1 = $(REAL_CUDA_COMPILER)
 CUDA_COMPILER   = $(CUDA_COMPILER_$(VERBOSE))
 MACOS_LEGACY  = @MACOS_LEGACY@
-SYSTEM	      = @system@
 
 GUI_EXE      ?= @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
 QT_PATH       = $(shell [ -n "$(QMAKE)" ] && python3 -c "import os; print(\
 os.path.realpath(os.path.dirname(os.path.realpath(\"$$(command -v \
 $(QMAKE))\")) + \"/..\"))")# realpath cmd is present in macOS 13
-ifeq (@REFLECTOR_REQ@,yes)
-REFLECTOR_TARGET ?= bin/hd-rum-transcode$(EXEEXT)
-endif
+REFLECTOR_TARGET ?= @REFLECTOR_TARGET@
+# append $(EXEEXT) if $(REFLECTOR_TARGET) not empty
+REFLECTOR_TARGET != sh -c 'RT=$(REFLECTOR_TARGET); echo $${RT:+$${RT}$(EXEEXT)}'
 TEST_TARGET  = bin/run_tests$(EXEEXT)
 
 PACKAGE_TARNAME ?= @PACKAGE_TARNAME@
@@ -227,30 +226,30 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-DEP_FILES_1 = $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
-DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .lib (Windows) with .P
+DEP_FILES_2 = $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
+# replace .o and also .lib (Windows) with .P
+DEP_FILES_1 = $(DEP_FILES_2:.o=.P)
+DEP_FILES = $(DEP_FILES_1:.lib=.P)
 # -------------------------------------------------------------------------------------------------
 .PHONY: doc
 
 all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MANPAGES@ @MODULES@ configure-messages
 
 src/dir-stamp:
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	touch $@
 
 $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS) -o $(TARGET)
-ifeq ($(SYSTEM),Windows)
 	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
-endif
 
 $(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CP) $< $@
 
 -include $(DEP_FILES)
@@ -262,22 +261,22 @@ POSTPROCESS_DEPS = \
 		rm -f $*.d
 
 %.o : %.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 %.o : %.cpp
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CXX) $(CXXFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 %.o: %.m
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 %.o: %.mm
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CXX) -x objective-c++ -std=c++11 $(CXXFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
@@ -286,50 +285,50 @@ POSTPROCESS_DEPS = \
 
 # Pattern rule for compiling CUDA files
 %.o: %.cu
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
 	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 
 src/libavcodec/from_lavc_vid_conv.o: src/libavcodec/from_lavc_vid_conv.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 src/libavcodec/to_lavc_vid_conv.o: src/libavcodec/to_lavc_vid_conv.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 src/pixfmt_conv.o: src/pixfmt_conv.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 src/zfec.o: @ZFEC_PREFIX@/fec.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) -w $(INC) -c $< -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) $< -c -o $@
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) $< -c -o $@
 
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
@@ -338,7 +337,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/yuv422_to_yuv444.glsl dxt_compress/display_dxt1_yuv_fp.glsl \
 		dxt_compress/rgba_to_yuv422.glsl
 	@echo "Generating $@..."
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	@echo "/**" > $@
 	@echo " * GLSL source codes for DXT compressions" >> $@
 	@echo " *" >> $@
@@ -478,11 +477,9 @@ $(GUI_TARGET): gui/QT/Makefile
 
 # -------------------------------------------------------------------------------------------------
 $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ -o $@
-ifeq ($(SYSTEM),Windows)
 	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
-endif
 
 suggest-tests:
 	@echo ""
@@ -522,7 +519,7 @@ AG_PLUGIN_RX_SCRIPTS = $(srcdir)/data/ag_plugin/uvReceiverService.py \
                        $(srcdir)/data/ag_plugin/uvReceiverService.manifest
 
 data/ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
 	@rm  -f data/ag_plugin/uvReceiverService.zip
 	@zip -j data/ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
@@ -559,11 +556,11 @@ doc:
 	cd $(srcdir) && doxygen Doxyfile
 
 uv.1: $(TARGET)
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	@A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh uv
 
 hd-rum-transcode.1: $(REFLECTOR_TARGET)
-	$(MKDIR_P) $(dir $@)
+	$(MKDIR_P) $$(dirname $@)
 	@A2X=$(A2X) UV_PATH=bin $(srcdir)/data/make_man.sh hd-rum-transcode
 
 man: uv.1 hd-rum-transcode.1

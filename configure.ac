@@ -3391,12 +3391,12 @@ AC_ARG_ENABLE(reflector,
               [reflector_req=$enableval],
               [reflector_req=$build_default])
 if test "$reflector_req" != no; then
-        REFLECTOR_REQ=yes
+        REFLECTOR_TARGET=bin/hd-rum-transcode
         if test "$man" = yes; then
                 MANPAGES="$MANPAGES hd-rum-transcode.1"
         fi
 fi
-AC_SUBST(REFLECTOR_REQ)
+AC_SUBST(REFLECTOR_TARGET)
 
 # ------------------------------------------------------------------------------
 # Non-essential objs
