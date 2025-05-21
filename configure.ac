@@ -378,7 +378,7 @@ fi
 # Try to find the pthread library...
 
 case "$host" in
-	*-*-freebsd4*)
+	*-*-*bsd*)
 		CFLAGS="$CFLAGS -pthread"
 		;;
 	*)
