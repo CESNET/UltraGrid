@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,9 +97,6 @@
 /// for state_video_compress_j2k::max_in_frames
 #define DEFAULT_POOL_SIZE 4
 
-/// number of frames that encoder encodes at moment
-#define DEFAULT_TILE_LIMIT 1
-
 using std::condition_variable;
 using std::mutex;
 using std::stod;
@@ -136,6 +133,7 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
 struct cmpto_j2k_technology {
         const char *name;
         size_t default_mem_limit;
+        unsigned default_img_tile_limit; ///< nr of frames encoded at a moment
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
                            size_t mem_limit, unsigned int tile_limit,
                            int thread_count);
@@ -143,6 +141,7 @@ struct cmpto_j2k_technology {
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
         "CPU", 0, ///< unimplemented, should be 0
+        0,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int thread_count) {
                 CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cpu(ctx_cfg, thread_count,
@@ -154,6 +153,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
 
 constexpr struct cmpto_j2k_technology technology_cuda = {
         "CUDA", 1000LLU * 1000 * 1000,
+        1,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int /* thread_count */) {
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
@@ -211,7 +211,7 @@ struct state_video_compress_j2k {
         int thread_count = CMPTO_J2K_ENC_CPU_DEFAULT;
         double        quality    = DEFAULT_QUALITY;
         long long int mem_limit  = -1;
-        unsigned int  tile_limit = DEFAULT_TILE_LIMIT;
+        int           img_tile_limit = -1;
 
         unsigned int in_frames{};   ///< number of currently encoding frames
         mutex lock;
@@ -342,7 +342,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg),
                  "Context configuration create", return false);
-        if (!s->tech->add_device(ctx_cfg, s->mem_limit, s->tile_limit,
+        if (!s->tech->add_device(ctx_cfg, s->mem_limit, s->img_tile_limit,
                                  s->thread_count)) {
                 return false;
         }
@@ -392,9 +392,9 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
         snprintf_ch(rate, "%s", s->rate == 0 ? "unset" : format_in_si_units(s->rate));
         MSG(INFO,
             "Using parameters: quality=%.2f, bitrate=%sbps, mem_limit=%sB, "
-            "tile_limit=%u, pool_size=%u, mct=%d\n",
-            s->quality, rate, format_in_si_units(s->mem_limit), s->tile_limit,
-            s->max_in_frames, mct);
+            "img/tile_limit=%u, pool_size=%u, mct=%d\n",
+            s->quality, rate, format_in_si_units(s->mem_limit),
+            s->img_tile_limit, s->max_in_frames, mct);
 
         set_pool(s, cuda_convert_func != nullptr);
 
@@ -538,10 +538,15 @@ struct {
               std::to_string(technology_cuda.default_mem_limit) + " (CUDA) / " +
               std::to_string(technology_cpu.default_mem_limit) + " (CPU)",
          ":mem_limit=", false, TOSTRING(DEFAULT_CUDA_MEM_LIMIT) },
+        { "Image limit", "img_limit",
+          "[cpu] Number of images encoded at moment (less to reduce latency, "
+          "more to increase performance, 0 means infinity), default: " +
+          std::to_string(technology_cpu.default_img_tile_limit),
+          ":img_limit=", false, TOSTRING(DEFAULT_TILE_LIMIT) },
         { "Tile limit", "tile_limit",
-          "Number of images/tiles encoded at moment (less to reduce latency, "
-          "more to increase performance, 0 means infinity), default: " TOSTRING(
-              DEFAULT_TILE_LIMIT),
+          "[gpu] Number of tiles encoded at moment (less to reduce latency, "
+          "more to increase performance, 0 means infinity), default: " +
+          std::to_string(technology_cuda.default_img_tile_limit),
           ":tile_limit=", false, TOSTRING(DEFAULT_TILE_LIMIT) },
         { "Pool size", "pool_size",
           "Total number of tiles encoder can hold at moment (same meaning as "
@@ -650,8 +655,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         s->mct = strcasecmp("mct", item) == 0 ? 1 : 0;
                 } else if (IS_KEY_PREFIX(item, "mem_limit")) {
                         ASSIGN_CHECK_VAL(s->mem_limit, strchr(item, '=') + 1, 1);
-                } else if (IS_KEY_PREFIX(item, "tile_limit")) {
-                        ASSIGN_CHECK_VAL(s->tile_limit, strchr(item, '=') + 1, 0);
+                } else if (IS_KEY_PREFIX(item, "img_limit") || IS_KEY_PREFIX(item, "tile_limit")) {
+                        ASSIGN_CHECK_VAL(s->img_tile_limit, strchr(item, '=') + 1, 0);
                 } else if (IS_KEY_PREFIX(item, "pool_size")) {
                         ASSIGN_CHECK_VAL(s->max_in_frames, strchr(item, '=') + 1, 1);
                 } else if (IS_KEY_PREFIX(item, "thread_cnt")) {
@@ -678,6 +683,9 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 
         if (s->mem_limit == -1) {
                 s->mem_limit = s->tech->default_mem_limit;
+        }
+        if (s->img_tile_limit == -1) {
+                s->img_tile_limit = (int) s->tech->default_img_tile_limit;
         }
 
         module_init_default(&s->module_data);
