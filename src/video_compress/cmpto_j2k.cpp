@@ -210,6 +210,7 @@ struct state_video_compress_j2k {
             DEFAULT_POOL_SIZE; ///< max number of frames between push and pop
         int thread_count = CMPTO_J2K_ENC_CPU_DEFAULT;
         double        quality    = DEFAULT_QUALITY;
+        bool          lossless   = false;
         long long int mem_limit  = -1;
         int           img_tile_limit = -1;
 
@@ -364,6 +365,9 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                      s->quality /* 0.0 = poor quality, 1.0 = full quality */
                      ),
                  "Setting quantization", NOOP);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_lossless(
+                     s->enc_settings, s->lossless),
+                 "Setting lossless mode", NOOP);
 
         CHECK_OK(cmpto_j2k_enc_cfg_set_resolutions(s->enc_settings, 6),
                  "Setting DWT levels", NOOP);
@@ -389,13 +393,17 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                         NOOP);
 
         char rate[100] = "unset";
+        char quality[100] = "lossless";
         if (s->rate > 0) {
                 snprintf_ch(rate, "%sbps", format_in_si_units(s->rate));
         }
+        if (!s->lossless) {
+                snprintf_ch(quality, "%.2f", s->quality);
+        }
         MSG(INFO,
-            "Using parameters: quality=%.2f, bitrate=%s, mem_limit=%sB, "
+            "Using parameters: quality=%s, bitrate=%s, mem_limit=%sB, "
             "img/tile_limit=%u, pool_size=%u, mct=%d, technology=%s\n",
-            s->quality, rate, format_in_si_units(s->mem_limit),
+            quality, rate, format_in_si_units(s->mem_limit),
             s->img_tile_limit, s->max_in_frames, mct, s->tech->name);
 
         set_pool(s, cuda_convert_func != nullptr);
@@ -535,6 +543,7 @@ struct {
         { "Quality", "quant_coeff",
           "Quality in range [0-1], 1.0 is best, default: " TOSTRING(DEFAULT_QUALITY),
           ":quality=", false, TOSTRING(DEFAULT_QUALITY) },
+        { "Lossless", "lossless", "Use lossless mode", ":lossless", true, "" },
         { "Mem limit",  "mem_limit",
          std::string("device memory limit (in bytes), default: ") +
               std::to_string(technology_cuda.default_mem_limit) + " (CUDA) / " +
@@ -653,6 +662,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         s->tech = get_technology(strchr(item, '=') + 1);
                 } else if (IS_KEY_PREFIX(item, "quality")) {
                         s->quality = stod(strchr(item, '=') + 1);
+                } else if (IS_PREFIX(item, "lossless")) {
+                        s->lossless = true;
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
                         s->mct = strcasecmp("mct", item) == 0 ? 1 : 0;
                 } else if (IS_KEY_PREFIX(item, "mem_limit")) {
