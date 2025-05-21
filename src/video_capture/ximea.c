@@ -38,8 +38,13 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
+
+#include <assert.h>                // for assert
+#include <stdbool.h>               // for bool, false, true
+#include <stdint.h>                // for uint32_t
+#include <stdio.h>                 // for printf, snprintf
+#include <stdlib.h>                // for free, calloc, strtol, strtod
+#include <string.h>                // for NULL, strstr, strlen, memset, strchr
 
 #if defined(__APPLE__)
 #include <m3api/xiApi.h>
