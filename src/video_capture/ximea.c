@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,7 +97,8 @@ static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
         if (!f->handle) {
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Unable to open library %s): %s!\n",
                                 XIMEA_LIBRARY_NAME, dlerror());
-                char path[strlen(XIMEA_LIBRARY_PATH) + 1 + strlen(XIMEA_LIBRARY_NAME) + 1];
+                char path[(sizeof XIMEA_LIBRARY_PATH - 1) + 1 +
+                          (sizeof XIMEA_LIBRARY_NAME - 1) + 1];
                 strcpy(path, XIMEA_LIBRARY_PATH);
                 strcat(path, "/");
                 strcat(path, XIMEA_LIBRARY_NAME);
