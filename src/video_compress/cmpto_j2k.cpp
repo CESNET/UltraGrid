@@ -531,7 +531,7 @@ struct {
           ":technology=", false, "gpu" },
         { "Bitrate", "quality", "Target bitrate", ":rate=", false, "70M" },
         { "Quality", "quant_coeff",
-          "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY),
+          "Quality in range [0-1], 1.0 is best, default: " TOSTRING(DEFAULT_QUALITY),
           ":quality=", false, TOSTRING(DEFAULT_QUALITY) },
         { "Mem limit",  "mem_limit",
          std::string("device memory limit (in bytes), default: ") +
