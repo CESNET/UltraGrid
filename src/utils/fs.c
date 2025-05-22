@@ -105,11 +105,49 @@ int get_exec_path(char* path) {
 #include <sys/types.h>
 int get_exec_path(char* path) {
         int    mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
-        size_t cb = MAX_PATH_SIZE;
+        size_t cb    = MAX_PATH_SIZE;
         return sysctl(mib, sizeof mib / sizeof mib[0], path, &cb, NULL, 0);
 }
 #else
-#error "Implement get_exec_path() for current platform!"
+#include <unistd.h>     // for getcwd
+#include "host.h"       // for uv_argv
+int get_exec_path(char* path) {
+        if (uv_argv[0][0] == '/') { // with absolute path
+                if (snprintf(path, MAX_PATH_SIZE, "%s", uv_argv[0]) ==
+                    MAX_PATH_SIZE) {
+                        return -1; // truncated
+                }
+                return 0;
+        }
+        if (strchr(uv_argv[0], '/') != NULL) { // or with relative path
+                char cwd[MAX_PATH_SIZE];
+                if (getcwd(cwd, sizeof cwd) != cwd) {
+                        return -1;
+                }
+                if (snprintf(path, MAX_PATH_SIZE, "%s/%s", cwd, uv_argv[0]) ==
+                    MAX_PATH_SIZE) {
+                        return -1; // truncated
+                }
+                return 0;
+        }
+        // else launched from PATH
+        char args[1024];
+        snprintf(args, sizeof args, "command -v %s", uv_argv[0]);
+        FILE *f = popen(args, "r");
+        if (f == NULL) {
+                return -1;
+        }
+        if (fgets(path, MAX_PATH_SIZE, f) == NULL) {
+                fclose(f);
+                return -1;
+        }
+        fclose(f);
+        if (strlen(path) == 0 || path[strlen(path) - 1] != '\n') {
+                return -1; // truncated (?)
+        }
+        path[strlen(path) - 1] = '\0';
+        return 0;
+}
 #endif  
 
 /**
