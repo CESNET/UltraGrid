@@ -250,7 +250,7 @@ $(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd
 
 bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
 	$(MKDIR_P) $$(dirname $@)
-	$(CP) $< $@
+	$(CP) $(srcdir)/data/template/bin/hd-rum-av $@
 
 -include $(DEP_FILES)
 
@@ -289,46 +289,59 @@ POSTPROCESS_DEPS = \
 	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 
+# rules specialized for some files below
+# using C[XX]_NO_SUFF because $< unavailable in non-suffix rules (except GNUmake)
+CC_NO_SUFF_0 = @echo "Compiling $@..."; $(REAL_CC)
+CC_NO_SUFF_1 = $(REAL_CC)
+CC_NO_SUFF   = $(CC_NO_SUFF_$(VERBOSE))
+CXX_NO_SUFF_0 = @echo "Compiling $@..."; $(REAL_CXX)
+CXX_NO_SUFF_1 = $(REAL_CXX)
+CXX_NO_SUFF   = $(CXX_NO_SUFF_$(VERBOSE))
+
 src/libavcodec/from_lavc_vid_conv.o: src/libavcodec/from_lavc_vid_conv.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/libavcodec/from_lavc_vid_conv.c -o $@
 	$(POSTPROCESS_DEPS)
 
 src/libavcodec/to_lavc_vid_conv.o: src/libavcodec/to_lavc_vid_conv.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/libavcodec/to_lavc_vid_conv.c -o $@
 	$(POSTPROCESS_DEPS)
 
 src/pixfmt_conv.o: src/pixfmt_conv.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/pixfmt_conv.c -o $@
 	$(POSTPROCESS_DEPS)
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp
 	$(MKDIR_P) $$(dirname $@)
-	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -MD -c $< -o $@
+	$(CXX_NO_SUFF) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -MD\
+	 -c $(srcdir)/ldgm/src/ldgm-session-gpu.cpp -o $@
 	$(POSTPROCESS_DEPS)
 
 src/zfec.o: @ZFEC_PREFIX@/fec.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) -w $(INC) -c $< -o $@
+	$(CC_NO_SUFF) $(CFLAGS) -w $(INC) -c @ZFEC_PREFIX@/fec.c -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(MKDIR_P) $$(dirname $@)
-	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX_NO_SUFF) $(CXXFLAGS) -c $(INC) -o\
+	 $(srcdir)/src/video_capture/DeckLinkAPIDispatch.o\
+	 $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
+	$(CC_NO_SUFF) $(CFLAGS) -c $(INC) -o\
+	  $(srcdir)/src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) $(INC) $< -c -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_encoder.c -c -o $@
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $$(dirname $@)
-	$(CC) $(CFLAGS) $(INC) $< -c -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_decoder.c -c -o $@
 
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/compress_dxt1_fp.glsl dxt_compress/compress_dxt5ycocg_fp.glsl \
@@ -467,7 +480,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 
 gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile $< "DESTDIR+=./" -o $@ $(QMAKE_FLAGS)
+	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile gui/QT/uv-qt.pro "DESTDIR+=./" -o $@ $(QMAKE_FLAGS)
 
 
 .PHONY: $(GUI_TARGET)
