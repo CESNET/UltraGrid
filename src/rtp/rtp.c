@@ -99,8 +99,8 @@
 #define min(a, b)      (((a) < (b))? (a): (b))
 
 // IANA/RFC 6335 suggested range 49152-65535. Implementatins may differ, eg. Linux uses 32768-60999.
-#define IPPORT_DYNAMIC ((1U<<15U) + (1U<<14U))
-#define IPPORT_MAX ((1U<<16U) - 1U)
+#define RTP_IPPORT_DYNAMIC ((1U<<15U) + (1U<<14U))
+#define RTP_IPPORT_MAX ((1U<<16U) - 1U)
 #define MOD_NAME "[rtp] "
 
 /*
@@ -1075,9 +1075,14 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
             strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0;
 
         if (rx_port == 0) {
-                const unsigned random_off = (ug_rand() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
-                for (unsigned i = 0; i <= (IPPORT_MAX - IPPORT_DYNAMIC) - 1; i += 2) {
-                        int port = IPPORT_DYNAMIC + ((random_off + i) % (IPPORT_MAX - IPPORT_DYNAMIC + 1));
+                const unsigned random_off =
+                    (ug_rand() % (RTP_IPPORT_MAX - RTP_IPPORT_DYNAMIC + 1)) &
+                    ~1U;
+                for (unsigned i = 0;
+                     i <= (RTP_IPPORT_MAX - RTP_IPPORT_DYNAMIC) - 1; i += 2) {
+                        int port = RTP_IPPORT_DYNAMIC +
+                                   ((random_off + i) %
+                                    (RTP_IPPORT_MAX - RTP_IPPORT_DYNAMIC + 1));
                         // this stuff is not atomic. but... it cannot be done in this way, either
                         int ret = udp_port_pair_is_free(force_ip_version, port);
                         if (ret == 0) {
