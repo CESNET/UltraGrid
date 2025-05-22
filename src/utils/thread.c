@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,7 @@ static inline char *get_argv_program_name(void) {
 #endif
 
 void set_thread_name(const char *name) {
-#ifdef __linux__
+#if defined __linux__ || defined __FreeBSD__
 // thread name can have at most 16 chars (including terminating null char)
         char *prog_name = get_argv_program_name();
         char tmp[16];
