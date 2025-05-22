@@ -4,7 +4,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,17 +83,11 @@ const char *get_temp_dir(void)
 int get_exec_path(char* path) {
         return GetModuleFileNameA(NULL, path, MAX_PATH_SIZE) != 0;
 }
-#endif
-
-
-#ifdef __linux__
+#elif defined __linux__
 int get_exec_path(char* path) {
         return realpath("/proc/self/exe", path) != NULL;
 }
-#endif
-
-
-#ifdef __APPLE__
+#elif defined __APPLE__
 #include <mach-o/dyld.h> //_NSGetExecutablePath
 #include <unistd.h>
 
@@ -106,6 +100,16 @@ int get_exec_path(char* path) {
         }
         return realpath(raw_path_name, path) != NULL;
 }
+#elif defined __FreeBSD__
+#include <sys/sysctl.h>
+#include <sys/types.h>
+int get_exec_path(char* path) {
+        int    mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+        size_t cb = MAX_PATH_SIZE;
+        return sysctl(mib, sizeof mib / sizeof mib[0], path, &cb, NULL, 0);
+}
+#else
+#error "Implement get_exec_path() for current platform!"
 #endif  
 
 /**
