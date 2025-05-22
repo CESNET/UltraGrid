@@ -7,7 +7,7 @@
  *           Martin Pulec    <pulec@cesnet.cz>
  * 
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET z.s.p.o.
  * Copyright (c) 1998-2000 University College London
  * All rights reserved.
  *
@@ -1599,8 +1599,13 @@ int resolve_addrinfo(const char *addr, uint16_t tx_port,
         memset(&hints, 0, sizeof(hints));
         switch (*mode) {
         case 0:
+#ifdef AI_V4MAPPED
                 hints.ai_family = AF_INET6;
                 hints.ai_flags = AI_V4MAPPED | AI_ALL;
+#else
+                MSG(WARNING, "System IPv6 implementation lacks AI_V4MAPPED!\n");
+                hints.ai_family = AF_UNSPEC;
+#endif
                 break;
         case IPv4:
                 hints.ai_family = AF_INET;
