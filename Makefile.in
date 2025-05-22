@@ -322,26 +322,31 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp
 
 src/zfec.o: @ZFEC_PREFIX@/fec.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC_NO_SUFF) $(CFLAGS) -w $(INC) -c @ZFEC_PREFIX@/fec.c -o $@
+	$(CC_NO_SUFF) $(CFLAGS) -w $(INC) -MD -c @ZFEC_PREFIX@/fec.c -o $@
+	$(POSTPROCESS_DEPS)
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(MKDIR_P) $$(dirname $@)
-	$(CXX_NO_SUFF) $(CXXFLAGS) -c $(INC) -o\
+	$(CXX_NO_SUFF) $(CXXFLAGS) -MD -c $(INC) -o\
 	 $(srcdir)/src/video_capture/DeckLinkAPIDispatch.o\
 	 $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+	$(POSTPROCESS_DEPS)
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(MKDIR_P) $$(dirname $@)
-	$(CC_NO_SUFF) $(CFLAGS) -c $(INC) -o\
+	$(CC_NO_SUFF) $(CFLAGS) -MD -c $(INC) -o\
 	  $(srcdir)/src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
+	$(POSTPROCESS_DEPS)
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $$(dirname $@)
-	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_encoder.c -c -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_encoder.c -MD -c -o $@
+	$(POSTPROCESS_DEPS)
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
 	$(MKDIR_P) $$(dirname $@)
-	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_decoder.c -c -o $@
+	$(CC_NO_SUFF) $(CFLAGS) $(INC) $(srcdir)/dxt_compress/dxt_decoder.c -MD -c -o $@
+	$(POSTPROCESS_DEPS)
 
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/compress_dxt1_fp.glsl dxt_compress/compress_dxt5ycocg_fp.glsl \
