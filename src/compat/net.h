@@ -6,7 +6,7 @@
  * (also htonl and the family).
  */
 /*
- * Copyright (c) 2024 CESNET, z. s. p. o.
+ * Copyright (c) 2024-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,9 @@
 #include <winsock2.h>
 typedef SOCKET fd_t;
 #else
-#include <arpa/inet.h>
+#include <arpa/inet.h>      // for htonl, ntohl
+#include <netinet/in.h>     // for sockaddr_in[6]
+#include <sys/socket.h>     // for sockaddr, sockaddr_storage
 typedef int fd_t;
 #define INVALID_SOCKET (-1)
 #endif
