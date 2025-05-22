@@ -255,10 +255,10 @@ bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
 -include $(DEP_FILES)
 
 POSTPROCESS_DEPS = \
-	@cp $*.d $*.P; \
+	@cp ${@:.o=.d} ${@:.o=.P}; \
 		sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
-		-e '/^$$/ d' -e 's/$$/ :/' < $*.d >> $*.P; \
-		rm -f $*.d
+		-e '/^$$/ d' -e 's/$$/ :/' < ${@:.o=.d} >> ${@:.o=.P}; \
+		rm -f ${@:.o=.d}
 
 .SUFFIXES: .o .c .cpp .cu .m .mm
 
