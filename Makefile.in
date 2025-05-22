@@ -260,31 +260,30 @@ POSTPROCESS_DEPS = \
 		-e '/^$$/ d' -e 's/$$/ :/' < $*.d >> $*.P; \
 		rm -f $*.d
 
-%.o : %.c
+.SUFFIXES: .o .c .cpp .cu .m .mm
+
+.c.o :
 	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-%.o : %.cpp
+.cpp.o :
 	$(MKDIR_P) $$(dirname $@)
 	$(CXX) $(CXXFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-%.o: %.m
+.m.o:
 	$(MKDIR_P) $$(dirname $@)
 	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-%.o: %.mm
+.mm.o:
 	$(MKDIR_P) $$(dirname $@)
 	$(CXX) -x objective-c++ -std=c++11 $(CXXFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-# Set suffix for CUDA files
-.SUFFIXES: .cu
-
 # Pattern rule for compiling CUDA files
-%.o: %.cu
+.cu.o:
 	$(MKDIR_P) $$(dirname $@)
 	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
 	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
