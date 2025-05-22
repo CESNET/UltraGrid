@@ -129,9 +129,11 @@ elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*"
         system=Windows
         APPEXT=.exe
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-else
+elif expr "$host_os" : linux >/dev/null; then
         system=Linux
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
+else
+        system=other
 fi
 AC_MSG_RESULT($system);
 AC_SUBST(system)

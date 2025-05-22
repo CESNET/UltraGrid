@@ -102,7 +102,7 @@
 #define GET_STARTTIME gettimeofday(&start, NULL)
 #define GET_STOPTIME gettimeofday(&stop, NULL)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + (stop.tv_usec - start.tv_usec) * 1000L
-#elif defined __linux__
+#elif defined __unix__
 #define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
 #define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
@@ -684,7 +684,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
         int pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);            /* A value specified in our packet format */
-#ifdef __linux__
+#ifdef __unix__
         struct timespec start, stop;
 #elif defined __APPLE__
         struct timeval start, stop;
