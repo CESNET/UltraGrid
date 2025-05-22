@@ -242,7 +242,7 @@ src/dir-stamp:
 $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS) -o $(TARGET)
-	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 $(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
 	$(MKDIR_P) $$(dirname $@)
@@ -479,7 +479,7 @@ $(GUI_TARGET): gui/QT/Makefile
 $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ -o $@
-	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 suggest-tests:
 	@echo ""
