@@ -125,11 +125,11 @@ if test "$host_vendor" = "apple"; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
         APPEXT=.app
-elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
+elif expr -- "$host_os" : ".*mingw32.*" > /dev/null || expr -- "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
         APPEXT=.exe
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-elif expr "$host_os" : linux >/dev/null; then
+elif expr -- "$host_os" : linux >/dev/null; then
         system=Linux
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 else
@@ -216,7 +216,7 @@ CFLAGS="$CFLAGS${ARCH+ $ARCH}"
 CXXFLAGS="$CXXFLAGS${ARCH+ $ARCH}"
 LDFLAGS="$LDFLAGS${ARCH+ $ARCH}"
 
-if expr "$CFLAGS" : '.*-O' >/dev/null; then
+if expr -- "$CFLAGS" : '.*-O' >/dev/null; then
         OFAST=""
 else
         OFAST="-Ofast"
@@ -261,7 +261,7 @@ if test $system = MacOSX; then
                 dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
                 AC_MSG_RESULT($dyl_ver);
 
-                if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
+                if test $dyl_ver = unknown || expr -- "$dyl_ver" \<= 2 >/dev/null; then
                         UG_MSG_WARN([Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
                 else
                         DYLIBBUNDLER="$DYLIBBUNDLER -f" # bundle also frameworks
@@ -1714,10 +1714,10 @@ fi
 if test $testcard_extras_req = "yes"; then
         testcard2_req=yes
 fi
-if expr $testcard_extras_req : '.*all' >/dev/null; then
+if expr -- "$testcard_extras_req" : '.*all' >/dev/null; then
         testcard_sdl_ttf_req=yes
 fi
-if expr $testcard_extras_req : '.*ttf' >/dev/null; then
+if expr -- "$testcard_extras_req" : '.*ttf' >/dev/null; then
         testcard_sdl_ttf_req=yes
 fi
 
@@ -3194,7 +3194,7 @@ AC_ARG_ENABLE(ndi,
 
 
 NDI_VER=
-if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
+if expr -- "$ndi_req" : '@<:@0-9@:>@' >/dev/null; then
         NDI_VER=$ndi_req
         ndi_req=yes
 fi
