@@ -627,6 +627,7 @@ AC_ARG_ENABLE(gl,
     [gl_req=$build_default]
     )
 OPENGL=no
+OPENGL_COMMON=no
 
 SAVED_LIBS=$LIBS
 AC_CHECK_HEADER(GL/gl.h)
@@ -656,20 +657,25 @@ fi
 # Linux
 if { test "$system" = Linux || test "$system" = other; } &&  \
         test "$HAVE_GL" = yes && \
-        test "$HAVE_GLEW" = yes && \
-        test "$ac_cv_header_GL_glx_h" = yes && \
-        test "$ac_cv_lib_GL_glXCreateNewContext" = yes && \
-        test "$ac_cv_lib_X11_XCreateWindow" = yes
+        test "$HAVE_GLEW" = yes
 then
+        OPENGL_LIB="-lGLEW -lGL"
         OPENGL=yes
-        OPENGL_LIB="-lGLEW -lGL -lX11"
-        GL_COMMON_OBJ="$GL_COMMON_OBJ src/glx_common.o src/x11_common.o"
+        if  test "$ac_cv_header_GL_glx_h" = yes && \
+                test "$ac_cv_lib_GL_glXCreateNewContext" = yes && \
+                test "$ac_cv_lib_X11_XCreateWindow" = yes
+        then
+                OPENGL_LIB="$OPENGL_LIB -lX11"
+                OPENGL_COMMON=yes
+                GL_COMMON_OBJ="$GL_COMMON_OBJ src/glx_common.o src/x11_common.o"
+        fi
 fi
 
 # Mac
 if test "$system" = MacOSX
 then
         OPENGL=yes
+        OPENGL_COMMON=yes
         OPENGL_LIB="-framework Cocoa -framework OpenGL"
         COMMON_FLAGS="$COMMON_FLAGS -DGL_SILENCE_DEPRECATION"
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/mac_gl_common.o"
@@ -679,6 +685,7 @@ fi
 if test "$system" = Windows -a "$HAVE_GLEW" = yes
 then
         OPENGL=yes
+        OPENGL_COMMON=yes
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/win32_gl_common.o"
         OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
 fi
@@ -2031,7 +2038,7 @@ AC_ARG_ENABLE(swmix,
     [swmix_req=$build_default]
     )
 
-if test $swmix_req != no -a $OPENGL = yes
+if test "$swmix_req" != no && test "$OPENGL_COMMON" = yes
 then
         swmix=yes
         SWMIX_LIB="$OPENGL_LIB"
@@ -2270,7 +2277,7 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 #AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
-if test $rtdxt_req != no -a $OPENGL = yes
+if test "$rtdxt_req" != no && test "$OPENGL_COMMON" = yes
 then
         rtdxt=yes
         RTDXT_LIB="$OPENGL_LIB"
@@ -2300,7 +2307,7 @@ AC_ARG_ENABLE(uyvy,
 
 SAVED_LIBS=$LIBS
 
-if test $uyvy_req != no -a "$OPENGL" = yes
+if test "$uyvy_req" != no && test "$OPENGL_COMMON" = yes
 then
         uyvy=yes
 fi
@@ -2778,7 +2785,7 @@ AC_ARG_ENABLE(scale,
     [scale_req=$build_default]
     )
 
-if test $scale_req != no -a $OPENGL = yes
+if test "${scale_req?}" != no && test "${OPENGL_COMMON?}" = yes
 then
         scale=yes
         SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
@@ -3070,7 +3077,7 @@ AC_ARG_ENABLE(spout,
     )
 
 FOUND_SPOUT=no
-if test $system = Windows && test "$spout_req" != no && test "$OPENGL" = yes
+if test $system = Windows && test "$spout_req" != no && test "$OPENGL_COMMON" = yes
 then
         AC_LANG_PUSH([C++])
         SAVED_LIBS="$LIBS"
