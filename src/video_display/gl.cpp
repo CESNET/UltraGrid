@@ -43,6 +43,7 @@
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #else
+#define GLEW_NO_GLU
 #include <GL/glew.h>
 #endif /* __APPLE__ */
 #include <GLFW/glfw3.h>
