@@ -143,6 +143,13 @@ struct item {
 #define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(struct sockaddr_storage) - 1) / alignof(struct sockaddr_storage) * alignof(struct sockaddr_storage))
 #define ALIGNED_ITEM_OFF (((ALIGNED_SOCKADDR_STORAGE_OFF + sizeof(struct sockaddr_storage)) + alignof(struct item) - 1) / alignof(struct item) * alignof(struct item))
 
+// OpenBSD doesn't allow setting IPV6_V6ONLY=0
+#ifdef AI_V4MAPPED
+#define V4MAPPED_SUPP 1
+#else
+#define V4MAPPED_SUPP 0
+#endif
+
 /*
  * Local part of the socket
  *
@@ -685,9 +692,9 @@ static char *udp_host_addr6(socket_udp * s)
                 return NULL;
         }
         int ipv6only = 0;
-        if (SETSOCKOPT(newsock, IPPROTO_IPV6, IPV6_V6ONLY,
-                                (char *) &ipv6only,
-                                sizeof(ipv6only)) != 0) {
+        if (V4MAPPED_SUPP &&
+            SETSOCKOPT(newsock, IPPROTO_IPV6, IPV6_V6ONLY, (char *) &ipv6only,
+                       sizeof(ipv6only)) != 0) {
                 socket_error("newsock setsockopt IPV6_V6ONLY");
         }
         memset((char *)&addr6, 0, len);
@@ -819,7 +826,8 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         int ipv6only = 0;
 
         if (ipv6) {
-                if (SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                if (V4MAPPED_SUPP &&
+                    SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                         sizeof(ipv6only)) != 0) {
                         socket_error("setsockopt IPV6_V6ONLY");
                         return false;
@@ -1835,8 +1843,8 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                         s_in6->sin6_port = htons(even_port + i);
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
                         if (fd != INVALID_SOCKET) {
-                                if (SETSOCKOPT
-                                                (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                if (V4MAPPED_SUPP &&
+                                    SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                                  sizeof(ipv6only)) != 0) {
                                         socket_error("%s - setsockopt IPV6_V6ONLY for port %d", __func__, even_port + 1);
                                         CLOSESOCKET(fd);
