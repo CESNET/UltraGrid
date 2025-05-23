@@ -826,7 +826,7 @@ if test $decklink_req != no; then
                         AC_MSG_RESULT([$FOUND_DECKLINK])
                         AC_LANG_POP(C++)
                         ;;
-                *)
+                Linux)
                         DECKLINK_INC=$DECKLINK_INC/Linux
 
                         AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
