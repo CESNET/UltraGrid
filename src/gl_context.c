@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 
 #ifdef __APPLE__
 #include "mac_gl_common.h"
-#elif defined __linux__
+#elif defined __unix__
 #include "glx_common.h"
 #else // _WIN32
 #include "win32_gl_common.h"
@@ -64,7 +64,7 @@
  */
 bool init_gl_context(struct gl_context *context, int which) {
         context->context = NULL;
-#ifdef __linux__
+#ifdef __unix__
         if(which == GL_CONTEXT_ANY) {
                 debug_msg("Trying OpenGL 3.1 first.\n");
                 context->context = glx_init(MK_OPENGL_VERSION(3,1));
@@ -222,7 +222,7 @@ void destroy_gl_context(struct gl_context *context) {
         }
 #ifdef __APPLE__
         mac_gl_free(context->context);
-#elif defined __linux__
+#elif defined __unix__
         glx_free(context->context);
 #else
         win32_context_free(context->context);
@@ -235,7 +235,7 @@ void gl_context_make_current(struct gl_context *context)
         if(context) {
 		context_state = context->context;
 	}
-#ifdef __linux__
+#ifdef __unix__
 	glx_make_current(context_state);
 #elif defined __APPLE__
 	mac_gl_make_current(context_state);

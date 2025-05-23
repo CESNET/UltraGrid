@@ -654,12 +654,12 @@ then
 fi
 
 # Linux
-if test "$system" = Linux -a \
-        "$HAVE_GL" = yes -a \
-        "$HAVE_GLEW" = yes -a \
-        "$ac_cv_header_GL_glx_h" = yes -a \
-        "$ac_cv_lib_GL_glXCreateNewContext" = yes -a \
-        "$ac_cv_lib_X11_XCreateWindow" = yes
+if { test "$system" = Linux || test "$system" = other; } &&  \
+        test "$HAVE_GL" = yes && \
+        test "$HAVE_GLEW" = yes && \
+        test "$ac_cv_header_GL_glx_h" = yes && \
+        test "$ac_cv_lib_GL_glXCreateNewContext" = yes && \
+        test "$ac_cv_lib_X11_XCreateWindow" = yes
 then
         OPENGL=yes
         OPENGL_LIB="-lGLEW -lGL -lX11"

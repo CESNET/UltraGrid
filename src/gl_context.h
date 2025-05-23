@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,11 @@
 #ifndef _GL_CONTEXT_H_
 #define _GL_CONTEXT_H_
 
-#if defined __linux__ || defined _WIN32
-#include <GL/glew.h>
-#else
+#if defined __APPLE__
 #include <OpenGL/GL.h>
-#endif /*  __linux__  */
+#else
+#include <GL/glew.h>
+#endif /*  !defined __APPLE__ */
 
 #ifdef __APPLE__
 #include <Availability.h>

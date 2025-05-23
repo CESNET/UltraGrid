@@ -1504,7 +1504,7 @@ static void display_gl_render_last(GLFWwindow *win) {
         display_gl_putf(s, f, PUTF_NONBLOCK);
 }
 
-#if defined __linux__ || defined _WIN32
+#if defined GLEW_VERSION
 #ifndef GLEW_ERROR_NO_GLX_DISPLAY
 #define GLEW_ERROR_NO_GLX_DISPLAY 4
 #endif
@@ -1517,7 +1517,7 @@ static const char *glewGetError(GLenum err) {
                 default: return (const char *) glewGetErrorString(err);
         }
 }
-#endif // defined __linux__ || defined _WIN32
+#endif // defined GLEW_VERSION
 
 static void glfw_print_error(int error_code, const char* description) {
         LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
@@ -1744,7 +1744,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwSetFramebufferSizeCallback(s->window, gl_resize);
         glfwSetWindowRefreshCallback(s->window, display_gl_render_last);
 
-#if defined __linux__ || defined _WIN32
+#if defined GLEW_VERSION
         if (GLenum err = glewInit()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %s (err %d)\n", glewGetError(err), err);
                 if (err != GLEW_ERROR_NO_GLX_DISPLAY) { // do not fail on error 4 (on Wayland), which can be suppressed
