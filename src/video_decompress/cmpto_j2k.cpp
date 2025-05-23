@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -351,7 +351,7 @@ void state_decompress_j2k::parse_params() {
                 platform = j2k_decompress_platform::CPU;
         } else {
                 MSG(ERROR, "Unable to find supported CMPTO_TECHNOLOGY\n");
-                platform = j2k_decompress_platform::NONE;       // default to NONE
+                throw UnableToCreateJ2KDecoderCTX();
         }
 
         // CUDA-specific commandline_params
@@ -360,12 +360,6 @@ void state_decompress_j2k::parse_params() {
                         platform = j2k_decompress_platform::CUDA;
                 } else {
                         MSG(ERROR, "j2k-dec-use-cuda argument provided. CUDA decompress not supported.\n");
-
-                        // Check if CPU is default decompress
-                        //  If it is, create a log message to notify this will be used automatically
-                        if (j2k_decompress_platform::CPU == platform) {
-                                MSG(INFO, "Defaulting to CPU decompress\n");
-                        }
                 }
         }
 
@@ -588,6 +582,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg = nullptr;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
+
         if (j2k_decompress_platform::CUDA == s->platform) {
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                         CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(
@@ -595,9 +590,8 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 s->cuda_tile_limit),
                                 "Error setting CUDA device", return false);
                 }
-        }
-
-        if (j2k_decompress_platform::CPU == s->platform) {
+        } else {
+                assert(s->platform == j2k_decompress_platform::CPU);
                 CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cpu(
                         ctx_cfg,
                         s->cpu_thread_count,
