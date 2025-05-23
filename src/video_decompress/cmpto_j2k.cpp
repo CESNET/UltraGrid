@@ -76,8 +76,6 @@
 #include "utils/parallel_conv.h"
 #include "video_codec.h"       // for vc_get_linesize, codec_is_a_rgb, get_b...
 #include "video_decompress.h"
-#include "video_codec.h" // for vc_get_linesize, codec_is_a_rgb, get_b...
-#include "video_decompress.h"
 
 using std::lock_guard;
 using std::min;
@@ -197,10 +195,6 @@ struct state_decompress_j2k {
  */
 state_decompress_j2k::state_decompress_j2k() {
         parse_params();
-
-        if (!initialize_j2k_dec_ctx()) {
-                throw UnableToCreateJ2KDecoderCTX();
-        }
 }
 
 
@@ -416,73 +410,6 @@ void state_decompress_j2k::parse_params() {
 }
 
 /**
- * @fn initialize_j2k_dec_ctx
- * @brief Create cmpto_j2k_dec_ctx_cfg based on requested platform and command line arguments
- * @return true if cmpto_j2k_dec_ctx_cfg successfully created
- * @return false if unable to create cmpto_j2k_dec_ctx_cfg
- */
-[[nodiscard]]
-bool state_decompress_j2k::initialize_j2k_dec_ctx() {
-        struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", return false);
-
-        if (j2k_decompress_platform::NONE == platform) {
-                MSG(ERROR, "No supported CMPTO_TECHNOLOGY found. Unable to create decompress context.\n");
-                return false;
-        }
-
-        if (j2k_decompress_platform::CUDA == platform) {
-                MSG(INFO, "Using platform CUDA for decompress\n");
-                for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                        CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], cuda_mem_limit, cuda_tile_limit),
-                                        "Error setting CUDA device", return false);
-                        MSG(INFO, "Using CUDA Device %s\n", std::to_string(cuda_devices[i]).c_str());
-                }
-        }
-
-        if (j2k_decompress_platform::CPU == platform) {
-                MSG(INFO, "Using platform CPU for decompress\n");
-                // Confirm that cpu_thread_count != 0 (unlimited). If it does, cpu_img_limit can exceed thread_count
-                if (cpu_thread_count != DEFAULT_THREAD_COUNT && cpu_img_limit > static_cast<unsigned>(cpu_thread_count)) {
-                        MSG(INFO, "j2k-dec-img-limit set to %i. Lowering to match to match j2k-dec-cpu-thread-count (%i)\n",
-                            cpu_img_limit,
-                            cpu_thread_count);
-                        cpu_img_limit = cpu_thread_count;
-                }
-
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cpu(
-                        ctx_cfg,
-                        cpu_thread_count,
-                        cpu_mem_limit,
-                        cpu_img_limit),
-                        "Error configuring the CPU",
-                        return false);
-
-                MSG(INFO, "Using %s threads on the CPU. Image Limit set to %i.\n",
-                    (cpu_thread_count == 0 ? "all available" : std::to_string(cpu_thread_count).c_str()),
-                    cpu_img_limit);
-        }
-
-        CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &this->decoder),
-                "Error initializing context",
-                return false);
-
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_destroy(ctx_cfg), "Destroy cfg", NOOP);
-
-        CHECK_OK(cmpto_j2k_dec_cfg_create(this->decoder, &this->settings), 
-                "Error creating configuration", {
-                        cmpto_j2k_dec_cfg_destroy(this->settings);
-                        cmpto_j2k_dec_ctx_destroy(this->decoder);
-                        return false;
-                });
-
-        auto ret = pthread_create(&this->thread_id, NULL, decompress_j2k_worker, static_cast<void *>(this));
-        assert(ret == 0 && "Unable to create thread");
-
-        return true;
-}
-
-/**
  * @brief Initialize a new instance of state_decompress_j2k
  * @return Null or Pointer to state_decompress_j2k
  */
@@ -589,6 +516,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 ctx_cfg, cuda_devices[i], s->cuda_mem_limit,
                                 s->cuda_tile_limit),
                                 "Error setting CUDA device", return false);
+                        MSG(INFO, "Using CUDA Device %s\n", std::to_string(cuda_devices[i]).c_str());
                 }
         } else {
                 assert(s->platform == j2k_decompress_platform::CPU);
