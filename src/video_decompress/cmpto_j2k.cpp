@@ -85,7 +85,7 @@ using std::queue;
 using std::stoi;
 using std::unique_lock;
 
-constexpr const char *MOD_NAME = "[Cmpto J2K dec.]";
+constexpr const char *MOD_NAME = "[Cmpto J2K dec.] ";
 
 // General Parameter Defaults
 constexpr int DEFAULT_MAX_QUEUE_SIZE         = 2;                         // maximal size of queue for decompressed frames
