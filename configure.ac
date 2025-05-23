@@ -203,7 +203,7 @@ fi
 AC_SUBST(CUDA_FLAGS)
 
 AC_ARG_VAR([ARCH], [Architecture to build for])
-if test $target_cpu = x86_64 -o $target_cpu = i686
+if test "${target_cpu?}" = x86_64 || test "${target_cpu?}" = i686
 then
         ARCH=${ARCH--msse4.1}
 fi
@@ -484,7 +484,7 @@ if test $cuda_req != no; then
                 [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 fi
 
-if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
+if test -n "${NVCC?}" && test "${cross_compile?}" = no && test "${cuda_req?}" != no
 then
         CUDA_PATH=`dirname "$NVCC"`
         CUDA_PATH=`dirname "$CUDA_PATH"`
@@ -514,7 +514,7 @@ then
         nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
-        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+        if test "${ac_cv_sizeof_int_p?}" -eq 8 && test "${system?}" = Linux
         then
                 CUDA_LIB_PATH="$CUDA_PATH/lib64"
         else
@@ -571,7 +571,7 @@ AC_ARG_WITH(cuda-host-compiler,
 if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_PATH_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[no])
 	# note AC_CHECK_PROG always fails on path with spaces in MSW
-	if test "x${cuda_host_cc}" != "xno" -o $system = Windows; then
+	if test "x${cuda_host_cc?}" != "xno" || test "${system?}" = Windows; then
 		CUDA_FLAGS="$CUDA_FLAGS -ccbin \"${cuda_host_cc}\""
 	else
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
@@ -645,14 +645,14 @@ CFLAGS=$SAVED_CFLAGS
 
 GL_COMMON_OBJ="src/gl_context.o"
 
-if test "$ac_cv_header_GL_gl_h" = yes -a \
-        "$ac_cv_lib_GL_glBindTexture" = yes
+if test "${ac_cv_header_GL_gl_h?}" = yes && \
+        test "${ac_cv_lib_GL_glBindTexture?}" = yes
 then
         HAVE_GL=yes
 fi
 
-if test "$ac_cv_header_GL_glew_h" = yes -a \
-        \( "$ac_cv_lib_GLEW_glewInit" = yes -o "$ac_cv_lib_glew32_glewInit" = yes \)
+if test "${ac_cv_header_GL_glew_h?}" = yes && \
+        { test "${ac_cv_lib_GLEW_glewInit?}" = yes || test "${ac_cv_lib_glew32_glewInit?}" = yes; }
 then
         HAVE_GLEW=yes
 fi
@@ -685,7 +685,7 @@ then
 fi
 
 # Win32
-if test "$system" = Windows -a "$HAVE_GLEW" = yes
+if test "${system?}" = Windows && test "${HAVE_GLEW?}" = yes
 then
         OPENGL=yes
         OPENGL_COMMON=yes
@@ -843,7 +843,7 @@ if test $decklink_req != no; then
                         AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
                         AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
                         #if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
-                        if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes; then
+                        if test "${FOUND_DECKLINK_H?}" = yes && test "${FOUND_DECKLINK_SRC?}" = yes; then
                                 FOUND_DECKLINK=yes
                                 DECKLINK_LIB="-ldl"
                         else
@@ -926,7 +926,7 @@ if test "$bluefish444_req" != no; then
         AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
         AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
 
-        if test $BLUE_H = yes -a $BLUE_L = yes
+        if test "${BLUE_H?}" = yes && "${BLUE_L?}" = yes
         then
                 BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
                 add_module vidcap_bluefish444 src/video_capture/bluefish444.o "$BLUEFISH444_LIB"
@@ -997,7 +997,7 @@ if test "$aja_req" != no; then
                 AC_CHECK_LIB(aja, display_aja_probe, [aja=yes], [aja=no])
         fi
 
-        if test $aja = yes -a $system = Windows; then
+        if test "${aja?}" = yes && test "${system?}" = Windows; then
                 add_module aja src/aja_win32_stub.o -laja
         elif test $aja = yes; then # Linux and macOS
                 AJA_INC="$AJA_INC -I$AJA_PATH -I$AJA_PATH/ajantv2/\
@@ -1093,7 +1093,8 @@ if test "$deltacast_req" != no; then
                 SAVED_LIBS=$LIBS
                 DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
                 if test -n "$DELTACAST_PATH"; then
-                        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux; then
+                        if test "${ac_cv_sizeof_int_p?}" -eq 8 &&
+                        test "${system?}" = Linux; then
                                 DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
                         else
                                 DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
@@ -1121,15 +1122,19 @@ if test "$deltacast_req" != no; then
 
                 AC_LANG_POP(C++)
 
-                if test "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
-                        -a "$FOUND_VHD_L" = yes; then
+                if test "${ac_cv_header_VideoMasterHD_Core_h?}" = yes &&
+                test "${ac_cv_header_VideoMasterHD_Sdi_h?}" = yes &&
+                test "${ac_cv_header_VideoMasterHD_Sdi_Audio_h?}" = yes &&
+                test "${FOUND_VHD_L?}" = yes; then
                                         deltacast_found=yes
                 fi
         else # OS X
                 MY_CHECK_FRAMEWORK([VideoMasterHD])
                 MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
                 AC_CHECK_HEADERS([VideoMasterHD/VideoMasterHD_Core.h])
-                if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
+                if test "${ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h?}" = yes &&
+                test "${my_cv_framework_VideoMasterHD?}" = yes &&
+                test "${my_cv_framework_VideoMasterHD?}" = yes; then
                         deltacast_found=yes
                         DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
                 fi
@@ -1214,12 +1219,13 @@ else
                 HAVE_XI_L=yes
         fi
 
-        if test $ximea_req != no -a $HAVE_XI_L = yes -a $ac_cv_header_xiApi_h = yes; then
+        if test "${ximea_req?}" != no && test "${HAVE_XI_L?}" = yes &&
+                test "${ac_cv_header_xiApi_h?}" = yes; then
                 ximea=yes
         fi
 fi
 
-if test $ximea = yes -a $ximea_link_runtime = yes; then
+if test "${ximea?}" = yes && test "${ximea_link_runtime?}" = yes; then
         AC_DEFINE([XIMEA_RUNTIME_LINKING], [1], [Dynamically open XIMEA lib on runtime])
         AC_DEFINE_UNQUOTED([XIMEA_LIBRARY_NAME], ["$XI_LIB_PREF$XI_LIB_NAME$XI_LIB_EXT"], [Name of the dynamic libarary])
         AC_DEFINE_UNQUOTED([XIMEA_LIBRARY_PATH], ["$GENICAM_GENTL64_PATH"], [Path to the XI dynamic libarary])
@@ -1242,7 +1248,7 @@ AC_ARG_ENABLE(avfoundation,
     [avfoundation_req=auto]
     )
 
-if test $system = MacOSX -a $avfoundation_req != no
+if test "$system?" = MacOSX && test "${avfoundation_req?}" != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
@@ -1403,7 +1409,7 @@ AC_ARG_ENABLE(panogl_disp,
     )
 
 if test $panogl_disp_req = yes; then
-        if test $sdl = no -o $sdl_version != 2; then
+        if test "${sdl?}" = no || test "${sdl_version?}" != 2; then
                 AC_MSG_ERROR([SDL2 not found]);
         fi
 
@@ -1687,7 +1693,7 @@ if test $blank_req != no; then
                 fi
         fi
 
-        if test $blank_req != no -a $FOUND_BLANK_DEP = yes
+        if test "${blank_req?}" != no && test "${FOUND_BLANK_DEP?}" = yes
         then
                 CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
                 CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
@@ -1823,8 +1829,9 @@ if test "$libswscale_req" != no; then
         if test $system = Windows; then
                 AC_CHECK_HEADERS([libswscale/swscale.h])
                 AC_CHECK_LIB(swscale, sws_getContext)
-                if test $ac_cv_header_libswscale_swscale_h = yes -a \
-                                $ac_cv_lib_swscale_sws_getContext = yes; then
+                if test "${ac_cv_header_libswscale_swscale_h?}" = yes && \
+                        test "${ac_cv_lib_swscale_sws_getContext?}" = yes
+                then
                         found_libswscale=yes
                         LIBSWSCALE_LIBS="-lswscale"
                 else
@@ -1872,11 +1879,11 @@ if test "$libavcodec_req" != no; then
                 AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
                 AC_CHECK_LIB(avcodec, avcodec_open2)
                 AC_CHECK_LIB(avutil, av_free)
-                if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
-                        $ac_cv_header_libavutil_imgutils_h = yes -a \
-                        $ac_cv_header_libavutil_opt_h = yes -a \
-                        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
-                        $ac_cv_lib_avutil_av_free = yes; then
+                if test "${ac_cv_header_libavcodec_avcodec_h?}" = yes && \
+                   test "${ac_cv_header_libavutil_imgutils_h?}" = yes && \
+                   test "${ac_cv_header_libavutil_opt_h?}" = yes && \
+                   test "${ac_cv_lib_avcodec_avcodec_open2?}" = yes && \
+                   test "${ac_cv_lib_avutil_av_free?}" = yes; then
                                         found_libavcodec=yes
                                         found_libavutil=yes
                                         libavcodec_ge_55=yes # TODO
@@ -1952,8 +1959,8 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
                 AC_CHECK_LIB(avformat, avformat_open_input)
                 LIBS=$SAVED_LIBS
 
-                if test $ac_cv_header_libavformat_avformat_h = yes -a \
-                                $ac_cv_lib_avformat_avformat_open_input = yes; then
+                if test "${ac_cv_header_libavformat_avformat_h?}" = yes && \
+                test "${ac_cv_lib_avformat_avformat_open_input?}" = yes; then
                         found_libavformat=yes
                         LIBAVFORMAT_LIBS="-lavformat"
                 else
@@ -1988,7 +1995,7 @@ AC_ARG_ENABLE(drm_disp,
 if test $drm_req != no; then
         PKG_CHECK_MODULES([DRM], [libdrm], FOUND_DRM_DEP=yes, FOUND_DRM_DEP=no)
 
-        if test $drm_req != no -a $FOUND_DRM_DEP = yes
+        if test "${drm_req?}" != no && test "${FOUND_DRM_DEP?}" = yes
         then
                 CFLAGS="$CFLAGS ${DRM_CFLAGS}"
                 CXXFLAGS="$CXXFLAGS ${DRM_CFLAGS}"
@@ -2087,7 +2094,7 @@ AC_ARG_ENABLE(pipewire,
 
 PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30], [found_pw_common_deps=yes], [found_pw_common_deps=no])
 
-if test $pipewire_common_req != no -a $found_pw_common_deps = yes
+if test "${pipewire_common_req?}" != no && test "${found_pw_common_deps?}" = yes
 then
         pipewire_common=yes
         PIPEWIRE_COMMON_LIBS="$($PKG_CONFIG --libs libpipewire-0.3)"
@@ -2111,7 +2118,7 @@ AC_ARG_ENABLE(pipewire-audio,
     [pipewire_audio_req=$build_default]
     )
 
-if test $pipewire_audio_req != no -a $pipewire_common = yes
+if test "${pipewire_audio_req?}" != no && test "${pipewire_common?}" = yes
 then
         pipewire_audio=yes
         PIPEWIRE_ACAP_OBJS="$PIPEWIRE_COMMON_OBJ src/audio/capture/pipewire.o"
@@ -2136,7 +2143,7 @@ AC_ARG_ENABLE(pipewire-video,
     [pipewire_video_req=$build_default]
     )
 
-if test $pipewire_video_req != no -a $pipewire_common = yes
+if test "${pipewire_video_req?}" != no && test "${pipewire_common?}" = yes
 then
         pipewire_video=yes
         PIPEWIRE_DISP_OBJS="$PIPEWIRE_COMMON_OBJ src/video_display/pipewire.o"
@@ -2192,13 +2199,15 @@ if test "$system" = Linux && test $screen_cap_req != no && test $screen_cap_req 
         AC_CHECK_HEADER(X11/extensions/Xfixes.h)
         LIBS=$SAVED_LIBS
 
-        if test $screen_cap_req != no -a $ac_cv_lib_X11_XGetImage = yes -a \
-                        $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes; then
+        if test "${screen_cap_req?}" != no &&
+        test "${ac_cv_lib_X11_XGetImage?}" = yes &&
+        test "${ac_cv_header_X11_Xlib_h?}" = yes &&
+        test "${ac_cv_header_X11_Xutil_h?}" = yes; then
                 screen_cap=yes
                 screen_cap_x11=yes
                 SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
-                if test $ac_cv_lib_Xfixes_XFixesGetCursorImage = yes -a \
-                                $ac_cv_header_X11_extensions_Xfixes_h = yes; then
+                if test "${ac_cv_lib_Xfixes_XFixesGetCursorImage?}" = yes &&
+                test "${ac_cv_header_X11_extensions_Xfixes_h?}" = yes; then
                         AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
                         SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
                 fi
@@ -2344,7 +2353,8 @@ if test "$gpujpeg_req" != no; then
         PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.14.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
         PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
 
-        if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
+        if test "${found_gpujpeg_any?}" = yes && test "${found_gpujpeg?}" = no
+        then
                 UG_MSG_WARN([Old GPUJPEG version found, please upgrade])
         fi
 else
@@ -2362,8 +2372,8 @@ then
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
         AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
         LIBS=$SAVED_LIBS
-        if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-                "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        if test "${ac_cv_lib_gpujpeg_gpujpeg_encoder_create?}" = yes &&
+        test "${ac_cv_header_libgpujpeg_gpujpeg_decoder_h?}" = yes
         then
                 found_gpujpeg=yes
         else
@@ -2402,7 +2412,7 @@ AC_ARG_ENABLE(cuda-dxt,
 LIBS=$SAVED_LIBS
 CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.o"
 
-if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
+if test "${cuda_dxt_req?}" != no && test "${FOUND_CUDA?}" = yes
 then
         cuda_dxt=yes
 
@@ -2423,8 +2433,8 @@ AC_ARG_ENABLE(gpujpeg_to_dxt,
               [gpujpeg_to_dxt_req=$enableval],
               [gpujpeg_to_dxt_req=no])
 
-if test $gpujpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
-        "$found_gpujpeg" = yes
+if test "${gpujpeg_to_dxt_req?}" != no && test "${FOUND_CUDA?}" = yes &&
+test "${found_gpujpeg?}" = yes
 then
         gpujpeg_to_dxt=yes
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
@@ -2703,14 +2713,14 @@ if test $jack_trans_req != no || test $jack_req != no; then
         AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 fi
 
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes
+if test "${jack_trans_req?}" != no && test "${FOUND_JACK_H?}" = yes
 then
         OBJS="$OBJS src/audio/jack.o"
         AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
         jack_trans=yes
 fi
 
-if test $jack_req != no -a $FOUND_JACK_H = yes
+if test "${jack_req?}" != no && test "${FOUND_JACK_H?}" = yes
 then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
@@ -2920,7 +2930,7 @@ AC_ARG_ENABLE(wasapi,
     [wasapi_req=$build_default]
     )
 
-if test $system = Windows -a $wasapi_req != no; then
+if test "${system?}" = Windows && test "${wasapi_req?}" != no; then
         add_module aplay_wasapi "src/audio/capture/wasapi.o src/audio/playback/wasapi.o"
         wasapi=yes
 fi
@@ -3029,13 +3039,13 @@ AC_ARG_ENABLE(ldgm-gpu,
     [ldgm_gpu_req=$build_default]
     )
 
-if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
+if test "${ldgm_gpu_req?}" != no && test "${FOUND_CUDA?}" = yes
 then
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
         LDGM_GPU_LIBS="$CUDA_LIB"
         LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.o"
         add_module ldgm_gpu "$LDGM_GPU_OBJS" "$LDGM_GPU_LIBS"
-        if test $WORD_LEN = 32 -a $system = Linux; then
+        if test "${WORD_LEN?}" -eq 32 && test "${system?}" = Linux; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -msse2"
         fi
         ldgm_gpu=yes
@@ -3279,7 +3289,7 @@ then
                 CINEFORM_LIBS="${CINEFORM_PATH}/libCFHDCodec.a"
         fi
 
-        if test -n "$CINEFORM_PATH" -a $cross_compile = no
+        if test -n "${CINEFORM_PATH?}" && test "${cross_compile?}" = no
         then
                 AC_CHECK_FILES(${CINEFORM_LIBS}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
         fi
@@ -3294,7 +3304,7 @@ if test "$FOUND_CINEFORM" = yes; then
         fi
 fi
 
-if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
+if test "${cineform_req?}" != no && test "${FOUND_CINEFORM?}" = yes
 then
         cineform=yes
         CINEFORM_COMPRESS_OBJ="src/video_compress/cineform.o"
