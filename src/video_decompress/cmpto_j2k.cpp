@@ -219,18 +219,13 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
 static void print_dropped(unsigned long long int dropped, const j2k_decompress_platform& platform) {
         if (dropped % 10 == 1) {
                 MSG(WARNING, "Some frames (%llu) dropped.\n", dropped);
-
-                if (j2k_decompress_platform::CPU == platform) {
-                        log_msg_once(LOG_LEVEL_INFO, to_fourcc('J', '2', 'D', 'W'), "%s You may try to increase "
-                                "image limit to increase the number of images decoded at one moment by adding parameter: --param j2k-dec-img-limit=#\n",
-                                MOD_NAME);
-                }
-
-                if (j2k_decompress_platform::CUDA == platform) {
-                        log_msg_once(LOG_LEVEL_INFO, to_fourcc('J', '2', 'D', 'W'), "%s You may try to increase "
-                                "tile limit to increase the throughput by adding parameter: --param j2k-dec-tile-limit=#\n",
-                                MOD_NAME);
-                }
+                MSG_ONCE(
+                    INFO, "You may try to increase %s.\n",
+                    platform == j2k_decompress_platform::CPU
+                        ? "the number of images decoded at one moment by "
+                          "adding parameter: --param j2k-dec-img-limit=4"
+                        : "tile limit to increase the throughput by adding "
+                          "parameter: --param j2k-dec-tile-limit=4");
         }
 }
 
