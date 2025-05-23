@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2023 CESNET z.s.p.o.
+ * Copyright (c) 2022-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,10 +54,10 @@
 #  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
 # else
 #  ifdef __APPLE__
-#    define QSORT_S_COMP_FIRST 1 // BSD version of qsort_r() as well
+#    define QSORT_S_COMP_FIRST 1 // Mac version of qsort_r() as well
 #    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
 #  else
-#    define qsort_s qsort_r // GNU version
+#    define qsort_s qsort_r // POSIX/GNU version
 #  endif
 # endif
 #endif
@@ -66,6 +66,38 @@
 #define QSORT_S_COMP_DEFINE(name, a, b, context) int name(void *context, const void *a, const void *b)
 #else
 #define QSORT_S_COMP_DEFINE(name, a, b, context) int name(const void *a, const void *b, void *context)
+#endif
+
+#ifdef __OpenBSD__
+typedef int (*compar_r)(const void *, const void *, void *);
+static int compar_impl(const void *a, const void *b) __attribute__((unused));
+static int
+compar_impl(const void *a, const void *b)
+{
+        static _Thread_local compar_r comp    = NULL;
+        static _Thread_local void    *context = NULL;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+        if (b == NULL) {
+                comp = (void *) a;
+        }
+        if (a == NULL) {
+                context = (void *) b;
+        }
+#pragma GCC diagnostic pop
+        return comp(a, b, context);
+}
+static void qsort_r(void *base, size_t nmemb, size_t size,
+                    int (*compar)(const void *, const void *, void *),
+                    void *thunk) __attribute__((unused));
+static void
+qsort_r(void *base, size_t nmemb, size_t size,
+        int (*compar)(const void *, const void *, void *), void *thunk)
+{
+        compar_impl(compar, NULL);
+        compar_impl(NULL, thunk);
+        return qsort(base, nmemb, size, compar_impl);
+}
 #endif
 
 #endif // ! defined COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
