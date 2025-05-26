@@ -651,8 +651,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 
         auto *s = new state_video_compress_j2k();
 
-        char *tmp = (char *) alloca(strlen(c_cfg) + 1);
-        strcpy(tmp, c_cfg);
+        std::string cfg = c_cfg;
+        char *tmp = &cfg[0];
         char *save_ptr, *item;
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
@@ -679,13 +679,15 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         return static_cast<module*>(INIT_NOERR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        goto error;
+                        j2k_compress_done((struct module *) s);
+                        return nullptr;
                 }
         }
 
         if (s->quality < 0.0 || s->quality > 1.0) {
                 LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
-                goto error;
+                j2k_compress_done((struct module *) s);
+                return nullptr;
         }
 
         if (s->tech == nullptr) {
@@ -708,10 +710,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         module_register(&s->module_data, parent);
 
         return &s->module_data;
-
-error:
-        delete s;
-        return NULL;
 }
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame)
@@ -840,8 +838,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
 static void j2k_compress_done(struct module *mod)
 {
-        struct state_video_compress_j2k *s =
-                (struct state_video_compress_j2k *) mod->priv_data;
+        auto *s = (struct state_video_compress_j2k *) mod;
         cleanup_common(s);
         delete s;
 }
