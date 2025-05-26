@@ -132,7 +132,8 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
 
 struct cmpto_j2k_technology {
         const char *name;
-        size_t default_mem_limit;
+        int         cmpto_supp_bit;
+        size_t      default_mem_limit;
         unsigned default_img_tile_limit; ///< nr of frames encoded at a moment
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
                            size_t mem_limit, unsigned int tile_limit,
@@ -140,7 +141,9 @@ struct cmpto_j2k_technology {
 };
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
-        "CPU", 0, ///< unimplemented, should be 0
+        "CPU",
+        CMPTO_TECHNOLOGY_CPU,
+        0, ///< mem_limit unimplemented, should be 0
         0,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int thread_count) {
@@ -152,7 +155,9 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
 };
 
 constexpr struct cmpto_j2k_technology technology_cuda = {
-        "CUDA", 1000LLU * 1000 * 1000,
+        "CUDA",
+        CMPTO_TECHNOLOGY_CUDA,
+        1000LLU * 1000 * 1000,
         1,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int /* thread_count */) {
@@ -166,40 +171,70 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
         },
 };
 
+/**
+ * @param name  name of the techoology, must not be NULL
+ * @returns techoology from name,  may not be supported; 0 if not found
+ */
 static const struct cmpto_j2k_technology *
-get_default_technology()
-{
-        const struct cmpto_version *version = cmpto_j2k_enc_get_version();
-        if (version == nullptr) {
-                MSG(ERROR, "Cannot get Cmpto J2K supported technologies!\n");
-                return nullptr;
-        }
-        if ((version->technology & CMPTO_TECHNOLOGY_CUDA) != 0) {
-                return &technology_cuda;
-        }
-        if ((version->technology & CMPTO_TECHNOLOGY_CPU) != 0) {
-                return &technology_cpu;
-        }
-        MSG(ERROR, "No supported technology (CUDA or CPU)!\n");
-        return nullptr;
-}
-
-static const struct cmpto_j2k_technology *
-get_technology(const char *name)
-{
-        if (strcasecmp(name, "cuda") == 0) {
-                return &technology_cuda;
-        }
-        if (strcasecmp(name, "cpu") == 0) {
-                return &technology_cpu;
+get_technology_by_name(const char *name) {
+        const struct cmpto_j2k_technology *technologies[] = {
+                &technology_cpu, &technology_cuda
+        };
+        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+                if (strcasecmp(name, technologies[i]->name) == 0) {
+                        return technologies[i];
+                }
         }
         MSG(ERROR, "Unknown/unsupported technology: %s\n", name);
         return nullptr;
 }
 
+/**
+ * @param name   comma-separated list of requested technologies, nullptr for
+ * default order (in tech_default variable)
+ * @returns first supported technology requested in name
+ */
+static const struct cmpto_j2k_technology *
+get_supported_technology(const char *name)
+{
+        std::string const tech_default = "cuda,cpu";
+        const struct cmpto_version *version = cmpto_j2k_enc_get_version();
+        if (version == nullptr) {
+                MSG(ERROR, "Cannot get Cmpto J2K supported technologies!\n");
+                return nullptr;
+        }
+        std::string cfg = tech_default;
+        if (name != nullptr) {
+                cfg = name;
+        }
+        char *tmp = &cfg[0];
+        char *endptr = nullptr;
+        while (char *tname = strtok_r(tmp, ",", &endptr)) {
+                tmp = nullptr;
+                const struct cmpto_j2k_technology *technology =
+                    get_technology_by_name(tname);
+                if (technology == nullptr) {
+                        return nullptr;
+                }
+                if ((version->technology & technology->cmpto_supp_bit) != 0) {
+                        return technology;
+                }
+                MSG(VERBOSE, "Technology %s not supported, trying next...\n",
+                    tname);
+        }
+
+        if (name == nullptr) {
+                MSG(ERROR, "No supported technology (%s)!\n",
+                    tech_default.c_str());
+        } else {
+                MSG(ERROR, "Requested technology %s not available!\n", name);
+        }
+        return nullptr;
+}
+
 struct state_video_compress_j2k {
         struct module module_data{};
-        const struct cmpto_j2k_technology *tech = get_default_technology();
+        const struct cmpto_j2k_technology *tech = nullptr;
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate = 0; ///< bitrate in bits per second
@@ -539,8 +574,8 @@ struct {
         const bool is_boolean;
         const char *placeholder;
 } usage_opts[] = {
-        { "Technology", "technology", "technology to use",
-          ":technology=", false, "gpu" },
+        { "Technology", "technology", "technology to use (use comma to separate multiple)",
+          ":technology=", false, "cuda" },
         { "Bitrate", "quality", "Target bitrate", ":rate=", false, "70M" },
         { "Quality", "quant_coeff",
           "Quality in range [0-1], 1.0 is best, default: " TOSTRING(DEFAULT_QUALITY),
@@ -651,6 +686,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         const auto *version = cmpto_j2k_enc_get_version();
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
+        const char *req_technology = nullptr;
         auto *s = new state_video_compress_j2k();
 
         std::string cfg = c_cfg;
@@ -661,7 +697,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 if (IS_KEY_PREFIX(item, "rate")) {
                         ASSIGN_CHECK_VAL(s->rate, strchr(item, '=') + 1, 1);
                 } else if (IS_KEY_PREFIX(item, "technology")) {
-                        s->tech = get_technology(strchr(item, '=') + 1);
+                        req_technology = strchr(item, '=') + 1;
                 } else if (IS_KEY_PREFIX(item, "quality")) {
                         s->quality = stod(strchr(item, '=') + 1);
                 } else if (IS_PREFIX(item, "lossless")) {
@@ -692,6 +728,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 return nullptr;
         }
 
+        s->tech = get_supported_technology(req_technology);
         if (s->tech == nullptr) {
                 j2k_compress_done((struct module *) s);
                 return nullptr;
