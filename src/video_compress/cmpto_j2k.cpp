@@ -171,6 +171,7 @@ get_default_technology()
 {
         const struct cmpto_version *version = cmpto_j2k_enc_get_version();
         if (version == nullptr) {
+                MSG(ERROR, "Cannot get Cmpto J2K supported technologies!\n");
                 return nullptr;
         }
         if ((version->technology & CMPTO_TECHNOLOGY_CUDA) != 0) {
@@ -179,6 +180,7 @@ get_default_technology()
         if ((version->technology & CMPTO_TECHNOLOGY_CPU) != 0) {
                 return &technology_cpu;
         }
+        MSG(ERROR, "No supported technology (CUDA or CPU)!\n");
         return nullptr;
 }
 
@@ -691,7 +693,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         }
 
         if (s->tech == nullptr) {
-                MSG(ERROR, "No supported technology!\n");
+                j2k_compress_done((struct module *) s);
                 return nullptr;
         }
         MSG(INFO, "Using technology: %s\n", s->tech->name);
