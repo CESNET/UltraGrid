@@ -74,6 +74,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"            // for IS_KEY_PREFIX, TOSTRING
 #include "utils/misc.h"
+#include "utils/opencl.h"
 #include "utils/parallel_conv.h"
 #include "utils/video_frame_pool.h"
 #include "video_codec.h"             // for vc_get_linesize, codec_is_a_rgb
@@ -92,6 +93,7 @@
 } while(0)
 
 #define NOOP ((void) 0)
+constexpr size_t DEFAULT_GPU_MEM_LIMIT = 1000LLU * 1000 * 1000;
 #define DEFAULT_QUALITY 0.7
 /// default max size of state_video_compress_j2k::pool and also value
 /// for state_video_compress_j2k::max_in_frames
@@ -157,7 +159,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
 constexpr struct cmpto_j2k_technology technology_cuda = {
         "CUDA",
         CMPTO_TECHNOLOGY_CUDA,
-        1000LLU * 1000 * 1000,
+        DEFAULT_GPU_MEM_LIMIT,
         1,
         [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
            unsigned int tile_limit, int /* thread_count */) {
@@ -171,21 +173,44 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
         },
 };
 
+constexpr struct cmpto_j2k_technology technology_opencl = {
+        "OpenCL",
+        CMPTO_TECHNOLOGY_OPENCL,
+        DEFAULT_GPU_MEM_LIMIT,
+        1,
+        [](struct cmpto_j2k_enc_ctx_cfg *ctx_cfg, size_t mem_limit,
+           unsigned int tile_limit, int /* thread_count */) {
+                MSG(WARNING, "OpenCL support is untested! Use with caution and "
+                             "report errors...\n");
+                cmpto_opencl_platform_id platform_id = nullptr;
+                cmpto_opencl_device_id   device_id   = nullptr;
+                if (!opencl_get_device(&platform_id, &device_id)) {
+                        return false;
+                }
+                CHECK_OK(
+                    cmpto_j2k_enc_ctx_cfg_add_opencl_device(
+                        ctx_cfg, platform_id, device_id, mem_limit, tile_limit),
+                    "Setting OpenCL device", return false);
+                return true;
+        },
+};
+
+const static struct cmpto_j2k_technology *const technologies[] = {
+        &technology_cpu, &technology_cuda, &technology_opencl
+};
+
 /**
  * @param name  name of the techoology, must not be NULL
  * @returns techoology from name,  may not be supported; 0 if not found
  */
 static const struct cmpto_j2k_technology *
 get_technology_by_name(const char *name) {
-        const struct cmpto_j2k_technology *technologies[] = {
-                &technology_cpu, &technology_cuda
-        };
         for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
                 if (strcasecmp(name, technologies[i]->name) == 0) {
                         return technologies[i];
                 }
         }
-        MSG(ERROR, "Unknown/unsupported technology: %s\n", name);
+        MSG(ERROR, "Unknown technology: %s\n", name);
         return nullptr;
 }
 
@@ -197,7 +222,7 @@ get_technology_by_name(const char *name) {
 static const struct cmpto_j2k_technology *
 get_supported_technology(const char *name)
 {
-        std::string const tech_default = "cuda,cpu";
+        std::string const tech_default = "cuda,cpu,opencl";
         const struct cmpto_version *version = cmpto_j2k_enc_get_version();
         if (version == nullptr) {
                 MSG(ERROR, "Cannot get Cmpto J2K supported technologies!\n");
@@ -239,7 +264,7 @@ struct state_video_compress_j2k {
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate = 0; ///< bitrate in bits per second
         int mct = -1; // force use of mct - -1 means default
-        bool pool_in_device_memory = false; ///< frames in pool are on GPU
+        bool pool_in_cuda_memory = false; ///< frames in pool are on GPU
         video_frame_pool pool; ///< pool for frames allocated by us but not yet consumed by encoder
 
         // settings
@@ -313,20 +338,20 @@ ADD_TO_PARAM(
     "* " CPU_CONV_PARAM "\n"
     "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 static void
-set_pool(struct state_video_compress_j2k *s, bool have_gpu_preprocess)
+set_pool(struct state_video_compress_j2k *s, bool have_cuda_preprocess)
 {
-        if (s->tech == &technology_cpu) {
+        if (s->tech != &technology_cuda) {
                 s->pool = video_frame_pool(s->max_in_frames,
                                            default_data_allocator());
                 return;
         }
 #ifdef HAVE_CUDA
-        s->pool_in_device_memory = false;
+        s->pool_in_cuda_memory = false;
         if (cuda_devices_count > 1) {
                 MSG(WARNING, "More than 1 CUDA device will use CPU buffers and "
                              "conversion...\n");
-        } else if (s->precompress_codec == VC_NONE || have_gpu_preprocess) {
-                s->pool_in_device_memory = true;
+        } else if (s->precompress_codec == VC_NONE || have_cuda_preprocess) {
+                s->pool_in_cuda_memory = true;
                 s->pool                  = video_frame_pool(
                     s->max_in_frames,
                     cmpto_j2k_enc_cuda_buffer_data_allocator<
@@ -338,7 +363,7 @@ set_pool(struct state_video_compress_j2k *s, bool have_gpu_preprocess)
             cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,
                                                      cuda_wrapper_free_host>());
 #else
-        assert(!have_gpu_preprocess); // if CUDA not found, we shouldn't have
+        assert(!have_cuda_preprocess); // if CUDA not found, we shouldn't have
         s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
 #endif
 }
@@ -372,7 +397,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                 s->configured = false;
         }
 
-        if (s->tech == &technology_cpu ||
+        if (s->tech != &technology_cuda ||
             get_commandline_param(CPU_CONV_PARAM) != nullptr) {
                 cuda_convert_func = nullptr;
         }
@@ -458,12 +483,12 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 }
 
 /**
- * @brief copies frame from RAM to GPU
+ * @brief copies frame from RAM to CUDA GPU memory
  *
  * Does the pixel format conversion as well if specified.
  */
 static void
-do_gpu_copy(std::shared_ptr<video_frame> &ret, video_frame *in_frame)
+do_cuda_copy(std::shared_ptr<video_frame> &ret, video_frame *in_frame)
 {
 #ifdef HAVE_CUDA
         cuda_wrapper_set_device((int) cuda_devices[0]);
@@ -479,8 +504,8 @@ do_gpu_copy(std::shared_ptr<video_frame> &ret, video_frame *in_frame)
 static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
         std::shared_ptr<video_frame> ret = s->pool.get_frame();
 
-        if (s->pool_in_device_memory) {
-                do_gpu_copy(ret, frame);
+        if (s->pool_in_cuda_memory) {
+                do_cuda_copy(ret, frame);
         } else if (s->precompress_codec != VC_NONE) {
                 parallel_conv(ret.get(), frame);
         } else {
@@ -583,7 +608,7 @@ struct {
         { "Lossless", "lossless", "Use lossless mode", ":lossless", true, "" },
         { "Mem limit",  "mem_limit",
          std::string("device memory limit (in bytes), default: ") +
-              std::to_string(technology_cuda.default_mem_limit) + " (CUDA) / " +
+              std::to_string(DEFAULT_GPU_MEM_LIMIT) + " (GPU) / " +
               std::to_string(technology_cpu.default_mem_limit) + " (CPU)",
          ":mem_limit=", false, TOSTRING(DEFAULT_CUDA_MEM_LIMIT) },
         { "Image limit", "img_limit",
@@ -610,18 +635,16 @@ static void
 print_cmpto_j2k_technologies()
 {
         const struct cmpto_version *version = cmpto_j2k_enc_get_version();
+        color_printf("\nAvailable technologies:\n");
         if (version == nullptr) {
+                MSG(ERROR, "Cannot get list of technologies!\n");
                 return;
         }
-        color_printf("\nAvailable technologies:\n");
-        if ((version->technology & CMPTO_TECHNOLOGY_CPU) != 0U) {
-                color_printf("\t" TBOLD("- CPU") "\n");
-        }
-        if ((version->technology & CMPTO_TECHNOLOGY_CUDA) != 0U) {
-                color_printf("\t" TBOLD("- CUDA") "\n");
-        }
-        if ((version->technology & CMPTO_TECHNOLOGY_OPENCL) != 0U) {
-                color_printf("\t" TBOLD("- OpenCL") " (unsupported)\n");
+        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+                if ((version->technology & technologies[i]->cmpto_supp_bit) !=
+                    0) {
+                        color_printf("\t" TBOLD("- %s") "\n", technologies[i]->name);
+                }
         }
 }
 
@@ -636,7 +659,9 @@ static void usage() {
                 }
                 col() << "]";
         }
-        col() << "\n\t\t[--cuda-device <c_index>] [--param " CPU_CONV_PARAM "]\n" << TERM_RESET;
+        col() << "\n\t\t[--cuda-device <c_index>] [--param " CPU_CONV_PARAM
+                 "] [--param opencl-device=<platf_idx>-<dev_idx>|help]\n"
+              << TERM_RESET;
 
         col() << "where:\n";
         for(const auto& opt : usage_opts){
@@ -808,7 +833,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                 }
                 struct video_desc pool_desc = desc;
                 if (s->precompress_codec != VC_NONE &&
-                    !s->pool_in_device_memory) {
+                    !s->pool_in_cuda_memory) {
                         pool_desc.color_spec = s->precompress_codec;
                 }
                 s->pool.reconfigure(
@@ -838,7 +863,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
         vf_store_metadata(tx.get(), udata->metadata);
 
-        if (s->pool_in_device_memory) {
+        if (s->pool_in_cuda_memory) {
                 // cmpto_j2k_enc requires the size after postprocess, which
                 // doesn't equeal the IN frame data_len for R12L
                 const codec_t device_codec = s->precompress_codec == VC_NONE

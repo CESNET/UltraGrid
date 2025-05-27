@@ -3159,8 +3159,20 @@ then
         else
                 UG_MSG_WARN([CUDA is recommended for optimal cmpto_j2k performance but not found])
         fi
+
+        # OpenCL
+        PKG_CHECK_MODULES([OpenCL], [OpenCL], [found_cl=yes], [found_cl=no])
+        PKG_CHECK_MODULES([OpenCL_Headers], [OpenCL-Headers], [found_cl_h=yes],
+                [found_cl_h=no])
+        if test "${found_cl?}" = yes && test "${found_cl_h?}" = yes; then
+                AC_DEFINE([HAVE_OPENCL], [1], [OpenCL is supported])
+                cmpto_libs="$cmpto_libs $OpenCL_LIBS"
+                CFLAGS="$CFLAGS${OpenCL_CFLAGS+ $OPENCL_CFLAGS}"
+                CFLAGS="$CFLAGS${OpenCL_Headers_CFLAGS+ $OPENCL_Headers_CFLAGS}"
+        fi
+
         add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o \
-$kernels" "-lcmpto_j2k_enc $cmpto_libs"
+src/utils/opencl.o $kernels" "-lcmpto_j2k_enc $cmpto_libs"
         add_module vdecompress_cmpto_j2k "src/video_decompress/cmpto_j2k.o \
 $kernels" "-lcmpto_j2k_dec $cmpto_libs"
         cmpto_j2k=yes
