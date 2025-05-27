@@ -55,31 +55,57 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 
 #ifdef HAVE_OPENCL
 #include <CL/cl.h>
+
+#define CHECK_OPENCL(cmd, errmsg, erraction) \
+        if ((cmd) != CL_SUCCESS) { \
+                MSG(ERROR, "%s\n", (errmsg)); \
+                erraction; \
+        }
+
 static void
 list_opencl_devices()
 {
+        printf("Available OpenCL devices:\n");
         // Get the number of available platforms
         cl_uint num_platforms = 0;
-        clGetPlatformIDs(0, NULL, &num_platforms);
+        CHECK_OPENCL(clGetPlatformIDs(0, NULL, &num_platforms),
+                     "Cannot get number of platforms!", return);
         cl_platform_id *platforms =
             (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
-        clGetPlatformIDs(num_platforms, platforms, NULL);
+        CHECK_OPENCL(clGetPlatformIDs(num_platforms, platforms, NULL),
+                     "Cannot get platforms", return);
 
         // Iterate through the available platforms and get the device IDs
         for (cl_uint i = 0; i < num_platforms; i++) {
-                // Get the number of available devices for the current platform
-                cl_uint num_devices = 0;
-                clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL,
-                               &num_devices);
-                cl_device_id *devices =
-                    (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
-                clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices,
-                               devices, NULL);
-
                 // Print the device IDs for the current platform
                 printf("Platform %d:\n", i);
+                char platform_name[100];
+                CHECK_OPENCL(clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME,
+                                               sizeof(platform_name),
+                                               platform_name, NULL),
+                             "Cannot get platform name", continue);
+                printf("  Name: %s\n", platform_name);
+
+                // Get the number of available devices for the current platform
+                cl_uint num_devices = 0;
+                CHECK_OPENCL(clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL,
+                               &num_devices), "Cannot get platform num devices", continue);
+                cl_device_id *devices =
+                    (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
+                CHECK_OPENCL(clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL,
+                                            num_devices, devices, NULL),
+                             "Cannot get platform devices",
+                             free((void *) devices);
+                             continue);
+
                 for (cl_uint j = 0; j < num_devices; j++) {
                         printf("  Device %d: %p\n", j, devices[j]);
+                        char device_name[100];
+                        CHECK_OPENCL(clGetDeviceInfo(devices[j], CL_DEVICE_NAME,
+                                                     sizeof(device_name),
+                                                     device_name, NULL),
+                                     "Cannot get device name", continue);
+                        printf("    Name: %s\n", device_name);
                 }
 
                 free((void *) devices);
@@ -108,40 +134,54 @@ opencl_get_device(void **platform_id, void **device_id)
 
         // Get the number of available platforms
         cl_uint num_platforms = 0;
-        clGetPlatformIDs(0, NULL, &num_platforms);
+        CHECK_OPENCL(clGetPlatformIDs(0, NULL, &num_platforms),
+                     "Cannot get number of platforms!", return false);
         if (req_platform_idx >= (int) num_platforms) {
                 MSG(ERROR, "Platform index %d out of bound (%u platforms)\n",
                     req_platform_idx, num_platforms);
                 return false;
         }
-        cl_platform_id *platforms =
-            (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
-        clGetPlatformIDs(num_platforms, platforms, NULL);
+        cl_platform_id platform = NULL;
+        {
+                cl_platform_id *platforms = (cl_platform_id *) malloc(
+                    num_platforms * sizeof(cl_platform_id));
+                CHECK_OPENCL(clGetPlatformIDs(num_platforms, platforms, NULL),
+                             "Cannot get platforms", free((void *) platforms);
+                             return false);
+                platform = platforms[req_platform_idx];
+                free((void *) platforms);
+        }
 
         // Get the number of available devices for the current platform
         cl_uint num_devices = 0;
-        clGetDeviceIDs(platforms[req_device_idx], CL_DEVICE_TYPE_ALL, 0, NULL,
-                       &num_devices);
+        CHECK_OPENCL(
+            clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices),
+            "Cannot get platform num devices", return false);
         if (req_device_idx >= (int) num_devices) {
                 MSG(ERROR,
                     "Defice index %d out of bound (%u devices for platform "
                     "%u)\n",
                     req_device_idx, num_devices, num_platforms);
-                free((void*) platforms);
                 return false;
         }
         cl_device_id *devices =
             (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
-        clGetDeviceIDs(platforms[req_device_idx], CL_DEVICE_TYPE_ALL,
-                       num_devices, devices, NULL);
+        CHECK_OPENCL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices,
+                                    devices, NULL),
+                     "Cannot get platform devices", free((void *) devices);
+                     return false);
 
-        *platform_id = platforms[req_platform_idx];
+        *platform_id = platform;
         *device_id   = devices[req_device_idx];
-        MSG(VERBOSE, "Using OpenCL platform %d, device %d\n", req_platform_idx,
-            req_device_idx);
+        char device_name[100];
+        cl_int name_rc =
+            clGetDeviceInfo(devices[req_platform_idx], CL_DEVICE_NAME,
+                            sizeof(device_name), device_name, NULL);
+        MSG(VERBOSE, "Using OpenCL platform %d, device %d (%s)\n",
+            req_platform_idx, req_device_idx,
+            name_rc == CL_SUCCESS ? device_name : "UNKNOWN");
 
         free((void *) devices);
-        free((void *) platforms);
         return true;
 }
 #else
