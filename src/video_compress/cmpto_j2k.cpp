@@ -182,6 +182,10 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                 color_printf(
                     "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
                     cuda_supported);
+#if HAVE_CUDA
+                printf("\n");
+                cuda_wrapper_print_devices_info(false);
+#endif
         },
 };
 

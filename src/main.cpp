@@ -14,7 +14,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -385,7 +385,7 @@ static void *capture_thread(void *arg)
 static int parse_cuda_device(char *optarg) {
         if(strcmp("help", optarg) == 0) {
 #ifdef HAVE_CUDA
-                cuda_wrapper_print_devices_info();
+                cuda_wrapper_print_devices_info(true);
 #else
                 LOG(LOG_LEVEL_ERROR) << "CUDA support is not enabled!\n";
                 return -EXIT_FAILURE;

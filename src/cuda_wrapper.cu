@@ -10,7 +10,7 @@
  * kernels etc.)
  */
 /*
- * Copyright (c) 2013-2024 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include "cuda_runtime.h"
 #include "cuda_wrapper.h"
@@ -134,7 +134,7 @@ int cuda_wrapper_set_device(int index)
 }
 
 /// adapted from gpujpeg_print_devices_info()
-void cuda_wrapper_print_devices_info(void)
+void cuda_wrapper_print_devices_info(bool full)
 {
         int device_count = 0;
         if (cudaGetDeviceCount(&device_count) != cudaSuccess) {
@@ -143,9 +143,9 @@ void cuda_wrapper_print_devices_info(void)
         }
         if (device_count == 0) {
                 fprintf(stderr, "There is no device supporting CUDA.\n");
-        } else {
-                printf("There %s %d devices supporting CUDA:\n", device_count == 1 ? "is" : "are", device_count);
+                return;
         }
+        printf("There %s %d devices supporting CUDA:\n", device_count == 1 ? "is" : "are", device_count);
 
         for ( int device_id = 0; device_id < device_count; device_id++ ) {
                 struct cudaDeviceProp device_properties;
@@ -154,7 +154,11 @@ void cuda_wrapper_print_devices_info(void)
                         continue;
                 }
 
-                printf("\nDevice #%d: \"%s\"\n", device_id, device_properties.name);
+                printf("%sDevice #%d: \"%s\"\n", full ? "\n" : "", device_id,
+                       device_properties.name);
+                if (!full) {
+                        continue;
+                }
                 printf("  Compute capability: %d.%d\n", device_properties.major, device_properties.minor);
                 printf("  Total amount of global memory: %zu kB\n", device_properties.totalGlobalMem / 1024);
                 printf("  Total amount of constant memory: %zu kB\n", device_properties.totalGlobalMem / 1024);

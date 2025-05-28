@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,9 @@
 #ifndef CUDA_WRAPPER_H_
 #define CUDA_WRAPPER_H_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -66,7 +69,7 @@ const char *cuda_wrapper_last_error_string(void);
 int cuda_wrapper_set_device(int index);
 int cuda_wrapper_get_last_error(void);
 const char * cuda_wrapper_get_error_string(int error);
-void cuda_wrapper_print_devices_info(void);
+void cuda_wrapper_print_devices_info(bool full);
 void cuda_wrapper_device_reset(void);
 
 #ifdef __cplusplus
