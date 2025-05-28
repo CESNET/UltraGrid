@@ -154,15 +154,18 @@ void cuda_wrapper_print_devices_info(bool full)
                         continue;
                 }
 
-                printf("%sDevice #%d: \"%s\"\n", full ? "\n" : "", device_id,
+                printf("%sDevice #%d: %s\n", full ? "\n" : "", device_id,
                        device_properties.name);
                 if (!full) {
                         continue;
                 }
                 printf("  Compute capability: %d.%d\n", device_properties.major, device_properties.minor);
-                printf("  Total amount of global memory: %zu kB\n", device_properties.totalGlobalMem / 1024);
-                printf("  Total amount of constant memory: %zu kB\n", device_properties.totalGlobalMem / 1024);
-                printf("  Total amount of shared memory per block: %zu kB\n", device_properties.sharedMemPerBlock / 1024);
+                printf("  Total amount of global memory: %zu KiB\n",
+                       device_properties.totalGlobalMem / 1024);
+                printf("  Total amount of constant memory: %zu KiB\n",
+                       device_properties.totalGlobalMem / 1024);
+                printf("  Total amount of shared memory per block: %zu KiB\n",
+                       device_properties.sharedMemPerBlock / 1024);
                 printf("  Total number of registers available per block: %d\n", device_properties.regsPerBlock);
                 printf("  Multiprocessors: %d\n", device_properties.multiProcessorCount);
     }
