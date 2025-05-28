@@ -140,7 +140,7 @@ struct cmpto_j2k_technology {
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
                            size_t mem_limit, unsigned int tile_limit,
                            int thread_count);
-        void (*print_help)();
+        void (*print_help)(bool full);
 };
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
@@ -155,7 +155,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
                          "Setting CPU device", return false);
                 return true;
         },
-        []() {},
+        [](bool) {},
 };
 
 constexpr struct cmpto_j2k_technology technology_cuda = {
@@ -173,7 +173,7 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                 }
                 return true;
         },
-        []() {
+        [](bool full) {
 #ifdef HAVE_CUDA
                 constexpr char cuda_supported[] = "YES";
 #else
@@ -184,7 +184,9 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                     cuda_supported);
 #if HAVE_CUDA
                 printf("\n");
-                cuda_wrapper_print_devices_info(false);
+                cuda_wrapper_print_devices_info(full);
+#else
+                (void) full;
 #endif
         },
 };
@@ -209,7 +211,7 @@ constexpr struct cmpto_j2k_technology technology_opencl = {
                     "Setting OpenCL device", return false);
                 return true;
         },
-        []() {},
+        [](bool) {},
 };
 
 const static struct cmpto_j2k_technology *const technologies[] = {
@@ -649,7 +651,7 @@ struct {
 };
 
 static void
-print_cmpto_j2k_technologies()
+print_cmpto_j2k_technologies(bool full)
 {
         const struct cmpto_version *version = cmpto_j2k_enc_get_version();
         color_printf("\nAvailable technologies:\n");
@@ -667,12 +669,12 @@ print_cmpto_j2k_technologies()
         for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
                 if ((version->technology & technologies[i]->cmpto_supp_bit) !=
                     0) {
-                        technologies[i]->print_help();
+                        technologies[i]->print_help(full);
                 }
         }
 }
 
-static void usage() {
+static void usage(bool full) {
         col() << "J2K compress usage:\n";
         col() << TERM_BOLD << TRED("\t-c cmpto_j2k");
         for(const auto& opt : usage_opts){
@@ -684,8 +686,9 @@ static void usage() {
                 col() << "]";
         }
         col() << "\n\t\t[--cuda-device <c_index>] [--param " CPU_CONV_PARAM
-                 "] [--param opencl-device=<platf_idx>-<dev_idx>|help]\n"
+                 "] [--param opencl-device=<platf_idx>-<dev_idx>]\n"
               << TERM_RESET;
+        color_printf(TBOLD("\t-c cmpto_j2k:[full]help") "\n");
 
         col() << "where:\n";
         for(const auto& opt : usage_opts){
@@ -706,7 +709,7 @@ static void usage() {
             "\nOption prefixes (eg. 'q=' for quality) can be used. SI or "
             "binary suffixes are recognized (eg. 'r=7.5M:mem=1.5Gi').\n");
 
-        print_cmpto_j2k_technologies();
+        print_cmpto_j2k_technologies(full);
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) \
@@ -726,6 +729,12 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 {
         const auto *version = cmpto_j2k_enc_get_version();
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
+
+        if (strcasecmp(c_cfg, "help") == 0 ||
+            strcasecmp(c_cfg, "fullhelp") == 0) {
+                usage(strcasecmp(c_cfg, "fullhelp") == 0);
+                return static_cast<module *>(INIT_NOERR);
+        }
 
         const char *req_technology = nullptr;
         auto *s = new state_video_compress_j2k();
@@ -753,9 +762,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         ASSIGN_CHECK_VAL(s->max_in_frames, strchr(item, '=') + 1, 1);
                 } else if (IS_KEY_PREFIX(item, "thread_cnt")) {
                         ASSIGN_CHECK_VAL(s->thread_count, strchr(item, '=') + 1, 0);
-                } else if (strcasecmp("help", item) == 0) {
-                        usage();
-                        return static_cast<module*>(INIT_NOERR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
                         j2k_compress_done((struct module *) s);
