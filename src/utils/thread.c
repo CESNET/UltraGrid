@@ -70,7 +70,7 @@ static inline char *get_argv_program_name(void) {
 #endif
 
 void set_thread_name(const char *name) {
-#if defined __linux__ || defined __FreeBSD__
+#if defined __linux__ || defined __FreeBSD__ || defined __NetBSD__
 // thread name can have at most 16 chars (including terminating null char)
         char *prog_name = get_argv_program_name();
         char tmp[16];
@@ -78,7 +78,11 @@ void set_thread_name(const char *name) {
         strncpy(tmp, prog_name, sizeof tmp - 1);
         free(prog_name);
         strncat(tmp, name,  sizeof tmp - strlen(tmp) - 1);
+#ifdef __NetBSD__
+        pthread_setname_np(pthread_self(), "%s", tmp);
+#else
         pthread_setname_np(pthread_self(), tmp);
+#endif
 #elif defined __APPLE__
         char *prog_name = get_argv_program_name();
         char *tmp = (char *) alloca(strlen(prog_name) + strlen(name) + 1);

@@ -79,6 +79,7 @@ const char *get_temp_dir(void)
         return temp_dir;
 }
 
+// see also <https://stackoverflow.com/a/1024937>
 #ifdef _WIN32
 int get_exec_path(char* path) {
         return GetModuleFileNameA(NULL, path, MAX_PATH_SIZE) != 0;
@@ -86,6 +87,10 @@ int get_exec_path(char* path) {
 #elif defined __linux__
 int get_exec_path(char* path) {
         return realpath("/proc/self/exe", path) != NULL;
+}
+#elif defined __NetBSD__
+int get_exec_path(char* path) {
+        return realpath("/proc/curproc/exe", path) != NULL;
 }
 #elif defined __APPLE__
 #include <mach-o/dyld.h> //_NSGetExecutablePath

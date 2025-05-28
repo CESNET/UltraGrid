@@ -68,7 +68,7 @@
 #define QSORT_S_COMP_DEFINE(name, a, b, context) int name(const void *a, const void *b, void *context)
 #endif
 
-#ifdef __OpenBSD__
+#if defined __OpenBSD__ || defined __NetBSD__
 typedef int (*compar_r)(const void *, const void *, void *);
 static int compar_impl(const void *a, const void *b) __attribute__((unused));
 static int
