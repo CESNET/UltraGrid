@@ -140,6 +140,7 @@ struct cmpto_j2k_technology {
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
                            size_t mem_limit, unsigned int tile_limit,
                            int thread_count);
+        void (*print_help)();
 };
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
@@ -154,6 +155,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
                          "Setting CPU device", return false);
                 return true;
         },
+        []() {},
 };
 
 constexpr struct cmpto_j2k_technology technology_cuda = {
@@ -170,6 +172,16 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                                  "Setting CUDA device", return false);
                 }
                 return true;
+        },
+        []() {
+#ifdef HAVE_CUDA
+                constexpr char cuda_supported[] = "YES";
+#else
+                constexpr char cuda_supported[] = TRED("NO");
+#endif
+                color_printf(
+                    "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
+                    cuda_supported);
         },
 };
 
@@ -193,6 +205,7 @@ constexpr struct cmpto_j2k_technology technology_opencl = {
                     "Setting OpenCL device", return false);
                 return true;
         },
+        []() {},
 };
 
 const static struct cmpto_j2k_technology *const technologies[] = {
@@ -646,6 +659,13 @@ print_cmpto_j2k_technologies()
                         color_printf("\t" TBOLD("- %s") "\n", technologies[i]->name);
                 }
         }
+
+        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+                if ((version->technology & technologies[i]->cmpto_supp_bit) !=
+                    0) {
+                        technologies[i]->print_help();
+                }
+        }
 }
 
 static void usage() {
@@ -681,14 +701,6 @@ static void usage() {
         color_printf(
             "\nOption prefixes (eg. 'q=' for quality) can be used. SI or "
             "binary suffixes are recognized (eg. 'r=7.5M:mem=1.5Gi').\n");
-#ifdef HAVE_CUDA
-        constexpr char cuda_supported[] = "YES";
-#else
-        constexpr char cuda_supported[] = TRED("NO");
-#endif
-        color_printf(
-            "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
-            cuda_supported);
 
         print_cmpto_j2k_technologies();
 }
