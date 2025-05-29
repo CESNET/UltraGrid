@@ -257,9 +257,18 @@ opencl_get_device(void **platform_id, void **device_id)
         int            req_device_idx   = 0;
 
         const char *req_device = get_commandline_param(PARAM_NAME);
-        if (req_device == NULL) {
-                return get_device(CL_DEVICE_TYPE_ALL, 0, 0, platform_id,
-                                  device_id);
+        if (req_device == NULL) { // implicit - prefer any acc->GPU->CPU->other
+                const cl_device_type try_type[] = { CL_DEVICE_TYPE_ACCELERATOR,
+                                                    CL_DEVICE_TYPE_GPU,
+                                                    CL_DEVICE_TYPE_CPU,
+                                                    CL_DEVICE_TYPE_ALL };
+                for (unsigned i = 0; i < ARR_COUNT(try_type); i++) {
+                        if (get_device(try_type[i], 0, 0, platform_id,
+                                       device_id)) {
+                                return true;
+                        }
+                }
+                return false;
         }
 
         if (strcmp(req_device, "help") == 0) {
