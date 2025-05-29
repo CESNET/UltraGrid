@@ -257,35 +257,36 @@ opencl_get_device(void **platform_id, void **device_id)
         int            req_device_idx   = 0;
 
         const char *req_device = get_commandline_param(PARAM_NAME);
-        if (req_device != NULL) {
-                if (strcmp(req_device, "help") == 0) {
-                        usage();
+        if (req_device == NULL) {
+                return get_device(CL_DEVICE_TYPE_ALL, 0, 0, platform_id,
+                                  device_id);
+        }
+
+        if (strcmp(req_device, "help") == 0) {
+                usage();
+                return false;
+        }
+        if (isdigit(req_device[0])) {
+                req_platform_idx = atoi(req_device);
+                if (strchr(req_device, '-') != NULL) {
+                        req_device_idx = atoi(strchr(req_device, '-') + 1);
+                }
+        } else {
+                for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
+                        if (strcasecmp(dev_type_map[i].name, req_device) == 0) {
+                                req_type = dev_type_map[i].cl_type;
+                        }
+                }
+                if (req_type) {
+                        MSG(ERROR, "unknown device type: %s!\n", req_device);
                         return false;
                 }
-                if (isdigit(req_device[0])) {
-                        req_platform_idx = atoi(req_device);
-                        if (strchr(req_device, '-') != NULL) {
-                                req_device_idx =
-                                    atoi(strchr(req_device, '-') + 1);
-                        }
-                } else {
-                        for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
-                                if (strcasecmp(dev_type_map[i].name,
-                                               req_device) == 0) {
-                                        req_type = dev_type_map[i].cl_type;
-                                }
-                        }
-                        if (req_type) {
-                                MSG(ERROR, "unknown device type: %s!\n",
-                                    req_device);
-                                return false;
-                        }
-                }
         }
-        if (req_type == CL_DEVICE_TYPE_ALL) { // by index or implicit
+        if (req_type == CL_DEVICE_TYPE_ALL) { // by index
                 return get_device(CL_DEVICE_TYPE_ALL, req_platform_idx,
                                   req_device_idx, platform_id, device_id);
         }
+        // by type
         if (get_device(req_type, 0, 0, platform_id, device_id)) {
                 return true;
         }
