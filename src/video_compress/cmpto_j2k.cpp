@@ -180,10 +180,9 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                 constexpr char cuda_supported[] = TRED("NO");
 #endif
                 color_printf(
-                    "\nUltraGrid compiled with " TBOLD("CUDA") " support: %s\n",
+                    "UltraGrid compiled with " TBOLD("CUDA") " support: %s\n\n",
                     cuda_supported);
 #if HAVE_CUDA
-                printf("\n");
                 cuda_wrapper_print_devices_info(full);
 #else
                 (void) full;
@@ -675,6 +674,7 @@ print_cmpto_j2k_technologies(bool full)
         for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
                 if ((version->technology & technologies[i]->cmpto_supp_bit) !=
                     0) {
+                        printf("\n");
                         technologies[i]->print_help(full);
                 }
         }
