@@ -4,7 +4,7 @@
  * @author Martin Pulec <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2021-2023 CESNET z.s.p.o.
+ * Copyright (c) 2021-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,11 +50,8 @@
 
 #define MOD_NAME "[videotoolbox dec.] "
 
-#ifdef QSORT_S_COMP_FIRST
-static int compare(void *ctx, const void *a, const void *b) {
-#else
-static int compare(const void *a, const void *b, void *ctx) {
-#endif
+static QSORT_S_COMP_DEFINE(compare, a, b, ctx)
+{
         int bits_per_comp = ((const AVPixFmtDescriptor *) ctx)->comp[0].depth;
         int deptha = av_pix_fmt_desc_get(*(const enum AVPixelFormat*) a)->comp[0].depth;
         int depthb = av_pix_fmt_desc_get(*(const enum AVPixelFormat*) b)->comp[0].depth;

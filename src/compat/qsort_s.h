@@ -51,18 +51,20 @@
 
 #if !defined __STDC_LIB_EXT1__
 # if defined _WIN32
-#  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
+   // MS version of qsort_s with context as first arg of comparator
+#  define QSORT_S_COMP_CTX_FIRST 1
 # else
-#  ifdef __APPLE__
-#    define QSORT_S_COMP_FIRST 1 // Mac version of qsort_r() as well
+#  if defined __APPLE__
+#    define QSORT_S_COMP_CTX_FIRST 1 // Mac version of qsort_r() as well
 #    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
-#  else
-#    define qsort_s qsort_r // POSIX/GNU version
+#  else // POSIX/GNU version qsort_r(ptr, count, size, (*comp)(const void*,
+        // const void*, void*), context) (identical to C11 qsort_s)
+#    define qsort_s qsort_r
 #  endif
 # endif
 #endif
 
-#ifdef QSORT_S_COMP_FIRST
+#ifdef QSORT_S_COMP_CTX_FIRST
 #define QSORT_S_COMP_DEFINE(name, a, b, context) int name(void *context, const void *a, const void *b)
 #else
 #define QSORT_S_COMP_DEFINE(name, a, b, context) int name(const void *a, const void *b, void *context)
