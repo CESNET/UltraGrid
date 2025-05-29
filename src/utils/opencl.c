@@ -62,9 +62,13 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
                 erraction; \
         }
 
-static void
-list_opencl_devices()
+/// @param full  print more info - but currently the same info is printed out,
+/// !full is just more compact (using fewer linex)
+void
+list_opencl_devices(bool full)
 {
+        const char record_sep = full ? '\n' : ' ';
+
         printf("Available OpenCL devices:\n");
         // Get the number of available platforms
         cl_uint num_platforms = 0;
@@ -78,13 +82,13 @@ list_opencl_devices()
         // Iterate through the available platforms and get the device IDs
         for (cl_uint i = 0; i < num_platforms; i++) {
                 // Print the device IDs for the current platform
-                printf("Platform %d:\n", i);
+                printf("Platform %d: %c", i, record_sep);
                 char platform_name[100];
                 CHECK_OPENCL(clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME,
                                                sizeof(platform_name),
                                                platform_name, NULL),
                              "Cannot get platform name", continue);
-                printf("  Name: %s\n", platform_name);
+                printf("%s%s\n", full ? "  Name: " : "", platform_name);
 
                 // Get the number of available devices for the current platform
                 cl_uint num_devices = 0;
@@ -99,13 +103,14 @@ list_opencl_devices()
                              continue);
 
                 for (cl_uint j = 0; j < num_devices; j++) {
-                        printf("  Device %d: %p\n", j, devices[j]);
+                        printf("  Device %d: %c", j, record_sep);
                         char device_name[100];
                         CHECK_OPENCL(clGetDeviceInfo(devices[j], CL_DEVICE_NAME,
                                                      sizeof(device_name),
                                                      device_name, NULL),
                                      "Cannot get device name", continue);
-                        printf("    Name: %s\n", device_name);
+                        printf("%s%s\n", full ? "    Name: " : "",
+                               device_name);
                 }
 
                 free((void *) devices);
@@ -123,7 +128,7 @@ opencl_get_device(void **platform_id, void **device_id)
         const char *req_device = get_commandline_param(PARAM_NAME);
         if (req_device != NULL) {
                 if (strcmp(req_device, "help") == 0) {
-                        list_opencl_devices();
+                        list_opencl_devices(true);
                         return false;
                 }
                 req_platform_idx = atoi(req_device);

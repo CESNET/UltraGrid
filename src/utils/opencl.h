@@ -41,6 +41,7 @@
 extern "C" {
 #endif
 
+void list_opencl_devices(bool full);
 /**
  * obtains platform_id (cl_platform_id *) and cl_device_id from given --param (or 0,0)
  */
