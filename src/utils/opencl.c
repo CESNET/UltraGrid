@@ -41,15 +41,7 @@
 
 #include "opencl.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "compat/strings.h"    // for strcasecmp
-#include "debug.h"             // for MSG
-#include "host.h"              // for get_commandline_param
-#include "utils/macros.h"      // for ARR_COUNT, SHORT_STR
-#include "utils/color_out.h"   // for TBOLD
+#include "host.h"              // for ADD_TO_PARAM, get_commandline_param
 
 #define MOD_NAME   "[OpenCL] "
 #define PARAM_NAME "opencl-device"
@@ -59,6 +51,14 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 
 #ifdef HAVE_OPENCL
 #include <CL/cl.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "compat/strings.h"    // for strcasecmp
+#include "debug.h"             // for MSG
+#include "utils/macros.h"      // for ARR_COUNT, SHORT_STR
+#include "utils/color_out.h"   // for TBOLD
 
 #define CHECK_OPENCL(cmd, errmsg, erraction) \
         if ((cmd) != CL_SUCCESS) { \
@@ -303,7 +303,8 @@ opencl_get_device(void **platform_id, void **device_id)
         return false;
 }
 
-#else
+#else // !defined HAVE_OPENCL
+#include "debug.h"             // for MSG
 void
 list_opencl_devices(bool full)
 {
@@ -317,4 +318,4 @@ opencl_get_device(void **platform_id, void **device_id)
         MSG(ERROR, "OpenCL support not compiled in!\n");
         return false;
 }
-#endif
+#endif // defined HAVE_OPENCL
