@@ -304,6 +304,12 @@ opencl_get_device(void **platform_id, void **device_id)
 }
 
 #else
+void
+list_opencl_devices(bool full)
+{
+        (void) full;
+        MSG(ERROR, "OpenCL support not compiled in!\n");
+}
 bool
 opencl_get_device(void **platform_id, void **device_id)
 {

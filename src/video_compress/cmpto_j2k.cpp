@@ -211,11 +211,7 @@ constexpr struct cmpto_j2k_technology technology_opencl = {
                 return true;
         },
         [](bool full) {
-#ifdef HAVE_OPENCL
                 list_opencl_devices(full);
-#else
-                (void) full;
-#endif
         },
 };
 
