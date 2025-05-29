@@ -88,6 +88,10 @@ int get_exec_path(char* path) {
 int get_exec_path(char* path) {
         return realpath("/proc/self/exe", path) != NULL;
 }
+#elif defined __DragonFly__
+int get_exec_path(char* path) {
+        return realpath("/proc/curproc/file", path) != NULL;
+}
 #elif defined __NetBSD__
 int get_exec_path(char* path) {
         return realpath("/proc/curproc/exe", path) != NULL;

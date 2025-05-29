@@ -54,7 +54,7 @@
    // MS version of qsort_s with context as first arg of comparator
 #  define QSORT_S_COMP_CTX_FIRST 1
 # else
-#  if defined __APPLE__
+#  if defined __APPLE__ || defined __DragonFly__
 #    define QSORT_S_COMP_CTX_FIRST 1 // Mac version of qsort_r() as well
 #    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
 #  else // POSIX/GNU version qsort_r(ptr, count, size, (*comp)(const void*,
