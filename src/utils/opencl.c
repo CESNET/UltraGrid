@@ -46,6 +46,7 @@
 
 #include "debug.h" // for MSG
 #include "host.h"  // for get_commandline_param
+#include "utils/macros.h"  // for ARR_COUNT, SHORT_STR
 
 #define MOD_NAME   "[OpenCL] "
 #define PARAM_NAME "opencl-device"
@@ -62,8 +63,51 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
                 erraction; \
         }
 
-/// @param full  print more info - but currently the same info is printed out,
-/// !full is just more compact (using fewer linex)
+// the order gives the preference of device
+static const struct {
+        cl_device_type cl_type;
+        const char    *name;
+} dev_type_map[] = {
+        { CL_DEVICE_TYPE_CPU,         "CPU"         },
+        { CL_DEVICE_TYPE_GPU,         "GPU"         },
+        { CL_DEVICE_TYPE_ACCELERATOR, "Accelerator" },
+#ifdef CL_VERSION_1_2
+        { CL_DEVICE_TYPE_CUSTOM,      "custom"      },
+#endif
+};
+
+static void
+print_device_details(cl_device_id device)
+{
+        cl_uint        uint_val    = 0;
+        cl_ulong       ulong_val   = 0;
+        cl_device_type device_type = 0;
+        char           buf[SHORT_STR];
+
+        if (clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof device_type,
+                            &device_type, NULL) == CL_SUCCESS) {
+                const char *type = "UNKNOWN";
+                for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
+                        if (dev_type_map[i].cl_type == device_type) {
+                                type = dev_type_map[i].name;
+                        }
+                }
+                printf("    Type: %s\n", type);
+        }
+        if (clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof buf, buf, NULL) ==
+            CL_SUCCESS) {
+                printf("    Version: %s\n", buf);
+        }
+        if (clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS,
+                            sizeof uint_val, &uint_val, NULL) == CL_SUCCESS) {
+                printf("    Max compute units: %u\n", uint_val);
+        }
+        if (clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof ulong_val,
+                            &ulong_val, NULL) == CL_SUCCESS) {
+                printf("    Global memory size: %lu B\n", ulong_val);
+        }
+}
+
 void
 list_opencl_devices(bool full)
 {
@@ -111,6 +155,9 @@ list_opencl_devices(bool full)
                                      "Cannot get device name", continue);
                         printf("%s%s\n", full ? "    Name: " : "",
                                device_name);
+                        if (full) {
+                                print_device_details(devices[j]);
+                        }
                 }
 
                 free((void *) devices);
