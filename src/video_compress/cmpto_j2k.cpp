@@ -692,7 +692,8 @@ static void usage(bool full) {
                 col() << "]";
         }
         col() << "\n\t\t[--cuda-device <c_index>] [--param " CPU_CONV_PARAM
-                 "] [--param opencl-device=<platf_idx>-<dev_idx>]\n"
+                 "]\n\t\t[--param "
+                 "opencl-device=<platf_idx>-<dev_idx>|gpu|cpu|accelerator]\n"
               << TERM_RESET;
         color_printf(TBOLD("\t-c cmpto_j2k:[full]help") "\n");
 
@@ -708,7 +709,7 @@ static void usage(bool full) {
         }
         col() << TBOLD("\t<c_index>") << "\t- CUDA device(s) to use (comma separated)\n";
         col() << TBOLD("\t--param " CPU_CONV_PARAM)
-              << " - use CPU for pixfmt conversion (useful if GPU\n\t\tis fully "
+              << " - [CUDA] use CPU for pixfmt conversion (useful if GPU is fully "
                  "occupied by the encoder; an option for decoder exists as "
                  "well)\n";
         color_printf(
