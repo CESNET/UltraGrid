@@ -46,6 +46,7 @@
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
 #endif
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -70,38 +71,39 @@ static inline char *get_argv_program_name(void) {
 #endif
 
 void set_thread_name(const char *name) {
-#if defined __linux__ || defined __FreeBSD__ || defined __NetBSD__
-// thread name can have at most 16 chars (including terminating null char)
+#if defined __APPLE__ || defined __unix__
         char *prog_name = get_argv_program_name();
+#  if defined __linux__
+        // thread name can have at most 16 chars (including terminating '\0',
+        // if more, name is not set
         char tmp[16];
-        tmp[sizeof tmp - 1] = '\0';
-        strncpy(tmp, prog_name, sizeof tmp - 1);
+#  else
+        char tmp[strlen(prog_name) + strlen(name) + 1];
+#  endif
+        snprintf(tmp, sizeof tmp, "%s%s", prog_name, name);
         free(prog_name);
-        strncat(tmp, name,  sizeof tmp - strlen(tmp) - 1);
-#ifdef __NetBSD__
-        pthread_setname_np(pthread_self(), "%s", tmp);
-#else
-        pthread_setname_np(pthread_self(), tmp);
-#endif
-#elif defined __APPLE__
-        char *prog_name = get_argv_program_name();
-        char *tmp = (char *) alloca(strlen(prog_name) + strlen(name) + 1);
-        strcpy(tmp, prog_name);
-        free(prog_name);
-        strcat(tmp, name);
+#  if defined __APPLE__
         pthread_setname_np(tmp);
+#  elif defined __NetBSD__
+        pthread_setname_np(pthread_self(), "%s", tmp);
+#  elif defined __OpenBSD__
+#     warning "pthread_setname_np unimplemented in OpenBSD"
+#  else
+        pthread_setname_np(pthread_self(), tmp);
+#  endif
+
 #elif defined _WIN32
 // supported from Windows 10, not yet in headers
-#ifdef HAVE_SETTHREADDESCRIPTION
+#  ifdef HAVE_SETTHREADDESCRIPTION
         const char *prog_name = get_argv_program_name();
         size_t dst_len = (mbstowcs(NULL, prog_name, 0) + mbstowcs(NULL, name, 0) + 1) * sizeof(wchar_t);
         wchar_t *tmp = (wchar_t *) alloca(dst_len);
         mbstowcs(tmp, prog_name, dst_len / sizeof(wchar_t));
         mbstowcs(tmp + wcslen(tmp), name, dst_len / sizeof(wchar_t) - wcslen(tmp));
         SetThreadDescription(GetCurrentThread(), tmp);
-#else
+#  else
 	UNUSED(name);
-#endif
+#  endif
 #endif
 }
 
