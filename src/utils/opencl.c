@@ -41,16 +41,19 @@
 
 #include "opencl.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "debug.h" // for MSG
-#include "host.h"  // for get_commandline_param
-#include "utils/macros.h"  // for ARR_COUNT, SHORT_STR
+#include "compat/strings.h"    // for strcasecmp
+#include "debug.h"             // for MSG
+#include "host.h"              // for get_commandline_param
+#include "utils/macros.h"      // for ARR_COUNT, SHORT_STR
+#include "utils/color_out.h"   // for TBOLD
 
 #define MOD_NAME   "[OpenCL] "
 #define PARAM_NAME "opencl-device"
-#define PARAM_HELP "* opencl-device=<platform_id>-<device_id>|help\n"\
+#define PARAM_HELP "* opencl-device=<platf_id>-<dev_id> | <type> | help\n"\
                 "  Use specified OpenCL device.\n"
 ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 
@@ -166,23 +169,14 @@ list_opencl_devices(bool full)
         free((void *) platforms);
 }
 
-bool
-opencl_get_device(void **platform_id, void **device_id)
+static bool
+get_device(cl_device_type req_type, int req_platform_idx,
+                  int req_device_idx, void **platform_id, void **device_id)
 {
-        int req_platform_idx = 0;
-        int req_device_idx   = 0;
-
-        const char *req_device = get_commandline_param(PARAM_NAME);
-        if (req_device != NULL) {
-                if (strcmp(req_device, "help") == 0) {
-                        list_opencl_devices(true);
-                        return false;
-                }
-                req_platform_idx = atoi(req_device);
-                if (strchr(req_device, '-') != NULL) {
-                        req_device_idx = atoi(strchr(req_device, '-') + 1);
-                }
-        }
+        // platform+device index is used from all devices, otherwise
+        // first device of requested type returned
+        assert(req_type == CL_DEVICE_TYPE_ALL ||
+               (req_platform_idx == 0 || req_device_idx == 0));
 
         // Get the number of available platforms
         cl_uint num_platforms = 0;
@@ -206,36 +200,99 @@ opencl_get_device(void **platform_id, void **device_id)
 
         // Get the number of available devices for the current platform
         cl_uint num_devices = 0;
-        CHECK_OPENCL(
-            clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices),
-            "Cannot get platform num devices", return false);
+        CHECK_OPENCL(clGetDeviceIDs(platform, req_type, 0, NULL, &num_devices),
+                     "Cannot get platform num devices", return false);
         if (req_device_idx >= (int) num_devices) {
-                MSG(ERROR,
-                    "Defice index %d out of bound (%u devices for platform "
-                    "%u)\n",
-                    req_device_idx, num_devices, num_platforms);
+                if (req_type == CL_DEVICE_TYPE_ALL) {
+                        MSG(ERROR,
+                            "Defice index %d out of bound (%u devices for "
+                            "platform "
+                            "%u)\n",
+                            req_device_idx, num_devices, num_platforms);
+                }
                 return false;
         }
         cl_device_id *devices =
             (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
-        CHECK_OPENCL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices,
-                                    devices, NULL),
-                     "Cannot get platform devices", free((void *) devices);
-                     return false);
+        CHECK_OPENCL(
+            clGetDeviceIDs(platform, req_type, num_devices, devices, NULL),
+            "Cannot get platform devices", free((void *) devices);
+            return false);
 
         *platform_id = platform;
         *device_id   = devices[req_device_idx];
-        char device_name[100];
+        char   platform_name[SHORT_STR];
+        char   device_name[SHORT_STR];
+        cl_int platform_rc =
+            clGetPlatformInfo(platform, CL_PLATFORM_NAME, sizeof platform_name,
+                              platform_name, NULL);
         cl_int name_rc =
             clGetDeviceInfo(devices[req_platform_idx], CL_DEVICE_NAME,
                             sizeof(device_name), device_name, NULL);
-        MSG(VERBOSE, "Using OpenCL platform %d, device %d (%s)\n",
-            req_platform_idx, req_device_idx,
+        MSG(INFO, "Using OpenCL platform %s, device %s\n",
+            platform_rc == CL_SUCCESS ? platform_name : "UNKNOWN",
             name_rc == CL_SUCCESS ? device_name : "UNKNOWN");
 
         free((void *) devices);
         return true;
 }
+
+static void usage() {
+        printf("Usage:\n");
+        color_printf("\t--param " TBOLD(
+            PARAM_NAME "=<platform_idx>-<device_idx> | gpu | cpu | "
+                       "accelerator") "\n");
+        color_printf("\t--param " TBOLD(PARAM_NAME "=help") "\n");
+        printf("\n");
+        printf("If device is specified by type, first found is "
+               "selected.\n");
+        list_opencl_devices(true);
+}
+
+bool
+opencl_get_device(void **platform_id, void **device_id)
+{
+        cl_device_type req_type         = CL_DEVICE_TYPE_ALL;
+        int            req_platform_idx = 0;
+        int            req_device_idx   = 0;
+
+        const char *req_device = get_commandline_param(PARAM_NAME);
+        if (req_device != NULL) {
+                if (strcmp(req_device, "help") == 0) {
+                        usage();
+                        return false;
+                }
+                if (isdigit(req_device[0])) {
+                        req_platform_idx = atoi(req_device);
+                        if (strchr(req_device, '-') != NULL) {
+                                req_device_idx =
+                                    atoi(strchr(req_device, '-') + 1);
+                        }
+                } else {
+                        for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
+                                if (strcasecmp(dev_type_map[i].name,
+                                               req_device) == 0) {
+                                        req_type = dev_type_map[i].cl_type;
+                                }
+                        }
+                        if (req_type) {
+                                MSG(ERROR, "unknown device type: %s!\n",
+                                    req_device);
+                                return false;
+                        }
+                }
+        }
+        if (req_type == CL_DEVICE_TYPE_ALL) { // by index or implicit
+                return get_device(CL_DEVICE_TYPE_ALL, req_platform_idx,
+                                  req_device_idx, platform_id, device_id);
+        }
+        if (get_device(req_type, 0, 0, platform_id, device_id)) {
+                return true;
+        }
+        MSG(ERROR, "Cannot find device of requested type %s!\n", req_device);
+        return false;
+}
+
 #else
 bool
 opencl_get_device(void **platform_id, void **device_id)
