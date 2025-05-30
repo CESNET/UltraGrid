@@ -60,6 +60,7 @@
 #include "host.h"
 #include "memory.h"
 #include "compat/platform_pipe.h"
+#include "compat/strings.h"       // for strerror_s
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
@@ -260,12 +261,8 @@ void socket_error(const char *msg, ...)
         va_start(ap, msg);
         vsnprintf(buffer, sizeof buffer, msg, ap);
         va_end(ap);
-#if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
+        strerror_s(strerror_buf, sizeof strerror_buf, errno);
         log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_buf);
-#else // GNU strerror_r version
-        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
-#endif
 #endif
 }
 
