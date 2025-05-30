@@ -442,14 +442,19 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 
         CHECK_OK(cmpto_j2k_enc_cfg_create(s->context, &s->enc_settings),
                  "Creating context configuration:", return false);
-        CHECK_OK(cmpto_j2k_enc_cfg_set_quantization(
+
+        if (s->lossless) {
+                MSG(INFO, "Lossless compression selected. Ignoring quality parameter.\n");
+                CHECK_OK(cmpto_j2k_enc_cfg_set_lossless(
+                        s->enc_settings, s->lossless),
+                        "Setting lossless mode", NOOP);
+        } else {
+                CHECK_OK(cmpto_j2k_enc_cfg_set_quantization(
                      s->enc_settings,
                      s->quality /* 0.0 = poor quality, 1.0 = full quality */
                      ),
                  "Setting quantization", NOOP);
-        CHECK_OK(cmpto_j2k_enc_cfg_set_lossless(
-                     s->enc_settings, s->lossless),
-                 "Setting lossless mode", NOOP);
+        }
 
         CHECK_OK(cmpto_j2k_enc_cfg_set_resolutions(s->enc_settings, 6),
                  "Setting DWT levels", NOOP);
@@ -772,10 +777,12 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 }
         }
 
-        if (s->quality < 0.0 || s->quality > 1.0) {
-                LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
-                j2k_compress_done((struct module *) s);
-                return nullptr;
+        if (!s->lossless) {
+                if (s->quality < 0.0 || s->quality > 1.0) {
+                        LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
+                        j2k_compress_done((struct module *) s);
+                        return nullptr;
+                }
         }
 
         s->tech = get_supported_technology(req_technology);
