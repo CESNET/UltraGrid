@@ -289,12 +289,14 @@ POSTPROCESS_DEPS = \
 	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 
-# rules specialized for some files below
-# using C[XX]_NO_SUFF because $< unavailable in non-suffix rules (except GNUmake)
-CC_NO_SUFF_0 = @echo "Compiling $@..."; $(REAL_CC)
+# rules specialized for the targets below; using C[XX]_NO_SUFF because $<
+# unavailable in non-suffix rules except GNUmake. $+ (list of prerequisities)
+# is defined by POSIX Issue 8 but not yet available in BSD's Make so using $@ as
+# a workaround.
+CC_NO_SUFF_0 = @N=$$(echo $+ | awk '{print $$1}'); echo "Compiling $${N:-$@}..."; $(REAL_CC)
 CC_NO_SUFF_1 = $(REAL_CC)
 CC_NO_SUFF   = $(CC_NO_SUFF_$(VERBOSE))
-CXX_NO_SUFF_0 = @echo "Compiling $@..."; $(REAL_CXX)
+CXX_NO_SUFF_0 = @N=$$(echo $+ | awk '{print $$1}'); echo "Compiling $${N:-$@}..."; $(REAL_CXX)
 CXX_NO_SUFF_1 = $(REAL_CXX)
 CXX_NO_SUFF   = $(CXX_NO_SUFF_$(VERBOSE))
 
