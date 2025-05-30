@@ -12,7 +12,7 @@
  *
  * Copyright (c) 2001-2003 University of Southern California
  * Copyright (c) 1995-2001 University College London
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -111,9 +111,8 @@
 #include <sys/uio.h>
 #include <netinet/in.h>
 #include <net/if.h>
-#include <unistd.h>
 #include <sys/param.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <netdb.h>
 #include <arpa/inet.h>
