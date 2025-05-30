@@ -263,7 +263,8 @@ if test $system = MacOSX; then
                 dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
                 AC_MSG_RESULT($dyl_ver);
 
-                if test "x$dyl_ver" = xunknown || expr "$dyl_ver" \<= 2 >/dev/null; then
+                if test "x$dyl_ver" = xunknown || test "${dyl_ver%%.*}" -eq 1
+                then
                         UG_MSG_WARN([Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
                 else
                         DYLIBBUNDLER="$DYLIBBUNDLER -f" # bundle also frameworks
