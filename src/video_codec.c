@@ -214,7 +214,7 @@ struct alternative_fourcc {
  * This array contains FourCC aliases mapping
  */
 static const struct alternative_fourcc fourcc_aliases[] = {
-        // the following two are here because it was sent with wrong endiannes in past
+        // the following two are here because it was sent with wrong endianness in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
 
@@ -464,7 +464,7 @@ bool codec_is_a_rgb(codec_t codec)
         return false;
 }
 
-/** @brief Returns TRUE if specified pixelformat has constant size regardles
+/** @brief Returns TRUE if specified pixelformat has constant size regardless
  * of resolution. If so the block_size value represents the size.
  *
  * Unspecified for compressed codecs.

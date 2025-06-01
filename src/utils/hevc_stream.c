@@ -5,7 +5,7 @@
  * - removed what not needed (see point above; the included parts are not
  * modified, so the original file may replace this if more advanced parsing
  * needed)
- * - added smoe GCC diag pragmas (suppress warnings)
+ * - added some GCC diag pragmas (suppress warnings)
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */

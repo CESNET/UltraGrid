@@ -76,7 +76,7 @@ static bool setWinTermAnsiColors(DWORD stream) {
 
 /// Taken from [rang](https://github.com/agauniyal/rang)
 static bool isMsysPty(int fd) {
-        // Dynamic load for binary compability with old Windows
+        // Dynamic load for binary compatibility with old Windows
         const auto ptrGetFileInformationByHandleEx
                 = reinterpret_cast<decltype(&GetFileInformationByHandleEx)>(reinterpret_cast<void *>(
                                         GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
@@ -157,7 +157,7 @@ is_output_color()
         return isatty(fileno(stdout));
 #endif
 }
-/// sets internal variable color_stdout and retunrs its contents
+/// sets internal variable color_stdout and returns its contents
 bool
 color_output_init()
 {

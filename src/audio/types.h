@@ -93,7 +93,7 @@ std::ostream& operator<<(std::ostream& os, const audio_desc& desc);
 #endif
 
 /**
- * @brief struct used to comunicate with audio capture/playback device
+ * @brief struct used to communicate with audio capture/playback device
  *
  * Always hold uncompressed (PCM) packed interleaved signed data.
  */
@@ -185,7 +185,7 @@ public:
          * @note
          * bps of the frame needs to be 16 bits!
          *
-         * @param resampler_state opaque state that can holds resampler that dosn't need
+         * @param resampler_state opaque state that can holds resampler that does not need
          *                        to be reinitalized during calls on various audio frames.
          *                        It reinitializes itself when needed (when source or new
          *                        sample rate changes). Therefore, it is very recommended

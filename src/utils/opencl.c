@@ -205,7 +205,7 @@ get_device(cl_device_type req_type, int req_platform_idx,
         if (req_device_idx >= (int) num_devices) {
                 if (req_type == CL_DEVICE_TYPE_ALL) {
                         MSG(ERROR,
-                            "Defice index %d out of bound (%u devices for "
+                            "Device index %d out of bound (%u devices for "
                             "platform "
                             "%u)\n",
                             req_device_idx, num_devices, num_platforms);

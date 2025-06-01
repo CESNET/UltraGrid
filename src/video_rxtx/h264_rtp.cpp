@@ -78,7 +78,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 }
 
 /**
- * this function is used to configure ther RTSP server either
+ * this function is used to configure their RTSP server either
  * for video-only or using both audio and video. For audio-only
  * RTSP server, the server is run directly from
  * h264_rtp_video_rxtx::set_audio_spec().

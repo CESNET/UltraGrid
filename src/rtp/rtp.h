@@ -321,8 +321,8 @@ bool             rtp_has_receiver(struct rtp *session);
  *
  * Using async API hugely improves performance.
  * Usage is simple - prior to sending a bulk of packets (eg. video frame), rtp_async_start()
- * is started. Then, all packets are sent as usual, exept that neither data nor headers should
- * be altered up to rtp_async_wait() call, which waits upon completition of async operations
+ * is started. Then, all packets are sent as usual, except that neither data nor headers should
+ * be altered up to rtp_async_wait() call, which waits upon completion of async operations
  * started after rtp_async_start(). Caller is responsible that rtp_send_data_hdr() is not called
  * more than nr_packet times.
  */

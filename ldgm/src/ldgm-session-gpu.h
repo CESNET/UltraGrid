@@ -3,7 +3,7 @@
  *
  *       Filename:  ldgm-session-gpu.h
  *
- *    Description:  GPU implementation fo LDGM coding
+ *    Description:  GPU implementation of LDGM coding
  *
  *        Version:  1.0
  *        Created:  04/12/2012 12:54:51 PM

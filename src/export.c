@@ -208,7 +208,7 @@ error:
 
 /**
  * Tries to create directories export.<date>[-????]
- * inside directory prefix. If succesful, returns its
+ * inside directory prefix. If successful, returns its
  * name.
  */
 static char *

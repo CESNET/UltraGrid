@@ -61,11 +61,11 @@ extern "C" {
 
 #define MAX_BPS 8 /* for Y416 */  ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
 #define MAX_PADDING 64 ///< maximal padding in bytes that may be needed to align to pixfmt block size for Y416->R12L:
-                       ///< 64 = vc_linesize(8 /*maximal block pix count (R12L)*/, Y416 /*codec with maximal lenght of 1st arg-sized block*/)
+                       ///< 64 = vc_linesize(8 /*maximal block pix count (R12L)*/, Y416 /*codec with maximal length of 1st arg-sized block*/)
 #define MAX_PFB_SIZE   8 ///< maximal pixfmt block size (R12L - 8 B)
 #define PIX_BLOCK_LCM 24 ///< least common multiple of all pixfmt block sizes in pixels (codec_info_t::block_size/codec_info_t::bpp). "contributors:" 8 R12L, 6 v210
 
-/// Prints list of suppored codecs for video module
+/// Prints list of supported codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12);
 /// @returns number of bits per color component
 int              get_bits_per_component(codec_t codec) __attribute__((const));

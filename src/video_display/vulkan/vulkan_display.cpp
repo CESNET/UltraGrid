@@ -284,8 +284,8 @@ void VulkanDisplay::init(VulkanInstance&& instance, vk::SurfaceKHR surface, uint
 void VulkanDisplay::destroy_format_dependent_resources(){
         conversion_pipeline.destroy(device);
 
-        for(auto& resorces: frame_resources){
-                resorces.converted_image.destroy(device);
+        for(auto& resources: frame_resources){
+                resources.converted_image.destroy(device);
         }
 }
 
@@ -632,7 +632,7 @@ bool VulkanDisplay::display_queued_image() {
         switch (present_result) {
                 case vk::Result::eSuccess:
                         break;
-                // skip recoverable errors, othervise return/throw error 
+                // skip recoverable errors, otherwise return/throw error 
                 case vk::Result::eErrorOutOfDateKHR: 
                 case vk::Result::eSuboptimalKHR: 
                         break;

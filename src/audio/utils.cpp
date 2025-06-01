@@ -702,7 +702,7 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
                         }
                         ret->sample_rate = (int) rate;
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for audio format!\n";
+                        LOG(LOG_LEVEL_ERROR) << "Unknown option \"" << item << "\" for audio format!\n";
                         LOG(LOG_LEVEL_INFO) << "Use \"help\" keyword for syntax.!\n";
                         return -1;
                 }
@@ -792,7 +792,7 @@ bool channel_map::validate() {
         for(int i = 0; i < size; ++i) {
                 for(int j = 0; j < sizes[i]; ++j) {
                         if(map[i][j] < 0) {
-                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
+                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occurred.\n");
                                 return false;
                         }
                 }

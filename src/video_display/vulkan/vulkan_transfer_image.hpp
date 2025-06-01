@@ -194,7 +194,7 @@ public:
         friend class vulkan_display::TransferImage;
         static constexpr uint32_t NO_ID = UINT32_MAX;
 
-        vk::Fence is_available_fence; // is_available_fence becames signalled when gpu releases the image
+        vk::Fence is_available_fence; // is_available_fence becomes signalled when gpu releases the image
 
 private:
         Image2D buffer;

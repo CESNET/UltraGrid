@@ -83,10 +83,10 @@ struct openssl_encrypt_info {
          * @param[in] plaintext_len length of plain text
          * @param[in] aad           Additional Authenticated Data
          *                          this won't be encrypted but passed in plaintext along ciphertext.
-         *                          These data are autheticated only if working in some AE mode
+         *                          These data are authenticated only if working in some AE mode
          * @param[in] aad_len       length of AAD text
          * @param[out] ciphertext   resulting ciphertext, can be up to (plaintext_len + MAX_CRYPTO_EXCEED) length
-         * @returns   size of writen ciphertext
+         * @returns   size of written ciphertext
          * @retval 0 on error
          */
         int (*encrypt)(struct openssl_encrypt *encryption,

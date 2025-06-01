@@ -140,7 +140,7 @@ static struct state_decompress *decompress_init(const video_decompress_info *vdi
 }
 
 /**
- * Attemps to initialize decompress of given magic
+ * Attempts to initialize decompress of given magic
  *
  * @param[in]  vdi      metadata struct of requested decompressor
  * @param[out] decompress_state decoder state

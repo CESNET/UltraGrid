@@ -179,7 +179,7 @@ public:
 };
 
 /**
- * In this mixer, no normalization takes place. After mixing and substracting each
+ * In this mixer, no normalization takes place. After mixing and subtracting each
  * participant signal, values are clamped (there is no point doing it prior that -
  * non-normalized mixed value can be out-of-bounds while resulting value with
  * substracted with substracted source may be ok.
@@ -420,7 +420,7 @@ void state_audio_mixer::worker()
                         participant_index++;
                 }
 
-                // substract each source signal from the mix coming to that participant
+                // subtract each source signal from the mix coming to that participant
                 for (auto & pb : participant_frames) {
                         auto mix = mixed.begin();
                         sample_type_source *part = (sample_type_source *)(void *) pb.get_data(0);

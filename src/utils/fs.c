@@ -187,7 +187,7 @@ const char *get_install_root(void) {
 /**
  * opens and returns temporary file and stores its name in filename
  *
- * Caller is resposible for both closing and unlinking the file.
+ * Caller is responsible for both closing and unlinking the file.
  *
  * Reason for this file is because the linker complains about tmpnam as unsafe
  * thus we create a "safer" workaround (at least for POSIX systems) returning

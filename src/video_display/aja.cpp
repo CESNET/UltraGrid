@@ -515,7 +515,7 @@ void display::RouteOutputSignal ()
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  fbIsRGB/*isRGB*/,  false/*is425*/));
                         if (fbIsRGB != mOutIsRGB) {
                                 CHECK_EX(mDevice.Connect(::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/), fsVidOutXpt),
-                                                "Connnect to CSC", NOOP);
+                                                "Connect to CSC", NOOP);
                         }
 
                         if (NTV2_OUTPUT_DEST_IS_SDI(mConf.outputDestination)) {

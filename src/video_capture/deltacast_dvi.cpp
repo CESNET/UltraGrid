@@ -545,7 +545,7 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 }
         } else {
                 BrdId = 0;
-                printf("[DELTACAST] Automatically choosen device nr. 0\n");
+                printf("[DELTACAST] Automatically chosen device nr. 0\n");
         }
         free(tmp);
         tmp = NULL;
@@ -599,7 +599,7 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
         if (ug_delta_codec_mapping.find(s->codec) != ug_delta_codec_mapping.end()) {
                 Packing = ug_delta_codec_mapping.at(s->codec);
         } else {
-                log_msg(LOG_LEVEL_ERROR, "Unknown pixel formate entered.\n");
+                log_msg(LOG_LEVEL_ERROR, "Unknown pixel format entered.\n");
                 goto no_format;
         }
 

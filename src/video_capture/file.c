@@ -121,7 +121,7 @@ struct vidcap_state_lavf_decoder {
         struct audio_desc audio_desc;
 
         struct simple_linked_list *video_frame_queue;
-        struct simple_linked_list *vid_frm_noaud; // auxilliary queue for worker
+        struct simple_linked_list *vid_frm_noaud; // auxiliary queue for worker
         int max_queue_len;
         struct ring_buffer *audio_data;
         int64_t audio_start_ts;
@@ -976,7 +976,7 @@ get_timestamped_audio(struct vidcap_state_lavf_decoder *s,
         }
         struct audio_frame *aud_frm = get_audio(s, vid_frm);
         if (aud_frm == NULL) {
-                s->audio_frames = -1; // invalide timestamp
+                s->audio_frames = -1; // invalid timestamp
                 return NULL;
         }
         if (s->audio_frames == -1) {

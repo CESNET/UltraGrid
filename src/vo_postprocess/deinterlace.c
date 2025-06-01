@@ -62,7 +62,7 @@ static void usage(_Bool for_postprocessor)
 {
         color_printf(TBOLD("deinterlace_blend") " deinterlaces output video frames "
                         " by applying linear blend on interleaved odd and even "
-                        " fileds.\n\nUsage:\n");
+                        " fields.\n\nUsage:\n");
         if (for_postprocessor) {
                 color_printf(TBOLD(TRED("\t-p deinterlace")) "[:options] | " TBOLD(TRED("-p deinterlace_blend")) "[:options]\n");
         } else {

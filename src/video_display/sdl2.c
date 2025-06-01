@@ -357,7 +357,7 @@ show_help(const char *driver)
                              "renderer=<ridx>|:nodecorate|:size[=WxH]|:window_"
                              "flags=<f>|:keep-aspect]*|:help]") "\n");
         printf("where:\n");
-        color_printf(TBOLD("\td[force]") " - deinterlace (force even for progresive video)\n");
+        color_printf(TBOLD("\td[force]") " - deinterlace (force even for progressive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
         color_printf(TBOLD("\t  <didx>") " - display index, available indices: ");
         sdl2_print_displays();
@@ -366,7 +366,7 @@ show_help(const char *driver)
                 color_printf("%s" TBOLD("%s"), (i == 0 ? "" : ", "), SDL_GetVideoDriver(i));
         }
         color_printf("\n");
-        color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio respecive to the video\n");
+        color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio respective to the video\n");
         color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
         color_printf(TBOLD("      nodecorate") " - disable window border\n");
         color_printf(
@@ -884,7 +884,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
-        if (frame == NULL) { // posion pill
+        if (frame == NULL) { // poison pill
                 SDL_Event event;
                 event.type       = s->sdl_user_new_frame_event;
                 event.user.data1 = NULL;
@@ -892,7 +892,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
                 return true;
         }
 
-        // fix endianity
+        // fix endianness
         if (frame->color_spec == R10k) {
                 r10k_to_sdl2(frame->tiles[0].data_len / 4,
                              (uint32_t *) frame->tiles[0].data);

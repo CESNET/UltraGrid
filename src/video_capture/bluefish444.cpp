@@ -438,7 +438,7 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
         s->audio.sample_rate = 48000; // perhaps the driver does not support different
         s->audio.max_size = 4*4096*16;
 
-        LOG(LOG_LEVEL_NOTICE) << "[Blue cap] audio initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
+        LOG(LOG_LEVEL_NOTICE) << "[Blue cap] audio initialized successfully: " << audio_desc_from_frame(&s->audio) << "\n";
         
         s->hanc_buffer = (unsigned int *) bfAlloc(MAX_HANC_SIZE);
 
@@ -910,7 +910,7 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
                 bfcVideoCaptureStop(s->pSDK[i]);
                 if(BLUE_FAIL(bfcVideoCaptureStart(s->pSDK[i]))) {
                         /* is this really needed? Sometimes this command keeps failing but
-                         * we can stil go on, so ignore this error */
+                         * we can still go on, so ignore this error */
                         //cerr << "Error video capture start failed on channel A" << endl;
                         //goto error;
                 }

@@ -433,6 +433,6 @@ static void usage() {
             "The n/k ratio determines the redundancy that the FEC provides. "
             "But please note that the " TUNDERLINE("strength")
             " of the FEC applies " TBOLD ("per frame") " basis, so 20%"
-            " redundancy will cover 20% loss in a signle frame only.\n";
+            " redundancy will cover 20% loss in a single frame only.\n";
         color_printf("%s\n", wrap_paragraph(desc));
 }

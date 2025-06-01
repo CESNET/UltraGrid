@@ -62,7 +62,7 @@ codec_t hw_accel_to_ug_pixfmt(enum hw_accel_type type);
 const char *hw_accel_to_str(enum hw_accel_type type);
 
 /**
- * hw_accel_state describes the current state of hw. accleration
+ * hw_accel_state describes the current state of hw. acceleration
  */
 
 struct hw_accel_state {
@@ -96,7 +96,7 @@ void hwaccel_state_reset(struct hw_accel_state *hwaccel);
 int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref);
 
 /**
- * @brief Creates hw. frames conext with given parameters
+ * @brief Creates hw. frames context with given parameters
  *
  * @param s Codec context containing information about decoded video
  * @param format Format of hardware surfaces

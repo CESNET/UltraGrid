@@ -55,7 +55,7 @@ int Node::setDataPtr(char *d) {
 
 
 /*-----------------------------------------------------------------------------
- *  Implementation fo class Edge
+ *  Implementation of class Edge
  *-----------------------------------------------------------------------------*/
 
 Edge::Edge(Node *a, Node *b) {
@@ -65,7 +65,7 @@ Edge::Edge(Node *a, Node *b) {
 
 
 /*-----------------------------------------------------------------------------
- *  Implementation fo class Tanner_graph
+ *  Implementation of class Tanner_graph
  *-----------------------------------------------------------------------------*/
 void Tanner_graph::set_data_size(int size) {
     data_size = size;

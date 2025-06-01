@@ -92,7 +92,7 @@
 /// @brief This struct represents initialized video display state.
 struct display {
         struct module mod;
-        uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
+        uint32_t magic;    ///< For debugging. Contains @ref DISPLAY_MAGIC
         char *display_name;
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
@@ -128,7 +128,7 @@ void list_video_display_devices(bool full)
  * @param[in] flags  bit sum of @ref display_flags
  * @param[in] postprocess configuration for display postprocess, _is_ NULL if no present
  * @param[out] out output display state. Defined only if initialization was successful.
- * @retval    0  if sucessful
+ * @retval    0  if successful
  * @retval   -1  if failed
  * @retval    1  if successfully shown help (no state returned)
  */
@@ -388,7 +388,7 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
  *                 Should not be NULL unless we want to quit display mainloop.
  * @param timeout_ns specifies timeout that should be waited (@sa putf_flags).
  *                   displays may ignore the value and act like PUTF_NONBLOCK if blocking is not requested.
- * @retval  true   if displayed succesfully (or discarded if flag=PUTF_DISCARD)
+ * @retval  true   if displayed successfully (or discarded if flag=PUTF_DISCARD)
  * @retval  false  if not displayed when flag=PUTF_NONBLOCK and it would block
  */
 bool display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns)
@@ -448,7 +448,7 @@ bool display_reconfigure(struct display *d, struct video_desc desc, enum video_m
                 if (vo_postprocess_get_property(d->postprocess, VO_PP_DOES_CHANGE_TILING_MODE,
                                         &pp_does_change_tiling_mode, &len)) {
                         if(len == 0) {
-                                // just for sake of completness since it shouldn't be a case
+                                // just for sake of completeness since it shouldn't be a case
                                 log_msg(LOG_LEVEL_WARNING, "Warning: unable to get pp tiling mode!\n");
                         }
                 }

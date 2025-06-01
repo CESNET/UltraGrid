@@ -645,7 +645,7 @@ write_frame(AVFormatContext *format_ctx, struct output_stream *ost,
                 pkt->stream_index = ost->st->index;
                 ret = av_interleaved_write_frame(format_ctx, pkt);
                 if (ret < 0) {
-                        error_msg(MOD_NAME "error writting video packet: %s\n",
+                        error_msg(MOD_NAME "error writing video packet: %s\n",
                                   av_err2str(ret));
                 }
         }

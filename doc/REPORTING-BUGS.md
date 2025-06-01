@@ -5,7 +5,7 @@ There are couple of ways to report a problem:
   - you can use [GitHub issues](https://github.com/CESNET/UltraGrid/issues)
     for reporting bugs. You need to register, but it is only matter
     of filling username and password.
-  - alternativey you can use our an e-mail conference ultragrid-dev _\_at\__
+  - alternatively you can use our an e-mail conference ultragrid-dev _\_at\__
     cesnet.cz which leads to developers of UltraGrid
   - if not sure if the problem is a bug, you can also use
     [GitHub discussions](https://github.com/CESNET/UltraGrid/discussions)
@@ -63,7 +63,7 @@ to collect data about a computer and attach its result (Linux/macOS).
 a _core dump_ (if generated) and the _binary_ (if you compiled by yourself,
 otherwise the _executable version_). If core dump is not generated, a
 _backtrace_ (see below) might have been generated to standard error output so
-please attach this. Also the terminal output containg the _error context_ would
+please attach this. Also the terminal output containing the _error context_ would
 be helpful.
 
 ## Decoding stacktrace (Linux)

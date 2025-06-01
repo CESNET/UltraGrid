@@ -150,7 +150,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         log_msg(LOG_LEVEL_WARNING, "%s\n", wrap_paragraph(warn));
 
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
-                color_printf("Previews captured frame with specified dispay.\n"
+                color_printf("Previews captured frame with specified display.\n"
                           "Usage:\n"
                           "\t" TBOLD("--capture-filter display:<display_cfg>") "\n");
                 return 1;

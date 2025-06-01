@@ -446,7 +446,7 @@ static struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_fra
 
         /*
          * The more correct way is to use X pixel accessor (XGetPixel) as in previous version
-         * Unfortunatelly, this approach is damn slow. Current approach might be incorrect in
+         * Unfortunately, this approach is damn slow. Current approach might be incorrect in
          * some configurations, but seems to work currently. To be corrected if there is an
          * opposite case.
          */

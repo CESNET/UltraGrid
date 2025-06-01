@@ -151,7 +151,7 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 
 /**
  * Similar to @ref REGISTER_MODULE but do not show the module under help
- * of correcponding class (usable for technical or deprecated modules).
+ * of corresponding class (usable for technical or deprecated modules).
  */
 #define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 1)
 

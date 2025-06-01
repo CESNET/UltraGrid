@@ -39,7 +39,7 @@
  * @todo
  * There is a race condition between audio and video when seeking the stream.
  * Audio may be seeked and video not yet (or vice versa). Since those parts are
- * independent, ther will perhaps be needed to have _getf() and seek completion
+ * independent, there will perhaps be needed to have _getf() and seek completion
  * mutually exclusive. Perhaps not much harmfull, seems that it could cause at
  * most 1 frame AV-desync.
  */
@@ -515,7 +515,7 @@ vidcap_import_init(struct vidcap_params *params, void **state)
                                 TERM_BOLD TERM_FG_RED "\t<directory>" TERM_FG_RESET "{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n" TERM_RESET
                                 "where\n"
                                 TERM_BOLD "\t<fps>" TERM_RESET " - overrides FPS from sequence metadata\n"
-                                TERM_BOLD "\t<n>  " TERM_RESET " - use only N first frames fron sequence (if less than available frames)\n");
+                                TERM_BOLD "\t<n>  " TERM_RESET " - use only N first frames from sequence (if less than available frames)\n");
                 free(tmp);
                 return VIDCAP_INIT_NOERR;
         }

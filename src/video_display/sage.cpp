@@ -220,7 +220,7 @@ static void *display_sage_init(struct module *parent, const char *fmt, unsigned 
                                                          && s->requestedDisplayCodec != DXT5
 #endif // SAGE_NATIVE_DXT5YCOCG
                                                          ) {
-                                                 fprintf(stderr, "Entered codec is not nativelly supported by SAGE.\n");
+                                                 fprintf(stderr, "Entered codec is not natively supported by SAGE.\n");
                                                  free(s); return NULL;
                                          }
                                 } else if(strcmp(item, "tx") == 0) {
@@ -241,7 +241,7 @@ static void *display_sage_init(struct module *parent, const char *fmt, unsigned 
         }
 
         if (!s->is_tx) {
-                // read config file only if we are in dispaly mode (not sender mode)
+                // read config file only if we are in display mode (not sender mode)
                 struct stat sb;
                 if(s->confName) {
                         if(stat(s->confName, &sb)) {

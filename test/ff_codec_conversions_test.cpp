@@ -342,7 +342,7 @@ int ff_codec_conversions_test_yuv444p16le_from_to_rg48()
 /**
  * Just a simple test - use just dummy random data
  * @todo
- * Write more reasonable comparison to check P010LE with different neigboring lines.
+ * Write more reasonable comparison to check P010LE with different neighboring lines.
  */
 int ff_codec_conversions_test_pX10_from_to_v210()
 {

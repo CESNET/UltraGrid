@@ -63,10 +63,10 @@ int urlencode_rfc3986_eval(int c)
 }
 
 /**
- * Replaces all occurences where eval() evaluates to true with %-encoding
+ * Replaces all occurrences where eval() evaluates to true with %-encoding
  * @param in        input
  * @param out       output array
- * @param max_len   maximal lenght to be written (including terminating NUL)
+ * @param max_len   maximal length to be written (including terminating NUL)
  * @param eval_pass predictor if an input character should be kept (functions
  *                  from ctype.h may be used)
  * @param space_plus_replace replace spaces (' ') with ASCII plus sign -
@@ -120,7 +120,7 @@ static inline int ishex(int x)
  * URL decodes input string (replaces all "%XX" sequences with ASCII representation of 0xXX)
  * @param in      input
  * @param out     output array
- * @param max_len maximal lenght to be written (including terminating NUL)
+ * @param max_len maximal length to be written (including terminating NUL)
  * @returns bytes written, 0 on error
  *
  * @note

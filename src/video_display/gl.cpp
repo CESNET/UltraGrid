@@ -688,14 +688,14 @@ list_hints()
         color_printf(
             "Very " TBOLD("incomplete") " list of hints and its values.\n");
         color_printf("Keywords listed below can be passed to the options "
-                     "instead of the numberic value.\n\n");
+                     "instead of the numeric value.\n\n");
 
         color_printf("The list contains both keys and values for init and "
                      "window hints.\n");
-        color_printf("Window hints start witn 0x20000, init with 0x50000, the "
+        color_printf("Window hints start with 0x20000, init with 0x50000, the "
                      "others are values.\n\n");
 
-        color_printf("For commplete list refer to glfw3.h (eg. online "
+        color_printf("For complete list refer to glfw3.h (eg. online "
                      "<https://github.com/glfw/glfw/blob/master/include/GLFW/"
                      "glfw3.h>).\n\n");
 

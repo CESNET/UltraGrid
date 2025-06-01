@@ -66,7 +66,7 @@ private:
 
 #endif // __cplusplus
 
-// values are byte represenations of escape sequences (without ESC itself)
+// values are byte representations of escape sequences (without ESC itself)
 #define K_UP     0x1b5b41
 #define K_DOWN   0x1b5b42
 #define K_RIGHT  0x1b5b43

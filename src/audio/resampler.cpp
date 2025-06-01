@@ -68,7 +68,7 @@ using namespace std;
 class audio_frame2_resampler::impl {
         public:
                 virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
-                /// @returns 0-terminated C array of suppored BPS in _ascending_ (!) order
+                /// @returns 0-terminated C array of supported BPS in _ascending_ (!) order
                 virtual const int *get_supported_bps() = 0;
                 virtual ~impl() {}
 };

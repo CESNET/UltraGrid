@@ -44,7 +44,7 @@
  * 2. GCM tag after encrypted data
  *
  * Encryption algorithm is set in transmit.cpp, detected on receiver. Required
- * algorightms are currently GCM (default) and CBC.
+ * algorithms are currently GCM (default) and CBC.
  */
 
 #include "crypto/openssl_encrypt.h"

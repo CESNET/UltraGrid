@@ -300,7 +300,7 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
                         item = strtok(NULL, ":");
                         if(item) {
                                 snprintf(card_name, sizeof card_name, "PCI,card:%s", item);
-                                printf("[DVS] Choosen card: %s.\n", card_name);
+                                printf("[DVS] Chosen card: %s.\n", card_name);
                         }
                 } else { // new format - key=value
                         char *tmp = fmt;
@@ -321,7 +321,7 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
                                         }
                                 } else if (strncmp(item, "device=", sizeof("device=")) == 0) {
                                         snprintf(card_name, sizeof card_name, "PCI,card:%s", strchr(item, '=') + 1);
-                                        printf("[DVS] Choosen card: %s.\n", card_name);
+                                        printf("[DVS] Chosen card: %s.\n", card_name);
                                 } else if (strncmp(item, "codec=", sizeof("codec=")) == 0) {
                                         s->frame->color_spec = get_codec_from_name(strchr(item, '=') + 1);
                                         if (s->frame->color_spec == VIDEO_CODEC_NONE) {
@@ -514,7 +514,7 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
                         0, /* obsolete - must be 0 */
                         SV_FIFO_DMA_ON, 
                         SV_FIFO_FLAG_NODMAADDR,
-                        0 /*  frames in FIFO - 0 meens let API set the default maximal value*/
+                        0 /*  frames in FIFO - 0 means let API set the default maximal value*/
                         );
         if (res != SV_OK) {
                 goto error;

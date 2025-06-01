@@ -42,7 +42,7 @@
 #include "crypt_aes_impl.h"
 
 /*  Generic Defines  */
-#define     DIR_ENCRYPT           0 /*  Are we encrpyting?  */
+#define     DIR_ENCRYPT           0 /*  Are we encrypting?  */
 #define     DIR_DECRYPT           1 /*  Are we decrpyting?  */
 #define     MODE_ECB              1 /*  Are we ciphering in ECB mode?   */
 #define     MODE_CBC              2 /*  Are we ciphering in CBC mode?   */

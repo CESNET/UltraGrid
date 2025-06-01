@@ -198,7 +198,7 @@ static af_result_code filter(void *state, struct audio_frame **frame){
                 //Write the last delay_size bytes to buffer
                 ring_buffer_write(s->ring.get(), f->data + excess_size, s->delay_size);
 
-                //Move the beggining of frame to the end and prepend delay_size bytes from buffer
+                //Move the beginning of frame to the end and prepend delay_size bytes from buffer
                 memmove(f->data + s->delay_size, f->data, excess_size);
                 ring_buffer_read(s->ring.get(), f->data, s->delay_size);
         }

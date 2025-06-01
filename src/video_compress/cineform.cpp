@@ -469,7 +469,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
 
         timespec_diff(&t_0, &t_1, &t_res);
 
-        printf("[cineform] Encoding %u frame took %f miliseconds.\n", frame_num, t_res.tv_nsec / 1000000.0);
+        printf("[cineform] Encoding %u frame took %f milliseconds.\n", frame_num, t_res.tv_nsec / 1000000.0);
 #endif
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to wait for sample %d\n", status);

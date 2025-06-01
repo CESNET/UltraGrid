@@ -80,7 +80,7 @@ using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
 struct vcap_pw_state { 
         pipewire_state_common pw;
 
-        // used exlusively by ultragrid thread
+        // used exclusively by ultragrid thread
         unique_frame in_flight_frame;
 
         std::mutex mut;
@@ -469,7 +469,7 @@ static void show_screen_help() {
         std::cout << "Usage: -t screen_pw[:cursor|:nocrop|:fps=<fps>|:restore=<token_file>]]\n";
         param("cursor") << "make the cursor visible (default hidden)\n";
         param("nocrop") << "when capturing a window do not crop out the empty background\n";
-        param("<fps>") << "prefered FPS passed to PipeWire (PipeWire may ignore it)\n";
+        param("<fps>") << "preferred FPS passed to PipeWire (PipeWire may ignore it)\n";
         param("<token_file>") << "restore the selected window/display from a file.\n\t\tIf not possible, display the selection dialog and save the token to the file specified.\n";
 }
 
@@ -557,7 +557,7 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         /* TODO: The node target_id param when calling stream_connect should be
          * always set to PW_ID_ANY as using object ids is now deprecated.
          * However, the dbus ScreenCast portal doesn't yet expose the object
-         * serial which shoud be used instead.
+         * serial which should be used instead.
          */
         s->node = portalResult.pipewire_node;
 

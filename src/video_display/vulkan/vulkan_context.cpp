@@ -564,7 +564,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         return;
                 }
                 catch(std::exception& err){
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Recreation unsuccesful: %s\n", err.what());
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Recreation unsuccessful: %s\n", err.what());
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
                         if(attempt + 1 == initialization_attempts){

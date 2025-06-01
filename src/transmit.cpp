@@ -205,7 +205,7 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
 }
 
 /**
- * @brief intitializes transmission
+ * @brief initializes transmission
  *
  * @param encryption passcode to be used to encrypt the data; NULL or an empty
  * string can be passed
@@ -324,7 +324,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                              strchr(fec_cfg, '%') == nullptr)) {
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg),
                                          "LDGM cfg %s", fec_cfg);
-                        } else { // delay creation until we have avarage frame size
+                        } else { // delay creation until we have average frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
                         tx->fec_scheme = FEC_LDGM;
@@ -338,7 +338,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 color_printf("Usage:\n");
                 color_printf("\t" TBOLD("-f [A:|V:]{mult:count|ldgm[:params]|"
                              "rs[:params]}[:nodup]") "\n");
-                color_printf("\nIf neither A: or V: is speciefied, FEC is set "
+                color_printf("\nIf neither A: or V: is specified, FEC is set "
                              "to the video (backward compat).\n\n");
                 ret = false;
         } else {

@@ -74,7 +74,7 @@
 #include <iterator>                     // for size
 #include <map>                          // for map, _Rb_tree_iterator, opera...
 #include <mutex>                        // for mutex, unique_lock
-#include <string_view>                  // for operator<<, operator==, strin...
+#include <string_view>                  // for operator<<, operator==, string...
 #include <sys/types.h>                  // for ssize_t
 #include <tuple>                        // for tuple, get, make_tuple
 #include <unistd.h>                     // for STDERR_FILENO
@@ -483,7 +483,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 return nullptr;
         }
         if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                fprintf(stderr, "Could not found usable version of Winsock.\n");
                 WSACleanup();
                 return nullptr;
         }
@@ -620,7 +620,7 @@ void init_root_module(struct module *root_mod) {
  */
 void exit_uv(int status) {
         if (!state_root_static) {
-                log_msg(LOG_LEVEL_WARNING, "%s called witout state registered.\n", __func__);
+                log_msg(LOG_LEVEL_WARNING, "%s called without state registered.\n", __func__);
         }
         state_root_static->exit_status = status;
         state_root_static->broadcast_should_exit();
@@ -940,7 +940,7 @@ void register_param(const char *param, const char *doc)
                         return;
                 }
         }
-        log_msg(LOG_LEVEL_WARNING, "Cannot register param \"%s\", maxmimum number of parameters reached.\n", param);
+        log_msg(LOG_LEVEL_WARNING, "Cannot register param \"%s\", maximum number of parameters reached.\n", param);
 }
 
 bool validate_param(const char *param)
@@ -966,7 +966,7 @@ bool validate_param(const char *param)
  *
  * @note
  * This function will be usually called twice - first with preinit=true and then with false.
- * It is because the bufffering parameter need to be set early (prior to any output). On the
+ * It is because the buffering parameter need to be set early (prior to any output). On the
  * other hand not all params can be set immediately -- modules are not yet registered, so it
  * is called once more the preinit is done.
  */
@@ -1167,7 +1167,7 @@ unregister_should_exit_callback(struct module *mod, void (*callback)(void *),
 
 ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
                 "  Treats some errors as fatal and exit even though " PACKAGE_NAME " could continue otherwise.\n"
-                "  This allows less severe errors to be catched (which should not occur under normal circumstances).\n"
+                "  This allows less severe errors to be caught (which should not occur under normal circumstances).\n"
                 "  An environment variable ULTRAGRID_ERRORS_FATAL with the same effect can also be used.\n");
 /**
  * Soft version of exit_uv() checks errors-fatal command-line parameters and

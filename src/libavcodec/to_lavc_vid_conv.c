@@ -1232,7 +1232,7 @@ void get_av_pixfmt_details(enum AVPixelFormat av_codec, enum AVColorSpace *color
 }
 
 static int get_intermediate_codecs_from_uv_to_av(codec_t in, enum AVPixelFormat av, codec_t fmts[VIDEO_CODEC_COUNT]) {
-        int fmt_set[VIDEO_CODEC_COUNT] = { VIDEO_CODEC_NONE }; // to avoid multiple occurences
+        int fmt_set[VIDEO_CODEC_COUNT] = { VIDEO_CODEC_NONE }; // to avoid multiple occurrences
         for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed - direct mapping
                 decoder_t decoder = get_decoder_from_to(in, i->uv_codec);
                 if (decoder && i->av_pixfmt == av) {
@@ -1483,7 +1483,7 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
         }
 
         int sort_start_idx = nb_fmts;
-        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences; for every added element, comp_data must be also set
+        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurrences; for every added element, comp_data must be also set
         struct lavc_compare_convs_data comp_data = { 0 };
         if (to_lavc_cuda_conv_enabled()) {
                 set_convertible_formats_cuda(in_codec, req_prop, fmt_set,

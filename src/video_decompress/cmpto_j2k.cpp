@@ -41,10 +41,10 @@
  *
  * Problematic part of following code is that UltraGrid decompress API is
  * synchronous only while the CMPTO J2K decoder is inherently asynchronous.
- * Threrefore the integration works in following fashion:
+ * Therefore the integration works in following fashion:
  * - there is a thread that waits for completed (decompressed) frames,
  *   if there is any, it put it in queue (or drop if full)
- * - when a new frame arives, j2k_decompress() passes it to decoder
+ * - when a new frame arrives, j2k_decompress() passes it to decoder
  *   (which is asynchronous, thus non-blocking)
  * - then queue (filled by thread in first point) is checked - if it is
  *   non-empty, frame is copied to framebufffer. If not false is returned.

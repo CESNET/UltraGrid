@@ -65,7 +65,7 @@ using std::thread;
 
 struct state_capture_filter_gamma {
 public:
-        int out_depth; ///< 0, 8 or 16 (0 menas keep)
+        int out_depth; ///< 0, 8 or 16 (0 means keep)
         void *vo_pp_out_buffer{}; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 
         explicit state_capture_filter_gamma(double gamma, int out_depth) : out_depth(out_depth) {

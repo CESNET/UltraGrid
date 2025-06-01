@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     
-    /* prepare envents for time emasurement and begin */
+    /* prepare events for time emasurement and begin */
     cudaEventCreate(&event_end);
     cudaEventCreate(&event_begin);
     cudaEventRecord(event_begin, 0);

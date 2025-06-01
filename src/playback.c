@@ -97,7 +97,7 @@ int playback_set_device(char *device_string, size_t buf_len, const char *optarg)
 }
 
 /**
- * @param mod moodule that will receive the playback messages
+ * @param mod module that will receive the playback messages
  */
 void playback_register_keyboard_ctl(struct module *mod) {
         struct { int key; const char *msg; } kb[] = {{K_PGUP, "seek +600s"}, {K_PGDOWN, "seek -600s"}, {K_UP, "seek +60s"}, {K_DOWN, "seek -60s"}, {K_LEFT, "seek -10s"}, {K_RIGHT, "seek +10s"}, {' ', "pause"}, {'q', "quit"}};

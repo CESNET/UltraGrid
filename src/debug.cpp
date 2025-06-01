@@ -137,7 +137,7 @@ void log_msg(int level, const char *format, ...) {
 }
 
 /**
- * @param  id  the identifier that idetifies identical messages (only first
+ * @param  id  the identifier that identifies identical messages (only first
  * message of given ID is printed); use values < 0x8000'0000 for manually
  * generated IDs, the higher values are reserved for automatically generated
  * ones as in MSG_ONCE()
@@ -317,7 +317,7 @@ bool parse_log_cfg(const char *conf_str,
         "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n" \
         "  Dumps specified buffer to a file for debugging, n-th buffer may " \
         "be selected, name is <module>.dump.\n" \
-        "  Avaiable modules: lavc-avframe, lavd-avframe\n"
+        "  Available modules: lavc-avframe, lavd-avframe\n"
 ADD_TO_PARAM("debug-dump", DUMP_FILE_USAGE);
 void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data) {
         const char *dump_file_val = get_commandline_param("debug-dump");

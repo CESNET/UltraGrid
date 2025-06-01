@@ -113,7 +113,7 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
 static void done_nat_pmp(struct ug_nat_traverse *state);
 
 static const struct nat_traverse_info_t {
-        const char *name_short; ///< for command-line specifiction
+        const char *name_short; ///< for command-line specification
         const char *name_long; ///< for output
         bool (*init)(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime);
         void (*done)(struct ug_nat_traverse *state);
@@ -372,7 +372,7 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
         }
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "NAT PMP - Mapped public port %hu protocol %s to local port %hu "
-                        "liftime %u\n",
+                        "lifetime %u\n",
                         response.pnu.newportmapping.mappedpublicport,
                         response.type == NATPMP_RESPTYPE_UDPPORTMAPPING ? "UDP" :
                         (response.type == NATPMP_RESPTYPE_TCPPORTMAPPING ? "TCP" :

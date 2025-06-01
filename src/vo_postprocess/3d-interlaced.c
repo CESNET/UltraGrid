@@ -116,7 +116,7 @@ static struct video_frame * interlaced_3d_getf(void *state)
  *
  * @param[in]  state     postprocessor state
  * @param[in]  in        input frame. Must contain exactly 2 tiles
- * @param[out] out       output frame to be written to. Should have only ony tile
+ * @param[out] out       output frame to be written to. Should have only one tile
  * @param[in]  req_pitch requested pitch in buffer
  */
 static bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)

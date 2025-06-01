@@ -84,7 +84,7 @@
  * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
  * @param[in]  src     4-byte aligned input buffer containing v210 (by definition of v210
  *                     should be even aligned to 16B boundary)
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
  */
 static void vc_copylinev210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
@@ -205,7 +205,7 @@ static void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char 
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in R10k
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
@@ -347,7 +347,7 @@ static void vc_copyliner10ktoRGB(unsigned char * __restrict dst, const unsigned 
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     buffer containing pixels in R12L
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  ignored
  * @param[in]  gshift  ignored
  * @param[in]  bshift  ignored
@@ -427,7 +427,7 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     buffer containing pixels in R12L
- * @param[in]  dstlen  length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dstlen  length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
@@ -516,7 +516,7 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in RGBA
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
@@ -746,7 +746,7 @@ static void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char *
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in RGBA
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  source red shift
  * @param[in]  gshift  source green shift
  * @param[in]  bshift  source blue shift
@@ -1458,7 +1458,7 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
                 return;
         }
         // compute last incomplete block if dst_len % OUT_BL_SZ != 0, not
-        // writting past the requested dst_len
+        // writing past the requested dst_len
         unsigned char tmp_buf[OUT_BL_SZ];
         vc_copylineR12LtoRG48(tmp_buf, src, OUT_BL_SZ, rshift, gshift, bshift);
         memcpy(dst, tmp_buf, dst_len - x);

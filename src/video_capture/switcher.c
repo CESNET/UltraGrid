@@ -92,7 +92,7 @@ static void show_help()
         color_printf("Eg. in:\n" TBOLD(
             "   uv -t switcher -s embedded -F flip -t testcard -s "
             "analog -t decklink") "\n");
-        color_printf("flip & embedded aplies to testcard, analog to decklink.\n");
+        color_printf("flip & embedded applies to testcard, analog to decklink.\n");
         color_printf(
             "See "
             "also: <" TUNDERLINE("https://github.com/CESNET/UltraGrid/wiki/"

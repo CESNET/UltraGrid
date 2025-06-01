@@ -62,7 +62,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         cfg = cfg ? cfg : ""; // pp passes NULL for empty config
         if (strcmp(cfg, "help") == 0) {
                 color_printf("\nFilter " TERM_FG_RED TERM_BOLD "color" TERM_RESET " computees average color of the picture.\n");
-                color_printf(TERM_FG_YELLOW "Note: currenty only center pixel is printed!\n" TERM_FG_RESET);
+                color_printf(TERM_FG_YELLOW "Note: currently only center pixel is printed!\n" TERM_FG_RESET);
                 return 1;
         }
 

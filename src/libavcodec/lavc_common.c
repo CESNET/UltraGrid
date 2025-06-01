@@ -327,7 +327,7 @@ audio_bps_to_av_sample_fmt(int bps, bool planar)
 }
 
 /**
- * Prints space-separated nammes of AVPixelFormats in AV_PIX_FMT_NONE-terminated
+ * Prints space-separated names of AVPixelFormats in AV_PIX_FMT_NONE-terminated
  * pixfmts list to given buf and returns pointer to given buf.
  */
 const char *
@@ -352,7 +352,7 @@ get_avpixfmts_names(const enum AVPixelFormat *pixfmts)
  * @param ctx   may be nullptr if codec is not
  * @param codec may be nullptr if ctx is not
  *
- * If passed ctx, values such as `strict_std_compliance` may afect the result.
+ * If passed ctx, values such as `strict_std_compliance` may affect the result.
  */
 #if LIBAVCODEC_VERSION_INT >  AV_VERSION_INT(61, 13, 100)
 static const void *

@@ -378,7 +378,7 @@ static bool udp_addr_valid4(const char *dst)
 
 /**
  * @returns 1. 0 (htonl(INADDR_ANY)) if iface is "";
- *          2. representation of the address if iface is an adress
+ *          2. representation of the address if iface is an address
  *          3a. [Windows only] interface index
  *          3b. [otherwise] iface local address
  *          4a. [error] htonl(INADDR_ANY) if no IPv4 address on iface
@@ -947,7 +947,7 @@ get_ifindex(const char *iface)
         }
         struct in_addr iface_addr;
         if (inet_pton(AF_INET, iface, &iface_addr) == 1) {
-                error_msg("Interface identified with addres %s not allowed "
+                error_msg("Interface identified with address %s not allowed "
                           "here. Try '-4'...\n",
                           iface);
                 return (unsigned) -1;
@@ -1315,7 +1315,7 @@ static void *udp_reader(void *arg)
                 if (size <= 0) {
                         /// @todo
                         /// In MSW, this block is called as often as packet is sent if
-                        /// we got WSAECONNRESET error (noone is listening). This can have
+                        /// we got WSAECONNRESET error (no one is listening). This can have
                         /// negative performance impact.
                         socket_error("recvfrom");
                         free(packet);

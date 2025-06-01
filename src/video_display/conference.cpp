@@ -552,7 +552,7 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
 
         /**
          * We initially set next_frame_time to infinity (or a very long time
-         * from now) to avoid uselessly outputing the same frame twice in a row
+         * from now) to avoid uselessly outputting the same frame twice in a row
          * if we haven't received any new input, because then any new input
          * would have to wait up to 1 frametime adding needless latency.
          */

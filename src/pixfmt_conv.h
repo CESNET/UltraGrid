@@ -73,7 +73,7 @@ extern "C" {
  *
  * dst and src must not overlap.
  *
- * src should have allocated MAX_PADDING bytes more to accomodate some pixel
+ * src should have allocated MAX_PADDING bytes more to accommodate some pixel
  * block conversions requirements (Already done by vf_alloc_desc_data() and by
  * RTP stack.)
  *

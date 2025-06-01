@@ -131,7 +131,7 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
-                char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
+                char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawn. "
 			 "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
                 color_printf("%s", wrap_paragraph(desc));
                 color_printf("\nUsage:\n");

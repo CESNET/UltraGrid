@@ -136,7 +136,7 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 if (m_fec_state == nullptr) {
                         int rc = 0;
                         if (strstr(msg->fec_cfg, "help") == nullptr) {
-                                MSG(ERROR, "Unable to initalize FEC!\n");
+                                MSG(ERROR, "Unable to initialize FEC!\n");
                                 rc = 1;
                         }
 
@@ -220,7 +220,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         }
 
         // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
-        // immediatelly. The encoder is actually created by a message.
+        // immediately. The encoder is actually created by a message.
         check_sender_messages();
 }
 

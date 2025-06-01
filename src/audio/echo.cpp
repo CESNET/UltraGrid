@@ -153,7 +153,7 @@ struct echo_cancellation * echo_cancellation_init(void)
         s->frame.data = NULL;
         s->frame.sample_rate = s->frame.bps = 0;
 
-        const int ringbuf_sample_count = 2 << 15; //should be divisable by SAMPLES_PER_FRAME
+        const int ringbuf_sample_count = 2 << 15; //should be divisible by SAMPLES_PER_FRAME
         constexpr int bps = 2; //TODO: assuming bps to be 2
 
         s->far_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
@@ -264,7 +264,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         if(s->next_expected_near < steady_clock::now()){
                 /* It is possible that the capture thread starts late or
                  * freezes, which could create an unwanted delay between far
-                 * and near ends.  To partialy protect against this, drop the
+                 * and near ends.  To partially protect against this, drop the
                  * contents of far end buffer, when the last frame arrived more
                  * than 1s ago.
                  */

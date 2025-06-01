@@ -233,7 +233,7 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
         s->data = ring_buffer_init(s->frame.max_size);
         
         if (s->libjack->set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registring callback problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registering callback problem.\n");
                 goto release_client;
         }
 

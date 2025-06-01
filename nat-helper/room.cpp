@@ -79,7 +79,7 @@ void Room::onClientCandidate(Client& client, CompletionStatus status){
 		return;
 	}
 
-	std::cout << "Client candidate recieved" << std::endl;
+	std::cout << "Client candidate received" << std::endl;
 
 	for(auto& [c, cu] : clients){
 		if(&client == c)

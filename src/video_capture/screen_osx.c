@@ -199,7 +199,7 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
                                                 }
                                         }
                                         if (i == count) {
-                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "No secondary scren found!\n");
+                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "No secondary screen found!\n");
                                                 vidcap_screen_osx_done(s);
                                                 return VIDCAP_INIT_FAIL;
                                         }

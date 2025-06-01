@@ -703,7 +703,7 @@ read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_s
                 return -1;
     }
 
-    debug_msg("APP8 SPIFF parsed succesfully, internal color space: %s\n",
+    debug_msg("APP8 SPIFF parsed successfully, internal color space: %s\n",
               color_space_get_name(*color_space));
     *in_spiff = 1;
 
@@ -941,7 +941,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                         case JPEG_MARKER_EOI:
                                 break;
 
-                        // included because these fixed-sized markers do not contain lenght field
+                        // included because these fixed-sized markers do not contain length field
                         // thus skipping in default branch will misbehave
                         case JPEG_MARKER_RST0:
                         case JPEG_MARKER_RST1:

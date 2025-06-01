@@ -363,7 +363,7 @@ error:
  * @briew tries to get device id from device name
  * @param name  name of the device to be looked up
  * @param dir   direction - @sa audio_ca_probe for values;
- *              dir is needed only for deafult device names
+ *              dir is needed only for default device names
  */
 AudioDeviceID
 audio_ca_get_device_by_name(const char *name, int dir)

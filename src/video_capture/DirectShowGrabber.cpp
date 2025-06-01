@@ -289,7 +289,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	}
         HANDLE_ERR("Cannot create Video Input Device enumerator");
 
-	// Media processing classes (filters) are conected to a graph.
+	// Media processing classes (filters) are connected to a graph.
 	// Create graph builder -- helper class for connecting of the graph
 	res = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER,
 			IID_ICaptureGraphBuilder2, (void **) &s->graphBuilder);
@@ -475,15 +475,15 @@ vidcap_dshow_probe_internal(device_info **available_cards, int *count,
                 // connect stream config interface to the capture filter
                 res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, captureFilter,
                                 IID_IAMStreamConfig, (void **) &s->streamConfig);
-		HANDLE_ERR("Cannot find interface for reading capture capabilites");
+		HANDLE_ERR("Cannot find interface for reading capture capabilities");
 
                 int capCount, capSize;
                 // read number of capture device capabilities
                 res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
-                HANDLE_ERR("Cannot read number of capture capabilites");
+                HANDLE_ERR("Cannot read number of capture capabilities");
                 // check if the format of capture capabilities is the right one
                 if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Unknown format of capture capabilites.\n", name);
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Unknown format of capture capabilities.\n", name);
                         continue;
                 }
 
@@ -907,7 +907,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
 	res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, s->captureFilter,
 			IID_IAMStreamConfig, (void **) &s->streamConfig);
-	HANDLE_ERR("Cannot find interface for reading capture capabilites");
+	HANDLE_ERR("Cannot find interface for reading capture capabilities");
 
 	// create instance of sample grabber
 	res = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->sampleGrabberFilter));
@@ -925,7 +925,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	res = s->sampleGrabber->SetBufferSamples(TRUE);
 	HANDLE_ERR("Cannot set sample grabber to buffer samples");
 
-	// set media type for sample grabber; this is not done a very detailed setup, because it would be unneccessarily complicated to do so
+	// set media type for sample grabber; this is not done a very detailed setup, because it would be unnecessarily complicated to do so
 	AM_MEDIA_TYPE sampleGrabberMT;
 	ZeroMemory(&sampleGrabberMT, sizeof(sampleGrabberMT));
 	sampleGrabberMT.majortype = MEDIATYPE_Video;
@@ -935,9 +935,9 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 
 	int capCount, capSize;
 	res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
-	HANDLE_ERR("Cannot read number of capture capabilites");
+	HANDLE_ERR("Cannot read number of capture capabilities");
 	if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Unknown format of capture capabilites.\n");
+		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: Unknown format of capture capabilities.\n");
 		goto error;
 	}
 
@@ -953,7 +953,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid mode index!\n");
 			goto error;
 		}
-		// Some other error occured
+		// Some other error occurred
                 HANDLE_ERR(
                     "Cannot read stream capabilities #%d (index is correct)",
                     s->modeNumber);
@@ -1382,7 +1382,7 @@ static int LocateSubtype(const GUID *pSubtype)
         const GUID *pMediaSubtype;
         INT iPosition = 0;
 
-/* this code is only to optain type data if UNKNOWN
+/* this code is only to obtain type data if UNKNOWN
         fprintf(stderr, "%s ", &pSubtype->Data1);
         fprintf(stderr, "%X ", pSubtype->Data1);
         fprintf(stderr, "%hX ", pSubtype->Data2);

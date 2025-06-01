@@ -51,7 +51,7 @@ extern "C" {
 #endif
 
 /**
- * @warining ring_buffer is generally not thread safe. The exception is when
+ * @warning ring_buffer is generally not thread safe. The exception is when
  * one thread reads and the other writes to the ring buffer (producer-consumer).
  */
 struct ring_buffer;
@@ -133,7 +133,7 @@ int ring_get_write_regions(struct ring_buffer *ring, int requested_len,
  * ring_get_write_regions().
  *
  * @param amount      amount in bytes to discard
- * @return            true if an overflow occured
+ * @return            true if an overflow occurred
  */
 bool ring_advance_write_idx(struct ring_buffer *ring, int amount);
 

@@ -49,7 +49,7 @@ extern "C" {
  * Caller is responsible for allocating memory for all of these: out (to hold
  * all elements), out elements and theirs data member to hold tile data.
  *
- * width must be divisible by x_count && heigth by y_count (!)
+ * width must be divisible by x_count && height by y_count (!)
  *
  * @param out          output video frames array
  *                     the resulting matrix will be stored row-dominant

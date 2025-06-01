@@ -474,7 +474,7 @@ Word s_p7[64] = {               /* Combined S-Box8 and permutation P */
 #define PC2(regC, regD, k) \
         PC2_AUX(regC, regD, k[0], k[1])
 
-unsigned char G_padChar = (char)0;      /* Default pad charcater */
+unsigned char G_padChar = (char)0;      /* Default pad character */
 
 static Word ROTATE_LEFT(Word x)
 {
@@ -494,7 +494,7 @@ static Word ROTATE_RIGHT(Word x)
 ** The S Box transformations and the permutation P are combined in the vectors
 ** s_p0 - s_p7. Permutation E and the MOD 2 addition with the intermediate key
 ** are then done "inline" on each round. The intermediate key is already in a
-** a 8x6bit form because of the modified permuation PC2 used.
+** a 8x6bit form because of the modified permutation PC2 used.
 */
 
 #if !defined(WORDS_BIGENDIAN)
@@ -662,13 +662,13 @@ qfDES(unsigned char *key,
 
         /*
          ** Lots of gotos and code duplication follow (arrgh) but it speeds
-         ** it up a wee bit!
+         ** it up a little bit!
          ** What would be more useful is looking more carefully at the DES
          ** permutations to produce more efficient versions of the macros
          ** of the "auto-generated" versions used in qfDES-aux.c.
          */
 
-        size >>= 3;             /* this is always a multpile of 8 */
+        size >>= 3;             /* this is always a multiple of 8 */
 
         if (what == qfDES_encrypt) {
                 switch ((int)mode) {
@@ -912,7 +912,7 @@ int qfDES_checkWeakKeys(unsigned char *key)
 }
 
 /*
-** The following function attempts to genreate a random key or IV.
+** The following function attempts to generate a random key or IV.
 ** It relies on the randomness of the  of the random(3) function. Although
 ** it is probably not particularly fast, keys and IV will most probably be
 ** generated off-line so it does not matter too much.

@@ -95,10 +95,10 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         }
 
         // setting verbosity - a bit tricky now, gpujpeg_decoder_init needs to be called with some "valid" data
-        // otherwise, parameter setting is unneeded - it is done automaticaly by the image
+        // otherwise, parameter setting is unneeded - it is done automatically by the image
         struct gpujpeg_parameters param;
         gpujpeg_set_default_parameters(&param);
-        param.color_space_internal = GPUJPEG_YCBCR_BT709; // see comment bellow
+        param.color_space_internal = GPUJPEG_YCBCR_BT709; // see comment below
         param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
         param.perf_stats = log_level >= LOG_LEVEL_DEBUG ? 1 : 0;
         struct gpujpeg_image_parameters param_image;

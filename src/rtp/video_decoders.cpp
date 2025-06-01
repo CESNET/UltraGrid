@@ -174,7 +174,7 @@ using std::vector;
 struct state_video_decoder;
 
 /**
- * Interlacing changing function protoype. The function should be able to change buffer
+ * Interlacing changing function prototype. The function should be able to change buffer
  * in place, that is when dst and src are the same.
  */
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void **state);
@@ -213,7 +213,7 @@ enum decoder_type_t {
  * This structure holds data needed to use a linedecoder.
  */
 struct line_decoder {
-        int                  base_offset;  ///< from the beginning of buffer. Nonzero if decoding from mutiple tiles.
+        int                  base_offset;  ///< from the beginning of buffer. Nonzero if decoding from multiple tiles.
         long                 conv_num;     ///< in->out bpp conv numerator
         long                 conv_den;     ///< in->out bpp conv denominator
         int                  shifts[3];    ///< requested red,green and blue shift (in bits)
@@ -372,7 +372,7 @@ struct state_video_decoder
 
         enum decoder_type_t decoder_type = {};  ///< how will the video data be decoded
         struct line_decoder *line_decoder = NULL; ///< if the video is uncompressed and only pixelformat change
-                                           ///< is neeeded, use this structure
+                                           ///< is needed, use this structure
         vector<struct state_decompress *> decompress_state; ///< state of the decompress (for every substream)
         bool accepts_corrupted_frame = false;     ///< whether we should pass corrupted frame to decompress
         bool buffer_swapped = true; /**< variable indicating that display buffer
@@ -389,7 +389,7 @@ struct state_video_decoder
         enum video_mode   video_mode = {} ;  ///< video mode set for this decoder
         bool          merged_fb = false; ///< flag if the display device driver requires tiled video or not
 
-        timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
+        timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning only in certain interval
 
         synchronized_queue<main_msg_reconfigure *, -1> msg_queue;
 
@@ -757,7 +757,7 @@ static void decoder_set_video_mode(struct state_video_decoder *decoder, enum vid
  *                    no decoding will take place.
  * @param encryption  Encryption config string. Currently, this is a passphrase to be
  *                    used. This may change eventually.
- * @return Newly created decoder state. If an error occured, returns NULL.
+ * @return Newly created decoder state. If an error occurred, returns NULL.
  */
 struct state_video_decoder *video_decoder_init(struct module *parent,
                 enum video_mode video_mode,
@@ -921,7 +921,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         if(ret) {
                 decoder->disp_supported_il_cnt /= sizeof(enum interlacing_t);
         } else {
-                enum interlacing_t tmp[] = { PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME}; /* default if not said othervise */
+                enum interlacing_t tmp[] = { PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME}; /* default if not said otherwise */
                 memcpy(decoder->disp_supported_il, tmp, sizeof(tmp));
                 decoder->disp_supported_il_cnt = sizeof(tmp) / sizeof(enum interlacing_t);
         }
@@ -935,7 +935,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
  * @brief This removes display from current decoder.
  *
  * From now on, no video frames will be decoded with current decoder.
- * @see decoder_register_display - the counterpart of this functon
+ * @see decoder_register_display - the counterpart of this function
  *
  * @param decoder decoder from which will the decoder be removed
  */
@@ -1171,7 +1171,7 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
         };
 
         int i;
-        /* first try to check if it can be nativelly displayed */
+        /* first try to check if it can be natively displayed */
         for (i = 0; i < il_out_cnt; ++i) {
                 if(in_il == supported[i]) {
                         *out_il = in_il;
@@ -1503,7 +1503,7 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
  * @param cdata        PBUF buffer
  * @param decoder_data @ref vcodec_state containing decoder state and some additional data
  * @retval true        if decoding was successful.
- *                     It stil doesn't mean that the frame will be correctly displayed,
+ *                     It still doesn't mean that the frame will be correctly displayed,
  *                     decoding may fail in some subsequent (asynchronous) steps.
  * @retval false       if decoding failed
  */
@@ -1527,7 +1527,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         int buffer_number = 0;
         bool buffer_swapped = false;
 
-        // We have no framebuffer assigned, exitting
+        // We have no framebuffer assigned, exiting
         if(!decoder->display) {
                 vf_free(frame);
                 return false;

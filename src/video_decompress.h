@@ -93,7 +93,7 @@ typedef enum {
  * @param[in]  state         decompress state
  * @param[out] dst           buffer where uncompressed frame will be written
  * @note
- * Length of the result isn't returned because is known from the informations
+ * Length of the result isn't returned because is known from the information
  * passed with decompress_reconfigure.
  * @param[in] buffer         buffer where uncompressed frame will be written
  * @param[in] src_len        length of the compressed buffer

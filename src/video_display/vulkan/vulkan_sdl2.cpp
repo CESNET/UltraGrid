@@ -452,7 +452,7 @@ void show_help() {
         col() << SBOLD("\t               d") << " - deinterlace\n";
         col() << SBOLD("\t              fs") << " - fullscreen\n";
         
-        col() << SBOLD("\t     keep-aspect") << " - keep window aspect ratio respecive to the video\n";
+        col() << SBOLD("\t     keep-aspect") << " - keep window aspect ratio respective to the video\n";
         col() << SBOLD("\t        nocursor") << " - hides cursor\n";
         col() << SBOLD("\t      nodecorate") << " - disable window border\n";
         col() << SBOLD("\t         novsync") << " - disable vsync\n";
@@ -486,7 +486,7 @@ struct CodecToVulkanFormat{
 
 // Ultragrid to VulkanDisplay Format mapping
 const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulkan_sdl2& s){
-        //the backup vkd::Format must follow the corrresponding native vkd::Format 
+        //the backup vkd::Format must follow the corresponding native vkd::Format 
         constexpr std::array<CodecToVulkanFormat, 10> format_mapping {{
                 {RGBA, vkd::Format::RGBA8},
                 {RGB,  vkd::Format::RGB8},

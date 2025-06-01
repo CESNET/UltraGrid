@@ -111,7 +111,7 @@ extern int glfw_init_count;
 extern char pixfmt_conv_pref[]; // defined in video_codec.c
 extern char *sage_network_device;
 
-// Both of following varables are non-negative. It indicates amount of milliseconds that
+// Both of following variables are non-negative. It indicates amount of milliseconds that
 // audio or video should be delayed. This shall be used for AV sync control. For
 // getting/setting you can use get_av_delay()/set_av_delay(). All is in milliseconds.
 extern volatile int audio_offset;
@@ -123,7 +123,7 @@ void set_audio_delay(int val);
 #define RATE_AUTO                   (-1) ///< spread packets evenly across frame time (currently 3/4)
 #define RATE_DYNAMIC                (-2) ///< same as @ref RATE_AUTO but occasional excess frame allowed
 #define RATE_MIN                RATE_DYNAMIC
-#define RATE_DEFAULT                (-3) ///< imaginary value, must not be passed to trasmit module
+#define RATE_DEFAULT                (-3) ///< imaginary value, must not be passed to transmit module
 #define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
 
 struct init_data;

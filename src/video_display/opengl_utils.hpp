@@ -235,7 +235,7 @@ public:
         /**
          * Attaches a texture to the contained framebuffer
          *
-         * @param tex Texture object containg the texture to attach
+         * @param tex Texture object containing the texture to attach
          */
         void attach_texture(const Texture& tex){
                 attach_texture(tex.get());

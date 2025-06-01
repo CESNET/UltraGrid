@@ -52,7 +52,7 @@ extern "C" {
 bool ends_with(const char *haystick, const char *needle);
 void replace_all(char *in, const char *from, const char *to);
 bool is_prefix_of(const char *haystack, const char *needle);
-/// same as strpbrk but finds in a reverse order (last occurence returned)
+/// same as strpbrk but finds in a reverse order (last occurrence returned)
 char *strrpbrk(char *s, const char *accept);
 void strappend(char **ptr, const char *ptr_end, const char *src);
 void append_sig_desc(char **ptr, const char *ptr_end, int signum);

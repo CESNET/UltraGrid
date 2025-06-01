@@ -175,7 +175,7 @@ struct device_state {
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
         BMDNotificationCallback    *notificationCallback  = nullptr;
         string                      device_id = "0"; // either numeric value or device name
-        bool                        audio                 = false; /* wheather we process audio or not */
+        bool                        audio                 = false; /* whether we process audio or not */
         struct tile                *tile                  = nullptr;
         bool init(struct vidcap_decklink_state *s, struct tile *tile, BMDAudioConnection audioConnection);
         void check_attributes(struct vidcap_decklink_state *s);
@@ -186,7 +186,7 @@ struct vidcap_decklink_state {
         vector <struct device_state>     state{vector <struct device_state>(1)};
         int                     devices_cnt = 1;
         string                  mode;
-        unsigned int            next_frame_time = 0; // avarege time between frames
+        unsigned int            next_frame_time = 0; // average time between frames
         struct video_frame     *frame{nullptr};
         struct audio_frame      audio{};
         queue<IDeckLinkAudioInputPacket *> audioPackets;
@@ -988,7 +988,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         }
         *pf = it->second;
 
-        // get avarage time between frames
+        // get average time between frames
         BMDTimeValue frameRateDuration = 0;
 
         tile->width = displayMode->GetWidth();
@@ -1317,7 +1317,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         MSG(ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
                 } else if (mode_idx == MODE_SPEC_AUTODETECT) {
                         MSG(ERROR, "Cannot set initial format for "
-                                   "autodetection - perhaps imposible "
+                                   "autodetection - perhaps impossible "
                                    "combinations of parameters were set.\n");
                 } else {
                         assert("Invalid mode spec." && 0);

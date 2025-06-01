@@ -57,15 +57,15 @@
  * com_uninintialize(). The value should be initialized to false - the current
  * logic can guard only one init/uninit so true is assumed bo be a repeated call.
  * @param[in] err_prefix optional error prefix to be used for eventual error
- * messges (may be NULL)
- * @retval true  if either COM already initalized for this thread or this call
- * initializes COM succesfully
+ * messages (may be NULL)
+ * @retval true  if either COM already initialized for this thread or this call
+ * initializes COM successfully
  * @retval false  COM could not have been initialized
  */
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
         if (*com_initialized) {
-                MSG(WARNING, "com_initialized should be initalized to false "
+                MSG(WARNING, "com_initialized should be initialized to false "
                              "upon the call!\n");
         }
 #ifdef _WIN32
@@ -80,7 +80,7 @@ bool com_initialize(bool *com_initialized, const char *err_prefix)
                 return true;
         }
         if (result == RPC_E_CHANGED_MODE) {
-                log_msg(LOG_LEVEL_WARNING, "%sCOM already intiialized with a different mode!\n", err_prefix);
+                log_msg(LOG_LEVEL_WARNING, "%sCOM already initialized with a different mode!\n", err_prefix);
                 return true;
         }
         log_msg(LOG_LEVEL_ERROR, "%sInitialize of COM failed - %s\n", err_prefix, hresult_to_str(result));

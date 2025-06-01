@@ -518,7 +518,7 @@ static VHD_CORE_BOARDPROPERTY GetPassiveLoopbackProperty(int ChannelIdx)
 }
 
 /// @sa SDK SetLoopbackState() since VideoMaster 6.21 but simplified to the extent
-/// of features suppoprted by the prior versions (passive loopback only)
+/// of features supported by the prior versions (passive loopback only)
 void
 delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex, BOOL32 State)
 {

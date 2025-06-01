@@ -108,7 +108,7 @@ main ( int argc, char *argv[] )
 		else if ( isprint ( optopt))
 		    fprintf ( stderr, "Unknown option '-%c'.\n", optopt);
 		else
-		    fprintf ( stderr, "Uknown option character '\\x%x'.\n", optopt);
+		    fprintf ( stderr, "Unknown option character '\\x%x'.\n", optopt);
 
 		return 1;
 	    default:
@@ -194,7 +194,7 @@ demo(int k, int m, int frame_size, char* matrix_fname, char* data_fname, int cpu
     for ( int i = 0; i < frame_size; ++i)
 	memset((char*)data+i, rand() % 256, 1);
 
-    //alocate space for parity packets
+    //allocate space for parity packets
 
 //    void *parity;
     //allocate memory with address aligned to 16 bytes

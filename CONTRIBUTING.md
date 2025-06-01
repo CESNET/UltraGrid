@@ -1,6 +1,6 @@
 # How to contribute to UltraGrid
 First, thanks to contribute to UltraGrid by using UltraGrid, reporting bugs,
-adding code or ideas. Further section contains basic informations how to
+adding code or ideas. Further section contains basic information how to
 contribute. Feel free to inform us if you need to contribute in a different
 way or extend this document.
 
@@ -24,7 +24,7 @@ way or extend this document.
 
 ## Reporting bugs
 
-Prefered way to report a bug is to open an issue on GitHub. If not possible,
+Preferred way to report a bug is to open an issue on GitHub. If not possible,
 you can also contact the development team directly with an e-mail.
 
 Please look also at detailed instructions here [here](doc/REPORTING-BUGS.md).
@@ -46,7 +46,7 @@ The pull request should represent a coherent unit, like a single feature added.
 More features should be separated to multiple pull request (of course if possible
 and eg. not firmly bound together).
 
-The contained commits shouls present clearly what was changed. Ideally,
+The contained commits should present clearly what was changed. Ideally,
 if refactoring is done, it should not be mixed with functional changes
 in a single commit, similarly for the code movement.
 
