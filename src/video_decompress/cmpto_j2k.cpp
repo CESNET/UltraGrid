@@ -632,6 +632,22 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
         int msg_level = internal_prop->subsampling == 0 ? LOG_LEVEL_WARNING /* bogus? */ : LOG_LEVEL_VERBOSE;
         log_msg(msg_level, "J2K stream properties: %s\n", get_pixdesc_desc(*internal_prop));
 
+        // Attempt to get the lossiness info of the image
+        enum cmpto_codestream_lossiness lossiness;
+        if (cmpto_j2k_dec_cstream_get_ext_img_info(buffer, len, &info, &lossiness) != CMPTO_OK) {
+                MSG(WARNING, "J2K failed to get image extended attributes. Unable to read image lossiness info.\n");
+        } else {
+                static auto get_lossiness_string = [&lossiness]() {
+                        switch (lossiness) {
+                                case CMPTO_LOSSLESS:        return "Lossless";
+                                case CMPTO_LOSSY:           return "Lossy";
+                                case CMPTO_MIXED_LOSSINESS: return "Mixed";
+                                default:                    return "Unknown";
+                        }
+                };
+                MSG(INFO, "J2K codestream lossiness: %s\n", get_lossiness_string());
+        }
+
         return DECODER_GOT_CODEC;
 }
 
