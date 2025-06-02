@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -1384,7 +1384,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
                                 &res, &size);
                 decoder->accepts_corrupted_frame = ret && res;
-                MSG(VERBOSE, "Decoder accepts corrupted frames: %d",
+                MSG(VERBOSE, "Decoder accepts corrupted frames: %d\n",
                     (int) decoder->accepts_corrupted_frame);
         }
 
