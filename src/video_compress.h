@@ -5,10 +5,10 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @ingroup video_compress
  *
- * @brief API for video compress drivers.
+ * @brief external vcompress API + internal one for video compress drivers
  */
 /*
- * Copyright (c) 2009-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2009-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,15 +80,6 @@ struct module;
 //
 // Begins external API for video compression use
 //
-/**
- * @brief Initializes video compression
- * 
- * @param[in] parent parent module
- * @param[in] cfg    configuration string
- * @return           driver internal state
- */
-typedef struct module *(*compress_init_t)(struct module *parent,
-                const char *cfg);
 // documented at definition
 void show_compress_help(bool full);
 // documented at definition
@@ -110,6 +101,16 @@ std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 #include <list>
 #include <string>
 #include <vector>
+
+/**
+ * @brief Initializes video compression
+ *
+ * @param[in] parent parent module
+ * @param[in] cfg    configuration string
+ * @return           driver internal state
+ */
+typedef struct module *(*compress_init_t)(struct module *parent,
+                const char *cfg);
 
 /**
  * @brief Compresses video frame
