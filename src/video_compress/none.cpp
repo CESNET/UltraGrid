@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_frame.h"
@@ -55,41 +54,34 @@ namespace {
 
 #define MAGIC 0x45bb3321
 
-static void none_compress_done(struct module *mod);
+static void none_compress_done(void *state);
 
 struct state_video_compress_none {
-        struct module module_data;
-
         uint32_t magic;
 };
 
-struct module * none_compress_init(struct module *parent, const char *)
+void* none_compress_init(module *parent, const char *)
 {
-        struct state_video_compress_none *s;
-        
-        s = (struct state_video_compress_none *) malloc(sizeof(struct state_video_compress_none));
+        (void) parent;
+        auto *s = (struct state_video_compress_none *) malloc(
+            sizeof(struct state_video_compress_none));
         s->magic = MAGIC;
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = none_compress_done;
-        module_register(&s->module_data, parent);
 
-        return &s->module_data;
+        return s;
 }
 
-std::shared_ptr<video_frame> none_compress(struct module *mod, std::shared_ptr<video_frame> tx)
+std::shared_ptr<video_frame> none_compress(void *state, std::shared_ptr<video_frame> tx)
 {
-        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
+        auto *s = (struct state_video_compress_none *) state;
 
         assert(s->magic == MAGIC);
 
         return tx;
 }
 
-static void none_compress_done(struct module *mod)
+static void none_compress_done(void  *state)
 {
-        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
+        auto *s = (struct state_video_compress_none *) state;
 
         assert(s->magic == MAGIC);
 
@@ -97,8 +89,8 @@ static void none_compress_done(struct module *mod)
 }
 
 const struct video_compress_info none_info = {
-        "none",
         none_compress_init,
+        none_compress_done,
         none_compress,
         NULL,
         NULL,

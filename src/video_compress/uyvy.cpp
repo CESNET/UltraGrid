@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "utils/video_frame_pool.h"
 #include "video_compress.h"
 #include "video.h"
@@ -107,8 +106,6 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 
 
 struct state_video_compress_uyvy {
-        struct module module_data;
-
         unsigned int configured:1;
         struct video_desc saved_desc;
 
@@ -126,13 +123,14 @@ struct state_video_compress_uyvy {
 };
 
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
-static void uyvy_compress_done(struct module *mod);
+static void uyvy_compress_done(void *mod);
 
-struct module * uyvy_compress_init(struct module *parent, const char *)
+void *
+uyvy_compress_init(struct module *parent, const char *)
 {
-        struct state_video_compress_uyvy *s;
-
-        s = (struct state_video_compress_uyvy *) malloc(sizeof(struct state_video_compress_uyvy));
+        (void) parent;
+        auto *s = (struct state_video_compress_uyvy *) malloc(
+            sizeof(struct state_video_compress_uyvy));
 
         if(!init_gl_context(&s->context, GL_CONTEXT_LEGACY))
                 abort();
@@ -156,13 +154,7 @@ struct module * uyvy_compress_init(struct module *parent, const char *)
 
         s->pool = new video_frame_pool();
 
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = uyvy_compress_done;
-        module_register(&s->module_data, parent);
-
-        return &s->module_data;
+        return s;
 }
 
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx)
@@ -227,12 +219,12 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
         return true;
 }
 
-shared_ptr<video_frame> uyvy_compress(struct module *mod, shared_ptr<video_frame> tx)
+shared_ptr<video_frame> uyvy_compress(void *state, shared_ptr<video_frame> tx)
 {
         if (!tx) {
                 return {};
         }
-        struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
+        auto *s = (struct state_video_compress_uyvy *) state;
 
         gl_context_make_current(&s->context);
 
@@ -286,9 +278,9 @@ shared_ptr<video_frame> uyvy_compress(struct module *mod, shared_ptr<video_frame
         return out;
 }
 
-static void uyvy_compress_done(struct module *mod)
+static void uyvy_compress_done(void *state)
 {
-        struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
+        auto *s = (struct state_video_compress_uyvy *) state;
 
         glDeleteFramebuffers(1, &s->fbo);
         glDeleteTextures(1, &s->texture_rgba);
@@ -301,8 +293,8 @@ static void uyvy_compress_done(struct module *mod)
 }
 
 const struct video_compress_info uyvy_info = {
-        "UYVY",
         uyvy_compress_init,
+        uyvy_compress_done,
         uyvy_compress,
         NULL,
         NULL,

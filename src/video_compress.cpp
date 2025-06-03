@@ -6,7 +6,7 @@
  * @brief Video compress functions.
  */
 /*
- * Copyright (c) 2011-2024 CESNET z.s.p.o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -86,7 +86,7 @@ public:
         }
         ~compress_state_real();
         const video_compress_info    *funcs;            ///< handle for the driver
-        vector<struct module *> state;                  ///< driver internal states
+        vector<void*> state;                  ///< driver internal states
         string              compress_options; ///< compress options (for reconfiguration)
         volatile bool       discard_frames;   ///< this class is no longer active
 };
@@ -147,7 +147,9 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                         tmp_data->what = data->what;
                         strncpy(tmp_data->config_string, data->config_string,
                                         sizeof(tmp_data->config_string));
-                        struct response *resp = send_message_to_receiver(proxy->ptr->state[i],
+                        char receiver[100];
+                        snprintf(receiver, sizeof receiver, "data[%u]", i);
+                        struct response *resp = send_message(&proxy->mod, receiver,
                                         (struct message *) tmp_data);
                         /// @todo
                         /// Handle responses more intelligently (eg. aggregate).
@@ -397,7 +399,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
  * @brief Auxiliary structure passed to worker thread.
  */
 struct compress_worker_data {
-        struct module *state;      ///< compress driver status
+        void *state;      ///< compress driver status
         shared_ptr<video_frame> frame; ///< uncompressed tile to be compressed
 
         compress_tile_t callback;  ///< tile compress callback
@@ -506,7 +508,7 @@ compress_state_real::~compress_state_real()
         }
 
         for(unsigned int i = 0; i < state.size(); ++i) {
-                module_done(state[i]);
+                funcs->done(state[i]);
         }
 }
 

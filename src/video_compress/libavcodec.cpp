@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -176,7 +176,7 @@ typedef struct {
 } codec_params_t;
 
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
-static void libavcodec_compress_done(struct module *mod);
+static void libavcodec_compress_done(void *state);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265_av1(AVCodecContext *, struct setparam_param *);
 static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
@@ -269,7 +269,6 @@ struct state_video_compress_libav {
                 module_init_default(&module_data);
                 module_data.cls = MODULE_CLASS_DATA;
                 module_data.priv_data = this;
-                module_data.deleter = libavcodec_compress_done;
                 module_register(&module_data, parent);
         }
         ~state_video_compress_libav() {
@@ -688,7 +687,7 @@ static compress_module_info get_libavcodec_module_info(){
 ADD_TO_PARAM("keep-pixfmt",
                 "* keep-pixfmt\n"
                 "  Signalize input pixel format to receiver and try\n");
-struct module * libavcodec_compress_init(struct module *parent, const char *opts)
+void* libavcodec_compress_init(struct module *parent, const char *opts)
 {
         ug_set_av_logging();
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
@@ -708,8 +707,8 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         }
         free(fmt);
         if (ret != 0) {
-                module_done(&s->module_data);
-                return ret > 0 ? static_cast<module*>(INIT_NOERR) : NULL;
+                libavcodec_compress_done(s);
+                return ret > 0 ? INIT_NOERR : NULL;
         }
 
         return &s->module_data;
@@ -1530,9 +1529,9 @@ receive_packet(state_video_compress_libav *s)
         return out_vf_from_pkt(s, s->pkt);
 }
 
-static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
+static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<video_frame> tx)
 {
-        auto *s = (state_video_compress_libav *) mod->priv_data;
+        auto *s = (state_video_compress_libav *) state;
         list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
 
         libavcodec_check_messages(s);
@@ -1636,9 +1635,9 @@ static void cleanup(struct state_video_compress_libav *s)
 #endif //HAVE_SWSCALE
 }
 
-static void libavcodec_compress_done(struct module *mod)
+static void libavcodec_compress_done(void *state)
 {
-        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
+        auto *s = (struct state_video_compress_libav *) state;
 
         cleanup(s);
 
@@ -2312,8 +2311,8 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s)
 }
 
 const struct video_compress_info libavcodec_info = {
-        "libavcodec",
         libavcodec_compress_init,
+        libavcodec_compress_done,
         NULL,
         libavcodec_compress_tile,
         NULL,
@@ -2324,8 +2323,8 @@ const struct video_compress_info libavcodec_info = {
 };
 
 const struct video_compress_info lavc_info = {
-        "lavc",
         libavcodec_compress_init,
+        libavcodec_compress_done,
         nullptr,
         libavcodec_compress_tile,
         nullptr,

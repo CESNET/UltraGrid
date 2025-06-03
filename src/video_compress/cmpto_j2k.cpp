@@ -69,7 +69,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"            // for IS_KEY_PREFIX, TOSTRING
@@ -278,7 +277,6 @@ get_supported_technology(const char *name)
 }
 
 struct state_video_compress_j2k {
-        struct module module_data{};
         const struct cmpto_j2k_technology *tech = nullptr;
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
@@ -310,7 +308,7 @@ struct state_video_compress_j2k {
 
 // prototypes
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
-static void j2k_compress_done(struct module *mod);
+static void j2k_compress_done(void *state);
 static void cleanup_common(struct state_video_compress_j2k *s);
 
 static void parallel_conv(video_frame *dst, video_frame *src){
@@ -562,7 +560,7 @@ struct custom_data {
  * pipeline. Because of that goto + start label is used.
  */
 #define HANDLE_ERROR_COMPRESS_POP do { cmpto_j2k_enc_img_destroy(img); goto start; } while (0)
-static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
+static std::shared_ptr<video_frame> j2k_compress_pop(void *state)
 {
         auto *s = (struct state_video_compress_j2k *) state;
 start:
@@ -733,15 +731,16 @@ static void usage(bool full) {
                 (var) = val; \
         } while (0)
 
-static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
+static void * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
+        (void) parent;
         const auto *version = cmpto_j2k_enc_get_version();
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
         if (strcasecmp(c_cfg, "help") == 0 ||
             strcasecmp(c_cfg, "fullhelp") == 0) {
                 usage(strcasecmp(c_cfg, "fullhelp") == 0);
-                return static_cast<module *>(INIT_NOERR);
+                return INIT_NOERR;
         }
 
         const char *req_technology = nullptr;
@@ -772,7 +771,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         ASSIGN_CHECK_VAL(s->thread_count, strchr(item, '=') + 1, 0);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        j2k_compress_done((struct module *) s);
+                        j2k_compress_done(s);
                         return nullptr;
                 }
         }
@@ -780,14 +779,14 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         if (!s->lossless) {
                 if (s->quality < 0.0 || s->quality > 1.0) {
                         LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
-                        j2k_compress_done((struct module *) s);
+                        j2k_compress_done(s);
                         return nullptr;
                 }
         }
 
         s->tech = get_supported_technology(req_technology);
         if (s->tech == nullptr) {
-                j2k_compress_done((struct module *) s);
+                j2k_compress_done(s);
                 return nullptr;
         }
         MSG(INFO, "Using technology: %s\n", s->tech->name);
@@ -799,13 +798,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 s->img_tile_limit = (int) s->tech->default_img_tile_limit;
         }
 
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = j2k_compress_done;
-        module_register(&s->module_data, parent);
-
-        return &s->module_data;
+        return s;
 }
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame)
@@ -838,7 +831,7 @@ release_cstream_cuda(void *img_custom_data, size_t img_custom_data_size,
         } \
         return
 
-static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
+static void j2k_compress_push(void *state, std::shared_ptr<video_frame> tx)
 {
         struct state_video_compress_j2k *s =
                 (struct state_video_compress_j2k *) state;
@@ -932,9 +925,9 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
 }
 
-static void j2k_compress_done(struct module *mod)
+static void j2k_compress_done(void *state)
 {
-        auto *s = (struct state_video_compress_j2k *) mod;
+        auto *s = (struct state_video_compress_j2k *) state;
         cleanup_common(s);
         delete s;
 }
@@ -973,8 +966,8 @@ static compress_module_info get_cmpto_j2k_module_info(){
 }
 
 static struct video_compress_info j2k_compress_info = {
-        "cmpto_j2k",
         j2k_compress_init,
+        j2k_compress_done,
         NULL,
         NULL,
         NULL,

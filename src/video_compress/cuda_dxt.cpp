@@ -3,7 +3,7 @@
  * @author Martin Pulec  <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "pixfmt_conv.h"               // for get_decoder_from_to, decoder_t
 #include "types.h"                     // for tile, video_frame, video_desc
 #include "utils/video_frame_pool.h"
@@ -75,7 +74,6 @@ struct cuda_buffer_data_allocator : public video_frame_pool_allocator {
 };
 
 struct state_video_compress_cuda_dxt {
-        struct module       module_data;
         struct video_desc   saved_desc;
         char               *in_buffer;      ///< for decoded data
         char               *cuda_uyvy_buffer; ///< same as in_buffer but in device memory
@@ -88,11 +86,12 @@ struct state_video_compress_cuda_dxt {
         video_frame_pool pool{0, cuda_buffer_data_allocator()};
 };
 
-static void cuda_dxt_compress_done(struct module *mod);
+static void cuda_dxt_compress_done(void *state);
 
-struct module *cuda_dxt_compress_init(struct module *parent,
+void *cuda_dxt_compress_init(struct module *parent,
                 const char *fmt)
 {
+        (void) parent;
         state_video_compress_cuda_dxt *s =
                 new state_video_compress_cuda_dxt();
         s->out_codec = DXT1;
@@ -110,13 +109,7 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 }
         }
 
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = cuda_dxt_compress_done;
-        module_register(&s->module_data, parent);
-
-        return &s->module_data;
+        return s;
 }
 
 static void cleanup(struct state_video_compress_cuda_dxt *s)
@@ -188,14 +181,13 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         return true;
 }
 
-shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
+shared_ptr<video_frame> cuda_dxt_compress_tile(void *state, shared_ptr<video_frame> tx)
 {
         if (!tx) {
                 return {};
         }
 
-        struct state_video_compress_cuda_dxt *s =
-                (struct state_video_compress_cuda_dxt *) mod->priv_data;
+        auto *s = (struct state_video_compress_cuda_dxt *) state;
 
         cuda_wrapper_set_device(cuda_devices[0]);
 
@@ -281,19 +273,16 @@ shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, shared_ptr<vi
         return out;
 }
 
-static void cuda_dxt_compress_done(struct module *mod)
+static void cuda_dxt_compress_done(void *state)
 {
-        struct state_video_compress_cuda_dxt *s =
-                (struct state_video_compress_cuda_dxt *) mod->priv_data;
-
+        auto *s = (struct state_video_compress_cuda_dxt *) state;
         cleanup(s);
-
         delete s;
 }
 
 const struct video_compress_info cuda_dxt_info = {
-        "cuda_dxt",
         cuda_dxt_compress_init,
+        cuda_dxt_compress_done,
         NULL,
         cuda_dxt_compress_tile,
         NULL,

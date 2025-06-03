@@ -3,7 +3,7 @@
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  */
-/* Copyright (c) 2019-2023 CESNET z.s.p.o.
+/* Copyright (c) 2019-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -49,7 +49,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "tv.h"
 #include "video_compress.h"
 
@@ -76,8 +75,6 @@
 #define MOD_NAME "[cineform] "
 
 struct state_video_compress_cineform{
-        struct module module_data;
-
         std::mutex mutex;
 
         struct video_desc saved_desc;
@@ -107,8 +104,8 @@ struct state_video_compress_cineform{
 #endif
 };
 
-static void cineform_compress_done(struct module *mod){
-        struct state_video_compress_cineform *s = (struct state_video_compress_cineform *) mod->priv_data;
+static void cineform_compress_done(void *state) {
+        auto *s = (struct state_video_compress_cineform *) state;
 
         s->mutex.lock();
 
@@ -175,8 +172,9 @@ static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
         return 0;
 }
 
-static struct module * cineform_compress_init(struct module *parent, const char *opts)
+static void * cineform_compress_init(struct module *parent, const char *opts)
 {
+        (void) parent;
         struct state_video_compress_cineform *s;
 
         s = new state_video_compress_cineform();
@@ -191,7 +189,7 @@ static struct module * cineform_compress_init(struct module *parent, const char 
         free(fmt);
         if(ret != 0) {
                 delete s;
-                return ret > 0 ? static_cast<module*>(INIT_NOERR) : nullptr;
+                return ret > 0 ? INIT_NOERR : nullptr;
         }
 
         log_msg(LOG_LEVEL_NOTICE, "[cineform] : Threads: %d.\n", s->requested_threads);
@@ -218,13 +216,7 @@ static struct module * cineform_compress_init(struct module *parent, const char 
         s->started = false;
         s->stop = false;
 
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = cineform_compress_done;
-        module_register(&s->module_data, parent);
-
-        return &s->module_data;
+        return s;
 }
 
 static struct {
@@ -349,9 +341,9 @@ static video_frame *get_copy(struct state_video_compress_cineform *s, video_fram
         return ret;
 }
 
-static void cineform_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
+static void cineform_compress_push(void *state, std::shared_ptr<video_frame> tx)
 {
-        struct state_video_compress_cineform *s = (struct state_video_compress_cineform *) state->priv_data;
+        auto *s = (struct state_video_compress_cineform *) state;
 
         CFHD_Error status = CFHD_ERROR_OKAY;
         std::unique_lock<std::mutex> lock(s->mutex);
@@ -435,9 +427,9 @@ static void timespec_diff(struct timespec *start, struct timespec *stop,
 }
 #endif
 
-static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
+static std::shared_ptr<video_frame> cineform_compress_pop(void *state)
 {
-        struct state_video_compress_cineform *s = (struct state_video_compress_cineform *) state->priv_data;
+        auto *s = (struct state_video_compress_cineform *) state;
 
         std::unique_lock<std::mutex> lock(s->mutex);
 
@@ -531,8 +523,8 @@ static compress_module_info get_cineform_module_info(){
 }
 
 const struct video_compress_info cineform_info = {
-        "cineform",
         cineform_compress_init,
+        cineform_compress_done,
         NULL,
         NULL,
         NULL,

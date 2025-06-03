@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,6 @@
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "pixfmt_conv.h"               // for get_decoder_from_to, decoder_t
 #include "types.h"                     // for tile, video_frame, video_desc
 #include "utils/video_frame_pool.h"
@@ -62,8 +61,6 @@ using namespace std;
 namespace {
 
 struct state_video_compress_rtdxt {
-        struct module module_data;
-
         struct dxt_encoder **encoder;
         int encoder_count;
 
@@ -81,7 +78,7 @@ struct state_video_compress_rtdxt {
 };
 
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame);
-static void dxt_glsl_compress_done(struct module *mod);
+static void dxt_glsl_compress_done(void *state);
 
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame)
 {
@@ -212,8 +209,9 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         return true;
 }
 
-struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
+void *dxt_glsl_compress_init(struct module *parent, const char *opts)
 {
+        (void) parent;
         struct state_video_compress_rtdxt *s;
 
         if(strcmp(opts, "help") == 0) {
@@ -251,22 +249,16 @@ struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
 
         gl_context_make_current(NULL);
 
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = dxt_glsl_compress_done;
-        module_register(&s->module_data, parent);
-
-        return &s->module_data;
+        return s;
 }
 
-shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, shared_ptr<video_frame> tx)
+shared_ptr<video_frame> dxt_glsl_compress(void *state, shared_ptr<video_frame> tx)
 {
         if (!tx) {
                 return {};
         }
 
-        struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
+        auto *s = (struct state_video_compress_rtdxt *) state;
         int i;
         unsigned char *line1, *line2;
 
@@ -311,9 +303,9 @@ shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, shared_ptr<video_f
         return out_frame;
 }
 
-static void dxt_glsl_compress_done(struct module *mod)
+static void dxt_glsl_compress_done(void *state)
 {
-        struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
+        auto *s = (struct state_video_compress_rtdxt *) state;
 
         if(s->encoder) {
                 for(int i = 0; i < s->encoder_count; ++i) {
@@ -327,8 +319,8 @@ static void dxt_glsl_compress_done(struct module *mod)
 }
 
 const struct video_compress_info rtdxt_info = {
-        "RTDXT",
         dxt_glsl_compress_init,
+        dxt_glsl_compress_done,
         dxt_glsl_compress,
         NULL,
         NULL,

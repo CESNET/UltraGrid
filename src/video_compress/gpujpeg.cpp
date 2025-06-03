@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2024 CESNET
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <cassert>
 #include <condition_variable>
+#include <cstring>
 #include <initializer_list>
 #include <libgpujpeg/gpujpeg_common.h>
 #include <libgpujpeg/gpujpeg_encoder.h>
@@ -52,7 +53,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "module.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
@@ -153,7 +153,6 @@ public:
         void push(std::shared_ptr<video_frame> in_frame);
         std::shared_ptr<video_frame> pop();
 
-        struct module           m_module_data;
         int                     m_restart_interval;
         int                     m_quality;
         bool                    m_force_interleaved = false;
@@ -419,8 +418,9 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 state_video_compress_gpujpeg::state_video_compress_gpujpeg(struct module *parent, const char *opts) :
         m_uses_worker_threads{}, m_in_seq{},
         m_out_seq{}, m_ended_count{},
-        m_module_data{}, m_restart_interval(UNDEF), m_quality(-1)
+        m_restart_interval(UNDEF), m_quality(-1)
 {
+        (void) parent;
         if(opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
                 if (!parse_fmt(fmt)) {
@@ -429,17 +429,6 @@ state_video_compress_gpujpeg::state_video_compress_gpujpeg(struct module *parent
                 }
                 free(fmt);
         }
-
-        module_init_default(&m_module_data);
-        m_module_data.cls = MODULE_CLASS_DATA;
-        m_module_data.priv_data = this;
-        static auto deleter = [](struct module *mod) {
-                struct state_video_compress_gpujpeg *s = (struct state_video_compress_gpujpeg *) mod->priv_data;
-                delete s;
-        };
-        m_module_data.deleter = deleter;
-
-        module_register(&m_module_data, parent);
 }
 
 /**
@@ -503,7 +492,8 @@ static const struct {
                 ":alpha", true, ""},
 };
 
-struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
+void *
+gpujpeg_compress_init(struct module *parent, const char *opts)
 {
         if (gpujpeg_version() >> 8 != GPUJPEG_VERSION_INT >> 8) {
                 LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (compiled: " <<
@@ -527,19 +517,19 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 }
 
                 col() << "\n";
-                return static_cast<module*>(INIT_NOERR);
+                return INIT_NOERR;
         }
         if (opts && strcmp(opts, "check") == 0) {
                 auto device_info = gpujpeg_get_devices_info();
-                return device_info.device_count == 0 ? nullptr : static_cast<module*>(INIT_NOERR);
+                return device_info.device_count == 0 ? nullptr : INIT_NOERR;
         }
         if (opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 16, 0)
-                return gpujpeg_print_devices_info() == 0 ? static_cast<module*>(INIT_NOERR) : nullptr;
+                return gpujpeg_print_devices_info() == 0 ? INIT_NOERR : nullptr;
 #else
                 gpujpeg_print_devices_info();
-                return static_cast<module*>(INIT_NOERR);
+                return INIT_NOERR;
 #endif
         }
 
@@ -549,7 +539,7 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 return NULL;
         }
 
-        return &s->m_module_data;
+        return s;
 }
 
 /**
@@ -746,17 +736,23 @@ static compress_module_info get_gpujpeg_module_info(){
         return module_info;
 }
 
-static auto gpujpeg_compress_push(struct module *mod, std::shared_ptr<video_frame> in_frame) {
-        static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(std::move(in_frame));
+static auto gpujpeg_compress_push(void *state, std::shared_ptr<video_frame> in_frame) {
+        static_cast<struct state_video_compress_gpujpeg *>(state)->push(std::move(in_frame));
 }
 
-static auto gpujpeg_compress_pull (struct module *mod) {
-        return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
+static auto gpujpeg_compress_pull (void *state) {
+        return static_cast<struct state_video_compress_gpujpeg *>(state)->pop();
+}
+
+static void
+gpujpeg_compress_done(void *state)
+{
+        delete (struct state_video_compress_gpujpeg *) state;
 }
 
 const struct video_compress_info gpujpeg_info = {
-        "GPUJPEG",
         gpujpeg_compress_init,
+        gpujpeg_compress_done,
         NULL,
         NULL,
         gpujpeg_compress_push,
@@ -772,8 +768,8 @@ static auto gpujpeg_compress_init_deprecated(struct module *parent, const char *
 }
 
 const struct video_compress_info deprecated_jpeg_info = {
-        "JPEG",
         gpujpeg_compress_init_deprecated,
+        gpujpeg_compress_done,
         NULL,
         NULL,
         gpujpeg_compress_push,

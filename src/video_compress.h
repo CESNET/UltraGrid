@@ -68,7 +68,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 12
+#define VIDEO_COMPRESS_ABI_VERSION 13
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,8 +109,11 @@ std::shared_ptr<video_frame> compress_pop(struct compress_state *);
  * @param[in] cfg    configuration string
  * @return           driver internal state
  */
-typedef struct module *(*compress_init_t)(struct module *parent,
+typedef void *(*compress_init_t)(struct module *parent,
                 const char *cfg);
+
+/// destroys the state create by @ref compress_init_t
+typedef void (*compress_done_t)(void *state);
 
 /**
  * @brief Compresses video frame
@@ -120,7 +123,7 @@ typedef struct module *(*compress_init_t)(struct module *parent,
  *                     empty shared_ptr to fetch further compressed frames
  * @return             compressed frame, may be NULL if compression failed or no compressed frame was output
  */
-typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, std::shared_ptr<video_frame> frame);
+typedef  std::shared_ptr<video_frame> (*compress_frame_t)(void *state, std::shared_ptr<video_frame> frame);
 
 /**
  * @brief Compresses tile of a video frame
@@ -130,7 +133,7 @@ typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, 
  *                              empty shared_ptr to fetch remaining tiles
  * @return                      compressed frame with one tile, may be NULL if compression failed or no compressed frame was output
  */
-typedef  std::shared_ptr<video_frame> (*compress_tile_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+typedef  std::shared_ptr<video_frame> (*compress_tile_t)(void *state, std::shared_ptr<video_frame> in_frame);
 
 /**
  * @brief Passes frame to compress module for async processing.
@@ -140,7 +143,7 @@ typedef  std::shared_ptr<video_frame> (*compress_tile_t)(struct module *state, s
  * @param[in]     state         driver internal state
  * @param[in]     in_frame      uncompressed frame or empty shared_ptr to pass a poisoned pile
  */
-typedef void (*compress_frame_async_push_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+typedef void (*compress_frame_async_push_t)(void  *state, std::shared_ptr<video_frame> in_frame);
 
 /**
  * @brief Fetches compressed frame passed with compress_frame_async_push()
@@ -149,7 +152,7 @@ typedef void (*compress_frame_async_push_t)(struct module *state, std::shared_pt
  * @return                      compressed frame, empty shared_ptr corresponding with poisoned
  *                              pill can be also returned
  */
-typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(struct module *state);
+typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(void *state);
 
 /**
  * @brief Passes tile to compress module for async processing.
@@ -159,7 +162,7 @@ typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(struct modul
  * @param[in]     state         driver internal state
  * @param[in]     in_frame      uncompressed frame or empty shared_ptr to pass a poisoned pile
  */
-typedef void (*compress_tile_async_push_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+typedef void (*compress_tile_async_push_t)(void *state, std::shared_ptr<video_frame> in_frame);
 
 /**
  * @brief Fetches compressed tile passed with compress_tile_async_push()
@@ -168,7 +171,7 @@ typedef void (*compress_tile_async_push_t)(struct module *state, std::shared_ptr
  * @return                      compressed frame, empty shared_ptr corresponding with poisoned
  *                              pill can be also returned
  */
-typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(struct module *state);
+typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(void *state);
 
 struct module_option{
         std::string display_name; //Name displayed to user
@@ -213,8 +216,8 @@ struct compress_module_info{
  * 4. Async tile API - compress a tile asynchronously
  */
 struct video_compress_info {
-        const char        * name;         ///< not used
         compress_init_t     init_func;           ///< compress driver initialization function
+        compress_done_t     done;
 
         compress_frame_t    compress_frame_func; ///< compress function for Frame API
 
