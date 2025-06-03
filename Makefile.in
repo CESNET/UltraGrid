@@ -330,14 +330,14 @@ src/zfec.o: @ZFEC_PREFIX@/fec.c
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(MKDIR_P) $$(dirname $@)
 	$(CXX_NO_SUFF) $(CXXFLAGS) -MD -c $(INC) -o\
-	 $(srcdir)/src/video_capture/DeckLinkAPIDispatch.o\
+	 src/video_capture/DeckLinkAPIDispatch.o\
 	 $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(POSTPROCESS_DEPS)
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(MKDIR_P) $$(dirname $@)
 	$(CC_NO_SUFF) $(CFLAGS) -MD -c $(INC) -o\
-	  $(srcdir)/src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
+	  src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(POSTPROCESS_DEPS)
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
