@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET z.s.p.o.
+ * Copyright (c) 2014-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,8 +40,10 @@
 
 #ifdef __cplusplus
 #include <cctype>
+#include <cstring>    // for strchr, strncmp
 #else
 #include <ctype.h>
+#include <string.h>   // for strchr, strncmp
 #endif
 
 #define MERGE(a,b)  a##b
