@@ -3,7 +3,7 @@
  *           Martin German <martin.german@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2024 CESNET
+ * Copyright (c) 2015-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -773,7 +773,7 @@ static CURL *init_curl() {
         fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
         return NULL;
     }
-    my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1, );
+    my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L, );
     return curl;
 }
 
@@ -869,7 +869,7 @@ init_rtsp(struct rtsp_state *s) {
     //THIS AUDIO PORTS ARE AS DEFAULT UG AUDIO PORTS BUT AREN'T RELATED...
     snprintf(Atransport, sizeof Atransport, "RTP/AVP;unicast;client_port=%d-%d", port+2, port + 3);
 
-    my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
+    my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1L, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
     my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE,
                         log_level >= LOG_LEVEL_DEBUG ? 1L : 0L, goto error);
