@@ -40,9 +40,11 @@
 
 #ifdef __cplusplus
 #include <cctype>
+#include <cstdio>     // for fprintf, stderr
 #include <cstring>    // for strchr, strncmp
 #else
 #include <ctype.h>
+#include <stdio.h>    // for fprintf, stderr
 #include <string.h>   // for strchr, strncmp
 #endif
 
@@ -99,8 +101,19 @@
                 } \
         } while (0)
 
-/// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array
-#define snprintf_ch(str, ...) snprintf(str, sizeof str, __VA_ARGS__)
+/// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array;
+/// truncation handled
+#define snprintf_ch(str, ...) \
+        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
+                if (snprintf(str, sizeof str, __VA_ARGS__) >= \
+                    (int) sizeof str) { \
+                        fprintf(stderr, \
+                                "%s:%d: %s: snprintf truncates %s (%d B " \
+                                "needed)!\n", \
+                                __FILE__, __LINE__, __func__, #str, \
+                                snprintf(str, sizeof str, __VA_ARGS__)); \
+                } \
+        } while (0)
 #define STARTS_WITH(str, token) !strncmp(str, token, strlen(token))
 
 /**
