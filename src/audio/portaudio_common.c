@@ -72,21 +72,39 @@ const char *portaudio_get_device_name(PaDeviceIndex device) {
         return Pa_GetDeviceInfo(device)->name;
 }
 
-static const char *portaudio_get_device_details(PaDeviceIndex device) {
+static const char *
+portaudio_get_device_details(PaDeviceIndex                   device,
+                             enum portaudio_device_direction kind, bool full)
+{
         assert(device >= 0 && device < Pa_GetDeviceCount());
         const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
         _Thread_local static char buffer[1024];
-        snprintf(buffer, sizeof buffer, "(%d/%d; %s)",
-                 device_info->maxInputChannels, device_info->maxOutputChannels,
-                 portaudio_get_api_name(device));
+        if (full) {
+                snprintf_ch(buffer, "(%d/%d; %s)",
+                         device_info->maxInputChannels,
+                         device_info->maxOutputChannels,
+                         portaudio_get_api_name(device));
+        } else {
+                snprintf_ch(buffer, "(%d; %s)",
+                            kind == PORTAUDIO_IN
+                                ? device_info->maxInputChannels
+                                : device_info->maxOutputChannels,
+                            portaudio_get_api_name(device));
+        }
         return buffer;
 }
 
 void
 portaudio_print_help(enum portaudio_device_direction kind, bool full)
 {
-        printf("\nAvailable PortAudio %s devices (max in ch/max out ch; API):\n",
-               kind == PORTAUDIO_OUT ? "playback" : "capture");
+        if (full) {
+                printf("\nAvailable PortAudio %s devices (max in ch/max out "
+                       "ch; API):\n",
+                       kind == PORTAUDIO_OUT ? "playback" : "capture");
+        } else {
+                printf("\nAvailable PortAudio %s devices (max channels; API):\n",
+                       kind == PORTAUDIO_OUT ? "playback" : "capture");
+        }
 
         int numDevices;
         int i;
@@ -132,7 +150,10 @@ portaudio_print_help(enum portaudio_device_direction kind, bool full)
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
 
-                color_printf("\t%sportaudio:%d" TERM_RESET " - %s%s" TERM_RESET " %s", highlight, i, highlight, portaudio_get_device_name(i), portaudio_get_device_details(i));
+                color_printf(
+                    "\t%sportaudio:%d" TERM_RESET " - %s%s" TERM_RESET " %s",
+                    highlight, i, highlight, portaudio_get_device_name(i),
+                    portaudio_get_device_details(i, kind, full));
                 printf("\n");
         }
 
