@@ -245,14 +245,29 @@ int
 portaudio_select_device_by_name(const char                     *name,
                                 enum portaudio_device_direction dir)
 {
+        int prefix_idx = -1; // dev idx starting with name
+        int substr_idx = -1; // dev idx with name as substr
         for (int i = 0; i < Pa_GetDeviceCount(); i++) {
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
                 if (!has_channels(device_info, dir)) {
                         continue;
                 }
-                if (strstr(device_info->name, name)) {
+                if (strcmp(device_info->name, name) == 0) { // exact match
                         return i;
                 }
+                if (strstr(device_info->name, name)) {
+                        substr_idx = i;
+                        if (strstr(device_info->name, name) ==
+                            device_info->name) {
+                                prefix_idx = i;
+                        }
+                }
+        }
+        if (prefix_idx != -1) {
+                return prefix_idx;
+        }
+        if (substr_idx != -1) {
+                return substr_idx;
         }
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "No device named \"%s\" was found!\n", name);
         return -2;
