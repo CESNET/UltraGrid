@@ -196,7 +196,8 @@ audio_play_portaudio_init(const struct audio_playback_opts *opts)
         }
 
         if (strlen(output_device_name) > 0) {
-                output_device_idx = portaudio_select_device_by_name(output_device_name);
+                output_device_idx = portaudio_select_device_by_name(
+                    output_device_name, PORTAUDIO_OUT);
         }
 
         struct state_portaudio_playback *s = calloc(1, sizeof *s);

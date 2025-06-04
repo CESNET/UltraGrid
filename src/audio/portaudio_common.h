@@ -56,7 +56,8 @@ const char *portaudio_get_device_name(PaDeviceIndex device);
 void audio_portaudio_probe(struct device_info **available_devices, int *count, enum portaudio_device_direction);
 void portaudio_print_version(void);
 // documented at definition
-int portaudio_select_device_by_name(const char *name);
+int portaudio_select_device_by_name(const char                     *name,
+                                    enum portaudio_device_direction dir);
 
 #ifdef __cplusplus
 }

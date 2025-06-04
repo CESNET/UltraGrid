@@ -94,6 +94,17 @@ portaudio_get_device_details(PaDeviceIndex                   device,
         return buffer;
 }
 
+static bool
+has_channels(const PaDeviceInfo *device_info, enum portaudio_device_direction dir)
+{
+
+        if ((dir == PORTAUDIO_IN && device_info->maxInputChannels == 0) ||
+            device_info->maxOutputChannels == 0) {
+                return false;
+        }
+        return true;
+}
+
 void
 portaudio_print_help(enum portaudio_device_direction kind, bool full)
 {
@@ -138,8 +149,7 @@ portaudio_print_help(enum portaudio_device_direction kind, bool full)
                 const char *highlight = TERM_BOLD;
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
                 // filter out (or differently highlight in verbose mode) unusable devices
-                if ((device_info->maxInputChannels == 0 && kind == PORTAUDIO_IN) ||
-                                (device_info->maxOutputChannels == 0 && kind == PORTAUDIO_OUT)) {
+                if (has_channels(device_info, kind)) {
                         if (log_level < LOG_LEVEL_VERBOSE) {
                                 continue;
                         } else {
@@ -231,9 +241,15 @@ void portaudio_print_version() {
  * @retval -2  device selection failed
  * @retval >=0 selected device
  */
-int portaudio_select_device_by_name(const char *name) {
+int
+portaudio_select_device_by_name(const char                     *name,
+                                enum portaudio_device_direction dir)
+{
         for (int i = 0; i < Pa_GetDeviceCount(); i++) {
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
+                if (!has_channels(device_info, dir)) {
+                        continue;
+                }
                 if (strstr(device_info->name, name)) {
                         return i;
                 }
@@ -241,4 +257,3 @@ int portaudio_select_device_by_name(const char *name) {
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "No device named \"%s\" was found!\n", name);
         return -2;
 }
-

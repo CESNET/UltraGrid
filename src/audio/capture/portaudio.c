@@ -203,7 +203,8 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 
 	// default device
         if (strlen(input_device_name) > 0) {
-                input_device_idx = portaudio_select_device_by_name(input_device_name);
+                input_device_idx = portaudio_select_device_by_name(
+                    input_device_name, PORTAUDIO_IN);
         }
         if (input_device_idx == -1) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using default input audio device: %s\n",
