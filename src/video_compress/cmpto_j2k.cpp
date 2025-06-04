@@ -131,6 +131,12 @@ struct cmpto_j2k_enc_cuda_buffer_data_allocator
 };
 #endif
 
+struct state_video_compress_j2k;
+static void set_cpu_pool(struct state_video_compress_j2k *s,
+                         bool                             have_cuda_preprocess);
+static void set_cuda_pool(struct state_video_compress_j2k *s,
+                          bool have_cuda_preprocess);
+
 struct cmpto_j2k_technology {
         const char *name;
         int         cmpto_supp_bit;
@@ -139,8 +145,11 @@ struct cmpto_j2k_technology {
         bool (*add_device)(struct cmpto_j2k_enc_ctx_cfg *ctx_cfg,
                            size_t mem_limit, unsigned int tile_limit,
                            int thread_count);
+        void (*set_pool)(struct state_video_compress_j2k *s,
+                         bool                             have_cuda_preprocess);
         void (*print_help)(bool full);
 };
+
 
 constexpr struct cmpto_j2k_technology technology_cpu = {
         "CPU",
@@ -154,6 +163,7 @@ constexpr struct cmpto_j2k_technology technology_cpu = {
                          "Setting CPU device", return false);
                 return true;
         },
+        set_cpu_pool,
         [](bool) {},
 };
 
@@ -172,6 +182,7 @@ constexpr struct cmpto_j2k_technology technology_cuda = {
                 }
                 return true;
         },
+        set_cuda_pool,
         [](bool full) {
 #ifdef HAVE_CUDA
                 constexpr char cuda_supported[] = "YES";
@@ -209,6 +220,7 @@ constexpr struct cmpto_j2k_technology technology_opencl = {
                     "Setting OpenCL device", return false);
                 return true;
         },
+        set_cpu_pool,
         [](bool full) {
                 list_opencl_devices(full);
         },
@@ -350,19 +362,19 @@ static struct {
         {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, r12l_to_rg48_cuda},
 };
 
+static void
+set_cpu_pool(struct state_video_compress_j2k *s, bool /*have_cuda_preprocess*/)
+{
+        s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
+}
 #define CPU_CONV_PARAM "j2k-enc-cpu-conv"
 ADD_TO_PARAM(
     CPU_CONV_PARAM,
     "* " CPU_CONV_PARAM "\n"
     "  Enforce CPU conversion instead of CUDA (applicable to R12L now)\n");
 static void
-set_pool(struct state_video_compress_j2k *s, bool have_cuda_preprocess)
+set_cuda_pool(struct state_video_compress_j2k *s, bool have_cuda_preprocess)
 {
-        if (s->tech != &technology_cuda) {
-                s->pool = video_frame_pool(s->max_in_frames,
-                                           default_data_allocator());
-                return;
-        }
 #ifdef HAVE_CUDA
         s->pool_in_cuda_memory = false;
         if (cuda_devices_count > 1) {
@@ -491,7 +503,7 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
             quality, rate, format_in_si_units(s->mem_limit),
             s->img_tile_limit, s->max_in_frames, mct, s->tech->name);
 
-        set_pool(s, cuda_convert_func != nullptr);
+        s->tech->set_pool(s, cuda_convert_func != nullptr);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
