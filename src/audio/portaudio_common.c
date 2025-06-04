@@ -43,6 +43,7 @@
 #include <string.h>           // for strncpy, strstr
 
 #include "debug.h"
+#include "host.h"             // for uv_argv
 #include "portaudio_common.h"
 #include "types.h"
 #include "utils/color_out.h"
@@ -175,6 +176,17 @@ portaudio_print_help(enum portaudio_device_direction kind, bool full)
                 }
         }
 
+        printf("\nExamples:\n");
+        color_printf("\t" TBOLD("%s -%c portaudio:d=\"%s\"\n"), uv_argv[0],
+                     kind == PORTAUDIO_IN ? 's' : 'r',
+#ifdef _WIN32
+                     "Microsoft Sound Mapper"
+#elif defined __APPLE__
+                     "MacBook Pro"
+#else
+                     "HDA Intel PCH"
+#endif
+        );
 error:
         Pa_Terminate();
 }
