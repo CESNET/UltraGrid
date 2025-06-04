@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include <unistd.h>
 #endif
 
+#include "compat/strings.h"
 #include "debug.h"
 #include "utils/string.h"
 
@@ -222,4 +223,26 @@ pretty_print_fourcc(const void *fcc)
         }
         *out_ptr = '\0';
         return out;
+}
+
+const char *
+ug_strcasestr(const char *haystick, const char *needle)
+{
+        while (strlen(haystick) >= strlen(needle)) {
+                const char *cur_haystick = haystick;
+                const char *cur_needle   = needle;
+                while (*cur_needle != '\0') {
+                        if (tolower(*cur_haystick) != tolower(*cur_needle)) {
+                                break;
+                        }
+                        cur_haystick += 1;
+                        cur_needle += 1;
+                }
+                if (*cur_needle == '\0') {
+                        return haystick;
+                }
+
+                haystick += 1;
+        }
+        return NULL;
 }

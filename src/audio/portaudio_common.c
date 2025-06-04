@@ -42,6 +42,7 @@
 #include <stdlib.h>           // for calloc
 #include <string.h>           // for strncpy, strstr
 
+#include "compat/strings.h"   // for ug_strcasecmp
 #include "debug.h"
 #include "host.h"             // for uv_argv
 #include "portaudio_common.h"
@@ -259,6 +260,7 @@ portaudio_select_device_by_name(const char                     *name,
 {
         int prefix_idx = -1; // dev idx starting with name
         int substr_idx = -1; // dev idx with name as substr
+        int substr_icase_idx = -1; // dev idx with name as substr (ignore case)
         for (int i = 0; i < Pa_GetDeviceCount(); i++) {
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
                 if (!has_channels(device_info, dir)) {
@@ -274,12 +276,19 @@ portaudio_select_device_by_name(const char                     *name,
                                 prefix_idx = i;
                         }
                 }
+                if (ug_strcasestr(device_info->name, name) ==
+                    device_info->name) {
+                        substr_icase_idx = i;
+                }
         }
         if (prefix_idx != -1) {
                 return prefix_idx;
         }
         if (substr_idx != -1) {
                 return substr_idx;
+        }
+        if (substr_icase_idx != -1) {
+                return substr_icase_idx;
         }
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "No device named \"%s\" was found!\n", name);
         return -2;
