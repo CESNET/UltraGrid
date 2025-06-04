@@ -206,13 +206,17 @@ audio_play_portaudio_init(const struct audio_playback_opts *opts)
         const PaDeviceInfo *device_info = NULL;
         if (output_device_idx >= 0) {
                 device_info = Pa_GetDeviceInfo(output_device_idx);
+                if (device_info == NULL) {
+                        MSG(ERROR,
+                            "Couldn't obtain requested portaudio index %d.\n"
+                            "Follows list of available Portaudio devices.\n",
+                            output_device_idx);
+                        audio_play_portaudio_help(false);
+                }
         } else if (output_device_idx == -1) {
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
         }
         if (device_info == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio index %d.\n"
-                                MOD_NAME "Follows list of available Portaudio devices.\n", output_device_idx);
-                audio_play_portaudio_help(false);
                 Pa_Terminate();
                 free(s);
                 return NULL;

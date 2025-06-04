@@ -216,12 +216,17 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                                 portaudio_get_device_name(input_device_idx));
 		inputParameters.device = input_device_idx;
                 device_info = Pa_GetDeviceInfo(input_device_idx);
+                if (device_info == NULL) {
+                        MSG(ERROR,
+                            "Couldn't obtain requested portaudio device index "
+                            "%d.\nFollows list of available Portaudio "
+                            "devices.\n",
+                            input_device_idx);
+                        portaudio_print_help(PORTAUDIO_IN, false);
+                }
 	}
 
         if(device_info == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device index %d.\n"
-                               MOD_NAME "Follows list of available Portaudio devices.\n", input_device_idx);
-                portaudio_print_help(PORTAUDIO_IN, false);
                 free(s);
                 Pa_Terminate();
                 return NULL;
