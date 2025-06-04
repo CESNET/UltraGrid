@@ -217,7 +217,7 @@ public:
         }
 
         /**
-         * @param required_extensions   Vulkan instance extensions requested by aplication,
+         * @param required_extensions   Vulkan instance extensions requested by application,
          *                              usually needed for creating vulkan surface
          * @param enable_validation     Enable vulkan validation layers, they should be disabled in release build.
          */

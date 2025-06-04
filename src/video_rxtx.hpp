@@ -87,7 +87,7 @@ public:
                 return get_receiver_thread() != NULL;
         }
         /**
-         * If overriden, childern must call also video_rxtx::join()
+         * If overridden, children must call also video_rxtx::join()
          */
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);

@@ -200,7 +200,7 @@ delete_winreg_tree()
             RegDeleteTree(HKEY_CURRENT_USER, SCREEN_CAP_REG_TREE);
         if (err == ERROR_SUCCESS) {
                 MSG(NOTICE,
-                    "Register tree " REG_FRIENDLY_NAME " deleted succesfully.\n");
+                    "Register tree " REG_FRIENDLY_NAME " deleted successfully.\n");
                 return true;
         }
         MSG(ERROR, "Cannot delete " REG_FRIENDLY_NAME " from registry: %s\n",

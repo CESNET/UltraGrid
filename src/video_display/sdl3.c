@@ -497,7 +497,7 @@ show_help(const char *driver, bool full)
             "\t-d sdl[:driver=<drv>]:[full]help") "\n");
         printf("where:\n");
         color_printf(TBOLD(
-            "\td[force]") " - deinterlace (force even for progresive video)\n");
+            "\td[force]") " - deinterlace (force even for progressive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
         color_printf(
             TBOLD("\t  <didx>") " - display index, available indices: ");
@@ -510,7 +510,7 @@ show_help(const char *driver, bool full)
         }
         color_printf("\n");
         color_printf(TBOLD("     keep-aspect") " - keep window aspect ratio "
-                                               "respecive to the video\n");
+                                               "respective to the video\n");
         color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
         color_printf(TBOLD("      nodecorate") " - disable window border\n");
         color_printf(
@@ -1263,7 +1263,7 @@ display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
 
         assert(s->mod.priv_magic == MAGIC_SDL3);
 
-        if (frame == NULL) { // posion pill
+        if (frame == NULL) { // poison pill
                 SDL_Event event;
                 event.type       = s->sdl_user_new_frame_event;
                 event.user.data1 = NULL;

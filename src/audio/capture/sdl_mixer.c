@@ -38,7 +38,7 @@
  * @file
  * @todo errata (SDL3 vs SDL2)
  * 1. 1 channel capture (-a ch=1) seem no longer work but there is a workaround
- * 2. unsufficient performance (generates overflow even in default config)
+ * 2. insufficient performance (generates overflow even in default config)
  */
 
 #include "config.h"               // for HAVE_SDL3
@@ -263,7 +263,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         if( Mix_OpenAudio(SDL_MIXER_SAMPLE_RATE, audio_format,
                                 s->audio.ch_count, 4096 ) == -1 ) {
 #endif
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing sound: %s\n", Mix_GetError());
                 goto error;
         }
         adjust_ch_count(s);

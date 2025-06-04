@@ -56,7 +56,7 @@ struct msg_quit : public msg {};
  * if there is no element in the queue.
  *
  * @tparam T type to be stored
- * @tparam max_len maximal length of the queue until it bloks (-1 means unlimited)
+ * @tparam max_len maximal length of the queue until it blocks (-1 means unlimited)
  */
 template<typename T = struct msg *, int max_len = 1>
 class synchronized_queue {

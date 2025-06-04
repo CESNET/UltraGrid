@@ -316,7 +316,7 @@ volatile int worker_waiting;
         volatile int audio_reconf_done;
         
         struct ring_buffer * audio_ring_buffer;
-        char *audio_fifo_data; /* temporary memory for the data that gets immediatelly
+        char *audio_fifo_data; /* temporary memory for the data that gets immediately
                                     decoded */
         int audio_fifo_required_size;
         
@@ -425,7 +425,7 @@ static void *display_dvs_run(void *arg)
                         /*  Here is probably bug in recent DVS SDK (4.2.1.1) that triggers
                          *  this error multiple times after device reconfiguration. After few
                          *  frames it disappears.
-                         *  TODO: If ther is no longer the error, remove this comment and exit here.
+                         *  TODO: If there is no longer the error, remove this comment and exit here.
                          */
                 }
 
@@ -615,7 +615,7 @@ static bool display_dvs_reconfigure(void *state,
                         0, /* obsolete, must be zero */
                         SV_FIFO_DMA_ON,
                         SV_FIFO_FLAG_NODMAADDR, /* SV_FIFO_FLAG_* */
-                        0); /* default maximal numer of FIFO buffer frames */
+                        0); /* default maximal number of FIFO buffer frames */
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot initialize video display FIFO %s\n",
                           sv_geterrortext(res));
@@ -941,7 +941,7 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
                         0, /* obsolete, must be zero */
                         SV_FIFO_DMA_ON,
                         SV_FIFO_FLAG_NODMAADDR, /* SV_FIFO_FLAG_* */
-                        0); /* default maximal numer of FIFO buffer frames */
+                        0); /* default maximal number of FIFO buffer frames */
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot initialize audio FIFO %s\n",
                           sv_geterrortext(res));

@@ -98,7 +98,7 @@
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 
-// IANA/RFC 6335 suggested range 49152-65535. Implementatins may differ, eg. Linux uses 32768-60999.
+// IANA/RFC 6335 suggested range 49152-65535. Implementations may differ, eg. Linux uses 32768-60999.
 #define RTP_IPPORT_DYNAMIC ((1U<<15U) + (1U<<14U))
 #define RTP_IPPORT_MAX ((1U<<16U) - 1U)
 #define MOD_NAME "[rtp] "
@@ -311,7 +311,7 @@ struct rtp {
         /* tfrc sender variables */
         uint32_t cmp_rtt;       /* rtt as computed by the sender */
         uint16_t new_rtt;       /* flag change in value of the RTT */
-        /* tfrc recevier variables */
+        /* tfrc receiver variables */
         uint32_t rcv_rtt;       /* rtt receiver extracts from rtp packets */
 
         char *encryption_algorithm;
@@ -982,7 +982,7 @@ static void init_opt(struct rtp *session)
  * rtp_init:
  * @addr: IP destination of this session (unicast or multicast),
  * as an ASCII string.  May be a host name, which will be looked up,
- * or may be an IPv4 dotted quad or IPv6 literal adddress.
+ * or may be an IPv4 dotted quad or IPv6 literal address.
  * @rx_port: The port to which to bind the UDP socket
  * @tx_port: The port to which to send UDP packets
  * @ttl: The TTL for both multicast and unicast (-1 for default)
@@ -1010,7 +1010,7 @@ struct rtp *rtp_init(const char *addr,
  * rtp_init_if:
  * @addr: IP destination of this session (unicast or multicast),
  * as an ASCII string.  May be a host name, which will be looked up,
- * or may be an IPv4 dotted quad or IPv6 literal adddress.
+ * or may be an IPv4 dotted quad or IPv6 literal address.
  * @iface: If the destination of the session is multicast,
  * the optional interface to bind to.  May be NULL, in which case
  * the default multicast interface as determined by the system
@@ -1132,7 +1132,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->sender_count = 0;
         session->initial_rtcp = TRUE;
         session->sending_bye = FALSE;
-        session->avg_rtcp_size = -1;    /* Sentinal value: reception of first packet starts initial value... */
+        session->avg_rtcp_size = -1;    /* Sentinel value: reception of first packet starts initial value... */
         session->we_sent = FALSE;
         session->rtcp_bw = rtcp_bw;
         session->sdes_count_pri = 0;
@@ -1229,7 +1229,7 @@ rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
         session->sender_count = 0;
         session->initial_rtcp = TRUE;
         session->sending_bye = FALSE;
-        session->avg_rtcp_size = -1;    /* Sentinal value: reception of first packet starts initial value... */
+        session->avg_rtcp_size = -1;    /* Sentinel value: reception of first packet starts initial value... */
         session->we_sent = FALSE;
         session->rtcp_bw = 5 * 1024 * 1024;       /*  FIXME */
         session->sdes_count_pri = 0;
@@ -1282,10 +1282,10 @@ rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
  * @session: the RTP session 
  * @ssrc: the SSRC to be used by the RTP session
  * 
- * This function coerces the local SSRC identifer to be ssrc.  For
+ * This function coerces the local SSRC identifier to be ssrc.  For
  * this function to succeed it must be called immediately after
  * rtp_init or rtp_init_if.  The intended purpose of this
- * function is to co-ordinate SSRC's between layered sessions, it
+ * function is to coordinate SSRC's between layered sessions, it
  * should not be used otherwise.
  */
 bool rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc)
@@ -1593,7 +1593,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                 udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
         }
 
-        /* figure out header lenght based on tfrc_on */
+        /* figure out header length based on tfrc_on */
         /* might as well extract rtt and send_ts     */
         int vlen = 12;          /* vlen = 12 | 16 | 20 */
         if (session->tfrc_on) {
@@ -1720,7 +1720,7 @@ static int validate_rtcp(uint8_t * packet, int len)
         }
 
         /* Check the RTCP version, payload type and padding of the first in  */
-        /* the compund RTCP packet...                                        */
+        /* the compound RTCP packet...                                        */
         if (pkt->common.version != 2) {
                 debug_msg
                     ("Bogus RTCP packet: version number != 2 in the first sub-packet\n");
@@ -1749,7 +1749,7 @@ static int validate_rtcp(uint8_t * packet, int len)
                 is_okay = FALSE;
         }
 
-        /* Check all following parts of the compund RTCP packet. The RTP version */
+        /* Check all following parts of the compound RTCP packet. The RTP version */
         /* number must be 2, and the padding bit must be zero on all apart from  */
         /* the last packet. Try to validate the format of each sub-packet.       */
         do {
@@ -2484,7 +2484,7 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
 /**
  * rtp_add_csrc:
  * @session: the session pointer (returned by rtp_init()) 
- * @csrc: Constributing SSRC identifier
+ * @csrc: Contributing SSRC identifier
  * 
  * Adds @csrc to list of contributing sources used in SDES items.
  * Used by mixers and transcoders.
@@ -2516,7 +2516,7 @@ bool rtp_add_csrc(struct rtp *session, uint32_t csrc)
 /**
  * rtp_del_csrc:
  * @session: the session pointer (returned by rtp_init()) 
- * @csrc: Constributing SSRC identifier
+ * @csrc: Contributing SSRC identifier
  * 
  * Removes @csrc from list of contributing sources used in SDES items.
  * Used by mixers and transcoders.
@@ -2749,7 +2749,7 @@ const rtcp_rr *rtp_get_rr(struct rtp *session, uint32_t reporter,
  *
  * Extensions fields (@extn, @extn_len, @extn_type) are for including
  * application specific information.  When the widest amount of
- * inter-operability is required these fields should be avoided as
+ * interoperability is required these fields should be avoided as
  * some applications discard packets with extensions they do not
  * recognize.
  * 

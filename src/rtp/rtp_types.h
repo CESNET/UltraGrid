@@ -90,7 +90,7 @@
  * 3rd word
  * bits 0 - 31 length
  *
- * 4rd word
+ * 4th word
  * bits 0-15 horizontal resolution
  * bits 16-31 vertical resolution
  *
@@ -119,7 +119,7 @@ typedef uint32_t video_payload_hdr_t[6];
  * 3rd word
  * bits 0 - 31 length
  *
- * 4rd word
+ * 4th word
  * bits 0-5 audio quantization
  * bits 6-31 audio sample rate
  *
@@ -141,7 +141,7 @@ typedef uint32_t audio_payload_hdr_t[5];
  * 3rd word
  * bits 0 - 31 length
  *
- * 4rd word
+ * 4th word
  * bits 0-12 K
  * bits 13-25 M
  * bits 26-31 C
@@ -174,4 +174,4 @@ enum {
         FPS_MAX = 1024, ///< given by UG RTP payload header
 };
 
-#endif // deined RTP_RTP_TYPES_H_EB786480_8B49_4BB4_9707_FF4AD8ED5A50
+#endif // defined RTP_RTP_TYPES_H_EB786480_8B49_4BB4_9707_FF4AD8ED5A50

@@ -166,7 +166,7 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         while (ports[i]) ++i;
 
         if(i < s->out_channel_count) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought output ports found matching pattern '%s': "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enough output ports found matching pattern '%s': "
                                 "%d requested, %d found\n", s->out_port_pattern, s->record.ch_count, i);
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Reducing port count to %d\n", i);
                 s->out_channel_count = i;
@@ -246,7 +246,7 @@ static int attach_input_ports(struct state_jack *s)
          
          while (ports[i]) ++i;
          if(i < s->record.ch_count) {
-                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought input ports found matching pattern '%s': "
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enough input ports found matching pattern '%s': "
                                  "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
                  log_msg(LOG_LEVEL_ERROR, MOD_NAME "Reducing port count to %d\n", i);
                  s->record.ch_count = i;
@@ -382,8 +382,8 @@ void jack_send(void *state, struct audio_frame *frame)
  *
  * @param[in]  state state returned by jack_init()
  * @param[out] data  @ref pbuf_audio_data
- * @retval     true  if some data are receied
- * @retval     false if no data were receied
+ * @retval     true  if some data are received
+ * @retval     false if no data were received
  */
 bool jack_receive(void *state, void *data)
 {

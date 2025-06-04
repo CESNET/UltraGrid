@@ -77,7 +77,7 @@ uint32_t get_std_video_local_mediatime(void);
 typedef long long time_ns_t;
 /// @todo
 /// The naming is inconsistent - whereas US_IN_NS is the 1 us represented in ns,
-/// MS_IN_SEC is count of milliseconds in a second. Unifiy the use.
+/// MS_IN_SEC is count of milliseconds in a second. Unify the use.
 #define MS_IN_NS      1000000
 #define MS_IN_NS_DBL 1000000.0
 #define MS_IN_SEC 1000

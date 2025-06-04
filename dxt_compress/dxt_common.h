@@ -102,7 +102,7 @@ dxt_init();
 /**
  * Load RGB image from file
  * 
- * @param filaname Image filename
+ * @param filename Image filename
  * @param width Image width in pixels
  * @param height Image height in pixels
  * @return image data buffer or zero if fails
@@ -113,7 +113,7 @@ dxt_image_load_from_file(const char* filename, int width, int height, DXT_IMAGE_
 /**
  * Load RGB image from file
  * 
- * @param filaname Image filename
+ * @param filename Image filename
  * @param width Image width in pixels
  * @param height Image height in pixels
  * @return image data buffer or zero if fails
@@ -124,7 +124,7 @@ dxt_image_save_to_file(const char* filename, DXT_IMAGE_TYPE* image, int width, i
 /**
  * Load compressed image from file
  * 
- * @param filaname Image filename
+ * @param filename Image filename
  * @param width Image width in pixels
  * @param height Image height in pixels
  * @return 0 if succeeds, otherwise nonzero

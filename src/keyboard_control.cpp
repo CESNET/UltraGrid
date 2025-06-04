@@ -40,10 +40,10 @@
  * @file
  * @todo
  * Consider using some abstraction over terminal control mainly because
- * differencies between Linux and Windows (ANSI mode or terminfo?)
+ * differences between Linux and Windows (ANSI mode or terminfo?)
  *
  * @todo
- * - key should not be overriden (eg. preset and custom)
+ * - key should not be overridden (eg. preset and custom)
  * - preset keys and customs ones should be unified (in key mapping)
  */
 
@@ -898,7 +898,7 @@ bool keyboard_control::impl::exec_local_command(const char *command)
                         if (key_mapping.find(key) == key_mapping.end()) {
                                 key_mapping.insert({key, make_pair(command, name)});
                         } else {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Trying to register key shortcut " << get_keycode_representation(key) << ", which is already regestered, ignoring.\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Trying to register key shortcut " << get_keycode_representation(key) << ", which is already registered, ignoring.\n";
                         }
                 }
                 free(ccpy);
@@ -1045,7 +1045,7 @@ void keycontrol_send_key(struct module *root, int64_t key) {
  * @ref message_universal message type is always sent
  * @param[in] sender_mod  module that should receive the message for key
  * @param[in] message     text that will be passed back to receiver_mod if key was pressed
- * @param[in] description optional decription that will be displayed in keyboard control help (may be NULL)
+ * @param[in] description optional description that will be displayed in keyboard control help (may be NULL)
  */
 bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const char *message, const char *description) {
         assert(strchr(message, '#') == nullptr && (description == nullptr || strchr(description, '#') == nullptr));

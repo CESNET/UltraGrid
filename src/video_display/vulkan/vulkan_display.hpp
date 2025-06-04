@@ -143,7 +143,7 @@ public:
         bool is_yCbCr_supported() const { return context.is_yCbCr_supported(); }
 
         /**
-         * @brief Hint to vulkan display that some window parameters spicified in struct WindowParameters changed.
+         * @brief Hint to vulkan display that some window parameters specified in struct WindowParameters changed.
          * Thread-safe.
          */
         void window_parameters_changed(WindowParameters new_parameters);

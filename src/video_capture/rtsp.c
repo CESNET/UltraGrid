@@ -318,14 +318,14 @@ show_help(bool full) {
     color_printf("\nExamples:\n");
     color_printf("\t" TBOLD("uv -t rtsp://192.168.0.30/mystream") "\n");
     color_printf("\t" TBOLD("uv -t rtsp://[fe80::30]/mystream") "\n");
-    color_printf("\t\t- capture streem on implict port (554)\n");
+    color_printf("\t\t- capture stream on implicit port (554)\n");
     color_printf("\t"
         TBOLD("uv -t rtsp://192.168.0.20:8554/mystream") "\n");
-    color_printf("\t\t- capture streem on port 8554 (optionally with "
+    color_printf("\t\t- capture stream on port 8554 (optionally with "
         "authentization)\n");
     color_printf("\t"
         TBOLD("uv -t rtsp://user:pass@[fe80::30]/mystream") "\n");
-    color_printf("\t\t- capture streem on default port with authentization\n");
+    color_printf("\t\t- capture stream on default port with authentization\n");
     color_printf(
         "\t" TBOLD("uv -t rtsp://192.168.0.20/mystream:decompress") "\n");
     color_printf("\t\t- same as first case but decompress the stream "
@@ -686,7 +686,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.device = rtp_init_if("localhost", s->vrtsp_state.mcast_if, s->vrtsp_state.port, 0, s->vrtsp_state.ttl, s->vrtsp_state.rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state.participants, 0, false);
     if (s->vrtsp_state.device == NULL) {
-        log_msg(LOG_LEVEL_ERROR, "[rtsp] Cannot intialize RTP device!\n");
+        log_msg(LOG_LEVEL_ERROR, "[rtsp] Cannot initialize RTP device!\n");
         vidcap_rtsp_done(s);
         return VIDCAP_INIT_FAIL;
     }
@@ -1011,7 +1011,7 @@ setup_codecs_and_controls_from_sdp(FILE *sdp_file, struct rtsp_state *rtspState)
                 }
 
                 if (media == MEDIA_NONE) {
-                        continue; // either on session level or unkown media
+                        continue; // either on session level or unknown media
                 }
 
                 if (sscanf(line, "a=control:%2000s", buf) == 1) {

@@ -4,8 +4,8 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  *
  * Main part of transcoding reflector. This component provides a runtime
- * for the reflector. Componets are following:
- * - legacy packet reflector (defined in this file) for backward compatiblity.
+ * for the reflector. Components are following:
+ * - legacy packet reflector (defined in this file) for backward compatibility.
  *   It handles those recipient that doesn't need transcoding.
  * - decompressor - decompresses the stream if there are some host that need
  *   transcoding
@@ -504,7 +504,7 @@ static void *writer(void *arg)
                     overlapped_idx += 1;
                 }
             }
-            // reallocate the buffer since the last one will be freeed automaticaly
+            // reallocate the buffer since the last one will be freed automatically
             s->qhead->buf = (char *) malloc(SIZE);
 #else
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
@@ -695,7 +695,7 @@ static int parse_global_opts(int argc, char **argv,
                         usage(argv[0]);
                         return 1;
                 case 'v':
-                        // nothing needed, version is printed everytime
+                        // nothing needed, version is printed every time
                         return 1;
                 case 'V':
                         break; // already handled in common_preinit()

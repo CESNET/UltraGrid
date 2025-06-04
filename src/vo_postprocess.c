@@ -279,7 +279,7 @@ bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, v
         }
 
         /** @todo
-         * This is not corrrect in a generic case - the codec may be acceptable for first filter but
+         * This is not correct in a generic case - the codec may be acceptable for first filter but
          * the output of the filter may be unacceptable for the following filter (or later on).
          */
         if (property == VO_PP_PROPERTY_CODECS) {

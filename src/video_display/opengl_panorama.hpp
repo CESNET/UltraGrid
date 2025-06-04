@@ -42,7 +42,7 @@
 
 /**
  * Class representing the scene to render. Contains the model and texture to
- * be rendered. Automatically performs pixel format coversions if needed.
+ * be rendered. Automatically performs pixel format conversions if needed.
  * It is possible to call put_frame() from another thread, but limitations apply
  */
 struct PanoramaScene{

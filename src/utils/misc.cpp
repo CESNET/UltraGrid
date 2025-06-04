@@ -357,7 +357,7 @@ bool is_arm_mac() {
 /**
  * @param what  value returned by std::logic_error::what()
  * @returns if given std::invalid_argument message belongs to a stoi/stof
- * converison
+ * conversion
  */
 
 bool invalid_arg_is_numeric(const char *what) {

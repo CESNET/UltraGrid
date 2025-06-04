@@ -108,7 +108,7 @@ void * vidcap_testcard2_thread(void *args);
 struct testcard_state2 {
 
         int count;
-        unsigned char *bg; ///< bars coverted to dest color_spec
+        unsigned char *bg; ///< bars converted to dest color_spec
         struct timeval t0;
         struct video_desc desc;
         char *data;
@@ -418,7 +418,7 @@ void * vidcap_testcard2_thread(void *arg)
                 font_candidates += 1;
         }
         if(!font) {
-                MSG(ERROR, "Unable to load any usable font! Last errror: %s\n",
+                MSG(ERROR, "Unable to load any usable font! Last error: %s\n",
                     TTF_GetError());
                 EXIT_THREAD
         }

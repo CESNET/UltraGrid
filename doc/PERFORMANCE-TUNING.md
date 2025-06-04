@@ -73,7 +73,7 @@ Display devices
 
    If you intend to use some of DXT compressions, recommended driver
    is OpenGL, which can display it natively. When using other display
-   drivers, decompression is still done throught OpenGL and then displayed
+   drivers, decompression is still done through OpenGL and then displayed
    with requested video driver.
 
 
@@ -87,7 +87,7 @@ Other Factors
 
    The UltraGrid system will attempt to enable POSIX real-time scheduling
    to improve performance. This behaviour is disabled by default now, because
-   it can occupy the whole system when enabled, but it can be stil enabled by
+   it can occupy the whole system when enabled, but it can be still enabled by
    '--enable-rt' configure option. If you see the message:
 
         WARNING: Unable to set real-time scheduling

@@ -47,7 +47,7 @@ enum {
 };
 
 /**
- * Formats textual represenation of timestamp (in ms) in format HH:MM:SS.mmm
+ * Formats textual representation of timestamp (in ms) in format HH:MM:SS.mmm
  * (mmm is milliseconds).
  *
  * @param[in]   ts   timestamp in ms

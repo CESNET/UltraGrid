@@ -150,7 +150,7 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                         struct response *resp = send_message_to_receiver(proxy->ptr->state[i],
                                         (struct message *) tmp_data);
                         /// @todo
-                        /// Handle responses more inteligently (eg. aggregate).
+                        /// Handle responses more intelligently (eg. aggregate).
                         free_response(r); // frees previous response
                         r = resp;
                 }
@@ -183,12 +183,12 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
 /**
  * @brief This function initializes video compression.
  *
- * This function wrapps the call of compress_init_real().
+ * This function wraps the call of compress_init_real().
  * @param[in] parent        parent module
  * @param[in] config_string configuration (in format <driver>:<options>)
  * @param[out] state        created state
- * @retval     0            if state created sucessfully
- * @retval    <0            if error occured
+ * @retval     0            if state created successfully
+ * @retval    <0            if error occurred
  * @retval    >0            finished successfully, no state created (eg. displayed help)
  */
 int compress_init(struct module *parent, const char *config_string, struct compress_state **state) {
@@ -216,7 +216,7 @@ int compress_init(struct module *parent, const char *config_string, struct compr
  * @brief Constructor for compress_state_real
  * @param[in] parent        parent module
  * @param[in] config_string configuration (in format <driver>:<options>)
- * @throws    -1            if error occured
+ * @throws    -1            if error occurred
  * @retval     1            finished successfully, no state created (eg. displayed help)
  */
 compress_state_real::compress_state_real(struct module *parent, const char *config_string) :

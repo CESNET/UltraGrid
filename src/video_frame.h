@@ -107,7 +107,7 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc);
 /**
  * @brief Frees video_frame structure
  *
- * Calls video_frame::data_deleter if defined (suplied by user
+ * Calls video_frame::data_deleter if defined (supplied by user
  * or fiiled by vf_alloc_desc_data()).
  */
 void vf_free(struct video_frame *buf);
@@ -135,7 +135,7 @@ struct tile * vf_get_tile(struct video_frame *buf, int pos);
 /**
  * @brief Makes deep copy of the video frame
  *
- * Copied data are automatically freeed by vf_free()
+ * Copied data are automatically freed by vf_free()
  */
 struct video_frame * vf_get_copy(struct video_frame *original_frame);
 /**
@@ -204,7 +204,7 @@ void vf_restore_metadata(struct video_frame *f, void *);
 unsigned int vf_get_data_len(struct video_frame *f);
 
 /**
- * Fills @param planes with pointers to data accordint to provided
+ * Fills @param planes with pointers to data according to provided
  * spec.
  *
  * Works with planar pixel formats only.

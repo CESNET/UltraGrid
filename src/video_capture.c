@@ -73,7 +73,7 @@ struct vidcap {
         struct module mod;
         void    *state; ///< state of the created video capture driver
         const struct video_capture_info *funcs;
-        uint32_t magic; ///< For debugging. Conatins @ref VIDCAP_MAGIC
+        uint32_t magic; ///< For debugging. Contains @ref VIDCAP_MAGIC
 
         struct capture_filter *capture_filter; ///< capture_filter_state
 };

@@ -79,7 +79,7 @@ void change_bps2(char *out, int out_bps, const char *in, int in_bps, int in_len 
  * By reducing bit-depth of audio, quantization noise is introduced. If the bit
  * depth is reduced by consistent rounding (either always down, always up, or
  * always to nearest) the quantization noise is correlated with the input
- * signal and percieved as distortion. Adding a small amount of noise to the
+ * signal and perceived as distortion. Adding a small amount of noise to the
  * input signal before reducing the bit-depth causes random rounding, which
  * makes the noise uncorrelated and uniformly spread through the whole
  * spectrum.
@@ -119,14 +119,14 @@ void remux_and_mix_channel(char *out, const char *in, int bps, int frames, int i
 double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
 
 /**
- * This fuction converts from normalized float to int32_t representation
+ * This function converts from normalized float to int32_t representation
  * Input and output data may overlap.
  * @param[out] out 4-byte aligned output buffer
  * @param[in] in 4-byte aligned input buffer
  */
 void float2int(char *out, const char *in, int len);
 /**
- * This fuction converts from int32_t to normalized float
+ * This function converts from int32_t to normalized float
  * Input and output data may overlap.
  * @param[out] out 4-byte aligned output buffer
  * @param[in] in 4-byte aligned input buffer

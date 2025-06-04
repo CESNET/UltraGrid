@@ -74,10 +74,10 @@ static int init(struct module *parent, const char *cfg, void **state)
                        "Coefficients are applied at unpacked pixels (eg. on Y Cb and Cr channels of UYVY). Result is marked as RGB.\n"
                        "Currently only RGB and UYVY is supported on input. No additional color transformation is performed.\n");
                 printf("\nOptional \"no-bounds-check\" options disables check for overflows/underflows which improves performance\n"
-                                "but may give incorrect results if operation oveflows or underflows.\n");
+                                "but may give incorrect results if operation overflows or underflows.\n");
                 color_printf(
                     "\n" TBOLD("Note: ") "This variant filter is a bit unusual, "
-                                        "expecially when handling UYVY.\n");
+                                        "especially when handling UYVY.\n");
                 color_printf("You may want also to look at " TBOLD(
                     "matrix2") " capture filter/postprocessor.\n\n");
                 return 1;

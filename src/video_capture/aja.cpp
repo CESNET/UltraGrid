@@ -363,7 +363,7 @@ void vidcap_state_aja::Init()
         }
 
         if (!mDevice.AcquireStreamForApplication (fourcc, static_cast <uint32_t> (getpid())))
-                throw string("Cannot aquire stream.");
+                throw string("Cannot acquire stream.");
 #endif
 
         CHECK(mDevice.GetEveryFrameServices (mSavedTaskMode));        //      Save the current state before we change it
@@ -556,7 +556,7 @@ AJAStatus vidcap_state_aja::SetupHDMI()
 
 AJAStatus vidcap_state_aja::SetupVideo()
 {
-        //      Set the video format to match the incomming video format.
+        //      Set the video format to match the incoming video format.
         //      Does the device support the desired input source?
         if (!::NTV2DeviceCanDoInputSource (mDeviceID, mInputSource))
                 return AJA_STATUS_BAD_PARAM;    //      Nope
@@ -579,7 +579,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         CHECK_OK(mDevice.EnableInputInterrupt (mInputChannel), "EnableInputInterrupt failed", NOOP);
         CHECK_OK(mDevice.SubscribeInputVerticalEvent (mInputChannel), "SubscribeInputVerticalEvent failed", NOOP);
 
-        //      Set the video format to match the incomming video format.
+        //      Set the video format to match the incoming video format.
         //      Does the device support the desired input source?
 
         //      If the device supports bi-directional SDI and the
@@ -726,7 +726,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         //      Loopback mode plays whatever audio appears in the input signal when it's
         //      connected directly to an output (i.e., "end-to-end" mode). If loopback is
         //      left enabled, the video will lag the audio as video frames get briefly delayed
-        //      in our ring buffer. Audio, therefore, needs to come out of the (buffered) fram
+        //      in our ring buffer. Audio, therefore, needs to come out of the (buffered) frame
         //      data being played, so loopback must be turned off...
         //
         CHECK(mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem));

@@ -541,7 +541,7 @@ static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, vide
         return ret;
 }
 
-/// auxilliary data structure passed with encoded frame
+/// auxiliary data structure passed with encoded frame
 struct custom_data {
         custom_data()                               = delete;
         custom_data(custom_data &b)                 = delete;
@@ -897,7 +897,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
         if (s->pool_in_cuda_memory) {
                 // cmpto_j2k_enc requires the size after postprocess, which
-                // doesn't equeal the IN frame data_len for R12L
+                // doesn't equal the IN frame data_len for R12L
                 const codec_t device_codec = s->precompress_codec == VC_NONE
                                            ? udata->frame->color_spec
                                            : s->precompress_codec;

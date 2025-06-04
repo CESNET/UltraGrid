@@ -278,7 +278,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
-        if (rf64 && !found_ds64_chunk) { // buggy, but we may try to continue witn implicit data size
+        if (rf64 && !found_ds64_chunk) { // buggy, but we may try to continue with implicit data size
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Broken WAV - a RF64 file detected but no ds64 chunk found!\n");
         }
 

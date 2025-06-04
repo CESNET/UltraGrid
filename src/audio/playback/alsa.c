@@ -38,7 +38,7 @@
 /*
  * Changes should use Safe ALSA API (http://0pointer.de/blog/projects/guide-to-sound-apis).
  *
- * Please, report all differencies from it here:
+ * Please, report all differences from it here:
  * - used format SND_PCM_FORMAT_S24_LE
  * - used "default" device for arbitrary number of channels
  */

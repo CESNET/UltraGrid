@@ -123,7 +123,7 @@ static bool configure(struct audio_export *s, struct audio_desc fmt) {
         s->saved_format = fmt;
 
         if ((s->wav = wav_writer_create(s->filename, fmt)) == NULL) {
-                fprintf(stderr, "[Audio export] Error writting header!\n");
+                fprintf(stderr, "[Audio export] Error writing header!\n");
                 return false;
         }
 

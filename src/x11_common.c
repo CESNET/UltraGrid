@@ -36,11 +36,11 @@
  */
 /**
  * @todo
- * Perhaps remove the whole stuff (+ resouce manager). This used to be used to
+ * Perhaps remove the whole stuff (+ resource manager). This used to be used to
  * solve some crashes with access to X11 from within multiple threads (IIRC
  * RTDXT and X11-based display - GL/SDL?).
  *
- * This may not be needed - individual modues create its own non-shared Xlib
+ * This may not be needed - individual modules create its own non-shared Xlib
  * connection and XInitThreads() is called (this also may not be required).
  */
 
@@ -61,7 +61,7 @@
 struct x11_state {
         Display *display;
         pthread_mutex_t lock;
-        int display_opened_here; /* indicates wheather we opened the display
+        int display_opened_here; /* indicates whether we opened the display
                                           in such a case, we count references and if 0,
                                           we close it */
         int ref_num;

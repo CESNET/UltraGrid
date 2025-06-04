@@ -66,10 +66,10 @@ struct openssl_decrypt_info {
          *
          * @param[in] decrypt decrypt state
          * @param[in] ciphertext encrypted text
-         * @param[in] ciphertext_len lenght of encrypted text
-         * @param[in] aad Aditional Authenticated Data (see openssl_encrypt documentation)
+         * @param[in] ciphertext_len length of encrypted text
+         * @param[in] aad Additional Authenticated Data (see openssl_encrypt documentation)
          * @param[in] aad_len length of aad block
-         * @param[out] plaintext otput plaintext
+         * @param[out] plaintext output plaintext
          * @retval 0 if checksum doesn't match
          * @retval >0 length of output plaintext
          */

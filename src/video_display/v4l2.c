@@ -37,7 +37,7 @@
 /**
  * @todo
  * * consider using v4l2_ family of functions (such as v4l2_open) - but
- *   v4l2_open currently fails witn v4l2loopback on first open (perhaps because
+ *   v4l2_open currently fails with v4l2loopback on first open (perhaps because
  *   it is non-compliant implementation). We perhaps don't need conversions, so
  *   the advantage would be (in display) perhaps only better verbosity
  *   (v4l2_log_file) and error checking (?).

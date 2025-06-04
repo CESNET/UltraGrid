@@ -314,7 +314,7 @@ ldgm::ldgm(const char *cfg)
 
         if(c < MIN_C || c > MAX_C) {
                 ostringstream oss;
-                oss << "[LDGM] C value shoud be inside interval [" << MIN_C << ", " << MAX_C << "]";
+                oss << "[LDGM] C value should be inside interval [" << MIN_C << ", " << MAX_C << "]";
                 throw oss.str();
         }
 

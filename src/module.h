@@ -49,9 +49,9 @@
  *      ...
  * } s;
  * module_init_default(&s->mod);
- * s->mod.cls = MODULE_CLASS_<NAME>; // allways needed
+ * s->mod.cls = MODULE_CLASS_<NAME>; // always needed
  * s->mod.priv_data = s;             // optional
- * s->mod.deleter = deleter;         // only used for generic modules, see a note bellow
+ * s->mod.deleter = deleter;         // only used for generic modules, see a note below
  * module_register(&s->mod, s->parent);
  * ```
  *
@@ -121,7 +121,7 @@ struct module {
         pthread_mutex_t msg_queue_lock; // protects msg_queue
         struct simple_linked_list *msg_queue;
 
-        struct simple_linked_list *msg_queue_children; ///< messages for childern that were not delivered
+        struct simple_linked_list *msg_queue_children; ///< messages for children that were not delivered
 
         void *priv_data;
         //uint32_t id;

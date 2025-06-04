@@ -420,7 +420,7 @@ void usage(bool full) {
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
         col() << "\t" << SBOLD("<cqp>") << " use codec-specific constant QP value, for some codecs like MJPEG this is the only quality setting option\n";
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
-        col() << "\t" << SBOLD("<subsampling>") << " may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        col() << "\t" << SBOLD("<subsampling>") << " may be one of 444, 422, or 420, default 420 for progressive, 422 for interlaced\n";
         col() << "\t" << SBOLD("<depth>") << " enforce specified compression bit depth\n";
         col() << "\t" << SBOLD("rgb|yuv") << " enforce specified color space compreesion\n";
         col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none;\n";
@@ -482,7 +482,7 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
         if (req_codec == "help") {
                 if (req_encoder.empty()) {
                         MSG(ERROR, "The encoder needs to be specified "
-                                   "explictly for input codec listing!\n");
+                                   "explicitly for input codec listing!\n");
                         return;
                 }
                 const auto *codec =
@@ -649,7 +649,7 @@ static compress_module_info get_libavcodec_module_info(){
                         "Do not use Periodic Intra Refresh (H.264/H.265)", "",
                         "disable_intra_refresh", ":disable_intra_refresh", true});
         module_info.opts.emplace_back(module_option{"Subsampling",
-                        "may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced",
+                        "may be one of 444, 422, or 420, default 420 for progressive, 422 for interlaced",
                         "422",
                         "subsampling", ":subsampling=", false});
         module_info.opts.emplace_back(module_option{"Lavc opt",
@@ -687,7 +687,7 @@ static compress_module_info get_libavcodec_module_info(){
 
 ADD_TO_PARAM("keep-pixfmt",
                 "* keep-pixfmt\n"
-                "  Signalize input pixel format to reciever and try\n");
+                "  Signalize input pixel format to receiver and try\n");
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
         ug_set_av_logging();
@@ -1111,7 +1111,7 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
                 return codec;
         }
 
-        // Else, try to open prefered encoder for requested codec
+        // Else, try to open preferred encoder for requested codec
         const char *preferred_encoder = nullptr;
         if (codec_params.find(*ug_codec) != codec_params.end() &&
             codec_params[*ug_codec].get_prefered_encoder) {
@@ -1143,7 +1143,7 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         enum AVPixelFormat sws_in_format = nb_fmts == 0 ? AV_PIX_FMT_UYVY422 : pixfmts[0];
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(sws_in_format), av_get_pix_fmt_name(sws_out_pixfmt));
         if ((s->pixfmt_conversion = to_lavc_vid_conv_init(desc.color_spec, desc.width, desc.height, sws_in_format, s->conv_thread_count)) == nullptr) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get sws input conversion.\n"); // shouldn't happen normally, but user may choose imposible codec
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get sws input conversion.\n"); // shouldn't happen normally, but user may choose impossible codec
                 return false;
         }
 
@@ -1681,7 +1681,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) == 0 &&
                                 (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Slice-based or external multithreading not available, encoding won't be parallel. "
-                                        "You may select frame-based paralellism if needed.\n");
+                                        "You may select frame-based parallelism if needed.\n");
                 }
         } else if (req_thread_type == -1) {
                 req_thread_type = 0;
@@ -1899,7 +1899,7 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
                 }
         };
         x265_params_append("keyint", to_string(codec_ctx->gop_size));
-        /// turn on periodic intra refresh, unless explicitely disabled
+        /// turn on periodic intra refresh, unless explicitly disabled
         if (param->periodic_intra != 0) {
                 incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);
                 codec_ctx->refs = 1;

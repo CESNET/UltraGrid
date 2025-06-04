@@ -268,8 +268,8 @@ sdp_send_change_address_message(struct module           *root,
 
 /**
  * take care that addrs can also be comma-separated list of addresses !
- * @retval  0 state succesfully initialized
- * @retval <0 error occured
+ * @retval  0 state successfully initialized
+ * @retval <0 error occurred
  * @retval >0 success but no state was created (eg. help printed)
  */
 int audio_init(struct state_audio **ret,
@@ -446,7 +446,7 @@ int audio_init(struct state_audio **ret,
                 s->receiver = NET_JACK;
 #endif
         } else if (s->audio_tx_mode != 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", opt->proto);
+                log_msg(LOG_LEVEL_ERROR, "Unknown audio protocol: %s\n", opt->proto);
                 goto error;
         }
 
@@ -891,7 +891,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 exit_uv(0);
                         } else {
                                 LOG(LOG_LEVEL_ERROR)
-                                    << "[control] Unable to initalize FEC!\n";
+                                    << "[control] Unable to initialize FEC!\n";
                         }
                         return new_response(RESPONSE_INT_SERV_ERR, nullptr);
                 }

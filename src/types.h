@@ -168,7 +168,7 @@ enum interlacing_t {
 /**
  * video_desc represents video description
  * @note
- * in case of tiled video - width and height represent widht and height
+ * in case of tiled video - width and height represent width and height
  * of each tile, eg. for tiled superHD 1920x1080
  */
 struct video_desc {

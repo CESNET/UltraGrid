@@ -171,7 +171,7 @@ void module_store_message(struct module *node, struct message *m);
 
 struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
 #define SEND_MESSAGE_FLAG_QUIET    (1<<0) ///< do not print error messages on console (recv not found/queue full)
-#define SEND_MESSAGE_FLAG_NO_STORE (1<<1) ///< if receiver doesn't exist, doesn't store it and retur 404 instead
+#define SEND_MESSAGE_FLAG_NO_STORE (1<<1) ///< if receiver doesn't exist, doesn't store it and return 404 instead
 struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms, int flags) __attribute__ ((warn_unused_result));
 struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
 struct message *new_message(size_t length) __attribute__ ((warn_unused_result));

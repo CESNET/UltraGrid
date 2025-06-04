@@ -424,7 +424,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         return true;
 }
 
-/// @retval false if 1. hwacc not enabled; 2. help; 3. incorect hwacc spec
+/// @retval false if 1. hwacc not enabled; 2. help; 3. incorrect hwacc spec
 static bool
 validate_hwacc_param(void)
 {

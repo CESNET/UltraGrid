@@ -346,7 +346,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 #ifdef SHARED_DECODER
                                 cp->decoder_state = shared_decoder;
 #else
-                                // we are assigning our display so we make sure it is removed from other dispaly
+                                // we are assigning our display so we make sure it is removed from other display
 
                                 struct multi_sources_supp_info supp_for_mult_sources;
                                 size_t len = sizeof(multi_sources_supp_info);
@@ -412,7 +412,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         remove_display_from_decoders();
 #endif //  SHARED_DECODER
 
-        // pass posioned pill to display
+        // pass poisoned pill to display
         display_put_frame(m_display_device, NULL, PUTF_BLOCKING);
 
         return 0;

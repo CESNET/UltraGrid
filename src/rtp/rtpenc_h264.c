@@ -61,7 +61,7 @@ static uint32_t get4Bytes(const unsigned char *ptr) {
 /**
  * Returns pointer to next NAL unit in stream.
  *
- * @param with_start_code returned pointer will point to start code preceeding NAL unit, otherwise it will point
+ * @param with_start_code returned pointer will point to start code preceding NAL unit, otherwise it will point
  *                        to NAL unit beginning (skipping the start code)
  */
 static const unsigned char *get_next_nal(const unsigned char *start, long len, _Bool with_start_code) {

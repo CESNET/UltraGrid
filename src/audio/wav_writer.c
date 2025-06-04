@@ -54,7 +54,7 @@
  * However, the document [2] doesn't mention this and there is no ambiguity for UG - we do
  * not specify channel layout, bits per sample matches container size and is never padded.
  * Resource [3] also suggests this use but strictly speaking this is documentation of system
- * API, not file format. flac(1) complains if the original format is used, FFmpeg RIFF writter
+ * API, not file format. flac(1) complains if the original format is used, FFmpeg RIFF writer
  * also follows the above rules.
  */
 

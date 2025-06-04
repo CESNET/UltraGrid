@@ -192,14 +192,14 @@ public:
         }
 
         /**
-         * @brief This should be called when an overflow has occured.
+         * @brief This should be called when an overflow has occurred.
          */
         void increment_buffer_overflow() {
                 this->buffer_overflow++;
         }
 
         /**
-         * @brief This should be called when an underflow has occured.
+         * @brief This should be called when an underflow has occurred.
          */
         void increment_buffer_underflow() {
                 this->buffer_underflow++;
@@ -255,7 +255,7 @@ public:
                         std::chrono::high_resolution_clock::time_point audio_begin = std::chrono::high_resolution_clock::now();
                         std::chrono::milliseconds time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(audio_begin - this->prev_audio_end);
 
-                        // Set a max or min if the timing is outside of whats already been collected
+                        // Set a max or min if the timing is outside of what is already been collected
                         long long duration_diff = time_diff.count();
                         if(duration_diff > this->audio_time_diff_max) {
                                 this->audio_time_diff_max = duration_diff;
@@ -281,7 +281,7 @@ private:
         // How many times the buffer dropped avg amount of frames being added
         uint32_t frames_missed = 0;
         MovingAverage avg_added_frames{250};
-        // How many buffer underflows and overflows have occured.
+        // How many buffer underflows and overflows have occurred.
         uint32_t buffer_underflow = 0;
         uint32_t buffer_overflow = 0;
         // How many times it was requested a higher or lower sample rate

@@ -63,7 +63,7 @@ enum {
         /// not including terminating NUL
         IN_PORT_STR_LEN = 5,
         /**
-         * buffer for host:port represenation. If IPv6 address is presented,
+         * buffer for host:port representation. If IPv6 address is presented,
          * enclosed in []. Including terminating NUL byte.
          * @sa get_sockaddr_str
          */

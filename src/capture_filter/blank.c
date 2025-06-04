@@ -141,9 +141,9 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (cfg && strcasecmp(cfg, "help") == 0) {
                 printf("Blanks specified rectangular area:\n\n");
                 printf("blank usage:\n");
-                printf("\tblank:x:y:widht:height[:black]\n");
+                printf("\tblank:x:y:width:height[:black]\n");
                 printf("\t\tor\n");
-                printf("\tblank:x%%:y%%:widht%%:height%%[:black]\n");
+                printf("\tblank:x%%:y%%:width%%:height%%[:black]\n");
                 printf("\t(all values in pixels)\n");
                 return 1;
         }

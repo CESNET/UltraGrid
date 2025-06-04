@@ -43,7 +43,7 @@ void left_matrix_init ( char **matrix, int k, int n, int N1, int seed )
     int j;                      /* Column index */
     int h;                      /* Temporary variable */
     int t;                      /* Left limit within the list of possible choices u[] */
-    int u[3*LDGM_MAX_K];            /* A table used to have a homogenous 1 distribution. */
+    int u[3*LDGM_MAX_K];            /* A table used to have a homogeneous 1 distribution. */
 
     Rand_pmms rand_gen;
     rand_gen.seedi(seed);
@@ -53,13 +53,13 @@ void left_matrix_init ( char **matrix, int k, int n, int N1, int seed )
 	u[h] = h % (n-k);
     }
 
-    /*  Initialize the matrix with N1 "1s" per column, homogenously */
+    /*  Initialize the matrix with N1 "1s" per column, homogeneously */
     t = 0;
     for ( j = 0; j < k; j++ )                   /* for each source symbol column */
     {
 	for ( h = 0; h < N1; h++ )              /* put N1 "1s" */
 	{
-	    /*  Check wether valid available choices remain */
+	    /*  Check whether valid available choices remain */
 	    for ( i = t; i < N1*k && matrix [u[i]] [j] ; i++);
 	    if ( i < N1*k )
 	    {

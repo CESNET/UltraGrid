@@ -37,7 +37,7 @@
  * @brief SW video mix is a virtual video mixer.
  *
  * @todo
- * Reenable configuration file position matching.
+ * Re-enable configuration file position matching.
  *
  * @todo
  * Refactor to use also different scalers than OpenGL (eg. libswscale)
@@ -1139,7 +1139,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         }
 
         if (s->gl_context.gl_major < 2) {
-                fprintf(stderr, "[swmix] Unsufficient OpenGL version to run SWMix.\n");
+                fprintf(stderr, "[swmix] Insufficient OpenGL version to run SWMix.\n");
                 goto error;
         }
 

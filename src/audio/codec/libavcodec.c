@@ -224,7 +224,7 @@ ADD_TO_PARAM("audio-lavc-decoder", "* audio-lavc-decoder=<decoder_name>\n"
 ADD_TO_PARAM("audio-lavc-encoder", "* audio-lavc-encoder=<encoder_name>\n"
                 "  Use selected audio lavc encoder\n");
 /**
- * Initializates selected audio codec
+ * Initializes selected audio codec
  * @param audio_codec requested audio codec
  * @param direction   which direction will be used (encoding or decoding)
  * @param silent      if true no error messages will be printed.
@@ -330,7 +330,7 @@ get_bitrate(struct libavcodec_codec_state *s)
         const int default_rate =
             mapping[s->output_channel.codec].default_bitrate;
         if (default_rate > 0) {
-                MSG(INFO, "Setting defaulat bit rate: %d bps\n", default_rate);
+                MSG(INFO, "Setting default bit rate: %d bps\n", default_rate);
                 return default_rate;
         }
         return 0;

@@ -90,7 +90,7 @@ vidcap_screen_linux_init(struct vidcap_params *params, void **state)
         }
         verbose_msg("Trying to initialize screen_x11\n");
         if (getenv("DISPLAY") == NULL) {
-                log_msg(LOG_LEVEL_WARNING, "Trying to initalize screen_x11 but DISPLAY environment variable is not set!\n");
+                log_msg(LOG_LEVEL_WARNING, "Trying to initialize screen_x11 but DISPLAY environment variable is not set!\n");
         }
         vidcap_params_set_driver(params_new, "screen_x11");
         int ret = initialize_video_capture(NULL, params_new, &device);

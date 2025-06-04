@@ -179,7 +179,7 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
 
 /**
  * @param[out] com_initialized  pointer to be passed to decklnk_uninitialize
- (keeps information if COM needs to be unintialized)
+ (keeps information if COM needs to be uninitialized)
  * @note
  * Each successful call (returning non-null pointer) of this function
  * should be followed by com_uninitialize() when done with DeckLink (not when releasing
@@ -244,7 +244,7 @@ bool blackmagic_api_version_check()
                 goto cleanup;
         }
 
-        // this is safe comparision, for internal structure please see SDK
+        // this is safe comparison, for internal structure please see SDK
         // documentation
         if (value <= BMD_LAST_INCOMPATIBLE_ABI) {
                 MSG(ERROR, "The DeckLink drivers are be outdated.\n");
@@ -408,7 +408,7 @@ class ProfileCallback : public IDeckLinkProfileCallback
                         std::unique_lock<std::mutex> lock(m_profileActivatedMutex);
                         bool ret =  m_profileActivatedCondition.wait_for(lock, std::chrono::seconds{5}, [&]{ return m_requestedProfileActivated; });
                         if (ret) {
-                                LOG(LOG_LEVEL_NOTICE) << "[DeckLink] Profile " << profileName << " activated succesfully.\n";
+                                LOG(LOG_LEVEL_NOTICE) << "[DeckLink] Profile " << profileName << " activated successfully.\n";
                         } else {
                                 LOG(LOG_LEVEL_ERROR) << "[DeckLink] Profile " << profileName << " activation timeouted!\n";
                         }
@@ -958,7 +958,7 @@ bmd_opt_help()
                              val_name_map[i].name);
         }
         color_printf("\n");
-        color_printf("Avaliable values can be found here:\n" TUNDERLINE(
+        color_printf("Available values can be found here:\n" TUNDERLINE(
             "https://github.com/CESNET/UltraGrid/blob/master/ext-deps/"
             "DeckLink/Linux/DeckLinkAPI.h") "\n");
         color_printf("\n");
@@ -987,7 +987,7 @@ bmd_opt_help()
 
 /**
  * @param val  can be empty or NULL - this allow specifying the flag without explicit value
- * @retval true  value vas set
+ * @retval true  value was set
  * @retval false help for FourCC syntas was print
  */
 bool

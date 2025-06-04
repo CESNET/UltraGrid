@@ -68,7 +68,7 @@
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
 /**
- * This function extracts important data for futher processing of the stream,
+ * This function extracts important data for further processing of the stream,
  * eg. frame type - for prepending RTSP/SDP sprop-parameter-sets to I-frame and
  * parsing dimensions from SPS NAL.
  *
@@ -530,7 +530,7 @@ width_height_from_hevc_sps(int *widthOut, int *heightOut, unsigned char *data,
      * ...process..
      * hevc_free(h);
      * ````
-     * Also this allow keeping just the SPS parser part from the HEVC streem
+     * Also this allow keeping just the SPS parser part from the HEVC stream
      * decoder. */
 
     uint8_t* rbsp_buf = (uint8_t*)malloc(data_len);

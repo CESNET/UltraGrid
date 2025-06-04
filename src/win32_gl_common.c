@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * This context has to be run in a separate thread to ensure
- * that DC is stil valid because it is automatically released
+ * that DC is still valid because it is automatically released
  * when thread, where it is created, exits.
  */
 /*
@@ -123,7 +123,7 @@ static void *owner_thread(void *arg) {
 
         int err = glewInit();
         if(err != GLEW_OK) {
-                fprintf(stderr, "Error intializing GLEW.\n");
+                fprintf(stderr, "Error initializing GLEW.\n");
                 goto release_context;
         }
 

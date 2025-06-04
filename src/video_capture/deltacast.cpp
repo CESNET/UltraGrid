@@ -171,7 +171,7 @@ delta_get_mode(ULONG VideoStandard)
 
 /**
  * Function initialize is intended to be called repeatedly if no signal detected
- * in vidcap_deltacast_init(). This will be tried everytime grab is called and until
+ * in vidcap_deltacast_init(). This will be tried every time grab is called and until
  * initialized.
  */
 static bool wait_for_channel(struct vidcap_deltacast_state *s)

@@ -51,7 +51,7 @@ int test_video_display(void)
             ("Testing video hardware detection ......................................... ");
         if (initialize_video_display(NULL, "none", "", 0, NULL, &d) != 0) {
                 printf("FAIL\n");
-                printf("    Cannot intiialize dummy device\n");
+                printf("    Cannot initialize dummy device\n");
                 return -1;
         }
         printf("Ok\n");

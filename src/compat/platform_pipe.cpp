@@ -150,7 +150,7 @@ static int system_pipe(fd_t p[2])
         (void) p;
         return -1;
 #else
-        fprintf(stderr, "Using native pipe instead of custom implementaton.\n");
+        fprintf(stderr, "Using native pipe instead of custom implementation.\n");
         return pipe(p);
 #endif
 }
@@ -168,7 +168,7 @@ int platform_pipe_init(fd_t p[2])
                 return -1;
         }
         if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                fprintf(stderr, "Could not find usable version of Winsock.\n");
                 WSACleanup();
                 return -1;
         }
@@ -179,7 +179,7 @@ int platform_pipe_init(fd_t p[2])
                 return -1;
         }
         if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                fprintf(stderr, "Could not find usable version of Winsock.\n");
                 WSACleanup();
                 WSACleanup();
                 return -1;

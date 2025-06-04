@@ -845,7 +845,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 // there should be setting for both audio and video
                                 // but we conservativelly expect that the user wants
                                 // only vieo and let audio default until explicitly
-                                // stated otehrwise
+                                // stated otherwise
                                 opt->requested_video_fec = optarg;
                         }
                         break;
@@ -1255,8 +1255,8 @@ static int adjust_params(struct ug_options *opt) {
         adjust_ports(opt, audio_rxtx_mode);
 
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
-        // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
-        // to a reflector, thats why we require equal ports (we are a receiver as well).
+        // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possible that we are sending
+        // to a reflector, that is why we require equal ports (we are a receiver as well).
         if (is_host_loopback(opt->requested_receiver)
                         && (opt->video_rx_port == opt->video_tx_port || opt->video_tx_port == 0)
                         && (opt->audio.recv_port == opt->audio.send_port || opt->audio.send_port == 0)) {
@@ -1383,7 +1383,7 @@ int main(int argc, char *argv[])
         display_flags |= audio_get_display_flags(uv.audio);
 
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
-        // to initalize shared resource (X display) first
+        // to initialize shared resource (X display) first
         ret =
              initialize_video_display(&uv.root_module, opt.requested_display, opt.display_cfg, display_flags, opt.postprocess, &uv.display_device);
         if (ret < 0) {

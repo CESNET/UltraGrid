@@ -866,7 +866,7 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
 
                 // For each group of samples.
                 for (int g = 0 ; g < (cdata->data->data_len / received_frame.get_channel_count()) ; g++) {
-                    // Iterate throught each channel.
+                    // Iterate through each channel.
                     for (int ch = 0 ; ch < received_frame.get_channel_count(); ch ++) {
 
                         received_frame.append(ch, from, cdata->data->data_len);

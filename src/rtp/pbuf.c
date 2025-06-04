@@ -140,7 +140,7 @@ static void pbuf_validate(struct pbuf *playout_buf)
                         /* stored in RTP timestamp order */
                         assert(cpb->rtp_timestamp > ppb->rtp_timestamp);
                         /* stored in playout time order  */
-                        /* TODO: eventually check why is this assert always failng */
+                        /* TODO: eventually check why is this assert always failing */
                         // assert(tv_gt(cpb->ptime, ppb->ptime));  
                 }
                 if (cpb->nxt != NULL) {
@@ -156,7 +156,7 @@ static void pbuf_validate(struct pbuf *playout_buf)
                                 assert(ccd->prv == pcd);
                                 if (ccd->prv != NULL) {
                                         assert(ccd->prv->nxt == ccd);
-                                        /* list is descending - cant really check this now */
+                                        /* list is descending - can not really check this now */
                                         //assert(ccd->seqno < pcd->seqno); 
                                         assert(ccd->data != NULL);
                                 }
@@ -562,7 +562,7 @@ static int frame_complete(struct pbuf_node *frame)
         /* seqnum of the last packet in the previous frame, too?     */
         /* i dont think that would reflect correctly of weather this */
         /* frame is complete or not - however we should check for all */
-        /* the packtes of a frame being present - perhaps we should  */
+        /* the packets of a frame being present - perhaps we should  */
         /* keep a bit vector in pbuf_node? LG.  */
 
         return (frame->mbit == 1 || frame->completed == true);

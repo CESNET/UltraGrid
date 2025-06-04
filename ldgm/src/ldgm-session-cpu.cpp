@@ -298,7 +298,7 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
 
     /*      for(map<int, Node>::iterator it = graph.nodes.begin(); it != graph.nodes.end(); ++it) {
      *      Node n = it->second;
-     *      printf ( "neigbours of %d (count %lu): ", it->first, (it->second).neighbours.size() );
+     *      printf ( "neighbours of %d (count %lu): ", it->first, (it->second).neighbours.size() );
      *      for(vector<int>::iterator itr = n.neighbours.begin(); itr != n.neighbours.end(); ++itr)
      *          printf ( "%d ", *itr );
      *      printf ( "\n" );
@@ -395,7 +395,7 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
     int iter = 0;
 
     while ( needs_decoding(&graph) && iter < 4) {
-//	printf ( "iteratin\n" );
+//	printf ( "iterating\n" );
         iterate(&graph);
         iter++;
     }

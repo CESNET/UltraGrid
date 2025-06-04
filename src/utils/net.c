@@ -549,7 +549,7 @@ v4_unmap(const struct sockaddr_in6 *addr6, struct sockaddr_in *buf4)
  * @retval 0  addresses equal
  * @retval >0 struct represents "bigger" address (port)
  * @note
- * v4-mapped ipv6 address is considered eqaul to corresponding AF_INET addr
+ * v4-mapped ipv6 address is considered equal to corresponding AF_INET addr
  */
 int
 sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
@@ -591,7 +591,7 @@ sockaddr_compare(const struct sockaddr *x, const struct sockaddr *y)
                         }
                 }
 
-                // sin6_scope_id is opaque so do not cope with endianity
+                // sin6_scope_id is opaque so do not cope with endianness
                 // (actually it is host order on both Linux and Windows)
                 if (IN6_IS_ADDR_LINKLOCAL(&sin_x->sin6_addr) &&
                     sin_x->sin6_scope_id != sin_y->sin6_scope_id) {

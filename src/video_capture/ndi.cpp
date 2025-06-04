@@ -617,7 +617,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 break;
 
         case NDIlib_frame_type_error:
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Error occured!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Error occurred!\n";
                 break;
 
         case NDIlib_frame_type_status_change:

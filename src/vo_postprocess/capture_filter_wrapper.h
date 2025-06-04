@@ -2,7 +2,7 @@
  * @file   vo_postprocess/capture_filter_wrapper.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Wrapper encapsulating caputre filter to video postprocessor.
+ * Wrapper encapsulating capture filter to video postprocessor.
  * In addition to capture filter API, the wrapped module must implement 
  * (void (*set_out_buf)(void *state, char *buffer)) function to provide
  * output buffer to decode to.

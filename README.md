@@ -133,7 +133,7 @@ Using the UltraGrid System
 
    The **\<capture_device\>** is one of the list viewed with `-t help`. Name
    of capture device usually follows with configuration of video mode,
-   video input etc. All options can be interactively dispayed using built-in
+   video input etc. All options can be interactively displayed using built-in
    help, eg. `-t decklink:help`.
 
    The **\<compression\>** specifies the selected video compression to be
