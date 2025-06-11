@@ -18,13 +18,13 @@ check_type() {
         TYPE=$(jq -r type "$1")
         if [ "$TYPE" != "$2" ]; then
                 echo "Wrong JSON type - expected $2, got $TYPE" >&2
-                json=$(cat "$1")
-                echo "JSON: $json" >&2
+                echo 'JSON:' >&2
+                cat "$1" >&2
                 exit 1
         fi
 }
 
-## @brief Returns json for given URL and authorization token while checking errors
+## @brief Returns json file for given URL and authorization token while checking errors
 ## @param $1 URL
 ## @param $2 GITHUB_TOKEN (optional)
 ## @param $3 requested type (optional)
@@ -41,7 +41,8 @@ fetch_json() {
         status=$(curl -sS "$@" -X GET "$url" -w "%{http_code}" -o "$json")
         if ! is_int "$status" || [ "$status" -ne 200 ]; then
                 echo "HTTP error code $status" >&2
-                echo "JSON: $json" >&2
+                echo "JSON:" >&2
+                cat "$json" >&2
         fi
         check_errors "$json"
         if [ -n "$req_type" ]; then
@@ -57,8 +58,8 @@ check_status() {
         if ! is_int "$1" || [ "$1" -lt 200 ] || [ "$1" -ge 300 ]; then
                 echo "Wrong response status $1!" >&2
                 if [ -n "${2-}" ]; then
-                        json=$(cat "$2")
-                        echo "JSON: $json" >&2
+                        echo "JSON:" >&2
+                        cat "$2"
                 fi
                 exit 1
         fi
