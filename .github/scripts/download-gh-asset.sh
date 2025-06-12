@@ -15,11 +15,18 @@ readonly file="${3?output filename must be given!}"
 
 gh_release_json=$(fetch_json "https://api.github.com/repos/$repo/releases" \
         "${GITHUB_TOKEN-}" array)
-gh_release=$(jq -r '.[0].assets_url' "$gh_release_json")
+gh_path=$(jq  -e -r '
+[ .[]                                    # for each top‐level object
+  | .assets[]                            # walk into its assets array
+  | select(.name | test("'"$pattern"'")) # keep only those whose name matches
+  | .browser_download_url                # print just the URL
+][0]                                     # include only 1st match
+' "$gh_release_json")
 rm -- "$gh_release_json"
-gh_path_json=$(fetch_json "$gh_release" "${GITHUB_TOKEN-}" array)
-gh_path=$(jq -r '[.[] | select(.name | test(".*'"$pattern"'.*"))] |
-        .[0].browser_download_url' "$gh_path_json")
-rm -- "$gh_path_json"
-curl -sSL "$gh_path" -o "$file"
+if [ -n "${GITHUB_TOKEN-}" ]; then
+        set -- -H "Authorization: token $GITHUB_TOKEN"
+else
+        set --
+fi
+curl -sSL "$@" "$gh_path" -o "$file"
 
