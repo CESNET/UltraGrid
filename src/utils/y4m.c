@@ -5,7 +5,7 @@
  * This file is part of GPUJPEG.
  */
 /*
- * Copyright (c) 2022-2024, CESNET z.s.p.o.
+ * Copyright (c) 2022-2025, CESNET
  *
  * All rights reserved.
  *
@@ -74,8 +74,34 @@ static size_t y4m_get_data_len(const struct y4m_metadata *info) {
         return ret * (info->bitdepth > 8 ? 2 : 1);
 }
 
+#ifdef _WIN32
+#include <wchar.h>
+#include <windows.h>
+static wchar_t*
+mbs_to_wstr_helper(const char* mbstr, wchar_t* wstr_buf, size_t wstr_len)
+{
+    const int size_needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mbstr, 0 - 1, NULL, 0);
+    if ( size_needed == 0 ) {
+        fprintf(stderr, "[Y4M] MultiByteToWideChar error %d (0x%x)!\n", GetLastError(), GetLastError());
+        return NULL;
+    }
+    if ( size_needed > (int)wstr_len ) {
+        fprintf(stderr, "[Y4M] buffer provided to %s too short - needed %d, got %zu!\n", __func__, size_needed,
+                wstr_len);
+        return NULL;
+    }
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mbstr, -1, wstr_buf, size_needed);
+    return wstr_buf;
+}
+#define mbs_to_wstr(tstr) mbs_to_wstr_helper(tstr, (wchar_t[1024]){0}, 1024)
+#endif
+
 size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char **data, void *(*allocator)(size_t)) {
+#ifdef _WIN32
+        FILE *file = _wfopen(mbs_to_wstr(filename), L"rb");
+#else
         FILE *file = fopen(filename, "rb");
+#endif
         if (!file) {
                 fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
                 return 0;
@@ -134,7 +160,11 @@ size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char *
 
 bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsigned char *data) {
         errno = 0;
+#ifdef _WIN32
+        FILE *file = _wfopen(mbs_to_wstr(filename), L"wb");
+#else
         FILE *file = fopen(filename, "wb");
+#endif
         if (!file) {
                 fprintf(stderr, "Failed to open %s for writing: %s\n", filename, strerror(errno));
                 return false;

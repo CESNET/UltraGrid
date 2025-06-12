@@ -138,10 +138,36 @@ static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
         return false;
 }
 
+#ifdef _WIN32
+#include <wchar.h>
+#include <windows.h>
+static wchar_t*
+mbs_to_wstr_helper(const char* mbstr, wchar_t* wstr_buf, size_t wstr_len)
+{
+    const int size_needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mbstr, -1, NULL, 0);
+    if ( size_needed == 0 ) {
+        fprintf(stderr, "[PAM] MultiByteToWideChar error: %d (0x%x)!\n", GetLastError(), GetLastError());
+        return NULL;
+    }
+    if ( size_needed > (int)wstr_len ) {
+        fprintf(stderr, "[PAM] buffer provided to %s too short - needed %d, got %zu!\n", __func__, size_needed,
+                wstr_len);
+        return NULL;
+    }
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mbstr, -1, wstr_buf, size_needed);
+    return wstr_buf;
+}
+#define mbs_to_wstr(tstr) mbs_to_wstr_helper(tstr, (wchar_t[1024]){0}, 1024)
+#endif
+
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t)) {
         char line[128];
         errno = 0;
+#ifdef _WIN32
+        FILE *file = _wfopen(mbs_to_wstr(filename), L"rb");
+#else
         FILE *file = fopen(filename, "rb");
+#endif
         if (!file) {
                 fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
                 return false;
@@ -203,7 +229,11 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
 
 bool pam_write(const char *filename, unsigned int width, unsigned int height, int ch_count, int maxval, const unsigned char *data, bool pnm) {
         errno = 0;
+#ifdef _WIN32
+        FILE *file = _wfopen(mbs_to_wstr(filename), L"wb");
+#else
         FILE *file = fopen(filename, "wb");
+#endif
         if (!file) {
                 fprintf(stderr, "Failed to open %s for writing: %s\n", filename, strerror(errno));
                 return false;
