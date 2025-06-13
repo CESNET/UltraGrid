@@ -289,6 +289,7 @@ struct state_video_compress_libav {
         codec_t             requested_codec_id = VIDEO_CODEC_NONE;
         struct to_lavc_req_prop req_conv_prop{ TO_LAVC_REQ_PROP_INIT };
         bool store_orig_format = false;
+        bool header_inserter = false;
         struct aux_header aux_header;
 
         struct video_desc compressed_desc{};
@@ -949,6 +950,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
             params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1
                                ? 16
                                : DEFAULT_SLICE_COUNT);
+        s->header_inserter = params.header_inserter_req == 1;
 
         // set user supplied parameters
         for (auto const &item : s->lavc_opts) {
@@ -1495,7 +1497,7 @@ auto out_vf_from_pkt(state_video_compress_libav *s, AVPacket *pkt) {
         memcpy(out->tiles[0].data, s->aux_header.buf, s->aux_header.buf_len);
         memcpy(out->tiles[0].data + s->aux_header.buf_len, pkt->data,
                pkt->size);
-        if (s->params.header_inserter_req == 1) {
+        if (s->header_inserter) {
                 store_sps_pps_vps(s, pkt);
         }
 
