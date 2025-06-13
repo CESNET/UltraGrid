@@ -272,6 +272,7 @@ struct state_video_compress_libav {
                 module_register(&module_data, parent);
         }
         ~state_video_compress_libav() {
+                module_done(&module_data);
                 av_packet_free(&pkt);
                 to_lavc_vid_conv_destroy(&pixfmt_conversion);
         }
