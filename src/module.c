@@ -81,13 +81,14 @@ module_mutex_unlock(pthread_mutex_t *lock)
 
 void module_register(struct module *module_data, struct module *parent)
 {
-        if(parent) {
-                module_data->parent = parent;
-                module_mutex_lock(&module_data->parent->lock);
-                simple_linked_list_append(module_data->parent->children, module_data);
-                module_check_undelivered_messages(module_data->parent);
-                module_mutex_unlock(&module_data->parent->lock);
+        if (parent == NULL) {
+                return;
         }
+        module_data->parent = parent;
+        module_mutex_lock(&module_data->parent->lock);
+        simple_linked_list_append(module_data->parent->children, module_data);
+        module_check_undelivered_messages(module_data->parent);
+        module_mutex_unlock(&module_data->parent->lock);
 }
 
 void module_done(struct module *module_data)
