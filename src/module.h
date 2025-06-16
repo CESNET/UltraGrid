@@ -53,11 +53,6 @@
  * s->mod.priv_data = s;             // optional
  * module_register(&s->mod, s->parent);
  * ```
- *
- * @note
- * Struct module should be first inside the struct in order to be able to call
- * @ref CAST_MODULE to it (however, it is currently strictly required only for
- * @ref tx and @ref video_compress_info modules).
  */
 
 #ifndef MODULE_H_
@@ -190,8 +185,6 @@ struct module *get_parent_module(struct module *node);
 
 void dump_tree(struct module *root_node, int indent);
 void dump_parents(struct module *node);
-
-#define CAST_MODULE(x) ((struct module *) x)
 
 #ifdef __cplusplus
 }
