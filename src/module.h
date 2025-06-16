@@ -111,25 +111,15 @@ struct module {
                          ///< module (control_socket)
         char name[128]; ///< optional name of the module. May be used for indexing.
 
-        struct module_priv_state *module_priv;
-
-#ifdef __cplusplus
-        module() = default;
-        // don't be tempted to copy/move module because parent holds pointer to struct module
-        // which would be dangling thereafter
-        module(module const &) = delete;
-        module(module &&) = delete;
-        module &operator=(module const &) = delete;
-        module &operator=(module &&) = delete;
-#endif
+        struct module_priv_state *module_priv; ///< set by module_register()
 };
 
 struct module_priv_state {
         uint32_t magic;
-        enum module_class cls;
+        struct module wrapper;
         pthread_mutex_t lock;
-        struct module *parent;
-        struct simple_linked_list *children;
+        struct module_priv_state *parent;
+        struct simple_linked_list *children; // module_priv_state
 
         pthread_mutex_t msg_queue_lock; // protects msg_queue
         struct simple_linked_list *msg_queue;
@@ -140,6 +130,8 @@ struct module_priv_state {
 };
 
 void module_init_default(struct module *module_data);
+/// module_register makes a private copy struct module so subsequent
+/// changes in that structure won't affect the registered one
 void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
@@ -186,7 +178,7 @@ struct module *get_matching_child(struct module *node, const char *path);
  *
  * @retval root module
  */
-struct module *get_root_module(struct module *node);
+struct module *get_root_module(struct module *mod);
 
 struct module *get_parent_module(struct module *node);
 

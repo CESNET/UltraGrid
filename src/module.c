@@ -67,30 +67,31 @@ module_mutex_unlock(pthread_mutex_t *lock)
 
 void module_register(struct module *module_data, struct module *parent)
 {
-        module_data->module_priv = calloc(1, sizeof *module_data->module_priv);
-        module_data->module_priv->cls = module_data->cls;
-        module_data->module_priv->magic = MODULE_MAGIC;
+        struct module_priv_state *module_priv = calloc(1, sizeof *module_data->module_priv);
+        module_data->module_priv = module_priv;
+        module_priv->magic = MODULE_MAGIC;
+        memcpy(&module_priv->wrapper, module_data, sizeof *module_data);
 
         int ret = 0;
         pthread_mutexattr_t attr;
         ret |= pthread_mutexattr_init(&attr);
         ret |= pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-        ret |= pthread_mutex_init(&module_data->module_priv->lock, &attr);
-        ret |= pthread_mutex_init(&module_data->module_priv->msg_queue_lock, &attr);
+        ret |= pthread_mutex_init(&module_priv->lock, &attr);
+        ret |= pthread_mutex_init(&module_priv->msg_queue_lock, &attr);
         ret |= pthread_mutexattr_destroy(&attr);
         assert(ret == 0 && "Unable to create mutex or set attributes");
 
-        module_data->module_priv->children = simple_linked_list_init();
-        module_data->module_priv->msg_queue = simple_linked_list_init();
-        module_data->module_priv->msg_queue_children = simple_linked_list_init();
+        module_priv->children = simple_linked_list_init();
+        module_priv->msg_queue = simple_linked_list_init();
+        module_priv->msg_queue_children = simple_linked_list_init();
 
         // register to parent
         if (parent == NULL) {
                 return;
         }
-        module_data->module_priv->parent = parent;
+        module_priv->parent = parent->module_priv;
         module_mutex_lock(&parent->module_priv->lock);
-        simple_linked_list_append(parent->module_priv->children, module_data);
+        simple_linked_list_append(parent->module_priv->children, module_priv);
         module_check_undelivered_messages(parent);
         module_mutex_unlock(&parent->module_priv->lock);
 }
@@ -108,11 +109,11 @@ void module_done(struct module *module_data)
         assert(module_priv->magic == MODULE_MAGIC);
 
         if(module_priv->parent) {
-                module_mutex_lock(&module_priv->parent->module_priv->lock);
+                module_mutex_lock(&module_priv->parent->lock);
                 bool found = simple_linked_list_remove(
-                    module_priv->parent->module_priv->children, module_data);
+                    module_priv->parent->children, module_data->module_priv);
                 assert(found);
-                module_mutex_unlock(&module_priv->parent->module_priv->lock);
+                module_mutex_unlock(&module_priv->parent->lock);
         }
 
         module_data->cls = MODULE_CLASS_NONE;
@@ -122,10 +123,11 @@ void module_done(struct module *module_data)
                 dump_tree(module_data, 0);
                 module_mutex_lock(&module_priv->lock);
                 for(void *it = simple_linked_list_it_init(module_priv->children); it != NULL; ) {
-                        struct module *child = simple_linked_list_it_next(&it);
-                        module_mutex_lock(&child->module_priv->lock);
-                        child->module_priv->parent = NULL;
-                        module_mutex_unlock(&child->module_priv->lock);
+                        struct module_priv_state *child = simple_linked_list_it_next(&it);
+                        assert(child->magic == MODULE_MAGIC);
+                        module_mutex_lock(&child->lock);
+                        child->parent = NULL;
+                        module_mutex_unlock(&child->lock);
                 }
                 module_mutex_unlock(&module_priv->lock);
         }
@@ -197,20 +199,26 @@ append_message_path(char *buf, int buflen, const enum module_class *modules)
         }
 }
 
-struct module *get_root_module(struct module *node)
+struct module *get_root_module(struct module *mod)
 {
-        assert(node);
-        while(node->module_priv->parent) {
-                node = node->module_priv->parent;
-        }
-        assert(node->cls == MODULE_CLASS_ROOT);
+        assert(mod && mod->module_priv);
 
-        return node;
+        struct module_priv_state *node = mod->module_priv;
+
+        while(node->parent) {
+                node = node->parent;
+        }
+        assert(node->wrapper.cls == MODULE_CLASS_ROOT);
+
+        return &node->wrapper;
 }
 
 struct module *get_parent_module(struct module *node)
 {
-        return node->module_priv->parent;
+        if (node->module_priv->parent == NULL) {
+                return NULL;
+        }
+        return &node->module_priv->parent->wrapper;
 }
 
 /**
@@ -222,18 +230,18 @@ static struct module *find_child(struct module *node, const char *node_name, int
 {
         for (void *it = simple_linked_list_it_init(node->module_priv->children);
              it != NULL;) {
-                struct module *child = (struct module *) simple_linked_list_it_next(&it);
-                const char *child_name = module_class_name(child->cls);
+                struct module_priv_state *child = simple_linked_list_it_next(&it);
+                const char *child_name = module_class_name(child->wrapper.cls);
                 assert(child_name != NULL);
                 if(strcasecmp(child_name, node_name) == 0) {
                         if (id_name != NULL) {
-                                if (strcmp(child->name, id_name) == 0) {
+                                if (strcmp(child->wrapper.name, id_name) == 0) {
                                         simple_linked_list_it_destroy(it);
-                                        return child;
+                                        return &child->wrapper;
                                 }
                         } else if (id_num-- == 0) {
                                 simple_linked_list_it_destroy(it);
-                                return child;
+                                return &child->wrapper;
                         }
                 }
         }
@@ -338,8 +346,8 @@ void dump_tree(struct module *root_node, int indent) {
         for (void *it =
                  simple_linked_list_it_init(root_node->module_priv->children);
              it != NULL;) {
-                struct module *child = simple_linked_list_it_next(&it);
-                dump_tree(child, indent + 2);
+                struct module_priv_state *child = simple_linked_list_it_next(&it);
+                dump_tree(&child->wrapper, indent + 2);
         }
         module_mutex_unlock(&root_node->module_priv->lock);
 }
@@ -376,11 +384,11 @@ static const char *get_module_identifier(struct module *mod)
         int our_index = 0;
         for (void *it = simple_linked_list_it_init(parent->module_priv->children);
              it != NULL;) {
-                struct module *child = simple_linked_list_it_next(&it);
-                if (child->cls != mod->cls) {
+                struct module_priv_state *child = simple_linked_list_it_next(&it);
+                if (child->wrapper.cls != mod->cls) {
                         continue;
                 }
-                if (child == mod) { // found our node
+                if (child == mod->module_priv) { // found our node
                         break;
                 }
                 our_index += 1;
@@ -409,8 +417,9 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
         assert(buflen > 0);
         buf[0] = '\0';
 
-        while (mod) {
-                const char *cur_name = get_module_identifier(mod);
+        struct module_priv_state *node = mod->module_priv;
+        while (node) {
+                const char *cur_name = get_module_identifier(&node->wrapper);
                 if (sizeof(buf) + 1 + sizeof(cur_name) >= buflen) {
                         return false;
                 }
@@ -422,7 +431,7 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
                         buf[strlen(cur_name)] = '\0';
                 }
                 memcpy(buf, cur_name, strlen(cur_name));
-                mod = mod->module_priv->parent;
+                node = node->parent;
         }
 
         return true;
