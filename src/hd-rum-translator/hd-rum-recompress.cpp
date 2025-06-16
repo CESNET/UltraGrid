@@ -8,7 +8,7 @@
  * (therefore it wraps the whole sending part of UltraGrid).
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@
 
 namespace {
 struct compress_state_deleter{
-        void operator()(struct compress_state *s){ module_done(CAST_MODULE(s)); }
+        void operator()(struct compress_state *s){ compress_done(s); }
 };
 }
 
