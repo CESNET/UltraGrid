@@ -12,7 +12,7 @@
  * This file contains common (global) variables and functions.
  */
 /*
- * Copyright (c) 2005-2024, CESNET
+ * Copyright (c) 2005-2025, CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -132,6 +132,7 @@ void common_cleanup(struct init_data *init_data);
 
 // root module management
 void init_root_module(struct module *root_mod);
+void destroy_root_module(struct module *root_mod);
 void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
 void unregister_should_exit_callback(struct module *mod,
                                      void (*callback)(void *), void *udata);

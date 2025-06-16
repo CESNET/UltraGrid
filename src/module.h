@@ -4,7 +4,7 @@
  * @ingroup module
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,6 @@
  * module_init_default(&s->mod);
  * s->mod.cls = MODULE_CLASS_<NAME>; // always needed
  * s->mod.priv_data = s;             // optional
- * s->mod.deleter = deleter;         // only used for generic modules, see a note below
  * module_register(&s->mod, s->parent);
  * ```
  *
@@ -100,12 +99,11 @@ enum module_class {
 struct module;
 struct simple_linked_list;
 
-typedef void (*module_deleter_t)(struct module *);
 typedef void (*notify_t)(struct module *);
 
 /**
  * @struct module
- * Only members cls, deleter, priv_data and msg_queue may be directly touched
+ * Only members cls, priv_data and msg_queue may be directly touched
  * by user. The others should be considered private.
  */
 struct module {
@@ -115,7 +113,6 @@ struct module {
         enum module_class cls;
         struct module *parent;
         struct simple_linked_list *children;
-        module_deleter_t deleter;
         notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
 
         pthread_mutex_t msg_queue_lock; // protects msg_queue

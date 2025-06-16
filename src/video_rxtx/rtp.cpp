@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -227,7 +227,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
 rtp_video_rxtx::~rtp_video_rxtx()
 {
         if (m_tx) {
-                module_done(CAST_MODULE(m_tx));
+                tx_done(m_tx);
         }
 
         m_network_devices_lock.lock();

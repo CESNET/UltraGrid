@@ -550,9 +550,6 @@ struct state_root {
                         platform_pipe_close(should_exit_pipe[0]);
                 }
         }
-        static void deleter(struct module *m) {
-                delete (state_root*) m->priv_data;
-        }
 
         static void should_exit_watcher(state_root *s) {
                 set_thread_name(__func__);
@@ -608,9 +605,12 @@ void init_root_module(struct module *root_mod) {
         root_mod->cls = MODULE_CLASS_ROOT;
         root_mod->new_message = nullptr; // note that the root mod messages
                                          // processes also the reflector
-        root_mod->deleter = state_root::deleter;
         state_root_static = new state_root();
         root_mod->priv_data = state_root_static;
+}
+
+void destroy_root_module(struct module *root_mod) {
+        delete (state_root *) root_mod->priv_data;
 }
 
 /**

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2024 CESNET
+ * Copyright (c) 2016-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -129,7 +129,7 @@ struct am_participant {
         }
         ~am_participant() {
                 if (m_tx_session) {
-                        module_done(CAST_MODULE(m_tx_session));
+                        tx_done(m_tx_session);
                 }
                 if (m_network_device) {
                         rtp_done(m_network_device);

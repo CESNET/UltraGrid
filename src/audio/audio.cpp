@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2024 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -457,7 +457,7 @@ int audio_init(struct state_audio **ret,
 
 error:
         if(s->tx_session)
-                module_done(CAST_MODULE(s->tx_session));
+                tx_done(s->tx_session);
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
@@ -534,7 +534,9 @@ void audio_done(struct state_audio *s)
                 free_message(msg, r);
         }
 
-        module_done(CAST_MODULE(s->tx_session));
+        if (s->tx_session) {
+                tx_done(s->tx_session);
+        }
         if(s->audio_network_device)
                 rtp_done(s->audio_network_device);
         if(s->audio_participants) {

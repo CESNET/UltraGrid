@@ -15,7 +15,7 @@
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2002 University of Southern California
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -78,6 +78,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 void             format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx,
                 uint32_t *hdr);
+void tx_done(struct tx *tx_session);
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 void tx_send_h265(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);

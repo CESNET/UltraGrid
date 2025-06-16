@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -108,53 +108,44 @@ void module_done(struct module *module_data)
                 module_mutex_unlock(&module_data->parent->lock);
         }
 
-        // we assume that deleter may dealloc space where are structure stored
-        module_mutex_lock(&module_data->lock);
-        struct module tmp;
-        memcpy(&tmp, module_data, sizeof(struct module));
-        module_mutex_unlock(&module_data->lock);
-
         module_data->cls = MODULE_CLASS_NONE;
 
-        if(module_data->deleter)
-                module_data->deleter(module_data);
-
-        if(simple_linked_list_size(tmp.children) > 0) {
+        if(simple_linked_list_size(module_data->children) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
-                dump_tree(&tmp, 0);
-                module_mutex_lock(&tmp.lock);
+                dump_tree(module_data, 0);
+                module_mutex_lock(&module_data->lock);
                 for(void *it = simple_linked_list_it_init(module_data->children); it != NULL; ) {
                         struct module *child = simple_linked_list_it_next(&it);
                         module_mutex_lock(&child->lock);
                         child->parent = NULL;
                         module_mutex_unlock(&child->lock);
                 }
-                module_mutex_unlock(&tmp.lock);
+                module_mutex_unlock(&module_data->lock);
         }
-        simple_linked_list_destroy(tmp.children);
+        simple_linked_list_destroy(module_data->children);
 
-        if(simple_linked_list_size(tmp.msg_queue) > 0) {
+        if(simple_linked_list_size(module_data->msg_queue) > 0) {
                 fprintf(stderr, "Warning: Message queue not empty!\n");
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         printf("Path: ");
-                        dump_parents(&tmp);
+                        dump_parents(module_data);
                 }
                 struct message *m;
-                while ((m = check_message(&tmp))) {
+                while ((m = check_message(module_data))) {
                         free_message(m, NULL);
                 }
         }
-        simple_linked_list_destroy(tmp.msg_queue);
+        simple_linked_list_destroy(module_data->msg_queue);
 
-        while (simple_linked_list_size(tmp.msg_queue_children) > 0) {
-                struct message *m = simple_linked_list_pop(tmp.msg_queue_children);
+        while (simple_linked_list_size(module_data->msg_queue_children) > 0) {
+                struct message *m = simple_linked_list_pop(module_data->msg_queue_children);
                 free_message_for_child(m, NULL);
         }
-        simple_linked_list_destroy(tmp.msg_queue_children);
+        simple_linked_list_destroy(module_data->msg_queue_children);
 
-        pthread_mutex_destroy(&tmp.lock);
+        pthread_mutex_destroy(&module_data->lock);
 
-        free(tmp.name);
+        free(module_data->name);
 }
 
 static const char *module_class_name_pairs[] = {

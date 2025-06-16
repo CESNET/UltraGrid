@@ -149,6 +149,7 @@ struct state_uv {
         }
         ~state_uv() {
                 module_done(&root_module);
+                destroy_root_module(&root_module);
         }
 
         struct vidcap *capture_device{};

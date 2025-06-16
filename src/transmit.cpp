@@ -17,7 +17,7 @@
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -116,7 +116,6 @@ using std::array;
 using std::vector;
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
-static void tx_done(struct module *tx);
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps);
 
 static void
@@ -230,7 +229,6 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         module_init_default(&tx->mod);
         tx->mod.cls = MODULE_CLASS_TX;
         tx->mod.priv_data = tx;
-        tx->mod.deleter = tx_done;
         module_register(&tx->mod, parent);
 
         tx->magic = TRANSMIT_MAGIC;
@@ -244,7 +242,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         tx->last_frame_fragment_id = -1;
         if (fec) {
                 if(!set_fec(tx, fec)) {
-                        module_done(&tx->mod);
+                        tx_done(tx);
                         return NULL;
                 }
         }
@@ -253,13 +251,13 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
                 if (!tx->enc_funcs) {
                         fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
-                        module_done(&tx->mod);
+                        tx_done(tx);
                         return NULL;
                 }
                 if (tx->enc_funcs->init(&tx->encryption,
                                         encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize encryption\n");
-                        module_done(&tx->mod);
+                        tx_done(tx);
                         return NULL;
                 }
         }
@@ -405,11 +403,11 @@ static void fec_check_messages(struct tx *tx)
         }
 }
 
-static void tx_done(struct module *mod)
+void tx_done(struct tx *tx_session)
 {
-        struct tx *tx = (struct tx *) mod->priv_data;
-        assert(tx->magic == TRANSMIT_MAGIC);
-        free(tx);
+        assert(tx_session->magic == TRANSMIT_MAGIC);
+        module_done(&tx_session->mod);
+        free(tx_session);
 }
 
 /*
