@@ -97,6 +97,7 @@ enum module_class {
 };
 
 struct module;
+struct module_state;
 struct simple_linked_list;
 
 typedef void (*notify_t)(struct module *);
@@ -108,7 +109,6 @@ typedef void (*notify_t)(struct module *);
  */
 struct module {
         alignas(8) uint32_t magic;
-        uint32_t priv_magic; ///< optional magic number that can a module set
         pthread_mutex_t lock;
         enum module_class cls;
         struct module *parent;

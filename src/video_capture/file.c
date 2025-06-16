@@ -5,7 +5,7 @@
  * Libavformat demuxer and decompress
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -95,6 +95,7 @@ enum {
 #define MOD_NAME "[File cap.] "
 
 struct vidcap_state_lavf_decoder {
+        uint32_t magic;
         struct module mod;
         char *src_filename;
         AVFormatContext *fmt_ctx;
@@ -755,6 +756,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 #endif
 
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
+        s->magic = MAGIC;
         s->video_frame_queue = simple_linked_list_init();
         s->vid_frm_noaud = simple_linked_list_init();
         s->audio_stream_idx = -1;
@@ -768,7 +770,6 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
         CHECK(pthread_cond_init(&s->new_frame_ready, NULL));
         module_init_default(&s->mod);
-        s->mod.priv_magic = MAGIC;
         s->mod.cls = MODULE_CLASS_DATA;
         s->mod.priv_data = s;
         s->mod.new_message = vidcap_file_new_message;
@@ -860,7 +861,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 static void vidcap_file_done(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         unregister_should_exit_callback(&s->mod, vidcap_file_should_exit, s);
-        assert(s->mod.priv_magic == MAGIC);
+        assert(s->magic == MAGIC);
 
         vidcap_file_should_exit(s);
 
@@ -999,7 +1000,7 @@ vidcap_file_grab(void *state, struct audio_frame **audio)
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         struct video_frame *out;
 
-        assert(s->mod.priv_magic == MAGIC);
+        assert(s->magic == MAGIC);
         pthread_mutex_lock(&s->lock);
         while ((simple_linked_list_size(s->video_frame_queue) == 0 || s->paused) &&
                !s->failed && !s->should_exit) {

@@ -163,6 +163,7 @@ struct FrameMappings{
 };
 
 struct state_vulkan_sdl3 {
+        const uint32_t magic = magic_vulkan_sdl3;
         module mod{};
 
         Uint32 sdl_user_new_message_event;
@@ -189,7 +190,6 @@ struct state_vulkan_sdl3 {
 
         explicit state_vulkan_sdl3(module* parent) {
                 module_init_default(&mod);
-                mod.priv_magic = magic_vulkan_sdl3;
                 mod.new_message = display_vulkan_new_message;
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
@@ -380,7 +380,7 @@ void process_events(state_vulkan_sdl3& s) {
 
 void display_vulkan_run(void* state) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
         
         s->time = chrono::steady_clock::now();
         while (!s->should_exit) {
@@ -541,7 +541,7 @@ vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_
 
 bool display_vulkan_reconfigure(void* state, video_desc desc) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
 
         assert(desc.tile_count == 1);
         s->current_desc = desc;
@@ -833,7 +833,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
 void display_vulkan_done(void* state) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
 
         SDL_ShowCursor();
 
@@ -859,7 +859,7 @@ void display_vulkan_done(void* state) {
 
 video_frame* display_vulkan_getf(void* state) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
         
         const auto& desc = s->current_desc;
         vkd::TransferImage image;
@@ -877,7 +877,7 @@ video_frame* display_vulkan_getf(void* state) {
 
 bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
 
         if (!frame) {
                 s->should_exit = true;
@@ -911,7 +911,7 @@ bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) 
 
 bool display_vulkan_get_property(void* state, int property, void* val, size_t* len) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS: {
@@ -958,7 +958,7 @@ bool display_vulkan_get_property(void* state, int property, void* val, size_t* l
 
 void display_vulkan_new_message(module* mod) {
         auto s = reinterpret_cast<state_vulkan_sdl3*>(mod);
-        assert(s->mod.priv_magic == magic_vulkan_sdl3);
+        assert(s->magic == magic_vulkan_sdl3);
 
         SDL_Event event{};
         event.type = s->sdl_user_new_message_event;

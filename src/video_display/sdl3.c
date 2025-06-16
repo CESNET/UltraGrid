@@ -143,6 +143,7 @@ static const struct fmt_data pf_mapping_template[] = {
         { R10k, SDL_PIXELFORMAT_XBGR2101010, convert_R10k_ABGR2101010 },
 };
 struct state_sdl3 {
+        uint32_t magic;
         struct module   mod;
         struct fmt_data supp_fmts[(sizeof pf_mapping_template /
                                    sizeof pf_mapping_template[0]) +
@@ -938,6 +939,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         const char        *driver = NULL;
         struct state_sdl3 *s      = calloc(1, sizeof *s);
 
+        s->magic  = MAGIC_SDL3;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
 
@@ -1047,7 +1049,6 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         SDL_DisableScreenSaver();
 
         module_init_default(&s->mod);
-        s->mod.priv_magic  = MAGIC_SDL3;
         s->mod.new_message = display_sdl3_new_message;
         s->mod.cls         = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
@@ -1088,7 +1089,7 @@ display_sdl3_done(void *state)
 {
         struct state_sdl3 *s = state;
 
-        assert(s->mod.priv_magic == MAGIC_SDL3);
+        assert(s->magic == MAGIC_SDL3);
 
         cleanup_frames(s);
 
@@ -1121,7 +1122,7 @@ static struct video_frame *
 display_sdl3_getf(void *state)
 {
         struct state_sdl3 *s = state;
-        assert(s->mod.priv_magic == MAGIC_SDL3);
+        assert(s->magic == MAGIC_SDL3);
 
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->free_frame_queue) == 0) {
@@ -1261,7 +1262,7 @@ display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_sdl3 *s = state;
 
-        assert(s->mod.priv_magic == MAGIC_SDL3);
+        assert(s->magic == MAGIC_SDL3);
 
         if (frame == NULL) { // poison pill
                 SDL_Event event;

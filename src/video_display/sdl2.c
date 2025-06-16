@@ -97,6 +97,7 @@ static void loadSplashscreen(struct state_sdl2 *s);
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 
 struct state_sdl2 {
+        uint32_t                magic;
         struct module           mod;
 
         int                     texture_pitch;
@@ -673,6 +674,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         const char *renderer = NULL;
         struct state_sdl2 *s = calloc(1, sizeof *s);
 
+        s->magic = MAGIC_SDL2;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync = true;
 
@@ -780,7 +782,6 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         SDL_DisableScreenSaver();
 
         module_init_default(&s->mod);
-        s->mod.priv_magic = MAGIC_SDL2;
         s->mod.new_message = display_sdl2_new_message;
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
@@ -814,7 +815,7 @@ static void display_sdl2_done(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
-        assert(s->mod.priv_magic == MAGIC_SDL2);
+        assert(s->magic == MAGIC_SDL2);
 
         cleanup_frames(s);
 
@@ -846,7 +847,7 @@ static void display_sdl2_done(void *state)
 static struct video_frame *display_sdl2_getf(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
-        assert(s->mod.priv_magic == MAGIC_SDL2);
+        assert(s->magic == MAGIC_SDL2);
 
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->free_frame_queue) == 0) {
@@ -882,7 +883,7 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
-        assert(s->mod.priv_magic == MAGIC_SDL2);
+        assert(s->magic == MAGIC_SDL2);
 
         if (frame == NULL) { // poison pill
                 SDL_Event event;
