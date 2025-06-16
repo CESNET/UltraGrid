@@ -137,7 +137,7 @@ static struct response *send_message_common(struct module *root, const char *con
                 msg->priv_data = new shared_ptr<struct responder>(responder);
         }
 
-        pthread_mutex_lock(&receiver->lock);
+        pthread_mutex_lock(&receiver->module_priv->lock);
 
         while ((item = strtok_r(path, ".", &save_ptr))) {
                 path = NULL;
@@ -153,11 +153,18 @@ static struct response *send_message_common(struct module *root, const char *con
                                 if (!(flags & SEND_MESSAGE_FLAG_QUIET))
                                         printf("Receiver %s does not exist.\n", const_path);
                                 //dump_tree(root, 0);
-                                if (simple_linked_list_size(old_receiver->msg_queue_children) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
+                                if (simple_linked_list_size(
+                                        old_receiver->module_priv
+                                            ->msg_queue_children) >
+                                    MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
                                         if (!(flags & SEND_MESSAGE_FLAG_QUIET))
                                                 printf("Dropping some old messages for %s (queue full).\n", const_path);
-                                        free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_children),
-                                                        new_response(RESPONSE_NOT_FOUND, "Receiver not found"));
+                                        free_message_for_child(
+                                            simple_linked_list_pop(
+                                                old_receiver->module_priv
+                                                    ->msg_queue_children),
+                                            new_response(RESPONSE_NOT_FOUND,
+                                                         "Receiver not found"));
                                 }
 
                                 struct pair_msg_path *saved_message = (struct pair_msg_path *)
@@ -165,8 +172,12 @@ static struct response *send_message_common(struct module *root, const char *con
                                 saved_message->msg = msg;
                                 strcpy(saved_message->path, const_path + (item - tmp));
 
-                                simple_linked_list_append(old_receiver->msg_queue_children, saved_message);
-                                pthread_mutex_unlock(&old_receiver->lock);
+                                simple_linked_list_append(
+                                    old_receiver->module_priv
+                                        ->msg_queue_children,
+                                    saved_message);
+                                pthread_mutex_unlock(
+                                    &old_receiver->module_priv->lock);
 
                                 free(tmp);
                                 if (!sync) {
@@ -189,37 +200,38 @@ static struct response *send_message_common(struct module *root, const char *con
                                         }
                                 }
                         } else {
-                                pthread_mutex_unlock(&old_receiver->lock);
+                                pthread_mutex_unlock(&old_receiver->module_priv->lock);
                                 free_message(msg, NULL);
                                 free(tmp);
                                 return new_response(RESPONSE_NOT_FOUND, NULL);
                         }
                 }
-                pthread_mutex_lock(&receiver->lock);
-                pthread_mutex_unlock(&old_receiver->lock);
+                pthread_mutex_lock(&receiver->module_priv->lock);
+                pthread_mutex_unlock(&old_receiver->module_priv->lock);
         }
 
         free(tmp);
 
         //pthread_mutex_guard guard(receiver->lock, lock_guard_retain_ownership_t());
 
-        pthread_mutex_lock(&receiver->msg_queue_lock);
-        int size = simple_linked_list_size(receiver->msg_queue);
-        pthread_mutex_unlock(&receiver->msg_queue_lock);
+        pthread_mutex_lock(&receiver->module_priv->msg_queue_lock);
+        int size = simple_linked_list_size(receiver->module_priv->msg_queue);
+        pthread_mutex_unlock(&receiver->module_priv->msg_queue_lock);
         if (size >= MAX_MESSAGES) {
-                struct message *m = (struct message *) simple_linked_list_pop(receiver->msg_queue);
+                struct message *m = (struct message *) simple_linked_list_pop(
+                    receiver->module_priv->msg_queue);
                 free_message(m, new_response(RESPONSE_INT_SERV_ERR, "Too many unprocessed messages"));
                 printf("Dropping some messages for %s - queue full.\n", const_path);
         }
-        pthread_mutex_lock(&receiver->msg_queue_lock);
-        simple_linked_list_append(receiver->msg_queue, msg);
-        pthread_mutex_unlock(&receiver->msg_queue_lock);
+        pthread_mutex_lock(&receiver->module_priv->msg_queue_lock);
+        simple_linked_list_append(receiver->module_priv->msg_queue, msg);
+        pthread_mutex_unlock(&receiver->module_priv->msg_queue_lock);
 
         if (receiver->new_message) {
                 receiver->new_message(receiver);
         }
 
-        pthread_mutex_unlock(&receiver->lock);
+        pthread_mutex_unlock(&receiver->module_priv->lock);
 
         if (!sync) {
                 return new_response(RESPONSE_ACCEPTED, NULL);
@@ -265,35 +277,39 @@ struct response *send_message_sync(struct module *root, const char *const_path, 
  */
 void module_check_undelivered_messages(struct module *node)
 {
-        pthread_mutex_guard guard(node->lock);
+        pthread_mutex_guard guard(node->module_priv->lock);
 
-        for(void *it = simple_linked_list_it_init(node->msg_queue_children); it != NULL; ) {
+        for (void *it = simple_linked_list_it_init(
+                 node->module_priv->msg_queue_children);
+             it != NULL;) {
                 struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
                 struct module *receiver = get_matching_child(node, msg->path);
                 if (receiver) {
                         struct response *resp = send_message_to_receiver(receiver, msg->msg);
                         free_response(resp);
-                        simple_linked_list_remove(node->msg_queue_children, msg);
+                        simple_linked_list_remove(
+                            node->module_priv->msg_queue_children, msg);
                         free(msg);
                         // reinit iterator
-                        it = simple_linked_list_it_init(node->msg_queue_children);
+                        it = simple_linked_list_it_init(
+                            node->module_priv->msg_queue_children);
                 }
         }
 }
 
 void module_store_message(struct module *node, struct message *m)
 {
-        pthread_mutex_guard guard(node->msg_queue_lock);
-        simple_linked_list_append(node->msg_queue, m);
+        pthread_mutex_guard guard(node->module_priv->msg_queue_lock);
+        simple_linked_list_append(node->module_priv->msg_queue, m);
 }
 
 struct response *send_message_to_receiver(struct module *receiver, struct message *msg)
 {
-        pthread_mutex_lock(&receiver->msg_queue_lock);
-        simple_linked_list_append(receiver->msg_queue, msg);
-        pthread_mutex_unlock(&receiver->msg_queue_lock);
+        pthread_mutex_lock(&receiver->module_priv->msg_queue_lock);
+        simple_linked_list_append(receiver->module_priv->msg_queue, msg);
+        pthread_mutex_unlock(&receiver->module_priv->msg_queue_lock);
 
-        pthread_mutex_guard guard(receiver->lock);
+        pthread_mutex_guard guard(receiver->module_priv->lock);
         if (receiver->new_message) {
                 receiver->new_message(receiver);
         }
@@ -394,10 +410,11 @@ const char *response_status_to_text(int status)
 
 struct message *check_message(struct module *mod)
 {
-        pthread_mutex_guard guard(mod->msg_queue_lock);
+        pthread_mutex_guard guard(mod->module_priv->msg_queue_lock);
 
-        if(simple_linked_list_size(mod->msg_queue) > 0) {
-                return (struct message *) simple_linked_list_pop(mod->msg_queue);
+        if(simple_linked_list_size(mod->module_priv->msg_queue) > 0) {
+                return (struct message *) simple_linked_list_pop(
+                    mod->module_priv->msg_queue);
         } else {
                 return NULL;
         }

@@ -1393,8 +1393,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 new_message(sizeof(struct msg_receiver));
         msg->type = RECEIVER_MSG_VIDEO_PROP_CHANGED;
         msg->new_desc = decoder->received_vid_desc;
-        struct response *resp =
-                send_message_to_receiver(decoder->mod.parent, (struct message *) msg);
+        struct response *resp = send_message_to_receiver(
+            get_parent_module(&decoder->mod), (struct message *) msg);
         free_response(resp);
 
         if (out_codec != VIDEO_CODEC_END) {

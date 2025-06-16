@@ -62,15 +62,16 @@
 #include "utils/macros.h"
 
 #include <pthread.h>
-#ifndef __cplusplus
-#include <stdalign.h>
+
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
 
 enum module_class {
         MODULE_CLASS_NONE = 0,
@@ -92,7 +93,7 @@ enum module_class {
 };
 
 struct module;
-struct module_state;
+struct module_priv_state;
 struct simple_linked_list;
 
 typedef void (*notify_t)(struct module *);
@@ -103,20 +104,12 @@ typedef void (*notify_t)(struct module *);
  * by user. The others should be considered private.
  */
 struct module {
-        alignas(8) uint32_t magic;
-        pthread_mutex_t lock;
         enum module_class cls;
-        struct module *parent;
-        struct simple_linked_list *children;
         notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
+        void *priv_data;      ///< can be used to store state pointer for
+                              ///< new_message(); uneeded otherwise
 
-        pthread_mutex_t msg_queue_lock; // protects msg_queue
-        struct simple_linked_list *msg_queue;
-
-        struct simple_linked_list *msg_queue_children; ///< messages for children that were not delivered
-
-        void *priv_data;
-        //uint32_t id;
+        struct module_priv_state *module_priv;
 
         char *name; ///< optional name of the module. May be used for indexing. Will be freed by
                     ///< module_done(). Must not start with a digit.
@@ -130,6 +123,21 @@ struct module {
         module &operator=(module const &) = delete;
         module &operator=(module &&) = delete;
 #endif
+};
+
+struct module_priv_state {
+        uint32_t magic;
+        enum module_class cls;
+        pthread_mutex_t lock;
+        struct module *parent;
+        struct simple_linked_list *children;
+
+        pthread_mutex_t msg_queue_lock; // protects msg_queue
+        struct simple_linked_list *msg_queue;
+
+        struct simple_linked_list *msg_queue_children; ///< messages for children that were not delivered
+
+        //uint32_t id;
 };
 
 void module_init_default(struct module *module_data);

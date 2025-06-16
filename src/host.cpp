@@ -607,6 +607,7 @@ void init_root_module(struct module *root_mod) {
                                          // processes also the reflector
         state_root_static = new state_root();
         root_mod->priv_data = state_root_static;
+        module_register(root_mod, nullptr);
 }
 
 void destroy_root_module(struct module *root_mod) {

@@ -44,25 +44,11 @@
 #include "utils/list.h"
 
 #define MOD_NAME "[module] "
+#define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
 
 void module_init_default(struct module *module_data)
 {
-        int ret = 0;
         memset(module_data, 0, sizeof(struct module));
-
-        pthread_mutexattr_t attr;
-        ret |= pthread_mutexattr_init(&attr);
-        ret |= pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-        ret |= pthread_mutex_init(&module_data->lock, &attr);
-        ret |= pthread_mutex_init(&module_data->msg_queue_lock, &attr);
-        ret |= pthread_mutexattr_destroy(&attr);
-        assert(ret == 0 && "Unable to create mutex or set attributes");
-
-        module_data->children = simple_linked_list_init();
-        module_data->msg_queue = simple_linked_list_init();
-        module_data->msg_queue_children = simple_linked_list_init();
-
-        module_data->magic = MODULE_MAGIC;
 }
 
 static void
@@ -81,14 +67,32 @@ module_mutex_unlock(pthread_mutex_t *lock)
 
 void module_register(struct module *module_data, struct module *parent)
 {
+        module_data->module_priv = calloc(1, sizeof *module_data->module_priv);
+        module_data->module_priv->cls = module_data->cls;
+        module_data->module_priv->magic = MODULE_MAGIC;
+
+        int ret = 0;
+        pthread_mutexattr_t attr;
+        ret |= pthread_mutexattr_init(&attr);
+        ret |= pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        ret |= pthread_mutex_init(&module_data->module_priv->lock, &attr);
+        ret |= pthread_mutex_init(&module_data->module_priv->msg_queue_lock, &attr);
+        ret |= pthread_mutexattr_destroy(&attr);
+        assert(ret == 0 && "Unable to create mutex or set attributes");
+
+        module_data->module_priv->children = simple_linked_list_init();
+        module_data->module_priv->msg_queue = simple_linked_list_init();
+        module_data->module_priv->msg_queue_children = simple_linked_list_init();
+
+        // register to parent
         if (parent == NULL) {
                 return;
         }
-        module_data->parent = parent;
-        module_mutex_lock(&module_data->parent->lock);
-        simple_linked_list_append(module_data->parent->children, module_data);
-        module_check_undelivered_messages(module_data->parent);
-        module_mutex_unlock(&module_data->parent->lock);
+        module_data->module_priv->parent = parent;
+        module_mutex_lock(&parent->module_priv->lock);
+        simple_linked_list_append(parent->module_priv->children, module_data);
+        module_check_undelivered_messages(parent);
+        module_mutex_unlock(&parent->module_priv->lock);
 }
 
 void module_done(struct module *module_data)
@@ -98,34 +102,36 @@ void module_done(struct module *module_data)
 
         if (module_data->cls == MODULE_CLASS_NONE)
                 return;
+        
+        struct module_priv_state *module_priv = module_data->module_priv;
 
-        assert(module_data->magic == MODULE_MAGIC);
+        assert(module_priv->magic == MODULE_MAGIC);
 
-        if(module_data->parent) {
-                module_mutex_lock(&module_data->parent->lock);
+        if(module_priv->parent) {
+                module_mutex_lock(&module_priv->parent->module_priv->lock);
                 bool found = simple_linked_list_remove(
-                    module_data->parent->children, module_data);
+                    module_priv->parent->module_priv->children, module_data);
                 assert(found);
-                module_mutex_unlock(&module_data->parent->lock);
+                module_mutex_unlock(&module_priv->parent->module_priv->lock);
         }
 
         module_data->cls = MODULE_CLASS_NONE;
 
-        if(simple_linked_list_size(module_data->children) > 0) {
+        if(simple_linked_list_size(module_priv->children) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
                 dump_tree(module_data, 0);
-                module_mutex_lock(&module_data->lock);
-                for(void *it = simple_linked_list_it_init(module_data->children); it != NULL; ) {
+                module_mutex_lock(&module_priv->lock);
+                for(void *it = simple_linked_list_it_init(module_priv->children); it != NULL; ) {
                         struct module *child = simple_linked_list_it_next(&it);
-                        module_mutex_lock(&child->lock);
-                        child->parent = NULL;
-                        module_mutex_unlock(&child->lock);
+                        module_mutex_lock(&child->module_priv->lock);
+                        child->module_priv->parent = NULL;
+                        module_mutex_unlock(&child->module_priv->lock);
                 }
-                module_mutex_unlock(&module_data->lock);
+                module_mutex_unlock(&module_priv->lock);
         }
-        simple_linked_list_destroy(module_data->children);
+        simple_linked_list_destroy(module_priv->children);
 
-        if(simple_linked_list_size(module_data->msg_queue) > 0) {
+        if(simple_linked_list_size(module_priv->msg_queue) > 0) {
                 fprintf(stderr, "Warning: Message queue not empty!\n");
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         printf("Path: ");
@@ -136,17 +142,17 @@ void module_done(struct module *module_data)
                         free_message(m, NULL);
                 }
         }
-        simple_linked_list_destroy(module_data->msg_queue);
+        simple_linked_list_destroy(module_priv->msg_queue);
 
-        while (simple_linked_list_size(module_data->msg_queue_children) > 0) {
-                struct message *m = simple_linked_list_pop(module_data->msg_queue_children);
+        while (simple_linked_list_size(module_priv->msg_queue_children) > 0) {
+                struct message *m = simple_linked_list_pop(module_priv->msg_queue_children);
                 free_message_for_child(m, NULL);
         }
-        simple_linked_list_destroy(module_data->msg_queue_children);
+        simple_linked_list_destroy(module_priv->msg_queue_children);
 
-        pthread_mutex_destroy(&module_data->lock);
-
+        pthread_mutex_destroy(&module_priv->lock);
         free(module_data->name);
+        free(module_priv);
 }
 
 static const char *module_class_name_pairs[] = {
@@ -195,8 +201,8 @@ append_message_path(char *buf, int buflen, const enum module_class *modules)
 struct module *get_root_module(struct module *node)
 {
         assert(node);
-        while(node->parent) {
-                node = node->parent;
+        while(node->module_priv->parent) {
+                node = node->module_priv->parent;
         }
         assert(node->cls == MODULE_CLASS_ROOT);
 
@@ -205,7 +211,7 @@ struct module *get_root_module(struct module *node)
 
 struct module *get_parent_module(struct module *node)
 {
-        return node->parent;
+        return node->module_priv->parent;
 }
 
 /**
@@ -215,7 +221,8 @@ struct module *get_parent_module(struct module *node)
 static struct module *find_child(struct module *node, const char *node_name, int id_num,
                 const char *id_name)
 {
-        for(void *it = simple_linked_list_it_init(node->children); it != NULL; ) {
+        for (void *it = simple_linked_list_it_init(node->module_priv->children);
+             it != NULL;) {
                 struct module *child = (struct module *) simple_linked_list_it_next(&it);
                 const char *child_name = module_class_name(child->cls);
                 assert(child_name != NULL);
@@ -262,7 +269,7 @@ struct module *get_module(struct module *root, const char *const_path)
         char *path, *tmp;
         char *item, *save_ptr;
 
-        module_mutex_lock(&root->lock);
+        module_mutex_lock(&root->module_priv->lock);
 
         tmp = path = strdup(const_path);
         assert(path != NULL);
@@ -272,19 +279,19 @@ struct module *get_module(struct module *root, const char *const_path)
                 receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
-                        module_mutex_unlock(&old_receiver->lock);
+                        module_mutex_unlock(&old_receiver->module_priv->lock);
                         free(tmp);
                         return NULL;
                 }
-                module_mutex_lock(&receiver->lock);
-                module_mutex_unlock(&old_receiver->lock);
+                module_mutex_lock(&receiver->module_priv->lock);
+                module_mutex_unlock(&old_receiver->module_priv->lock);
 
                 path = NULL;
 
         }
         free(tmp);
 
-        module_mutex_unlock(&receiver->lock);
+        module_mutex_unlock(&receiver->module_priv->lock);
 
         return receiver;
 }
@@ -328,12 +335,14 @@ void dump_tree(struct module *root_node, int indent) {
 
         printf("%s\n", module_class_name(root_node->cls));
 
-        module_mutex_lock(&root_node->lock);
-        for(void *it = simple_linked_list_it_init(root_node->children); it != NULL; ) {
+        module_mutex_lock(&root_node->module_priv->lock);
+        for (void *it =
+                 simple_linked_list_it_init(root_node->module_priv->children);
+             it != NULL;) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
-        module_mutex_unlock(&root_node->lock);
+        module_mutex_unlock(&root_node->module_priv->lock);
 }
 
 void
@@ -363,10 +372,10 @@ static const char *get_module_identifier(struct module *mod)
                 return cls_name;
         }
 
-        module_mutex_lock(&parent->lock);
+        module_mutex_lock(&parent->module_priv->lock);
 
         int our_index = 0;
-        for (void *it = simple_linked_list_it_init(parent->children);
+        for (void *it = simple_linked_list_it_init(parent->module_priv->children);
              it != NULL;) {
                 struct module *child = simple_linked_list_it_next(&it);
                 if (child->cls != mod->cls) {
@@ -378,7 +387,7 @@ static const char *get_module_identifier(struct module *mod)
                 our_index += 1;
         }
         if (our_index == 0) {
-                module_mutex_unlock(&parent->lock);
+                module_mutex_unlock(&parent->module_priv->lock);
                 return cls_name;
         }
         // append our index if >0
@@ -387,7 +396,7 @@ static const char *get_module_identifier(struct module *mod)
         int ret = snprintf(name, sizeof name, "%s[%d]", cls_name, our_index);
         assert((unsigned)ret < sizeof name);
 
-        module_mutex_unlock(&parent->lock);
+        module_mutex_unlock(&parent->module_priv->lock);
 
         return name;
 }
@@ -414,7 +423,7 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
                         buf[strlen(cur_name)] = '\0';
                 }
                 memcpy(buf, cur_name, strlen(cur_name));
-                mod = mod->parent;
+                mod = mod->module_priv->parent;
         }
 
         return true;
