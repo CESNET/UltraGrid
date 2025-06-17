@@ -35,13 +35,23 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include "control_socket.h"
-#include "compat/platform_pipe.h"
 
+#include <cassert>                 // for assert
+#include <cctype>                  // for isspace, isdigit
+#include <cerrno>                  // for errno, EAFNOSUPPORT
 #include <condition_variable>
+#include <cstdio>                  // for snprintf, perror
+#include <cstdlib>                 // for atoi, free, malloc, abort, strtoll
+#include <cstring>                 // for strlen, NULL, strncpy, strchr, strcmp
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <fcntl.h>                 // for fcntl, F_SETFL, O_NONBLOCK
+#include <sys/types.h>             // for ssize_t
+#include <unistd.h>                // for write
+#endif
+
 #include <cstdint>             // for uint32_t
 #include <mutex>
 #include <queue>
@@ -49,11 +59,16 @@
 #include <thread>
 
 #include "debug.h"
+#include "compat/net.h"            // for net related
+#include "compat/platform_pipe.h"
+#include "compat/strings.h"        // for strncasecmp, strcasecmp
+#include "compat/time.h"           // for timeval, gettimeofday
 #include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "rtp/net_udp.h" // socket_error
-#include "tv.h"
+#include "types.h"                 // for tx_media_type
+#include "utils/color_out.h"       // for TBOLD, color_printf
 #include "utils/net.h"
 #include "utils/macros.h"    // for MODULE_MAGIC
 #include "utils/thread.h"

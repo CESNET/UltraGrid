@@ -46,6 +46,7 @@
 typedef SOCKET fd_t;
 #else
 #include <arpa/inet.h>      // for htonl, ntohl
+#include <netdb.h>          // for getaddrinfo
 #include <netinet/in.h>     // for sockaddr_in[6]
 #include <sys/socket.h>     // for sockaddr, sockaddr_storage
 typedef int fd_t;
