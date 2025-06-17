@@ -882,7 +882,9 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         if (bind(fd, (struct sockaddr *)&s_in, sin_len) != 0) {
                 socket_error("bind");
 #ifdef _WIN32
-                log_msg(LOG_LEVEL_ERROR, "Check if there is no service running on UDP port %d. ", rx_port);
+                log_msg(LOG_LEVEL_ERROR,
+                        "Check if there is no service running on UDP port %d.\n",
+                        rx_port);
                 if (rx_port == 5004 || rx_port == 5005)
                         log_msg(LOG_LEVEL_ERROR, "Windows Media Services is usually a good candidate to check and disable.\n");
 #endif
