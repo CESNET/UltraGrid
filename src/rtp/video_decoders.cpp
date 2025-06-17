@@ -341,7 +341,9 @@ struct state_video_decoder
                 mod.priv_data = this;
                 mod.new_message = decoder_process_message;
                 module_register(&mod, parent);
-                control = (struct control_state *) get_module(get_root_module(parent), "control");
+                control = (struct control_state *) get_module(
+                              get_root_module(parent), "control")
+                              ->priv_data;
         }
         ~state_video_decoder() {
                 module_done(&mod);

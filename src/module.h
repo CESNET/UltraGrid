@@ -106,8 +106,9 @@ typedef void (*notify_t)(struct module *);
 struct module {
         enum module_class cls;
         notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
-        void *priv_data;      ///< can be used to store state pointer for
-                              ///< new_message(); uneeded otherwise
+        void *priv_data; ///< optional; can be used to store state pointer for
+                         ///< new_message() or to retreive the state from the
+                         ///< module (control_socket)
         char name[128]; ///< optional name of the module. May be used for indexing.
 
         struct module_priv_state *module_priv;

@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,9 @@
 struct state_controlport_stats{
         state_controlport_stats(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this)
         {
-                control = (control_state *) (get_module(get_root_module(mod), "control"));
+                control = (control_state *) (get_module(get_root_module(mod),
+                                                        "control"))
+                              ->priv_data;
         }
 
         module_raii mod;

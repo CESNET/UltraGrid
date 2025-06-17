@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,7 +93,7 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         }
 
         m_control = (struct control_state *) get_module(
-            get_root_module(m_common.parent), "control");
+            get_root_module(m_common.parent), "control")->priv_data;
 }
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()

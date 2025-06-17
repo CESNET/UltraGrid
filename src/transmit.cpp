@@ -264,8 +264,10 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 
         tx->bitrate = bitrate;
 
-        if(parent)
-                tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
+        if (parent) {
+                tx->control = (struct control_state *) get_module(
+                    get_root_module(parent), "control")->priv_data;
+        }
 
         return tx;
 }
