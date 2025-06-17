@@ -288,7 +288,7 @@ static struct video_frame *vidcap_ximea_grab(void *state, struct audio_frame **a
         *audio = NULL;
         XI_RETURN ret = s->funcs.xiGetImage(s->xiH, timeout_ms, &img);
         if (ret != XI_OK) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot capture frame: %d", (int) ret);
+                MSG(ERROR, "Cannot capture frame: %d\n", (int) ret);
                 return NULL;
         }
 

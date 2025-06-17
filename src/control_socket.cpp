@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 #include "utils/thread.h"
 
 #define MAX_CLIENTS 16
+#define MOD_NAME "[control_socket] "
 
 #ifdef _WIN32
 typedef const char *sso_val_type;
@@ -986,7 +987,7 @@ static void control_report_stats_event(struct control_state *s, const std::strin
         if (s->stat_event_queue.size() < MAX_STAT_EVENT_QUEUE) {
                 s->stat_event_queue.push(report_line);
         } else {
-                log_msg(LOG_LEVEL_WARNING, "Cannot write stats/event - queue full!!!");
+                MSG(WARNING, "Cannot write stats/event - queue full!!!\n");
         }
         lk.unlock();
         s->stat_event_cv.notify_one();

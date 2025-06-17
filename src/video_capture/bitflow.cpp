@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2023 CESNET z.s.p.o.
+ * Copyright (c) 2017-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+#define MOD_NAME "[bitflow] "
 
 struct vidcap_state_bitflow {
         tCIp        sCIp;                    /* device open token */
@@ -176,7 +177,7 @@ static int vidcap_bitflow_init(struct vidcap_params *params, void **state)
         s->desc = {hROIsize, vROIsize, RGB, get_fps(s), PROGRESSIVE, 1};
 
         if (s->desc.fps == 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to get FPS!");
+                MSG(ERROR, "Unable to get FPS!\n");
                 goto error;
         }
 
