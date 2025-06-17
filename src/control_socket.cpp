@@ -252,7 +252,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 err = getaddrinfo("127.0.0.1", port_str, &hints, &res0);
 
                 if(err) {
-                        fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
+                        MSG(ERROR, "Unable to get address: %s\n", gai_strerror(err));
                         goto error;
                 }
                 bool connected = false;
@@ -268,7 +268,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 freeaddrinfo(res0);
 
                 if(!connected) {
-                        fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
+                        MSG(ERROR, "Unable to connect to localhost:%d\n", s->network_port);
                         goto error;
                 }
         }
@@ -649,7 +649,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         }
 
         if(!resp) {
-                fprintf(stderr, "No response received!\n");
+                MSG(ERROR, "No response received!\n");
                 snprintf(buf, sizeof(buf), "(unknown path: %s)", path);
                 resp = new_response(RESPONSE_INT_SERV_ERR, buf);
         }
@@ -858,7 +858,7 @@ static void * control_thread(void *args)
                                         ssize_t ret = PLATFORM_PIPE_READ(cur->fd, cur->buff + cur->buff_len,
                                                         sizeof(cur->buff) - cur->buff_len);
                                         if(ret == -1) {
-                                                fprintf(stderr, "Error reading socket, closing!!!\n");
+                                                MSG(ERROR, "Error reading socket, closing!!!\n");
                                         }
                                         if(ret <= 0) {
                                                 struct client *next;
@@ -898,7 +898,8 @@ static void * control_thread(void *args)
                                 }
                         }
                         if(cur->buff_len == sizeof(cur->buff)) {
-                                fprintf(stderr, "Socket buffer full and no delimited message. Discarding.\n");
+                                MSG(ERROR, "Socket buffer full and no "
+                                           "delimited message. Discarding.\n");
                                 cur->buff_len = 0;
                         }
 
@@ -941,7 +942,7 @@ static void *stat_event_thread(void *args)
                 int ret = write_all(s->internal_fd[1], line.c_str(), line.length());
                 s->stat_event_queue.pop();
                 if (ret <= 0) {
-                        fprintf(stderr, "Cannot write stat line!\n");
+                        MSG(ERROR, "Cannot write stat line!\n");
                 }
         }
 
@@ -968,7 +969,7 @@ void control_done(struct control_state *s)
                         s->control_thread_id.join();
                         platform_pipe_close(s->internal_fd[1]);
                 } else {
-                        fprintf(stderr, "Cannot exit control thread!\n");
+                        MSG(ERROR, "Cannot exit control thread!\n");
                 }
         }
         if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {
