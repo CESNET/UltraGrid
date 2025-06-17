@@ -108,11 +108,9 @@ struct module {
         notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
         void *priv_data;      ///< can be used to store state pointer for
                               ///< new_message(); uneeded otherwise
+        char name[128]; ///< optional name of the module. May be used for indexing.
 
         struct module_priv_state *module_priv;
-
-        char *name; ///< optional name of the module. May be used for indexing. Will be freed by
-                    ///< module_done(). Must not start with a digit.
 
 #ifdef __cplusplus
         module() = default;

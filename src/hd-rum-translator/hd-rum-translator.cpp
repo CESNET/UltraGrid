@@ -13,7 +13,7 @@
  *   compresses and sends frame to receiver
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -90,14 +90,16 @@ using std::vector;
 
 #define REPLICA_MAGIC 0xd2ff3323
 
-static char *get_replica_mod_name(const char *addr, uint16_t tx_port){
-        const size_t len = strlen(addr) + 2 /* [ ] for IPv6 addr */ + 6 /* port (including ':') */ + 1 /* '\0' */;
-        char *name = (char *) malloc(len);
+static void
+set_replica_mod_name(size_t buflen, char *buf, const char *addr,
+                     uint16_t tx_port)
+{
         bool is_ipv6 = strchr(addr, ':') != NULL;
         bool add_bracket = is_ipv6 && addr[0] != '[';
-        snprintf(name, len, "%s%s%s:%" PRIu16, add_bracket ? "[" : "", addr, add_bracket ? "]" : "", tx_port);
-
-        return name;
+        const size_t len =
+            snprintf(buf, buflen, "%s%s%s:%" PRIu16, add_bracket ? "[" : "", addr,
+                     add_bracket ? "]" : "", tx_port);
+        assert(len < buflen); // len >= buflen  means overflow
 }
 
 struct replica {
@@ -117,7 +119,7 @@ struct replica {
         }
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
-        mod.name = get_replica_mod_name(addr, tx_port);
+        set_replica_mod_name(sizeof mod.name, mod.name, addr, tx_port);
         mod.priv_data = this;
         module_register(&mod, parent);
         type = replica::type_t::NONE;

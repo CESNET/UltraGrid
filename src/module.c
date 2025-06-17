@@ -151,7 +151,6 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(module_priv->msg_queue_children);
 
         pthread_mutex_destroy(&module_priv->lock);
-        free(module_data->name);
         free(module_priv);
 }
 
@@ -228,7 +227,7 @@ static struct module *find_child(struct module *node, const char *node_name, int
                 assert(child_name != NULL);
                 if(strcasecmp(child_name, node_name) == 0) {
                         if (id_name != NULL) {
-                                if (child->name && strcmp(child->name, id_name) == 0) {
+                                if (strcmp(child->name, id_name) == 0) {
                                         simple_linked_list_it_destroy(it);
                                         return child;
                                 }
