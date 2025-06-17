@@ -67,7 +67,8 @@ static const char *portaudio_get_api_name(PaDeviceIndex device) {
 const char *portaudio_get_device_name(PaDeviceIndex device) {
         if( (device < 0) || (device >= Pa_GetDeviceCount()) )
         {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested info on non-existing device");
+                MSG(ERROR, "requested info on non-existing device #%d\n",
+                    device);
                 return NULL;
         }
 
