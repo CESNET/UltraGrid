@@ -42,6 +42,7 @@
 #include "compat/platform_pipe.h"
 
 #include <condition_variable>
+#include <cstdint>             // for uint32_t
 #include <mutex>
 #include <queue>
 #include <string>
@@ -54,10 +55,12 @@
 #include "rtp/net_udp.h" // socket_error
 #include "tv.h"
 #include "utils/net.h"
+#include "utils/macros.h"    // for MODULE_MAGIC
 #include "utils/thread.h"
 
 #define MAX_CLIENTS 16
 #define MOD_NAME "[control_socket] "
+#define MODULE_MAGIC to_fourcc('c', 't', 'r', 'l')
 
 #ifdef _WIN32
 typedef const char *sso_val_type;
@@ -84,6 +87,7 @@ enum connection_type {
 #define MAX_STAT_EVENT_QUEUE 100
 
 struct control_state {
+        const uint32_t magic = MODULE_MAGIC;
         struct module mod;
         thread control_thread_id;
         /// @var internal_fd is used for internal communication
@@ -954,6 +958,7 @@ void control_done(struct control_state *s)
         if(!s) {
                 return;
         }
+        assert(s->magic == MODULE_MAGIC);
 
         module_done(&s->mod);
 
@@ -983,6 +988,7 @@ void control_done(struct control_state *s)
 
 static void control_report_stats_event(struct control_state *s, const std::string &report_line)
 {
+        assert(s->magic == MODULE_MAGIC);
         std::unique_lock<std::mutex> lk(s->stats_lock);
 
         if (s->stat_event_queue.size() < MAX_STAT_EVENT_QUEUE) {
