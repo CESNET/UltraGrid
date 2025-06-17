@@ -42,6 +42,7 @@
 #include "debug.h"
 #include "module.h"
 #include "utils/list.h"
+#include "utils/macros.h"          // for ARR_COUNT, to_fourcc
 
 #define MOD_NAME "[module] "
 #define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
@@ -156,7 +157,7 @@ void module_done(struct module *module_data)
         free(module_priv);
 }
 
-static const char *module_class_name_pairs[] = {
+static const char *const module_class_name_pairs[] = {
         [MODULE_CLASS_ROOT] = "root",
         [MODULE_CLASS_PORT] = "port",
         [MODULE_CLASS_COMPRESS] = "compress",
@@ -176,10 +177,15 @@ static const char *module_class_name_pairs[] = {
 
 const char *module_class_name(enum module_class cls)
 {
-        if((unsigned int) cls < sizeof(module_class_name_pairs)/sizeof(const char *))
-                return module_class_name_pairs[cls];
-        else
+        if ((unsigned int) cls >= ARR_COUNT(module_class_name_pairs)) {
+                MSG(ERROR, "No name for module class %d!\n", (int) cls);
                 return NULL;
+        }
+        const char *name = module_class_name_pairs[cls];
+        if (name == NULL) { // eg. for MODULE_CLASS_NONE
+                MSG(ERROR, "Undefined name for module class %d!\n", (int) cls);
+        }
+        return name;
 }
 
 void
