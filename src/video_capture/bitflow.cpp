@@ -69,14 +69,16 @@ static bool map_frame_buffers(struct vidcap_state_bitflow *s) {
                                         &s->nPtrs,
                                         &s->uPtrs)))
         {
-                log_msg(LOG_LEVEL_ERROR, "CiMapFrameBuffers gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiMapFrameBuffers gave '%s'\n", CiErrStr(circ));
                 if ((NULL != s->uPtrs) && (kCIEnoErr != (circ = CiUnmapFrameBuffers(s->sCIp)))){
-                        log_msg(LOG_LEVEL_ERROR, "CiUnmapFrameBuffers gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiUnmapFrameBuffers gave '%s'\n",
+                            CiErrStr(circ));
                 }
                 return false;
         }
         if (s->nPtrs != s->nFrames) {
-                log_msg(LOG_LEVEL_ERROR, "Error requested - %" PRIu32 ", mapped :%p\n", s->nFrames, s->nPtrs);
+                MSG(ERROR, "Error requested - %" PRIu32 ", mapped :%p\n",
+                    s->nFrames, s->nPtrs);
         }
 
         return true;
@@ -85,9 +87,10 @@ static bool map_frame_buffers(struct vidcap_state_bitflow *s) {
 static bool reset_acquisition(struct vidcap_state_bitflow *s) {
         tCIRC circ;
         if (kCIEnoErr != (circ = CiAqSWreset(s->sCIp))) {
-                log_msg(LOG_LEVEL_ERROR, "CiAqSWreset gave '%s'\n", CiErrStr(circ));
+                MSG(ERROR, "CiAqSWreset gave '%s'\n", CiErrStr(circ));
                 if ((NULL != s->uPtrs) && (kCIEnoErr != (circ = CiUnmapFrameBuffers(s->sCIp)))){
-                        log_msg(LOG_LEVEL_ERROR, "CiUnmapFrameBuffers gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiUnmapFrameBuffers gave '%s'\n",
+                            CiErrStr(circ));
                 }
                 return false;
         }
@@ -100,9 +103,10 @@ static bool start_acquisition(struct vidcap_state_bitflow *s) {
         int numberOfFrames = 0;
         if (kCIEnoErr != (circ = CiAqStart(s->sCIp, numberOfFrames))) // 0-continous, n-frame number
         {
-                log_msg(LOG_LEVEL_ERROR, "CiAqStart gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiAqStart gave '%s'\n", CiErrStr(circ));
                 if ((NULL != s->uPtrs) && (kCIEnoErr != (circ = CiUnmapFrameBuffers(s->sCIp)))){
-                        log_msg(LOG_LEVEL_ERROR, "CiUnmapFrameBuffers gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiUnmapFrameBuffers gave '%s'\n",
+                            CiErrStr(circ));
                 }
                 return false;
         }
@@ -115,7 +119,7 @@ static float get_fps(struct vidcap_state_bitflow *s) {
 
         if (kCIEnoErr != (circ = CiVFGinquire2(s->sCIp, &cfgFN, &cfg, &camFN,
                                         &cam, &firmFN, &firm, &serial, &cxp, &spare))) {
-                log_msg(LOG_LEVEL_ERROR, "CiVFGinquire gave '%s'\n", CiErrStr(circ));
+                MSG(ERROR, "CiVFGinquire gave '%s'\n", CiErrStr(circ));
                 return 0.0f;
         }
 
@@ -152,25 +156,25 @@ static int vidcap_bitflow_init(struct vidcap_params *params, void **state)
                                         kCIBO_writeAccess,   //!< access mode flags
                                         &s->sCIp)))             //!< access token
         {
-                log_msg(LOG_LEVEL_ERROR, "CiVFGopen gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiVFGopen gave '%s'\n", CiErrStr(circ));
                 goto error;
         }
 
         if (kCIEnoErr != (circ = CiVFGinitialize(s->sCIp,NULL)))
         {
-                log_msg(LOG_LEVEL_ERROR, "CiVFGinitialize gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiVFGinitialize gave '%s'\n", CiErrStr(circ));
                 goto error;
         }
 
         if (kCIEnoErr != (circ = CiDrvrBuffConfigure(s->sCIp, 20, 0, 0, 0, 0))) {
-                log_msg(LOG_LEVEL_ERROR, "CiDrvrBuffConfigure gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiDrvrBuffConfigure gave '%s'\n", CiErrStr(circ));
                 goto error;
         }
 
         tCIU32 bitsPerPix, hROIsize, vROIsize, hROIoffset, vROIoffset, stride;
         if (kCIEnoErr != (circ = CiBufferInterrogate(s->sCIp, &s->nFrames, &bitsPerPix, &hROIoffset, &hROIsize, &vROIoffset, &vROIsize, &stride)))
         {
-                log_msg(LOG_LEVEL_ERROR, "CiBufferInterrogate gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiBufferInterrogate gave '%s'\n", CiErrStr(circ));
                 goto error;
         }
 
@@ -210,13 +214,13 @@ static void vidcap_bitflow_done(void *state)
          **  Unmap the frame buffers.
          */
         if ((NULL != s->uPtrs) && (kCIEnoErr != (circ = CiUnmapFrameBuffers(s->sCIp)))){
-                log_msg(LOG_LEVEL_ERROR, "CiUnmapFrameBuffers gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiUnmapFrameBuffers gave '%s'\n", CiErrStr(circ));
         }
         /*
          **  Close the access.
          */
         if ((NULL != s->sCIp) && (kCIEnoErr != (circ = CiVFGclose(s->sCIp)))) {
-                log_msg(LOG_LEVEL_ERROR, "CiVFGclose gave '%s'\n",CiErrStr(circ));
+                MSG(ERROR, "CiVFGclose gave '%s'\n", CiErrStr(circ));
         }
 
         free(s);
@@ -279,16 +283,25 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
                         if (kCIEnoErr != (circ = CiWaitNextUndeliveredFrame(s->sCIp,-1))) // negative - infinite wait
                         {
                                 switch (circ) {
-                                        case kCIEaqAbortedErr:
-                                                log_msg(LOG_LEVEL_ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",CiErrStr(circ));
-                                                break;
-                                        case kCIEdataHWerr:
-                                                log_msg(LOG_LEVEL_ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",CiErrStr(circ));
-                                                restartAcquisition(s);
+                                case kCIEaqAbortedErr:
+                                        MSG(ERROR,
+                                            "CiWaitNextUndeliveredFrame"
+                                            " gave '%s'\n",
+                                            CiErrStr(circ));
+                                        break;
+                                case kCIEdataHWerr:
+                                        MSG(ERROR,
+                                            "CiWaitNextUndeliveredFrame"
+                                            " gave '%s'\n",
+                                            CiErrStr(circ));
+                                        restartAcquisition(s);
 
-                                                break;
-                                        default:
-                                                log_msg(LOG_LEVEL_ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",CiErrStr(circ));
+                                        break;
+                                default:
+                                        MSG(ERROR,
+                                            "CiWaitNextUndeliveredFrame"
+                                            " gave '%s'\n",
+                                            CiErrStr(circ));
                                 }
                                 return NULL;
                         }
@@ -299,14 +312,17 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
                                 return NULL;
                         }
                 case kCIEaqAbortedErr:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acquisition aborted\n");
+                        MSG(ERROR, "CiGetOldestNotDeliveredFrame: acquisition "
+                                   "aborted\n");
                         return NULL;
                 case kCIEdataHWerr:
-                        log_msg(LOG_LEVEL_ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",
+                            CiErrStr(circ));
                         restartAcquisition(s);
                         return NULL;
                 default:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiGetOldestNotDeliveredFrame gave '%s'\n",
+                            CiErrStr(circ));
                         return NULL;
         }
 
@@ -321,13 +337,15 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
                         /*
                          **    We need to wait for another frame.
                          */
-                        log_msg(LOG_LEVEL_ERROR, "CiGetUndeliveredCount error\n");
+                        MSG(ERROR, "CiGetUndeliveredCount error\n");
                         return NULL;
                 case kCIEaqAbortedErr:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acquisition aborted\n");
+                        MSG(ERROR, "CiGetOldestNotDeliveredFrame: acquisition "
+                                   "aborted\n");
                         return NULL;
                 default:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame gave '%s'\n",CiErrStr(circ));
+                        MSG(ERROR, "CiGetOldestNotDeliveredFrame gave '%s'\n",
+                            CiErrStr(circ));
                         return NULL;
         }
 
