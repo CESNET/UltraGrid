@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2016-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -99,7 +99,7 @@ static void * border_init(const char *config) {
                                         color += 2;
                                 }
                         } else {
-                                log_msg(LOG_LEVEL_ERROR, "Wrong color format!\"");
+                                log_msg(LOG_LEVEL_ERROR, "Wrong color format!\n");
                                 free(tmp);
                                 free(s);
                                 return NULL;
@@ -111,7 +111,7 @@ static void * border_init(const char *config) {
                         s->height = atoi(item + strlen("height="));
                         s->height = (s->height + 1) / 2 * 2;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
+                        log_msg(LOG_LEVEL_ERROR, "Wrong config!\n");
                         free(tmp);
                         free(s);
                         return NULL;
