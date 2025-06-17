@@ -102,9 +102,10 @@ void module_done(struct module *module_data)
         if(!module_data)
                 return;
 
-        if (module_data->cls == MODULE_CLASS_NONE)
+        if (module_data->module_priv == NULL) {
                 return;
-        
+        }
+
         struct module_priv_state *module_priv = module_data->module_priv;
 
         assert(module_priv->magic == MODULE_MAGIC);
@@ -116,8 +117,6 @@ void module_done(struct module *module_data)
                 assert(found);
                 module_mutex_unlock(&module_priv->parent->lock);
         }
-
-        module_data->cls = MODULE_CLASS_NONE;
 
         if(simple_linked_list_size(module_priv->children) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
@@ -154,6 +153,7 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(module_priv->msg_queue_children);
 
         pthread_mutex_destroy(&module_priv->lock);
+        module_data->module_priv = NULL; // to multiple deinit
         free(module_priv);
 }
 
