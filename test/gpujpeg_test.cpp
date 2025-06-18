@@ -36,7 +36,7 @@ static state_decompress *decompress{nullptr};
 
 static void gpujpeg_test_teardown()
 {
-        module_done(CAST_MODULE(compress));
+        compress_done(compress);
         if (decompress != nullptr) {
                 decompress_done(decompress);
         }
@@ -50,7 +50,7 @@ static void gpujpeg_test_setup()
         int ret = compress_init(nullptr, "GPUJPEG:check", &compression);
         if(ret >= 0) {
                 if(ret == 0) {
-                        module_done(CAST_MODULE(compression));
+                        compress_done(compression);
                 }
         } else {
                 clog << "Either GPUJPEG not compiled in or no CUDA-capable devices found - skipping GPUJPEG tests.\n";
