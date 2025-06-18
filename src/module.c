@@ -90,6 +90,7 @@ void module_register(struct module *module_data, struct module *parent)
         if (parent == NULL) {
                 return;
         }
+        assert(parent->module_priv != NULL);
         module_priv->parent = parent->module_priv;
         module_mutex_lock(&parent->module_priv->lock);
         simple_linked_list_append(parent->module_priv->children, module_priv);

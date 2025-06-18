@@ -99,8 +99,17 @@ public:
  * state. The point of doing this is to allow dynamic reconfiguration of the real state.
  */
 struct compress_state {
+        explicit compress_state(struct module *parent)
+        {
+                module_init_default(&mod);
+                mod.cls       = MODULE_CLASS_COMPRESS;
+                mod.priv_data = this;
+                module_register(&mod, parent);
+        }
+        ~compress_state() { module_done(&mod); }
+
         struct module mod;               ///< compress module data
-        struct compress_state_real *ptr; ///< pointer to real compress state
+        struct compress_state_real *ptr{}; ///< pointer to real compress state
         synchronized_queue<shared_ptr<video_frame>, 1> queue;
         bool poisoned = false;
 };
@@ -195,11 +204,7 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
  */
 int compress_init(struct module *parent, const char *config_string, struct compress_state **state) {
         struct compress_state *proxy;
-        proxy = new struct compress_state();
-
-        module_init_default(&proxy->mod);
-        proxy->mod.cls = MODULE_CLASS_COMPRESS;
-        proxy->mod.priv_data = proxy;
+        proxy = new struct compress_state(parent);
 
         try {
                 proxy->ptr = compress_state_real::create(&proxy->mod, config_string, proxy);
@@ -208,7 +213,6 @@ int compress_init(struct module *parent, const char *config_string, struct compr
                 return i;
         }
 
-        module_register(&proxy->mod, parent);
 
         *state = proxy;
         return 0;
@@ -497,7 +501,6 @@ compress_done(struct compress_state *proxy)
         }
 
         delete s;
-        module_done(&proxy->mod);
         delete proxy;
 }
 
