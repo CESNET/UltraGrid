@@ -12,7 +12,7 @@
  *
  * To measure performance of conversions, use `tools/convert benchmark`.
  */
-/* Copyright (c) 2005-2024 CESNET
+/* Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -325,7 +325,7 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
                 *d++ = CLAMP_LIMITED_Y(y, D_DEPTH);
                 comp_type_t v =
                     (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) +
-                    (1 << (D_DEPTH - 4));
+                    (1 << (D_DEPTH - 1));
                 *d++ = CLAMP_LIMITED_CBCR(v, D_DEPTH);
                 *d++ = 0xFFFFU;
         }
