@@ -2042,13 +2042,18 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         check_av_opt_set<int>(codec_ctx->priv_data, "zerolatency", 1, "zero latency operation (no reordering delay)");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "b_ref_mode", "disabled", 0);
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        double lavc_rc_buffer_size_factor = DEFAULT_NVENC_RC_BUF_SIZE_FACTOR;
+
+        double lavc_rc_buffer_size_factor =
+            param->periodic_intra == 1 ? DEFAULT_NVENC_RC_BUF_SIZE_FACTOR : 0.0;
         if (const char *val = get_commandline_param("lavc-rc-buffer-size-factor")) {
                 lavc_rc_buffer_size_factor = stof(val);
         }
-        codec_ctx->rc_buffer_size =
-            (int) ((double) codec_ctx->rc_max_rate / param->desc.fps *
-                   lavc_rc_buffer_size_factor);
+        if (lavc_rc_buffer_size_factor > 0.0) {
+                codec_ctx->rc_buffer_size =
+                    (int) ((double) codec_ctx->rc_max_rate / param->desc.fps *
+                           lavc_rc_buffer_size_factor);
+        }
+
         if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct == 1) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
