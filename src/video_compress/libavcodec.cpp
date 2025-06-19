@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1792,19 +1792,38 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 }
         }
 
-        set_forced_idr(codec_ctx, 1);
-#ifdef PATCHED_FF_NVENC_NO_INFINITE_GOP
-        const bool patched_ff = true;
-#else
-        const bool patched_ff = false;
-        if (param->periodic_intra != 0) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "FFmpeg not patched, " << (param->periodic_intra != 1 ? "not " : "") << "enabling Intra Refresh.\n";
+        check_av_opt_set(codec_ctx->priv_data, "forced-idr", 1);
+        
+        const bool h264 = codec_ctx->codec_id == AV_CODEC_ID_H264;
+        const bool hevc = codec_ctx->codec_id == AV_CODEC_ID_HEVC;
+        if (!h264) {
+                if (param->periodic_intra == 1) {
+                        if (hevc) {
+                                MSG(WARNING,
+                                    "Requeseted intra-refresh for NVENC "
+                                    "HEVC but there may occur artifacts!\n");
+                        } else {
+                                MSG(WARNING,
+                                    "Requeseted intra-refresh for NVENC "
+                                    "AV1 but it won't most likely work with UG "
+                                    "because of NVENC_INFINITE_GOPLENGTH!\n");
+                        }
+                }
+                if (param->periodic_intra == -1) {
+                        MSG(WARNING,
+                            "Intra-refresh won't be enabled for NVENC "
+                            "HEVC/AV1, bitrate variance will be higher!\n");
+                }
         }
-#endif
-
-        if ((patched_ff && param->periodic_intra != 0) || param->periodic_intra == 1) {
-                incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);
-                check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
+        if ((h264 && param->periodic_intra != 0) ||
+            param->periodic_intra == 1) {
+                if (param->header_inserter_req == -1) {
+                        MSG(INFO,
+                            "Auto-enabling header inserter for %s when "
+                            "intra-refresh used.\n", codec_ctx->codec->name);
+                        param->header_inserter_req = 1;
+                }
+                param->periodic_intra = 1;
         }
 
         check_av_opt_set<const char *>(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC);
@@ -1817,14 +1836,6 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         double lavc_rc_buffer_size_factor = DEFAULT_NVENC_RC_BUF_SIZE_FACTOR;
         if (const char *val = get_commandline_param("lavc-rc-buffer-size-factor")) {
                 lavc_rc_buffer_size_factor = stof(val);
-        } else {
-                LOG(LOG_LEVEL_WARNING)
-                    << MOD_NAME
-                    "To reduce NVENC pulsation, you can try \"--param "
-                    "lavc-rc-buffer-size-factor=0\""
-                    " or a small number. 0 or higher value (than default "
-                    << DEFAULT_NVENC_RC_BUF_SIZE_FACTOR
-                    << ") may cause frame drops on receiver.\n";
         }
         codec_ctx->rc_buffer_size =
             (int) ((double) codec_ctx->rc_max_rate / param->desc.fps *
