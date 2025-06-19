@@ -51,10 +51,6 @@ install_onevpl() {(
 rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
-# apply Intel patches
-git clone https://github.com/intel/cartwheel-ffmpeg.git
-git checkout "$(GIT_DIR=cartwheel-ffmpeg/.git git submodule status ffmpeg | sed 's/-\([[:xdigit:]]*\).*/\1/')"
-git am -3 cartwheel-ffmpeg/patches/*
 if [ "$(lsb_release -rs)" = 20.04 ]; then
         git am -3 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto"
 fi
