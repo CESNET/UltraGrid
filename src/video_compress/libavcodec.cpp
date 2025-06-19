@@ -996,27 +996,6 @@ list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
         return { pixfmts, pixfmts + nb_fmts };
 }
 
-void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
-#if X2RGB10LE_PRESENT
-        // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces 10-bit 4:2:0 YUV (FF
-        // macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st one, picture is ok 444 YUV, second produces
-        // incorrect colors). Anyways, even for the case #1 it is perhaps better to keep it blacklisted to allow
-        // selection of gbrp16, which doesn't convert to YUV.
-        if (strstr(encoder_name, "nvenc") != nullptr ||
-            strstr(encoder_name, "qsv") != nullptr) {
-                if (formats.size() == 1) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting x2rgb10le!\n";
-                        return;
-                }
-                if (auto it = std::find(formats.begin(), formats.end(), AV_PIX_FMT_X2RGB10LE); it != formats.end()) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Blacklisting x2rgb10le because there has been issues with this pixfmt "
-                                "and current encoder (" << encoder_name << ") , use '--param lavc-use-codec=x2rgb10le' to enforce.\n";
-                        formats.erase(it);
-                }
-        }
-#endif
-}
-
 static bool try_open_codec(struct state_video_compress_libav *s,
                            AVPixelFormat &pix_fmt,
                            struct video_desc desc,
@@ -1245,7 +1224,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
         list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->req_conv_prop);
-        apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         set<AVPixelFormat> fmts_tried;
         while ((pix_fmt = get_first_matching_pix_fmt(
