@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1626,27 +1626,6 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                 return NULL;
         }
 
-        // conversion needed
-        if (get_ug_to_av_pixfmt(in_pixfmt) == AV_PIX_FMT_NONE
-                        || get_ug_to_av_pixfmt(in_pixfmt) != out_pixfmt) {
-                for (ptrdiff_t i = 0; i < thread_count; ++i) {
-                        int chunk_size = height / s->thread_count & ~1;
-                        s->out_frame_parts[i]->data[0] = s->out_frame->data[0] + i * s->out_frame->linesize[0] *
-                                chunk_size;
-
-                        if (av_pix_fmt_desc_get(out_pixfmt)->log2_chroma_h == 1) { // eg. 4:2:0
-                                chunk_size /= 2;
-                        }
-                        s->out_frame_parts[i]->data[1] = s->out_frame->data[1] + i * s->out_frame->linesize[1] *
-                                chunk_size;
-                        s->out_frame_parts[i]->data[2] = s->out_frame->data[2] + i * s->out_frame->linesize[2] *
-                                chunk_size;
-                        s->out_frame_parts[i]->linesize[0] = s->out_frame->linesize[0];
-                        s->out_frame_parts[i]->linesize[1] = s->out_frame->linesize[1];
-                        s->out_frame_parts[i]->linesize[2] = s->out_frame->linesize[2];
-                }
-        }
-
         if (get_ug_to_av_pixfmt(in_pixfmt) != AV_PIX_FMT_NONE
                         && out_pixfmt == get_ug_to_av_pixfmt(in_pixfmt)) {
                 s->decoded_codec = in_pixfmt;
@@ -1707,6 +1686,32 @@ static void *pixfmt_conv_task(void *arg) {
         return NULL;
 }
 
+static void
+set_worker_subframes(struct to_lavc_vid_conv *s)
+{
+        for (ptrdiff_t i = 0; i < s->thread_count; ++i) {
+                int chunk_size = (s->out_frame->height / s->thread_count) & ~1;
+                s->out_frame_parts[i]->data[0] =
+                    s->out_frame->data[0] +
+                    i * s->out_frame->linesize[0] * chunk_size;
+
+                if (av_pix_fmt_desc_get(s->out_frame->format)->log2_chroma_h ==
+                    1) { // eg. 4:2:0
+                        chunk_size /= 2;
+                }
+                s->out_frame_parts[i]->data[1] =
+                    s->out_frame->data[1] +
+                    i * s->out_frame->linesize[1] * chunk_size;
+                s->out_frame_parts[i]->data[2] =
+                    s->out_frame->data[2] +
+                    i * s->out_frame->linesize[2] * chunk_size;
+                s->out_frame_parts[i]->linesize[0] = s->out_frame->linesize[0];
+                s->out_frame_parts[i]->linesize[1] = s->out_frame->linesize[1];
+                s->out_frame_parts[i]->linesize[2] = s->out_frame->linesize[2];
+                s->out_frame_parts[i]->opaque      = s->out_frame->opaque;
+        }
+}
+
 /// @return AVFrame with converted data (if needed); valid until next to_lavc_vid_conv()
 ///         call or to_lavc_vid_conv_destroy()
 struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
@@ -1730,6 +1735,7 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
         time_ns_t t1 = get_time_in_ns();
         AVFrame *frame = s->out_frame;
         if (s->pixfmt_conv_callback != NULL) {
+                set_worker_subframes(s);
                 struct pixfmt_conv_task_data data[s->thread_count];
                 for(int i = 0; i < s->thread_count; ++i) {
                         data[i].callback = s->pixfmt_conv_callback;
