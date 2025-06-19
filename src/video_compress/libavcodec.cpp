@@ -2017,6 +2017,10 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                         MSG(WARNING,
                             "Intra-refresh won't be enabled for NVENC "
                             "HEVC/AV1, bitrate variance will be higher!\n");
+                        MSG(WARNING,
+                            "To reduce the bitrate peaks, "
+                            "try \"--param lavc-rc-buffer-size-factor=<F>\""
+                                " where <F> is something like 1.5-15.\n");
                 }
         }
         if ((h264 && param->periodic_intra != 0) ||
