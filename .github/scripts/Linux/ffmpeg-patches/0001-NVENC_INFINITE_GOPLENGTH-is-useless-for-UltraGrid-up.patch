@@ -24,14 +24,6 @@ diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
 index 0b6417674e..70adc26f08 100644
 --- a/libavcodec/nvenc.c
 +++ b/libavcodec/nvenc.c
-@@ -1173,7 +1173,6 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
-         h264->enableIntraRefresh = 1;
-         h264->intraRefreshPeriod = cc->gopLength;
-         h264->intraRefreshCnt = cc->gopLength - 1;
--        cc->gopLength = NVENC_INFINITE_GOPLENGTH;
- #ifdef NVENC_HAVE_SINGLE_SLICE_INTRA_REFRESH
-         h264->singleSliceIntraRefresh = ctx->single_slice_intra_refresh;
- #endif
 @@ -1294,7 +1293,6 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
          hevc->enableIntraRefresh = 1;
          hevc->intraRefreshPeriod = cc->gopLength;
