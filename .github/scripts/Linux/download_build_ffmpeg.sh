@@ -52,10 +52,6 @@ rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://github.com/FFmpeg/FFmpeg.git \
         /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
-# apply Intel patches
-git clone https://github.com/intel/cartwheel-ffmpeg.git
-git checkout "$(GIT_DIR=cartwheel-ffmpeg/.git git submodule status ffmpeg | sed 's/-\([[:xdigit:]]*\).*/\1/')"
-git am -3 cartwheel-ffmpeg/patches/*
 install_aom
 install_libvpx
 install_nv_codec_headers
