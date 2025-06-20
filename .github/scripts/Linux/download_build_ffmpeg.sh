@@ -26,9 +26,6 @@ install_svt() {
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         # libsvtav1 in FFmpeg upstream, for SVT-HEVC now our custom patch in ffmpeg-patches
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
-        patch SVT-VP9/ffmpeg_plugin/master-*.patch < "$GITHUB_WORKSPACE/\
-.github/scripts/Linux/tmp/\
-master-0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch.patch"
         git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
