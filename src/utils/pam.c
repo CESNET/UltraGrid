@@ -146,7 +146,7 @@ mbs_to_wstr_helper(const char* mbstr, wchar_t* wstr_buf, size_t wstr_len)
 {
     const int size_needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mbstr, -1, NULL, 0);
     if ( size_needed == 0 ) {
-        fprintf(stderr, "[PAM] MultiByteToWideChar error: %d (0x%x)!\n", GetLastError(), GetLastError());
+        fprintf(stderr, "[PAM] MultiByteToWideChar error: %ld (0x%lx)!\n", GetLastError(), GetLastError());
         return NULL;
     }
     if ( size_needed > (int)wstr_len ) {
