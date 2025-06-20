@@ -39,6 +39,7 @@
 
 #include <cstddef>               // for NULL
 #include <cstdio>                // for printf
+#include <cinttypes>             // for PRIu32
 #include <iostream>              // for basic_ostream, operator<<, cout, bas...
 #include <map>                   // for map, operator!=, _Rb_tree_iterator
 
@@ -408,7 +409,8 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
         Result = VHD_SetBiDirCfg(BrdId, it->second);
         if (Result == VHDERR_NOERROR) {
                 MSG(INFO,
-                    "Set bidirectional channel configuration %d In / %d Out\n",
+                    "Set bidirectional channel configuration %" PRIu32
+                    " In / %" PRIu32 " Out\n",
                     RequestedRx, NbChanOnBoard - RequestedRx);
                 return true;
         }
