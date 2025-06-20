@@ -62,8 +62,10 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz)" >> $GITHUB_OUTPUT
-    - name: Cache NDI
+        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+        Install_NDI_SDK_v6_Linux.tar.gz; } >> $GITHUB_OUTPUT
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -76,7 +78,7 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
-    - name: Cache FFmpeg
+    - name: Run actions/cache for FFmpeg
       id: cache-ffmpeg
       uses: actions/cache@main
       with:
@@ -146,15 +148,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set environment
+      run: . .github/scripts/environment.sh
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh "$SDK_URL/$DELTA_MAC_ARCHIVE")" >> $GITHUB_OUTPUT
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg)" >> $GITHUB_OUTPUT
-        echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh "$XIMEA_DOWNLOAD_URL")" >> $GITHUB_OUTPUT
-    - name: Set environment
-      run: . .github/scripts/environment.sh
-    - name: Cache Non-Free SDKs
+        { printf nonfree=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         "$SDK_URL/$DELTA_MAC_ARCHIVE" optional; } >> $GITHUB_OUTPUT
+        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg
+        } >> $GITHUB_OUTPUT
+        { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
+    - name: Run actions/cache for Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
       with:
@@ -167,7 +173,7 @@ jobs:
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O "$SDK_URL/$DELTA_MAC_ARCHIVE" || true
-    - name: Cache XIMEA
+    - name: Run actions/cache for XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
       with:
@@ -176,7 +182,7 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl -S -L "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -201,6 +207,7 @@ jobs:
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
         sudo mv /tmp/FRMWK $(xcrun --show-sdk-path)/System/Library/Frameworks
     - name: sign+notarize
+      if: env.KEY_CHAIN != null
       run: .github/scripts/macOS/sign.sh uv-qt.app
     - name: make dmg
       run: |
@@ -214,7 +221,7 @@ jobs:
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
       run: |
-        brew list jq 2>/dev/null || brew install jq
+        brew list jq >/dev/null 2>&1 || brew install jq
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20$(uname -m)%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
@@ -237,17 +244,20 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+    - name: Set environment
+      run: .github/scripts/environment.sh
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe)" >> $GITHUB_OUTPUT
-        echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh "$XIMEA_DOWNLOAD_URL")" >> $GITHUB_OUTPUT
-    - name: Set environment
-      run: .github/scripts/environment.sh
+        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe
+        } >> $GITHUB_OUTPUT
+        { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+         "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache NDI
+    - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
       with:
@@ -265,10 +275,11 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl "$XIMEA_DOWNLOAD_URL" -o 'C:\XIMEA_API_Installer.exe'
+
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
       shell: pwsh -command ". '{0}'"
-    - name: Cache JACK
+    - name: Run actions/cache for JACK
       id: cache-jack
       uses: actions/cache@main
       with:
@@ -292,7 +303,7 @@ jobs:
     - name: Install live555
       run: make -C /c/live555 install
 
-    - name: Cache Spout build
+    - name: Run actions/cache for Spout build
       id: cache-spout
       uses: actions/cache@main
       with:
@@ -304,7 +315,7 @@ jobs:
     - name: Install Spout
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
 
-    - name: Cache CineForm build
+    - name: Run actions/cache for CineForm build
       id: cache-cineform
       uses: actions/cache@main
       with:
