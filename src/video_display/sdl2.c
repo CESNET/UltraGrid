@@ -57,7 +57,7 @@
 #include <math.h>               // for sqrt
 #include <pthread.h>            // for pthread_mutex_unlock, pthread_mutex_lock
 #include <stdbool.h>            // for true, bool, false
-#include <stdint.h>             // for int64_t, uint32_t
+#include <stdint.h>             // for int64_t, uint32_t, uintptr_t
 #include <stdio.h>              // for printf, sscanf, snprintf
 #include <stdlib.h>             // for atoi, free, calloc
 #include <string.h>             // for NULL, strlen, strcmp, strstr, strchr
@@ -895,8 +895,9 @@ static bool display_sdl2_putf(void *state, struct video_frame *frame, long long 
 
         // fix endianness
         if (frame->color_spec == R10k) {
+                assert((uintptr_t) frame->tiles[0].data % 4 == 0);
                 r10k_to_sdl2(frame->tiles[0].data_len / 4,
-                             (uint32_t *) frame->tiles[0].data);
+                             (uint32_t *) (void *) frame->tiles[0].data);
         }
 
         pthread_mutex_lock(&s->lock);
