@@ -1,4 +1,4 @@
-From 2727a8260f5318e982b4856b5b19013697d8f645 Mon Sep 17 00:00:00 2001
+From 3d2c2bba486f11f7a55eaf8b51159dea19c03231 Mon Sep 17 00:00:00 2001
 From: Jing Sun <jing.a.sun@intel.com>
 Date: Wed, 21 Nov 2018 11:33:04 +0800
 Subject: [PATCH] lavc/svt_hevc: add libsvt hevc encoder wrapper
@@ -21,10 +21,10 @@ UPDATED 2025-06-20 by Martin Pulec: rebased against 45a30e036 + fix compile
  create mode 100644 libavcodec/libsvt_hevc.c
 
 diff --git a/configure b/configure
-index 708ecd9025..58cbcc4df6 100755
+index 077b87af..5dcc49ca 100755
 --- a/configure
 +++ b/configure
-@@ -337,6 +337,7 @@ External library support:
+@@ -339,6 +339,7 @@ External library support:
    --enable-vapoursynth     enable VapourSynth demuxer [no]
    --disable-xlib           disable xlib [autodetect]
    --disable-zlib           disable zlib [autodetect]
@@ -32,7 +32,7 @@ index 708ecd9025..58cbcc4df6 100755
  
    The following libraries provide various hardware acceleration features:
    --disable-amf            disable AMF video encoding code [autodetect]
-@@ -1977,6 +1978,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1981,6 +1982,7 @@ EXTERNAL_LIBRARY_LIST="
      libsrt
      libssh
      libsvtav1
@@ -40,7 +40,7 @@ index 708ecd9025..58cbcc4df6 100755
      libtensorflow
      libtesseract
      libtheora
-@@ -3649,6 +3651,7 @@ vapoursynth_demuxer_deps="vapoursynth"
+@@ -3655,6 +3657,7 @@ vapoursynth_demuxer_deps="vapoursynth"
  videotoolbox_suggest="coreservices"
  videotoolbox_deps="corefoundation coremedia corevideo VTDecompressionSessionDecodeFrame"
  videotoolbox_encoder_deps="videotoolbox VTCompressionSessionPrepareToEncodeFrames"
@@ -48,19 +48,19 @@ index 708ecd9025..58cbcc4df6 100755
  
  # demuxers / muxers
  ac3_demuxer_select="ac3_parser"
-@@ -7087,6 +7090,7 @@ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/
+@@ -7094,6 +7097,7 @@ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/
  enabled libspeex          && require_pkg_config libspeex speex speex/speex.h speex_decoder_init
  enabled libsrt            && require_pkg_config libsrt "srt >= 1.3.0" srt/srt.h srt_socket
  enabled libsvtav1         && require_pkg_config libsvtav1 "SvtAv1Enc >= 0.9.0" EbSvtAv1Enc.h svt_av1_enc_init_handle
 +enabled libsvthevc        && require_pkg_config libsvthevc SvtHevcEnc EbApi.h EbInitHandle
+ enabled libsvtvp9         && require_pkg_config libsvtvp9 SvtVp9Enc EbSvtVp9Enc.h       eb_vp9_svt_init_handle
  enabled libtensorflow     && require libtensorflow tensorflow/c/c_api.h TF_Version -ltensorflow
  enabled libtesseract      && require_pkg_config libtesseract tesseract tesseract/capi.h TessBaseAPICreate
- enabled libtheora         && require libtheora theora/theoraenc.h th_info_init -ltheoraenc -ltheoradec -logg
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index bd4fa511bd..7a525ef099 100644
+index 805b0a07..49c644ca 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -1186,6 +1186,7 @@ OBJS-$(CONFIG_LIBWEBP_ANIM_ENCODER)       += libwebpenc_common.o libwebpenc_anim
+@@ -1188,6 +1188,7 @@ OBJS-$(CONFIG_LIBWEBP_ANIM_ENCODER)       += libwebpenc_common.o libwebpenc_anim
  OBJS-$(CONFIG_LIBX262_ENCODER)            += libx264.o
  OBJS-$(CONFIG_LIBX264_ENCODER)            += libx264.o
  OBJS-$(CONFIG_LIBX265_ENCODER)            += libx265.o
@@ -69,10 +69,10 @@ index bd4fa511bd..7a525ef099 100644
  OBJS-$(CONFIG_LIBXAVS2_ENCODER)           += libxavs2.o
  OBJS-$(CONFIG_LIBXEVD_DECODER)            += libxevd.o
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index cd4f6ecd59..318d6baabd 100644
+index fef337ca..8e67e0df 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -824,6 +824,7 @@ extern const FFCodec ff_libxavs_encoder;
+@@ -826,6 +826,7 @@ extern const FFCodec ff_libxavs_encoder;
  extern const FFCodec ff_libxavs2_encoder;
  extern const FFCodec ff_libxvid_encoder;
  extern const FFCodec ff_libzvbi_teletext_decoder;
@@ -82,7 +82,7 @@ index cd4f6ecd59..318d6baabd 100644
  extern const FFCodec ff_bintext_decoder;
 diff --git a/libavcodec/libsvt_hevc.c b/libavcodec/libsvt_hevc.c
 new file mode 100644
-index 0000000000..07f62fa762
+index 00000000..07f62fa7
 --- /dev/null
 +++ b/libavcodec/libsvt_hevc.c
 @@ -0,0 +1,584 @@
@@ -671,5 +671,5 @@ index 0000000000..07f62fa762
 +    .p.wrapper_name = "libsvt_hevc",
 +};
 -- 
-2.39.5
+2.50.0
 
