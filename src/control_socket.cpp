@@ -45,6 +45,7 @@
 #include <cstdlib>                 // for atoi, free, malloc, abort, strtoll
 #include <cstring>                 // for strlen, NULL, strncpy, strchr, strcmp
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <fcntl.h>                 // for fcntl, F_SETFL, O_NONBLOCK
