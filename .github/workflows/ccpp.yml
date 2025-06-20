@@ -148,6 +148,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set environment
+      run: . .github/scripts/environment.sh
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -158,8 +160,6 @@ jobs:
         } >> $GITHUB_OUTPUT
         { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
          "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
-    - name: Set environment
-      run: . .github/scripts/environment.sh
     - name: Run actions/cache for Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
@@ -244,6 +244,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+    - name: Set environment
+      run: .github/scripts/environment.sh
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -252,8 +254,6 @@ jobs:
         } >> $GITHUB_OUTPUT
         { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
          "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
-    - name: Set environment
-      run: .github/scripts/environment.sh
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
       shell: pwsh -command ". '{0}'"
