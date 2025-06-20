@@ -1,4 +1,4 @@
-From 35bc2299c7eebb302b5db359fed1f01bc1beea73 Mon Sep 17 00:00:00 2001
+From 2727a8260f5318e982b4856b5b19013697d8f645 Mon Sep 17 00:00:00 2001
 From: Jing Sun <jing.a.sun@intel.com>
 Date: Wed, 21 Nov 2018 11:33:04 +0800
 Subject: [PATCH] lavc/svt_hevc: add libsvt hevc encoder wrapper
@@ -10,19 +10,21 @@ Signed-off-by: Jing Sun <jing.a.sun@intel.com>
 Signed-off-by: Austin Hu <austin.hu@intel.com>
 Signed-off-by: Christopher Degawa <ccom@randomderp.com>
 Signed-off-by: Guo Jiansheng <jiansheng.guo@intel.com>
+
+UPDATED 2025-06-20 by Martin Pulec: rebased against 45a30e036 + fix compile
 ---
  configure                |   4 +
  libavcodec/Makefile      |   1 +
  libavcodec/allcodecs.c   |   1 +
- libavcodec/libsvt_hevc.c | 586 +++++++++++++++++++++++++++++++++++++++
- 4 files changed, 592 insertions(+)
+ libavcodec/libsvt_hevc.c | 584 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 590 insertions(+)
  create mode 100644 libavcodec/libsvt_hevc.c
 
 diff --git a/configure b/configure
-index 2d46ef0b9c..cc6d5891ec 100755
+index 708ecd9025..58cbcc4df6 100755
 --- a/configure
 +++ b/configure
-@@ -333,6 +333,7 @@ External library support:
+@@ -337,6 +337,7 @@ External library support:
    --enable-vapoursynth     enable VapourSynth demuxer [no]
    --disable-xlib           disable xlib [autodetect]
    --disable-zlib           disable zlib [autodetect]
@@ -30,7 +32,7 @@ index 2d46ef0b9c..cc6d5891ec 100755
  
    The following libraries provide various hardware acceleration features:
    --disable-amf            disable AMF video encoding code [autodetect]
-@@ -1953,6 +1954,7 @@ EXTERNAL_LIBRARY_LIST="
+@@ -1977,6 +1978,7 @@ EXTERNAL_LIBRARY_LIST="
      libsrt
      libssh
      libsvtav1
@@ -38,15 +40,15 @@ index 2d46ef0b9c..cc6d5891ec 100755
      libtensorflow
      libtesseract
      libtheora
-@@ -3552,6 +3554,7 @@ vapoursynth_demuxer_deps="vapoursynth"
+@@ -3649,6 +3651,7 @@ vapoursynth_demuxer_deps="vapoursynth"
  videotoolbox_suggest="coreservices"
- videotoolbox_deps="corefoundation coremedia corevideo"
+ videotoolbox_deps="corefoundation coremedia corevideo VTDecompressionSessionDecodeFrame"
  videotoolbox_encoder_deps="videotoolbox VTCompressionSessionPrepareToEncodeFrames"
 +libsvt_hevc_encoder_deps="libsvthevc"
  
  # demuxers / muxers
  ac3_demuxer_select="ac3_parser"
-@@ -6951,6 +6954,7 @@ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/
+@@ -7087,6 +7090,7 @@ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/
  enabled libspeex          && require_pkg_config libspeex speex speex/speex.h speex_decoder_init
  enabled libsrt            && require_pkg_config libsrt "srt >= 1.3.0" srt/srt.h srt_socket
  enabled libsvtav1         && require_pkg_config libsvtav1 "SvtAv1Enc >= 0.9.0" EbSvtAv1Enc.h svt_av1_enc_init_handle
@@ -55,10 +57,10 @@ index 2d46ef0b9c..cc6d5891ec 100755
  enabled libtesseract      && require_pkg_config libtesseract tesseract tesseract/capi.h TessBaseAPICreate
  enabled libtheora         && require libtheora theora/theoraenc.h th_info_init -ltheoraenc -ltheoradec -logg
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index eef936944d..76c42fe35e 100644
+index bd4fa511bd..7a525ef099 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -1154,6 +1154,7 @@ OBJS-$(CONFIG_LIBWEBP_ANIM_ENCODER)       += libwebpenc_common.o libwebpenc_anim
+@@ -1186,6 +1186,7 @@ OBJS-$(CONFIG_LIBWEBP_ANIM_ENCODER)       += libwebpenc_common.o libwebpenc_anim
  OBJS-$(CONFIG_LIBX262_ENCODER)            += libx264.o
  OBJS-$(CONFIG_LIBX264_ENCODER)            += libx264.o
  OBJS-$(CONFIG_LIBX265_ENCODER)            += libx265.o
@@ -67,10 +69,10 @@ index eef936944d..76c42fe35e 100644
  OBJS-$(CONFIG_LIBXAVS2_ENCODER)           += libxavs2.o
  OBJS-$(CONFIG_LIBXEVD_DECODER)            += libxevd.o
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index 2386b450a6..5dad6ff74e 100644
+index cd4f6ecd59..318d6baabd 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -820,6 +820,7 @@ extern const FFCodec ff_libxavs_encoder;
+@@ -824,6 +824,7 @@ extern const FFCodec ff_libxavs_encoder;
  extern const FFCodec ff_libxavs2_encoder;
  extern const FFCodec ff_libxvid_encoder;
  extern const FFCodec ff_libzvbi_teletext_decoder;
@@ -80,10 +82,10 @@ index 2386b450a6..5dad6ff74e 100644
  extern const FFCodec ff_bintext_decoder;
 diff --git a/libavcodec/libsvt_hevc.c b/libavcodec/libsvt_hevc.c
 new file mode 100644
-index 0000000000..cb7bc93472
+index 0000000000..07f62fa762
 --- /dev/null
 +++ b/libavcodec/libsvt_hevc.c
-@@ -0,0 +1,586 @@
+@@ -0,0 +1,584 @@
 +/*
 +* Scalable Video Technology for HEVC encoder library plugin
 +*
@@ -244,21 +246,21 @@ index 0000000000..cb7bc93472
 +
 +    param->profile = svt_enc->profile;
 +
-+    if (FF_PROFILE_HEVC_MAIN_STILL_PICTURE == param->profile) {
++    if (AV_PROFILE_HEVC_MAIN_STILL_PICTURE == param->profile) {
 +        av_log(avctx, AV_LOG_ERROR, "Main Still Picture Profile not supported\n");
 +        return EB_ErrorBadParameter;
 +    }
 +
 +    if ((param->encoderColorFormat >= EB_YUV422) &&
-+        (param->profile != FF_PROFILE_HEVC_REXT)) {
++        (param->profile != AV_PROFILE_HEVC_REXT)) {
 +        av_log(avctx, AV_LOG_WARNING, "Rext Profile forced for 422 or 444\n");
-+        param->profile = FF_PROFILE_HEVC_REXT;
++        param->profile = AV_PROFILE_HEVC_REXT;
 +    }
 +
-+    if ((FF_PROFILE_HEVC_MAIN == param->profile) &&
++    if ((AV_PROFILE_HEVC_MAIN == param->profile) &&
 +        (param->encoderBitDepth > 8)) {
 +        av_log(avctx, AV_LOG_WARNING, "Main10 Profile forced for 10 bits\n");
-+        param->profile = FF_PROFILE_HEVC_MAIN_10;
++        param->profile = AV_PROFILE_HEVC_MAIN_10;
 +    }
 +
 +    param->targetBitRate = avctx->bit_rate;
@@ -270,12 +272,10 @@ index 0000000000..cb7bc93472
 +
 +    if ((avctx->framerate.num > 0) && (avctx->framerate.den > 0)) {
 +        param->frameRateNumerator = avctx->framerate.num;
-+        param->frameRateDenominator =
-+            avctx->framerate.den * avctx->ticks_per_frame;
++        param->frameRateDenominator = avctx->framerate.den;
 +    } else {
 +        param->frameRateNumerator = avctx->time_base.den;
-+        param->frameRateDenominator =
-+            avctx->time_base.num * avctx->ticks_per_frame;
++        param->frameRateDenominator = avctx->time_base.num;
 +    }
 +
 +    param->hierarchicalLevels = svt_enc->hierarchical_level;
@@ -589,7 +589,7 @@ index 0000000000..cb7bc93472
 +      OFFSET(enc_mode), AV_OPT_TYPE_INT, { .i64 = 7 }, 0, 12, VE },
 +
 +    { "profile", "Profile setting, Main Still Picture Profile not supported", OFFSET(profile),
-+      AV_OPT_TYPE_INT, { .i64 = FF_PROFILE_HEVC_MAIN }, FF_PROFILE_HEVC_MAIN, FF_PROFILE_HEVC_REXT, VE, "profile"},
++      AV_OPT_TYPE_INT, { .i64 = AV_PROFILE_HEVC_MAIN }, AV_PROFILE_HEVC_MAIN, AV_PROFILE_HEVC_REXT, VE, "profile"},
 +
 +    { "qp", "QP value for intra frames", OFFSET(qp),
 +      AV_OPT_TYPE_INT, { .i64 = 32 }, 0, 51, VE },
@@ -671,5 +671,5 @@ index 0000000000..cb7bc93472
 +    .p.wrapper_name = "libsvt_hevc",
 +};
 -- 
-2.44.0
+2.39.5
 
