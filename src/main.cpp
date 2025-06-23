@@ -387,6 +387,7 @@ static int parse_cuda_device(char *optarg) {
         if(strcmp("help", optarg) == 0) {
 #ifdef HAVE_CUDA
                 cuda_wrapper_print_devices_info(true);
+                return 1;
 #else
                 LOG(LOG_LEVEL_ERROR) << "CUDA support is not enabled!\n";
                 return -EXIT_FAILURE;
