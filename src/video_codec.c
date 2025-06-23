@@ -123,7 +123,7 @@ struct codec_info_t {
 
 static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
-                0, 0, 0, 0, 0, VCF_NONE, 0, NULL},
+                0, 0, 0, 0, 0, VCF_NONE, VC_OPAQUE, NULL},
         [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
                 to_fourcc('R','G','B','A'), 4, 1, 1, 8, VCF_RGB, SUBS_4444, "rgba"},
         [UYVY] = {"UYVY", "YUV 4:2:2",
@@ -434,6 +434,7 @@ codec_t get_codec_from_file_extension(const char *ext)
  */
 bool is_codec_opaque(codec_t codec)
 {
+        assert(codec != VC_NONE);
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
