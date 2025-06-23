@@ -2266,6 +2266,30 @@ static void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned 
         vc_copylineToUYVY(dst, src, dst_len, 2, 1, 0, 3);
 }
 
+static void
+vc_copylineRGBAtoVUYA(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dst_len,
+                      int rshift, int gshift, int bshift)
+{
+        (void) rshift, (void) gshift, (void) bshift;
+        const struct color_coeffs cfs  = *get_color_coeffs(CS_DFL, DEPTH8);
+        while (dst_len > 3) {
+                comp_type_t r = *src++;
+                comp_type_t g = *src++;
+                comp_type_t b = *src++;
+                comp_type_t a = *src++;
+
+                *dst++ = (RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) +
+                         (1 << (DEPTH8 - 1));
+                *dst++ = (RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) +
+                         (1 << (DEPTH8 - 1));
+                *dst++ =
+                    (RGB_TO_Y(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH8 - 4));
+                *dst++ = a;
+                dst_len -= 4;
+        }
+}
+
 /**
  * @brief Converts RGBA to UYVY.
  * @copydetails vc_copylinev210
@@ -2975,6 +2999,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRGBAtoRGB,   RGBA,  RGB },
         { vc_copylineRGBtoRGBA,   RGB,   RGBA },
         { vc_copylineRGBtoUYVY,   RGB,   UYVY },
+        { vc_copylineRGBAtoVUYA,  RGBA,  VUYA},
         { vc_copylineUYVYtoRGB,   UYVY,  RGB },
         { vc_copylineUYVYtoRGBA,  UYVY,  RGBA },
         { vc_copylineYUYVtoRGB,   YUYV,  RGB },

@@ -130,6 +130,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('U','Y','V','Y'), 4, 2, 2, 8, VCF_NONE, SUBS_422, "yuv"},
         [YUYV] = {"YUYV", "YUV 4:2:2",
                 to_fourcc('Y','U','Y','V'), 4, 2, 2, 8, VCF_NONE, SUBS_422, "yuv"},
+        [VUYA] = {"VUYA", "VUYA 4:4:4:4",
+                to_fourcc('V','U','Y','A'), 4, 1, 1, 8, VCF_NONE, SUBS_4444, "vuya"},
         [R10k] = {"R10k", "10-bit RGB 4:4:4", // called 'R10b' in BMD SDK
                 to_fourcc('R','1','0','k'), 4, 1, 64, 10, VCF_RGB, SUBS_444, "r10k"},
         [R12L] = {"R12L", "12-bit packed RGB 4:4:4 little-endian", // SMPTE 268M DPX v1, Annex C, Method C4

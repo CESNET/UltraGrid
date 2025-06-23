@@ -179,6 +179,23 @@ void main()
 }
 )raw";
 
+static const char * const vuya_to_rgb_fp = R"raw(
+#version 110
+uniform sampler2D image;
+void main()
+{
+        vec4 yuv;
+        yuv.bgra  = texture2D(image, gl_TexCoord[0].xy).rgba;
+        yuv.r = Y_SCALED_PLACEHOLDER * (yuv.r - 0.0625);
+        yuv.g = yuv.g - 0.5;
+        yuv.b = yuv.b - 0.5;
+        gl_FragColor.r = yuv.r + R_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.g = yuv.r + G_CB_PLACEHOLDER * yuv.g + G_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
+        gl_FragColor.a = yuv.a;
+}
+)raw";
+
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
@@ -331,6 +348,7 @@ void main()
 unordered_map<codec_t, const char *> glsl_programs = {
         { UYVY, uyvy_to_rgb_fp },
         { Y416, yuva_to_rgb_fp },
+        { VUYA, vuya_to_rgb_fp },
         { v210, v210_to_rgb_fp },
         { DXT1_YUV, fp_display_dxt1_yuv },
         { DXT5, fp_display_dxt5ycocg },
@@ -466,6 +484,7 @@ static constexpr codec_t gl_supp_codecs[] = {
         HW_VDPAU,
 #endif
         UYVY,
+        VUYA,
         v210,
         R10k,
         RGBA,
@@ -1088,6 +1107,18 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
+        } else if (desc.color_spec == VUYA) {
+                glBindTexture(GL_TEXTURE_2D,s->texture_raw);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
+                s->current_program = s->PHandles.at(VUYA);
         } else if (desc.color_spec == RGB) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,

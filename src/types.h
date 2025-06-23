@@ -8,7 +8,7 @@
  * not implementation files.
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,7 @@ typedef enum {
         RGBA = VIDEO_CODEC_FIRST, ///< RGBA 8-bit, big-endian
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
+        VUYA,     ///< YCbCr 444 8-bit - Cr Cb Y0 Al
         R10k,     ///< RGB 10-bit packed - RGBX, big-endian (2 bit padding)
         R12L,     ///< RGB 12-bit packed, little-endian
         v210,     ///< YCbCr 422 10-bit - xVY0U|xY2UY1|xUY3V|xY5VY4, little-endian (2 bit padding /'x'/), line aligned to 128 B
