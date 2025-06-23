@@ -55,8 +55,6 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"            // for HWACC_VDPAU
 #endif // HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -65,7 +63,9 @@
 #include <string.h>
 
 #include "color.h"
+#include "compat/endian.h"       // for be32toh
 #include "compat/qsort_s.h"
+#include "compat/strings.h"      // for strcasecmp
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -788,13 +788,13 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                         for (size_t x = 0; x < src_linesize / 16; ++x) {
                                 #pragma GCC unroll 4
                                 for (size_t y = 0; y < 4; ++y) {
-                                        uint32_t v1 = ntohl(*s32);
-                                        uint32_t v2 = ntohl(s32[src_linesize / 4]);
+                                        uint32_t v1 = be32toh(*s32);
+                                        uint32_t v2 = be32toh(s32[src_linesize / 4]);
                                         uint32_t out =
                                                 (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
                                                 (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
                                                 (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
-                                        *d32++ = htonl(out);
+                                        *d32++ = htobe32(out);
                                         s32++;
                                 }
                         }
