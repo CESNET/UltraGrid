@@ -107,7 +107,7 @@ struct codec_info_t {
         const char *name_long;           ///< more descriptive name
         uint32_t fcc;                    ///< FourCC
         int block_size_bytes;            ///< Bytes per pixel block (packed pixelformats only, otherwise set to 1)
-        int block_size_pixels;           ///< Bytes per pixel block (packed pixelformats only, otherwise set to 1)
+        int block_size_pixels;           ///< Pixels per pixel block (ditto), _bytes/_pixels yield BPP
         int h_align;                     ///< Number of pixels each line is aligned to
         int bits_per_channel;            ///< Number of bits per color channel
         unsigned flags;                  ///< bitwise OR of flags in @ref video_codec_flag
