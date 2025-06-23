@@ -86,7 +86,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 #endif
 
 enum {
-        VC_OPAQUE = 0,
+        VC_OPAQUE = 0, ///< codec is not a raw pixelformat
 };
 
 /**
@@ -106,7 +106,7 @@ struct codec_info_t {
         unsigned rgb:1;                  ///< Whether pixelformat is RGB
         unsigned interframe:1;           ///< Indicates if compression is interframe
         unsigned const_size:1;           ///< Indicates if data length is constant for all resolutions (hw surfaces)
-        int subsampling;                 ///< Decimal representation of subsampling in format 'JabA', eg. 4440 (last number is alpha), 0 if undefined
+        int subsampling;                 ///< @ref enum_subsampling "enum subsampling" for PF, @ref VC_OPAQUE otherwise
         const char *file_extension;      ///< Extension that should be added to name if frame is saved to file.
 };
 
@@ -120,19 +120,19 @@ static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
                 0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, 0, NULL},
         [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
-                to_fourcc('R','G','B','A'), 4, 1, 1, 8, TRUE, FALSE, FALSE, 4444, "rgba"},
+                to_fourcc('R','G','B','A'), 4, 1, 1, 8, TRUE, FALSE, FALSE, SUBS_4444, "rgba"},
         [UYVY] = {"UYVY", "YUV 4:2:2",
-                to_fourcc('U','Y','V','Y'), 4, 2, 2, 8, FALSE, FALSE, FALSE, 4220, "yuv"},
+                to_fourcc('U','Y','V','Y'), 4, 2, 2, 8, FALSE, FALSE, FALSE, SUBS_422, "yuv"},
         [YUYV] = {"YUYV", "YUV 4:2:2",
-                to_fourcc('Y','U','Y','V'), 4, 2, 2, 8, FALSE, FALSE, FALSE, 4220, "yuv"},
+                to_fourcc('Y','U','Y','V'), 4, 2, 2, 8, FALSE, FALSE, FALSE, SUBS_422, "yuv"},
         [R10k] = {"R10k", "10-bit RGB 4:4:4", // called 'R10b' in BMD SDK
-                to_fourcc('R','1','0','k'), 4, 1, 64, 10, TRUE,  FALSE, FALSE, 4440, "r10k"},
+                to_fourcc('R','1','0','k'), 4, 1, 64, 10, TRUE,  FALSE, FALSE, SUBS_444, "r10k"},
         [R12L] = {"R12L", "12-bit packed RGB 4:4:4 little-endian", // SMPTE 268M DPX v1, Annex C, Method C4
-                to_fourcc('R','1','2','l'), 36, 8, 8, 12, TRUE, FALSE, FALSE, 4440, "r12l"},
+                to_fourcc('R','1','2','l'), 36, 8, 8, 12, TRUE, FALSE, FALSE, SUBS_444, "r12l"},
         [v210] = {"v210", "10-bit YUV 4:2:2",
-                to_fourcc('v','2','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, 4220, "v210"},
+                to_fourcc('v','2','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, SUBS_422, "v210"},
         [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
-                to_fourcc('D','S','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, 4220, "dvs10"},
+                to_fourcc('D','S','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, SUBS_422, "dvs10"},
         [DXT1] = {"DXT1", "S3 Compressed Texture DXT1",
                 to_fourcc('D','X','T','1'), 1, 2, 0, 2, TRUE, FALSE, FALSE, VC_OPAQUE, "dxt1"},
         /// packed YCbCr inside DXT1 channels
@@ -141,7 +141,7 @@ static const struct codec_info_t codec_info[] = {
         [DXT5] = {"DXT5", "S3 Compressed Texture DXT5 YCoCg",
                 to_fourcc('D','X','T','5'), 1, 1, 0, 4, FALSE, FALSE, FALSE, VC_OPAQUE, "yog"},/* DXT5 YCoCg */
         [RGB] = {"RGB", "Red Green Blue 24bit",
-                to_fourcc('R','G','B','2'), 3, 1, 1, 8, TRUE, FALSE, FALSE, 4440, "rgb"},
+                to_fourcc('R','G','B','2'), 3, 1, 1, 8, TRUE, FALSE, FALSE, SUBS_444, "rgb"},
         [JPEG] = {"JPEG",  "JPEG",
                 to_fourcc('J','P','E','G'), 1, 1, 0, 8, FALSE, FALSE, FALSE,VC_OPAQUE, "jpg"},
         [RAW] = {"raw", "Raw SDI video",
@@ -155,7 +155,7 @@ static const struct codec_info_t codec_info[] = {
         [VP9] = {"VP9", "Google VP9",
                 to_fourcc('V','P','9','0'), 1, 1, 0, 8, FALSE, TRUE, FALSE, VC_OPAQUE, "vp9"},
         [BGR] = {"BGR", "Blue Green Red 24bit",
-                to_fourcc('B','G','R','2'), 3, 1, 1, 8, TRUE, FALSE, FALSE, 4440, "bgr"},
+                to_fourcc('B','G','R','2'), 3, 1, 1, 8, TRUE, FALSE, FALSE, SUBS_444, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
                 to_fourcc('M','J','2','C'), 1, 1, 0, 8, FALSE, FALSE, FALSE, VC_OPAQUE, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",
@@ -169,15 +169,15 @@ static const struct codec_info_t codec_info[] = {
         [CFHD] = {"CFHD", "Cineform",
                 to_fourcc('C','F','H','D'), 1, 1, 0, 8, FALSE, FALSE, FALSE, VC_OPAQUE, "cfhd"},
         [RG48] = {"RG48", "16-bit RGB little-endian",
-                to_fourcc('R','G','4','8'), 6, 1, 1, 16, TRUE, FALSE, FALSE, 4440, "rg48"},
+                to_fourcc('R','G','4','8'), 6, 1, 1, 16, TRUE, FALSE, FALSE, SUBS_444, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
                 to_fourcc('a','v','0','1'), 1, 1, 0, 8, FALSE, TRUE, FALSE, VC_OPAQUE, "av1"},
         [I420] =  {"I420", "planar YUV 4:2:0",
-                to_fourcc('I','4','2','0'), 3, 2, 2, 8, FALSE, FALSE, FALSE, 4200, "yuv"},
+                to_fourcc('I','4','2','0'), 3, 2, 2, 8, FALSE, FALSE, FALSE, SUBS_420, "yuv"},
         [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
-                to_fourcc('Y','2','1','6'), 8, 2, 2, 16, FALSE, FALSE, FALSE, 4220, "y216"},
+                to_fourcc('Y','2','1','6'), 8, 2, 2, 16, FALSE, FALSE, FALSE, SUBS_422, "y216"},
         [Y416] =  {"Y416", "Packed 16-bit YUV 4:4:4:4 little-endian",
-                to_fourcc('Y','4','1','6'), 8, 1, 1, 16, FALSE, FALSE, FALSE, 4444, "y416"},
+                to_fourcc('Y','4','1','6'), 8, 1, 1, 16, FALSE, FALSE, FALSE, SUBS_4444, "y416"},
         [PRORES] =  {"PRORES", "Apple ProRes",
                 0, 1, 1, 0, 8, FALSE, TRUE, FALSE, VC_OPAQUE, "pror"},
         [PRORES_4444] =  {"PRORES_4444", "Apple ProRes 4444",

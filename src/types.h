@@ -125,6 +125,7 @@ enum depth {
         DEPTH16 = 16,
 };
 
+/// @anchor enum_subsampling
 enum subsampling {
         SUBS_420  = 4200,
         SUBS_422  = 4220,
