@@ -35,12 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "debug.h"
 #include "module.h"
+
+#include <assert.h>         // for assert
+#include <errno.h>          // for ETIMEDOUT
+#include <ctype.h>          // for isdigit
+#include <pthread.h>        // for pthread_mutex_init, pthread_mutex_destroy
+#include <stdio.h>          // for printf, fprintf, putchar, snprintf, stderr
+#include <stdlib.h>         // for free, atoi, calloc
+#include <string.h>         // for strlen, strchr, memcpy, strdup, strncat
+#include <time.h>           // for clock_gettime
+
+#include "compat/strings.h" // for strcasecmp
+#include "debug.h"
+#include "messaging.h"      // for check_message, free_message, ...
 #include "utils/list.h"
 #include "utils/macros.h"          // for ARR_COUNT, to_fourcc
 
@@ -56,6 +64,25 @@ static void
 module_mutex_lock(pthread_mutex_t *lock)
 {
         MSG(DEBUG, "Locking lock %p\n", lock);
+
+ #if _POSIX_TIMEOUTS > 0 // macOS doesn't have pthread_mutex_timedlock()
+        struct timespec ts;
+        if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+                perror("clock_gettime");
+        } else {
+                ts.tv_sec += 1;
+                const int rc = pthread_mutex_timedlock(lock, &ts);
+                if (rc == 0) {
+                        return;
+                }
+                if (rc == ETIMEDOUT) {
+                        bug_msg(LOG_LEVEL_ERROR, MOD_NAME
+                                "Waiting for lock, possible deadlock...  ");
+                } else {
+                        perror("pthread_mutex_timedlock");
+                }
+        }
+#endif
         pthread_mutex_lock(lock);
 }
 
