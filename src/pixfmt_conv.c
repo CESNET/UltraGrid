@@ -2653,6 +2653,27 @@ static void vc_copylineUYVYtoY416(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void
+vc_copylineVUYAtoY416(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dst_len,
+                      int rshift, int gshift, int bshift)
+{
+        (void) rshift, (void) gshift, (void) bshift;
+        const int dst_bs = get_pf_block_bytes(Y416); // 8
+        while (dst_len > dst_bs - 1) {
+                *dst++ = 0;
+                *dst++ = src[1]; // U
+                *dst++ = 0;
+                *dst++ = src[2]; // Y
+                *dst++ = 0;
+                *dst++ = src[0]; // V
+                *dst++ = 0;
+                *dst++ = src[3]; // A
+                src += 4;
+                dst_len -= dst_bs;
+        }
+}
+
 static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -3012,6 +3033,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineUYVYtoV210,  UYVY,  v210 },
         { vc_copylineUYVYtoY216,  UYVY,  Y216 },
         { vc_copylineUYVYtoY416,  UYVY,  Y416 },
+        { vc_copylineVUYAtoY416,  VUYA,  Y416 },
         { vc_copylineY216toUYVY,  Y216,  UYVY },
         { vc_copylineY216toV210,  Y216,  v210 },
         { vc_copylineY416toUYVY,  Y416,  UYVY },
