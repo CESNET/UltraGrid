@@ -54,6 +54,7 @@
 #include <stdalign.h>     // for alignof
 #endif
 #include <stdbool.h>
+#include <stddef.h>                              // for NULL, ptrdiff_t, size_t
 #include <stdint.h>
 
 #include "color.h"
@@ -1036,6 +1037,31 @@ yuv422p_to_v210(struct av_conv_data d)
                         *dst++ = w0_1;
                         *dst++ = w0_2;
                         *dst++ = w0_3;
+                }
+        }
+}
+
+static void
+yuv444p_to_vuya(struct av_conv_data d)
+{
+        const int      width    = d.in_frame->width;
+        const int      height   = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] +
+                                       (in_frame->linesize[0] * y);
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] +
+                                        (in_frame->linesize[1] * y);
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] +
+                                        (in_frame->linesize[2] * y);
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + (d.pitch * y);
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        enum { ALPHA = 0xFF };
+                        *dst++ = *src_cr++;
+                        *dst++ = *src_cb++;
+                        *dst++ = *src_y++;
+                        *dst++ = ALPHA;
                 }
         }
 }
@@ -2540,6 +2566,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_YUV422P, RGBA, yuv422p_to_rgb32},
         {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210},
         {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy},
+        {AV_PIX_FMT_YUV444P, VUYA, yuv444p_to_vuya},
         {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
         {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32},
         // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
@@ -2554,6 +2581,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
         {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32},
         {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210},
+        {AV_PIX_FMT_YUVJ444P, VUYA, yuv444p_to_vuya},
         {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy},
         {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
         {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32},

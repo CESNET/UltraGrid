@@ -1224,6 +1224,7 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 case VIDEO_CODEC_NONE:
                         return VDEC_PRIO_PROBE_LO; // for probe
                 case UYVY:
+                case VUYA:
                 case RG48:
                 case RGB:
                 case RGBA:
