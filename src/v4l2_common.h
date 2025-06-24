@@ -5,7 +5,7 @@
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
  */
  /*
- * Copyright (c) 2012-2024 CESNET
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,12 @@ static struct {
         {V4L2_PIX_FMT_YUYV, YUYV},
         {V4L2_PIX_FMT_UYVY, UYVY},
         {V4L2_PIX_FMT_YUV420, I420},
+#ifdef V4L2_PIX_FMT_VUYA32
+        {V4L2_PIX_FMT_VUYA32, VUYA},
+#endif
+#ifdef V4L2_PIX_FMT_VUYX32
+        {V4L2_PIX_FMT_VUYX32, VUYA},
+#endif
 #ifdef V4L2_PIX_FMT_YUVA32
         {V4L2_PIX_FMT_YUVA32, Y416},
 #endif
