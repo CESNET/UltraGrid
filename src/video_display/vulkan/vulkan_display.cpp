@@ -3,7 +3,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2021-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -48,6 +49,13 @@
 #include <utility>
 #include <vector>
 #include "debug.h"
+#include "utils/fs.h"
+
+#ifdef HAVE_CONFIG_H
+#include "config.h" // for SRCDIR
+#else
+#define SRCDIR ".."
+#endif // HAVE_CONFIG_H
 
 #define MOD_NAME "[vulkan] "
 
@@ -650,6 +658,24 @@ void VulkanDisplay::window_parameters_changed(WindowParameters new_parameters) {
                 auto render_area_size = context.get_render_area_size();
                 render_pipeline.update_render_area(render_area_size, current_image_description.size);
         }
+}
+
+std::string
+get_shader_path()
+{
+        constexpr char suffix[] = "/share/ultragrid/vulkan_shaders";
+        // note that get_install_root returns bin/.. if run from build,
+        // which will not contain the shaders for out-of-tree builds
+        const char *path = get_install_root();
+        if (path != nullptr) {
+                std::string path_to_shaders = std::string(path) + suffix;
+                std::filesystem::directory_entry dir{ std::filesystem::path(
+                    path_to_shaders) };
+                if (dir.exists()) {
+                        return path_to_shaders;
+                }
+        }
+        return std::string(SRCDIR) + suffix;
 }
 
 } //namespace vulkan_display

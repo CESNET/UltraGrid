@@ -3528,7 +3528,8 @@ AC_SUBST(TEST_OBJS)
 AC_SUBST(TOREMOVE)
 
 # -------------------------------------------------------------------------------------------------
-# Finally, substitute things into the Makefile and config.h
+# Print summary + set it to AUTOCONF_RESULT
+# -------------------------------------------------------------------------------------------------
 
 start_section() {
         printf "$1\n$2:"
@@ -3663,6 +3664,12 @@ fi
 RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
 
 AC_DEFINE_UNQUOTED([AUTOCONF_RESULT], "$RES_STR", [Autoconf result])
+
+# -------------------------------------------------------------------------------------------------
+# Finally, substitute things into the Makefile and config.h
+# -------------------------------------------------------------------------------------------------
+
+AC_DEFINE_UNQUOTED([SRCDIR], "$srcdir", [path to src directory])
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile])

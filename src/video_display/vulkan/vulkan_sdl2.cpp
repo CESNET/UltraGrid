@@ -60,7 +60,6 @@
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "video.h"
-#include "utils/fs.h"
 //remove leaking macros
 #undef min
 #undef max
@@ -776,9 +775,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         SDL_Vulkan_GetInstanceExtensions(s->window, &extension_count, required_extensions.data());
         assert(extension_count > 0);
         
-        const char *path = get_install_root();
-        std::string path_to_shaders{ path ? path : ".." };
-        path_to_shaders = path_to_shaders + "/share/ultragrid/vulkan_shaders";
+        std::string path_to_shaders = vkd::get_shader_path();
         LOG(LOG_LEVEL_INFO) << MOD_NAME "Path to shaders: " << path_to_shaders << '\n';
         try {
                 vkd::VulkanInstance instance;

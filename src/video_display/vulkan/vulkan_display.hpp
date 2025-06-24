@@ -3,7 +3,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2021-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -200,5 +200,7 @@ private:
 
         bool destroyed = false;
 };
+
+std::string get_shader_path();
 
 } //vulkan_display
