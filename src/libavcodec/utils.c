@@ -36,13 +36,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include "libavcodec/utils.h"
+
+#include <libavutil/pixfmt.h>
 
 /// known UG<->AV pixfmt conversions, terminate with NULL (returned by
 /// get_av_to_ug_pixfmts())
