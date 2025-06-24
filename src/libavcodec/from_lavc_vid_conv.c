@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -2775,6 +2775,9 @@ get_av_to_uv_conversion(int av_codec, codec_t uv_codec)
 {
         av_to_uv_convert_t *ret =
             get_av_to_uv_conversion_int(av_codec, uv_codec);
+        if (ret == NULL) {
+                return NULL;
+        }
         MSG(VERBOSE, "converting %s to %s over %s\n",
             av_get_pix_fmt_name(av_codec), get_codec_name(ret->dst_pixfmt),
             get_codec_name(ret->src_pixfmt));
