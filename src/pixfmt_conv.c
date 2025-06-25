@@ -2674,6 +2674,47 @@ vc_copylineVUYAtoY416(unsigned char *__restrict dst,
         }
 }
 
+static void
+vc_copylineVUYAtoUYVY(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dst_len,
+                      int rshift, int gshift, int bshift)
+{
+        (void) rshift, (void) gshift, (void) bshift;
+        const int dst_bs = get_pf_block_bytes(UYVY); // 4
+        while (dst_len > dst_bs - 1) {
+                *dst++ = (src[1] + src[5]) / 2; // U
+                *dst++ = src[2];                // Y0
+                *dst++ = (src[0] + src[4]) / 2; // V
+                *dst++ = src[7];                // Y1
+                src += 8;
+                dst_len -= dst_bs;
+        }
+}
+
+static void
+vc_copylineVUYAtoRGB(unsigned char *__restrict dst,
+                     const unsigned char *__restrict src, int dst_len,
+                     int rshift, int gshift, int bshift)
+{
+        (void) rshift, (void) gshift, (void) bshift;
+        enum {
+                S_DEPTH = 8,
+        };
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, S_DEPTH);
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
+                comp_type_t v = *src++ - (1 << (S_DEPTH - 1));
+                comp_type_t u = *src++ - (1 << (S_DEPTH - 1));
+                comp_type_t y = cfs.y_scale * (*src++ - (1 << (S_DEPTH - 4)));
+                src++; // alpha
+                comp_type_t r = YCBCR_TO_R(cfs, y, u, v) >> COMP_BASE;
+                comp_type_t g = YCBCR_TO_G(cfs, y, u, v) >> COMP_BASE;
+                comp_type_t b = YCBCR_TO_B(cfs, y, u, v) >> COMP_BASE;
+                *dst++ = CLAMP_FULL(r, 8);
+                *dst++ = CLAMP_FULL(g, 8);
+                *dst++ = CLAMP_FULL(b, 8);
+        }
+}
+
 static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -3034,6 +3075,8 @@ static const struct decoder_item decoders[] = {
         { vc_copylineUYVYtoY216,  UYVY,  Y216 },
         { vc_copylineUYVYtoY416,  UYVY,  Y416 },
         { vc_copylineVUYAtoY416,  VUYA,  Y416 },
+        { vc_copylineVUYAtoUYVY,  VUYA,  UYVY },
+        { vc_copylineVUYAtoRGB,   VUYA,  RGB  },
         { vc_copylineY216toUYVY,  Y216,  UYVY },
         { vc_copylineY216toV210,  Y216,  v210 },
         { vc_copylineY416toUYVY,  Y416,  UYVY },
