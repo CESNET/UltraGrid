@@ -125,30 +125,22 @@ void module_register(struct module *module_data, struct module *parent)
         module_mutex_unlock(&parent->module_priv->lock);
 }
 
-void module_done(struct module *module_data)
+static void
+module_del_ref(struct module_priv_state *module_priv)
 {
-        if(!module_data)
-                return;
-
-        if (module_data->module_priv == NULL) {
-                return;
-        }
-
-        struct module_priv_state *module_priv = module_data->module_priv;
-
         assert(module_priv->magic == MODULE_MAGIC);
 
         if(module_priv->parent) {
                 module_mutex_lock(&module_priv->parent->lock);
                 bool found = simple_linked_list_remove(
-                    module_priv->parent->children, module_data->module_priv);
+                    module_priv->parent->children, module_priv);
                 assert(found);
                 module_mutex_unlock(&module_priv->parent->lock);
         }
 
         if(simple_linked_list_size(module_priv->children) > 0) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
-                dump_tree(module_data, 0);
+                dump_tree(&module_priv->wrapper, 0);
                 module_mutex_lock(&module_priv->lock);
                 for(void *it = simple_linked_list_it_init(module_priv->children); it != NULL; ) {
                         struct module_priv_state *child = simple_linked_list_it_next(&it);
@@ -165,10 +157,10 @@ void module_done(struct module *module_data)
                 fprintf(stderr, "Warning: Message queue not empty!\n");
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         printf("Path: ");
-                        dump_parents(module_data);
+                        dump_parents(&module_priv->wrapper);
                 }
                 struct message *m;
-                while ((m = check_message(module_data))) {
+                while ((m = check_message(&module_priv->wrapper))) {
                         free_message(m, NULL);
                 }
         }
@@ -181,8 +173,22 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(module_priv->msg_queue_children);
 
         pthread_mutex_destroy(&module_priv->lock);
-        module_data->module_priv = NULL; // to multiple deinit
         free(module_priv);
+}
+
+void
+module_done(struct module *module_data)
+{
+        if (!module_data) {
+                return;
+        }
+
+        if (module_data->module_priv == NULL) {
+                return;
+        }
+        struct module_priv_state *module_priv = module_data->module_priv;
+        module_del_ref(module_priv);
+        module_data->module_priv = NULL; // to avoid multiple deinit
 }
 
 static const char *const module_class_name_pairs[] = {
