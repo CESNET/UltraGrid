@@ -258,6 +258,8 @@ struct module *get_parent_module(struct module *node)
 /**
  * id_num and id_name distinguish in case that the node has more child nodes with
  * the same node_name (the same class). If id_name == NULL, id_num is used.
+ *
+ * should be called with node->module_priv->lock locked
  */
 static struct module *find_child(struct module *node, const char *node_name, int id_num,
                 const char *id_name)
@@ -337,6 +339,7 @@ struct module *get_module(struct module *root, const char *const_path)
         return receiver;
 }
 
+/// should be called with node->module_priv->lock locked
 struct module *get_matching_child(struct module *node, const char *const_path)
 {
         struct module *receiver = node;
