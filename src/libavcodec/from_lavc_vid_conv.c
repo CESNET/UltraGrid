@@ -3175,10 +3175,19 @@ from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc)
         if (internal.depth == 0) { // unspecified internal format
                 return VDEC_PRIO_LOW;
         }
-        /// @todo what about returning lower prio if
-        /// !pixdesc_equals(av_pixfmt_get_desc(av_to_uv_conversion.av_codec),
-        /// internal)
-        return VDEC_PRIO_NORMAL;
+        for (unsigned i = 0; i < ARR_COUNT(av_to_uv_conversions); i++) {
+                if (av_to_uv_conversions[i].uv_codec != ugc) {
+                        continue;
+                }
+                if (pixdesc_equals(
+                        av_pixfmt_get_desc(av_to_uv_conversions[i].av_codec),
+                        internal)) {
+                        // conv from AV PF with same props as internal
+                        return VDEC_PRIO_NORMAL;
+                }
+        }
+        // the conversion may be not direct but over intermediate UG codec_t
+        return VDEC_PRIO_NOT_PREFERRED;
 }
 
 #pragma GCC diagnostic pop

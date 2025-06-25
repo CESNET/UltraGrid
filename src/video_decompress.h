@@ -6,7 +6,7 @@
  * @brief API for video decompress drivers
  */
 /*
- * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -141,11 +141,8 @@ enum vdec_priority {
         VDEC_PRIO_NORMAL = 500, ///< decoder can decode the given properties but
                                 ///< is not dedicated (lavd)
         VDEC_PRIO_NOT_PREFERRED =
-            800, ///< decoder can decode given properties but the decode
-                 ///< is suboptimal (like color space conversion)
-                 ///< @todo consider removing this - as this is after
-                 ///<       probe, the CS conv will be needed for all
-                 ///<       decoders (so it will not differentiate)
+            800, ///< decoder can perhaps decode given properties but the decode
+                 ///< may be is suboptimal (not efficient PF conversion or so)
         VDEC_PRIO_LOW = 900, ///< the decoder is unsure if it can decode the
                              ///< stream (eg. unknown properties)
 };
