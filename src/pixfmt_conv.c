@@ -2701,7 +2701,7 @@ vc_copylineVUYAtoRGB(unsigned char *__restrict dst,
                 S_DEPTH = 8,
         };
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, S_DEPTH);
-        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
                 comp_type_t v = *src++ - (1 << (S_DEPTH - 1));
                 comp_type_t u = *src++ - (1 << (S_DEPTH - 1));
                 comp_type_t y = cfs.y_scale * (*src++ - (1 << (S_DEPTH - 4)));
