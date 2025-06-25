@@ -75,6 +75,7 @@
 #include "utils/worker.h" // task_run_parallel
 #include "video.h"
 #include "video_codec.h"
+#include "video_decompress.h" // for VDEC_PRIO_*
 
 #ifdef __SSE3__
 #include "pmmintrin.h"
@@ -3156,6 +3157,30 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
                                                 pitch, rgb_shift };
         }
         task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
+}
+
+int
+from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc)
+{
+        switch (ugc) {
+        case UYVY:
+        case VUYA:
+        case RG48:
+        case RGB:
+        case RGBA:
+        case R10k:
+        case R12L:
+        case v210:
+        case Y416:
+                break;
+        default:
+                return VDEC_PRIO_NA;
+        }
+        if (internal.depth == 0) { // unspecified internal format
+                return VDEC_PRIO_LOW;
+        }
+        return codec_is_a_rgb(ugc) == internal.rgb ? VDEC_PRIO_NORMAL
+                                                   : VDEC_PRIO_NOT_PREFERRED;
 }
 
 #pragma GCC diagnostic pop

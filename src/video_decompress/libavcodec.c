@@ -1192,10 +1192,6 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
-/**
- * @todo
- * This should be take into account existing conversions.
- */
 static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
         if (internal.accel_type != HWACCEL_NONE &&
             hw_accel_to_ug_pixfmt(internal.accel_type) == ugc) {
@@ -1220,27 +1216,13 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 return VDEC_PRIO_NA;
         }
 
-        switch (ugc) {
-                case VIDEO_CODEC_NONE:
-                        return VDEC_PRIO_PROBE_LO; // for probe
-                case UYVY:
-                case VUYA:
-                case RG48:
-                case RGB:
-                case RGBA:
-                case R10k:
-                case R12L:
-                case v210:
-                case Y416:
-                        break;
-                default:
-                        return VDEC_PRIO_NA;
+        if (ugc == VC_NONE) { // probe
+                return VDEC_PRIO_PROBE_LO;
         }
-        if (internal.depth == 0) { // unspecified internal format
-                return VDEC_PRIO_LOW;
-        }
-        return codec_is_a_rgb(ugc) == internal.rgb ? VDEC_PRIO_NORMAL
-                                                   : VDEC_PRIO_NOT_PREFERRED;
+
+        // now we assume that will be able to decompress the stream so we
+        // check if we are able to convert to output codec ugc
+        return from_lavc_pf_priority(internal, ugc);
 }
 
 static const struct video_decompress_info libavcodec_info = {

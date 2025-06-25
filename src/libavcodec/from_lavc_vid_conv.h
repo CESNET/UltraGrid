@@ -6,7 +6,7 @@
  * @sa to_lavc_vid_conv.h
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,11 +47,14 @@
 #include <stdbool.h>
 #endif
 
+#include "types.h" // for codec_t
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct av_to_uv_convert_state;
+struct pixfmt_desc;
 typedef struct av_to_uv_convert_state av_to_uv_convert_t;
 
 av_to_uv_convert_t *get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
@@ -63,6 +66,7 @@ codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel)
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel);
 enum AVPixelFormat pick_av_convertible_to_ug(codec_t              color_spec,
                                              av_to_uv_convert_t **av_conv);
+int from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc);
 
 #ifdef __cplusplus
 }
