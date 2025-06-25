@@ -98,6 +98,7 @@ void module_register(struct module *module_data, struct module *parent)
         struct module_priv_state *module_priv = calloc(1, sizeof *module_data->module_priv);
         module_data->module_priv = module_priv;
         module_priv->magic = MODULE_MAGIC;
+        module_priv->ref = 1;
         memcpy(&module_priv->wrapper, module_data, sizeof *module_data);
 
         int ret = 0;
@@ -122,13 +123,21 @@ void module_register(struct module *module_data, struct module *parent)
         module_mutex_lock(&parent->module_priv->lock);
         simple_linked_list_append(parent->module_priv->children, module_priv);
         module_check_undelivered_messages(parent);
+        module_priv->parent->ref += 1;
         module_mutex_unlock(&parent->module_priv->lock);
 }
 
-static void
+static bool
 module_del_ref(struct module_priv_state *module_priv)
 {
         assert(module_priv->magic == MODULE_MAGIC);
+
+        module_mutex_lock(&module_priv->lock);
+        const int new_ref = module_priv->ref -= 1;
+        module_mutex_unlock(&module_priv->lock);
+        if (new_ref > 0) {
+                return false;
+        }
 
         if(module_priv->parent) {
                 module_mutex_lock(&module_priv->parent->lock);
@@ -136,21 +145,9 @@ module_del_ref(struct module_priv_state *module_priv)
                     module_priv->parent->children, module_priv);
                 assert(found);
                 module_mutex_unlock(&module_priv->parent->lock);
+                module_del_ref(module_priv->parent);
         }
 
-        if(simple_linked_list_size(module_priv->children) > 0) {
-                log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
-                dump_tree(&module_priv->wrapper, 0);
-                module_mutex_lock(&module_priv->lock);
-                for(void *it = simple_linked_list_it_init(module_priv->children); it != NULL; ) {
-                        struct module_priv_state *child = simple_linked_list_it_next(&it);
-                        assert(child->magic == MODULE_MAGIC);
-                        module_mutex_lock(&child->lock);
-                        child->parent = NULL;
-                        module_mutex_unlock(&child->lock);
-                }
-                module_mutex_unlock(&module_priv->lock);
-        }
         simple_linked_list_destroy(module_priv->children);
 
         if(simple_linked_list_size(module_priv->msg_queue) > 0) {
@@ -174,6 +171,7 @@ module_del_ref(struct module_priv_state *module_priv)
 
         pthread_mutex_destroy(&module_priv->lock);
         free(module_priv);
+        return true;
 }
 
 void
@@ -187,7 +185,10 @@ module_done(struct module *module_data)
                 return;
         }
         struct module_priv_state *module_priv = module_data->module_priv;
-        module_del_ref(module_priv);
+        if (!module_del_ref(module_priv)) {
+                log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
+                dump_tree(&module_priv->wrapper, 0);
+        }
         module_data->module_priv = NULL; // to avoid multiple deinit
 }
 

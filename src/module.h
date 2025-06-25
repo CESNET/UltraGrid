@@ -118,6 +118,7 @@ struct module_priv_state {
         uint32_t magic;
         struct module wrapper;
         pthread_mutex_t lock;
+        int ref;  ///< reference count
         struct module_priv_state *parent;
         struct simple_linked_list *children; // module_priv_state
 
