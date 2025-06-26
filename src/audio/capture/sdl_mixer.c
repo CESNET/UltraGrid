@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -216,9 +216,9 @@ adjust_ch_count(struct state_sdl_mixer_capture *s)
         Mix_QuerySpec(&frequency, &format, &channels);
         if (audio_capture_channels > 0 &&
             channels != (int) audio_capture_channels) {
-                MSG(INFO,
-                    "%d channel capture seem to be broken with SDL3 "
-                    "mixer - capture %d and reduce drop second later\n",
+                MSG(WARNING,
+                    "%d channel capture seem to be broken with SDL3 mixer - "
+                    "capturing %d channels and dropping the excessive later.\n",
                     s->audio.ch_count, channels);
                 s->audio.ch_count = channels;
         }
