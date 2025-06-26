@@ -4,7 +4,7 @@
 
 ETAG=$(curl -LI "$1" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
 if [ "$ETAG" ]; then
-        printf '%s\n' "$ETAG"
+        printf '%s\n' "$ETAG" | sed 's/[^-._A-Za-z0-9]/_/g'
         exit 0
 fi
 
