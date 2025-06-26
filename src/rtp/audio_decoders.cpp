@@ -5,7 +5,7 @@
  */
 /*
  * Copyright (c) 2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2012-2024 CESNET
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -272,7 +272,9 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s->audio_decompress = NULL;
 
-        s->control = (struct control_state *) get_module(get_root_module(parent), "control");
+        s->control = (struct control_state *) get_module(
+                         get_root_module(parent), "control")
+                         ->priv_data;
 
         if (strlen(encryption) > 0) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
