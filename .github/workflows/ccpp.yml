@@ -178,7 +178,7 @@ jobs:
       uses: actions/cache@main
       with:
         path: /var/tmp/XIMEA_OSX_SP.dmg
-        key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
+        key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: curl -S -L "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
