@@ -46,9 +46,9 @@ jobs:
       if: ${{ env.coverity_token }}
       id: etags
       run: |
-        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
          https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.\
-        tar.gz; } >> $GITHUB_OUTPUT
+        tar.gz >> $GITHUB_OUTPUT
     - name: Run actions/cache for NDI
       if: ${{ env.coverity_token }}
       id: cache-ndi

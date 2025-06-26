@@ -2,14 +2,19 @@
 # Prints to stdout ETag for given URL.
 # If failed to obtain and $2=optional the particular tag is replaced with a keyword NOTFOUND
 
-ETAG=$(curl -LI "$1" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
+output=$1
+url=$2
+optional=${3-}
+
+ETAG=$(curl -LI "$url" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
 if [ "$ETAG" ]; then
+        printf '%s=' "$output"
         printf '%s\n' "$ETAG" | sed 's/[^-._A-Za-z0-9]/_/g'
         exit 0
 fi
 
-if [ "${2-}" = optional ]; then
-        echo NOTFOUND
+if [ "$optional" = optional ]; then
+        echo "$1=NOTFOUND"
         exit 0
 fi
 

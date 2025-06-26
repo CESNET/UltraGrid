@@ -62,9 +62,9 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
          https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
-        Install_NDI_SDK_v6_Linux.tar.gz; } >> $GITHUB_OUTPUT
+        Install_NDI_SDK_v6_Linux.tar.gz >> $GITHUB_OUTPUT
     - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
@@ -153,13 +153,13 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        { printf nonfree=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
-         "$SDK_URL/$DELTA_MAC_ARCHIVE" optional; } >> $GITHUB_OUTPUT
-        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
-         https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg
-        } >> $GITHUB_OUTPUT
-        { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
-         "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh nonfree\
+         "$SDK_URL/$DELTA_MAC_ARCHIVE" optional >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+         https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg\
+         >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ximea\
+         "$XIMEA_DOWNLOAD_URL" >> $GITHUB_OUTPUT
     - name: Run actions/cache for Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@main
@@ -249,11 +249,11 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        { printf ndi=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
-         https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe
-        } >> $GITHUB_OUTPUT
-        { printf ximea=; $GITHUB_WORKSPACE/.github/scripts/get-etag.sh\
-         "$XIMEA_DOWNLOAD_URL"; } >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+         https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe\
+         >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ximea\
+         "$XIMEA_DOWNLOAD_URL" >> $GITHUB_OUTPUT
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
       shell: pwsh -command ". '{0}'"
