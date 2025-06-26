@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 #include "host.h"
 
 #include "debug.h"
-#include "keyboard_control.h"
+// #include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
@@ -551,7 +551,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 s->play_audio = FALSE;
         }
 
-        keycontrol_register_key(get_module(get_root_module(parent), "control"), 'q', "execute exit", "quit");
+        // keycontrol_register_key(&s->mod, 'q', "execute exit", "quit");
 
         return (void *)s;
 }
