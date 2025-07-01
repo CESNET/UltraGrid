@@ -46,7 +46,9 @@ static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
         {RGBA, AV_PIX_FMT_RGBA},
         {UYVY, AV_PIX_FMT_UYVY422},
         {YUYV,AV_PIX_FMT_YUYV422},
+#if VUYX_PRESENT
         {VUYA, AV_PIX_FMT_VUYA},
+#endif
         //R10k,
         //v210,
         //DVS10,

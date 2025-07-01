@@ -2567,7 +2567,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_YUV422P, RGBA, yuv422p_to_rgb32},
         {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210},
         {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy},
-        {AV_PIX_FMT_YUV444P, VUYA, yuv444p_to_vuya},
         {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
         {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32},
         // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
@@ -2582,7 +2581,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
         {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32},
         {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210},
-        {AV_PIX_FMT_YUVJ444P, VUYA, yuv444p_to_vuya},
         {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy},
         {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
         {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32},
@@ -2591,6 +2589,8 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_VUYX, UYVY, vuya_to_uyvy},
         {AV_PIX_FMT_VUYA, Y416, vuya_to_y416},
         {AV_PIX_FMT_VUYX, Y416, vuyx_to_y416},
+        {AV_PIX_FMT_YUV444P, VUYA, yuv444p_to_vuya},
+        {AV_PIX_FMT_YUVJ444P, VUYA, yuv444p_to_vuya},
 #endif
         // 8-bit YUV (NV12)
         {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy},
