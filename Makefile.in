@@ -108,6 +108,7 @@ COMMON_OBJS     = \
 		src/audio/capture/sdi.o \
 		src/audio/capture/testcard.o \
 		src/utils/sdp_parser.o \
+		src/audio/capture/aes67.o \
 		src/audio/codec.o \
 		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
