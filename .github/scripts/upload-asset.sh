@@ -16,7 +16,7 @@ JSON=$(fetch_json\
 UPLOAD_URL=$(jq -r .upload_url "$JSON" | sed "s/{.*}//")
 
 JSON=$(mktemp)
-STATUS=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -H\
+STATUS=$(curl -Sf -H "Authorization: token $GITHUB_TOKEN" -H\
  "Content-Type: $CONTENT_TYPE" -X POST "$UPLOAD_URL?name=$FILENAME&label=$LABEL"\
  -T "$FILE" -w '%{http_code}' -o "$JSON")
 check_errors "$JSON"

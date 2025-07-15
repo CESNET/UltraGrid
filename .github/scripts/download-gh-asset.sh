@@ -28,5 +28,5 @@ if [ -n "${GITHUB_TOKEN-}" ]; then
 else
         set --
 fi
-curl -sSL "$@" "$gh_path" -o "$file"
+curl -LSfs "$@" "$gh_path" -o "$file"
 

@@ -9,7 +9,9 @@ dir=$(dirname "$0")
 . "$dir/json-common.sh"
 
 sudo apt install jq
-URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous" | jq -r '.url')
+URL=$(curl -Sf -H "Authorization: token $GITHUB_TOKEN" -X GET\
+ "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous" |
+ jq -r '.url')
 if [ "$URL" != null ]; then # release exists
         exit 0
 fi

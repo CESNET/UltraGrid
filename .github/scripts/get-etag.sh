@@ -6,7 +6,7 @@ output=$1
 url=$2
 optional=${3-}
 
-ETAG=$(curl -LI "$url" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
+ETAG=$(curl -ILf "$url" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
 if [ "$ETAG" ]; then
         printf '%s=' "$output"
         printf '%s\n' "$ETAG" | sed 's/[^-._A-Za-z0-9]/_/g'

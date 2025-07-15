@@ -73,7 +73,8 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+      run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+       Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
@@ -107,7 +108,9 @@ jobs:
         mkdir aitest-context # empty build context
         docker build -f .github/scripts/Linux/utils/Dockerfile.ubuntu -t aitest-ubuntu aitest-context
         docker build -f .github/scripts/Linux/utils/Dockerfile.arch -t aitest-arch aitest-context
-        curl -LS -O https://raw.githubusercontent.com/AppImage/pkg2appimage/master/appdir-lint.sh -O https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+        curl -LSf -O https://raw.githubusercontent.com/AppImage/pkg2appimage/\
+        master/appdir-lint.sh -O https://raw.githubusercontent.com/probonopd/\
+        AppImages/master/excludelist
         sudo apt install desktop-file-utils libfile-mimeinfo-perl # desktop-file-validate, mimetype
         ./UltraGrid-$VERSION-x86_64.AppImage --appimage-extract
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu /AppImage/AppRun -v
@@ -181,7 +184,7 @@ jobs:
         key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
-      run: curl -S -L "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
+      run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
     - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
@@ -190,7 +193,8 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg
+      run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_\
+       NDI_SDK_v6_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg"
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
     - name: configure
@@ -265,7 +269,8 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe' -o 'C:\ndi.exe'
+      run: curl -f 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe'
+       -o 'C:\ndi.exe'
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
@@ -274,7 +279,7 @@ jobs:
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
-      run: curl "$XIMEA_DOWNLOAD_URL" -o 'C:\XIMEA_API_Installer.exe'
+      run: curl -f "$XIMEA_DOWNLOAD_URL" -o 'C:\XIMEA_API_Installer.exe'
 
     - name: Run actions/cache for libajantv2 build
       id: cache-aja

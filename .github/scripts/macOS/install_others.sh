@@ -19,7 +19,7 @@ fi
 install_ximea() {(
         installer=/private/var/tmp/XIMEA_OSX_SP.dmg
         if [ ! -f $installer ]; then
-                curl -S -L "$XIMEA_DOWNLOAD_URL" -o $installer
+                curl -Sf -L "$XIMEA_DOWNLOAD_URL" -o $installer
         fi
         hdiutil mount $installer
         sudo cp -a /Volumes/XIMEA/m3api.framework \

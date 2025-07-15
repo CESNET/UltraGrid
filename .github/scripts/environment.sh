@@ -136,7 +136,7 @@ set_ximea_url() {
         # ignore GUID 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 because it is
         # ARM (LTS) with pattern Linux_SP.tgz and since it listed first,
         # it will be downloaded for x86, ARM beta is OK
-        ximea_path=$(curl https://www.ximea.com/software-downloads |
+        ximea_path=$(curl -f https://www.ximea.com/software-downloads |
                 grep -v 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 |
                 sed -n "/$ximea_pattern/"\
 ' { s-^.*\(/getattachment[^"]*\).*$-\1-; p; q; }')
