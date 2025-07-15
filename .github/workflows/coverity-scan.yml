@@ -20,7 +20,9 @@ jobs:
       if: ${{ env.coverity_token }}
       id: tool
       run: |
-        FILENAME=$(curl -LI "https://scan.coverity.com/download/linux64?token=$coverity_token&project=UltraGrid"  | sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
+        FILENAME=$(curl -LIf "https://scan.coverity.com/download/linux64\
+        ?token=$coverity_token&project=UltraGrid" |
+        sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
         echo "filename=$FILENAME" >> $GITHUB_OUTPUT
     - name: Run actions/cache for Coverity build tool
       if: ${{ env.coverity_token }}
@@ -58,7 +60,8 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: ${{ env.coverity_token }} && steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+      run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+       Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
 
     - name: bootstrap
       run: |
@@ -77,7 +80,7 @@ jobs:
       if: ${{ env.coverity_token }}
       run: |
         tar caf ultragrid.tar.xz cov-int
-        result=$(curl -S --form token=$coverity_token \
+        result=$(curl -Sf --form token=$coverity_token \
           --form email=pulec@cesnet.cz \
           --form file=@ultragrid.tar.xz \
           --form version="$(date +%F)" \

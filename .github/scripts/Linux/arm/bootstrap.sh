@@ -13,7 +13,7 @@ deb http://security.debian.org/debian-security $debver-security main contrib non
 deb http://deb.debian.org/debian $debver-updates main contrib non-free
 EOF
 fi
-curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key -o \
+curl -f http://archive.raspberrypi.org/debian/raspberrypi.gpg.key -o \
         /usr/share/keyrings/raspberrypi.gpg.key
 cat >>/etc/apt/sources.list <<EOF
 deb [signed-by=/usr/share/keyrings/raspberrypi.gpg.key] \
@@ -43,11 +43,11 @@ mkai_arch=$(dpkg --print-architecture)
 if [ "$mkai_arch" = arm64 ]; then
         mkai_arch=aarch64
 fi
-mkai_url=$(curl -H "Authorization: token $GITHUB_TOKEN"\
+mkai_url=$(curl -f -H "Authorization: token $GITHUB_TOKEN"\
  https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous |
  grep "browser_download_url.*mkappimage-.*-$mkai_arch.AppImage" | head -n 1 |
  cut -d '"' -f 4)
-curl -L "$mkai_url" > mkappimage
+curl -Lf "$mkai_url" > mkappimage
 chmod 755 mkappimage
 #shellcheck disable=SC2211
 /usr/bin/qemu-*-static ./mkappimage --appimage-extract

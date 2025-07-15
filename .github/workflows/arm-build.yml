@@ -50,7 +50,8 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+      run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+       Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
 
     - name: Run actions/cache for ARM Chroot
       id: cache-bootstrap
