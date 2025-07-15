@@ -58,6 +58,7 @@
 #include "test_rtp.h"
 #include "test_video_capture.h"
 #include "test_video_display.h"
+#include "test_sdp_parser.h"
 
 #define TEST_AV_HW 1
 
@@ -131,6 +132,7 @@ struct {
         DEFINE_TEST(misc_test_replace_all),
         DEFINE_TEST(misc_test_unit_evaluate),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
+        DEFINE_TEST(test_sdp_parser),
 };
 
 static bool test_helper(const char *name, int (*func)(), bool quiet) {
