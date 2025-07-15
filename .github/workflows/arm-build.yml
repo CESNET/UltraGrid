@@ -12,6 +12,8 @@ jobs:
   Build:
     if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
     runs-on: ubuntu-22.04 # TODO: see the commit message why 22.04 is explicit
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       matrix:
         arch: [armhf, arm64]

@@ -43,7 +43,10 @@ mkai_arch=$(dpkg --print-architecture)
 if [ "$mkai_arch" = arm64 ]; then
         mkai_arch=aarch64
 fi
-mkai_url=$(curl https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-$mkai_arch.AppImage" | head -n 1 | cut -d '"' -f 4)
+mkai_url=$(curl -H "Authorization: token $GITHUB_TOKEN"\
+ https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous |
+ grep "browser_download_url.*mkappimage-.*-$mkai_arch.AppImage" | head -n 1 |
+ cut -d '"' -f 4)
 curl -L "$mkai_url" > mkappimage
 chmod 755 mkappimage
 #shellcheck disable=SC2211
