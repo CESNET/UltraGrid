@@ -487,7 +487,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 
 gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile gui/QT/uv-qt.pro "DESTDIR+=./" -o $@ $(QMAKE_FLAGS)
+	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile $(srcdir)/gui/QT/uv-qt.pro "DESTDIR+=./" -o $@ $(QMAKE_FLAGS)
 
 
 .PHONY: $(GUI_TARGET)
