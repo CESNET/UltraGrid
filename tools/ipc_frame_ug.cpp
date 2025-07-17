@@ -104,6 +104,15 @@ bool ipc_frame_from_ug_frame_hq(struct Ipc_frame *dst,
         return true;
 }
 
+Ipc_frame_color_spec ipc_frame_color_spec_from_ug(codec_t codec){
+        switch(codec){
+        case RGBA: return IPC_FRAME_COLOR_RGBA;
+        case RGB: return IPC_FRAME_COLOR_RGB;
+        case UYVY: return IPC_FRAME_COLOR_UYVY;
+        default: return IPC_FRAME_COLOR_NONE;
+        }
+}
+
 bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
                 const struct video_frame *src,
                 codec_t codec,
@@ -125,7 +134,7 @@ bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
 
         dst->header.width = src->tiles[0].width;
         dst->header.height = src->tiles[0].height;
-        dst->header.color_spec = static_cast<Ipc_frame_color_spec>(codec);
+        dst->header.color_spec = ipc_frame_color_spec_from_ug(codec);
 
         int dst_frame_to_allocate = 0;
 
