@@ -33,4 +33,6 @@ bool ipc_frame_write_to_fd(const struct Ipc_frame *f, int fd);
 
 int ipc_frame_get_scale_factor(int src_w, int src_h, int target_w, int target_h);
 
+Ipc_frame_color_spec ipc_frame_color_spec_from_ug(codec_t codec);
+
 #endif //IPC_FRAME_UG_32ee5c748f3e
