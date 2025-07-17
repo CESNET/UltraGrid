@@ -117,13 +117,13 @@ fi
 
 add_fonts
 
-if command -v wget >/dev/null && wget -V | grep -q https; then
-        dl() {
-                wget -O - ${GITHUB_TOKEN+--header "Authorization: token $GITHUB_TOKEN"} "$1"
-        }
-elif command -v curl >/dev/null; then
+if command -v curl >/dev/null; then
         dl() {
                 curl --fail -sSL ${GITHUB_TOKEN+-H "Authorization: token $GITHUB_TOKEN"} "$1"
+        }
+elif command -v wget >/dev/null && wget -V | grep -q https; then
+        dl() {
+                wget -O - ${GITHUB_TOKEN+--header "Authorization: token $GITHUB_TOKEN"} "$1"
         }
 else
         echo "Neither wget nor curl was found - if one needed later, it will " \
