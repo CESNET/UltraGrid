@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -289,7 +289,7 @@ color_space_get_name(enum jpeg_color_spec color_space)
     case JPEG_COLOR_SPEC_RGB:
         return "RGB";
     case JPEG_COLOR_SPEC_YCBCR_601:
-        return "YCbCr BT.601 (limtted range)";
+        return "YCbCr BT.601 (limitted range)";
     case JPEG_COLOR_SPEC_YCBCR_JPEG:
         return "YCbCr BT.601 256 Levels (YCbCr JPEG)";
     case JPEG_COLOR_SPEC_YCBCR_709:
