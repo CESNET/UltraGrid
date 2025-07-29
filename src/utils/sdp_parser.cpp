@@ -145,3 +145,30 @@ Sdp_view Sdp_view::from_buffer(const void *buf, size_t size){
 
         return ret;
 }
+
+Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
+        Rtp_pkt_view ret{};
+
+        if(size < 12)
+                return ret;
+
+        auto charbuf = static_cast<unsigned char*>(buf);
+
+        uint8_t version = charbuf[0] >> 6;
+        bool padding = charbuf[0] & (1 << 5);
+        bool extension = charbuf[0] & (1 << 4);
+        ret.csrc_count = charbuf[0] & 0x0F;
+        ret.marker = charbuf[1] & 0x80;
+        ret.payload_type = charbuf[1] & 0x7F;
+        ret.seq = charbuf[2] << 8 | charbuf[3];
+        ret.timestamp = charbuf[4] << 24 | charbuf[5] << 16 | charbuf[6] << 8 | charbuf[7];
+        ret.ssrc = charbuf[8] << 24 | charbuf[9] << 16 | charbuf[10] << 8 | charbuf[11];
+
+
+        size_t data_offset = 12 + ret.csrc_count * 4;
+        ret.data = &charbuf[data_offset];
+        ret.data_len = size - data_offset;
+
+        ret.valid = true;
+        return ret;
+}

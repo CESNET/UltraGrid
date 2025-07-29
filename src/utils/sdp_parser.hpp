@@ -98,5 +98,22 @@ struct Sdp_view{
         bool valid = false;
 };
 
+struct Rtp_pkt_view{
+        bool marker;
+        uint8_t payload_type;
+        uint16_t seq;
+        uint32_t timestamp;
+        uint32_t ssrc;
+        //uint32_t *csrcs;
+        size_t csrc_count;
+        void *data;
+        size_t data_len;
+
+        static Rtp_pkt_view from_buffer(void *buf, size_t size);
+        bool isValid() const { return valid; }
+        
+        bool valid = false;
+};
+
 
 #endif
