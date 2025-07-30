@@ -227,7 +227,10 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         return true;
 }
 
-bool pam_write(const char *filename, unsigned int width, unsigned int height, int ch_count, int maxval, const unsigned char *data, bool pnm) {
+bool pam_write(const char *filename, unsigned int width, unsigned int pitch,
+               unsigned int height, int ch_count, int maxval,
+               const unsigned char *data, bool pnm)
+{
         errno = 0;
 #ifdef _WIN32
         FILE *file = _wfopen(mbs_to_wstr(filename), L"wb");
@@ -269,7 +272,15 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
         }
         size_t len = (size_t) width * height * ch_count * (maxval <= 255 ? 1 : 2);
         errno = 0;
-        size_t bytes_written = fwrite((const char *) data, 1, len, file);
+        size_t bytes_written = 0;
+        if (width == pitch) {
+                bytes_written = fwrite((const char *) data, 1, len, file);
+        } else {
+                for (unsigned y = 0; y < height; ++y) {
+                        bytes_written += fwrite(
+                            (const char *)data + (y * pitch), 1, width, file);
+                }
+        }
         if (bytes_written != len) {
                 fprintf(stderr, "Unable to write PAM/PNM data - length %zd, written %zd: %s\n",
                         len, bytes_written, strerror(errno));

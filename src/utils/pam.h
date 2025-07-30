@@ -59,8 +59,9 @@ struct pam_metadata {
 };
 
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t));
-bool pam_write(const char *filename, unsigned int width, unsigned int height,
-               int ch_count, int maxval, const unsigned char *data, bool pnm);
+bool pam_write(const char *filename, unsigned int width, unsigned int pitch,
+               unsigned int height, int ch_count, int maxval,
+               const unsigned char *data, bool pnm);
 
 #ifdef __cplusplus
 } // extern "C"

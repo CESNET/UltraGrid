@@ -12,7 +12,7 @@
  * @brief This file contains video frame manipulation functions.
  */
 /*
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -481,7 +481,9 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 return false;
         }
 
-        pam_write(name, tile->width, tile->height, 3, (1<<get_bits_per_component(frame->color_spec)) - 1, data, true);
+        pam_write(name, tile->width, tile->width, tile->height, 3,
+                  (1 << get_bits_per_component(frame->color_spec)) - 1, data,
+                  true);
         free(tmp_data);
 
         return true;
