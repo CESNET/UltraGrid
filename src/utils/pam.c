@@ -37,6 +37,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -270,15 +271,17 @@ bool pam_write(const char *filename, unsigned int width, unsigned int pitch,
                         "ENDHDR\n",
                         width, height, ch_count, maxval, tuple_type);
         }
-        size_t len = (size_t) width * height * ch_count * (maxval <= 255 ? 1 : 2);
+        const size_t linesize = (size_t)  height * ch_count * (maxval <= 255 ? 1 : 2);
+        const size_t len = width * linesize;
         errno = 0;
         size_t bytes_written = 0;
         if (width == pitch) {
                 bytes_written = fwrite((const char *) data, 1, len, file);
         } else {
                 for (unsigned y = 0; y < height; ++y) {
-                        bytes_written += fwrite(
-                            (const char *)data + (y * pitch), 1, width, file);
+                        bytes_written += fwrite((const char *)data +
+                                                    ((size_t)y * pitch),
+                                                1, linesize, file);
                 }
         }
         if (bytes_written != len) {
