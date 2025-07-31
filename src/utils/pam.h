@@ -49,16 +49,50 @@
 extern "C" {
 #endif
 
+/// metadata read from file
 struct pam_metadata {
-        int width;
-        int height;
-        int ch_count;
-        int maxval;
-        bool bitmap_pbm; // bitmap data is stored in PBM format (1 bit per pixel, line aligned to whole byte, 1 is black /"ink on"/),
-                         // otherwise 1 byte per pixel, 1 is white "light on"); if .depth != 1 || .maxval != 1, this value is undefined
+        int width;    ///< image width
+        int height;   ///< image height
+        int ch_count; ///< number of channels
+        int maxval;   ///< sample maximal value (typically but not necessarily
+                      ///< 255)
+        bool bitmap_pbm; ///< bitmap data is stored in PBM format (1 bit per
+                         ///< pixel, line aligned to whole byte, 1 is black
+                         ///< /"ink on"/), otherwise 1 byte per pixel, 1 is
+                         ///< white "light on"); if .depth != 1 || .maxval != 1,
+                         ///< this value is undefined
 };
 
+/**
+ * read PAM/PNM file
+ *
+ * @param      filename   file name
+ * @param[out] info       pointer to metadata struct
+ * @param[out] data       pointer to byte array, can be 0, in which case no data
+ *                        are written (only metadata read )
+ * @param[out] allocaltor allocator to alloc @ref data; if 0, no data are
+ *                        read/allocated, only @ref info set
+ */
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t));
+
+enum {
+        PAM_PITCH_CONTINUOUS = 0,
+};
+
+/**
+ * write PAM or PNM file
+ *
+ * @param filename file name to be written to
+ * @param width    image width
+ * @param pitch    input line pitch in bytes; PAM_PITCH_CONTINUOUS can be used
+ *                 if input pitch == width * ch_count * (maxval <= 255 ? 1 : 2)
+ * @param height   image height
+ * @param ch_count image channel count (1-4 for output PAM, 1 or 3 for PNM, see
+ *                 @ref pnm)
+ * @param maxval   maximal sample value, typically 255 for 8-bit
+ * @param data     bytes to be written
+ * @param pnm      use PNM file (instead of PAM)
+ */
 bool pam_write(const char *filename, unsigned int width, unsigned int pitch,
                unsigned int height, int ch_count, int maxval,
                const unsigned char *data, bool pnm);

@@ -481,7 +481,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 return false;
         }
 
-        pam_write(name, tile->width, tile->width, tile->height, 3,
+        pam_write(name, tile->width, PAM_PITCH_CONTINUOUS, tile->height, 3,
                   (1 << get_bits_per_component(frame->color_spec)) - 1, data,
                   true);
         free(tmp_data);

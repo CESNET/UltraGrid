@@ -275,7 +275,7 @@ bool pam_write(const char *filename, unsigned int width, unsigned int pitch,
         const size_t len = width * linesize;
         errno = 0;
         size_t bytes_written = 0;
-        if (width == pitch) {
+        if (pitch == PAM_PITCH_CONTINUOUS || width == pitch) {
                 bytes_written = fwrite((const char *) data, 1, len, file);
         } else {
                 for (unsigned y = 0; y < height; ++y) {
