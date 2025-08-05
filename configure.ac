@@ -3393,9 +3393,8 @@ then
         if test "$sdl_version" -lt 3; then
                 PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer],
                                   [found_sdl_mixer=yes], [found_sdl_mixer=no])
-        else
-                PKG_CHECK_MODULES([SDL_MIXER], [sdl${sdl_ver_suffix}-mixer],
-                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        elif test "$sdl_mixer_req" = yes; then
+                AC_MSG_ERROR([SDL_mixer 3 no longer supports MIDI playback so it can be no longer used!]);
         fi
         if test "$found_sdl_mixer" = yes; then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
