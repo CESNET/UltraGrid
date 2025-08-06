@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess.h"
@@ -66,6 +67,13 @@ static bool interlaced_3d_get_property(void *state, int property, void *val, siz
 
 static void * interlaced_3d_init(const char *config) {
         if (strcmp(config, "help") == 0) {
+                color_printf(
+                    TBOLD("interlaced_3d") " postprocessor merges left and "
+                                           "right eye into one single where "
+                                           "the eyes are line-interleaved.\n\n");
+                printf("Usage:\n\t-p interlaced_3d\n\n");
+        }
+        if (strlen(config) > 0) {
                 printf("3d-interlaced takes no parameters.\n");
                 return NULL;
         }
