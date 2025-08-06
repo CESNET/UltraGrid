@@ -169,6 +169,17 @@ Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
         ret.data = &charbuf[data_offset];
         ret.data_len = size - data_offset;
 
+        if(padding){
+                if(ret.data_len == 0)
+                        return ret;
+
+                uint8_t padding_bytes = ((uint8_t *)(ret.data))[ret.data_len - 1];
+                if(padding_bytes < ret.data_len)
+                        return ret;
+
+                ret.data_len -= padding_bytes;
+        }
+
         ret.valid = true;
         return ret;
 }
