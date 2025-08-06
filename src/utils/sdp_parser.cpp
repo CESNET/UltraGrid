@@ -43,7 +43,7 @@ Sap_packet_view Sap_packet_view::from_buffer(const void *buf, size_t size){
 
         std::string_view sap(static_cast<const char *>(buf), size);
 
-        if(sap.empty()){
+        if(sap.size() < 8){
                 return ret;
         }
 
@@ -59,15 +59,15 @@ Sap_packet_view Sap_packet_view::from_buffer(const void *buf, size_t size){
         auth_len = sap[0];
         sap.remove_prefix(1);
         
-        //TODO error check length
         ret.hash = sap[0] << 8 | sap[1];
         sap.remove_prefix(2);
 
-        //TODO error check length
         ret.source = sap.substr(0, 4);
         sap.remove_prefix(4);
 
-        //TODO error check length
+        if(sap.size() < auth_len)
+                return ret;
+
         sap.remove_prefix(auth_len);
 
         if(sv_is_prefix(sap, "v=0")){
@@ -154,7 +154,7 @@ Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
 
         auto charbuf = static_cast<unsigned char*>(buf);
 
-        uint8_t version = charbuf[0] >> 6;
+        [[maybe_unused]] uint8_t version = charbuf[0] >> 6;
         bool padding = charbuf[0] & (1 << 5);
         bool extension = charbuf[0] & (1 << 4);
         ret.csrc_count = charbuf[0] & 0x0F;
