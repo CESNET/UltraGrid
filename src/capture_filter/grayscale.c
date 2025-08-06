@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <string.h>                                 // for strcmp, strlen, NULL
+#include <stdlib.h>                                 // for calloc, free, malloc
 
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"                                  // for tile, video_frame
 #include "utils/color_out.h"
-#include "video.h"
-#include "video_codec.h"
+#include "video_frame.h"                            // for vf_alloc_desc
 #include "vo_postprocess/capture_filter_wrapper.h"
+struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);

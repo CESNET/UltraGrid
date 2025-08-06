@@ -6,7 +6,7 @@
  * occur during regular use like jitter between frames.
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+
+#include <stdio.h>            // for printf, NULL
+#include <stdlib.h>           // for free, atof, calloc
+#include <string.h>           // for strchr, strcmp, strlen, strstr
 
 #include "capture_filter.h"
 
@@ -51,12 +50,11 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/random.h"
-#include "video.h"
-#include "video_codec.h"
 
 #define MOD_NAME "[disrupt c. f.] "
 
 struct module;
+struct video_frame;
 
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);

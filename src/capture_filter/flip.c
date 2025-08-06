@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,11 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <assert.h>              // for assert
+#include <libswscale/swscale.h>  // for sws_freeContext, sws_getContext, sws...
+#include <stdbool.h>             // for bool, false, true
+#include <stdint.h>              // for uint8_t
+#include <stdio.h>               // for printf, fprintf, NULL, stderr, size_t
+#include <stdlib.h>              // for free, atof, atoi, calloc, malloc
+#include <string.h>              // for memset, strtok_r, memcpy, strchr
 
 #include "capture_filter.h"
 #include "debug.h"

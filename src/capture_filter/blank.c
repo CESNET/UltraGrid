@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,23 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <assert.h>              // for assert
+#include <stdbool.h>             // for bool, false, true
+#include <stdint.h>              // for uint8_t
+#include <stdio.h>               // for printf, fprintf, stderr
+#include <stdlib.h>              // for free, atof, atoi, calloc, malloc
+#include <string.h>              // for memset, strtok_r, memcpy, strchr
+#include "libavutil/pixfmt.h"    // for AVPixelFormat
+#include "types.h"               // for tile, video_frame, video_desc, BGR
+#include "video_frame.h"         // for video_desc_from_frame, video_desc_eq
 
 #include "capture_filter.h"
+#include "compat/strings.h"      // for strcasecmp
 #include "lib_common.h"
 #include "libavcodec/utils.h"
 #include "messaging.h"
 #include "module.h"
 
-#include "video.h"
 #include "video_codec.h"
 
 #include <libswscale/swscale.h>

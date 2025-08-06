@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2023 CESNET, z. s. p. o.
+ * Copyright (c) 2023-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <stdio.h>                                  // for printf
+#include <stdlib.h>                                 // for atoi, calloc, free
+#include <string.h>                                 // for strchr, NULL, strstr
 
 #include "capture_filter.h"
 
 #include "compat/strings.h"    // for strdupa
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"                                  // for video_frame, vide...
 #include "utils/color_out.h"
 #include "utils/text.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"                            // for parse_fps, vf_all...
 #include "vo_postprocess/capture_filter_wrapper.h"
 
 #define MOD_NAME "[override_prop] "

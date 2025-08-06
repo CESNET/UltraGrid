@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET 
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,20 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+
+#include <assert.h>           // for assert
+#include <stdio.h>            // for printf, NULL
+#include <stdlib.h>           // for atoi, calloc, free
+#include <string.h>           // for strchr
 
 #include "capture_filter.h"
-
+#include "compat/strings.h"   // for strcasecmp
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"            // for video_desc, video_frame, video_frame_ca...
 #include "utils/color_out.h"
 #include "utils/vf_split.h"
-#include "video.h"
-#include "video_codec.h"
+#include "video_frame.h"      // for vf_alloc_desc_data, video_desc_from_frame
 
 #define MAX_TILES 16
 

@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,31 +35,31 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <unistd.h>                     // for sleep
 
-#include <vector>
-#include <queue>
-#include <mutex>
-#include <atomic>
-#include <condition_variable>
-#include <thread>
+#include <algorithm>                    // for max
+#include <atomic>                       // for atomic
+#include <cassert>                      // for assert
 #include <chrono>
+#include <condition_variable>           // for condition_variable
+#include <memory>                       // for make_unique, unique_ptr
+#include <mutex>                        // for mutex, lock_guard, unique_lock
+#include <queue>                        // for queue
+#include <string>                       // for char_traits, basic_string
+#include <string_view>                  // for operator==, basic_string_view
+#include <thread>                       // for thread
+#include <utility>                      // for move
+#include <vector>                       // for vector
 
 #include "capture_filter.h"
 
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"                      // for tile, video_frame, RGB, codec_t
 #include "utils/color_out.h"
 #include "utils/fs.h"
-#include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/string_view_utils.hpp"
-#include "video.h"
-#include "video_codec.h"
 #include "../tools/ipc_frame.h"
 #include "../tools/ipc_frame_unix.h"
 #include "../tools/ipc_frame_ug.h"

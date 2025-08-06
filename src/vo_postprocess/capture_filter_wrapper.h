@@ -8,7 +8,7 @@
  * output buffer to decode to.
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 
 #include "capture_filter.h"
 #include "utils/macros.h"
+#include "video_codec.h"     // for vc_get_linesize
 #include "video_display.h"
 #include "vo_postprocess.h"
 

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,14 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
+#include <cerrno>                                   // for errno
+#include <climits>                                  // for CHAR_BIT
+#include <cmath>                                    // for pow
+#include <cstdint>                                  // for uint16_t, uint8_t
+#include <cstdlib>                                  // for size_t, malloc
+#include <cstring>                                  // for strcmp, strlen
+#include <exception>                                // for exception
 #include <iostream>
-#include <stdexcept>
+#include <limits>                                   // for numeric_limits
 #include <thread>
 #include <vector>
 
@@ -51,8 +52,9 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/worker.h"
-#include "video.h"
+#include "types.h"                                  // for tile, video_frame
 #include "video_codec.h"
+#include "video_frame.h"                            // for vf_free, VIDEO_FR...
 #include "vo_postprocess/capture_filter_wrapper.h"
 
 constexpr const char *MOD_NAME = "[gamma cap. f.] ";

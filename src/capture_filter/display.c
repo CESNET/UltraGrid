@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2023 CESNET z.s.p.o.
+ * Copyright (c) 2022-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,16 +39,17 @@
  * * the data is 2x copied
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <pthread.h>          // for pthread_mutex_unlock, pthread_mutex_lock
+#include <stdlib.h>           // for NULL, calloc, free, size_t
+#include <string.h>           // for strchr, strcmp, strlen, strdupa
 
 #include "capture_filter.h"
 #include "compat/strings.h"      // strdupa
 #include "debug.h"
+#include "host.h"             // for exit_uv
 #include "lib_common.h"
+#include "pixfmt_conv.h"      // for get_best_decoder_from, get_decoder_from_to
+#include "types.h"            // for tile, video_desc, video_frame, codec_t
 #include "utils/color_out.h"
 #include "utils/list.h"
 #include "utils/text.h"
