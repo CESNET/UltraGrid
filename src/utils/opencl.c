@@ -50,6 +50,9 @@
 ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 
 #ifdef HAVE_OPENCL
+#ifndef CL_TARGET_OPENCL_VERSION
+#define CL_TARGET_OPENCL_VERSION 120 // for CL_DEVICE_TYPE_CUSTOM
+#endif
 #include <CL/cl.h>
 #include <assert.h>
 #include <stdio.h>
