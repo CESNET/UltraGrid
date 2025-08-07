@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -289,6 +289,7 @@ static bool display_aggregate_get_property(void *state, int property, void *val,
                                                 for(sub_codec = 0; sub_codec < lens[i] / sizeof(codec_t); ++sub_codec) {
                                                         if(examined == codecs[i][sub_codec]) {
                                                                 ++found;
+                                                                break;
                                                         }
                                                 }
                                         }
