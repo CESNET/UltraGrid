@@ -344,6 +344,7 @@ err:
 
                         }
                 case DISPLAY_PROPERTY_VIDEO_MODE:
+                        *len = sizeof(int);
                         if(s->devices_cnt == 1)
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
                         else

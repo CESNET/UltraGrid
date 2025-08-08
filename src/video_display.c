@@ -14,7 +14,7 @@
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -583,6 +583,9 @@ bool display_ctl_property(struct display *d, int property, void *val, size_t *le
                         return false;
                 }
                 break;
+        case DISPLAY_PROPERTY_VIDEO_MODE:
+                assert(*len >= sizeof(int));
+                return d->funcs->ctl_property(d->state, property, val, len);
         default:
                 return d->funcs->ctl_property(d->state, property, val, len);
         }
