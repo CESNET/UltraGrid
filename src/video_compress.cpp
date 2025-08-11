@@ -434,7 +434,6 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
                 shared_ptr<video_frame> frame)
 {
         struct compress_state_real *s = proxy->ptr;
-        const int tile_cnt = (int) proxy->ptr->state.size();
         vector<shared_ptr<video_frame>> separate_tiles;
         if (frame) {
                 if (!check_state_count(frame->tile_count, proxy)) {
@@ -442,12 +441,13 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
                 }
                 separate_tiles = vf_separate_tiles(frame);
         } else {
-                separate_tiles.resize(tile_cnt);
+                separate_tiles.resize(proxy->ptr->state.size());
         }
 
         // frame pointer may no longer be valid
         frame = NULL;
 
+        const int tile_cnt = (int) proxy->ptr->state.size();
         vector<task_result_handle_t> task_handle(tile_cnt);
 
         vector <compress_worker_data> data_tile(tile_cnt);
@@ -463,7 +463,7 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
         vector<shared_ptr<video_frame>> compressed_tiles(separate_tiles.size());
 
         bool failed = false;
-        for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
+        for (int i = 0; i < tile_cnt; ++i) {
                 struct compress_worker_data *data = (struct compress_worker_data *)
                         wait_task(task_handle[i]);
 
