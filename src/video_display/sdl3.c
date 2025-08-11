@@ -605,16 +605,16 @@ get_ug_to_sdl_format(const struct fmt_data *supp_fmts, codec_t ug_codec)
 static int
 get_supported_pfs(const struct fmt_data *supp_fmts, codec_t *codecs)
 {
-        bool codec_set[VC_COUNT]= {};
-        int i = 0;
-        for (; supp_fmts[i].ug_codec != VC_NONE; ++i) {
+        bool codec_set[VC_COUNT] = {};
+        int count = 0;
+        for (int i = 0; supp_fmts[i].ug_codec != VC_NONE; ++i) {
                 if (codec_set[supp_fmts[i].ug_codec]) {
                         continue;
                 }
-                codecs[i] = supp_fmts[i].ug_codec;
+                codecs[count++] = supp_fmts[i].ug_codec;
                 codec_set[supp_fmts[i].ug_codec] = true;
         }
-        return i;
+        return count;
 }
 
 static void
