@@ -126,7 +126,7 @@ if test "$host_vendor" = "apple"; then
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
         APPEXT=.app
 elif expr "x$host_os" : "x.*mingw32.*" > /dev/null ||
-expr "x$host_os" : "x.*msys.*" > /dev/null; then
+  expr "x$host_os" : "x.*msys.*" > /dev/null || test "$host_os" = cygwin; then
         system=Windows
         APPEXT=.exe
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
