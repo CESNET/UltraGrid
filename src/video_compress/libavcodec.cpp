@@ -91,6 +91,7 @@ extern "C"{
 #endif
 
 #define MOD_NAME "[lavc] "
+#define MAGIC to_fourcc('l', 'a', 'v', 'c')
 
 using std::array;
 using std::clamp;
@@ -277,6 +278,7 @@ struct state_video_compress_libav {
                 to_lavc_vid_conv_destroy(&pixfmt_conversion);
         }
 
+        uint32_t            magic = MAGIC;
         struct module       module_data;
 
         struct video_desc   saved_desc{};
@@ -713,7 +715,7 @@ void* libavcodec_compress_init(struct module *parent, const char *opts)
                 return ret > 0 ? INIT_NOERR : NULL;
         }
 
-        return &s->module_data;
+        return s;
 }
 
 #ifdef HWACC_VULKAN
@@ -1513,6 +1515,7 @@ receive_packet(state_video_compress_libav *s)
 static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<video_frame> tx)
 {
         auto *s = (state_video_compress_libav *) state;
+        assert(s->magic == MAGIC);
         list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
 
         libavcodec_check_messages(s);
@@ -1619,6 +1622,7 @@ static void cleanup(struct state_video_compress_libav *s)
 static void libavcodec_compress_done(void *state)
 {
         auto *s = (struct state_video_compress_libav *) state;
+        assert(s->magic == MAGIC);
 
         cleanup(s);
 
