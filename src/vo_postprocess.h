@@ -72,8 +72,11 @@ typedef  void *(*vo_postprocess_init_t)(const char *cfg);
  */
 typedef  bool (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
-/*
- * Returns various information about postprocessor format not only output (legacy name).
+/**
+ * Returns information about postprocessor output format
+ *
+ * @todo @c in_tile_mode should be perhaps removed - unused and supersedded by
+ * @ref VO_PP_VIDEO_MODE
  *
  * @param s                        postprocessor state
  * @param out                      output video description according to input parameters
