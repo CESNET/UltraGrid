@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,27 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "audio/audio_capture.h"
 #include "audio/capture/sdi.h"
-#include "audio/types.h"
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "types.h"
 
-#include <condition_variable>
-#include <chrono>
-#include <mutex>
-#include <string>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <chrono>                 // for milliseconds
+#include <condition_variable>     // for condition_variable
+#include <cstdio>                 // for printf, snprintf, NULL
+#include <cstdlib>                // for free, calloc, malloc
+#include <cstring>                // for memcpy, strcmp, strncpy
+#include <mutex>                  // for mutex, unique_lock
+#include <ostream>                // for basic_ostream, operator<<, basic_ios
+#include <string>                 // for basic_string, char_traits, hash
+#include <unordered_map>          // for unordered_map, operator!=
+
+#include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
+#include "audio/types.h"          // for audio_frame
+#include "debug.h"                // for LOG, LOG_LEVEL_WARNING, UNUSED
+#include "host.h"                 // for commandline_params, INIT_NOERR
+#include "lib_common.h"           // for REGISTER_MODULE, library_class
+#include "types.h"                // for device_info, frame_flags_common
 
 #define DEFAULT_BUF_SIZE_MS 100L
 

@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,18 +46,14 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include "audio/audio_capture.h"
-#include "debug.h"
-#include "lib_common.h"
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
+#include <assert.h>               // for assert
+#include <stdint.h>               // for uint32_t
+#include <stdlib.h>               // for free, NULL, malloc
+#include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
+#include "debug.h"                // for UNUSED
+#include "lib_common.h"           // for REGISTER_MODULE, library_class
+struct device_info;
+struct module;
 
 #define AUDIO_CAPTURE_NONE_MAGIC 0x43fb99ccu
 
