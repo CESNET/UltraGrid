@@ -454,11 +454,12 @@ bool display_reconfigure(struct display *d, struct video_desc desc, enum video_m
                 }
 		struct video_desc pp_desc = desc;
 
-                if (!pp_does_change_tiling_mode) {
-                        pp_desc.width *= get_video_mode_tiles_x(video_mode);
-                        pp_desc.height *= get_video_mode_tiles_y(video_mode);
-                        pp_desc.tile_count = 1;
-                }
+                /// @todo shouldn't be VO_PP_DOES_CHANGE_TILING_MODE actually removed?
+                // if (!pp_does_change_tiling_mode) {
+                //         pp_desc.width *= get_video_mode_tiles_x(video_mode);
+                //         pp_desc.height *= get_video_mode_tiles_y(video_mode);
+                //         pp_desc.tile_count = 1;
+                // }
                 if (!vo_postprocess_reconfigure(d->postprocess, pp_desc)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure video "
                                         "postprocess.\n");
@@ -526,6 +527,22 @@ restrict_returned_codecs(struct vo_postprocess_state *postprocess,
                new_disp_codec_count * sizeof(codec_t));
 }
 
+static int
+get_video_mode(struct display *d)
+{
+        int    video_mode = 0;
+        size_t len        = sizeof(video_mode);
+        if (d->postprocess != NULL) {
+                if (vo_postprocess_get_property(
+                        d->postprocess, VO_PP_VIDEO_MODE, &video_mode, &len)) {
+                        return video_mode;
+                }
+        }
+        const bool success = d->funcs->ctl_property(
+            d->state, DISPLAY_PROPERTY_VIDEO_MODE, &video_mode, &len);
+        return success ? video_mode : DISPLAY_PROPERTY_VIDEO_MERGED;
+}
+
 /**
  * @brief Gets property from video display.
  * @param[in]     d         video display state
@@ -585,7 +602,8 @@ bool display_ctl_property(struct display *d, int property, void *val, size_t *le
                 break;
         case DISPLAY_PROPERTY_VIDEO_MODE:
                 assert(*len >= sizeof(int));
-                return d->funcs->ctl_property(d->state, property, val, len);
+                *(int *) val = get_video_mode(d);
+                return true;
         default:
                 return d->funcs->ctl_property(d->state, property, val, len);
         }

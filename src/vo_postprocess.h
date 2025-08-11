@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,9 +46,13 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
-/*          property                               type                   default          */
+/*          property                               type                   default (if false returned)  */
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
+/// @todo should be possibly removed - for PP input, VO_PP_VIDEO_MODE is used,
+/// the output (display input) desc is obeyed with vo_postprocess_get_out_desc()
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
+/// accepeted input video mode, should process all if false returned
+#define VO_PP_VIDEO_MODE                     2 /*  int (enum video_mode)   any (should process both) */
 
 #define VO_PP_ABI_VERSION 7
 
