@@ -43,6 +43,7 @@
 #include <string.h>  // for strcmp, strlen
 
 #include "compat/usleep.h"   // for usleep
+#include "debug.h"           // for MSG
 #include "lib_common.h"      // for REGISTER_MODULE, library_class
 #include "tv.h"              // for time_ns_t
 #include "types.h"           // for tile, video_desc, video_frame
@@ -57,12 +58,16 @@
 
 #define MAGIC    to_fourcc('v', 'p', 't', '3')
 #define MOD_NAME "[temporal_3d] "
+#define TIMEOUT  "20ms"
 
 struct state_temporal_3d {
         uint32_t            magic;
         struct video_frame *in;
         time_ns_t           first_tile_time;
+        bool disable_timing; ///< issue the second eye right after the first
 };
+
+static void temporal_3d_done(void *state);
 
 static bool
 temporal_3d_get_property(void *state, int property, void *val, size_t *len)
@@ -78,23 +83,45 @@ temporal_3d_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
+static void
+usage()
+{
+        color_printf(
+            TBOLD("temporal_3d") " postprocessor interleaves left and "
+                                 "right eye temporarily into a single stream "
+                                 "with double FPS.\n\n");
+        color_printf(
+            "Usage:\n\t" TBOLD(TRED("-p temporal_3d") "[:nodelay]") "\n\n");
+        printf("Parameters:\n");
+        printf(
+            "\tnodelay - disable timing, pass right eye right after first\n");
+        printf("\t          (may help performance)\n");
+}
+
 static void *
 temporal_3d_init(const char *config)
 {
         if (strcmp(config, "help") == 0) {
-                color_printf(TBOLD(
-                    "temporal_3d") " postprocessor interleaves left and "
-                                   "right eye temporarily into a single stream "
-                                   "with double FPS.\n\n");
-                color_printf("Usage:\n\t" TBOLD(TRED("-p temporal_3d")) "\n\n");
+                usage();
+                return NULL;
         }
-        if (strlen(config) > 0) {
-                printf("3d-interlaced takes no parameters.\n");
+        struct state_temporal_3d *s = calloc(1, sizeof *s);
+        s->magic                    = MAGIC;
+        if (strcmp(config, "nodelay") == 0) {
+                s->disable_timing = true;
+                if (get_commandline_param("decoder-drop-policy") == NULL) {
+                        MSG(NOTICE,
+                            "nodelay option used, setting drop policy to %s "
+                            "timeout.\n",
+                            TIMEOUT);
+                        set_commandline_param("decoder-drop-policy", TIMEOUT);
+                }
+        } else {
+                MSG(ERROR, "Unknown option: %s!\n", config);
+                temporal_3d_done(s);
                 return NULL;
         }
 
-        struct state_temporal_3d *s = calloc(1, sizeof *s);
-        s->magic                    = MAGIC;
         return s;
 }
 
@@ -146,12 +173,12 @@ temporal_3d_postprocess(void *state, struct video_frame *in,
         }
 
         // delay the other tile for correct timing
-        if (in == NULL) {
+        if (!s->disable_timing && in == NULL) {
                 time_ns_t t1 = get_time_in_ns();
                 long long since_first_tile_us =
                     NS_TO_US(t1 - s->first_tile_time);
                 long long sleep_us =
-                    US_IN_SEC / s->in->fps - since_first_tile_us;
+                    (US_IN_SEC / s->in->fps) - (double) since_first_tile_us;
                 if (sleep_us > 0) {
                         usleep(sleep_us);
                 }
