@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET
+ * Copyright (c) 2019-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -312,10 +312,16 @@ print_stacktrace_win()
         char backtrace_msg[] = "Backtrace:\n";
         _write(STDERR_FILENO, backtrace_msg, strlen(backtrace_msg));
         for (unsigned short i = 0; i < frames; i++) {
-                SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
+                BOOL ret =  SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
                 char buf[STR_LEN];
-                snprintf_ch(buf, "%i (%p): %s - 0x%0llX\n", frames - i - 1,
-                            stack[i], symbol->Name, symbol->Address);
+                if (ret == TRUE) {
+                        snprintf_ch(buf, "%i (%p): %s - 0x%0llX\n",
+                                    frames - i - 1, stack[i], symbol->Name,
+                                    symbol->Address);
+                } else {
+                        snprintf_ch(buf, "%i (%p): (cannot resolve)\n",
+                                    frames - i - 1, stack[i]);
+                }
                 _write(STDERR_FILENO, buf, strlen(buf));
         }
 
