@@ -241,7 +241,8 @@ src/dir-stamp:
 
 $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $$(dirname $@)
-	$(LINKER) $(LDFLAGS) $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS) -o $(TARGET)
+	$(LINKER) $(LDFLAGS) @UV_LDFLAGS@ $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS)\
+	  -o $(TARGET)
 	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 $(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
@@ -554,6 +555,7 @@ clean:
 	$(COND_SILENCE)-rm -rf @TOREMOVE@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
 	$(COND_SILENCE)-rm -rf bin/shaders
+	$(COND_SILENCE)-rm -f bin/uv.pdb
 	$(COND_SILENCE)if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
 
 distclean: clean
@@ -690,6 +692,10 @@ install: all
 	if [ -n "@VULKAN@" ]; then\
 		$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/"* -t "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders"; \
 	fi
+	if [ -f bin/uv.pdb ]; then\
+		$(INSTALL) -m 644 bin/uv.pdb $(DESTDIR)$(bindir); \
+	fi
+
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
 	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
@@ -710,5 +716,6 @@ uninstall:
 		rmdir $(DESTDIR)$(datadir)/ultragrid/vulkan_shaders;\
 		rmdir $(DESTDIR)$(datadir)/ultragrid;\
 	fi
+	$(RM) $(DESTDIR)$(bindir)/uv.pdb
 
 # vim: set noexpandtab

@@ -174,12 +174,23 @@ if test $system = Windows; then
 	LIBS="$LIBS -lsetupapi -lws2_32 -liphlpapi -lole32 -loleaut32"
 	LIBS="$LIBS -ldbghelp"
 	AC_CHECK_FUNCS(SetThreadDescription)
+        if $CXX -dM -E - </dev/null | grep clang >/dev/null; then
+                AC_CHECK_PROG([LLD], [lld], [yes])
+                if test "$LLD" = yes; then
+                        COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-gcodeview"
+                        UV_LDFLAGS="-fuse-ld=lld -g -Wl,--pdb=bin/uv.pdb"
+                fi
+        fi
+        if ! expr "x$COMMON_FLAGS" : '.*gcodeview' >/dev/null; then
+                UG_MSG_WARN([Windows stacktrace will not be available.])
+        fi
 fi
 
 LINKER=$CXX
 
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
+AC_SUBST(UV_LDFLAGS)
 AC_SUBST(CXXFLAGS)
 
 AC_ARG_ENABLE(depends-version-check,
