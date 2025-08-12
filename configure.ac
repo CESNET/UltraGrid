@@ -32,7 +32,7 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-std=gnu++17"
+CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-std=gnu++17"
 CUDA_FLAGS="$CUDA_FLAGS${CUDA_FLAGS:+${CUDAFLAGS:+ }}$CUDAFLAGS"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
@@ -150,7 +150,7 @@ fi
 if test $system = Linux; then
         AC_CHECK_HEADERS([linux/version.h])
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
-        COMMON_FLAGS="${COMMON_FLAGS+$COMMON_FLAGS }-D_GNU_SOURCE"
+        COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"
 fi
 
 if test $system = MacOSX; then
@@ -225,9 +225,9 @@ test $ac_cv_sizeof_int_p -eq 4; }
 then
         LIBS="${LIBS:+$LIBS }-latomic" # needed for atomic_uint64_t
 fi
-CFLAGS="$CFLAGS${ARCH+ $ARCH}"
-CXXFLAGS="$CXXFLAGS${ARCH+ $ARCH}"
-LDFLAGS="$LDFLAGS${ARCH+ $ARCH}"
+CFLAGS="$CFLAGS${ARCH:+ $ARCH}"
+CXXFLAGS="$CXXFLAGS${ARCH:+ $ARCH}"
+LDFLAGS="$LDFLAGS${ARCH:+ $ARCH}"
 
 if expr "x$CFLAGS" : 'x.*-O' >/dev/null; then
         OFAST=""
@@ -514,7 +514,7 @@ then
                         fi
                         DEFAULT_LIB_P=$($LINKER --verbose 2>&1 | awk \
 'BEGIN { ORS="" } /InstalledDir: / { print $2 }')/../lib
-                        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L$DEFAULT_LIB_P"
+                        CUDA_LIB="${CUDA_LIB:+$CUDA_LIB }-L$DEFAULT_LIB_P"
                         CUDA_LIB="$CUDA_LIB -L\"$cl_lib_path\""
                         FOUND_CUDA=yes
                 fi
@@ -545,7 +545,7 @@ then
                 fi
         fi
 
-        CUDA_LIB="${CUDA_LIB+$CUDA_LIB }-L$CUDA_LIB_PATH -lcudart"
+        CUDA_LIB="${CUDA_LIB:+$CUDA_LIB }-L$CUDA_LIB_PATH -lcudart"
         CUDA_INC="-I$CUDA_PATH/include"
         CUDA_COMPILER="$NVCC"
         INC="$INC $CUDA_INC"
@@ -3205,8 +3205,8 @@ then
         if test "${found_cl?}" = yes && test "${found_cl_h?}" = yes; then
                 AC_DEFINE([HAVE_OPENCL], [1], [OpenCL is supported])
                 cmpto_libs="$cmpto_libs $OpenCL_LIBS"
-                CFLAGS="$CFLAGS${OpenCL_CFLAGS+ $OPENCL_CFLAGS}"
-                CFLAGS="$CFLAGS${OpenCL_Headers_CFLAGS+ $OPENCL_Headers_CFLAGS}"
+                CFLAGS="$CFLAGS${OpenCL_CFLAGS:+ $OPENCL_CFLAGS}"
+                CFLAGS="$CFLAGS${OpenCL_Headers_CFLAGS:+ $OPENCL_Headers_CFLAGS}"
         fi
 
         add_module vcompress_cmpto_j2k "src/video_compress/cmpto_j2k.o \
@@ -3413,7 +3413,7 @@ then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
                 SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
                 add_module acap_sdl_mixer src/audio/capture/sdl_mixer.o "$SDL_MIXER_LIBS"
-                INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
+                INC="$INC${SDL_MIXER_CFLAGS:+ $SDL_MIXER_CFLAGS}"
                 sdl_mixer=yes
         fi
 fi
