@@ -50,6 +50,7 @@
 #include <array>
 #include <cassert>
 #include <cinttypes>
+#include <cmath>      // for log10
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

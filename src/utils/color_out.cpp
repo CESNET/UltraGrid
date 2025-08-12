@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include <cstdlib>  // for getenv
 #include <cstring>  // for strcmp, strlen
 #include <iterator> // for back_insert_iterator, back_inserter
+#include <memory>   // for unique_ptr
 #include <unistd.h> // for isatty
 
 #include "debug.h"
