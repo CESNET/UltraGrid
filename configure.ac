@@ -645,6 +645,8 @@ AC_CHECK_LIB(glew32, glewInit)
 AC_CHECK_LIB(X11, XCreateWindow)
 LIBS=$SAVED_LIBS
 CFLAGS=$SAVED_CFLAGS
+HAVE_GL=no
+HAVE_GLEW=no
 
 GL_COMMON_OBJ="src/gl_context.o"
 
