@@ -299,63 +299,10 @@ static void start_rtp_thread(state_aes67_cap *s, const Sap_session& new_sess){
         s->rtp_thread = std::thread(aes67_rtp_worker, s, new_sess.streams[s->req_stream_idx]);
 }
 
-static void parse_sap(state_aes67_cap *s, std::string_view sap){
-        Sap_packet_view pkt = Sap_packet_view::from_buffer(sap.data(), sap.size());
-
-        if(!pkt.isValid()){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid SDP packet\n");
-                return;
-        }
-
-        if(pkt.isCompressed() || pkt.isEncrypted()){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compressed or encrypted SAP packets are not supported\n");
-                return;
-        }
-        if(pkt.isIpv6()){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "IPv6 SAP packets are not supported\n");
-                return;
-        }
-
-        if(s->sap_hash_to_sess_id_map.find(pkt.hash) != s->sap_hash_to_sess_id_map.end()){
-                if(pkt.isDeletion()){
-                        uint64_t sess_id = s->sap_hash_to_sess_id_map[pkt.hash];
-                        auto& sess = s->sap_sessions[sess_id];
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Removing session %x\n", sess.unique_identifier);
-                        if(s->curr_sap_hash == sess.sap_hash){
-                                stop_rtp_thread(s);
-                        }
-                        s->sap_sessions.erase(sess_id);
-                } else {
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "SAP with hash %x already known\n", pkt.hash);
-                }
-
-                return;
-        }
-
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "New SAP %x\n", pkt.hash);
-
-        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Source %u.%u.%u.%u\n",
-                        (unsigned char) pkt.source[0],
-                        (unsigned char) pkt.source[1],
-                        (unsigned char) pkt.source[2],
-                        (unsigned char) pkt.source[3]);
-
-        if(pkt.payload_type != "application/sdp"){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown SAP payload type \"%s\"\n", std::string(pkt.payload_type).c_str());
-                return;
-        }
-
-        Sdp_view sdp = Sdp_view::from_buffer(pkt.payload.data(), pkt.payload.size());
-
-        if(!sdp.isValid()){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse SDP\n");
-                return;
-        }
-
+static Sap_session sap_session_from_sdp(const Sdp_view& sdp){
         Sap_session new_sess{};
         new_sess.unique_identifier = get_unique_sdp_identifier(sdp);
         new_sess.sess_ver = sdp.sess_version;
-        new_sess.sap_hash = pkt.hash;
         new_sess.name = sdp.session_name;
         new_sess.description = sdp.session_info;
 
@@ -416,6 +363,57 @@ static void parse_sap(state_aes67_cap *s, std::string_view sap){
 
                 new_sess.streams.push_back(std::move(new_stream));
         }
+
+        return new_sess;
+}
+
+static void parse_sap(state_aes67_cap *s, std::string_view sap){
+        Sap_packet_view pkt = Sap_packet_view::from_buffer(sap.data(), sap.size());
+
+        if(!pkt.isValid()){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid SDP packet\n");
+                return;
+        }
+
+        if(pkt.isCompressed() || pkt.isEncrypted()){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compressed or encrypted SAP packets are not supported\n");
+                return;
+        }
+        if(pkt.isIpv6()){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "IPv6 SAP packets are not supported\n");
+                return;
+        }
+
+        if(s->sap_hash_to_sess_id_map.find(pkt.hash) != s->sap_hash_to_sess_id_map.end()){
+                if(pkt.isDeletion()){
+                        uint64_t sess_id = s->sap_hash_to_sess_id_map[pkt.hash];
+                        auto& sess = s->sap_sessions[sess_id];
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Removing session %x\n", sess.unique_identifier);
+                        if(s->curr_sap_hash == sess.sap_hash){
+                                stop_rtp_thread(s);
+                        }
+                        s->sap_sessions.erase(sess_id);
+                } else {
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "SAP with hash %x already known\n", pkt.hash);
+                }
+
+                return;
+        }
+
+        if(pkt.payload_type != "application/sdp"){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown SAP payload type \"%s\"\n", std::string(pkt.payload_type).c_str());
+                return;
+        }
+
+        Sdp_view sdp = Sdp_view::from_buffer(pkt.payload.data(), pkt.payload.size());
+
+        if(!sdp.isValid()){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse SDP\n");
+                return;
+        }
+
+        auto new_sess = sap_session_from_sdp(sdp);
+        new_sess.sap_hash = pkt.hash;
 
         s->sap_hash_to_sess_id_map[new_sess.sap_hash] = new_sess.unique_identifier;
 
