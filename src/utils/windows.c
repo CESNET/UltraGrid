@@ -314,13 +314,26 @@ print_stacktrace_win()
         for (unsigned short i = 0; i < frames; i++) {
                 BOOL ret =  SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
                 char buf[STR_LEN];
+                snprintf_ch(buf, "%i (%p): ", frames - i - 1, stack[i]);
                 if (ret == TRUE) {
-                        snprintf_ch(buf, "%i (%p): %s - 0x%0llX\n",
-                                    frames - i - 1, stack[i], symbol->Name,
-                                    symbol->Address);
+                        snprintf(buf + strlen(buf), sizeof buf - strlen(buf),
+                                 "%s - 0x%0llX\n", symbol->Name,
+                                 symbol->Address);
+
+                        IMAGEHLP_LINE64 line = { .SizeOfStruct = sizeof line };
+                        DWORD           displacementLine = 0;
+                        if (SymGetLineFromAddr64(process, (DWORD64) (stack[i]),
+                                                 &displacementLine, &line)) {
+                                snprintf(buf + strlen(buf),
+                                         sizeof buf - strlen(buf),
+                                         "\tFile: %s, line: %lu, displacement: "
+                                         "%lu\n",
+                                         line.FileName, line.LineNumber,
+                                         displacementLine);
+                        }
                 } else {
-                        snprintf_ch(buf, "%i (%p): (cannot resolve)\n",
-                                    frames - i - 1, stack[i]);
+                        snprintf(buf + strlen(buf), sizeof buf - strlen(buf),
+                                 "(cannot resolve)\n");
                 }
                 _write(STDERR_FILENO, buf, strlen(buf));
         }
