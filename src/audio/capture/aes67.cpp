@@ -430,15 +430,15 @@ static void parse_sap(state_aes67_cap *s, std::string_view sap){
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Got SAP with lower session version\n");
                 }
-
-                return;
+        } else {
+                print_sap_session(new_sess);
+                if(s->curr_sap_hash == -1
+                                && (sess_hash_is_prefix(s->requested_sess_hash, new_sess.unique_identifier) || s->requested_sess_hash == "any"))
+                {
+                        start_rtp_thread(s, new_sess);
+                }
+                s->sap_sessions[new_sess.unique_identifier] = std::move(new_sess);
         }
-
-        print_sap_session(new_sess);
-        if(s->curr_sap_hash == -1 && (sess_hash_is_prefix(s->requested_sess_hash, new_sess.unique_identifier) || s->requested_sess_hash == "any")){
-                start_rtp_thread(s, new_sess);
-        }
-        s->sap_sessions[new_sess.unique_identifier] = std::move(new_sess);
 }
 
 static void aes67_sdp_worker(state_aes67_cap *s){
@@ -480,8 +480,13 @@ static void audio_cap_aes67_help(state_aes67_cap *s){
         color_printf(TERM_BOLD "\t\tstream=<index>" TERM_RESET " index of stream in a session to receive. If not specified stream 0 is received\n");
         color_printf(TERM_BOLD "\t\tsap_address=<IP>" TERM_RESET " multicast IP for SAP (default 239.255.255.255)\n");
         color_printf(TERM_BOLD "\t\tsap_port=<port>" TERM_RESET " port for SAP (default 9875)\n");
-
         color_printf("\n");
+
+        if(s->network_interface_name.empty()){
+                color_printf(TERM_BOLD TERM_FG_RED "To get available sessions run " TERM_FG_RESET "\"-s aes67:if=<interface>:help\"\n\n");
+                return;
+        }
+
         color_printf("Waiting for SAP:\n");
 
         s->requested_sess_hash = "none";
