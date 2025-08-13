@@ -46,7 +46,7 @@
 
 #ifdef _WIN32
 #include <io.h>
-#elif defined(__GLIBC__)
+#elif defined(__APPLE__) || defined(__GLIBC__)
 #include <execinfo.h>
 #include <fcntl.h>
 #endif // !defined _WIN32
@@ -1264,7 +1264,7 @@ bool running_in_debugger(){
         return false;
 }
 
-#if defined(__GLIBC__)
+#if defined(__APPLE__) || defined(__GLIBC__)
 /// dumps output of fd (from start_off offset) to stderr
 /// and keep the pointer at the end of the file
 /// @retval size of the file pointed by fd (current pos)
@@ -1367,7 +1367,7 @@ print_backtrace()
 {
 #ifdef _WIN32
         print_stacktrace_win();
-#elif defined(__GLIBC__)
+#elif defined(__APPLE__) || defined(__GLIBC__)
         print_stacktrace_glibc();
 #else
         const char *msg = "Stacktrace printout not supported!\n";
