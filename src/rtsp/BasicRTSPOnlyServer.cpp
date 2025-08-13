@@ -4,6 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -143,9 +144,9 @@ BasicRTSPOnlyServer::init_server()
 }
 
 void *BasicRTSPOnlyServer::start_server(void *args){
-    char* watch = (char*) args;
-    BasicRTSPOnlyServer* instance = getInstance();
-    
+        auto                *watch    = (EventLoopWatchVariable *) args;
+        BasicRTSPOnlyServer *instance = getInstance();
+
 	if (instance == NULL || instance->env == NULL || instance->rtspServer == NULL){
 		return NULL;
 	}

@@ -51,7 +51,7 @@
 struct rtsp_serv {
         struct rtsp_server_parameters params;
         pthread_t                     server_th;
-        uint8_t                       watch;
+        EventLoopWatchVariable        watch;
 };
 
 rtsp_serv_t *
