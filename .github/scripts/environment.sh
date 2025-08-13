@@ -81,8 +81,13 @@ export FEATURES="\
 CUDA_FEATURES="--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy"
 case "$RUNNER_OS" in
         Linux)
-                FEATURES="$FEATURES --enable-plugins --enable-alsa \
---enable-pipewire-audio --enable-v4l2 --enable-lavc-hw-accel-vaapi"
+                FEATURES="$FEATURES --enable-plugins \
+--enable-alsa \
+--enable-lavc-hw-accel-vaapi \
+--enable-libbacktrace \
+--enable-pipewire-audio \
+--enable-v4l2 \
+"
                 if is_arm; then
                         FEATURES="$FEATURES --disable-qt"
                 else
