@@ -244,10 +244,12 @@ $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(LINKER) $(LDFLAGS) @UV_LDFLAGS@ $(ULTRAGRID_OBJS) $(LIBS) $(ULTRAGRID_LIBS)\
 	  -o $(TARGET)
 	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	@if [ "$$(uname -s)" = Darwin ]; then dsymutil $(TARGET); fi
 
 $(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
 	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(REFLECTOR_OBJS) $(LIBS) -o $@
+	@if [ "$$(uname -s)" = Darwin ]; then dsymutil $(REFLECTOR_TARGET); fi
 
 bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
 	$(MKDIR_P) $$(dirname $@)
