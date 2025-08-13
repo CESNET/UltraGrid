@@ -60,6 +60,12 @@
 #include <sys/syscall.h>
 #endif
 
+#ifdef HAVE_LIBBACKTRACE
+#include <backtrace.h>
+#else
+struct backtrace_state {};
+#endif
+
 #include <algorithm>                    // for max
 #include <array>
 #include <cassert>                      // for assert
@@ -188,6 +194,8 @@ void *mainloop_udata;
 // required for NVCC+MSVC compiled objs if /nodefaultlib is used
 extern "C" int _fltused = 0;
 #endif
+
+static struct backtrace_state *bs;
 
 struct init_data {
         bool com_initialized = false;
@@ -428,6 +436,49 @@ static void echeck_unexpected_exit(void ) {
         fprintf(stderr, "exit() called unexpectedly! Maybe by some library?\n");
 }
 
+#ifdef HAVE_LIBBACKTRACE
+static void
+error_callback(void *data, const char *msg, int errnum)
+{
+        //fprintf(stderr, "libbacktrace error: %s (%d)\n", msg, errnum);
+
+        int fd = *reinterpret_cast<int*>(data);
+        char buf[] = "libbacktrace error: ";
+        write_all(fd, sizeof buf - 1, buf);
+        write_all(fd, strlen(msg), msg);
+        write_all(fd, 2, " (");
+        write_number(fd, errnum);
+        write_all(fd, 2, ")\n");
+}
+
+static int
+full_callback(void *data, uintptr_t pc, const char *filename, int lineno,
+              const char *function)
+{
+        // printf("  %s at %s:%d [pc=%p]\n", function ? function : "??",
+        //        filename ? filename : "??", lineno, (void *) pc);
+
+        int fd = *reinterpret_cast<int*>(data);
+        write_all(fd, 2, "  ");
+        if (function == nullptr) {
+                function = "??";
+        }
+        write_all(fd, strlen(function), function);
+        write_all(fd, 4, " at ");
+        if (filename == nullptr) {
+                filename = "??";
+        }
+        write_all(fd, strlen(filename), filename);
+        write_all(fd, 1, ":");
+        write_number(fd, lineno);
+        write_all(fd, 7, " [pc=0x");
+        write_number(fd, (uintmax_t) pc);
+        write_all(fd, 2, "]\n");
+
+        return 0; // continue
+}
+#endif // defined HAVE_LIBBACKTRACE
+
 struct init_data *common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -525,6 +576,12 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 #ifdef HAVE_FEC_INIT
         fec_init();
+#endif
+
+#ifdef HAVE_LIBBACKTRACE
+        int fd = STDERR_FILENO;
+        bs = backtrace_create_state(uv_argv[0], 1 /*thread safe*/,
+                                    error_callback, &fd);
 #endif
 
         atexit(echeck_unexpected_exit);
@@ -1225,6 +1282,30 @@ print_stacktrace_glibc()
         array<void *, 256> addresses{};
         const int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, fd);
+
+#ifdef HAVE_LIBBACKTRACE
+        char backtrace2_msg[] = "\nBacktrace symbolic:\n";
+        write_all(fd, sizeof backtrace2_msg - 1, backtrace2_msg);
+        for (int i = 0; i < num_symbols; i++) {
+                char sym_nr[5];
+                int num_tmp = i;
+                for (int i = 0; i < 3; ++i) {
+                        if (num_tmp == 0 && i != 0) {
+                                sym_nr[2 - i] = ' ';
+                        } else {
+                                sym_nr[2 - i] = '0' + (num_tmp % 10);
+                                num_tmp /= 10;
+                        }
+                }
+                sym_nr[3] = ':';
+                sym_nr[4] = ' ';
+                write_all(fd, sizeof sym_nr, sym_nr);
+                // printf("%3d: ", i);
+                backtrace_pcinfo(bs, (uintptr_t) addresses[i], full_callback,
+                                 error_callback, &fd);
+        }
+#endif
+
         if (fd == STDERR_FILENO) {
                 return;
         }

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024 CESNET z.s.p.o.
+ * Copyright (c) 2014-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,10 +40,12 @@
 
 #ifdef __cplusplus
 #include <cstddef>
+#include <cstdint>    // for uintmax_t
 extern "C" {
 #else
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>   // for uintmax_t
 #endif
 
 // functions documented at definition
@@ -57,6 +59,7 @@ char *strrpbrk(char *s, const char *accept);
 void strappend(char **ptr, const char *ptr_end, const char *src);
 void append_sig_desc(char **ptr, const char *ptr_end, int signum);
 void write_all(int fd, size_t len, const char *msg);
+void write_number(int fd, uintmax_t num);
 const char *pretty_print_fourcc(const void *fcc);
 
 #ifdef __cplusplus

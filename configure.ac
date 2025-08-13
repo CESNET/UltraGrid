@@ -454,6 +454,30 @@ AC_ARG_VAR([GENICAM_GENTL64_PATH], [XIMEA SDK library path])
 AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 
+# ------------------------------------------------
+# libbacktrace
+# -----------------------------------------------
+libbacktrace=no
+AC_ARG_ENABLE(libbacktrace,
+              AS_HELP_STRING([--disable-libbacktrace], [disable libbacktrace]),
+              [libbacktrace_req=$enableval],
+              [libbacktrace_req=$build_default])
+
+if test "${libbacktrace_req?}" != no; then
+        AC_CHECK_HEADER(backtrace.h)
+        AC_CHECK_LIB(backtrace, backtrace_pcinfo)
+        if test "${ac_cv_header_backtrace_h?}" = yes && \
+                test "${ac_cv_lib_backtrace_backtrace_pcinfo?}" = yes;
+        then
+                LIBS="$LIBS -lbacktrace"
+                AC_DEFINE([HAVE_LIBBACKTRACE], [1], [we have libbacktrace])
+                libbacktrace=yes
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([$libbacktrace_req], [$libbacktrace],
+[libbacktrace not found])
+
 # -------------------------------------------------------------------------------------------------
 # CUDA stuff
 #
@@ -3580,6 +3604,7 @@ RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
 RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
+RESULT=`add_column "$RESULT" "Libbacktrace" $libbacktrace $?`
 RESULT=`add_column "$RESULT" "Manual pages" $man $?`
 RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`

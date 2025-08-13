@@ -154,6 +154,18 @@ void write_all(int fd, size_t len, const char *msg) {
         } while (len > 0);
 }
 
+void
+write_number(int fd, uintmax_t num)
+{
+        char num_buf[100];
+        int  idx       = sizeof num_buf;
+        num_buf[--idx] = '0' + num % 10; // write '0' if num=0
+        while ((num /= 10) != 0) {
+                num_buf[--idx] = '0' + num % 10;
+        }
+        write_all(fd, sizeof num_buf - idx, num_buf + idx);
+}
+
 /**
  * Appends signal number description to ptr and moves ptr to end of the
  * appended string. The string is not NULL-terminated.
