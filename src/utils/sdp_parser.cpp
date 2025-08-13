@@ -131,7 +131,20 @@ Sdp_view Sdp_view::from_buffer(const void *buf, size_t size){
                 } else if(key =="s"){
                         ret.session_name = val;
                 } else if(key == "o"){
-                        ret.origin = val;
+                        auto origin_sv = val;
+                        ret.username = tokenize(origin_sv, ' ');
+                        auto sess_id_sv = tokenize(origin_sv, ' ');
+                        auto sess_ver_sv = tokenize(origin_sv, ' ');
+                        if(!parse_num(sess_id_sv, ret.sess_id)){
+                                return ret;
+                        }
+                        if(!parse_num(sess_ver_sv, ret.sess_version)){
+                                return ret;
+                        }
+
+                        ret.nettype = tokenize(origin_sv, ' ');
+                        ret.addrtype = tokenize(origin_sv, ' ');
+                        ret.unicast_addr = tokenize(origin_sv, ' ');
                 } else if(key == "m"){
                         ret.media.emplace_back();
                         auto& medium = ret.media.back();

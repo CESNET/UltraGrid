@@ -82,7 +82,13 @@ struct Sdp_media_desc{
 };
 
 struct Sdp_view{
-        std::string_view origin;
+        std::string_view username;
+        uint64_t sess_id;
+        uint64_t sess_version;
+        std::string_view nettype;
+        std::string_view addrtype;
+        std::string_view unicast_addr;
+
         std::string_view session_name;
         std::string_view session_info;
         std::string_view connection;
