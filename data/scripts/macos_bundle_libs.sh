@@ -16,7 +16,7 @@ starts_with_shebang() {
 }
 
 for n in "$bundle"/Contents/MacOS/*; do
-        if starts_with_shebang "$n"; then
+        if [ ! -f "$n" ] ||  starts_with_shebang "$n"; then
                 continue
         fi
         # shellcheck disable=SC2086 # intentional, even $dylibbundler
