@@ -335,21 +335,20 @@ struct main_msg_reconfigure {
  */
 struct state_video_decoder
 {
-        state_video_decoder(struct module *parent) {
+        explicit state_video_decoder(struct module *parent)
+            : control(get_control_state(parent))
+        {
                 module_init_default(&mod);
                 mod.cls = MODULE_CLASS_DECODER;
                 mod.priv_data = this;
                 mod.new_message = decoder_process_message;
                 module_register(&mod, parent);
-                control = (struct control_state *) get_module(
-                              get_root_module(parent), "control")
-                              ->priv_data;
         }
         ~state_video_decoder() {
                 module_done(&mod);
         }
         struct module mod;
-        struct control_state *control = {};
+        struct control_state *control;
 
         thread decompress_thread_id,
                   fec_thread_id;

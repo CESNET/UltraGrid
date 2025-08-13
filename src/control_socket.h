@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,13 +51,13 @@ struct module;
  * @retval 0 if success
  */
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version);
+struct control_state *get_control_state(struct module *mod);
 void control_start(struct control_state *state);
 void control_done(struct control_state *s);
 void control_report_stats(struct control_state *state, const std::string & stat_line);
 void control_report_event(struct control_state *state, const std::string & event_line);
 bool control_stats_enabled(struct control_state *state);
 int control_audio_ch_report_count(struct control_state *state);
-
 
 #endif // control_socket_h_
 

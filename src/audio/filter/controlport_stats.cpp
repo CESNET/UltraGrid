@@ -53,11 +53,9 @@
 #include "lib_common.h"
 
 struct state_controlport_stats{
-        state_controlport_stats(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this)
+        explicit state_controlport_stats(struct module *mod)
+            : mod(MODULE_CLASS_DATA, mod, this), control(get_control_state(mod))
         {
-                control = (control_state *) (get_module(get_root_module(mod),
-                                                        "control"))
-                              ->priv_data;
         }
 
         module_raii mod;

@@ -271,10 +271,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->packet_counter = packet_counter_init(0);
 
         s->audio_decompress = NULL;
-
-        s->control = (struct control_state *) get_module(
-                         get_root_module(parent), "control")
-                         ->priv_data;
+        s->control = get_control_state(parent);
 
         if (strlen(encryption) > 0) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",

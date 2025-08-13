@@ -1043,6 +1043,26 @@ int control_audio_ch_report_count(struct control_state *state){
         return state ? state->audio_channel_report_count : 0;
 }
 
+/**
+ * finds control socket state from module hierarchy
+ *
+ * @param mod module in the tree (doesn't need to be root), may be nullptr (nullptr is returned then)
+ * @returns found state; nullptr if state not found (or mod=0)
+ */
+struct control_state *
+get_control_state(struct module *mod)
+{
+        if (mod == nullptr) {
+                return nullptr;
+        }
+        struct module *control_mod =
+            get_module(get_root_module(mod), "control");
+        if (control_mod == nullptr) {
+                return nullptr;
+        }
+        return (struct control_state *) control_mod->priv_data;
+}
+
 static void print_control_help() {
         color_printf("Control internal commands:\n"
                         TBOLD("\texit") "\n"
