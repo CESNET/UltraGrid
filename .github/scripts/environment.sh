@@ -96,7 +96,12 @@ case "$RUNNER_OS" in
                 fi
                 ;;
         macOS)
-                FEATURES="$FEATURES --enable-avfoundation --enable-coreaudio --enable-syphon"
+                FEATURES="$FEATURES \
+--enable-avfoundation \
+--enable-coreaudio \
+--enable-libbacktrace \
+--enable-syphon \
+"
                 ;;
         Windows)
                 FEATURES="$FEATURES $CUDA_FEATURES --enable-dshow --enable-spout --enable-wasapi"

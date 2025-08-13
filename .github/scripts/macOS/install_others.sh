@@ -52,6 +52,14 @@ install_glfw() {(
         sudo cmake --install .
 )}
 
+install_libbacktrace() {(
+        git clone --depth 1 https://github.com/ianlancetaylor/libbacktrace
+        cd libbacktrace
+        ./configure
+        make -j "$(getconf NPROCESSORS_ONLN)"
+        sudo make install
+)}
+
 # Install NDI
 install_ndi() {(
         # installer downloaed by cache step
@@ -90,7 +98,7 @@ if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; t
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- deltacast glfw ndi soundfont syphon ximea
+        set -- deltacast glfw libbacktrace ndi soundfont syphon ximea
 fi
 
 if [ $show_help ]; then
