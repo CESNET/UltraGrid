@@ -4,6 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,6 +47,12 @@
 
 #include "rtsp/c_basicRTSPOnlyServer.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
+
+struct rtsp_serv {
+        struct rtsp_server_parameters params;
+        pthread_t                     server_th;
+        uint8_t                       watch;
+};
 
 rtsp_serv_t *
 c_start_server(struct rtsp_server_parameters params)
