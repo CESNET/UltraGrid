@@ -49,6 +49,7 @@
 
 #include "compat/strings.h"
 #include "debug.h"
+#include "utils/macros.h"    // for MIN
 #include "utils/string.h"
 
 /**
@@ -155,7 +156,7 @@ void write_all(int fd, size_t len, const char *msg) {
 }
 
 void
-write_number(int fd, uintmax_t num)
+append_number(char **ptr, const char *ptr_end, uintmax_t num)
 {
         char num_buf[100];
         int  idx       = sizeof num_buf;
@@ -163,7 +164,10 @@ write_number(int fd, uintmax_t num)
         while ((num /= 10) != 0) {
                 num_buf[--idx] = '0' + num % 10;
         }
-        write_all(fd, sizeof num_buf - idx, num_buf + idx);
+        const size_t buflen = ptr_end - *ptr;
+        const size_t len = MIN(buflen, sizeof num_buf - idx);
+        strncpy(*ptr, num_buf + idx, len);
+        *ptr += len;
 }
 
 /**

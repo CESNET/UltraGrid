@@ -195,7 +195,7 @@ void *mainloop_udata;
 extern "C" int _fltused = 0;
 #endif
 
-static struct backtrace_state *bs;
+static struct backtrace_state *bt;
 
 struct init_data {
         bool com_initialized = false;
@@ -438,42 +438,52 @@ static void echeck_unexpected_exit(void ) {
 
 #ifdef HAVE_LIBBACKTRACE
 static void
-error_callback(void *data, const char *msg, int errnum)
+libbt_error_callback(void *data, const char *msg, int errnum)
 {
+        int fd = *reinterpret_cast<int*>(data);
+        char buf[STR_LEN];
+        char *start = buf;
+        const char *const end = buf + sizeof buf;
+
         //fprintf(stderr, "libbacktrace error: %s (%d)\n", msg, errnum);
 
-        int fd = *reinterpret_cast<int*>(data);
-        char buf[] = "libbacktrace error: ";
-        write_all(fd, sizeof buf - 1, buf);
-        write_all(fd, strlen(msg), msg);
-        write_all(fd, 2, " (");
-        write_number(fd, errnum);
-        write_all(fd, 2, ")\n");
+        strappend(&start, end, "libbacktrace error: ");
+        strappend(&start, end, msg);
+        strappend(&start, end, " (");
+        append_number(&start, end, errnum);
+
+        write_all(fd, start - buf, buf);
 }
 
 static int
-full_callback(void *data, uintptr_t pc, const char *filename, int lineno,
+libbt_full_callback(void *data, uintptr_t pc, const char *filename, int lineno,
               const char *function)
 {
+        int fd = *reinterpret_cast<int*>(data);
+        char buf[STR_LEN];
+        char *start = buf;
+        const char *const end = buf + sizeof buf;
+
         // printf("  %s at %s:%d [pc=%p]\n", function ? function : "??",
         //        filename ? filename : "??", lineno, (void *) pc);
 
-        int fd = *reinterpret_cast<int*>(data);
-        write_all(fd, 2, "  ");
+        strappend(&start, end, "  ");
         if (function == nullptr) {
                 function = "??";
         }
-        write_all(fd, strlen(function), function);
-        write_all(fd, 4, " at ");
+        strappend(&start, end, function);
+        strappend(&start, end, " at ");
         if (filename == nullptr) {
                 filename = "??";
         }
-        write_all(fd, strlen(filename), filename);
-        write_all(fd, 1, ":");
-        write_number(fd, lineno);
-        write_all(fd, 7, " [pc=0x");
-        write_number(fd, (uintmax_t) pc);
-        write_all(fd, 2, "]\n");
+        strappend(&start, end, filename);
+        strappend(&start, end, ":");
+        append_number(&start, end, lineno);
+        strappend(&start, end, " [pc=0x");
+        append_number(&start, end, (uintmax_t) pc);
+        strappend(&start, end, "]\n");
+
+        write_all(fd, start - buf, buf);
 
         return 0; // continue
 }
@@ -580,8 +590,8 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 #ifdef HAVE_LIBBACKTRACE
         int fd = STDERR_FILENO;
-        bs = backtrace_create_state(uv_argv[0], 1 /*thread safe*/,
-                                    error_callback, &fd);
+        bt = backtrace_create_state(uv_argv[0], 1 /*thread safe*/,
+                                    libbt_error_callback, &fd);
 #endif
 
         atexit(echeck_unexpected_exit);
@@ -1255,6 +1265,30 @@ bool running_in_debugger(){
 }
 
 #if defined(__GLIBC__)
+/// dumps output of fd (from start_off offset) to stderr
+/// and keep the pointer at the end of the file
+/// @retval size of the file pointed by fd (current pos)
+static off_t
+st_glibc_flush_output(int fd, off_t start_off)
+{
+        if (fd == STDERR_FILENO) {
+                return 0;
+        }
+
+        lseek(fd, start_off, SEEK_SET);
+        char    buf[STR_LEN];
+        ssize_t rbytes = 0;
+        while ((rbytes = read(fd, buf, sizeof buf)) > 0) {
+                ssize_t written = 0;
+                ssize_t wbytes  = 0;
+                while (written < rbytes &&
+                       (wbytes = write(STDERR_FILENO, buf + written,
+                                       rbytes - written)) > 0) {
+                        written += wbytes;
+                }
+        }
+        return lseek(fd, 0, SEEK_CUR);
+}
 /**
  * print stacktrace with backtrace_symbols_fd() (glibc or macOS)
  *
@@ -1276,16 +1310,13 @@ print_stacktrace_glibc()
         unsigned long tid = syscall(__NR_gettid);
 #endif
         // snprintf(path, sizeof path, "%s/ug-%lu", get_temp_dir(), tid);
-        strncpy(path, get_temp_dir(), sizeof path);
+        char *start = path;
         path[sizeof path - 1] = '\0';
-        strncat(path + strlen(path), "/ug-bt-", sizeof path - strlen(path) - 1);
-        while (tid != 0 && strlen(path) < sizeof path - 1) {
-                // (tid will be actually printed in reversed order (123->321))
-                size_t len = strlen(path);
-                path[len] = '0' + tid % 10;
-                path[len + 1] = '\0';
-                tid /= 10;
-        }
+        const char *const end = path + sizeof path - 1;
+        strappend(&start, end, get_temp_dir());
+        strappend(&start, end, "/ug-bt-");
+        append_number(&start, end, tid);
+        *start = '\0';
         int fd = open(path, O_CLOEXEC | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
         unlink(path);
 #endif
@@ -1298,46 +1329,36 @@ print_stacktrace_glibc()
         const int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, fd);
 
+        // in case that the below fails, try write at least something
+        off_t last_pos = st_glibc_flush_output(fd, 0);
+
 #ifdef HAVE_LIBBACKTRACE
         char backtrace2_msg[] = "\nBacktrace symbolic:\n";
         write_all(fd, sizeof backtrace2_msg - 1, backtrace2_msg);
         for (int i = 0; i < num_symbols; i++) {
-                char sym_nr[5];
+                // printf("%2d: ", i);
+                enum { NDIGITS = 2 };
+                char sym_nr[] = { 'X', 'X', ':', ' ' };
                 int num_tmp = i;
-                for (int i = 0; i < 3; ++i) {
+                for (int i = 0; i < NDIGITS; ++i) {
                         if (num_tmp == 0 && i != 0) {
-                                sym_nr[2 - i] = ' ';
+                                sym_nr[NDIGITS - 1 - i] = ' ';
                         } else {
-                                sym_nr[2 - i] = '0' + (num_tmp % 10);
+                                sym_nr[NDIGITS - 1 - i] = '0' + (num_tmp % 10);
                                 num_tmp /= 10;
                         }
                 }
-                sym_nr[3] = ':';
-                sym_nr[4] = ' ';
                 write_all(fd, sizeof sym_nr, sym_nr);
-                // printf("%3d: ", i);
-                backtrace_pcinfo(bs, (uintptr_t) addresses[i], full_callback,
-                                 error_callback, &fd);
+                // backtrace_pcinfo may not be async-signal-safe
+                backtrace_pcinfo(bt, (uintptr_t) addresses[i], libbt_full_callback,
+                                 libbt_error_callback, &fd);
         }
+        st_glibc_flush_output(fd, last_pos);
 #endif
 
-        if (fd == STDERR_FILENO) {
-                return;
+        if (fd != STDERR_FILENO) {
+                close(fd);
         }
-
-        lseek(fd, 0, SEEK_SET);
-        char buf[STR_LEN];
-        ssize_t rbytes = 0;
-        while ((rbytes = read(fd, buf, sizeof buf)) > 0) {
-                ssize_t written = 0;
-                ssize_t wbytes  = 0;
-                while (written < rbytes &&
-                       (wbytes = write(STDERR_FILENO, buf + written,
-                                       rbytes - written)) > 0) {
-                        written += wbytes;
-                }
-        }
-        close(fd);
 }
 #endif // defined(__GLIBC__)
 

@@ -57,9 +57,9 @@ bool is_prefix_of(const char *haystack, const char *needle);
 /// same as strpbrk but finds in a reverse order (last occurrence returned)
 char *strrpbrk(char *s, const char *accept);
 void strappend(char **ptr, const char *ptr_end, const char *src);
+void append_number(char **ptr, const char *ptr_end, uintmax_t num);
 void append_sig_desc(char **ptr, const char *ptr_end, int signum);
 void write_all(int fd, size_t len, const char *msg);
-void write_number(int fd, uintmax_t num);
 const char *pretty_print_fourcc(const void *fcc);
 
 #ifdef __cplusplus
