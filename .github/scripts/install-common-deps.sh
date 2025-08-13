@@ -79,6 +79,12 @@ install_juice() {
 )
 }
 
+# fixes broken live555 test
+live555_rm_tests() {
+         sed -e '/TESTPROGS_DIR.*MAKE/d' Makefile > Makefile.fix
+         mv -f Makefile.fix Makefile
+}
+
 download_build_live555() {(
         git clone --depth 1 https://github.com/xanview/live555/
         cd live555
@@ -95,6 +101,7 @@ download_build_live555() {(
                 make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DNO_STD_LIB"
         else
                 ./genMakefiles macosx-no-openssl
+                live555_rm_tests
                 make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -std=c++11"
         fi
 )}
