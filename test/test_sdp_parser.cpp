@@ -100,7 +100,12 @@ static int test_sdp_basic(){
         Sdp_view sdp = Sdp_view::from_buffer(sap.payload.data(), sap.payload.size());
 
         ASSERT(sdp.isValid());
-        ASSERT_EQUAL("- 517322 517322 IN IP4 169.254.189.184", sdp.origin);
+        ASSERT_EQUAL("-", sdp.username);
+        ASSERT_EQUAL(517322, sdp.sess_id);
+        ASSERT_EQUAL(517322, sdp.sess_version);
+        ASSERT_EQUAL("IN", sdp.nettype);
+        ASSERT_EQUAL("IP4", sdp.addrtype);
+        ASSERT_EQUAL("169.254.189.184", sdp.unicast_addr);
         ASSERT_EQUAL("AVIOUSB-xxxxxx : 2", sdp.session_name);
         ASSERT_EQUAL(1, sdp.media.size());
         ASSERT_EQUAL("", sdp.media[0].connection);
