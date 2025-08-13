@@ -187,7 +187,7 @@ Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
                         return ret;
 
                 uint8_t padding_bytes = ((uint8_t *)(ret.data))[ret.data_len - 1];
-                if(padding_bytes < ret.data_len)
+                if(padding_bytes > ret.data_len)
                         return ret;
 
                 ret.data_len -= padding_bytes;
