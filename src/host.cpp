@@ -1255,7 +1255,12 @@ bool running_in_debugger(){
 }
 
 #if defined(__GLIBC__)
-/// print stacktrace with backtrace_symbols_fd() (glibc or macOS)
+/**
+ * print stacktrace with backtrace_symbols_fd() (glibc or macOS)
+ *
+ * ideally all functions should be async-signal-safe as defined by POSIX
+ * (glibc deviates sligntly, see also signal-safety(7))
+ */
 static void
 print_stacktrace_glibc()
 {
@@ -1266,11 +1271,21 @@ print_stacktrace_glibc()
 #else
         char path[MAX_PATH_SIZE];
 #ifdef __APPLE__
-        const unsigned long tid = pthread_mach_thread_np(pthread_self());
+        unsigned long tid = pthread_mach_thread_np(pthread_self());
 #else
-        const unsigned long tid = syscall(__NR_gettid);
+        unsigned long tid = syscall(__NR_gettid);
 #endif
-        snprintf(path, sizeof path, "%s/ug-%lu", get_temp_dir(), tid);
+        // snprintf(path, sizeof path, "%s/ug-%lu", get_temp_dir(), tid);
+        strncpy(path, get_temp_dir(), sizeof path);
+        path[sizeof path - 1] = '\0';
+        strncat(path + strlen(path), "/ug-bt-", sizeof path - strlen(path) - 1);
+        while (tid != 0 && strlen(path) < sizeof path - 1) {
+                // (tid will be actually printed in reversed order (123->321))
+                size_t len = strlen(path);
+                path[len] = '0' + tid % 10;
+                path[len + 1] = '\0';
+                tid /= 10;
+        }
         int fd = open(path, O_CLOEXEC | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
         unlink(path);
 #endif
@@ -1278,7 +1293,7 @@ print_stacktrace_glibc()
                 fd = STDERR_FILENO;
         }
         char backtrace_msg[] = "Backtrace:\n";
-        write_all(fd, sizeof backtrace_msg, backtrace_msg);
+        write_all(fd, sizeof backtrace_msg - 1, backtrace_msg);
         array<void *, 256> addresses{};
         const int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, fd);
