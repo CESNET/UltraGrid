@@ -337,7 +337,7 @@ setup_firejail() {
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        if [ "$tool" = hd-rum-av ]; then
+        if [ "$tool" = hd-rum-av.sh ]; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --private-bin=basename,dirname,\
 expr,kill,ps,sed,seq,sh,tput,tr,tty,uname"
         fi

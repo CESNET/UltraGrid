@@ -246,14 +246,14 @@ $(TARGET): src/dir-stamp $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 	@if [ "$$(uname -s)" = Darwin ]; then dsymutil $(TARGET); fi
 
-$(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av
+$(REFLECTOR_TARGET): src/dir-stamp $(REFLECTOR_OBJS) $(GENERATED_HEADERS) bin/hd-rum-av.sh
 	$(MKDIR_P) $$(dirname $@)
 	$(LINKER) $(LDFLAGS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 	@if [ "$$(uname -s)" = Darwin ]; then dsymutil $(REFLECTOR_TARGET); fi
 
-bin/hd-rum-av: $(srcdir)/data/template/bin/hd-rum-av
+bin/hd-rum-av.sh: $(srcdir)/data/template/bin/hd-rum-av.sh
 	$(MKDIR_P) $$(dirname $@)
-	$(CP) $(srcdir)/data/template/bin/hd-rum-av $@
+	$(CP) $(srcdir)/data/template/bin/hd-rum-av.sh $@
 
 -include $(DEP_FILES)
 
@@ -553,7 +553,7 @@ clean:
 	$(COND_SILENCE)-rm -f $(TEST_OBJS) bin/run_tests
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	$(COND_SILENCE)-rm -rf $(BUNDLE) $(GUI_BUNDLE) $(GUI_BUNDLE_DEP)
-	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) bin/hd-rum-av $(REFLECTOR_OBJS)
+	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) bin/hd-rum-av.sh $(REFLECTOR_OBJS)
 	$(COND_SILENCE)-rm -rf @TOREMOVE@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
 	$(COND_SILENCE)-rm -rf bin/shaders
