@@ -598,6 +598,7 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	rm -rf $(BUNDLE)
 	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs
 	$(CP) $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
+	$(CP) -r bin/*.dSYM $(BUNDLE)/Contents/MacOS/
 	$(CP) -r data/template/macOS-bundle/* $(BUNDLE)/
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
 	$(CP) $(srcdir)/data/template/bin/* $(BUNDLE)/Contents/MacOS
@@ -621,8 +622,8 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 	$(CP) -nR $(BUNDLE)/* $(GUI_BUNDLE)/ || true
 	if [ $(MACOS_LEGACY) = no ]; then \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
-			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null; \
-			then continue; fi; \
+			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null || \
+			[ !-f $$n ]; then continue; fi; \
 			mv -f $$n $$n-real; $(CP) -f $(srcdir)/data/scripts/macos-wrapper $$n; \
 		done; \
 	fi
