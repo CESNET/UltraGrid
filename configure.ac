@@ -2468,7 +2468,7 @@ ENSURE_FEATURE_PRESENT([$cuda_dxt_req], [$cuda_dxt], [CUDA DXT not found])
 # -------------------------------------------------------------------------------------------------
 gpujpeg_to_dxt=no
 AC_ARG_ENABLE(gpujpeg_to_dxt,
-[  --disable-jpeg-to-dxt   disable GPUJPEG DXT transcoder (default is disable)]
+[  --disable-gpujpeg_to_dxt   disable GPUJPEG DXT transcoder (default is disable)]
 [                          Requires: CUDA libgpujpeg],
               [gpujpeg_to_dxt_req=$enableval],
               [gpujpeg_to_dxt_req=no])
