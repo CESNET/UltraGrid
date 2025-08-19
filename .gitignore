@@ -61,3 +61,4 @@ unittest/run_tests
 .envrc
 compile_commands.json
 compile_flags.txt
+.vscode
