@@ -1265,6 +1265,18 @@ bool running_in_debugger(){
 }
 
 #if defined(__APPLE__) || defined(__GLIBC__)
+static void
+perror_sig_safe(const char *s)
+{
+        char              buf[128];
+        char             *start = buf;
+        const char *const end   = buf + sizeof buf;
+        strappend(&start, end, s);
+        strappend(&start, end, ": ");
+        append_number(&start, end, errno);
+        strappend(&start, end, "\n");
+        write_all(STDERR_FILENO, start - buf, buf);
+}
 /// dumps output of fd (from start_off offset) to stderr
 /// and keep the pointer at the end of the file
 /// @retval size of the file pointed by fd (current pos)
@@ -1275,7 +1287,11 @@ st_glibc_flush_output(int fd, off_t start_off)
                 return 0;
         }
 
-        lseek(fd, start_off, SEEK_SET);
+        const off_t off = lseek(fd, start_off, SEEK_SET);
+        if (off == -1) {
+                perror_sig_safe("lseek");
+        }
+
         char    buf[STR_LEN];
         ssize_t rbytes = 0;
         while ((rbytes = read(fd, buf, sizeof buf)) > 0) {
