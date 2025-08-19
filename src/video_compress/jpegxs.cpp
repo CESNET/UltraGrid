@@ -54,6 +54,12 @@ jpegxs_compress_done(void *state)
         delete (struct state_video_compress_jpegxs *) state;
 }
 
+static compress_module_info get_jpegxs_module_info() {
+        compress_module_info module_info;
+        module_info.name = "jpegxs";
+        return module_info;
+}
+
 const struct video_compress_info jpegxs_info = {
         jpegxs_compress_init, // jpegxs_compress_init
         jpegxs_compress_done, // jpegxs_compress_done
@@ -63,7 +69,7 @@ const struct video_compress_info jpegxs_info = {
         NULL, //  jpegxs_compress_pull
         NULL,
         NULL,
-        NULL // get_jpegxs_module_info
+        get_jpegxs_module_info // get_jpegxs_module_info
 };
 
 REGISTER_MODULE(jpegxs, &jpegxs_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
