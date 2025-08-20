@@ -152,3 +152,5 @@ import_signing_key
 
 printf '%b' 'DELTA_MAC_ARCHIVE=videomaster-macos-dev.tar.gz\n' >> "$GITHUB_ENV"
 
+git config --global user.name "UltraGrid Builder"
+git config --global user.email "ultragrid@example.org"
