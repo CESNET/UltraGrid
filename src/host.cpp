@@ -62,8 +62,6 @@
 
 #ifdef HAVE_LIBBACKTRACE
 #include <backtrace.h>
-#else
-struct backtrace_state {};
 #endif
 
 #include <algorithm>                    // for max
@@ -194,8 +192,6 @@ void *mainloop_udata;
 // required for NVCC+MSVC compiled objs if /nodefaultlib is used
 extern "C" int _fltused = 0;
 #endif
-
-static struct backtrace_state *bt;
 
 struct init_data {
         bool com_initialized = false;
@@ -437,6 +433,8 @@ static void echeck_unexpected_exit(void ) {
 }
 
 #ifdef HAVE_LIBBACKTRACE
+static struct backtrace_state *bt;
+
 static void
 libbt_error_callback(void *data, const char *msg, int errnum)
 {
@@ -1370,6 +1368,8 @@ print_stacktrace_glibc()
                                  libbt_error_callback, &fd);
         }
         st_glibc_flush_output(fd, last_pos);
+#else
+        (void) last_pos;
 #endif
 
         if (fd != STDERR_FILENO) {
