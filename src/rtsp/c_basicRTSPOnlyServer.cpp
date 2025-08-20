@@ -48,11 +48,6 @@
 #include "rtsp/c_basicRTSPOnlyServer.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
 
-// compat
-#if BASICUSAGEENVIRONMENT_LIBRARY_VERSION_INT < 1752883200
-typedef char volatile EventLoopWatchVariable;
-#endif
-
 struct rtsp_serv {
         struct rtsp_server_parameters params;
         pthread_t                     server_th;

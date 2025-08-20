@@ -4,6 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2019-2025 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -49,6 +50,11 @@
 #include <BasicUsageEnvironment.hh>
 
 #include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
+
+// compat
+#if BASICUSAGEENVIRONMENT_LIBRARY_VERSION_INT < 1752883200
+typedef char volatile EventLoopWatchVariable;
+#endif
 
 class BasicRTSPOnlyServer {
 private:
