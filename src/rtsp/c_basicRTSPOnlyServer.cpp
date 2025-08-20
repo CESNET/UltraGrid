@@ -48,6 +48,11 @@
 #include "rtsp/c_basicRTSPOnlyServer.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
 
+// compat
+#if BASICUSAGEENVIRONMENT_LIBRARY_VERSION_INT < 1752883200
+typedef char volatile EventLoopWatchVariable;
+#endif
+
 struct rtsp_serv {
         struct rtsp_server_parameters params;
         pthread_t                     server_th;
@@ -61,10 +66,11 @@ c_start_server(struct rtsp_server_parameters params)
     server->params = params;
     server->watch = 0;
 
-    int ret;
     BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->params);
     srv->init_server();
-    ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
+    int ret = pthread_create(&server->server_th, NULL,
+                             BasicRTSPOnlyServer::start_server,
+                             (void *) &server->watch);
     assert(ret == 0);
 
     return server;
