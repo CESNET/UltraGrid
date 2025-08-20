@@ -1,3 +1,9 @@
+#### 1.9.11
+
+* improve NVENC intra-refresh behavior (ported from master)
+* suppress `--cuda-devices help` returned error
+* fix multi-tile compress support
+
 #### 1.9.10
 
 * fix macOS >= 15.4 init crashes (LC_RPATH dups)
