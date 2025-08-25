@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET z.s.p.o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,18 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include <stdio.h>
-#include <string.h>
 #include "utils/vf_split.h"
-#include "video.h"
-#include "video_codec.h"
+
+#include <cassert>        // for assert
+#include <cstdint>        // for int64_t, INT64_MAX
+#include <cstdlib>        // for malloc
+#include <cstring>        // for memcpy
+#include <type_traits>    // for decay
+#include "types.h"        // for tile, video_frame, video_desc
+#include "video_codec.h"  // for get_bpp, vc_get_linesize
+#include "video_frame.h"  // for vf_get_tile, vf_alloc_desc, vf_copy_metadata
+
 
 void vf_split(struct video_frame *out, struct video_frame *src,
               unsigned int x_count, unsigned int y_count, int preallocate)

@@ -54,14 +54,15 @@
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>                 // for uint16_t
 #include <stdlib.h>
 #include <string.h>
 #ifdef __linux__
 #include <sys/mman.h>
 #endif
 
-#include "config_unix.h"
-#include "config_win32.h"
+#include "compat/aligned_malloc.h"
+#include "compat/endian.h"          // for htobe16
 #include "debug.h"
 #include "pixfmt_conv.h"
 #include "utils/pam.h"
@@ -447,7 +448,7 @@ static unsigned char *get_16_bit_pnm_data(struct video_frame *frame) {
                 for (unsigned i = 0; i < frame->tiles[0].width * 3; ++i) {
                         uint16_t tmp = *dstline;
                         tmp >>= 16U - depth;
-                        *dstline++ = htons(tmp);
+                        *dstline++ = htobe16(tmp);
                 }
         }
         return tmp;

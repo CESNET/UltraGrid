@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,15 +35,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // defined HAVE_CONFIG_H
-
 #include "utils/packet_counter.h"
-#include <map>
-#include <vector>
+
+#include <map>      // for map, _Rb_tree_iterator
+#include <utility>  // for pair
+#include <vector>   // for vector
 
 using std::map;
 using std::vector;

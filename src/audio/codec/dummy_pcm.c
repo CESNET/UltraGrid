@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,17 +35,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include <assert.h>       // for assert
+#include <stdbool.h>      // for bool
+#include <stdint.h>       // for uint32_t
+#include <stdlib.h>       // for free, malloc, NULL
 
-#include "audio/audio.h"
-#include "audio/codec.h"
-
-#include "debug.h"
-#include "lib_common.h"
+#include "audio/codec.h"  // for audio_codec_direction_t, AUDIO_COMPRESS_ABI...
+#include "audio/types.h"  // for audio_channel, AC_PCM, AC_NONE, audio_codec_t
+#include "debug.h"        // for UNUSED
+#include "lib_common.h"   // for REGISTER_MODULE, library_class
 
 #define MAGIC 0x552bca11
 
