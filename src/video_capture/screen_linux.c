@@ -5,7 +5,7 @@
  * X11/PipeWire screen capture abstraction
  */
 /*
- * Copyright (c) 2023 CESNET
+ * Copyright (c) 2023-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,18 +36,23 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
+#include <stdio.h>                 // for printf
 #include <stdlib.h>
 #include <string.h>
 
+#include "config.h"                // for HAVE_*
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/text.h"
 #include "video_capture.h"
+#include "video_capture_params.h"  // for vidcap_params_free_struct, vidcap_...
+
+struct audio_frame;
+struct device_info;
+struct vidcap_params;
+
 
 static void vidcap_screen_linux_probe(struct device_info **cards, int *count, void (**deleter)(void *))
 {

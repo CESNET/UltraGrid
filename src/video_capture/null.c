@@ -6,7 +6,7 @@
  * hardware or do not wish to transmit. This fits the interface of the other
  * capture devices, but never produces any video.
  *
- * Copyright (c) 2005-2023 CESNET
+ * Copyright (c) 2005-2025 CESNET
  * Copyright (c) 2004 University of Glasgow
  * Copyright (c) 2003 University of Southern California
  *
@@ -49,13 +49,16 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "video.h"
-#include "video_capture.h"
+#include <assert.h>                // for assert
+#include <stdlib.h>                // for NULL, free
+
+#include "lib_common.h"            // for REGISTER_HIDDEN_MODULE, library_class
+#include "video_capture.h"         // for VIDCAP_INIT_AUDIO_NOT_SUPPORTED
+#include "video_capture_params.h"  // for vidcap_params_get_flags, VIDCAP_FL...
+
+struct audio_frame;
+struct device_info;
+struct vidcap_params;
 
 static int capture_state = 0;
 

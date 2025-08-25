@@ -5,7 +5,7 @@
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
  */
  /*
- * Copyright (c) 2012-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"               // for HAVE_LIBV4LCONVERT
 #endif /* HAVE_CONFIG_H */
 
 #ifdef HAVE_LIBV4LCONVERT
@@ -55,11 +55,13 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdbool.h>               // for bool, false, true
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/time.h>              // for gettimeofday, timeval
 #include <unistd.h>
 
 enum {
@@ -69,16 +71,21 @@ enum {
 #define MOD_NAME "[V4L cap.] "
 
 #include "debug.h"
-#include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "types.h"                 // for device_info, video_desc, tile, vid...
 #include "utils/color_out.h"
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/misc.h" // ug_strerror
 #include "v4l2_common.h"
-#include "video.h"
 #include "video_capture.h"
+#include "video_capture_params.h"  // for vidcap_params_get_fmt, vidcap_para...
+#include "video_codec.h"           // for codec_is_planar, get_codec_name
+#include "video_frame.h"           // for get_interlacing_suffix, vf_alloc_desc
+
+struct audio_frame;
+struct vidcap_params;
 
 /* prototypes of functions defined in this module */
 static void print_fps(int fd, struct v4l2_frmivalenum *param);

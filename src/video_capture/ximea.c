@@ -36,7 +36,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"                // for XIMEA_RUNTIME_LINKING
 #endif // HAVE_CONFIG_H
 
 #include <assert.h>                // for assert

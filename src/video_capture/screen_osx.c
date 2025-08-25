@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z.s.p.o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,30 +35,29 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "utils/video_frame_pool.h"
-#include "video.h"
-#include "video_capture.h"
-
-#include "tv.h"
-
-#include "audio/types.h"
-
+#include <Carbon/Carbon.h>
+#include <alloca.h>
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <string.h>
+#include <sys/time.h>
 
-#include <pthread.h>
-
-#include <Carbon/Carbon.h>
+#include "debug.h"
+#include "lib_common.h"
+#include "pixfmt_conv.h"
+#include "tv.h"
+#include "types.h"
+#include "utils/video_frame_pool.h"
+#include "video_capture.h"
+#include "video_capture_params.h"
+#include "video_codec.h"
+#include "video_frame.h"
+struct audio_frame;
+struct vidcap_params;
 
 #define MAX_DISPLAY_COUNT 10
 #define MOD_NAME "[screen cap mac] "
