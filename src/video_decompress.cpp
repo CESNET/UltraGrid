@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include <stdio.h>
-#include <string.h>
-#include <string>
-#include "debug.h"
-#include "video_codec.h"
 #include "video_decompress.h"
-#include "lib_common.h"
+
+#include <cassert>        // for assert
+#include <cstdint>        // for uint32_t
+#include <cstdlib>        // for free, calloc
+#include <cstring>        // for strchr, strdup
+#include <string>         // for basic_string, char_traits, hash, operator<<
+
+#include "debug.h"        // for LOG, LOG_LEVEL_VERBOSE
+#include "host.h"         // for commandline_params, ADD_TO_PARAM
+#include "lib_common.h"   // for get_libraries_for_class, library_class
+#include "video_codec.h"  // for get_codec_from_name
 
 #define DECOMPRESS_MAGIC 0xdff34f21u
 

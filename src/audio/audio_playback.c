@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,25 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "audio/audio_playback.h"
-#include "audio/playback/sdi.h"
-#include "audio/types.h"
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "tv.h"
-#include "utils/misc.h"    // for fmt_number_with_delim
-#include "video_display.h" /* flags */
+
+#include <stdio.h>          // for printf
+#include <stdlib.h>         // for free, calloc
+#include <string.h>         // for strncpy
+#include <strings.h>        // for strcasecmp
+
+#include "audio/types.h"    // for audio_frame, AC_PCM, audio_desc
+#include "debug.h"          // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_INFO
+#include "host.h"           // for INIT_NOERR
+#include "lib_common.h"     // for library_class, list_modules, load_library
+#include "tv.h"             // for tv_diff
+#include "utils/misc.h"     // for fmt_number_with_delim
+#include "video_display.h"  // for DISPLAY_FLAG_AUDIO_AESEBU, DISPLAY_FLAG_A...
 
 struct state_audio_playback {
         char name[128];

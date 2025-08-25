@@ -48,6 +48,12 @@
 #ifndef __video_decompress_h
 #define __video_decompress_h
 
+#ifdef __cplusplus
+#include <cstddef>   // for size_t
+#else
+#include <stddef.h>  // for size_t
+#endif
+
 #include "types.h"
 
 #ifdef __cplusplus

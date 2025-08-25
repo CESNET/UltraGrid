@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
 #include "capture_filter.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "module.h"
-#include "utils/color_out.h"
-#include "utils/list.h"
-#include "video.h"
+
+#include <cassert>            // for assert
+#include <cstdio>             // for printf, fprintf, stderr
+#include <cstdlib>            // for free, NULL, atoi, calloc, malloc
+#include <cstring>            // for strchr, strcmp, strdup, strlen, strncmp
+
+#include "compat/strings.h"   // for strcasecmp
+#include "lib_common.h"       // for get_libraries_for_class, library_class
+#include "messaging.h"        // for msg_universal, new_response, RESPONSE_I...
+#include "module.h"           // for module, module_done, module_init_default
+#include "utils/color_out.h"  // for color_printf, TERM_BOLD, TERM_RESET
+#include "utils/list.h"       // for simple_linked_list_pop, simple_linked_l...
 
 using namespace std;
 
