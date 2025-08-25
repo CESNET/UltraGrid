@@ -9,7 +9,7 @@
  * - load the dll even if working directory is not the dir with the DLL
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z.s.p.o.
+ * Copyright (c) 2019-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,28 +41,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>               // for INT_PTR
 
-#include <shellapi.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <assert.h>                // for assert
+#include <shellapi.h>              // for ShellExecuteA, ShellExecute
+#include <stdbool.h>               // for bool, false, true
+#include <stdio.h>                 // for NULL, snprintf
+#include <stdlib.h>                // for free, calloc, strtol
+#include <string.h>                // for strchr, strcmp, strlen, strstr
 
-#include "audio/types.h"
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "utils/color_out.h"
-#include "utils/macros.h"
-#include "utils/text.h"
-#include "utils/windows.h"
-#include "video.h"
-#include "video_capture.h"
-#include "video_capture_params.h"
+#include "debug.h"                 // for log_msg, LOG_LEVEL_ERROR, MSG, LOG...
+#include "host.h"                  // for uv_argv, uv_argc
+#include "lib_common.h"            // for REGISTER_MODULE, library_class
+#include "types.h"                 // for device_info
+#include "utils/color_out.h"       // for color_printf, TBOLD, TRED
+#include "utils/macros.h"          // for IF_NOT_NULL_ELSE, IS_KEY_PREFIX
+#include "utils/text.h"            // for wrap_paragraph
+#include "utils/windows.h"         // for get_win32_error, hresult_to_str
+#include "video_capture.h"         // for VIDCAP_INIT_FAIL, video_capture_info
+#include "video_capture_params.h"  // for vidcap_params_allocate, vidcap_par...
 
 #define MOD_NAME "[screen win] "
 #define FILTER_UPSTREAM_URL "https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases"
@@ -387,7 +385,7 @@ static int register_screen_cap_rec_library(bool is_elevated) {
                         if ((INT_PTR) ret > 32) {
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module installation successful.\n");
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "If you want to unregister the module, run 'uv -t screen:unregister'.\n");
-                                sleep(2);
+                                Sleep(2000); // 2 s
                                 return 1;
                         }
                 }
