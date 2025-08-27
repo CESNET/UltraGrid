@@ -48,7 +48,7 @@ ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
 
-sudo apt install qt6-base-dev
+sudo apt install qt6-base-dev qt6-wayland
 . /etc/os-release # source ID and VERSION_ID
 if [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 22.04 ]; then
         # https://bugs.launchpad.net/ubuntu/+source/qtchooser/+bug/1964763 bug
