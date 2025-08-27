@@ -1,5 +1,9 @@
 #!/bin/bash -eux
 
+dir=$(dirname "$0")
+# shellcheck source=/dev/null
+. "$dir/common.sh" # for get_build_deps_excl
+
 export PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig:/usr/local/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib:/usr/local/qt/lib
 printf "%b" "\
@@ -33,15 +37,7 @@ sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-openssl-dev # for RTSP client (vidcap)
 sudo apt install i965-va-driver-shaders libva-dev # instead of i965-va-driver
 
-get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (BRE alternation)
-        apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
-}
-
-sudo apt build-dep libsdl2
-fluidsynth_build_dep=$(get_build_deps_excl libfluidsynth3 libsdl2-dev)
-sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
-# shellcheck disable=SC2086 # intentional
-sudo apt install $fluidsynth_build_dep $sdl2_ttf_build_dep
+"$dir/install_sdl.sh" deps
 
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
 # shellcheck disable=SC2086 # intentional
