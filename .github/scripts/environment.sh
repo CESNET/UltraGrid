@@ -45,6 +45,7 @@ export FEATURES="\
  --enable-caca\
  --enable-decklink\
  --enable-file\
+ --enable-fluidsynth\
  --enable-gl\
  --enable-gl-display\
  --enable-holepunch\
@@ -64,7 +65,6 @@ export FEATURES="\
  --enable-scale\
  --enable-screen\
  --enable-sdl=2\
- --enable-sdl_mixer\
  --enable-sdp-http\
  --enable-soxr\
  --enable-speexdsp\

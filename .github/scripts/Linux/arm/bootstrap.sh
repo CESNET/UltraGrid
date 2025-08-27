@@ -31,7 +31,8 @@ apt -y install libavcodec-dev libavformat-dev libswscale-dev libraspberrypi-dev
 apt -y install \
   cmake \
   libdrm-dev\
-  libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev\
+  libfluidsynth-devl\
+  libsdl2-dev libsdl2-ttf-dev\
   libva-dev\
   libvulkan-dev\
 

@@ -50,12 +50,15 @@ $PACMAN_INSTALL automake autoconf git make pkgconf \
         $m-gcc-compat \
         unzip zip
 $PACMAN_INSTALL $m-asciidoc \
+        $m-libcaca\
         $m-ffmpeg \
+        $m-fluidsynth\
+        $m-glew $m-glfw\
         $m-libnatpmp \
         $m-vulkan-headers $m-vulkan-loader \
 
 $PACMAN_INSTALL $m-libsoxr $m-speexdsp
-$PACMAN_INSTALL $m-glew $m-libcaca $m-SDL2 $m-SDL2_mixer $m-SDL2_ttf $m-glfw
+$PACMAN_INSTALL $m-SDL2 $m-SDL2_ttf
 $PACMAN_INSTALL $m-glm
 $PACMAN_INSTALL $m-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL $m-curl # RTSP capture

@@ -67,7 +67,7 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
-           sudo apt install libavcodec-dev libavformat-dev libswscale-dev libsdl2-mixer-dev libsdl2-ttf-dev
+           sudo apt install libavcodec-dev libavformat-dev libswscale-dev libfluidsynth-dev libsdl2-ttf-dev
 
     - name: configure
       if: ${{ env.coverity_token }}
