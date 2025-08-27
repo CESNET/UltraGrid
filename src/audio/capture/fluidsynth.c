@@ -241,6 +241,16 @@ audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
                 return NULL;
         }
 
+        /// @todo add other if some-one needs that...
+        if (audio_capture_bps != 0 && audio_capture_bps != FLUIDSYNTH_BPS) {
+                MSG(ERROR, "Only %d bits-per-second supported so far...\n", FLUIDSYNTH_BPS);
+                goto error;
+        }
+        if (audio_capture_channels > 2) {
+                MSG(ERROR, "Only 1 or 2 channels currently supported...\n");
+                goto error;
+        }
+
         s->audio.bps         = FLUIDSYNTH_BPS;
         s->audio.ch_count    = audio_capture_channels < 2 ? 1 : 2;
         s->audio.sample_rate = audio_capture_sample_rate > 0
@@ -303,7 +313,7 @@ audio_cap_fluidsynth_read(void *state)
         if (s->audio.ch_count == 1) {
                 fluid_synth_write_s16(s->synth, CHUNK_SIZE, s->audio.data, 0, 1,
                                       s->right, 0, 1);
-        } else {
+        } else { // drop right channel, keep the left
                 assert(s->audio.ch_count == 2);
                 fluid_synth_write_s16(s->synth, CHUNK_SIZE, s->left, 0, 1,
                                       s->right, 0, 1);
