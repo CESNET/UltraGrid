@@ -3444,6 +3444,28 @@ fi
 
 ENSURE_FEATURE_PRESENT([$sdl_mixer_req], [$sdl_mixer], [SDL_mixer deps not found!])
 
+# ---------------------------------------------------------------------
+# fluidsynt audio capture synthesizer
+# ---------------------------------------------------------------------
+AC_ARG_ENABLE(fluidsynth,
+              AS_HELP_STRING([--disable-fluidsynth],
+[disable fluidtynth audio capture (default is auto)]),
+              [fluidsynth_req=$enableval],
+              [fluidsynth_req=$build_default])
+fluidsynth=no
+
+if test "${fluidsynth_req?}" != no; then
+        PKG_CHECK_MODULES([FLUIDSYNTH], [fluidsynth], [found_fluidsynth=yes],
+                                [found_fluidsynth=no])
+        if test "${found_fluidsynth?}" = yes; then
+                add_module acap_fluidsynth src/audio/capture/fluidsynth.o "$FLUIDSYNTH_LIBS"
+                INC="$INC${FLUIDSYNTH_CFLAGS:+ $FLUIDSYNTH_CFLAGS}"
+                fluidsynth=yes
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([$fluidsynth_req], [$fluidsynth], [fluidsynth not found!])
+
 # -----------------------------------------------------------------------------
 # Reflector
 # -----------------------------------------------------------------------------
@@ -3620,6 +3642,7 @@ RESULT=`end_section "$RESULT"`
 RESULT=`start_section "$RESULT" "Audio"`
 RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
 RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
+RESULT=`add_column "$RESULT" "FluidSynth" $fluidsynth $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
 RESULT=`add_column "$RESULT" "SDL_mixer" $sdl_mixer $?`

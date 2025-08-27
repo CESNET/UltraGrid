@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2024 CESNET
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -368,6 +368,15 @@ void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream
         }
 }
 
+/**
+ * @param out      output buffer (base) pointner
+ * @param in       input channel pointer
+ * @param bps      bytes per second
+ * @param in_len   in len in bytes
+ * @param out_stream_channels  number of channels that will be muxed
+ * @param pos_in_stream position of muxed channels in output (0-indexed)
+ * @param scale    scale the input channel (1.0 to keep original volume)
+ */
 void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int samples = in_len / bps;
