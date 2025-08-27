@@ -1,8 +1,6 @@
 #!/bin/bash -eux
 
 dir=$(dirname "$0")
-# shellcheck source=/dev/null
-. "$dir/common.sh" # for get_build_deps_excl
 
 export PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig:/usr/local/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib:/usr/local/qt/lib
@@ -38,11 +36,7 @@ sudo apt install libcurl4-openssl-dev # for RTSP client (vidcap)
 sudo apt install i965-va-driver-shaders libva-dev # instead of i965-va-driver
 
 "$dir/install_sdl.sh" deps
-
-ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
-# shellcheck disable=SC2086 # intentional
-sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev libopenh264-dev
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
+"$dir/install_ffmpeg.sh" deps
 
 sudo apt install qt6-base-dev qt6-wayland
 . /etc/os-release # source ID and VERSION_ID
