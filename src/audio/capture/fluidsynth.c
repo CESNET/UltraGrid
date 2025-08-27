@@ -196,7 +196,7 @@ get_soundfont()
                 "/share/soundfonts/default.sf2",
                 "/share/soundfonts/default.sf3",
                 "/share/sounds/sf2/default-GM.sf2",
-                "/share/sounds/sf2/default-GM.sf3", // Ubuntu
+                "/share/sounds/sf3/default-GM.sf3", // Ubuntu
         };
         for (size_t i = 0; i < sizeof roots / sizeof roots[0]; ++i) {
                 for (size_t j = 0;
