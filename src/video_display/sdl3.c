@@ -45,7 +45,7 @@
  * @todo errata (SDL3 vs SDL2)
  * 1. [macOS] Vulkan renderer doesn't work (no matter if linked with MoltenVK or
  * loader)
- * 2. [all platforms] with `renderer=vulkan` - none YCbCr texture works
+ * 2. [all platforms] with `renderer=vulkan` - none of YCbCr textures work
  * (segfaults - wrong pitch/texture?)
  * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point)
  * 4. p010 corrupted on d3d[12] - pixfmts skipped in query*() as a workaround

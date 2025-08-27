@@ -1321,12 +1321,7 @@ if test "$sdl_req" != no; then
                 sdl2_is_compat=yes
         fi
         if test "$sdl_req" = yes || test "$sdl_req" = auto; then
-                # temporarily prefer 2 over 3
-                sdl_req_ver=231
-                # but only if sdl2 is not sdl2_compat
-                if test "$sdl2_is_compat"; then
-                        sdl_req_ver=321
-                fi
+                sdl_req_ver=321
         fi
 
         while test -n "$sdl_req_ver"; do
@@ -1342,9 +1337,6 @@ if test "$sdl_req" != no; then
                 sdl_req_ver=$(printf "$sdl_req_ver" | cut -c2-)
         done
 
-        if test "$sdl_version" = 3 && test ! "$sdl2_is_compat"; then
-                UG_MSG_WARN([Using SDL 3, which is experimental. SDL 2 can be enforced with --enable-sdl=2])
-        fi
         if test "$sdl_version" = 2 && test "$sdl2_is_compat" ; then
                 UG_MSG_WARN([Using SDL3 sdl2_compat, which is not recommended (use 3 directly)])
         fi
