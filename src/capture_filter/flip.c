@@ -36,7 +36,6 @@
  */
 
 #include <assert.h>              // for assert
-#include <libswscale/swscale.h>  // for sws_freeContext, sws_getContext, sws...
 #include <stdbool.h>             // for bool, false, true
 #include <stdint.h>              // for uint8_t
 #include <stdio.h>               // for printf, fprintf, NULL, stderr, size_t
