@@ -50,8 +50,8 @@ set -- \
         pkg-config \
         portaudio \
         qt \
-        sdl2 \
-        sdl2_ttf \
+        sdl3 \
+        sdl3_ttf \
         speexdsp \
         vulkan-headers \
         wolfssl \

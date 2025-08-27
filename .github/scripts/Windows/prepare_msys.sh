@@ -58,7 +58,7 @@ $PACMAN_INSTALL $m-asciidoc \
         $m-vulkan-headers $m-vulkan-loader \
 
 $PACMAN_INSTALL $m-libsoxr $m-speexdsp
-$PACMAN_INSTALL $m-SDL2 $m-SDL2_ttf
+$PACMAN_INSTALL $m-sdl3 $m-sdl3-ttf
 $PACMAN_INSTALL $m-glm
 $PACMAN_INSTALL $m-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL $m-curl # RTSP capture

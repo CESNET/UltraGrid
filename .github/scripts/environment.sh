@@ -64,7 +64,7 @@ export FEATURES="\
  --enable-rtsp-server\
  --enable-scale\
  --enable-screen\
- --enable-sdl=2\
+ --enable-sdl=3\
  --enable-sdp-http\
  --enable-soxr\
  --enable-speexdsp\
