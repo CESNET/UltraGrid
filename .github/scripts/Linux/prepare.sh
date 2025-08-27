@@ -15,12 +15,12 @@ else # one-line-style (old) format
         sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list |
                 sudo tee /etc/apt/sources.list.d/sources.list
 fi
+sudo apt-mark hold libsdl2-2.0-0
 sudo apt update
 sudo apt install appstream `# appstreamcli for mkappimage AppStream validation` \
         asciidoc
 sudo apt install fonts-dejavu-core
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
-sudo apt install libfluidsynth-dev
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
 sudo apt install imagemagick libmagickwand-dev
@@ -36,9 +36,10 @@ get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (
 }
 
 sudo apt build-dep libsdl2
+fluidsynth_build_dep=$(get_build_deps_excl libfluidsynth3 libsdl2-dev)
 sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
 # shellcheck disable=SC2086 # intentional
-sudo apt install $sdl2_ttf_build_dep
+sudo apt install $fluidsynth_build_dep $sdl2_ttf_build_dep
 
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
 # shellcheck disable=SC2086 # intentional
