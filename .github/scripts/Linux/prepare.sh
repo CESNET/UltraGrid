@@ -24,7 +24,6 @@ sudo apt install libfluidsynth-dev
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
 sudo apt install imagemagick libmagickwand-dev
-sudo apt install libsdl2-dev libsdl2-ttf-dev
 sudo apt install libsoxr-dev libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libcaca-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
@@ -36,7 +35,12 @@ get_build_deps_excl() { # $2 - pattern to exclude; separate packates with '\|' (
         apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
 }
 
-ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'nonexistent-placeholder')
+sudo apt build-dep libsdl2
+sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
+# shellcheck disable=SC2086 # intentional
+sudo apt install $sdl2_ttf_build_dep
+
+ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev libopenh264-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev nginx
