@@ -47,6 +47,7 @@
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
 #include "audio/utils.h"          // for mux_channel
+#include "compat/usleep.h"        // for usleep
 #include "debug.h"                // for LOG_LEVEL_ERROR, MSG, log_msg, LOG_...
 #include "host.h"                 // for audio_capture_sample_rate, INIT_NOERR
 #include "lib_common.h"           // for REGISTER_MODULE, library_class
@@ -318,10 +319,8 @@ audio_cap_fluidsynth_read(void *state)
         if (t > s->next_frame_time + s->frame_interval) {
                 MSG(WARNING, "Some data missed!\n");
                 t = s->next_frame_time;
-        } else {
-                while (t < s->next_frame_time) {
-                        t = get_time_in_ns();
-                }
+        } else if (t < s->next_frame_time){
+                usleep((s->next_frame_time - t) / US_IN_NS);
         }
         s->next_frame_time += s->frame_interval;
 

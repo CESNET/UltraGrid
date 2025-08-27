@@ -49,7 +49,6 @@
  * (segfaults - wrong pitch/texture?)
  * 3. p010 works just on macOS/Metal, crashes on Vulkan (see previous point)
  * 4. p010 corrupted on d3d[12] - pixfmts skipped in query*() as a workaround
- * 5. see todo in @ref ../audio/capture/sdl_mixer.c
  */
 
 #include <SDL3/SDL.h>

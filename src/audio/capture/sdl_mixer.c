@@ -226,6 +226,7 @@ adjust_ch_count(struct state_sdl_mixer_capture *s)
 
 static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
 {
+        MSG(WARNING, "SDL_mixer is deprecated, used fluidsynth...\n");
         UNUSED(parent);
         SDL_Init(SDL_INIT_AUDIO);
 
