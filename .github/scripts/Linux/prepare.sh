@@ -1,9 +1,11 @@
 #!/bin/bash -eux
 
 export PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig:/usr/local/lib/pkgconfig
+export LIBRARY_PATH=/usr/local/lib:/usr/local/qt/lib
 printf "%b" "\
 CPATH=/usr/local/qt/include\n\
-LIBRARY_PATH=/usr/local/qt/lib\n\
+LIBRARY_PATH=$LIBRARY_PATH\n\
+LD_LIBRARY_PATH=$LIBRARY_PATH\n\
 PKG_CONFIG_PATH=$PKG_CONFIG_PATH\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
