@@ -46,4 +46,9 @@ install_cached() {
         sudo cmake --install fluidsynth/build
 }
 
-"${1?action required!}"
+deps
+if [ -d $cache_dir ]; then
+        install_cached
+else
+        build_install
+fi

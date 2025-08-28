@@ -49,6 +49,9 @@ download_build_aja() {
 }
 
 install_aja() {(
+        if [ "$(uname -s)" = Linux ]; then
+                sudo apt install libudev-dev
+        fi
         if [ ! -d libajantv2 ]; then
                 download_build_aja
         fi

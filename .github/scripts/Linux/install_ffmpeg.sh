@@ -124,4 +124,9 @@ install_cached() {
         sudo ldconfig
 }
 
-"${1?action required!}"
+deps
+if [ -d $cache_dir ]; then
+        install_cached
+else
+        build_install
+fi

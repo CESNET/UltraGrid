@@ -75,34 +75,20 @@ jobs:
       if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
        Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
-    - name: bootstrap
-      run: |
-           . .github/scripts/environment.sh
-           .github/scripts/Linux/prepare.sh
-    - name: Run actions/cache for FFmpeg
-      id: cache-ffmpeg
+    - name: Cache FFmpeg
       uses: actions/cache@main
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
-    - name: Build FFmpeg
-      if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-      run: .github/scripts/Linux/install_ffmpeg.sh build_install
-    - name: Install Cached FFmpeg
-      if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
-      run: .github/scripts/Linux/install_ffmpeg.sh install_cached
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/install_other.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
     - name: Cache SDL
-      id: cache-sdl
       uses: actions/cache@main
       with:
         path: '/var/tmp/sdl'
         key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
-    - name: Build SDL
-      if: steps.cache-sdl.outputs.cache-hit != 'true'
-      run: .github/scripts/Linux/install_sdl.sh build_install
-    - name: Install Cached SDL
-      if: steps.cache-sdl.outputs.cache-hit == 'true'
-      run: .github/scripts/Linux/install_sdl.sh install_cached
+    - name: bootstrap
+      run: |
+           . .github/scripts/environment.sh
+           .github/scripts/Linux/prepare.sh
     - name: configure
       run: "./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
     - name: make

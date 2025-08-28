@@ -66,6 +66,7 @@ install_rav1e() {(
 
 # FFmpeg master needs at least v1.3.277 as for 6th Mar '25
 install_vulkan() {(
+        sudo apt build-dep libvulkan1
         git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
         mkdir Vulkan-Headers/build
         cd Vulkan-Headers/build
