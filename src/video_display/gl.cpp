@@ -1604,14 +1604,28 @@ static void display_gl_render_last(GLFWwindow *win) {
 #ifndef GLEW_ERROR_NO_GLX_DISPLAY
 #define GLEW_ERROR_NO_GLX_DISPLAY 4
 #endif
-static const char *glewGetError(GLenum err) {
+static void printGlewError(GLenum err) {
+        const char *err_str = nullptr;
         switch (err) {
-                case GLEW_ERROR_NO_GL_VERSION: return "missing GL version";
-                case GLEW_ERROR_GL_VERSION_10_ONLY: return "Need at least OpenGL 1.1";
-                case GLEW_ERROR_GLX_VERSION_11_ONLY: return "Need at least GLX 1.2";
-                case GLEW_ERROR_NO_GLX_DISPLAY: return "Need GLX display for GLX support";
-                default: return (const char *) glewGetErrorString(err);
+        case GLEW_ERROR_NO_GL_VERSION:
+                err_str = "missing GL version";
+                break;
+        case GLEW_ERROR_GL_VERSION_10_ONLY:
+                err_str = "Need at least OpenGL 1.1";
+                break;
+        case GLEW_ERROR_GLX_VERSION_11_ONLY:
+                err_str = "Need at least GLX 1.2";
+                break;
+        case GLEW_ERROR_NO_GLX_DISPLAY:
+                err_str = "Need GLX display for GLX support";
+                break;
+        default:
+                err_str = (const char *) glewGetErrorString(err);
+                break;
         }
+        log_msg(err == GLEW_ERROR_NO_GLX_DISPLAY ? LOG_LEVEL_VERBOSE
+                                                 : LOG_LEVEL_ERROR,
+                MOD_NAME "GLEW Error: %s (err %d)\n", err_str, err);
 }
 #endif // defined GLEW_VERSION
 
@@ -1844,7 +1858,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
 
 #if defined GLEW_VERSION
         if (GLenum err = glewInit()) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %s (err %d)\n", glewGetError(err), err);
+                printGlewError(err);
                 if (err != GLEW_ERROR_NO_GLX_DISPLAY) { // do not fail on error 4 (on Wayland), which can be suppressed
                         return false;
                 }
