@@ -69,6 +69,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"    // for HAVE_SPOUT, HAVE_SYPHON
 #endif
+#include "compat/strings.h"      // for strcasecmp
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
@@ -365,6 +366,16 @@ static constexpr pair<int64_t, string_view> keybindings[] = {
         pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
 };
 
+const static struct {
+        int platform_id;
+        const char *name;
+} platform_map[] = {
+        { GLFW_PLATFORM_WIN32,   "Win32"   },
+        { GLFW_PLATFORM_COCOA,   "Cocoa"   },
+        { GLFW_PLATFORM_WAYLAND, "Wayland" },
+        { GLFW_PLATFORM_X11,     "X11"     },
+};
+
 /* Prototyping */
 static bool check_display_gl_version(bool print_ver);
 static bool display_gl_init_opengl(struct state_gl *s);
@@ -528,6 +539,38 @@ static void gl_print_monitors(bool fullhelp) {
         if (!fullhelp) {
                 cout << "(use \"fullhelp\" to see modes)\n";
         }
+        printf("\n");
+}
+
+static void
+gl_print_platforms()
+{
+        printf("available platforms:\n");
+        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+                if (glfwPlatformSupported(platform_map[i].platform_id)) {
+                        color_printf("\t- " TBOLD("%s") "\n", platform_map[i].name);
+                }
+        }
+        color_printf("\n");
+}
+
+static void
+gl_print_current_platform()
+{
+        const int platform = glfwGetPlatform();
+        const char *name = "UNKNOWN/ERROR";
+        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+                if (platform_map[i].platform_id == platform) {
+                        name = platform_map[i].name;
+                        break;
+                }
+        }
+#ifdef __linux__
+        int ll = LOG_LEVEL_NOTICE;
+#else
+        int ll = LOG_LEVEL_VERBOSE;
+#endif
+        log_msg(ll, MOD_NAME "Using platform: %s\n", name);
 }
 
 #define FEATURE_PRESENT(x) (strcmp(STRINGIFY(x), "1") == 0 ? "on" : "off")
@@ -590,6 +633,7 @@ static void gl_show_help(bool full) {
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
                 col() << "\n" TBOLD(
                     "[1]") " position doesn't work in Wayland\n";
+                col() << TBOLD("\tplatform=<p>")   << "\tuse platform (usable only in Linux)\n";
         } else {
                 color_printf(
                     "\t(use \"" TBOLD("fullhelp") "\" to see options)\n");
@@ -607,7 +651,9 @@ static void gl_show_help(bool full) {
                 return;
         }
         gl_print_monitors(full);
-        color_printf("\n");
+        if (full) {
+                gl_print_platforms();
+        }
         GLFWwindow *window = glfwCreateWindow(32, 32, DEFAULT_WIN_NAME, nullptr, nullptr);
         if (window != nullptr) {
                 glfwMakeContextCurrent(window);
@@ -704,6 +750,19 @@ parse_hints(struct state_gl *s, bool window_hints, char *hints)
         }
 }
 
+static bool
+set_platform(struct state_gl *s, const char *platform)
+{
+        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+                if (strcasecmp(platform_map[i].name, platform) == 0) {
+                        s->init_hints[GLFW_PLATFORM] = platform_map[i].platform_id;
+                        return true;
+                }
+        }
+        MSG(ERROR, "Unknown platform: %s\n", platform);
+        return false;
+}
+
 static void
 list_hints()
 {
@@ -721,7 +780,7 @@ list_hints()
                      "<https://github.com/glfw/glfw/blob/master/include/GLFW/"
                      "glfw3.h>).\n\n");
 
-        color_printf("Available hints keys and values:\n");
+        color_printf("Some of hints keys and values:\n");
         for (const auto &h : hint_map) {
                 color_printf("\t" TBOLD("%s") " - %#x\n", h.first.c_str(),
                              h.second);
@@ -735,6 +794,7 @@ list_hints()
 static bool
 display_gl_parse_fmt(struct state_gl *s, char *ptr)
 {
+        bool ret = true;
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
@@ -799,9 +859,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                 } else if (strstr(tok, "size=") == tok ||
                            strstr(tok, "fixed_size=") == tok) {
-                        if (!set_size(s, tok)) {
-                                return false;
-                        }
+                        ret = ret && set_size(s, tok);
                 } else if (strcmp(tok, "fixed_size") == 0) {
                         s->fixed_size = true;
                 } else if (strcmp(tok, "noresizable") == 0) {
@@ -810,6 +868,8 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         parse_hints(s, true, strchr(tok, '=') + 1);
                 } else if (strstr(tok, "init_hint=") == tok) {
                         parse_hints(s, false, strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "platform")) {
+                        ret = ret && set_platform(s, strchr(tok, '=') + 1);
                 } else if (strcmp(tok, "list_hints") == 0) {
                         list_hints();
                         return false;
@@ -820,7 +880,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 ptr = NULL;
         }
 
-        return true;
+        return ret;
 }
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
@@ -1713,6 +1773,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                 return false;
         }
+
+        gl_print_current_platform();
 
         if (s->req_monitor_idx != -1) {
                 int           count = 0;
