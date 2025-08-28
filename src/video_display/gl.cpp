@@ -732,13 +732,15 @@ list_hints()
             "Example usage: " TBOLD("-d gl:init_hint=platform=x11") "\n\n");
 }
 
-static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
+static bool
+display_gl_parse_fmt(struct state_gl *s, char *ptr)
+{
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
                 if (strcmp(tok, "help") == 0 || strcmp(tok, "fullhelp") == 0) {
                         gl_show_help(strcmp(tok, "fullhelp") == 0);
-                        return INIT_NOERR;
+                        return false;
                 }
                 if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
                         s->deinterlace = !strcmp(tok, "d") ? state_gl::deint::on : state_gl::deint::force;
@@ -784,7 +786,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         }
 #else
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
-                        return nullptr;
+                        return false;
 #endif
                 } else if (strstr(tok, "gamma=") == tok) {
                         s->gamma = stof(strchr(tok, '=') + 1);
@@ -798,7 +800,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                 } else if (strstr(tok, "size=") == tok ||
                            strstr(tok, "fixed_size=") == tok) {
                         if (!set_size(s, tok)) {
-                                return nullptr;
+                                return false;
                         }
                 } else if (strcmp(tok, "fixed_size") == 0) {
                         s->fixed_size = true;
@@ -810,15 +812,15 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         parse_hints(s, false, strchr(tok, '=') + 1);
                 } else if (strcmp(tok, "list_hints") == 0) {
                         list_hints();
-                        return nullptr;
+                        return false;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
-                        return nullptr;
+                        return false;
                 }
                 ptr = NULL;
         }
 
-        return s;
+        return true;
 }
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
@@ -833,16 +835,16 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
-                void *ret = nullptr;
+                bool ret = false;
                 try {
                         ret = display_gl_parse_fmt(s, tmp);
                 } catch (std::invalid_argument &e) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid numeric value for an option!\n";
                 }
                 free(tmp);
-                if (ret != s) { // ret is either nullptr or INIT_NOERR (help requested)
+                if (!ret) {
                         delete s;
-                        return ret;
+                        return strstr(fmt, "help") == nullptr ? nullptr : INIT_NOERR;
                 }
         }
 
@@ -1301,7 +1303,6 @@ static void gl_process_frames(struct state_gl *s)
                 }
                 free_message(msg, r);
         }
-
 
         if (s->show_cursor == state_gl::SC_AUTOHIDE) {
                 if (s->cursor_shown_from != steady_clock::time_point()) {
