@@ -366,6 +366,7 @@ static constexpr pair<int64_t, string_view> keybindings[] = {
         pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
 };
 
+#ifdef GLFW_PLATFORM
 const static struct {
         int platform_id;
         const char *name;
@@ -375,6 +376,7 @@ const static struct {
         { GLFW_PLATFORM_WAYLAND, "Wayland" },
         { GLFW_PLATFORM_X11,     "X11"     },
 };
+#endif // defined GLFW_PLATFORM
 
 /* Prototyping */
 static bool check_display_gl_version(bool print_ver);
@@ -542,6 +544,7 @@ static void gl_print_monitors(bool fullhelp) {
         printf("\n");
 }
 
+#ifdef GLFW_PLATFORM
 static void
 gl_print_platforms()
 {
@@ -572,6 +575,18 @@ gl_print_current_platform()
 #endif
         log_msg(ll, MOD_NAME "Using platform: %s\n", name);
 }
+#else // mot defined GLFW_PLATFORM
+static void
+gl_print_platforms()
+{
+        MSG(ERROR, "platforms unsupported (old GLFW)\n");
+}
+// NOOP
+static void
+gl_print_current_platform()
+{
+}
+#endif // not defined GLFW_PLATFORM
 
 #define FEATURE_PRESENT(x) (strcmp(STRINGIFY(x), "1") == 0 ? "on" : "off")
 
@@ -753,6 +768,7 @@ parse_hints(struct state_gl *s, bool window_hints, char *hints)
 static bool
 set_platform(struct state_gl *s, const char *platform)
 {
+#ifdef GLFW_PLATFORM
         for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
                         s->init_hints[GLFW_PLATFORM] = platform_map[i].platform_id;
@@ -761,6 +777,11 @@ set_platform(struct state_gl *s, const char *platform)
         }
         MSG(ERROR, "Unknown platform: %s\n", platform);
         return false;
+#else
+        (void) s, (void)  platform;
+        MSG(ERROR, "platforms unsupported (old GLFW)\n");
+        return false;
+#endif
 }
 
 static void
