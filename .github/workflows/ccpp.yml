@@ -85,6 +85,11 @@ jobs:
       with:
         path: '/var/tmp/sdl'
         key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
+    - name: Cache GLFW
+      uses: actions/cache@main
+      with:
+        path: '/var/tmp/glfw'
+        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh

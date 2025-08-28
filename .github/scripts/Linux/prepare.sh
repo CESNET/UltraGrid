@@ -25,7 +25,7 @@ sudo apt install appstream `# appstreamcli for mkappimage AppStream validation` 
         asciidoc
 sudo apt install fonts-dejavu-core
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
-sudo apt install libglew-dev libglfw3-dev
+sudo apt install libglew-dev
 sudo apt install libglm-dev
 sudo apt install imagemagick libmagickwand-dev
 sudo apt install libsoxr-dev libspeexdsp-dev
@@ -52,4 +52,5 @@ qt6.conf" "/usr/lib/$(uname -m)-linux-gnu/qt-default/qtchooser/default.conf"
 
 "$dir"/install_sdl.sh
 "$dir"/install_ffmpeg.sh
+"$dir"/install_glfw.sh
 
