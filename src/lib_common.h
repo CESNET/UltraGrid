@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,45 +85,59 @@ enum library_class {
         LIBRARY_CLASS_AUDIO_FILTER,
 };
 const void *load_library(const char *name, enum library_class, int abi_version);
-void register_library(const char *name, const void *info, enum library_class, int abi_version, int hidden);
+void register_library(const char *name, const void *info, enum library_class,
+                      int abi_version, unsigned visibility_flag);
 void list_modules(enum library_class, int abi_version, bool full);
 bool list_all_modules();
 #ifdef __cplusplus
 }
 #endif
 
+enum module_flag {
+        MODULE_SHOW_VISIBLE_ONLY = 0,      ///< display only modules w/o flag
+        MODULE_FLAG_HIDDEN       = 1 << 0, ///< flag - do not show in listing
+        MODULE_FLAG_ALIAS =
+            1 << 1, ///< ditto + hide for GUI, for explicit init only
+        MODULE_SHOW_ALL =
+            MODULE_FLAG_HIDDEN | MODULE_FLAG_ALIAS, ///< display all modules
+};
+
 #ifdef __cplusplus
 #include <map>
 #include <string>
-std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden = true);
+std::map<std::string, const void *>
+get_libraries_for_class(enum library_class cls, int abi_version,
+                        unsigned include_flags = MODULE_FLAG_HIDDEN);
 #endif
 
 /**
  * Placeholder that installs module via constructor for every macro
- * REGISTER_MODULE/REGISTER_MODULE_HIDDEN call
+ * REGISTER_MODULE* call
  * @param name     non-quoted module name
  * @param lclass   class of the module
  * @param abi      abi version (specific for every class)
  * @param funcname unique function name that will be used to register
  *                 the module (as a constructor)
- * @param hidden   0/1 - whether the module should be visible by eg. '-c help'
- *                 (for technical and deprecated modules), default true
+ * @param flag     optional flag to limit visibility (@ref module_flag;
+ *                 for technical, deprecated modules and aliases), default 0
  */
-#define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname, hidden) static void funcname(void)  __attribute__((constructor));\
+#define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname, flag) \
+        static void funcname(void) __attribute__((constructor)); \
 \
 static void funcname(void)\
 {\
-        register_library(#name, info, lclass, abi, hidden);\
+        register_library(#name, info, lclass, abi, flag);\
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 
-#define REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, funcname, hidden) static void funcname(void)  __attribute__((constructor));\
+#define REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, funcname, flag) \
+        static void funcname(void) __attribute__((constructor)); \
 \
 static void funcname(void)\
 {\
         const void *info = func();\
         if (info) {\
-                register_library(#name, info, lclass, abi, hidden);\
+                register_library(#name, info, lclass, abi, flag);\
         }\
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
@@ -150,10 +164,11 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 #define REGISTER_MODULE_WITH_FUNC(name, func, lclass, abi) REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, UNIQUE_LABEL, 0)
 
 /**
- * Similar to @ref REGISTER_MODULE but do not show the module under help
- * of corresponding class (usable for technical or deprecated modules).
+ * Similar to @ref REGISTER_MODULE but allow @ref module_flag to be added to limit visibility.
  */
-#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 1)
+#define REGISTER_MODULE_WITH_FLAG(name, info, lclass, abi, flag) \
+        REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, flag)
+#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_WITH_FLAG(name, info, lclass, abi, MODULE_FLAG_HIDDEN)
 
 #endif // defined LIB_COMMON_H
 

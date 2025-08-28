@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -215,7 +215,7 @@ void open_all(const char *pattern, list<void *> &libs) {
 struct lib_info {
         const void *data;
         int abi_version;
-        bool hidden;
+        unsigned visibility_flag;
 };
 
 // http://stackoverflow.com/questions/1801892/making-mapfind-operation-case-insensitive
@@ -247,13 +247,22 @@ static auto& get_libmap(){
         return libraries;
 }
 
-void register_library(const char *name, const void *data, enum library_class cls, int abi_version, int hidden)
+/**
+ * @param name             module name (used in listing and on cmdline for spec)
+ * @param cls              module class
+ * @param name             class-specific metadata structure (with callbacks)
+ * @param abi_version      class-specific ABI version
+ * @param visibility_flag  usually 0 or flag from @ref enum module_flag
+ */
+void
+register_library(const char *name, const void *info, enum library_class cls,
+                 int abi_version, unsigned visibility_flag)
 {
         auto& map = get_libmap()[cls];
         if (map.find(name) != map.end()) {
                 LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" (class " << cls << ") multiple initialization!\n";
         }
-        map[name] = {data, abi_version, static_cast<bool>(hidden)};
+        map[name] = {info, abi_version, visibility_flag};
 }
 
 const void *load_library(const char *name, enum library_class cls, int abi_version)
@@ -293,10 +302,12 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 
 /**
  * Prints list of modules of given class
- * @param full  include hidden modules
+ * @param full  include hidden modules and aliases
  */
 void list_modules(enum library_class cls, int abi_version, bool full) {
-        const auto & class_set = get_libraries_for_class(cls, abi_version, full);
+        const auto &class_set = get_libraries_for_class(
+            cls, abi_version,
+            full ? MODULE_SHOW_ALL : MODULE_SHOW_VISIBLE_ONLY);
         for (auto && item : class_set) {
                 col() << "\t" << SBOLD(item.first.c_str()) << "\n";
         }
@@ -333,7 +344,9 @@ bool list_all_modules() {
         return ret;
 }
 
-map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden)
+map<string, const void *>
+get_libraries_for_class(enum library_class cls, int abi_version,
+                        unsigned include_flags)
 {
         map<string, const void *> ret;
         auto& libraries = get_libmap();
@@ -341,7 +354,9 @@ map<string, const void *> get_libraries_for_class(enum library_class cls, int ab
         if (it != libraries.end()) {
                 for (auto && item : it->second) {
                         if (abi_version == item.second.abi_version) {
-                                if (include_hidden || !item.second.hidden) {
+                                if (item.second.visibility_flag == 0 ||
+                                    (include_flags &
+                                     item.second.visibility_flag) != 0U) {
                                         ret[item.first] = item.second.data;
                                 }
                         } else {
@@ -354,4 +369,3 @@ map<string, const void *> get_libraries_for_class(enum library_class cls, int ab
 
         return ret;
 }
-
