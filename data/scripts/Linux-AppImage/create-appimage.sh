@@ -136,7 +136,7 @@ fi
 DIRNAME=$(dirname "$0")
 uname_m=$(uname -m)
 excl_list_arch=x86
-if expr "$uname_m" : arm >/dev/null || expr "uname_m" : aarch64 > /dev/null; then
+if expr "$uname_m" : arm >/dev/null || expr "$uname_m" : aarch64 > /dev/null; then
         excl_list_arch=arm
 fi
 cat "$DIRNAME/excludelist.local.$excl_list_arch" >> excludelist
