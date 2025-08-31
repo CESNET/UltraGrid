@@ -3,6 +3,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_compress.h"
+#include "utils/video_frame_pool.h"
 #include <svt-jpegxs/SvtJpegxsEnc.h>
 
 using std::shared_ptr;
@@ -18,6 +19,7 @@ public:
         unsigned int configured:1;
         svt_jpeg_xs_image_buffer_t in_buf;
         svt_jpeg_xs_bitstream_buffer_t out_buf;
+        video_frame_pool pool;
 
         static state_video_compress_jpegxs *create(struct module *parent, const char *opts);
         void push(std::shared_ptr<video_frame> in_frame);
@@ -61,7 +63,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         in_buf.stride[2] = enc.source_width / 2;
         for (uint8_t i = 0; i < 3; ++i) {
                 in_buf.alloc_size[i] = in_buf.stride[i] * enc.source_height * pixel_size;
-                in_buf.data_yuv[i] = (uint8_t *) malloc(in_buf.alloc_size[i]);
+                in_buf.data_yuv[i] = malloc(in_buf.alloc_size[i]);
                 if (!in_buf.data_yuv[i]) {
                         return false;
                 }
@@ -81,6 +83,8 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         s->in_buf = in_buf;
         s->out_buf = out_buf;
         s->configured = true;
+
+        s->pool.reconfigure(desc, bitstream_size);
 
         return true;
 }
