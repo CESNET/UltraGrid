@@ -345,6 +345,26 @@ struct video_frame *display_get_frame(struct display *d)
         }
 }
 
+/**
+ * print display FPS
+ *
+ * Usually called from display_frame_helper for displays that use generic FPS
+ * indicator but externally linked for those that do not, like vulkan_sdl3.
+ */
+void
+display_print_fps(const char *prefix, double seconds, int frames,
+                  double nominal_fps)
+{
+        const double      fps     = frames / seconds;
+        const char *const fps_col = get_stat_color(fps / nominal_fps);
+
+        log_msg(LOG_LEVEL_INFO,
+                TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET
+                                          "%d frames in %g seconds = " TERM_BOLD
+                                          "%s%g FPS" TERM_RESET "\n",
+                prefix, frames, seconds, fps_col, fps);
+}
+
 static bool display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
         enum {
@@ -364,15 +384,9 @@ static bool display_frame_helper(struct display *d, struct video_frame *frame, l
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
                 const double seconds = (double) seconds_ns / NS_IN_SEC;
-                const double fps      = d->frames / seconds;
-                const char *const fps_col  = get_stat_color(fps / frame_fps);
+                display_print_fps(d->funcs->generic_fps_indicator_prefix,
+                                  seconds, d->frames, frame_fps);
 
-                log_msg(LOG_LEVEL_INFO,
-                        TERM_BOLD TERM_FG_MAGENTA
-                        "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD
-                        "%s%g FPS" TERM_RESET "\n",
-                        d->funcs->generic_fps_indicator_prefix, d->frames,
-                        seconds, fps_col, fps);
                 d->frames = 0;
                 d->t0 = t;
         }

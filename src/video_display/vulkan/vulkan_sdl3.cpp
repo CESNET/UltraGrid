@@ -394,9 +394,9 @@ void display_vulkan_run(void* state) {
                 auto now = chrono::steady_clock::now();
                 double seconds = chrono::duration<double>{ now - s->time }.count();
                 if (seconds > 5) {
-                        double fps = s->frames / seconds;
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "%llu frames in %g seconds = %g FPS\n",
-                                static_cast<long long unsigned>(s->frames), seconds, fps);
+                        display_print_fps(MOD_NAME, seconds, (int) s->frames,
+                                          s->current_desc.fps);
+
                         s->time = now;
                         s->frames = 0;
                 }

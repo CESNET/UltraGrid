@@ -13,7 +13,7 @@
  * @ingroup display
  */
 /* Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -210,6 +210,9 @@ bool                     display_reconfigure_audio(struct display *d, int quant_
 
 struct video_frame *get_splashscreen(void);
 const char         *get_audio_conn_flag_name(int audio_init_flag);
+
+void display_print_fps(const char *prefix, double seconds, int frames,
+                       double nominal_fps);
 
 #ifdef __cplusplus
 }
