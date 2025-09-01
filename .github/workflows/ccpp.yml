@@ -89,7 +89,7 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/glfw'
-        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
+        key: cache-glfw-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
