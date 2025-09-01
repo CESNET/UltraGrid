@@ -3407,37 +3407,7 @@ fi
 ENSURE_FEATURE_PRESENT([$pcp_req], [$pcp], [PCP not found])
 
 # ---------------------------------------------------------------------
-# SDL_mixer audio capture
-# ---------------------------------------------------------------------
-AC_ARG_ENABLE(sdl_mixer,
-              AS_HELP_STRING([--disable-sdl_mixer], [disable SDL_mixer audio capture (default is auto)]
-              [Requires: SDL[2]_mixer]),
-              [sdl_mixer_req=$enableval],
-              [sdl_mixer_req=$build_default])
-found_sdl_mixer=no
-sdl_mixer=no
-
-if test $sdl = yes && test $sdl_mixer_req != no
-then
-        if test "$sdl_version" -lt 3; then
-                PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer],
-                                  [found_sdl_mixer=yes], [found_sdl_mixer=no])
-        elif test "$sdl_mixer_req" = yes; then
-                AC_MSG_ERROR([SDL_mixer 3 no longer supports MIDI playback so it can be no longer used!]);
-        fi
-        if test "$found_sdl_mixer" = yes; then
-                SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
-                SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
-                add_module acap_sdl_mixer src/audio/capture/sdl_mixer.o "$SDL_MIXER_LIBS"
-                INC="$INC${SDL_MIXER_CFLAGS:+ $SDL_MIXER_CFLAGS}"
-                sdl_mixer=yes
-        fi
-fi
-
-ENSURE_FEATURE_PRESENT([$sdl_mixer_req], [$sdl_mixer], [SDL_mixer deps not found!])
-
-# ---------------------------------------------------------------------
-# fluidsynt audio capture synthesizer
+# fluidsynth audio capture synthesizer
 # ---------------------------------------------------------------------
 AC_ARG_ENABLE(fluidsynth,
               AS_HELP_STRING([--disable-fluidsynth],
