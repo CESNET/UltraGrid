@@ -6,6 +6,11 @@ dir=$(dirname "$0")
 
 # build dir that will be restored from cache
 cache_dir=/var/tmp/sdl
+features="-DSDL_KMSDRM=ON\
+ -DSDL_OPENGL=ON\
+ -DSDL_VULKAN=ON\
+ -DSDL_WAYLAND=ON\
+ -DSDL_X11=ON"
 
 # install the deps - runs always (regardless the cache)
 deps() {
@@ -33,7 +38,8 @@ build_install() {
 
         git clone --recurse-submodules --depth 1\
          https://github.com/Fluidsynth/fluidsynth
-        cmake -S fluidsynth -B fluidsynth/build
+        # shellcheck disable=SC2086 # intentional
+        cmake $features -S fluidsynth -B fluidsynth/build
         cmake --build fluidsynth/build -j "$(nproc)"
         sudo cmake --install fluidsynth/build
 }
