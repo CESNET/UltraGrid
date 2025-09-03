@@ -45,29 +45,40 @@ jobs:
       if: ${{ env.coverity_token }}
 
     - name: Fetch SDKs ETags
-      if: ${{ env.coverity_token }}
       id: etags
       run: |
         $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
-         https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.\
-        tar.gz >> $GITHUB_OUTPUT
+         https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+        Install_NDI_SDK_v6_Linux.tar.gz >> $GITHUB_OUTPUT
     - name: Run actions/cache for NDI
-      if: ${{ env.coverity_token }}
       id: cache-ndi
       uses: actions/cache@main
       with:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
-      if: ${{ env.coverity_token }} && steps.cache-ndi.outputs.cache-hit != 'true'
+      if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
        Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
-
+    - name: Cache FFmpeg
+      uses: actions/cache@main
+      with:
+        path: '/var/tmp/ffmpeg'
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/install_other.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
+    - name: Cache SDL
+      uses: actions/cache@main
+      with:
+        path: '/var/tmp/sdl'
+        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
+    - name: Cache GLFW
+      uses: actions/cache@main
+      with:
+        path: '/var/tmp/glfw'
+        key: cache-glfw-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
-           sudo apt install libavcodec-dev libavformat-dev libswscale-dev libfluidsynth-dev libsdl2-ttf-dev
 
     - name: configure
       if: ${{ env.coverity_token }}
