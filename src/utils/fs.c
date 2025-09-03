@@ -40,14 +40,19 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#else
+#define SRCDIR ".."
 #endif
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
+#include "debug.h"
 #include "utils/fs.h"
+#include "utils/macros.h"
 #include "utils/string.h"
 
 // for get_exec_path
@@ -63,6 +68,7 @@
 #include "host.h"       // for uv_argv
 #endif
 
+#define MOD_NAME "[fs] "
 
 /**
  * Returns temporary path ending with path delimiter ('/' or '\' in Windows)
@@ -165,8 +171,9 @@ get_exec_path(char *path)
  *           Linux - default "/usr/local", Windows - top-level directory extracted
  *           UltraGrid directory
  */
-const char *get_install_root(void) {
-        static __thread char exec_path[MAX_PATH_SIZE];
+static bool
+get_install_root(char exec_path[static MAX_PATH_SIZE])
+{
         if (!get_exec_path(exec_path)) {
                 return NULL;
         }
@@ -177,12 +184,61 @@ const char *get_install_root(void) {
         *last_path_delim = '\0'; // cut off executable name
         last_path_delim = strrpbrk(exec_path, "/\\");
         if (!last_path_delim) {
-                return exec_path;
+                return true;
         }
         if (strcmp(last_path_delim + 1, "bin") == 0 || strcmp(last_path_delim + 1, "MacOS") == 0) {
                 *last_path_delim = '\0'; // remove "bin" suffix if there is one (not in Windows builds) or MacOS in a bundle
         }
-        return exec_path;
+        return true;
+}
+
+static bool
+dir_exists(const char *path)
+{
+        struct stat sb;
+        if (stat(path, &sb) == -1) {
+                return false;
+        }
+        return S_ISDIR(sb.st_mode);
+}
+
+/**
+ * returns path with UltraGrid data (path to `share/ultragrid` if run from
+ * source, otherwise the corresponding path in system if installed or in
+ * bundle/appimage/extracted dir)
+ * @retval the path; NULL if not found
+ */
+const char *
+get_data_path()
+{
+        static __thread char path[MAX_PATH_SIZE];
+        if (strlen(path) > 0) { // already set
+                return path;
+        }
+
+        const char suffix[] = "/share/ultragrid";
+
+        if (get_install_root(path)) {
+                size_t len = sizeof path - strlen(path);
+                if ((size_t) snprintf(path + strlen(path), len,
+                                      suffix) >= len) {
+                        abort(); // path truncated
+                }
+                if (dir_exists(path)) {
+                        MSG(VERBOSE, "Using data path %s\n", path);
+                        return path;
+                }
+        }
+
+        snprintf_ch(path, SRCDIR "%s", suffix);
+        if (dir_exists(path)) {
+                MSG(VERBOSE, "Using data path %s\n", path);
+                return path;
+        }
+
+        MSG(WARNING, "No data path could have been found!\n");
+        path[0] = '\0'; // avoid quick cached return at start
+        return NULL;
 }
 
 /**

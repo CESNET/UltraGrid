@@ -56,7 +56,7 @@
 #include "types.h"                // for device_info
 #include "utils/color_out.h"      // for color_printf, TBOLD, TRED
 #include "utils/fs.h"             // for get_install_root, get_temp_file
-#include "utils/macros.h"         // for IS_KEY_PREFIX
+#include "utils/macros.h"         // for ARR_COUNT, IS_KEY_PREFIX
 
 struct module;
 
@@ -183,40 +183,35 @@ get_soundfont()
         if (env_fs != NULL) {
                 return strdup(env_fs);
         }
-        const bool force_bundled_sf =
-            getenv("ULTRAGRID_BUNDLED_SF") != NULL &&
-            strcmp(getenv("ULTRAGRID_BUNDLED_SF"), "1") == 0;
-        const char *roots[2] = { "/usr", get_install_root() };
-        if (force_bundled_sf) {
-                roots[0] = get_install_root();
-                roots[1] = "/usr";
-        }
+        char bundled[MAX_PATH_SIZE];
+        snprintf_ch(bundled, "%s/%s", get_data_path(), "default.sf3");
         const char *sf_candidates[] = {
-                // without install prefix
-                "/share/soundfonts/default.sf2",
-                "/share/soundfonts/default.sf3",
-                "/share/sounds/sf2/default-GM.sf2",
-                "/share/sounds/sf3/default-GM.sf3", // Ubuntu
+                "/usr/share/soundfonts/default.sf2",
+                "/usr/share/soundfonts/default.sf3",
+                "/usr/share/sounds/sf2/default-GM.sf2",
+                "/usr/share/sounds/sf3/default-GM.sf3", // Ubuntu
+                bundled,
         };
-        for (size_t i = 0; i < sizeof roots / sizeof roots[0]; ++i) {
-                for (size_t j = 0;
-                     j < sizeof sf_candidates / sizeof sf_candidates[0]; ++j) {
-                        const char  *root = roots[i];
-                        const size_t len =
-                            strlen(root) + strlen(sf_candidates[j]) + 1;
-                        char path[len];
-                        strncpy(path, root, len - 1);
-                        strncat(path, sf_candidates[j], len - strlen(path) - 1);
-                        FILE *f = fopen(path, "rb");
-                        debug_msg(MOD_NAME
-                                  "Trying to open sound font '%s': %s\n",
-                                  path, f ? "success, setting" : "failed");
-                        if (!f) {
-                                continue;
-                        }
-                        fclose(f);
-                        return strdup(path);
+
+        const char *force_bundled_sf = getenv("ULTRAGRID_BUNDLED_SF");
+        if (force_bundled_sf != NULL && strcmp(force_bundled_sf, "1") == 0) {
+                for (size_t i = ARR_COUNT(sf_candidates) - 1; i > 0; --i) {
+                        sf_candidates[i] = sf_candidates[i - 1];
                 }
+                sf_candidates[0] = bundled;
+        }
+
+        for (size_t i = 0; i < ARR_COUNT(sf_candidates); ++i) {
+                const char *path = sf_candidates[i];
+                FILE *f = fopen(path, "rb");
+                debug_msg(MOD_NAME
+                          "Trying to open sound font '%s': %s\n",
+                          path, f ? "success, setting" : "failed");
+                if (!f) {
+                        continue;
+                }
+                fclose(f);
+                return strdup(path);
         }
         MSG(ERROR, "Cannot find any suitable sound font!\n");
         return NULL;

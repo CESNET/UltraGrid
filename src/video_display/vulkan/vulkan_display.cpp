@@ -51,12 +51,6 @@
 #include "debug.h"
 #include "utils/fs.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h" // for SRCDIR
-#else
-#define SRCDIR ".."
-#endif // HAVE_CONFIG_H
-
 #define MOD_NAME "[vulkan] "
 
 using namespace vulkan_display_detail;
@@ -663,19 +657,19 @@ void VulkanDisplay::window_parameters_changed(WindowParameters new_parameters) {
 std::string
 get_shader_path()
 {
-        constexpr char suffix[] = "/share/ultragrid/vulkan_shaders";
+        constexpr char suffix[] = "/vulkan_shaders";
         // note that get_install_root returns bin/.. if run from build,
         // which will not contain the shaders for out-of-tree builds
-        const char *path = get_install_root();
-        if (path != nullptr) {
-                std::string path_to_shaders = std::string(path) + suffix;
+        const char *data_path = get_data_path();
+        if (data_path != nullptr) {
+                std::string path_to_shaders = std::string(data_path) + suffix;
                 std::filesystem::directory_entry dir{ std::filesystem::path(
                     path_to_shaders) };
                 if (dir.exists()) {
                         return path_to_shaders;
                 }
         }
-        return std::string(SRCDIR) + suffix;
+        return {};
 }
 
 } //namespace vulkan_display

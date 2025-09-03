@@ -99,17 +99,10 @@ https://github.com/CESNET/GPUJPEG/releases/download/continuous/"$fname"
         cp -r GPUJPEG/* /usr/local/
 )}
 
-install_soundfont() {
-        sf_dir="$GITHUB_WORKSPACE/data/Windows/share/soundfonts"
-        mkdir -p "$sf_dir"
-        cp "$GITHUB_WORKSPACE/data/default.sf3" "$sf_dir"
-}
-
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
 build_aja_wrapper
 install_deltacast
 install_gpujpeg
-install_soundfont
 

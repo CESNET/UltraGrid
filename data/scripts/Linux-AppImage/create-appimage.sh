@@ -92,11 +92,6 @@ add_fonts() { # for GUI+testcard2
                         cp "$FONT_PATH" $APPPREFIX/share/fonts
                 done
         done
-        if ls $APPPREFIX/lib/*mixer* >/dev/null 2>&1 ||
-           ls $APPPREFIX/lib/ultragrid/*fluidsynth* >/dev/null 2>&1; then
-                mkdir -p $APPPREFIX/share/soundfonts
-                cp "$srcdir/data/default.sf3" $APPPREFIX/share/soundfonts/
-        fi
 }
 
 # copy dependencies
