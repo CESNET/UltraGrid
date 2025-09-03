@@ -50,6 +50,20 @@
 #include "utils/fs.h"
 #include "utils/string.h"
 
+// for get_exec_path
+#ifdef __APPLE__
+#include <mach-o/dyld.h> //_NSGetExecutablePath
+#include <unistd.h>
+#elif defined __FreeBSD__
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#elif !defined(_WIN32) && !defined(__linux__) && !defined(__DragonFly__) && \
+    !defined(__NetBSD__)
+#include <unistd.h>     // for getcwd
+#include "host.h"       // for uv_argv
+#endif
+
+
 /**
  * Returns temporary path ending with path delimiter ('/' or '\' in Windows)
  */
@@ -79,28 +93,23 @@ const char *get_temp_dir(void)
         return temp_dir;
 }
 
-// see also <https://stackoverflow.com/a/1024937>
+/**
+ * see also <https://stackoverflow.com/a/1024937>
+ * @param path buffer with size MAX_PATH_SIZE where function stores path to executable
+ * @return 1 - SUCCESS, 0 - ERROR
+ */
+static int
+get_exec_path(char *path)
+{
 #ifdef _WIN32
-int get_exec_path(char* path) {
         return GetModuleFileNameA(NULL, path, MAX_PATH_SIZE) != 0;
-}
 #elif defined __linux__
-int get_exec_path(char* path) {
         return realpath("/proc/self/exe", path) != NULL;
-}
 #elif defined __DragonFly__
-int get_exec_path(char* path) {
         return realpath("/proc/curproc/file", path) != NULL;
-}
 #elif defined __NetBSD__
-int get_exec_path(char* path) {
         return realpath("/proc/curproc/exe", path) != NULL;
-}
 #elif defined __APPLE__
-#include <mach-o/dyld.h> //_NSGetExecutablePath
-#include <unistd.h>
-
-int get_exec_path(char* path) {
         char raw_path_name[MAX_PATH_SIZE];
         uint32_t raw_path_size = (uint32_t)(sizeof(raw_path_name));
 
@@ -108,19 +117,11 @@ int get_exec_path(char* path) {
             return false;
         }
         return realpath(raw_path_name, path) != NULL;
-}
 #elif defined __FreeBSD__
-#include <sys/sysctl.h>
-#include <sys/types.h>
-int get_exec_path(char* path) {
         int    mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
         size_t cb    = MAX_PATH_SIZE;
         return sysctl(mib, sizeof mib / sizeof mib[0], path, &cb, NULL, 0);
-}
 #else
-#include <unistd.h>     // for getcwd
-#include "host.h"       // for uv_argv
-int get_exec_path(char* path) {
         if (uv_argv[0][0] == '/') { // with absolute path
                 if (snprintf(path, MAX_PATH_SIZE, "%s", uv_argv[0]) ==
                     MAX_PATH_SIZE) {
@@ -157,7 +158,8 @@ int get_exec_path(char* path) {
         path[strlen(path) - 1] = '\0';
         return 0;
 }
-#endif  
+#endif
+}
 
 /**
  * @returns  installation root without trailing '/', eg. installation prefix on

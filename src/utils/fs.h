@@ -59,11 +59,6 @@ extern "C" {
 #include <stdio.h>
 #endif
 
-/**
- * @param path buffer with size MAX_PATH_SIZE where function stores path to executable
- * @return 1 - SUCCESS, 0 - ERROR
- */
-int get_exec_path(char* path);
 const char *get_temp_dir(void);
 FILE *get_temp_file(const char **filename);
 const char *get_install_root(void);
