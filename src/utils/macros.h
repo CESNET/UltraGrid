@@ -107,7 +107,7 @@
         do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
                 if (snprintf(str, sizeof str, __VA_ARGS__) >= \
                     (int) sizeof str) { \
-                        fprintf(stderr, \
+                        (void) fprintf(stderr, \
                                 "\n%s:%d: %s: snprintf truncates %s (%d B " \
                                 "needed)!\n\n", \
                                 __FILE__, __LINE__, __func__, #str, \
