@@ -66,17 +66,17 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/install_other.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
+        key: cache-${{ github.workflow }}-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/install_other.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
     - name: Cache SDL
       uses: actions/cache@main
       with:
         path: '/var/tmp/sdl'
-        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
+        key: cache-${{ github.workflow }}-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
     - name: Cache GLFW
       uses: actions/cache@main
       with:
         path: '/var/tmp/glfw'
-        key: cache-glfw-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
+        key: cache-${{ github.workflow }}-glfw-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
