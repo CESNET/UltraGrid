@@ -96,9 +96,8 @@ const char *get_temp_dir(void)
 /**
  * see also <https://stackoverflow.com/a/1024937>
  * @param path buffer with size MAX_PATH_SIZE where function stores path to executable
- * @return 1 - SUCCESS, 0 - ERROR
  */
-static int
+static bool
 get_exec_path(char *path)
 {
 #ifdef _WIN32
@@ -120,43 +119,43 @@ get_exec_path(char *path)
 #elif defined __FreeBSD__
         int    mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
         size_t cb    = MAX_PATH_SIZE;
-        return sysctl(mib, sizeof mib / sizeof mib[0], path, &cb, NULL, 0);
+        return sysctl(mib, sizeof mib / sizeof mib[0], path, &cb, NULL, 0) == 0;
 #else
         if (uv_argv[0][0] == '/') { // with absolute path
                 if (snprintf(path, MAX_PATH_SIZE, "%s", uv_argv[0]) ==
                     MAX_PATH_SIZE) {
-                        return -1; // truncated
+                        return false; // truncated
                 }
-                return 0;
+                return true;
         }
         if (strchr(uv_argv[0], '/') != NULL) { // or with relative path
                 char cwd[MAX_PATH_SIZE];
                 if (getcwd(cwd, sizeof cwd) != cwd) {
-                        return -1;
+                        return false;
                 }
                 if (snprintf(path, MAX_PATH_SIZE, "%s/%s", cwd, uv_argv[0]) ==
                     MAX_PATH_SIZE) {
-                        return -1; // truncated
+                        return false; // truncated
                 }
-                return 0;
+                return true;
         }
         // else launched from PATH
         char args[1024];
         snprintf(args, sizeof args, "command -v %s", uv_argv[0]);
         FILE *f = popen(args, "r");
         if (f == NULL) {
-                return -1;
+                return false;
         }
         if (fgets(path, MAX_PATH_SIZE, f) == NULL) {
                 fclose(f);
-                return -1;
+                return false;
         }
         fclose(f);
         if (strlen(path) == 0 || path[strlen(path) - 1] != '\n') {
-                return -1; // truncated (?)
+                return false; // truncated (?)
         }
         path[strlen(path) - 1] = '\0';
-        return 0;
+        return true;
 }
 #endif
 }
