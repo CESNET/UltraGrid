@@ -37,16 +37,17 @@
 
 #include "playback.h"
 
-#include <fcntl.h>             // for S_IFDIR
+#include <errno.h>             // for errno
 #include <stdbool.h>           // for bool, false, true
-#include <stdio.h>             // for snprintf, perror
+#include <stdio.h>             // for snprintf
 #include <stdlib.h>            // for free
 #include <string.h>            // for strchr, strcmp, strdup, strstr
-#include <sys/stat.h>          // for stat
 
-#include "debug.h"             // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_INFO
+#include "debug.h"             // for LOG_LEVEL_ERROR, LOG_LEVEL_INFO, MSG
 #include "keyboard_control.h"  // for keycontrol_register_key, K_DOWN, K_LEFT
 #include "utils/color_out.h"   // for color_printf, TBOLD, TERM_BOLD, TERM_R...
+#include "utils/fs.h"          // for dir_exists
+#include "utils/misc.h"        // for ug_strerror
 #include "utils/text.h"        // for wrap_paragraph
 
 struct module;
@@ -78,16 +79,15 @@ int playback_set_device(char *device_string, size_t buf_len, const char *optarg)
                 *strchr(path, ':') = '\0';
         }
 
-        struct stat sb;
-        if (stat(path, &sb) == -1) {
-                perror(MOD_NAME "stat");
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot access file or directory '%s'\n", path);
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Use '--playback help' to see usage.\n");
+        if (!file_exists(path, FT_ANY)) {
+                MSG(ERROR, "Cannot access file or directory: %s (%s)\n", path,
+                    ug_strerror(errno));
+                MSG(INFO, "Use '--playback help' to see usage.\n");
                 free(path);
                 return -1;
         }
-
-        if (sb.st_mode & S_IFDIR || strstr(path, "video.info") != NULL) {
+        if (file_exists(path, FT_DIRECTORY) ||
+            strstr(path, "video.info") != NULL) {
                 is_import = true;
         }
 

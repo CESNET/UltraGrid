@@ -192,14 +192,22 @@ get_install_root(char exec_path[static MAX_PATH_SIZE])
         return true;
 }
 
-static bool
-dir_exists(const char *path)
+bool
+file_exists(const char *path, enum check_file_type type)
 {
         struct stat sb;
         if (stat(path, &sb) == -1) {
                 return false;
         }
-        return S_ISDIR(sb.st_mode);
+        switch (type) {
+        case FT_ANY:
+                return true;
+        case FT_REGULAR:
+                return S_ISREG(sb.st_mode);
+        case FT_DIRECTORY:
+                return S_ISDIR(sb.st_mode);
+        }
+        abort();
 }
 
 /**
@@ -224,14 +232,14 @@ get_data_path()
                                       suffix) >= len) {
                         abort(); // path truncated
                 }
-                if (dir_exists(path)) {
+                if (file_exists(path, FT_DIRECTORY)) {
                         MSG(VERBOSE, "Using data path %s\n", path);
                         return path;
                 }
         }
 
         snprintf_ch(path, SRCDIR "%s", suffix);
-        if (dir_exists(path)) {
+        if (!file_exists(path, FT_DIRECTORY)) {
                 MSG(VERBOSE, "Using data path %s\n", path);
                 return path;
         }

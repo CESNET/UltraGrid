@@ -56,9 +56,16 @@
 #include <cstdio>
 extern "C" {
 #else
+#include <stdbool.h>
 #include <stdio.h>
 #endif
 
+enum check_file_type {
+        FT_ANY,
+        FT_REGULAR,
+        FT_DIRECTORY,
+};
+bool file_exists(const char *path, enum check_file_type type);
 const char *get_temp_dir(void);
 FILE *get_temp_file(const char **filename);
 const char *get_data_path(void);
