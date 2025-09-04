@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstdio>                      // for printf, fprintf, stderr
+#include <cstdio>                      // for printf, stderr
 #include <cstdlib>                    // for free, malloc
 #include <memory>                     // for shared_ptr
 
@@ -51,6 +51,15 @@
 #include "video_codec.h"               // for codec_is_a_rgb, get_bits_per_c...
 #include "video_compress.h"
 #include "video_frame.h"               // for vf_get_tile, video_desc_from_f...
+
+#define MOD_NAME "[CUDA DXT] "
+
+#define CHECK_CUDA(cmd, msg, action) \
+        if ((cmd) != CUDA_WRAPPER_SUCCESS) { \
+                MSG(ERROR, "%s: %s\n", msg, cuda_wrapper_last_error_string()); \
+                action; \
+        }
+
 
 using namespace std;
 
@@ -144,25 +153,22 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         codec_t supported_codecs[] = { RGB, UYVY, VIDEO_CODEC_NONE };
         s->decoder = get_best_decoder_from(desc.color_spec, supported_codecs, &s->in_codec);
         if (!s->decoder) {
-                fprintf(stderr, "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
+                MSG(ERROR, "Unsupported codec: %s\n",
+                    get_codec_name(desc.color_spec));
                 return false;
         }
 
         if (s->in_codec == UYVY) {
-                if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **) &s->cuda_uyvy_buffer,
-                                        desc.width * desc.height * 2)) {
-                        fprintf(stderr, "Could not allocate CUDA UYVY buffer.\n");
-                        return false;
-                }
+                CHECK_CUDA(cuda_wrapper_malloc((void **) &s->cuda_uyvy_buffer,
+                                               desc.width * desc.height * 2),
+                           "Could not allocate CUDA UYVY buffer", return false);
         }
 
         s->in_buffer = (char *) malloc(desc.width * desc.height * 3);
 
-        if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **) &s->cuda_in_buffer,
-                                desc.width * desc.height * 3)) {
-                fprintf(stderr, "Could not allocate CUDA output buffer.\n");
-                return false;
-        }
+        CHECK_CUDA(cuda_wrapper_malloc((void **) &s->cuda_in_buffer,
+                                       desc.width * desc.height * 3),
+                   "Could not allocate CUDA output buffer", return false);
 
         struct video_desc compressed_desc = desc;
         compressed_desc.color_spec = s->out_codec;
@@ -171,12 +177,8 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 
         s->pool.reconfigure(compressed_desc, data_len);
 
-        if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **)
-                                &s->cuda_out_buffer,
-                                data_len)) {
-                fprintf(stderr, "Could not allocate CUDA output buffer.\n");
-                return false;
-        }
+        CHECK_CUDA(cuda_wrapper_malloc((void **) &s->cuda_out_buffer, data_len),
+                   "Could not allocate CUDA output buffer", return false);
 
         return true;
 }
@@ -196,7 +198,7 @@ shared_ptr<video_frame> cuda_dxt_compress_tile(void *state, shared_ptr<video_fra
                 if(configure_with(s, video_desc_from_frame(tx.get()))) {
                         s->saved_desc = video_desc_from_frame(tx.get());
                 } else {
-                        fprintf(stderr, "[CUDA DXT] Reconfiguration failed!\n");
+                        MSG(ERROR, "Reconfiguration failed!\n");
                         return NULL;
                 }
         }
@@ -218,24 +220,22 @@ shared_ptr<video_frame> cuda_dxt_compress_tile(void *state, shared_ptr<video_fra
         }
 
         if (s->in_codec == UYVY) {
-                if (cuda_wrapper_memcpy(s->cuda_uyvy_buffer, in_buffer, tx->tiles[0].width *
-                                        tx->tiles[0].height * 2,
-                                        CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE) != CUDA_WRAPPER_SUCCESS) {
-                        fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
-                        return NULL;
-                }
-                if (cuda_yuv422_to_yuv444(s->cuda_uyvy_buffer, s->cuda_in_buffer,
-                                        tx->tiles[0].width *
-                                        tx->tiles[0].height, 0) != CUDA_WRAPPER_SUCCESS) {
-                        fprintf(stderr, "Kernel failed: %s\n", cuda_wrapper_last_error_string());
-                }
+                CHECK_CUDA(cuda_wrapper_memcpy(
+                               s->cuda_uyvy_buffer, in_buffer,
+                               tx->tiles[0].width * tx->tiles[0].height * 2,
+                               CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE),
+                           "Memcpy failed", return nullptr);
+
+                CHECK_CUDA(cuda_yuv422_to_yuv444(
+                               s->cuda_uyvy_buffer, s->cuda_in_buffer,
+                               tx->tiles[0].width * tx->tiles[0].height, 0),
+                           "Kernel failed", return nullptr);
         } else {
-                if (cuda_wrapper_memcpy(s->cuda_in_buffer, in_buffer, tx->tiles[0].width *
-                                        tx->tiles[0].height * 3,
-                                        CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE) != CUDA_WRAPPER_SUCCESS) {
-                        fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
-                        return NULL;
-                }
+                CHECK_CUDA(cuda_wrapper_memcpy(
+                               s->cuda_in_buffer, in_buffer,
+                               tx->tiles[0].width * tx->tiles[0].height * 3,
+                               CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE),
+                           "Memcpy failed", return nullptr);
         }
 
         int (*cuda_dxt_enc_func)(const void * src, void * out, int size_x, int size_y,
@@ -254,21 +254,16 @@ shared_ptr<video_frame> cuda_dxt_compress_tile(void *state, shared_ptr<video_fra
                         cuda_dxt_enc_func = cuda_yuv_to_dxt6;
                 }
         }
-        int ret = cuda_dxt_enc_func(s->cuda_in_buffer, s->cuda_out_buffer,
-                        s->saved_desc.width, s->saved_desc.height, 0);
-        if (ret != 0) {
-                fprintf(stderr, "Encoding failed: %s\n", cuda_wrapper_last_error_string());
-                return NULL;
-        }
+        CHECK_CUDA(cuda_dxt_enc_func(s->cuda_in_buffer, s->cuda_out_buffer,
+                                     s->saved_desc.width, s->saved_desc.height,
+                                     0),
+                   "Encoding failed", return nullptr);
 
         shared_ptr<video_frame> out = s->pool.get_frame();
-        if (cuda_wrapper_memcpy(out->tiles[0].data,
-                                s->cuda_out_buffer,
-                                out->tiles[0].data_len,
-                                CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) != CUDA_WRAPPER_SUCCESS) {
-                fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
-                return NULL;
-        }
+        CHECK_CUDA(cuda_wrapper_memcpy(out->tiles[0].data, s->cuda_out_buffer,
+                                       out->tiles[0].data_len,
+                                       CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST),
+                   "Memcpy failed", return nullptr);
 
         return out;
 }
