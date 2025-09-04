@@ -184,7 +184,7 @@ get_soundfont()
                 return strdup(env_fs);
         }
         char bundled[MAX_PATH_SIZE];
-        snprintf_ch(bundled, "%s/%s", get_data_path(), "default.sf3");
+        snprintf_ch(bundled, "%s/%s", get_data_path(), "TimGM6mb_but_fixed__piano_.sf3");
         const char *sf_candidates[] = {
                 "/usr/share/soundfonts/default.sf2",
                 "/usr/share/soundfonts/default.sf3",
