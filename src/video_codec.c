@@ -151,6 +151,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('R','G','B','2'), 3, 1, 1, 8, VCF_RGB, SUBS_444, "rgb"},
         [JPEG] = {"JPEG",  "JPEG",
                 to_fourcc('J','P','E','G'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "jpg"},
+        [JPEG_XS] = {"JPEG XS", "JPEG XS",
+                to_fourcc('J', 'P', 'X', 'S'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "jpegxs"},
         [RAW] = {"raw", "Raw SDI video",
                 to_fourcc('r','a','w','s'), 1, 1, 0, 0, VCF_NONE, VC_OPAQUE, "raw"}, /* raw SDI */
         [H264] = {"H.264", "H.264/AVC",

@@ -77,6 +77,7 @@ typedef enum {
         DXT5,     ///< S3 Texture Compression DXT5
         RGB,      ///< RGB 8-bit (packed into 24-bit word)
         JPEG,     ///< JPEG image, restart intervals may be used. Compatible with GPUJPEG
+        JPEG_XS,
         RAW,      ///< RAW HD-SDI frame
         H264,     ///< H.264 frame
         H265,     ///< H.264 frame
