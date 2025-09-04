@@ -19,7 +19,7 @@ jobs:
     - name: Check Coverity token presence
       if: env.coverity_token == ''
       run: |
-              echo "secrects.coverity_token not present, skipping the analysys!"
+              echo "secrects.coverity_token not present, skipping the analysis!"
               exit 1
 
     - name: Get Coverity tool name # the file name contains version and is used as the cache key

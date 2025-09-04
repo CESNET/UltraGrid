@@ -1360,7 +1360,7 @@ fi
 
 sdl_version=${sdl_version:-0}
 
-ENSURE_FEATURE_PRESENT([$sdl_req], [$sdl], [SDL requested but found any version])
+ENSURE_FEATURE_PRESENT([$sdl_req], [$sdl], [SDL requested but not found])
 
 # ------------------------------------------------------------------------------
 # Vulkan
@@ -3607,7 +3607,6 @@ RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
 RESULT=`add_column "$RESULT" "FluidSynth" $fluidsynth $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
-RESULT=`add_column "$RESULT" "SDL_mixer" $sdl_mixer $?`
 RESULT=`add_column "$RESULT" "Pipewire" $pipewire_audio $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
