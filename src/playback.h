@@ -4,7 +4,7 @@
  * Abstraction of import and file video capture.
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,11 @@
 #ifndef PLAYBACK_H_
 #define PLAYBACK_H_
 
+#include <stddef.h>        // for size_t
+
 #include "utils/macros.h"
+
+struct module;
 
 EXTERN_C int playback_set_device(char *device_string, size_t buf_len, const char *optarg);
 EXTERN_C void playback_register_keyboard_ctl(struct module *mod);

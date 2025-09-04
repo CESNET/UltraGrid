@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +35,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include "debug.h"
-#include "keyboard_control.h"
 #include "playback.h"
-#include "utils/color_out.h"
-#include "utils/text.h"
+
+#include <fcntl.h>             // for S_IFDIR
+#include <stdbool.h>           // for bool, false, true
+#include <stdio.h>             // for snprintf, perror
+#include <stdlib.h>            // for free
+#include <string.h>            // for strchr, strcmp, strdup, strstr
+#include <sys/stat.h>          // for stat
+
+#include "debug.h"             // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_INFO
+#include "keyboard_control.h"  // for keycontrol_register_key, K_DOWN, K_LEFT
+#include "utils/color_out.h"   // for color_printf, TBOLD, TERM_BOLD, TERM_R...
+#include "utils/text.h"        // for wrap_paragraph
+
+struct module;
 
 #define MOD_NAME "[playback] "
 
