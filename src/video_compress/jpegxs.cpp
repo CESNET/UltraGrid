@@ -94,50 +94,46 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
 }
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc) {
-        svt_jpeg_xs_encoder_api_t enc = {};
-
-        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &enc);
+        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
                 fprintf(stderr, "Failed to load JPEG XS default parameters\n");
                 return false;
         }
 
-        // TODO parameters
-        enc.source_width = desc.width;
-        enc.source_height = desc.height;
-        enc.input_bit_depth = 8;
-        enc.colour_format = COLOUR_FORMAT_PLANAR_YUV422;
-        enc.bpp_numerator = 3;
+        s->encoder.source_width = desc.width;
+        s->encoder.source_height = desc.height;
+        s->encoder.input_bit_depth = 8;
+        s->encoder.colour_format = COLOUR_FORMAT_PLANAR_YUV422;
+        s->encoder.bpp_numerator = 3;
 
-        err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &enc);
+        err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
                 fprintf(stderr, "Failed to initialize JPEG XS encoder\n");
                 return false;
         }
 
-        svt_jpeg_xs_image_buffer_t in_buf;
-        if (!setup_image_input_buffer(&in_buf, &enc)) {
+        if (!setup_image_input_buffer(&s->in_buf, &s->encoder)) {
                 fprintf(stderr, "Failed to initialize input image buffer\n");
                 return false;
         }
 
-        svt_jpeg_xs_bitstream_buffer_t out_buf;
         uint32_t bitstream_size = (uint32_t)(
-                ((uint64_t)enc.source_width * enc.source_height * enc.bpp_numerator / enc.bpp_denominator + 7) / +8);
-        out_buf.allocation_size = bitstream_size;
-        out_buf.used_size = 0;
-        out_buf.buffer = (uint8_t *) malloc(out_buf.allocation_size);
-        if (!out_buf.buffer) {
+                ((uint64_t)s->encoder.source_width * s->encoder.source_height * 
+                s->encoder.bpp_numerator / s->encoder.bpp_denominator + 7) / 8);
+
+        s->out_buf.allocation_size = bitstream_size;
+        s->out_buf.used_size = 0;
+        s->out_buf.buffer = (uint8_t *) malloc(s->out_buf.allocation_size);
+        if (!s->out_buf.buffer) {
                 fprintf(stderr, "Failed to initialize output image buffer\n");
                 return false;
         }
 
-        s->encoder = enc;
-        s->in_buf = in_buf;
-        s->out_buf = out_buf;
+        struct video_desc compressed_desc;
+        compressed_desc = desc;
+        compressed_desc.color_spec = JPEG_XS;
+        s->pool.reconfigure(compressed_desc, bitstream_size);
         s->configured = true;
-
-        s->pool.reconfigure(desc, bitstream_size);
 
         return true;
 }
@@ -156,7 +152,40 @@ jpegxs_compress_init(struct module *parent, const char *opts) {
         return s;
 }
 
+// unpack UYVY to YUV422 planar
+static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
+        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
+        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
+        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
+
+        for (int y = 0; y < height; ++y) {
+                const uint8_t *src_line = uyvy + (size_t) y * width * 2;
+                uint8_t *dst_y_line = dst_y + (size_t) y * width;
+                uint8_t *dst_u_line = dst_u + (size_t) y * (width / 2);
+                uint8_t *dst_v_line = dst_v + (size_t) y * (width / 2);
+
+                for (int x = 0; x < width; x += 2) {
+                        int i = x * 2;
+                        uint8_t u = src_line[i + 0];
+                        uint8_t y0 = src_line[i + 1];
+                        uint8_t v = src_line[i + 2];
+                        uint8_t y1 = src_line[i + 3];
+
+                        dst_y_line[x + 0] = y0;
+                        dst_y_line[x + 1] = y1;
+
+                        int chroma_index = x / 2;
+                        dst_u_line[chroma_index] = u;
+                        dst_v_line[chroma_index] = v;
+                }
+        }
+}
+
 shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> frame) {
+        if (!frame) {
+                return {};
+        }
+
         auto *s = (struct state_video_compress_jpegxs *) state;
 
         if (!s->configured) {
@@ -166,10 +195,10 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
                 }
         }
 
-        // TODO: UYVY (packed) to planar (Y, U, V)
-
-        unsigned char *src = (unsigned char *) frame->tiles[0].data;
-        int src_stride =frame->tiles[0].width * 2;;
+        struct tile *in_tile = vf_get_tile(frame.get(), 0);
+        int width = in_tile->width;
+        int height = in_tile->height;
+        uyvy_to_yuv422p((const uint8_t *) in_tile->data, width, height, &s->in_buf);
 
         svt_jpeg_xs_frame_t enc_input;
         enc_input.bitstream = s->out_buf;
@@ -191,9 +220,25 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
         }
 
         shared_ptr<video_frame> out_frame = s->pool.get_frame();
-        // TODO: copy enc_output to out_frame
+        out_frame->color_spec = JPEG_XS;
+        out_frame->fps = frame->fps;
+        out_frame->interlacing = frame->interlacing;
+        out_frame->frame_type = frame->frame_type;
+        out_frame->tile_count = 1;
         
-        return frame;
+        struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
+        out_tile->width = frame->tiles[0].width;
+        out_tile->height = frame->tiles[0].height;
+        size_t enc_size = enc_output.bitstream.used_size;
+        if (enc_size > out_tile->data_len) {
+                fprintf(stderr, "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
+                return {};
+        }
+        
+        out_tile->data_len = enc_size;
+        memcpy(out_tile->data, enc_output.bitstream.buffer, enc_size);
+
+        return out_frame;
 }
 
 // void state_video_compress_jpegxs::push(std::shared_ptr<video_frame> in_frame)
