@@ -738,6 +738,27 @@ get_display_id_from_idx(int idx)
         return 0;
 }
 
+void
+vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
+                                const command_line_arguments *args, int x,
+                                int y)
+{
+        if (SDL_SetWindowPosition(s->window, x, y)) {
+                return;
+        }
+        const bool is_wayland =
+            strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
+        if (is_wayland && args->display_idx != -1 && !s->fullscreen) {
+                MSG(ERROR, "In Wayland, display specification is available "
+                           "only together with fullscreen flag ':fs'!\n");
+        } else if (!is_wayland || args->x != SDL_WINDOWPOS_UNDEFINED ||
+                   args->y != SDL_WINDOWPOS_UNDEFINED) {
+                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                    SDL_GetError());
+        }
+        // no warning if wayland and x/y unspecified
+}
+
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         sdl_set_log_level();
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
@@ -820,7 +841,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 return nullptr;
         }
         s->window_callback = new WindowCallback(s->window);
-        SDL_CHECK(SDL_SetWindowPosition(s->window, x, y));
+        vulkan_sdl3_set_window_position(s.get(), &args, x, y);
 
         uint32_t extension_count = 0;
         const char *const *extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count);
