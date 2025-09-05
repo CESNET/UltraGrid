@@ -424,7 +424,7 @@ void sdl3_print_displays() {
                 if (dname == nullptr) {
                         dname = SDL_GetError();
                 }
-                col() << SBOLD(displays[i]) << " - " << dname;
+                col() << SBOLD(i) << " - " << dname << " (ID: " << displays[i] << ")" ;
         }
         std::cout << "\n";
 }
@@ -460,7 +460,7 @@ void show_help() {
         
         col() << "VULKAN_SDL3 options:\n";
         col() << SBOLD(SRED("\t-d vulkan")
-                        << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<dis_id>|"
+                        << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<d>|"
                         ":driver=<drv>|:gpu=<gpu_id>|:pos=<x>,<y>|:size=<W>x<H>|:window_flags=<f>|:help])") << "\n";
 
         col() << ("\twhere:\n");
@@ -475,7 +475,7 @@ void show_help() {
         col() << SBOLD("\t         tearing") << " - permits screen tearing\n";
         col() << SBOLD("\t      validation") << " - enable vulkan validation layers\n";
 
-        col() << SBOLD("\tdisplay=<dis_id>") << " - display index, available indices: ";
+        col() << SBOLD("\t     display=<d>") << " - display index or ID, available indices: ";
         sdl3_print_displays();
         col() << SBOLD("\t    driver=<drv>") << " - available drivers: ";
         print_drivers();
@@ -734,7 +734,12 @@ get_display_id_from_idx(int idx)
         if (idx < count) {
                 return displays[idx];
         }
-        MSG(ERROR, "Display index %d out of range!\n", idx);
+        for (int i = 0; i < count; ++i) {
+                if (displays[i] == (unsigned) idx) {
+                        return idx;
+                }
+        }
+        MSG(ERROR, "Display index %d out of range or ID invalid!\n", idx);
         return 0;
 }
 

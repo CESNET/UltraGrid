@@ -466,7 +466,7 @@ sdl3_print_displays()
                 if (dname == NULL) {
                         dname = SDL_GetError();
                 }
-                color_printf(TBOLD("%d") " - %s", i, dname);
+                color_printf(TBOLD("%d") " - %s (ID: %d)", i, dname, displays[i]);
         }
 }
 
@@ -481,7 +481,12 @@ get_display_id_from_idx(int idx)
         if (idx < count) {
                 return displays[idx];
         }
-        MSG(ERROR, "Display index %d out of range!\n", idx);
+        for (int i = 0; i < count; ++i) {
+                if (displays[i] == (unsigned) idx) {
+                        return idx;
+                }
+        }
+        MSG(ERROR, "Display index %d out of range or ID invalid!\n", idx);
         return 0;
 }
 
@@ -494,7 +499,7 @@ show_help(const char *driver, bool full)
         SDL_CHECK(SDL_InitSubSystem(SDL_INIT_VIDEO));
         printf("SDL options:\n");
         color_printf(TBOLD(TRED(
-            "\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:"
+            "\t-d sdl") "[[:fs|:d|:display=<d>|:driver=<drv>|:novsync|:"
                         "renderer=<name[s]>|:nodecorate|:size[=WxH]|:window_"
                         "flags=<f>|:keep-aspect]*]") "\n");
         color_printf(TBOLD(
@@ -504,7 +509,7 @@ show_help(const char *driver, bool full)
             "\td[force]") " - deinterlace (force even for progressive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
         color_printf(
-            TBOLD("\t  <didx>") " - display index, available indices: ");
+            TBOLD("\t     <d>") " - display index or ID, available indices: ");
         sdl3_print_displays();
         color_printf("%s\n", (driver == NULL ? TBOLD(" *")  : ""));
         color_printf(TBOLD("\t   <drv>") " - one of following: ");
