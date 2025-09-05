@@ -68,7 +68,7 @@ enum check_file_type {
 bool file_exists(const char *path, enum check_file_type type);
 const char *get_temp_dir(void);
 FILE *get_temp_file(const char **filename);
-const char *get_data_path(void);
+const char *get_ug_data_path(void);
 char *strdup_path_with_expansion(const char *orig_path);
 
 #ifdef __cplusplus

@@ -217,7 +217,7 @@ file_exists(const char *path, enum check_file_type type)
  * @retval the path; NULL if not found
  */
 const char *
-get_data_path()
+get_ug_data_path()
 {
         static __thread char path[MAX_PATH_SIZE];
         if (strlen(path) > 0) { // already set
@@ -239,7 +239,7 @@ get_data_path()
         }
 
         snprintf_ch(path, SRCDIR "%s", suffix);
-        if (!file_exists(path, FT_DIRECTORY)) {
+        if (file_exists(path, FT_DIRECTORY)) {
                 MSG(VERBOSE, "Using data path %s\n", path);
                 return path;
         }

@@ -660,7 +660,7 @@ get_shader_path()
         constexpr char suffix[] = "/vulkan_shaders";
         // note that get_install_root returns bin/.. if run from build,
         // which will not contain the shaders for out-of-tree builds
-        const char *data_path = get_data_path();
+        const char *data_path = get_ug_data_path();
         if (data_path != nullptr) {
                 std::string path_to_shaders = std::string(data_path) + suffix;
                 std::filesystem::directory_entry dir{ std::filesystem::path(
