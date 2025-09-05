@@ -44,10 +44,11 @@
    * * audio (would be perhaps better as an audio playback device)
    */
 
-#include <cmath>                                           // for sqrt
 #include <cctype>                                          // for toupper
+#include <cmath>                                           // for sqrt
 #include <cstdio>                                          // for sscanf
 #include <cstdlib>                                         // for calloc
+#include <cstring>                                         // for strchr, strcmp
 
 #include "debug.h"
 #include "host.h"
@@ -56,6 +57,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"                                  // for IS_KEY_PREFIX
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "video.h"
@@ -589,11 +591,6 @@ void draw_splashscreen(state_vulkan_sdl3& s) {
         catch (std::exception& e) { log_and_exit_uv(e); }
 }
 
-// todo C++20: replace with member function
-constexpr bool starts_with(std::string_view str, std::string_view match){
-        return str.rfind(match, /*check only 0-th pos*/ 0) == 0;
-};
-
 struct command_line_arguments {
         bool cursor = true;
         bool help = false;
@@ -610,94 +607,73 @@ struct command_line_arguments {
         std::string driver{};
 };
 
-bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl3& s, std::string_view arguments_sv) {
-        constexpr auto npos = std::string_view::npos;
+bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl3& s, char *fmt) {
         constexpr std::string_view wrong_option_msg = MOD_NAME "Wrong option: ";
 
-        // todo C++20: replace with std::views::split(options, ":")
-        auto next_token = [](std::string_view & options) -> std::string_view {
-                auto colon_pos = options.find(':');
-                auto token = options.substr(0, colon_pos);
-                options.remove_prefix(colon_pos == npos ? options.size() : colon_pos + 1);
-                return token;
-        };
-        
-        while (!arguments_sv.empty()) try {
-                const std::string_view token = next_token(arguments_sv);
-                if (token.empty()) {
-                        continue;
-                }
-
-                //svtoi = string_view to int
-                auto svtoi = [token](std::string_view str) -> int {
+        char *token = nullptr;
+        char *saveptr = nullptr;
+        while ((token = strtok_r(fmt, ":", &saveptr))) try {
+                fmt = nullptr;
+                //cstoi = cstring to int (checked)
+                auto cstoi = [token](char *cstr) -> int {
                         std::size_t endpos = 0;
-                        int result = std::stoi(std::string(str), &endpos, 0);
+                        std::string str = cstr;
+                        int result = std::stoi(str, &endpos, 0);
                         if (endpos != str.size()) {
                                 throw std::runtime_error{ std::string(token) };
                         }
                         return result;
                 };
-
-                if (token == "d") {
+                if (strcmp(token, "help") == 0) {
+                        show_help();
+                        args.help = true;
+                } else if (strcmp(token, "d") == 0) {
                         s.deinterlace = true;
-                } else if (token == "fs") {
+                } else if (strcmp(token, "fs") == 0) {
                         s.fullscreen = true;
-                } else if (token == "keep-aspect") {
+                } else if (strcmp(token, "keep-aspect") == 0) {
                         s.keep_aspect = true;
-                } else if (token == "nocursor") {
+                } else if (strcmp(token, "nocursor") == 0) {
                         args.cursor = false;
-                } else if (token == "nodecorate") {
+                } else if (strcmp(token, "nodecorate") == 0) {
                         args.window_flags |= SDL_WINDOW_BORDERLESS;
-                } else if (token == "novsync") {
+                } else if (strcmp(token, "novsync") == 0) {
                         args.vsync = false;
-                } else if (token == "tearing") {
+                } else if (strcmp(token, "tearing") == 0) {
                         args.tearing_permitted = true;
-                } else if (token == "validation") {
+                } else if (strcmp(token, "validation") == 0) {
                         args.validation = true;
-                } else if (starts_with(token, "display=")) {
-                        constexpr auto pos = "display="sv.size();
-                        args.display_idx = svtoi(token.substr(pos));
-                } else if (starts_with(token, "driver=")) {
-                        constexpr auto pos = "driver="sv.size();
-                        args.driver = std::string{ token.substr(pos) };
-                } else if (starts_with(token, "gpu=")) {
-                        if (token == "integrated"sv) {
+                } else if (IS_KEY_PREFIX(token, "display")) {
+                        args.display_idx = cstoi(strchr(token, '=') + 1);
+                } else if (IS_KEY_PREFIX(token, "driver")) {
+                        args.driver = std::string{ strchr(token, '=') + 1};
+                } else if (IS_KEY_PREFIX(token, "gpu")) {
+                        char *val = strchr(token, '=') + 1;
+                        if (strcmp(val, "integrated") == 0) {
                                 args.gpu_idx = vulkan_display::gpu_integrated;
-                        } else if (token == "discrete"sv) {
+                        } else if (strcmp(val, "discrete") == 0) {
                                 args.gpu_idx = vulkan_display::gpu_discrete;
                         } else {
-                                constexpr auto pos = "gpu="sv.size();
-                                args.gpu_idx = svtoi(token.substr(pos));
+                                args.gpu_idx = cstoi(val);
                         }
-                } else if (starts_with(token, "pos=")) {
-                        auto tok = token;
-                        tok.remove_prefix("pos="sv.size());
-                        auto comma = tok.find(',');
-                        if (comma == npos) {
+                } else if (IS_KEY_PREFIX(token, "pos")) {
+                        if (strchr(token, ',') == nullptr) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Missing colon in option:" 
                                         << token << '\n';
                                 return false;
                         }
-                        args.x = svtoi(tok.substr(0, comma));
-                        args.y = svtoi(tok.substr(comma + 1));
-                } else if (starts_with(token, "size=")) {
-                        auto tok = token;
-                        tok.remove_prefix("size="sv.size());
-                        auto x = tok.find('x');
-                        if (x == npos) {
+                        args.x = cstoi(strchr(token, '=') + 1);
+                        args.y = cstoi(strchr(token, ',') + 1);
+                } else if (IS_KEY_PREFIX(token, "size")) {
+                        if (strchr(token, 'x') == nullptr) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Missing deliminer 'x' in option:" 
                                         << token << '\n';
                                 return false;
                         }
-                        s.width = svtoi(tok.substr(0, x));
-                        s.height = svtoi(tok.substr(x + 1));
-                } else if (starts_with(token, "window_flags=")) {
-                        constexpr auto pos = "window_flags="sv.size();
-                        int flags = svtoi(token.substr(pos));
-                        args.window_flags |= flags;
-                } else if (token == "help") {
-                        show_help();
-                        args.help = true;
+                        s.width = cstoi(strchr(token, '=') + 1);
+                        s.height = cstoi(strchr(token, 'x') + 1);
+                } else if (IS_KEY_PREFIX(token, "window_flags")) {
+                        args.window_flags |= cstoi(strchr(token, '=') + 1);
                 } else {
                         LOG(LOG_LEVEL_ERROR) << wrong_option_msg << token << '\n';
                         return false;
@@ -775,7 +751,8 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
         command_line_arguments args{};
         if (fmt) {
-                if (!parse_command_line_arguments(args, *s, fmt)) {
+                std::string cpy = fmt;
+                if (!parse_command_line_arguments(args, *s, cpy.data())) {
                         return nullptr;
                 }
                 if (args.help) {
