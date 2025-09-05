@@ -737,6 +737,8 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                 struct video_frame_sdl3_data *frame_data =
                     calloc(1, sizeof *frame_data);
                 frame_data->texture = texture;
+                f->callbacks.dispose_udata = frame_data;
+                f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 if (s->cs_data->convert != NULL) {
                         frame_data->preconv_data = f->tiles[0].data =
                             malloc(f->tiles[0].data_len);
@@ -744,14 +746,13 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
                         SDL_CHECK(SDL_LockTexture(texture, NULL,
                                                   (void **) &f->tiles[0].data,
                                                   &s->texture_pitch),
+                                  vf_free(f);
                                   return false);
                         if (!codec_is_planar(desc.color_spec)) {
                                 f->tiles[0].data_len =
                                     desc.height * s->texture_pitch;
                         }
                 }
-                f->callbacks.dispose_udata = frame_data;
-                f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
 
