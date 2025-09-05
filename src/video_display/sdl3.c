@@ -470,8 +470,12 @@ sdl3_print_displays()
         }
 }
 
-static SDL_DisplayID get_display_id_to_idx(int idx)
+static SDL_DisplayID
+get_display_id_from_idx(int idx)
 {
+        if (idx == -1) {
+                idx = 0;
+        }
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
         if (idx < count) {
@@ -772,6 +776,24 @@ vulkan_warn(const char *req_renderers_name, const char *actual_renderer_name)
                 explicit ? "" : " Please report!");
 }
 
+static void
+sdl3_set_window_position(struct state_sdl3 *s, int x, int y) {
+        if (SDL_SetWindowPosition(s->window, x, y)) {
+                return;
+        }
+        const bool is_wayland =
+            strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
+        if (is_wayland && s->display_idx != -1 && !s->fs) {
+                MSG(ERROR, "In Wayland, display specification is available "
+                           "only together with fullscreen flag ':fs'!\n");
+        } else if (!is_wayland || s->x != SDL_WINDOWPOS_UNDEFINED ||
+                   s->y != SDL_WINDOWPOS_UNDEFINED) {
+                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                    SDL_GetError());
+        }
+        // no warning if wayland and x/y unspecified
+}
+
 static bool
 display_sdl3_reconfigure_real(void *state, struct video_desc desc)
 {
@@ -797,7 +819,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         }
         int width  = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        const SDL_DisplayID display_id = get_display_id_to_idx(s->display_idx);
+        const SDL_DisplayID display_id = get_display_id_from_idx(s->display_idx);
         int x      = s->x == SDL_WINDOWPOS_UNDEFINED
                          ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id)
                          : s->x;
@@ -809,7 +831,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
-        SDL_SetWindowPosition(s->window, x, y);
+        sdl3_set_window_position(s, x, y);
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
@@ -945,6 +967,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         struct state_sdl3 *s      = calloc(1, sizeof *s);
 
         s->magic  = MAGIC_SDL3;
+        s->display_idx = -1;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
 
