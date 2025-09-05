@@ -146,9 +146,11 @@ get_default_crf(const char *codec_name)
         if (strstr(codec_name, "libx26") == codec_name) {
                 return 22.0;
         }
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 0, 0)
         if (strcmp(codec_name, "libsvtav1") == 0) {
                 return 35.0; // 35 is libsvtav1 default
         }
+#endif
         return 0;
 }
 
@@ -2116,6 +2118,7 @@ configure_svt_av1(AVCodecContext *codec_ctx, struct setparam_param *param) {
                 check_av_opt_set<int>(codec_ctx->priv_data, val, 2,
                                       "tile dimensions for SVT AV1");
         }
+        check_av_opt_set<int>(codec_ctx->priv_data, "rc", 1, "RC to CBR (1)");
 #endif
 }
 
