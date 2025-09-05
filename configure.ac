@@ -3445,7 +3445,7 @@ end_section() {
 add_column() {
         PAD_DOTS=31
         # left column
-        if [ test $4 = 0 ]; then
+        if test "${4?}" -eq 0; then
                 printf "$1\n  $2 $(for n in `seq ${#2} $PAD_DOTS`; do printf .; done) $(printf %-3s $3)"
                 return 1
         else
