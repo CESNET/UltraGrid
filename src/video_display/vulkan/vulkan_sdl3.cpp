@@ -101,6 +101,14 @@ constexpr int magic_vulkan_sdl3 = 0x33536b56; // 'VkS3'
 constexpr int initial_frame_count = 0;
 #define MOD_NAME "[Vulkan SDL3] "
 
+#define SDL_CHECK(cmd, ...) \
+        do { \
+                if (!(cmd)) { \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
+                                #cmd, SDL_GetError()); \
+                        __VA_ARGS__; \
+                } \
+        } while (0)
 
 void display_vulkan_new_message(module*);
 video_frame* display_vulkan_getf(void* state);
@@ -115,7 +123,7 @@ public:
                 assert(window);
                 int width = 0;
                 int height = 0;
-                SDL_GetWindowSizeInPixels(window, &width, &height);
+                SDL_CHECK(SDL_GetWindowSizeInPixels(window, &width, &height));
                 if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
                         width = 0;
                         height = 0;
@@ -282,8 +290,8 @@ constexpr bool display_vulkan_process_key(state_vulkan_sdl3& s, int64_t key) {
                         s.fullscreen = !s.fullscreen;
                         float mouse_x = 0, mouse_y = 0;
                         SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
-                        SDL_SetWindowFullscreen(s.window, s.fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
-                        SDL_WarpMouseGlobal(mouse_x, mouse_y);
+                        SDL_CHECK(SDL_SetWindowFullscreen(s.window, s.fullscreen ? SDL_WINDOW_FULLSCREEN : 0));
+                        SDL_CHECK(SDL_WarpMouseGlobal(mouse_x, mouse_y));
                         return true;
                 }
                 case 'q':
@@ -306,7 +314,7 @@ void process_user_messages(state_vulkan_sdl3& s) {
                 response* r = nullptr;
                 int key;
                 if (strstr(msg->text, "win-title ") == msg->text) {
-                        SDL_SetWindowTitle(s.window, msg->text + strlen("win-title "));
+                        SDL_CHECK(SDL_SetWindowTitle(s.window, msg->text + strlen("win-title ")));
                         r = new_response(RESPONSE_OK, NULL);
                 } else if (sscanf(msg->text, "%d", &key) == 1) {
                         if (!display_vulkan_process_key(s, key)) {
@@ -365,7 +373,7 @@ void process_events(state_vulkan_sdl3& s) {
                         }
                         s.width = width;
                         s.height = height;
-                        SDL_SetWindowSize(s.window, width, height);
+                        SDL_CHECK(SDL_SetWindowSize(s.window, width, height));
                         debug_msg(MOD_NAME "resizing to %d x %d\n", width, height);
                 } else if (sdl_event.type == SDL_EVENT_WINDOW_RESIZED)
                 {
@@ -401,7 +409,7 @@ void display_vulkan_run(void* state) {
                         s->frames = 0;
                 }
         }
-        SDL_HideWindow(s->window);
+        SDL_CHECK(SDL_HideWindow(s->window));
 
 }
 
@@ -441,7 +449,7 @@ void print_gpus() {
 }
 
 void show_help() {
-        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+        SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
 
         auto print_drivers = []() {
                 for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
@@ -741,7 +749,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         }
 
         if (!args.driver.empty()) {
-                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str());
+                SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str()));
         }
         ret = SDL_InitSubSystem(SDL_INIT_VIDEO);
         if (!ret) {
@@ -751,9 +759,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         if (!args.cursor) {
-                SDL_HideCursor();
+                SDL_CHECK(SDL_HideCursor());
         }
-        SDL_DisableScreenSaver();
+        SDL_CHECK(SDL_DisableScreenSaver());
 
         for (auto& binding : display_vulkan_keybindings) {
                 std::string msg = std::to_string(static_cast<int>(binding.first));
@@ -787,7 +795,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
         int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (s->fullscreen) {
-                SDL_SetWindowFullscreen(s->window, true);
+                SDL_CHECK(SDL_SetWindowFullscreen(s->window, true));
         }
 
         s->window = SDL_CreateWindow(window_title, s->width, s->height, window_flags);
@@ -796,7 +804,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 return nullptr;
         }
         s->window_callback = new WindowCallback(s->window);
-        SDL_SetWindowPosition(s->window, x, y);
+        SDL_CHECK(SDL_SetWindowPosition(s->window, x, y));
 
         uint32_t extension_count = 0;
         const char *const *extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count);
@@ -831,7 +839,7 @@ void display_vulkan_done(void* state) {
         auto* s = static_cast<state_vulkan_sdl3*>(state);
         assert(s->magic == magic_vulkan_sdl3);
 
-        SDL_ShowCursor();
+        SDL_CHECK(SDL_ShowCursor());
 
         try {
                 s->vulkan->destroy();
@@ -958,7 +966,7 @@ void display_vulkan_new_message(module* mod) {
 
         SDL_Event event{};
         event.type = s->sdl_user_new_message_event;
-        SDL_PushEvent(&event);
+        SDL_CHECK(SDL_PushEvent(&event));
 }
 
 
