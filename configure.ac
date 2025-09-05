@@ -2745,9 +2745,14 @@ if test $jack_trans_req != no || test $jack_req != no; then
         AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 fi
 
+if test "${system?}" != Windows; then
+        JACK_LIBS=-ldl
+fi
+
 if test "${jack_trans_req?}" != no && test "${FOUND_JACK_H?}" = yes
 then
         OBJS="$OBJS src/audio/jack.o"
+        LIBS="$LIBS${JACK_LIBS:+ $JACK_LIBS}"
         AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
         jack_trans=yes
 fi
@@ -2757,8 +2762,8 @@ then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
     jack=yes
-    add_module acap_jack "$JACK_CAP_OBJ"
-    add_module aplay_jack "$JACK_PLAY_OBJ"
+    add_module acap_jack "$JACK_CAP_OBJ" "${JACK_LIBS-}"
+    add_module aplay_jack "$JACK_PLAY_OBJ" "${JACK_LIBS-}"
 fi
 
 ENSURE_FEATURE_PRESENT([$jack_req], [$jack], [JACK not found])
