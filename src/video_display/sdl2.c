@@ -520,6 +520,23 @@ print_renderer_info(SDL_Renderer *renderer)
                     SDL_GetPixelFormatName(renderer_info.texture_formats[i]));
 }
 
+static void
+display_sdl2_validate_params(struct state_sdl2 *s)
+{
+        if (strcmp(SDL_GetCurrentVideoDriver(), "wayland") != 0) {
+                return;
+        }
+        if (s->display_idx != -1 && !s->fs) {
+                MSG(WARNING, "In Wayland, display specification is available "
+                           "only together with fullscreen flag ':fs'!\n");
+        }
+        if (s->x != SDL_WINDOWPOS_UNDEFINED ||
+            s->y != SDL_WINDOWPOS_UNDEFINED) {
+                MSG(WARNING,
+                    "Window positon should not be specified with Wayland!\n");
+        }
+}
+
 static bool
 display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 {
@@ -546,8 +563,10 @@ display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         }
         int width = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->x;
-        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->y;
+        int display_idx = s->display_idx == -1 ? 0 : s->display_idx;
+        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_idx) : s->x;
+        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_idx) : s->y;
+        display_sdl2_validate_params(s);
         s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
@@ -675,6 +694,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         struct state_sdl2 *s = calloc(1, sizeof *s);
 
         s->magic = MAGIC_SDL2;
+        s->display_idx = -1;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync = true;
 

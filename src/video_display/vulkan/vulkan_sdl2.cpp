@@ -584,7 +584,7 @@ struct command_line_arguments {
         bool tearing_permitted = false;
         bool validation = false;
 
-        int display_idx = 0;
+        int display_idx = -1;
         int x = SDL_WINDOWPOS_UNDEFINED;
         int y = SDL_WINDOWPOS_UNDEFINED;
 
@@ -693,6 +693,24 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
         return true;
 }
 
+void
+vulkan_sdl2_validate_params(state_vulkan_sdl2            *s,
+                            const command_line_arguments *args)
+{
+        if (strcmp(SDL_GetCurrentVideoDriver(), "wayland") != 0) {
+                return;
+        }
+        if (args->display_idx != -1 && !s->fullscreen) {
+                MSG(WARNING, "In Wayland, display specification is available "
+                           "only together with fullscreen flag ':fs'!\n");
+        }
+        if (args->x != SDL_WINDOWPOS_UNDEFINED ||
+            args->y != SDL_WINDOWPOS_UNDEFINED) {
+                MSG(WARNING,
+                    "Window positon should not be specified with Wayland!\n");
+        }
+}
+
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL2 module currently doesn't support audio!\n");
@@ -739,8 +757,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 window_title = get_commandline_param("window-title");
         }
 
-        int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.x);
-        int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.y);
+        int display_idx = args.display_idx == -1 ? 0 : args.display_idx;
+        int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_idx) : args.x);
+        int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_idx) : args.y);
         if(s->width == -1 && s->height == -1){
                 SDL_DisplayMode mode;
                 int display_index = 0;
@@ -762,6 +781,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
 
+        vulkan_sdl2_validate_params(s.get(), &args);
         s->window = SDL_CreateWindow(window_title, x, y, s->width, s->height, window_flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create window : %s\n", SDL_GetError());
