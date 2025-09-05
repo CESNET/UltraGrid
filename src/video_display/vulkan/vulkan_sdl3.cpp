@@ -601,7 +601,7 @@ struct command_line_arguments {
         bool tearing_permitted = false;
         bool validation = false;
 
-        int display_idx = 0;
+        int display_idx = -1;
         int x = SDL_WINDOWPOS_UNDEFINED;
         int y = SDL_WINDOWPOS_UNDEFINED;
 
@@ -723,6 +723,21 @@ sdl_set_log_level()
                                  : SDL_LOG_PRIORITY_VERBOSE);
 }
 
+SDL_DisplayID
+get_display_id_from_idx(int idx)
+{
+        if (idx == -1) {
+                idx = 0;
+        }
+        int            count    = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        if (idx < count) {
+                return displays[idx];
+        }
+        MSG(ERROR, "Display index %d out of range!\n", idx);
+        return 0;
+}
+
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         sdl_set_log_level();
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
@@ -775,8 +790,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 window_title = get_commandline_param("window-title");
         }
 
-        int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.x);
-        int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(args.display_idx) : args.y);
+        const SDL_DisplayID display_id = get_display_id_from_idx(args.display_idx);
+        int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_id) : args.x);
+        int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_id) : args.y);
         if(s->width == -1 && s->height == -1){
                 int display_index = 0;
                 const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(display_index);
