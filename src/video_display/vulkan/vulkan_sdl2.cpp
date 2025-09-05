@@ -675,12 +675,12 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                         constexpr auto pos = "driver="sv.size();
                         args.driver = std::string{ token.substr(pos) };
                 } else if (starts_with(token, "gpu=")) {
-                        if (token == "integrated"sv) {
+                        constexpr auto pos = "gpu="sv.size();
+                        if (token.substr(pos) == "integrated"sv) {
                                 args.gpu_idx = vulkan_display::gpu_integrated;
-                        } else if (token == "discrete"sv) {
+                        } else if (token.substr(pos) == "discrete"sv) {
                                 args.gpu_idx = vulkan_display::gpu_discrete;
                         } else {
-                                constexpr auto pos = "gpu="sv.size();
                                 args.gpu_idx = svtoi(token.substr(pos));
                         }
                 } else if (starts_with(token, "pos=")) {
