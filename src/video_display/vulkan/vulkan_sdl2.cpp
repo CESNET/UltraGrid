@@ -112,6 +112,15 @@ constexpr int magic_vulkan_sdl2 = 0x3cc234a2;
 constexpr int initial_frame_count = 0;
 #define MOD_NAME "[VULKAN_SDL2] "
 
+#define SDL_CHECK(cmd, ...) \
+        do { \
+                int ret = cmd; \
+                if (ret < 0) { \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", \
+                                #cmd, SDL_GetError()); \
+                        __VA_ARGS__; \
+                } \
+        } while (0)
 
 void display_vulkan_new_message(module*);
 video_frame* display_vulkan_getf(void* state);
@@ -291,9 +300,11 @@ constexpr bool display_vulkan_process_key(state_vulkan_sdl2& s, int64_t key) {
                 case 'f': {
                         s.fullscreen = !s.fullscreen;
                         int mouse_x = 0, mouse_y = 0;
-                        SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
-                        SDL_SetWindowFullscreen(s.window, s.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                        SDL_WarpMouseGlobal(mouse_x, mouse_y);
+                        SDL_CHECK(SDL_GetGlobalMouseState(&mouse_x, &mouse_y));
+                        SDL_CHECK(SDL_SetWindowFullscreen(
+                            s.window,
+                            s.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+                        SDL_CHECK(SDL_WarpMouseGlobal(mouse_x, mouse_y));
                         return true;
                 }
                 case 'q':
@@ -984,7 +995,7 @@ void display_vulkan_new_message(module* mod) {
 
         SDL_Event event{};
         event.type = s->sdl_user_new_message_event;
-        SDL_PushEvent(&event);
+        SDL_CHECK(SDL_PushEvent(&event));
 }
 
 
