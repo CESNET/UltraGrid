@@ -779,9 +779,8 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 } else {
                         s->width = mode->w;
                         s->height = mode->h;
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Detected display size: %dx%d\n", mode->w, mode->h);
                 }
-
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Detected display size: %dx%d\n", mode->w, mode->h);
         }
         if (s->width == 0) s->width = 960;
         if (s->height == 0) s->height = 540;
