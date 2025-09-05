@@ -795,7 +795,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
 
         int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (s->fullscreen) {
-                SDL_CHECK(SDL_SetWindowFullscreen(s->window, true));
+                window_flags |= SDL_WINDOW_FULLSCREEN;
         }
 
         s->window = SDL_CreateWindow(window_title, s->width, s->height, window_flags);
