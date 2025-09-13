@@ -1,12 +1,15 @@
 #include <memory>
+#include <iostream>
+#include <string>
+#include <svt-jpegxs/SvtJpegxsEnc.h>
 
+#include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_compress.h"
 #include "utils/video_frame_pool.h"
-#include <svt-jpegxs/SvtJpegxsEnc.h>
-#include <iostream>
-#include <string>
+
+#define MOD_NAME "[JPEG XS] "
 
 using std::shared_ptr;
 
@@ -30,6 +33,7 @@ public:
         svt_jpeg_xs_bitstream_buffer_t out_buf;
         video_frame_pool pool;
 
+        bool parse_fmt(char *fmt);
         static state_video_compress_jpegxs *create(struct module *parent, const char *opts);
         void push(std::shared_ptr<video_frame> in_frame);
         std::shared_ptr<video_frame> pop();
@@ -37,6 +41,24 @@ public:
 
 state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, const char *opts) {
         (void) parent;
+
+        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &encoder);
+        if (err != SvtJxsErrorNone) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load JPEG XS default parameters\n");
+                throw 1;
+        }
+
+        encoder.input_bit_depth = 8;
+        encoder.bpp_numerator = 3;
+
+        if(opts && opts[0] != '\0') {
+                char *fmt = strdup(opts);
+                if (!parse_fmt(fmt)) {
+                        free(fmt);
+                        throw 1;
+                }
+                free(fmt);
+        }
 }
 
 state_video_compress_jpegxs *state_video_compress_jpegxs::create(struct module *parent, const char *opts) {
@@ -78,7 +100,7 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
                 h_factor = 2;
                 break;
         default:
-                fprintf(stderr, "Unsupported colour format!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported colour format\n");
                 return false;
         }
 
@@ -90,7 +112,7 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
                 in_buf->alloc_size[i] = in_buf->stride[i] * (h / h_factor) * pixel_size;
                 in_buf->data_yuv[i] = malloc(in_buf->alloc_size[i]);
                 if (!in_buf->data_yuv[i]) {
-                        fprintf(stderr, "Failed to allocate plane %d\n", i);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d\n", i);
                         return false;
                 }
         }
@@ -99,26 +121,18 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
 }
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc) {
-        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
-        if (err != SvtJxsErrorNone) {
-                fprintf(stderr, "Failed to load JPEG XS default parameters\n");
-                return false;
-        }
-
         s->encoder.source_width = desc.width;
         s->encoder.source_height = desc.height;
-        s->encoder.input_bit_depth = 8;
         s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
-        s->encoder.bpp_numerator = 3;
 
-        err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
+        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
-                fprintf(stderr, "Failed to initialize JPEG XS encoder\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder\n");
                 return false;
         }
 
         if (!setup_image_input_buffer(&s->in_buf, &s->encoder)) {
-                fprintf(stderr, "Failed to initialize input image buffer\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize input image buffer\n");
                 return false;
         }
 
@@ -130,7 +144,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         s->out_buf.used_size = 0;
         s->out_buf.buffer = (uint8_t *) malloc(s->out_buf.allocation_size);
         if (!s->out_buf.buffer) {
-                fprintf(stderr, "Failed to initialize output image buffer\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize output image buffer\n");
                 return false;
         }
 
@@ -143,12 +157,34 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         return true;
 }
 
+bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
+        char *tok, *save_ptr = NULL;
+
+        while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
+                if (IS_KEY_PREFIX(tok, "bpp")) {
+                        const char *bpp = strchr(tok, '=') + 1;
+                        int num = 0, den = 1;
+                        if (sscanf(bpp, "%d/%d", &num, &den) == 2 || sscanf(bpp, "%d", &num) == 1) {
+                                encoder.bpp_numerator = num;
+                                encoder.bpp_denominator = den;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Wrong bpp format: %s\n", tok);
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
+                }
+                fmt = nullptr;
+        }
+
+        return true;
+}
+
 void *
 jpegxs_compress_init(struct module *parent, const char *opts) {
         struct state_video_compress_jpegxs *s;
         
         if (opts && strcmp(opts, "help") == 0) {
-                printf("JPEG XS compression usage:\n");
+                col() << "JPEG XS compression usage:\n";
                 return INIT_NOERR;
         }
 
@@ -242,14 +278,14 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
         SvtJxsErrorType_t err;
         err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, 1 /*blocking*/);
         if (err != SvtJxsErrorNone) {
-                fprintf(stderr, "Failed to send frame to encoder!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder\n");
                 return NULL;
         }
 
         svt_jpeg_xs_frame_t enc_output;
         err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, 1 /*blocking*/);
         if (err != SvtJxsErrorNone) {
-                fprintf(stderr, "Failed to get encoded packet!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet\n");
                 return NULL;
         }
 
@@ -265,7 +301,7 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
         out_tile->height = frame->tiles[0].height;
         size_t enc_size = enc_output.bitstream.used_size;
         if (enc_size > out_tile->data_len) {
-                fprintf(stderr, "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
                 return {};
         }
         
