@@ -789,14 +789,18 @@ sdl3_set_window_position(struct state_sdl3 *s, int x, int y) {
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
         if (is_wayland && s->display_idx != -1 && !s->fs) {
-                MSG(ERROR, "In Wayland, display specification is available "
-                           "only together with fullscreen flag ':fs'!\n");
-        } else if (!is_wayland || s->x != SDL_WINDOWPOS_UNDEFINED ||
-                   s->y != SDL_WINDOWPOS_UNDEFINED) {
-                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                MSG(ERROR,
+                    "In Wayland, display specification is possible only with "
+                    "fullscreen flag ':fs' (%s)\n",
                     SDL_GetError());
+                return;
         }
-        // no warning if wayland and x/y unspecified
+        const int ll = !is_wayland || s->x != SDL_WINDOWPOS_UNDEFINED ||
+                               s->y != SDL_WINDOWPOS_UNDEFINED
+                           ? LOG_LEVEL_ERROR
+                           : LOG_LEVEL_VERBOSE;
+        log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
+                SDL_GetError());
 }
 
 static bool

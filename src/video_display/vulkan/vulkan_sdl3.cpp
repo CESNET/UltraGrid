@@ -730,14 +730,18 @@ vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
         if (is_wayland && args->display_idx != -1 && !s->fullscreen) {
-                MSG(ERROR, "In Wayland, display specification is available "
-                           "only together with fullscreen flag ':fs'!\n");
-        } else if (!is_wayland || args->x != SDL_WINDOWPOS_UNDEFINED ||
-                   args->y != SDL_WINDOWPOS_UNDEFINED) {
-                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                MSG(ERROR,
+                    "In Wayland, display specification is possible only with "
+                    "fullscreen flag ':fs' (%s)\n",
                     SDL_GetError());
+                return;
         }
-        // no warning if wayland and x/y unspecified
+        const int ll = !is_wayland || args->x != SDL_WINDOWPOS_UNDEFINED ||
+                               args->y != SDL_WINDOWPOS_UNDEFINED
+                           ? LOG_LEVEL_ERROR
+                           : LOG_LEVEL_VERBOSE;
+        log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
+                SDL_GetError());
 }
 
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
