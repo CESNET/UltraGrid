@@ -727,24 +727,32 @@ get_display_id_from_idx(int idx)
         return 0;
 }
 
-void
+bool
 vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
                                 const command_line_arguments *args)
 {
         if (args->display_idx == -1 && args->x == SDL_WINDOWPOS_UNDEFINED &&
             args->y == SDL_WINDOWPOS_UNDEFINED) {
-                return;
+                return true; // nothing to set
         }
         int x = args->x;
         int y = args->y;
         if (args->display_idx != -1) {
+                if (x != SDL_WINDOWPOS_UNDEFINED || y != SDL_WINDOWPOS_UNDEFINED) {
+                        MSG(ERROR, "Do not set window positon and display at "
+                                   "the same time!\n");
+                        return false;
+                }
                 const SDL_DisplayID display_id =
                     get_display_id_from_idx(args->display_idx);
+                if (display_id == 0) {
+                        return false;
+                }
                 x = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
                 y = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
         }
         if (SDL_SetWindowPosition(s->window, x, y)) {
-                return;
+                return true;
         }
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
@@ -753,11 +761,11 @@ vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
                     "In Wayland, display specification is possible only with "
                     "fullscreen flag ':fs' (%s)\n",
                     SDL_GetError());
-                return;
+        } else {
+                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                    SDL_GetError());
         }
-        const int ll = !is_wayland ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE;
-        log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
-                SDL_GetError());
+        return false;
 }
 
 void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
@@ -840,7 +848,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 return nullptr;
         }
         s->window_callback = new WindowCallback(s->window);
-        vulkan_sdl3_set_window_position(s.get(), &args);
+        if (!vulkan_sdl3_set_window_position(s.get(), &args)) {
+                return nullptr;
+        }
 
         uint32_t extension_count = 0;
         const char *const *extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count);

@@ -93,7 +93,7 @@ static void display_frame(struct state_sdl3 *s, struct video_frame *frame);
 static struct video_frame *display_sdl3_getf(void *state);
 static void                display_sdl3_new_message(struct module *mod);
 static bool display_sdl3_reconfigure_real(void *state, struct video_desc desc);
-static void loadSplashscreen(struct state_sdl3 *s);
+static void display_sdl3_done(void *state);
 
 enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 
@@ -778,22 +778,30 @@ vulkan_warn(const char *req_renderers_name, const char *actual_renderer_name)
                 explicit ? "" : " Please report!");
 }
 
-static void
+static bool
 sdl3_set_window_position(struct state_sdl3 *s) {
         if (s->display_idx == -1 && s->x == SDL_WINDOWPOS_UNDEFINED &&
             s->y == SDL_WINDOWPOS_UNDEFINED) {
-                return;
+                return true; // nothing to set
         }
         int x = s->x;
         int y = s->y;
         if (s->display_idx != -1) {
+                if (x != SDL_WINDOWPOS_UNDEFINED || y != SDL_WINDOWPOS_UNDEFINED) {
+                        MSG(ERROR, "Do not set windows positiona and display "
+                                   "at the same time!\n");
+                        return false;
+                }
                 const SDL_DisplayID display_id =
                     get_display_id_from_idx(s->display_idx);
+                if (display_id == 0) {
+                        return false;
+                }
                 x = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
                 y = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
         }
         if (SDL_SetWindowPosition(s->window, x, y)) {
-                return;
+                return true;
         }
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
@@ -802,11 +810,11 @@ sdl3_set_window_position(struct state_sdl3 *s) {
                     "In Wayland, display specification is possible only with "
                     "fullscreen flag ':fs' (%s)\n",
                     SDL_GetError());
-                return;
+        } else {
+                MSG(ERROR, "Error (SDL_SetWindowPosition): %s\n",
+                    SDL_GetError());
         }
-        const int ll = !is_wayland ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE;
-        log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
-                SDL_GetError());
+        return false;
 }
 
 static bool
@@ -839,7 +847,10 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
-        sdl3_set_window_position(s);
+        ;
+        if (!sdl3_set_window_position(s)) {
+                return false;
+        }
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
@@ -893,14 +904,14 @@ skip_window_creation:
         return true;
 }
 
-static void
+static bool
 loadSplashscreen(struct state_sdl3 *s)
 {
         struct video_frame *frame = get_splashscreen();
         if (!display_sdl3_reconfigure_real(s, video_desc_from_frame(frame))) {
                 MSG(WARNING, "Cannot render splashscreeen!\n");
                 vf_free(frame);
-                return;
+                return false;
         }
         struct video_frame *splash = display_sdl3_getf(s);
         memcpy(splash->tiles[0].data, frame->tiles[0].data,
@@ -909,6 +920,7 @@ loadSplashscreen(struct state_sdl3 *s)
         display_frame(s, splash); // don't be tempted to use _putf() - it will
                                   // use event queue and there may arise a
                                   // race-condition with recv thread
+        return true;
 }
 
 static bool
@@ -1113,7 +1125,10 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                                         keybindings[i].description);
         }
 
-        loadSplashscreen(s);
+        if (!loadSplashscreen(s)) {
+                display_sdl3_done(s);
+                return NULL;
+        }
 
         log_msg(LOG_LEVEL_NOTICE, "SDL3 initialized successfully.\n");
 
