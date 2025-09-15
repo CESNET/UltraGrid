@@ -36,10 +36,13 @@ download_install_cineform() {(
 
 download_build_aja() {
         git clone --depth 1 https://github.com/aja-video/libajantv2.git
-        # TODO TOREMOVE this workaround when not needed
+        # TODO TOREMOVE this workarounds when not needed
         tr -d '\n' < libajantv2/VERSION.txt > ver-fix-no-NL$$.txt &&
                 mv ver-fix-no-NL$$.txt libajantv2/VERSION.txt
+        sed -i -e '/MACOS_SDK_VERSION/d' libajantv2/cmake/CMakeOptions.cmake &&
+                SDKROOT=$(xcrun --sdk macosx --show-sdk-path) && export SDKROOT
         export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
+
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
                 -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
