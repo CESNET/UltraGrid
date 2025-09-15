@@ -1,17 +1,19 @@
-From 0bd8bc0873b908f4e13470933fe09f97096922da Mon Sep 17 00:00:00 2001
+From 89d51a173bd0fb83635acf5fcac9a820f6df378e Mon Sep 17 00:00:00 2001
 From: Martin Pulec <martin.pulec@cesnet.cz>
-Date: Thu, 3 Feb 2022 11:01:47 +0100
+Date: Mon, 15 Sep 2025 11:37:25 +0200
 Subject: [PATCH] CMakeList.txt: remove output lib name force (UNIX)
 
 Currently the actual library name libCFHDCodec.a disagrees with the name
 generated in .pc file (-lCFHDCodecStatic) so this names the library with
 the default name libCFHDCodecStatic.a (similarly for shared).
+
+(similarly for shared)
 ---
- CMakeLists.txt | 3 ---
- 1 file changed, 3 deletions(-)
+ CMakeLists.txt | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index cb0ded3..f247302 100644
+index cb0ded3..66b882c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -57,9 +57,6 @@ if (BUILD_LIBS)
@@ -24,6 +26,14 @@ index cb0ded3..f247302 100644
  		
  			target_link_libraries(CFHDCodecStatic)
  		endif (BUILD_SEPARATED)
+@@ -79,7 +76,6 @@ if (BUILD_LIBS)
+ 			target_compile_definitions(CFHDCodecShared PUBLIC -DDYNAMICLIB=1 -DCODECCOMBINED=1)
+ 			target_link_libraries(CFHDCodecShared)
+ 			set_target_properties(CFHDCodecShared PROPERTIES POSITION_INDEPENDENT_CODE ON)
+-			set_target_properties(CFHDCodecShared PROPERTIES OUTPUT_NAME CFHDCodec)
+ 		endif (BUILD_SEPARATED)
+ 	endif (BUILD_STATIC)
+ endif (BUILD_LIBS)
 -- 
-2.37.3
+2.51.0
 
