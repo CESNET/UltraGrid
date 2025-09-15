@@ -88,14 +88,16 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len){
 
                         synth_ptp_ts += delta_local * spa_corr;
 
+                        int64_t predicted_delta_spa_ptp = (delta_local * spa_corr) - delta_ptp;
                         spa_corr = spa_dll_update(&dll, (int64_t) synth_ptp_ts - (int64_t) new_ptp_ts);
-                }
 
-                auto new_offset = new_ptp_ts - new_local_ts;
-                if(offset == 0)
-                        offset = new_offset;
-                else
-                        offset = offset / 2 + new_offset / 2;
+                        update_count.fetch_add(1, std::memory_order_seq_cst);
+                        local_snapshot.store(new_local_ts, std::memory_order_seq_cst);
+                        ptp_snapshot.store(synth_ptp_ts, std::memory_order_seq_cst);
+                        corr_snapshot.store(spa_corr, std::memory_order_seq_cst);
+                        update_count.fetch_add(1, std::memory_order_seq_cst);
+
+                }
 
                 ptp_ts = new_ptp_ts;
                 local_ts = new_local_ts;
@@ -104,9 +106,25 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len){
 }
 
 uint64_t Ptp_clock::get_time(){
-        uint64_t now_ts = std::chrono::nanoseconds(clk::now().time_since_epoch()).count();
+        uint32_t seq0;
+        uint32_t seq1;
 
-        return now_ts + offset;
+        uint64_t l;
+        uint64_t p;
+        double c;
+
+        do{
+                seq0 = update_count.load(std::memory_order_seq_cst);
+                l = local_snapshot.load(std::memory_order_seq_cst);
+                p = ptp_snapshot.load(std::memory_order_seq_cst);
+                c = corr_snapshot.load(std::memory_order_seq_cst);
+                seq1 = update_count.load(std::memory_order_seq_cst);
+        }while(seq0 != seq1);
+
+        uint64_t now_ts = std::chrono::nanoseconds(clk::now().time_since_epoch()).count();
+        auto delta_local = now_ts - l;
+
+        return p + delta_local * c;
 }
 
 void Ptp_clock::ptp_worker_general(){

@@ -59,14 +59,15 @@ private:
 
         uint64_t ptp_ts = 0;
         uint64_t local_ts = 0;
-
         uint64_t synth_ptp_ts = 0;
-
-        uint64_t offset = 0;
-
         double spa_corr = 1.0;
-
         spa_dll dll;
+
+        std::atomic<uint32_t> update_count = 0;
+        std::atomic<uint64_t> local_snapshot = 0;
+        std::atomic<uint64_t> ptp_snapshot = 0;
+        std::atomic<double> corr_snapshot = 1.0;
+
 
         void ptp_worker_general();
         void processPtpPkt(uint8_t *buf, size_t len);
