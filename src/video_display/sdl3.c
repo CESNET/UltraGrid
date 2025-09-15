@@ -473,9 +473,6 @@ sdl3_print_displays()
 static SDL_DisplayID
 get_display_id_from_idx(int idx)
 {
-        if (idx == -1) {
-                idx = 0;
-        }
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
         if (idx < count) {
@@ -782,7 +779,19 @@ vulkan_warn(const char *req_renderers_name, const char *actual_renderer_name)
 }
 
 static void
-sdl3_set_window_position(struct state_sdl3 *s, int x, int y) {
+sdl3_set_window_position(struct state_sdl3 *s) {
+        if (s->display_idx == -1 && s->x == SDL_WINDOWPOS_UNDEFINED &&
+            s->y == SDL_WINDOWPOS_UNDEFINED) {
+                return;
+        }
+        int x = s->x;
+        int y = s->y;
+        if (s->display_idx != -1) {
+                const SDL_DisplayID display_id =
+                    get_display_id_from_idx(s->display_idx);
+                x = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
+                y = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
+        }
         if (SDL_SetWindowPosition(s->window, x, y)) {
                 return;
         }
@@ -795,10 +804,7 @@ sdl3_set_window_position(struct state_sdl3 *s, int x, int y) {
                     SDL_GetError());
                 return;
         }
-        const int ll = !is_wayland || s->x != SDL_WINDOWPOS_UNDEFINED ||
-                               s->y != SDL_WINDOWPOS_UNDEFINED
-                           ? LOG_LEVEL_ERROR
-                           : LOG_LEVEL_VERBOSE;
+        const int ll = !is_wayland ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE;
         log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
                 SDL_GetError());
 }
@@ -828,19 +834,12 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         }
         int width  = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        const SDL_DisplayID display_id = get_display_id_from_idx(s->display_idx);
-        int x      = s->x == SDL_WINDOWPOS_UNDEFINED
-                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id)
-                         : s->x;
-        int y      = s->y == SDL_WINDOWPOS_UNDEFINED
-                         ? (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id)
-                         : s->y;
         s->window  = SDL_CreateWindow(window_title, width, height, flags);
         if (!s->window) {
                 MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
-        sdl3_set_window_position(s, x, y);
+        sdl3_set_window_position(s);
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);

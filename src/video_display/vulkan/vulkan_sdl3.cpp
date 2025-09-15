@@ -702,9 +702,6 @@ sdl_set_log_level()
 SDL_DisplayID
 get_display_id_from_idx(int idx)
 {
-        if (idx == -1) {
-                idx = 0;
-        }
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
         if (idx < count) {
@@ -721,9 +718,20 @@ get_display_id_from_idx(int idx)
 
 void
 vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
-                                const command_line_arguments *args, int x,
-                                int y)
+                                const command_line_arguments *args)
 {
+        if (args->display_idx == -1 && args->x == SDL_WINDOWPOS_UNDEFINED &&
+            args->y == SDL_WINDOWPOS_UNDEFINED) {
+                return;
+        }
+        int x = args->x;
+        int y = args->y;
+        if (args->display_idx != -1) {
+                const SDL_DisplayID display_id =
+                    get_display_id_from_idx(args->display_idx);
+                x = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
+                y = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
+        }
         if (SDL_SetWindowPosition(s->window, x, y)) {
                 return;
         }
@@ -736,10 +744,7 @@ vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
                     SDL_GetError());
                 return;
         }
-        const int ll = !is_wayland || args->x != SDL_WINDOWPOS_UNDEFINED ||
-                               args->y != SDL_WINDOWPOS_UNDEFINED
-                           ? LOG_LEVEL_ERROR
-                           : LOG_LEVEL_VERBOSE;
+        const int ll = !is_wayland ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE;
         log_msg(ll, MOD_NAME "Error (SDL_SetWindowPosition): %s\n",
                 SDL_GetError());
 }
@@ -797,9 +802,6 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 window_title = get_commandline_param("window-title");
         }
 
-        const SDL_DisplayID display_id = get_display_id_from_idx(args.display_idx);
-        int x = (args.x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_id) : args.x);
-        int y = (args.y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(display_id) : args.y);
         if(s->width == -1 && s->height == -1){
                 int display_index = 0;
                 const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(display_index);
@@ -827,7 +829,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 return nullptr;
         }
         s->window_callback = new WindowCallback(s->window);
-        vulkan_sdl3_set_window_position(s.get(), &args, x, y);
+        vulkan_sdl3_set_window_position(s.get(), &args);
 
         uint32_t extension_count = 0;
         const char *const *extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count);
