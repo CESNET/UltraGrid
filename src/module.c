@@ -186,7 +186,7 @@ module_done(struct module *module_data)
         }
         struct module_priv_state *module_priv = module_data->module_priv;
         if (!module_del_ref(module_priv)) {
-                log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
+                printf(MOD_NAME "Warning: Child database not empty! Remaining:\n");
                 dump_tree(&module_priv->wrapper, 0);
         }
         module_data->module_priv = NULL; // to avoid multiple deinit
