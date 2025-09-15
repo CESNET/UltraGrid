@@ -615,11 +615,14 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
         while ((token = strtok_r(fmt, ":", &saveptr))) try {
                 fmt = nullptr;
                 //cstoi = cstring to int (checked)
-                auto cstoi = [token](char *cstr) -> int {
+                auto cstoi = [token](const char *cstr,
+                                     size_t      exp_size = 0) -> int {
                         std::size_t endpos = 0;
-                        std::string str = cstr;
-                        int result = std::stoi(str, &endpos, 0);
-                        if (endpos != str.size()) {
+                        int result = std::stoi(cstr, &endpos, 0);
+                        if (exp_size == 0) {
+                                exp_size = strlen(cstr);
+                        }
+                        if (endpos != exp_size) {
                                 throw std::runtime_error{ std::string(token) };
                         }
                         return result;
@@ -662,17 +665,22 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                                         << token << '\n';
                                 return false;
                         }
-                        args.x = cstoi(strchr(token, '=') + 1);
-                        args.y = cstoi(strchr(token, ',') + 1);
+                        token = strchr(token, '=') + 1;
+                        args.x = cstoi(token, strchr(token, ',') - token);
+                        token = strchr(token, ',') + 1;
+                        args.y = cstoi(token);
                 } else if (IS_KEY_PREFIX(token, "size")) {
                         if (strchr(token, 'x') == nullptr) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Missing deliminer 'x' in option:" 
                                         << token << '\n';
                                 return false;
                         }
-                        s.width = cstoi(strchr(token, '=') + 1);
-                        s.height = cstoi(strchr(token, 'x') + 1);
+                        token = strchr(token, '=') + 1;
+                        s.width = cstoi(token, strchr(token, 'x') - token);
+                        token = strchr(token, 'x') + 1;
+                        s.height = cstoi(token);
                 } else if (IS_KEY_PREFIX(token, "window_flags")) {
+                        token = strchr(token, '=') + 1;
                         args.window_flags |= cstoi(strchr(token, '=') + 1);
                 } else {
                         LOG(LOG_LEVEL_ERROR) << wrong_option_msg << token << '\n';
