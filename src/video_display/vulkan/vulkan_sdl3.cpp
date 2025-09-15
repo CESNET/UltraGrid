@@ -623,7 +623,10 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                                 exp_size = strlen(cstr);
                         }
                         if (endpos != exp_size) {
-                                throw std::runtime_error{ std::string(token) };
+                                throw std::runtime_error{
+                                        std::string(token) +
+                                        " (error parsing number)"
+                                };
                         }
                         return result;
                 };
