@@ -6,7 +6,7 @@
  * using default SIGALRM action which is terminate).
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,15 +38,19 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef _WIN32
 
 #ifndef COMPAT_ALARM_H
 #define COMPAT_ALARM_H
+
+#ifdef _WIN32
 
 #include "utils/macros.h"
 
 EXTERN_C void alarm(unsigned int sec);
 
+#else
+#include <unistd.h>
+#endif /* _WIN32 */
+
 #endif // defined COMPAT_ALARM_H
 
-#endif /* _WIN32 */
