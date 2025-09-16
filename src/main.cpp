@@ -1277,6 +1277,43 @@ static int adjust_params(struct ug_options *opt) {
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_DYNAMIC : opt->bitrate;
         }
 
+        return 0;
+}
+
+/// warn about unused options or not recommended options or agruments
+static void
+validate_params(struct ug_options *opt)
+{
+        if (opt->vidcap_params_head == opt->vidcap_params_tail) {
+                if (opt->requested_compression != nullptr) {
+                        MSG(WARNING,
+                            "Video compression set but no vidcap given!\n");
+                }
+                if (vidcap_params_get_capture_filter(opt->vidcap_params_tail) != nullptr) {
+                        MSG(WARNING, "Video capture filter specified but not capturing!\n");
+                }
+                if (strcmp(opt->requested_video_fec, "none") != 0) {
+                        MSG(WARNING, "Video FEC specified but not capturing!\n");
+                }
+        }
+
+        if (strcmp(opt->requested_display, "none") == 0) {
+                if (opt->postprocess != nullptr) {
+                        MSG(WARNING, "Video postprocess specified without a display!\n");
+                }
+        }
+
+        if (strcmp(opt->audio.send_cfg, ug_options().audio.send_cfg) == 0) {
+                if (strcmp(opt->audio.fec_cfg, ug_options().audio.fec_cfg) != 0) {
+                        MSG(WARNING,
+                            "Audio FEC specified but not capturing!\n");
+                }
+                if (opt->audio.codec_cfg != nullptr) {
+                        MSG(WARNING,
+                            "Audio compression specified but not capturing!\n");
+                }
+        }
+
         if((strcmp("none", opt->audio.send_cfg) != 0 || strcmp("none", opt->audio.recv_cfg) != 0) && strcmp(opt->video_protocol, "rtsp") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             if (strcmp(opt->audio.proto, "rtsp") != 0) {
@@ -1286,9 +1323,8 @@ static int adjust_params(struct ug_options *opt) {
         if (strcmp(opt->audio.proto, "rtsp") == 0 && strcmp(opt->video_protocol, "rtsp") != 0) {
                 LOG(LOG_LEVEL_WARNING) << "Using RTSP for audio but not for video is not recommended and might not work.\n";
         }
-
-        return 0;
 }
+
 
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
@@ -1337,6 +1373,9 @@ int main(int argc, char *argv[])
                 EXIT(ret < 0 ? -ret : EXIT_SUCCESS);
         }
 
+        if (!show_help) {
+                validate_params(&opt);
+        }
         if (int ret = adjust_params(&opt)) {
                 EXIT(ret);
         }
