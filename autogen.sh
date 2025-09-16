@@ -30,16 +30,8 @@ if test -n "$RES" -a -z "$(echo $RES | grep Makefile.am)"; then
         exit 1
 fi
 
-CONFIGURE_OPTS=
-
-if [ -n "$DEBUG" ]; then
-        CONFIGURE_OPTS="$CONFIGURE_OPTS --enable-debug"
-fi
-
 cd $ORIGDIR
 
 echo "Running configure..."
-$srcdir/configure $CONFIGURE_OPTS "$@"
-
-cd $ORIGDIR
+"$srcdir"/configure "$@"
 
