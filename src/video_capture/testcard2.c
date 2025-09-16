@@ -6,7 +6,7 @@
  * Merge to mainline testcard.
  */
 /*
- * Copyright (c) 2011-2024 CESNET
+ * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,9 +91,13 @@
 #define BANNER_HEIGHT 150L
 #define BANNER_MARGIN_BOTTOM 75L
 #define BUFFER_SEC 1
-#define DEFAULT_FORMAT "1920:1080:24:UYVY"
 #define EPS_PLUS_1 1.0001
 #define FONT_HEIGHT 108
+enum {
+        NOISE_DEFAULT = 30,
+};
+
+#define DEFAULT_FORMAT "1920:1080:24:UYVY"
 #define MOD_NAME "[testcard2] "
 
 #ifdef HAVE_SDL3
@@ -109,6 +113,7 @@ struct testcard_state2 {
 
         int count;
         unsigned char *bg; ///< bars converted to dest color_spec
+        unsigned noise; ///< add noise if >0; the magnitude is distance
         struct timeval t0;
         struct video_desc desc;
         char *data;
@@ -199,10 +204,13 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 color_printf("testcard2 is an alternative implementation of testing signal source.\n");
                 color_printf("It is less maintained than mainline testcard and has less features but has some extra ones, i. a. a timer (if SDL(2)_ttf is found.\n");
                 color_printf("\n");
-                color_printf("testcard2 options:\n");
+                color_printf("testcard2 usage:\n");
                 color_printf(TBOLD(TRED("\t-t testcard2") "[:<width>:<height>:<fps>:<codec>]") "\n");
                 color_printf("or\n");
                 color_printf(TBOLD(TRED("\t-t testcard2") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>][:mode=<mode>]") "\n");
+                printf("\nOptions:\n");
+                color_printf("\t" TBOLD("noise[=<val>]") " - add noise to the image\n");
+                printf("\n");
                 testcard_show_codec_help("testcard2", true);
 
                 return VIDCAP_INIT_NOERR;
@@ -260,6 +268,10 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                                         ret = false;
                                         break;
                                 }
+                        } else if (IS_PREFIX(tmp, "noise") || IS_KEY_PREFIX(tmp, "noise")) {
+                                s->noise = IS_KEY_PREFIX(tmp, "noise")
+                                               ? atoi(strchr(tmp, '=') + 1)
+                                               : NOISE_DEFAULT;
                         } else {
                                 fprintf(stderr, "[testcard2] Unknown option: %s\n", tmp);
                                 ret = false;
@@ -370,6 +382,22 @@ static void vidcap_testcard2_done(void *state)
         free(s->bg);
         free(s->data);
         free(s);
+}
+
+static void
+add_noise(unsigned char *data, size_t len, unsigned bpp, unsigned noisiness)
+{
+        if (noisiness == 0) {
+                return;
+        }
+        unsigned char *end = data + len;
+        data += bpp * (rand() % noisiness);
+        while (data < end) {
+                for (unsigned i = 0; i < bpp; ++i) {
+                        data[i] = rand() % 256;
+                }
+                data += bpp * (1 + (rand() % noisiness));
+        }
 }
 
 /**
@@ -506,6 +534,7 @@ void * vidcap_testcard2_thread(void *arg)
                                 d++;
                         }
                 }
+                add_noise(tmp, data_len, get_bpp(s->desc.color_spec), s->noise);
                 testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), (unsigned char *) banner, s->desc.width, BANNER_HEIGHT);
 #ifdef HAVE_SDL3
                 SDL_DestroySurface(text);
