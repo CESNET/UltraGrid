@@ -41,7 +41,17 @@
 #include <atomic>
 #include <thread>
 #include <string>
+#include <vector>
 #include "utils/spa_dll.h"
+#include "utils/ring_buffer.h"
+
+namespace detail{
+        struct Sync_pkt_data{
+                uint16_t seq;
+                uint64_t imprecise_ptp_ts;
+                uint64_t local_ts;
+        };
+}
 
 class Ptp_clock{
 public:
@@ -54,14 +64,17 @@ private:
         std::string network_interface;
 
         std::atomic<bool> should_run = true;
-        std::thread worker_critical;
+        std::thread worker_event;
         std::thread worker_general;
+
+        ring_buffer_uniq event_pkt_ring;
 
         uint64_t ptp_ts = 0;
         uint64_t local_ts = 0;
         uint64_t synth_ptp_ts = 0;
         double spa_corr = 1.0;
         spa_dll dll;
+        std::vector<detail::Sync_pkt_data> sync_pkts;
 
         std::atomic<uint32_t> update_count = 0;
         std::atomic<uint64_t> local_snapshot = 0;
@@ -70,7 +83,11 @@ private:
 
 
         void ptp_worker_general();
-        void processPtpPkt(uint8_t *buf, size_t len);
+        void ptp_worker_event();
+        void processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts);
+
+        void update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts);
+
 };
 
 
