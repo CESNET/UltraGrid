@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#define MOD_NAME "[split] "
+
 struct state_split {
         struct video_frame *in;
         int grid_width, grid_height;
@@ -75,6 +77,7 @@ static bool split_get_property(void *state, int property, void *val, size_t *len
 
 static void usage()
 {
+        printf("usage:\n");
         printf("-p split:<X>:<Y>\n");
         printf("\tsplit to XxY tiles\n");
 }
@@ -94,9 +97,12 @@ static void * split_init(const char *config) {
         assert(tmp != NULL);
         
         item = strtok_r(tmp, ":", &save_ptr);
-        s->grid_width = atoi(item);
-        item = strtok_r(NULL, ":", &save_ptr);
+        if (item != NULL) {
+                s->grid_width = atoi(item);
+                item          = strtok_r(NULL, ":", &save_ptr);
+        }
         if(!item) {
+                MSG(ERROR, "Wrong usage!\n");
                 usage();
                 free(s);
                 free(tmp);
