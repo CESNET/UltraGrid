@@ -45,7 +45,7 @@
 #include <assert.h>                     // for assert
 #include <ctype.h>                      // for isdigit
 #include <errno.h>                      // for errno
-#include <limits.h>                     // for SHRT_MAX
+#include <limits.h>                     // for SHRT_MAX, UCHAR_MAX
 #include <math.h>                       // for sin, M_PI
 #include <pthread.h>                    // for pthread_mutex_lock, pthread_m...
 #include <stdbool.h>                    // for false, true, bool
@@ -76,6 +76,7 @@
 #include "utils/color_out.h"            // for color_printf, TBOLD, TRED
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
+#include "utils/random.h"               // for ug_rand
 #include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
 #include "video.h"                      // for get_video_desc_from_string
@@ -386,12 +387,12 @@ add_noise(unsigned char *data, size_t len, unsigned bpp, unsigned noisiness)
                 return;
         }
         unsigned char *end = data + len;
-        data += bpp * (rand() % noisiness);
+        data += bpp * (ug_rand() % noisiness);
         while (data < end) {
                 for (unsigned i = 0; i < bpp; ++i) {
-                        data[i] = rand() % 256;
+                        data[i] = ug_rand() % (UCHAR_MAX + 1);
                 }
-                data += bpp * (1 + (rand() % noisiness));
+                data += bpp * (1 + (ug_rand() % noisiness));
         }
 }
 

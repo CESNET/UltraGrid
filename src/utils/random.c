@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2023 CESNET, z. s. p. o.
+ * Copyright (c) 2023-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,8 @@
 #include "tv.h"
 
 /**
+ * Initialize (seed) random engine. Called with common_preinit (host.cpp)>
+ *
  * @note
  * Windows rand_s() is not supposed to be seeded
  * @remark
