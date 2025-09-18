@@ -694,7 +694,7 @@ install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	if [ -n '@MANPAGES@' ]; then $(INSTALL) -m 644 @MANPAGES@ $(DESTDIR)$(man1dir); fi
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
-	$(INSTALL) -D -m 644 "$(srcdir)"/share/ultragrid/TimGM6mb_but_fixed__piano_.sf3 -t "$(DESTDIR)$(datarootdir)/ultragrid"
+	$(INSTALL) -D -m 644 "$(srcdir)"/share/ultragrid/TimGM6mb_but_fixed__piano_.sf3 -t "$(DESTDIR)$(datadir)/ultragrid"
 	if [ -n "@VULKAN@" ]; then\
 		$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/"* -t "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders"; \
 	fi
