@@ -206,10 +206,11 @@ void Ptp_clock::ptp_worker_general(){
                 buflen = udp_recv_timeout(ptp_sock.get(), (char *)buffer, MAX_PACKET_LEN, &timeout);
 
                 auto ring_avail = ring_get_current_size(event_pkt_ring.get());
-                if(ring_avail >= sizeof(Timestamped_pkt)){
+                while(ring_avail >= sizeof(Timestamped_pkt)){
                         Timestamped_pkt pkt;
                         ring_buffer_read(event_pkt_ring.get(), reinterpret_cast<char *>(&pkt), sizeof(pkt));
                         processPtpPkt(pkt.buf, pkt.buflen, pkt.local_ts);
+                        ring_avail -= sizeof(Timestamped_pkt);
                 }
 
                 if(buflen == 0)
