@@ -126,6 +126,7 @@ COMMON_OBJS     = \
 		src/compat/aligned_malloc.o \
 		src/compat/dlfunc.o \
 		src/compat/platform_pipe.o \
+		src/compat/platform_sched.o \
 		src/compat/platform_semaphore.o \
 		src/compat/usleep.o \
 		src/crypto/crc_32.o \
