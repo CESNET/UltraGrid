@@ -50,6 +50,7 @@
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "compat/platform_sched.h"
 #include "rtp/net_udp.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -236,6 +237,8 @@ static void rtp_worker(state_aes67_play *s){
         const unsigned frame_size = s->desc.ch_count * s->desc.bps;
         int payload_size = frame_size * frames_per_packet;
         rtp_pkt.resize(hdr_size + payload_size);
+
+        set_realtime_sched_this_thread();
 
         uint16_t seq = 0;
         uint32_t timestamp = (s->ptpclk.get_time() * 3) / 62500 + s->testoffset; //TODO
