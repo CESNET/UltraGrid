@@ -40,6 +40,7 @@
 #include <algorithm>
 #include "rtp/net_udp.h"
 #include "utils/thread.h"
+#include "compat/platform_sched.h"
 #include "debug.h"
 
 #define MOD_NAME "[PTP] "
@@ -171,14 +172,7 @@ void Ptp_clock::ptp_worker_event(){
                 return;
         }
 
-        if(true){
-                printf("Setting realtime...\t");
-                struct sched_param p;
-                memset(&p, 0, sizeof(p));
-                p.sched_priority = 99;
-                int ret = sched_setscheduler(0, SCHED_RR|SCHED_RESET_ON_FORK, &p);
-                printf(ret < 0 ? "failed\n" : "success\n");
-        }
+        set_realtime_sched_this_thread();
 
         while(should_run){
                 Timestamped_pkt pkt;
