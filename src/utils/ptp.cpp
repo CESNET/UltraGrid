@@ -37,6 +37,7 @@
 
 #include "ptp.hpp"
 #include <chrono>
+#include <cstddef>
 #include <algorithm>
 #include "rtp/net_udp.h"
 #include "utils/thread.h"
@@ -62,6 +63,73 @@ struct Timestamped_pkt{
         uint8_t buf[MAX_PACKET_LEN]; //Event packets should not be larger than 54B
         unsigned buflen = 0;
 };
+
+struct Ptp_hdr{
+        bool valid = false;
+
+        uint8_t msg_type;
+        uint16_t msg_len;
+        uint16_t flags;
+        uint64_t correction_field;
+        uint64_t clock_identity;
+        uint16_t port_number;
+        uint16_t seq;
+        uint8_t log_msg_interval;
+};
+
+template<typename T, unsigned n>
+T read_val(uint8_t *ptr){
+        T ret{};
+        for(unsigned i = 0; i < n; ++i){
+                ret <<= 8;
+                ret |= ptr[i];
+        }
+
+        return ret;
+}
+
+const char *get_clock_identity_str(uint64_t id){
+        static char buf[16 + 7 + 1] = {};
+
+        snprintf(buf, sizeof(buf), "%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X",
+                        (int)(id >> 56) & 0xFF,
+                        (int)(id >> 48) & 0xFF,
+                        (int)(id >> 40) & 0xFF,
+                        (int)(id >> 32) & 0xFF,
+                        (int)(id >> 24) & 0xFF,
+                        (int)(id >> 16) & 0xFF,
+                        (int)(id >> 8) & 0xFF,
+                        (int)id & 0xFF);
+        return buf;
+}
+
+Ptp_hdr parse_ptp_header(uint8_t *buf, size_t len){
+        const size_t header_length = 34;
+
+        Ptp_hdr ret{};
+
+        if(len < header_length){
+                return ret;
+        }
+
+        int version = buf[1] & 0x0F;
+        if(version != 2)
+                return ret;
+
+        ret.msg_type = buf[0] & 0x0F;
+        ret.msg_len = read_val<uint16_t, 2>(&buf[2]);
+        ret.flags = read_val<uint16_t, 2>(&buf[6]);
+        ret.correction_field = read_val<uint64_t, 8>(&buf[8]);
+        ret.clock_identity = read_val<uint64_t, 8>(&buf[20]);
+        ret.port_number = read_val<uint16_t, 2>(&buf[28]);
+        ret.seq = read_val<uint16_t, 2>(&buf[30]);
+        ret.log_msg_interval = buf[33];
+
+        if(ret.msg_len >= header_length)
+                ret.valid = true;
+
+        return ret;
+}
 
 } //anon namespace
 
@@ -217,6 +285,10 @@ void Ptp_clock::ptp_worker_general(){
                         continue;
 
                 processPtpPkt(buffer, buflen, 0);
+
+                auto hdr = parse_ptp_header(buffer, buflen);
+
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got seq %d %s\n", hdr.seq, get_clock_identity_str(hdr.clock_identity));
 
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got general msg len %d\n", buflen);
 
