@@ -51,6 +51,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "tv.h"
+#include "utils/misc.h"                // for format_number_with_delim
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
 #include "utils/vf_split.h"
@@ -598,8 +599,10 @@ shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
 
         auto f = proxy->queue.pop();
         if (f) {
-                MSG(DEBUG, "Compressed frame size: %8u; duration: %7.3f ms\n",
-                    vf_get_data_len(f.get()),
+                char sz_str[FORMAT_NUM_MAX_SZ];
+                MSG(DEBUG, "Compressed frame size: %s B; duration: %7.3f ms\n",
+                    format_number_with_delim(vf_get_data_len(f.get()), sz_str,
+                                             sizeof sz_str),
                     (f->compress_end - f->compress_start) / MS_IN_NS_DBL);
         }
         return f;
