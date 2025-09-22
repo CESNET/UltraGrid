@@ -71,6 +71,7 @@
 #include "tv.h"                // for get_time_in_ns
 #include "types.h"             // for video_desc, tile, video_frame, UYVY, RGB
 #include "utils/macros.h"      // for TOSTRING, to_fourcc
+#include "utils/color_out.h"   // for color_printf
 #include "video_codec.h"       // for vc_get_linesize, get_codec_name
 #include "video_compress.h"    // for codec, module_option, encoder, compres...
 #include "video_frame.h"       // for vf_free, vf_alloc_desc_data, vf_copy_m...
@@ -135,12 +136,18 @@ struct {
 };
 
 static void usage() {
-        printf("Cineform encoder usage:\n");
-        printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]\n");
+        color_printf(TBOLD("Cineform") " encoder usage:\n");
+        color_printf("\t" TBOLD(
+            TRED("-c cineform") "[:quality=<quality>][:threads=<num_threads>][:"
+                                "pool_size=<pool_size>]") "\n");
+        color_printf("\t" TBOLD("-c cineform:help") "\n");
+
+        color_printf("\nOptions:\n");
 
         for(const auto& opt : usage_opts){
-                printf("\t\t<%s> %s\n", opt.key, opt.description);
+                color_printf("\t" TBOLD("<%s>") " %s\n", opt.key, opt.description);
         }
+        printf("\n");
 }
 
 static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
