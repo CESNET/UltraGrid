@@ -40,35 +40,40 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-#include "host.h"
-#include "lib_common.h"
-#include "tv.h"
-#include "video_compress.h"
-
-#include <CFHDTypes.h>
+#include <cstddef>             // CFHD hdrs use size_t w/o include
 #include <CFHDEncoder.h>
+#include <CFHDError.h>         // for CFHD_Error
+#include <CFHDTypes.h>
 
-#include "video.h"
-#include "video_codec.h"
-#include <memory>
-#include <map>
-#include <mutex>
-#include <thread>
-#include <vector>
-#include <queue>
+#include <cassert>             // for assert
 #include <condition_variable>
+#include <cstdint>             // for uint32_t
+#include <cstdio>              // for printf
+#include <cstdlib>             // for atoi, free
+#include <cstring>             // for strlen, NULL, memset, size_t, strdup
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <string>              // for char_traits, basic_string
+#include <tuple>               // for get, tuple
+#include <utility>             // for move
+#include <vector>
 
 #ifdef MEASUREMENT
 #include <time.h>
 #endif
-#include "utils/misc.h" // to_fourcc
+
+#include "compat/strings.h"    // for strncasecmp
+#include "debug.h"             // for log_msg, LOG_LEVEL_ERROR, LOG, LOG_LEV...
+#include "host.h"              // for INIT_NOERR
+#include "lib_common.h"        // for REGISTER_MODULE, library_class
+#include "pixfmt_conv.h"       // for get_best_decoder_from, decoder_t
+#include "tv.h"                // for get_time_in_ns
+#include "types.h"             // for video_desc, tile, video_frame, UYVY, RGB
+#include "utils/macros.h"      // for TOSTRING, to_fourcc
+#include "video_codec.h"       // for vc_get_linesize, get_codec_name
+#include "video_compress.h"    // for codec, module_option, encoder, compres...
+#include "video_frame.h"       // for vf_free, vf_alloc_desc_data, vf_copy_m...
 
 #define DEFAULT_POOL_SIZE 16
 #define DEFAULT_THREAD_COUNT 8
