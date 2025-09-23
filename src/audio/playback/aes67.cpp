@@ -82,6 +82,7 @@ struct Sap_session{
         std::string origin_address;
         std::string name;
         std::string description;
+        std::string ptp_id;
 
         std::vector<Rtp_stream> streams;
 };
@@ -108,7 +109,7 @@ std::string get_sdp(Sap_session& sap){
         sdp += "a=rtpmap:" + std::to_string(stream.fmts.begin()->first) + " L24/48000/1\r\n"; //TODO actual format
         sdp += "a=ptime:1\r\n"; //TODO support changing packet time
 
-        sdp += "a=ts-refclk:ptp=IEEE1588-2008:00-1D-C1-FF-FE-A1-B8-BC:0\r\n"; //TODO fill real PTP clock
+        sdp += "a=ts-refclk:ptp=IEEE1588-2008:" + sap.ptp_id + ":0\r\n";
         sdp += "a=mediaclk:direct=0\r\n";
 
         return sdp;
@@ -177,6 +178,7 @@ static void create_sap_sess(state_aes67_play *s){
         stream.address = inet_ntoa(addr);
         stream.port = 5004;
         sess.streams.push_back(std::move(stream));
+        sess.ptp_id = s->ptpclk.get_clock_id_str();
 
         s->sap_sess = std::move(sess);
 }
