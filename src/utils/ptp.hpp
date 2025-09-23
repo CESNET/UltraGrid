@@ -42,6 +42,7 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <mutex>
 #include "utils/spa_dll.h"
 #include "utils/ring_buffer.h"
 
@@ -60,6 +61,8 @@ public:
 
         uint64_t get_time();
 
+        const char* get_clock_id_str();
+
 private:
         std::string network_interface;
 
@@ -76,6 +79,9 @@ private:
         spa_dll dll;
         std::vector<detail::Sync_pkt_data> sync_pkts;
 
+        std::mutex mut;
+        uint64_t clock_identity = 0;
+
         std::atomic<uint32_t> update_count = 0;
         std::atomic<uint64_t> local_snapshot = 0;
         std::atomic<uint64_t> ptp_snapshot = 0;
@@ -87,6 +93,8 @@ private:
         void processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts);
 
         void update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts);
+
+        void set_clock_identity(uint64_t);
 
 };
 

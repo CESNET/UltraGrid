@@ -88,7 +88,7 @@ T read_val(uint8_t *ptr){
         return ret;
 }
 
-const char *get_clock_identity_str(uint64_t id){
+const char *clock_id_to_str(uint64_t id){
         static char buf[16 + 7 + 1] = {};
 
         snprintf(buf, sizeof(buf), "%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X",
@@ -113,8 +113,9 @@ Ptp_hdr parse_ptp_header(uint8_t *buf, size_t len){
         }
 
         int version = buf[1] & 0x0F;
-        if(version != 2)
+        if(version != 2){
                 return ret;
+        }
 
         ret.msg_type = buf[0] & 0x0F;
         ret.msg_len = read_val<uint16_t, 2>(&buf[2]);
@@ -160,36 +161,38 @@ void Ptp_clock::update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts){
 }
 
 void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
-        assert(len >= 34);
-
-        int version = buf[1] & 0x0F;
-        if(version != 2)
-                return;
-
-        int msgType = buf[0] & 0x0F;
-
-        uint16_t flags = (buf[6] << 8) | buf[7];
-        uint16_t seq = (buf[30] << 8) | buf[31];
-
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Msg type %x, flags %x, seq = %u\n", msgType, flags, seq);
-
-        if(msgType == PTP_MSG_SYNC && (flags & 0x200)){
-                uint64_t sec = (buf[34] << 40) | (buf[35] << 32) | (buf[36] << 24) | (buf[37] << 16) | (buf[38] << 8) | (buf[39]);
-                uint32_t nsec = (buf[40] << 24) | (buf[41] << 16) | (buf[42] << 8) | (buf[43]);
-
-                uint64_t new_ptp_ts = sec * 1'000'000'000 + nsec;
-
-                sync_pkts.push_back({seq, new_ptp_ts, pkt_ts});
+        Ptp_hdr header = parse_ptp_header(buf, len);
+        if(!header.valid){
                 return;
         }
 
-        if(msgType == PTP_MSG_FOLLOWUP){
-                uint64_t sec = (buf[34] << 40) | (buf[35] << 32) | (buf[36] << 24) | (buf[37] << 16) | (buf[38] << 8) | (buf[39]);
-                uint32_t nsec = (buf[40] << 24) | (buf[41] << 16) | (buf[42] << 8) | (buf[43]);
+        if(header.clock_identity != clock_identity){
+                if(clock_identity == 0){
+                        set_clock_identity(header.clock_identity);
+                } else {
+                        return;
+                }
+        }
+
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Msg type %x, flags %x, seq = %u\n", header.msg_type, header.flags, header.seq);
+
+        if(header.msg_type == PTP_MSG_SYNC && (header.flags & 0x200)){
+                uint64_t sec = read_val<uint64_t, 6>(&buf[34]);
+                uint32_t nsec = read_val<uint32_t, 4>(&buf[40]);
 
                 uint64_t new_ptp_ts = sec * 1'000'000'000 + nsec;
 
-                auto it = std::find_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq == seq; });
+                sync_pkts.push_back({header.seq, new_ptp_ts, pkt_ts});
+                return;
+        }
+
+        if(header.msg_type == PTP_MSG_FOLLOWUP){
+                uint64_t sec = read_val<uint64_t, 6>(&buf[34]);
+                uint32_t nsec = read_val<uint32_t, 4>(&buf[40]);
+
+                uint64_t new_ptp_ts = sec * 1'000'000'000 + nsec;
+
+                auto it = std::find_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq == header.seq; });
 
                 if(it == sync_pkts.end()){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Sync pkt for followup not found\n");
@@ -200,7 +203,7 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
 
                 update_clock(it->local_ts, new_ptp_ts);
 
-                auto new_end = std::remove_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq <= seq; });
+                auto new_end = std::remove_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq <= header.seq; });
                 sync_pkts.erase(new_end, sync_pkts.end());
 
                 return;
@@ -285,14 +288,18 @@ void Ptp_clock::ptp_worker_general(){
                         continue;
 
                 processPtpPkt(buffer, buflen, 0);
-
-                auto hdr = parse_ptp_header(buffer, buflen);
-
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got seq %d %s\n", hdr.seq, get_clock_identity_str(hdr.clock_identity));
-
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Got general msg len %d\n", buflen);
-
         }
+}
+
+const char* Ptp_clock::get_clock_id_str(){
+        std::lock_guard<std::mutex> l(mut);
+        return clock_id_to_str(clock_identity);
+}
+
+void Ptp_clock::set_clock_identity(uint64_t id){
+        std::lock_guard<std::mutex> l(mut);
+        clock_identity = id;
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Selecting clock %s\n", clock_id_to_str(clock_identity));
 }
 
 void Ptp_clock::start(std::string_view interface){
