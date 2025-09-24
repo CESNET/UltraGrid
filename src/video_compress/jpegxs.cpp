@@ -9,7 +9,7 @@
 #include "video_compress.h"
 #include "utils/video_frame_pool.h"
 
-#define MOD_NAME "[JPEG XS] "
+#define MOD_NAME "[JPEG XS enc.] "
 
 using std::shared_ptr;
 
