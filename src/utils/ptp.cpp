@@ -141,7 +141,6 @@ void Ptp_clock::update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts){
         if(synth_ptp_ts == 0) synth_ptp_ts = new_ptp_ts;
 
         auto delta_local = new_local_ts - local_ts;
-        auto delta_ptp = new_ptp_ts - ptp_ts;
 
         if(local_ts == 0){
                 ptp_ts = new_ptp_ts;
@@ -218,8 +217,6 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
                         return;
                 }
 
-                auto sf_delta = (int64_t) new_ptp_ts - (int64_t) it->imprecise_ptp_ts;
-
                 update_clock(it->local_ts, new_ptp_ts);
 
                 auto new_end = std::remove_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq <= header.seq; });
@@ -295,6 +292,8 @@ void Ptp_clock::ptp_worker_general(){
         spa_dll_init(&dll);
         spa_dll_set_bw(&dll, 0.05, 250'000'000, 1'000'000'000); //TODO
 
+		auto last_report = std::chrono::steady_clock::now();
+
         while(should_run){
                 int buflen = 0;
                 uint8_t buffer[MAX_PACKET_LEN];
@@ -302,7 +301,7 @@ void Ptp_clock::ptp_worker_general(){
                 buflen = udp_recv_timeout(ptp_sock.get(), (char *)buffer, MAX_PACKET_LEN, &timeout);
 
                 auto ring_avail = ring_get_current_size(event_pkt_ring.get());
-                while(ring_avail >= sizeof(Timestamped_pkt)){
+                while(ring_avail >= (int) sizeof(Timestamped_pkt)){
                         Timestamped_pkt pkt;
                         ring_buffer_read(event_pkt_ring.get(), reinterpret_cast<char *>(&pkt), sizeof(pkt));
                         processPtpPkt(pkt.buf, pkt.buflen, pkt.local_ts);
@@ -313,6 +312,13 @@ void Ptp_clock::ptp_worker_general(){
                         continue;
 
                 processPtpPkt(buffer, buflen, 0);
+
+				if(std::chrono::steady_clock::now() - last_report > std::chrono::seconds(5)){
+					last_report = std::chrono::steady_clock::now();
+
+					double avg_err_us = avg.get() / 1000;
+					log_msg(LOG_LEVEL_INFO, MOD_NAME "Average absoulute err %.3f usec\n", avg_err_us);
+				}
         }
 }
 
