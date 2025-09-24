@@ -338,8 +338,8 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
         s->sdp_sock.reset(udp_init_if(s->sap_address.c_str(), s->network_interface_name.c_str(), s->sap_port, 0, 255, 4, false));
 
         s->ptpclk.start(s->network_interface_name);
-
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Waiting for PTP lock\n");
+        s->ptpclk.wait_for_lock();
 
         return s.release();
 }
