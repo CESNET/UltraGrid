@@ -39,10 +39,12 @@
 #define PTP_HPP_df6ffbd91502
 
 #include <atomic>
+#include <array>
 #include <thread>
 #include <string>
 #include <vector>
 #include <mutex>
+#include <condition_variable>
 #include "utils/spa_dll.h"
 #include "utils/ring_buffer.h"
 
@@ -51,6 +53,32 @@ namespace detail{
                 uint16_t seq;
                 uint64_t imprecise_ptp_ts;
                 uint64_t local_ts;
+        };
+
+        template<typename T, unsigned n>
+        class Average{
+                static_assert(n && (n & (n - 1)) == 0, "n must be a power of two");
+        public:
+                void push(T val){
+                        unsigned idx = count & (n - 1);
+                        samples[idx] = val;
+                        count++;
+                }
+
+                double get(){
+                        double acc = 0;
+                        unsigned c = size();
+                        for(unsigned i = 0; i < c; i++){
+                                acc += samples[i];
+                        }
+
+                        return acc / c;
+                }
+
+                unsigned size() { return count < n ? count : n; }
+        private:
+                std::array<T, n> samples;
+                unsigned count = 0;
         };
 }
 
@@ -62,6 +90,7 @@ public:
         uint64_t get_time();
 
         const char* get_clock_id_str();
+        void wait_for_lock();
 
 private:
         std::string network_interface;
@@ -76,11 +105,14 @@ private:
         uint64_t local_ts = 0;
         uint64_t synth_ptp_ts = 0;
         double spa_corr = 1.0;
+        detail::Average<int64_t, 64> avg;
         spa_dll dll;
         std::vector<detail::Sync_pkt_data> sync_pkts;
 
         std::mutex mut;
+        std::condition_variable cv;
         uint64_t clock_identity = 0;
+        bool locked = false;
 
         std::atomic<uint32_t> update_count = 0;
         std::atomic<uint64_t> local_snapshot = 0;
