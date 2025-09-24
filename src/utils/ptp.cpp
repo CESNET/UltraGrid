@@ -157,11 +157,9 @@ void Ptp_clock::update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts){
         spa_corr = spa_dll_update(&dll, error_ns);
 
 		avg.push(std::abs(error_ns));
-		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "error %ld\n", error_ns);
 
 		double avg_error_us = avg.get() / 1000;
 
-		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Avg error %f n=%d\n", avg_error_us, avg.size());
 		if(avg.size() >= 10 && avg_error_us < LOCK_THRESH_uS_LOW){
 			if(!locked){
 				std::lock_guard<std::mutex> l(mut);
@@ -196,8 +194,6 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
                         return;
                 }
         }
-
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Msg type %x, flags %x, seq = %u\n", header.msg_type, header.flags, header.seq);
 
         if(header.msg_type == PTP_MSG_SYNC && (header.flags & 0x200)){
                 uint64_t sec = read_val<uint64_t, 6>(&buf[34]);
