@@ -87,13 +87,6 @@ struct Sap_session{
         std::vector<Rtp_stream> streams;
 };
 
-Rtp_stream audio_desc_to_rtp_stream(audio_desc& desc){
-        Rtp_stream ret{};
-
-        //TODO
-        return ret;
-}
-
 std::string get_sdp(Sap_session& sap){
         std::string sdp;
         auto& stream = sap.streams[0];
@@ -271,7 +264,7 @@ static void rtp_worker(state_aes67_play *s){
 
                 const int bps = s->desc.bps;
                 const int swap_count = bps / 2;
-                for(int i = 0; i < frames_to_write * s->desc.ch_count; i++){
+                for(unsigned i = 0; i < frames_to_write * s->desc.ch_count; i++){
                         for(int j = 0; j < swap_count; j++){
                                 unsigned char tmp = dst[i * bps + j];
                                 dst[i * bps + j] = dst[i * bps + bps - j - 1];
