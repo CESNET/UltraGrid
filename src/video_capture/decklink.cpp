@@ -50,6 +50,7 @@
 #include <cassert>
 #include <cctype>                  // for isdigit
 #include <chrono>
+#include <cinttypes>               // for PRId64
 #include <climits>
 #include <condition_variable>
 #include <cstdint>                 // for int64_t, uint32_t, int32_t
@@ -1138,6 +1139,39 @@ void device_state::check_attributes(struct vidcap_decklink_state *s)
         }
 }
 
+static bool
+supports_autodetect(IDeckLinkProfileAttributes *deckLinkAttributes)
+{
+        BMD_BOOL autodetection{};
+        BMD_CHECK(deckLinkAttributes->GetFlag(
+                      BMDDeckLinkSupportsInputFormatDetection, &autodetection),
+                  "Could not verify if device supports autodetection",
+                  return false);
+        if (autodetection == BMD_FALSE) {
+                MSG(ERROR, "Device doesn't support format autodetection, you "
+                           "must set it manually or try \"-t "
+                           "decklink:detect-format[:connection=<in>]\"\n");
+        }
+        return autodetection;
+}
+
+static void autodetect_fmt_n_found_msg(IDeckLinkProfileAttributes *deckLinkAttributes) {
+        MSG(ERROR, "Cannot set initial format for autodetection - perhaps "
+                   "impossible combinations of parameters were set.\n");
+
+        // print hint for 8K Pro to set profile...
+        int64_t val = 0;
+        // clang-format off
+        if (deckLinkAttributes->GetInt(BMDDeckLinkNumberOfSubDevices, &val) == S_OK && val > 1 &&
+            deckLinkAttributes->GetInt(BMDDeckLinkSubDeviceIndex, &val) == S_OK && val > 0) {
+                // clang-format on
+                MSG(WARNING,
+                    "Did you set ':half-duplex' for multiple sub-device "
+                    "card? Using sub-device index %" PRId64 "...\n",
+                    val);
+        }
+}
+
 #define INIT_ERR() do { RELEASE_IF_NOT_NULL(displayMode); RELEASE_IF_NOT_NULL(displayModeIterator); return false; } while (0)
 bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudioConnection audioConnection)
 {
@@ -1315,9 +1349,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 } else if (mode_idx >= 0) {
                         MSG(ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
                 } else if (mode_idx == MODE_SPEC_AUTODETECT) {
-                        MSG(ERROR, "Cannot set initial format for "
-                                   "autodetection - perhaps impossible "
-                                   "combinations of parameters were set.\n");
+                        autodetect_fmt_n_found_msg(deckLinkAttributes);
                 } else {
                         assert("Invalid mode spec." && 0);
                 }
@@ -1332,13 +1364,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 
         if (mode_idx == MODE_SPEC_AUTODETECT) {
                 MSG(INFO, "Trying to autodetect format.\n");
-                BMD_BOOL autodetection;
-                BMD_CHECK(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection", INIT_ERR());
-                if (autodetection == BMD_FALSE) {
-                        MSG(ERROR,
-                            "Device doesn't support format autodetection, you "
-                            "must set it manually or try \"-t "
-                            "decklink:detect-format[:connection=<in>]\"\n");
+                if (!supports_autodetect(deckLinkAttributes)) {
                         INIT_ERR();
                 }
                 s->enable_flags |=  bmdVideoInputEnableFormatDetection;
