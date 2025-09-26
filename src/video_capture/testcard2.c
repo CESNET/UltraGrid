@@ -502,6 +502,8 @@ void * vidcap_testcard2_thread(void *arg)
                         ptr += vc_get_linesize(s->desc.width, s->desc.color_spec);
                 }
 
+                add_noise(tmp, data_len, get_bpp(s->desc.color_spec), s->noise);
+
 #ifdef HAVE_LIBSDL_TTF
                 memset(banner, 0xFF, 4L * s->desc.width * BANNER_HEIGHT);
 
@@ -530,14 +532,13 @@ void * vidcap_testcard2_thread(void *arg)
                                 d++;
                         }
                 }
-                add_noise(tmp, data_len, get_bpp(s->desc.color_spec), s->noise);
                 testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), (unsigned char *) banner, s->desc.width, BANNER_HEIGHT);
 #ifdef HAVE_SDL3
                 SDL_DestroySurface(text);
 #else
                 SDL_FreeSurface(text);
 #endif // HAVE_SDL3
-#endif
+#endif // defined HAVE_LIBSDL_TTF
 
 next_frame:
                 next_frame_time = s->start_time;
