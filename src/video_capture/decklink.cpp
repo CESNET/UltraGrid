@@ -9,7 +9,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2024 CESNET z.s.p.o.
+ * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -171,7 +171,6 @@ struct device_state {
         IDeckLink                  *deckLink              = nullptr;
         IDeckLinkInput             *deckLinkInput         = nullptr;
         unique_ptr<VideoDelegate>  delegate;
-        IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
         BMDNotificationCallback    *notificationCallback  = nullptr;
         string                      device_id = "0"; // either numeric value or device name
@@ -1519,7 +1518,6 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         for (int i = 0; i < s->devices_cnt; ++i) {
                 bmd_unsubscribe_notify(s->state[i].notificationCallback);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
-                RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkInput);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLink);
         }
