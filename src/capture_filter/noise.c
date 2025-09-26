@@ -58,7 +58,7 @@ struct module;
 static void done(void *state);
 
 enum {
-        DEFAULT_MAGNITUDE = 30,
+        DEFAULT_MAGNITUDE = 200,
 };
 
 struct state_noise {

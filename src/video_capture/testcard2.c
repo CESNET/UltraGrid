@@ -94,7 +94,7 @@ enum {
         BANNER_MARGIN_BOTTOM = 75,
         BUFFER_SEC           = 1,
         FONT_HEIGHT          = 108,
-        NOISE_DEFAULT        = 30,
+        NOISE_DEFAULT        = 200,
 };
 
 #define DEFAULT_FORMAT \
