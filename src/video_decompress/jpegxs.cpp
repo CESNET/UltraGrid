@@ -36,11 +36,12 @@ static void *jpegxs_decompress_init(void) {
 static bool setup_image_output_buffer(svt_jpeg_xs_image_buffer_t *image_buffer, const svt_jpeg_xs_image_config_t *image_config) {
         
         uint32_t pixel_size = image_config->bit_depth <= 8 ? 1 : 2;
-        image_buffer->stride[0] = image_config->components[0].width;
-        image_buffer->stride[1] = image_config->components[1].width;
-        image_buffer->stride[2] = image_config->components[2].width;
+
+        // printf("Strides: %d %d %d\n", image_config->components[0].width, image_config->components[1].width, image_config->components[2].width);
+        // printf("Heights: %d %d %d\n", image_config->components[0].height, image_config->components[1].height, image_config->components[2].height);
 
         for (uint8_t i = 0; i < 3; ++i) {
+                image_buffer->stride[i] = image_config->components[i].width;
                 image_buffer->alloc_size[i] = image_buffer->stride[i] * image_config->components[i].height * pixel_size;
                 image_buffer->data_yuv[i] = malloc(image_buffer->alloc_size[i]);
                 if (!image_buffer->data_yuv[i]) {
@@ -126,8 +127,6 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->desc = desc;
 
-        // printf("P %d R %d G %d B %d\n", pitch, rshift, gshift, bshift);
-
         if (s->configured) {
                 svt_jpeg_xs_decoder_close(&s->decoder);
                 s->configured = false;
@@ -136,16 +135,36 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         return true;
 }
 
-static decompress_status probe_internal_codec(unsigned char *buffer, size_t len, struct pixfmt_desc *internal_prop) {
+static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpegxs *s, struct pixfmt_desc *internal_prop)
+{
+        internal_prop->depth = 8;
+        internal_prop->rgb = false;
 
+        switch (s->image_config.format) {
+        case COLOUR_FORMAT_PLANAR_YUV420:
+                internal_prop->subsampling = 4200;
+                break;
+        case COLOUR_FORMAT_PLANAR_YUV422:
+                internal_prop->subsampling = 4220;
+                break;
+        case COLOUR_FORMAT_PLANAR_YUV444_OR_RGB:
+                internal_prop->subsampling = 4440;
+                break;
+        default:
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported colour format\n");
+                abort();
+        }
+        
+        return DECODER_GOT_CODEC;
 }
 
 static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsigned char *buffer, 
         unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop)
 {
-        // printf("dst=%p buffer=%p src_len=%u\n", dst, buffer, src_len);
+        UNUSED(frame_seq);
+        UNUSED(callbacks);
         auto *s = (struct state_decompress_jpegxs *) state;
-        // printf("out_codec=%s\n", get_codec_name(s->out_codec));
+        // printf("dst=%p buffer=%p src_len=%u\n", dst, buffer, src_len);
 
         if (!s->configured) {
                 if (!configure_with(s, buffer, src_len)) {
@@ -154,10 +173,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         }
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                internal_prop->subsampling = 4220;
-                internal_prop->depth = 8;
-                internal_prop->rgb = false;
-                return DECODER_GOT_CODEC;
+                return jpegxs_probe_internal_codec(s, internal_prop);
         }
 
         s->bitstream.buffer = buffer;
@@ -183,7 +199,6 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
 
         yuv422p_to_uyvy(&dec_output.image, s->image_config.width, s->image_config.height, dst);
 
-        // TODO
         return DECODER_GOT_FRAME;
 }
 
@@ -212,10 +227,10 @@ static void jpegxs_decompress_done(void *state) {
        delete (struct state_decompress_jpegxs *) state;
 }
 
-static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
-        printf("JPEG XS GET PRIORITY\n");
-        // printf("Compression %s\n", get_codec_name(compression));
-        // printf("Ugc %s\n", get_codec_name(compression));
+static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc)
+{
+        // printf("compression=%s ugc=%s\n", get_codec_name(compression), get_codec_name(ugc));
+        UNUSED(internal);
 
         if (compression != JPEG_XS) {
                 return VDEC_PRIO_NA;
@@ -225,6 +240,7 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
                 return VDEC_PRIO_PROBE_HI;
         }
 
+        // supported output formats
         if (ugc == UYVY) {
                 return VDEC_PRIO_PREFERRED;
         }

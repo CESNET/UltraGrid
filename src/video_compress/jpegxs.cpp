@@ -33,6 +33,7 @@ public:
         svt_jpeg_xs_bitstream_buffer_t out_buf;
         video_frame_pool pool;
 
+        void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
         bool parse_fmt(char *fmt);
         static state_video_compress_jpegxs *create(struct module *parent, const char *opts);
         void push(std::shared_ptr<video_frame> in_frame);
@@ -80,6 +81,91 @@ ColourFormat subsampling_to_jpegxs(int ug_subs) {
         }
 }
 
+// unpack UYVY to YUV422 planar
+static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
+        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
+        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
+        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
+
+        for (int y = 0; y < height; ++y) {
+                const uint8_t *src_line = uyvy + y * width * 2;
+                uint8_t *dst_y_line = dst_y + y * width;
+                uint8_t *dst_u_line = dst_u + y * (width / 2);
+                uint8_t *dst_v_line = dst_v + y * (width / 2);
+
+                for (int x = 0; x < width; x += 2) {
+                        int i = x * 2;
+                        uint8_t u = src_line[i + 0];
+                        uint8_t y0 = src_line[i + 1];
+                        uint8_t v = src_line[i + 2];
+                        uint8_t y1 = src_line[i + 3];
+
+                        dst_y_line[x + 0] = y0;
+                        dst_y_line[x + 1] = y1;
+
+                        int chroma_index = x / 2;
+                        dst_u_line[chroma_index] = u;
+                        dst_v_line[chroma_index] = v;
+                }
+        }
+}
+
+// unpack YUYV to YUV422 planar
+static void yuyv_to_yuv422p(const uint8_t *yuyv, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
+        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
+        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
+        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
+
+        for (int y = 0; y < height; ++y) {
+                const uint8_t *src_line = yuyv + y * width * 2;
+                uint8_t *dst_y_line = dst_y + y * width;
+                uint8_t *dst_u_line = dst_u + y * (width / 2);
+                uint8_t *dst_v_line = dst_v + y * (width / 2);
+
+                for (int x = 0; x < width; x += 2) {
+                        int i = x * 2;
+                        uint8_t y0 = src_line[i + 0];
+                        uint8_t u = src_line[i + 1];
+                        uint8_t y1 = src_line[i + 2];
+                        uint8_t v = src_line[i + 3];
+
+                        dst_y_line[x + 0] = y0;
+                        dst_y_line[x + 1] = y1;
+
+                        int chroma_index = x / 2;
+                        dst_u_line[chroma_index] = u;
+                        dst_v_line[chroma_index] = v;
+                }
+        }
+}
+
+static void i420_to_yuv420p(const uint8_t *i420, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
+        const int y_size = width * height;
+        const int uv_width = width / 2;
+        const int uv_height = height / 2;
+        const int u_size = uv_width * uv_height;
+
+        const uint8_t *src_y = i420;
+        const uint8_t *src_u = i420 + y_size;
+        const uint8_t *src_v = i420 + y_size + u_size;
+
+        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
+        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
+        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
+
+        for (int y = 0; y < height; ++y) {
+                memcpy(dst_y + y * width, src_y + y * width, width);
+        }
+
+        for (int y = 0; y < uv_height; ++y) {
+                memcpy(dst_u + y * uv_width, src_u + y * uv_width, uv_width);
+        }
+
+        for (int y = 0; y < uv_height; ++y) {
+                memcpy(dst_v + y * uv_width, src_v + y * uv_width, uv_width);
+        }
+}
+
 static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const svt_jpeg_xs_encoder_api_t *enc) {
 
         uint32_t pixel_size = enc->input_bit_depth <= 8 ? 1 : 2;
@@ -109,7 +195,7 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
         in_buf->stride[2] = w / w_factor;
 
         for (uint8_t i = 0; i < 3; ++i) {
-                in_buf->alloc_size[i] = in_buf->stride[i] * (h / h_factor) * pixel_size;
+                in_buf->alloc_size[i] = in_buf->stride[i] * (h / (i == 0 ? 1 : h_factor)) * pixel_size;
                 in_buf->data_yuv[i] = malloc(in_buf->alloc_size[i]);
                 if (!in_buf->data_yuv[i]) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d\n", i);
@@ -120,10 +206,27 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
         return true;
 }
 
-static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc) {
+static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc)
+{
+        s->encoder.verbose = VERBOSE_SYSTEM_INFO;
         s->encoder.source_width = desc.width;
         s->encoder.source_height = desc.height;
         s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
+
+        switch (desc.color_spec) {
+        case UYVY:
+                s->convert_to_planar = uyvy_to_yuv422p;
+                break;
+        case YUYV:
+                s->convert_to_planar = yuyv_to_yuv422p;
+                break;
+        case I420:
+                s->convert_to_planar = i420_to_yuv420p;
+                break;
+        default:
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
+                return false;
+        }
 
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
@@ -193,64 +296,6 @@ jpegxs_compress_init(struct module *parent, const char *opts) {
         return s;
 }
 
-// unpack UYVY to YUV422 planar
-static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
-        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
-        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
-        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *src_line = uyvy + y * width * 2;
-                uint8_t *dst_y_line = dst_y + y * width;
-                uint8_t *dst_u_line = dst_u + y * (width / 2);
-                uint8_t *dst_v_line = dst_v + y * (width / 2);
-
-                for (int x = 0; x < width; x += 2) {
-                        int i = x * 2;
-                        uint8_t u = src_line[i + 0];
-                        uint8_t y0 = src_line[i + 1];
-                        uint8_t v = src_line[i + 2];
-                        uint8_t y1 = src_line[i + 3];
-
-                        dst_y_line[x + 0] = y0;
-                        dst_y_line[x + 1] = y1;
-
-                        int chroma_index = x / 2;
-                        dst_u_line[chroma_index] = u;
-                        dst_v_line[chroma_index] = v;
-                }
-        }
-}
-
-// unpack YUYV to YUV422 planar
-static void yuyv_to_yuv422p(const uint8_t *yuyv, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
-        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
-        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
-        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *src_line = yuyv + y * width * 2;
-                uint8_t *dst_y_line = dst_y + y * width;
-                uint8_t *dst_u_line = dst_u + y * (width / 2);
-                uint8_t *dst_v_line = dst_v + y * (width / 2);
-
-                for (int x = 0; x < width; x += 2) {
-                        int i = x * 2;
-                        uint8_t y0 = src_line[i + 0];
-                        uint8_t u = src_line[i + 1];
-                        uint8_t y1 = src_line[i + 2];
-                        uint8_t v = src_line[i + 3];
-
-                        dst_y_line[x + 0] = y0;
-                        dst_y_line[x + 1] = y1;
-
-                        int chroma_index = x / 2;
-                        dst_u_line[chroma_index] = u;
-                        dst_v_line[chroma_index] = v;
-                }
-        }
-}
-
 shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> frame) {
         if (!frame) {
                 return {};
@@ -268,7 +313,8 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
         struct tile *in_tile = vf_get_tile(frame.get(), 0);
         int width = in_tile->width;
         int height = in_tile->height;
-        uyvy_to_yuv422p((const uint8_t *) in_tile->data, width, height, &s->in_buf);
+
+        s->convert_to_planar((const uint8_t *) in_tile->data, width, height, &s->in_buf);
 
         svt_jpeg_xs_frame_t enc_input;
         enc_input.bitstream = s->out_buf;
