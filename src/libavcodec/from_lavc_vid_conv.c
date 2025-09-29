@@ -1042,6 +1042,7 @@ yuv422p_to_v210(struct av_conv_data d)
         }
 }
 
+#if VUYX_PRESENT
 static void
 yuv444p_to_vuya(struct av_conv_data d)
 {
@@ -1066,6 +1067,7 @@ yuv444p_to_vuya(struct av_conv_data d)
                 }
         }
 }
+#endif // VUYX_PRESENT
 
 static void
 yuv444p_to_uyvy(struct av_conv_data d)
