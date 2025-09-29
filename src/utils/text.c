@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -266,6 +266,42 @@ static bool draw_line_init(unsigned char *out) {
         return true;
 }
 
+static void
+draw_letter(char c, uint32_t color, char *buf, const unsigned char *font_data,
+            int pitch, bool solid)
+{
+        if (c < ' ' || c > '~') {
+                c = '?';
+        }
+        c -= ' ';
+        for (int j = 0; j < FONT_H; ++j) {
+                for (int i = 0; i < FONT_W; ++i) {
+                        int pos_x  = (FONT_W * c + i) / 8;
+                        int mask   = 1 << (FONT_W - ((FONT_W * c + i) % 8));
+                        int offset = (FONT_W * FONT_COUNT + 7) / 8 * j;
+                        if (font_data[offset + pos_x] & mask) {
+                                // clang-format off
+                                buf[(j * pitch) + (4 * i)]     = color & 0xFFU;
+                                buf[(j * pitch) + (4 * i) + 1] = (color >> 8U) & 0xFFU;
+                                buf[(j * pitch) + (4 * i) + 2] = (color >> 16U) & 0xFFU;
+                                buf[(j * pitch) + (4 * i) + 3] = (color >> 24U) & 0xFFU;
+                                // clang-format on
+                        } else if (solid) {
+                                buf[(j * pitch) + (4 * i)]     = 0;
+                                buf[(j * pitch) + (4 * i) + 1] = 0;
+                                buf[(j * pitch) + (4 * i) + 2] = 0;
+                                buf[(j * pitch) + (4 * i) + 3] = 0xFFU; // alpha
+                        }
+                }
+                if (solid) { // fill space between characters
+                        buf[(j * pitch) + (4 * (FONT_W_SPACE - 1))] = 0;
+                        buf[(j * pitch) + (4 * (FONT_W_SPACE - 1)) + 1] = 0;
+                        buf[(j * pitch) + (4 * (FONT_W_SPACE - 1)) + 2] = 0;
+                        buf[(j * pitch) + (4 * (FONT_W_SPACE - 1)) + 3] = 0xFFU;
+                }
+        }
+}
+
 /**
  * draws a line with built-in bitmap 12x7 bitmap font separated by 1 px space, RGBA
  */
@@ -279,43 +315,13 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
                 font_data_initialized = true;
         }
         int idx = 0;
-        enum {
-                WIDTH = FONT_W + 1, ///< adding 1 pix space between letters
-        };
         while (*text) {
-                char c = *text;
-                if (c < ' ' || c > '~') {
-                        c = '?';
-                }
-                c -= ' ';
-                for (int j = 0; j < FONT_H; ++j) {
-                        for (int i = 0; i < FONT_W; ++i) {
-                                int pos_x = (FONT_W * c + i) / 8;
-                                int mask = 1 << (FONT_W - ((FONT_W * c + i) % 8));
-                                int offset = (FONT_W * FONT_COUNT + 7) / 8 * j;
-                                if (font_data[offset + pos_x] & mask) {
-                                        buf[j * pitch + 4 * (i + idx * WIDTH)] = color & 0xFFU;
-                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 1] = (color >> 8U) & 0xFFU;
-                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 2] = (color >> 16U) & 0xFFU;
-                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 3] = (color >> 24U) & 0xFFU;
-                                } else if (solid) {
-                                        buf[j * pitch + 4 * (i + idx * WIDTH)] =
-                                                buf[j * pitch + 4 * (i + idx * WIDTH) + 1] =
-                                                buf[j * pitch + 4 * (i + idx * WIDTH) + 2] = 0;
-                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 3] = 0xFFU;
-                                }
-                        }
-                        if (solid) { // fill space between characters
-                                buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH)] =
-                                        buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 1] =
-                                        buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 2] = 0;
-                                buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 3] = 0xFFU;
-                        }
-                }
-                if ((++idx + 1) * WIDTH * 4 > pitch) {
+                char c = *text++;
+                draw_letter(c, color, buf + (size_t) (4 * idx * FONT_W_SPACE),
+                            font_data, pitch, solid);
+                if ((++idx + 1) * FONT_W_SPACE * 4 > pitch) {
                         return true;
                 }
-                ++text;
         }
 
         return true;

@@ -5,6 +5,7 @@
 */
 enum {
         FONT_W = 7,
+        FONT_W_SPACE = FONT_W + 1, ///< adding 1 pix space between letters
         FONT_H = 12,
         FONT_COUNT = ('~' - ' ' + 1),
 };
