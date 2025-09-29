@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET z.s.p.o.
+ * Copyright (c) 2014-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,6 +59,8 @@ size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int
 size_t urldecode(char *out, size_t max_len, const char *in);
 
 bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid);
+bool draw_line_scaled(char *buf, int pitch, const char *text, uint32_t fg,
+                      uint32_t bg, unsigned scale);
 
 const char *const *get_font_candidates(void);
 

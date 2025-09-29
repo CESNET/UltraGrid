@@ -67,6 +67,7 @@
 #                define SDL_ERR (-1)
 #        endif // defined HAVE_SDL3
 #else
+#        include "utils/bitmap_font.h"
 #        define SDL_DestroySurface(...)
 #endif
 
@@ -531,8 +532,14 @@ void * vidcap_testcard2_thread(void *arg)
                         }
                 }
 #else
-                draw_line((char *) banner, vc_get_linesize(s->desc.width, RGBA),
-                          frames, 0x0, false);
+                int scale = FONT_HEIGHT / FONT_H;
+                int w = strlen(frames) * FONT_W_SPACE * scale;
+                int h = FONT_H * scale;
+                long xoff = ((long) s->desc.width - w) / 2;
+                long yoff = (BANNER_HEIGHT - h) / 2;
+                int linesz = vc_get_linesize(s->desc.width, RGBA);
+                draw_line_scaled((char *) banner + yoff * linesz + xoff * 4,
+                                 linesz, frames, 0xFF000000U, 0xFFFFFFFFU, scale);
 #endif // defined HAVE_LIBSDL_TTF
 
                 testcard_convert_buffer(
