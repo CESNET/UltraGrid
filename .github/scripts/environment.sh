@@ -72,7 +72,7 @@ export FEATURES="\
  --enable-speexdsp\
  --enable-swmix\
  --enable-libswscale\
- --enable-testcard-extras=all\
+ --enable-testcard2=ttf\
  --enable-text\
  --enable-video-mixer\
  --enable-vulkan\
