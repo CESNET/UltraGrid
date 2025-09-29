@@ -1304,7 +1304,7 @@ sdl_version=
 sdl_version_str=
 sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--enable-sdl[=1|2|3]], [enable SDL (optionally with version(s); default is auto), ]
+              AS_HELP_STRING([--enable-sdl@<:@=1|2|3@:>@], [enable SDL (optionally with version(s); default is auto), ]
               [requires: sdl >= 1.2.14 | sdl2 | sdl3 >= 3.2.0]),
               [sdl_req=$enableval],
               [sdl_req=$build_default]
@@ -2201,7 +2201,7 @@ sc_details=
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
-[  --enable-screen=[x11,pipewire]  [Linux only] choose implementation (can be both)]
+[  --enable-screen@<:@=x11,pipewire@:>@  @<:@Linux only@:>@ choose implementation (can be both)]
 [                          Requires: none (OSX) x11 or pipewire (Linux) dshow (Win)],
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
