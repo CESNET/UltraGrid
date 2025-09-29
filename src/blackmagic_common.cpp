@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024 CESNET
+ * Copyright (c) 2014-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1447,16 +1447,16 @@ void
 print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
                       BMDDeckLinkAttributeID id, const char *module_prefix)
 {
-        col() << "\n\tConnection can be one of following:\n";
+        col() << "\tsupported connetions:";
         int64_t connections = 0;
         if (deckLinkAttributes->GetInt(id, &connections) != S_OK) {
-                log_msg(LOG_LEVEL_ERROR, "%sCould not get connections.\n\n",
+                log_msg(LOG_LEVEL_ERROR, "\n%sCould not get connections.\n\n",
                         module_prefix);
                 return;
         }
         for (auto const &it : get_connection_string_map()) {
                 if ((connections & it.first) != 0) {
-                        col() << "\t\t" << SBOLD(it.second) << "\n";
+                        col() << " " << SBOLD(it.second);
                 }
         }
         col() << "\n";

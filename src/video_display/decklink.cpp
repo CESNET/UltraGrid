@@ -12,7 +12,7 @@
  * usage and also SignalGenerator was used for scheduled playback.
  */
 /*
- * Copyright (c) 2010-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -629,7 +629,7 @@ show_help(bool full, const char *query_prop_fcc = nullptr)
 
         col() << "\nRecognized pixel formats:";
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { col() << " " << SBOLD(get_codec_name(i.first)); } );
-        cout << "\n";
+        cout << "\n\n";
 
         col() << "Devices (idx, topological ID, name):\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -2258,7 +2258,6 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
         if (deckLink->QueryInterface(IID_IDeckLinkProfileAttributes,
                                      (void **) &deckLinkAttributes) == S_OK) {
                 if (query_prop_fcc != nullptr) {
-                        cout << "\n";
                         print_bmd_attribute(deckLinkAttributes, query_prop_fcc);
                 }
                 print_bmd_connections(deckLinkAttributes,
