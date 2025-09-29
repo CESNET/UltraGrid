@@ -351,7 +351,7 @@ struct video_desc get_video_desc_from_string(const char *string)
                 ret.width = 2048;
                 ret.height = 1080;
         } else if (strncasecmp(string, "4k", 2) == 0 || starts_with(string, "2160p")) {
-                ret.width = 3860;
+                ret.width = 3840;
                 ret.height = 2160;
         } else if (strncasecmp(string, "4d", 2) == 0) {
                 ret.width = 4096;
