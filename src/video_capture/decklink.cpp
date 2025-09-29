@@ -510,102 +510,12 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
         RELEASE_IF_NOT_NULL(deckLinkAttributes);
 }
 
-/* HELP */
-static int
-decklink_help(bool full, const char *query_prop_fcc = nullptr)
+static void
+print_codecs()
 {
-	col() << "\nDeckLink options:\n";
-        col() << SBOLD(SRED("\t-t decklink") << ":[full]help") << " | "
-              << SBOLD(SRED("-t decklink") << ":query=<FourCC>") << " | "
-              << SBOLD(SRED("-t decklink") << ":help=FourCC") << "\n";
-        col() << SBOLD(SRED("\t-t decklink")
-                       << "{:m[ode]=<mode>|:d[evice]=<idx|ID|name>|:c[odec]=<"
-                          "colorspace>...<key>=<"
-                          "val>}*")
-              << "\n";
-        col() << SBOLD(SRED("\t-t decklink")
-                       << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D]["
-                          ":sync_timecode][:connection=<input>][:detect-"
-                          "format][:conversion=<conv_mode>]]")
-              << "\n";
-        col() << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
-        col() << "\n";
-
-        col() << SBOLD("3D") << "\n";
-        printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
-        printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
-        printf("\tin video format listing above by flag \"3D\".\n");
-	printf("\n");
-
-        col() << SBOLD("fullhelp") << "\n";
-        col() << "\tPrint description of all available options.\n";
-        col() << "\n";
-
-        col() << SBOLD("half-duplex | full-duplex | simplex") << "\n";
-        col() << "\tSet a profile that allows maximal number of simultaneous "
-                 "IOs / set device to better compatibility (3D, dual-link) / "
-                 "use all connectors as single input.\n";
-        col() << "\n";
-
-        col() << SBOLD("[no]passthrough[=keep]") << "\n";
-        col() << "\tDisables/enables/keeps capture passthrough (default is "
-                 "disable).\n";
-        col() << "\n";
-
-        if (full) {
-                col() << SBOLD("conversion") << "\n";
-                col() << SBOLD("\tnone") << " - No video input conversion\n";
-                col() << SBOLD("\t10lb") << " - HD1080 to SD video input down conversion\n";
-                col() << SBOLD("\t10am") << " - Anamorphic from HD1080 to SD video input down conversion\n";
-                col() << SBOLD("\t72lb") << " - Letter box from HD720 to SD video input down conversion\n";
-                col() << SBOLD("\t72ab") << " - Letterbox video input up conversion\n";
-                col() << SBOLD("\tamup") << " - Anamorphic video input up conversion\n";
-                col() << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
-                                "\t\t-t decklink:mode=pal:conversion=10lb\n";
-                col() << "\n";
-
-                col() << SBOLD("query=<FourCC>") << "\n";
-                col() << "\tQueries device attribute, eg. `decklink:q=mach` to "
-                         "see max embed. channels).\n";
-                col() << "\n";
-
-                col() << SBOLD("p_not_i") << "\n";
-                col() << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
-                col() << "\n";
-
-                col() << SBOLD("nosig-send") << "\n";
-                col() << "\tSend video even if no signal was detected (useful when video interrupts\n"
-                        "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
-                col() << "\n";
-
-                col() << SBOLD("detect-format") << "\n";
-                col() << "\tTry to detect input video format even if the "
-                         "device doesn't support\n"
-                         "\tautodetect, eg. \"-t "
-                         "decklink:connection=HDMI:detect-format\".\n";
-                col() << "\n";
-
-                col() << SBOLD("profile=<FourCC>") << " - use desired device profile:\n";
-                print_bmd_device_profiles("\t");
-                col() << "\n";
-                col() << SBOLD("sync_timecode") << "\n";
-                col() << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
-                col() << "\n";
-                col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
-                col() << "\n";
-                col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
-                col() << SBOLD("\thelp=FourCC") << "\tshow FourCC opts syntax\n";
-                col() << SBOLD("\taacl[=no]")
-                      << "\tset analog audio levels to maximum gain "
-                         "(consumer audio level)\n";
-                col() << SBOLD("\tcfpr[=no]")
-                      << "\tincoming signal should be treated as PsF instead of progressive\n";
-                col() << "\n";
-        } else {
-                col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
-        }
-
-        col() << "Available color spaces:";
+        color_printf("\t" TBOLD("codec") "      instead of detected one, eg. "
+                                         "UYVY for 8-bit capture\n");
+        col() << "\t\t   available color spaces:";
         for (auto & i : uv_to_bmd_codec_map) {
                 if (i != *uv_to_bmd_codec_map.begin()) {
                         col() << ",";
@@ -614,17 +524,101 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << " " << SBOLD(get_codec_name(i.first));
         }
         cout << "\n";
-        if (!full) {
-                col() << "Possible connections:";
-                for (const auto &i : get_connection_string_map()) {
-                        col() << (i == *get_connection_string_map().cbegin()
-                                      ? " "
-                                      : ", ")
-                              << SBOLD(i.second);
-                }
-                cout << "\n";
+}
+
+static void
+print_connections()
+{
+        color_printf("\t" TBOLD("connection") " input connector, one of:");
+        for (const auto &i : get_connection_string_map()) {
+                col() << " " << SBOLD(i.second);
         }
-        cout << "\n";
+        color_printf("\n");
+}
+
+/* HELP */
+static int
+decklink_help(bool full, const char *query_prop_fcc = nullptr)
+{
+	col() << "DeckLink capture usage:\n";
+        col() << SBOLD(SRED("\t-t decklink")
+                       << "{:d[evice]=<idx|ID|name>|:c[odec]=<colorspace>[:"
+                          "con[nection]=<con>[:mode]=<mode>|...<key>=<val>}*")
+              << "\n";
+        if (full) {
+                col() << SBOLD(
+                             SRED("\t-t decklink")
+                             << "[:<device_index(indices)>[:<mode>:<colorspace>"
+                                "[:3D]["
+                                ":sync_timecode][:connection=<input>][:detect-"
+                                "format][:conversion=<conv_mode>]]")
+                      << " (deprecated)\n";
+                col()
+                    << "\t(mode specification is mandatory if your card does "
+                       "not support format autodetection)\n";
+        }
+        col() << "\t" << SBOLD("-t decklink" << ":[full]help") << " | "
+              << SBOLD("-t decklink" << ":query=<FourCC>") << " | "
+              << SBOLD("-t decklink" << ":help=FourCC") << "\n";
+        col() << "\nOptions:\n";
+        color_printf("\t" TBOLD("fullhelp") "   print description of all available options\n");
+        color_printf("\t" TBOLD("device") "     device identifier (index, ID or name)\n");
+        print_codecs();
+        print_connections();
+
+        if (full) {
+                col() << "\t" SBOLD("3D") << "         use this to capture 3D from supported card (eg. "
+                       "DeckLink HD 3D Extreme)\n";
+
+                col() << "\t" SBOLD("half-duplex|full-duplex|simplex")
+                      << "  set a profile that allows maximal number of "
+                         "simultaneous IOs / set device to better "
+                         "compatibility (3D, dual-link) / use all connectors "
+                         "as single input\n";
+
+                col() << "\t" SBOLD("[no]passthrough[=keep]")
+                      << " disables/enables/keeps capture passthrough (default "
+                         "is disable)\n";
+
+                col() << "\t" SBOLD("conversion") << "\n";
+                col() << SBOLD("\t\tnone") << " - No video input conversion\n";
+                col() << SBOLD("\t\t10lb") << " - HD1080 to SD video input down conversion\n";
+                col() << SBOLD("\t\t10am") << " - Anamorphic from HD1080 to SD video input down conversion\n";
+                col() << SBOLD("\t\t72lb") << " - Letter box from HD720 to SD video input down conversion\n";
+                col() << SBOLD("\t\t72ab") << " - Letterbox video input up conversion\n";
+                col() << SBOLD("\t\tamup") << " - Anamorphic video input up conversion\n";
+                col() << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
+                                "\t\t-t decklink:mode=pal:conversion=10lb\n";
+
+                col() << "\t" SBOLD("query=<FourCC>") << " queries device attribute, eg. `decklink:q=mach` to "
+                         "see max embed. channels).\n";
+
+                col() << "\t" SBOLD("p_not_i") << "  incoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
+
+                col() << "\t" SBOLD("nosig-send") << "  send video even if no signal was detected (useful when video interrupts"
+                        " but the video stream needs to be preserved, eg. to keep sync with audio).\n";
+
+                col() << "\t" SBOLD("detect-format")
+                      << "  try to detect input video format even if the "
+                         "device doesn't support "
+                         "autodetect, eg. \"-t "
+                         "decklink:connection=HDMI:detect-format\".\n";
+
+                col() << "\t" SBOLD("profile=<FourCC>") << " - use desired device profile:\n";
+                print_bmd_device_profiles("\t\t");
+                col() << "\t" SBOLD("sync_timecode") << "  try to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
+                col() << "\t" SBOLD("keep-settings") << "  do not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                col() << "\t" SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value, i.a.:\n";
+                col() << SBOLD("\t\thelp=FourCC") << "\tshow FourCC opts syntax\n";
+                col() << SBOLD("\t\taacl[=no]")
+                      << "\tset analog audio levels to maximum gain "
+                         "(consumer audio level)\n";
+                col() << SBOLD("\t\tcfpr[=no]")
+                      << "\tincoming signal should be treated as PsF instead of progressive\n";
+                col() << "\n";
+        } else {
+                col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
+        }
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
@@ -669,8 +663,9 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                 col() << "\n(use \"-t decklink:"
                       << SBOLD(
                              "fullhelp") "\" to see full list of device modes "
-                                         "and available connections)\n\n";
+                                         "and available connections)\n";
         }
+        color_printf("\n");
 
         decklink_uninitialize(&com_initialized);
 
@@ -682,11 +677,8 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
 
         printf("Examples:\n");
         col() << "\t" << SBOLD(uv_argv[0] << " -t decklink")
-              << " # captures autodetected video from first DeckLink (index 0) "
-                 "in system\n";
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:d=b:m=Hp30:c=v210")
-              << " # specify mode for 2nd device which doesn't have "
-                 "autodetection\n";
+              << " # captures from first DeckLink (index 0) in system\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:d=b:m=Hp30:c=v210") << "\n";
         col() << "\t"
               << SBOLD(uv_argv[0]
                        << " -t decklink:d=\"DeckLink 8K Pro (1)\":profile=1dfd")
