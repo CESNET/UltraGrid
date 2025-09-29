@@ -645,10 +645,10 @@ static void gl_show_help(bool full) {
                 col() << TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "window hint key\n"
                          "\t\t\t<k> to value <v>,  (" TBOLD("list_hints")" to enumerate)\n";
+                col() << TBOLD("\tplatform=<p>")   << "\tuse platform (usable only in Linux)\n";
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
                 col() << "\n" TBOLD(
                     "[1]") " position doesn't work in Wayland\n";
-                col() << TBOLD("\tplatform=<p>")   << "\tuse platform (usable only in Linux)\n";
         } else {
                 color_printf(
                     "\t(use \"" TBOLD("fullhelp") "\" to see options)\n");
