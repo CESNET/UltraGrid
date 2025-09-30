@@ -12,7 +12,7 @@ bold=$(tput bold || true)
 red=$(tput setaf 1 || true)
 reset=$(tput sgr0 || true)
 
-DIR=$(dirname "$0")
+DIR=$(dirname "$(realpath "$0")")
 readonly AI_LIB_PATH="$DIR"/usr/lib
 n_ld_library_path="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 LD_PRELOAD=${LD_PRELOAD-}
@@ -31,6 +31,21 @@ export MAGICK_CODER_MODULE_PATH="$DIR/usr/share/IM/coders"
 
 get_tools() {(
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
+)}
+
+# handle symlinks, so eg. if symlinked to hd-rum-transcode, ruh the transcoder
+# (no need to use `U.traGrid...AppImage -o hd-rum-transcode`)
+get_tool_from_progname() {(
+        prog=$(basename "${ARGV0?}")
+        # shellcheck disable=SC2046 # intentional
+        set -- $(get_tools)
+        while [ $# -gt 0 ]; do
+                if [ "$prog" = "$1" ]; then
+                        echo "$1"
+                        return
+                fi
+                shift
+        done
 )}
 
 usage() {
@@ -391,6 +406,11 @@ fi
 
 if [ "${APPIMAGE_DEBUG-undef}" = undef ] && [ "${ULTRAGRID_VERBOSE-}" ]; then
         APPIMAGE_DEBUG=$ULTRAGRID_VERBOSE
+fi
+
+tool=$(get_tool_from_progname)
+if [ "$tool" ]; then
+        set -- -o "$tool" "$@"
 fi
 
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
