@@ -579,15 +579,6 @@ next_frame:
                 s->data = (char *) tmp;
                 pthread_mutex_unlock(&s->lock);
                 platform_sem_post(&s->semaphore);
-                
-                double seconds = tv_diff(curr_time, s->t0);
-                if (seconds >= 5) {
-                        float fps = (s->count - stat_count_prev) / seconds;
-                        log_msg(LOG_LEVEL_INFO, "[testcard2] %d frames in %g seconds = %g FPS\n",
-                                (s->count - stat_count_prev), seconds, fps);
-                        s->t0 = curr_time;
-                        stat_count_prev = s->count;
-                }
         }
 
 #ifdef HAVE_LIBSDL_TTF
@@ -672,7 +663,7 @@ static const struct video_capture_info vidcap_testcard2_info = {
         vidcap_testcard2_init,
         vidcap_testcard2_done,
         vidcap_testcard2_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(testcard2, &vidcap_testcard2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
