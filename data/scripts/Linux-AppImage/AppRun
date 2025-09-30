@@ -11,6 +11,7 @@ ARGV0=${ARGV0-$0}
 bold=$(tput bold || true)
 red=$(tput setaf 1 || true)
 reset=$(tput sgr0 || true)
+bold_str=${bold}%s${reset}
 
 DIR=$(dirname "$(realpath "$0")")
 readonly AI_LIB_PATH="$DIR"/usr/lib
@@ -48,7 +49,29 @@ get_tool_from_progname() {(
         done
 )}
 
+# create convenience symlinks for the AppImage
+mk_symlinks() {(
+        if [ "$APPIMAGE" = none ]; then
+                abs_path=$(realpath "$0")
+                dstdir=.
+        else
+                abs_path=$APPIMAGE
+                dstdir=$(dirname "$APPIMAGE")
+        fi
+        printf "Creating symlinks for ${bold_str}in $bold_str pointing to \
+${bold_str}...\n" "$(get_tools)" "$dstdir" "$abs_path"
+        cd "$dstdir"
+        # shellcheck disable=SC2046 # intentional
+        set -- $(get_tools)
+        while [ $# -gt 0 ]; do
+                ln -s "$abs_path" "$1" || true
+                shift
+        done
+)}
+
+## @param $1  non-empty to show full help
 usage() {
+        full=${1:+1}
         printf "usage:\n"
         printf "\t${bold}${red}%s${reset} ${bold}[--gui [args]]${reset}\n" "$ARGV0"
         printf "\t\tinvokes GUI\n"
@@ -75,12 +98,19 @@ usage() {
         printf "\t\tinvokes specified tool\n"
         printf "\t\ttool may be one of: ${bold}%s${reset}\n" "$(get_tools)"
         printf "\n"
+        if [ "$full" ]; then
+                printf "\t${bold}${red}%s${reset} ${bold}--mk-symlinks${reset}\n" "$ARGV0"
+                printf "\t\tmake symlinks for the above tools to allow direct run\n"
+                printf "\n"
+        fi
         printf "\t${bold}${red}%s${reset} ${bold}args${reset}\n" "$ARGV0"
         printf "\t\tinvokes command-line UltraGrid\n"
         printf "\n"
-}
 
-usage_aux() {
+        if [ ! "$full" ]; then
+                return
+        fi
+
         printf "environment variables:\n"
         printf "\tAPPIMAGE_DEBUG:          print debug info + used Firejail options\n"
         printf "\tULTRAGRID_AUTOUPDATE:    autoupdate interval in days (0 - check always); -1 - disable update advice\n"
@@ -438,8 +468,7 @@ elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 elif [ "$1" = "--ug-help" ]; then
         run uv -h
 elif [ "$1" = "--fullhelp" ]; then
-        usage
-        usage_aux
+        usage full
         exit 0
 elif { [ $# -eq 1 ] || [ $# -eq 2 ]; } && { [ "$1" = "-m" ] || [ "$1" = "--man" ]; }; then
         PAGE=${2:-uv}
@@ -451,6 +480,8 @@ elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         fi
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
+elif [ "$1" = "--mk-symlinks" ]; then
+        mk_symlinks
 else
         handle_autoupdates "$@"
         run uv "$@"
