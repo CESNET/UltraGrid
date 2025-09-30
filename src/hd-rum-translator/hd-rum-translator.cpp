@@ -1180,7 +1180,7 @@ int main(int argc, char **argv)
                 }
                 char buf[FORMAT_NUM_MAX_SZ];
                 log_msg(LOG_LEVEL_INFO,
-                        "[%s] Received %s bytes in %g seconds = %sbps\n",
+                        "[%s] Received %s B in %.5f seconds = %sbps\n",
                         tim_str,
                         format_number_with_delim(cur_data, buf, sizeof buf),
                         seconds, format_in_si_units(bps * 8));
