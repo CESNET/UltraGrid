@@ -39,7 +39,7 @@
  */
 
 #include <cassert>
-#include <cinttypes>
+#include <cstdint>                     // for uint32_t
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -51,6 +51,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "tv.h"
+#include "utils/macros.h"              // for to_fourcc
 #include "utils/misc.h"                // for format_number_with_delim
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
@@ -61,6 +62,7 @@
 #include "lib_common.h"
 #include "debug.h"
 
+constexpr uint32_t MAGIC = to_fourcc('v','c','m','p');
 #define MOD_NAME "[vcompress] "
 
 using namespace std;
@@ -109,6 +111,7 @@ struct compress_state {
         }
         ~compress_state() { module_done(&mod); }
 
+        uint32_t magic = MAGIC;
         struct module mod;               ///< compress module data
         struct compress_state_real *ptr{}; ///< pointer to real compress state
         synchronized_queue<shared_ptr<video_frame>, 1> queue;
@@ -495,6 +498,7 @@ compress_done(struct compress_state *proxy)
         if (proxy == nullptr) {
                 return;
         }
+        assert(proxy->magic == MAGIC);
 
         struct compress_state_real *s = proxy->ptr;
         if (!proxy->poisoned) { // pass poisoned pill if it wasn't
