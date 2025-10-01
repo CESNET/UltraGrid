@@ -463,6 +463,19 @@ static void print_packet_info(const AVPacket *pkt, const AVStream *st) {
                 pts_val, dts_val, pkt->duration, tb.num, tb.den, pkt->size);
 }
 
+static void
+rewind_file(struct vidcap_state_lavf_decoder *s)
+{
+        CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN,
+                                    s->fmt_ctx->start_time, INT64_MAX, 0),
+                 {});
+        // handle single JPEG loop, inspired by libavformat's seek_frame_generic
+        // because img_read_seek (AVInputFormat::read_seek) doesn't do the job -
+        // seeking is inmplemeted just in img2dec if VideoDemuxData::loop == 1
+        CHECK_FF(avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET), {});
+        flush_captured_data(s);
+}
+
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
 static void *vidcap_file_worker(void *state) {
         set_thread_name(__func__);
@@ -495,9 +508,7 @@ static void *vidcap_file_worker(void *state) {
                 int ret = av_read_frame(s->fmt_ctx, pkt);
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
-                                CHECK_FF(avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET), {}); // handle single JPEG loop, inspired by libavformat's seek_frame_generic because img_read_seek (AVInputFormat::read_seek) doesn't do the job - seeking is inmplemeted just in img2dec if VideoDemuxData::loop == 1
-                                CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
-                                flush_captured_data(s);
+                                rewind_file(s);
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
                         } else {
