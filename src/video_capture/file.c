@@ -167,6 +167,7 @@ static void vidcap_file_show_help(bool full) {
 }
 
 static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
+        pthread_mutex_lock(&s->lock);
         struct video_frame *f = NULL;
         while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
                 VIDEO_FRAME_DISPOSE(f);
@@ -184,6 +185,7 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
                 avcodec_flush_buffers(s->aud_ctx);
         }
         s->audio_end_ts = AV_NOPTS_VALUE;
+        pthread_mutex_unlock(&s->lock);
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
