@@ -264,6 +264,10 @@ setup_wayland() {
 }
 
 add_whitelist() {
+        if contains_mount "$1"; then
+                disable_mount=no
+        fi
+
         if expr "$1" : /tmp >/dev/null; then
                 printf -- "$separator--read-write=\"%s\" --mkdir=\"%s\"" "$1" "$1"
         else
@@ -298,6 +302,13 @@ whitelist_file_path() {
                 # whitelist the parent folder to allow file creation
                 printf -- "$separator--whitelist=\"%s\"" "$parent_dir"
         fi
+}
+
+contains_mount() {
+        expr "$1" : '.*/mnt' >/dev/null ||
+                expr "$1" : '.*/media' >/dev/null ||
+                expr "$1" : '.*/run/mount' >/dev/null ||
+                expr "$1" : '.*/run/media' >/dev/null
 }
 
 ## Parse params to get custom rules like whitelists that may be needed to add
@@ -338,10 +349,7 @@ get_custom_firejail_rules() {
 --dbus-system.talk=org.freedesktop.Avahi"
         fi
 
-        if ! expr "$*" : '.*/mnt' >/dev/null &&
-                        ! expr "$*" : '.*/media' >/dev/null &&
-                        ! expr "$*" : '.*/run/mount' >/dev/null &&
-                        ! expr "$*" : '.*/run/media' >/dev/null
+        if ! contains_mount "$*" && [ "${disable_mount-}" != no ]
         then
                 printf " --disable-mnt"
         fi
