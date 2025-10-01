@@ -2010,7 +2010,7 @@ src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
         fi
 fi
 
-ENSURE_FEATURE_PRESENT([$vidcap_file_req], [$vidcap_file], [Vidcap file input dependencies not found])
+ENSURE_FEATURE_PRESENT([${file_req?}], [${file?}], [Vidcap file input dependencies not found])
 
 # -------------------------------------------------------------------------------------------------
 # DRM display
