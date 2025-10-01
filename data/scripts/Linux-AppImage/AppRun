@@ -264,38 +264,43 @@ setup_wayland() {
 }
 
 add_whitelist() {
-        if contains_mount "$1"; then
+        # expand tilde expansion (like ~/video.mp4; only single ~ now)
+        # shellcheck disable=SC2088 # intentional
+        if ! expr "$1" : '~/' >/dev/null; then
+                path="$1"
+        else
+                path"$HOME${1#\~}"
+        fi
+
+        if contains_mount "$path"; then
                 disable_mount=no
         fi
 
-        if expr "$1" : /tmp >/dev/null; then
-                printf -- "$separator--read-write=\"%s\" --mkdir=\"%s\"" "$1" "$1"
+        if expr "$path" : /tmp >/dev/null; then
+                printf -- "$separator--read-write=\"%s\" --mkdir=\"%s\"" "$path" "$path"
         else
-                printf -- "$separator--whitelist=\"%s\"" "$1"
+                printf -- "$separator--whitelist=\"%s\"" "$path"
         fi
         separator=' '
-}
 
-# realpath + expand tilde expansion (like ~/video.mp4; only single ~ now)
-expand_path() {
-        # shellcheck disable=SC2088 # intentional
-        if ! expr "$1" : '~/' >/dev/null; then
-                realpath "$1"
-        else
-                realpath "$HOME${1#\~}"
+        abs_path=$(realpath "$path")
+        # resolve also symlinks
+        if [ "$abs_path" != "$path" ]; then
+                add_whitelist "$abs_path"
         fi
 }
 
+# whitelist path that may not exist (file that will be created), so eg. also the parent
 whitelist_file_path() {
-        abs_path=$(expand_path "$1")
-        add_whitelist "$abs_path"
+        path=$1
+        add_whitelist "$path"
         if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null
         then
-                printf -- "$separator--mkdir=\"%s\"" "$abs_path" # may not exist
+                printf -- "$separator--mkdir=\"%s\"" "$path" # may not exist
         fi
         if expr "$n" : '.*file[:=]' >/dev/null || expr "$n" : '.*filename' \
                         >/dev/null; then
-                parent_dir=$(dirname "$abs_path")
+                parent_dir=$(dirname "path")
                 if [ "$parent_dir" = /dev ] || [ "$parent_dir" = /tmp ]; then
                         return
                 fi
@@ -317,7 +322,7 @@ get_custom_firejail_rules() {
         separator=''
         playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
         if [ -n "$playback_path" ]; then
-                add_whitelist "$(expand_path "$playback_path")"
+                add_whitelist "$playback_path"
         fi
         # print every argument of "filename=", "file[:=]", "dump:" or "--record=" pattern
         for n in "$@"; do
@@ -336,7 +341,7 @@ get_custom_firejail_rules() {
                 add_whitelist "$(pwd)"
         fi
         if ! expr "$DIR" : /tmp >/dev/null; then # add AppRun path if not in tmp (== extracted AppImage)
-                add_whitelist "$(expand_path "$DIR")"
+                add_whitelist "$DIR"
         fi
         if [ -z "$separator" ]; then # no whitelist was set
                 printf -- "--private"
