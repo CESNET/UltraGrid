@@ -345,7 +345,16 @@ static void print_current_pos(struct vidcap_state_lavf_decoder *s,
         s->last_stream_stat = t;
 }
 
-#define CHECK_FF(cmd, action_failed) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); action_failed} } while(0)
+#define CHECK_FF(cmd, action_failed) \
+        do { \
+                int rc = cmd; \
+                if (rc < 0) { \
+                        char buf[1024]; \
+                        av_strerror(rc, buf, 1024); \
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); \
+                        action_failed; \
+                } \
+        } while (0)
 static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
         struct msg_universal *msg;
         while ((msg = (struct msg_universal *) check_message(&s->mod)) != NULL) {
@@ -468,13 +477,22 @@ static void print_packet_info(const AVPacket *pkt, const AVStream *st) {
 static void
 rewind_file(struct vidcap_state_lavf_decoder *s)
 {
+        bool avseek_failed = false;
         CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN,
                                     s->fmt_ctx->start_time, INT64_MAX, 0),
-                 {});
-        // handle single JPEG loop, inspired by libavformat's seek_frame_generic
-        // because img_read_seek (AVInputFormat::read_seek) doesn't do the job -
-        // seeking is inmplemeted just in img2dec if VideoDemuxData::loop == 1
-        CHECK_FF(avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET), {});
+                 avseek_failed = true);
+        const bool mjpeg = s->vid_ctx->codec_id == AV_CODEC_ID_MJPEG &&
+                           s->fmt_ctx->ctx_flags & AVFMTCTX_NOHEADER;
+        if (avseek_failed || mjpeg) {
+                // handle single JPEG loop, inspired by libavformat's
+                // seek_frame_generic because img_read_seek
+                // (AVInputFormat::read_seek) doesn't do the job - seeking is
+                // inmplemeted just in img2dec if VideoDemuxData::loop == 1
+                // used also for AnnexB HEVC stream (avformat_seek_file fails)
+                CHECK_FF(
+                    avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET),
+                    {});
+        }
         flush_captured_data(s);
 }
 
