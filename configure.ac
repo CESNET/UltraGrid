@@ -1779,9 +1779,9 @@ then
                         PKG_CHECK_MODULES([SDL_TTF], [sdl${sdl_ver_suffix}-ttf],
                                           [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
                 fi
-                SDL_TTF_LIBS=$(remove_mwindows "${SDL_TTF_LIBS?}")
                 if test "${FOUND_SDL_TTF?}" = yes
                 then
+                        SDL_TTF_LIBS=$(remove_mwindows "${SDL_TTF_LIBS?}")
                         TESTCARD2_LIB="${TESTCARD2_LIB-} ${SDL_TTF_LIBS?}"
                         AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
