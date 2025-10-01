@@ -695,7 +695,8 @@ static bool setup_video(struct vidcap_state_lavf_decoder *s) {
         AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
         s->video_desc.width = st->codecpar->width;
         s->video_desc.height = st->codecpar->height;
-        s->video_desc.fps = (double)st->r_frame_rate.num / st->r_frame_rate.den;
+        s->video_desc.fps =
+            (double) st->avg_frame_rate.num / st->avg_frame_rate.den;
         s->video_desc.tile_count = 1;
         if (s->no_decode) {
                 s->video_desc.color_spec =
