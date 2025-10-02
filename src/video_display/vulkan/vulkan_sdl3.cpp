@@ -788,18 +788,12 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 }
         }
 
-        bool ret = SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-        if (!ret) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3: %s\n", SDL_GetError());
-                return nullptr;
-        }
-
         if (!args.driver.empty()) {
                 SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str()));
         }
-        ret = SDL_InitSubSystem(SDL_INIT_VIDEO);
+        bool ret = SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         if (!ret) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3 video: %s\n", SDL_GetError());
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3: %s\n", SDL_GetError());
                 return nullptr;
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
