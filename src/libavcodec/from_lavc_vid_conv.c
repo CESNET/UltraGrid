@@ -59,7 +59,9 @@
 
 #include "color.h"
 #include "compat/qsort_s.h"
+#ifdef HAVE_CONFIG_H
 #include "config.h"       // for HWACC_VDPAU
+#endif
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
