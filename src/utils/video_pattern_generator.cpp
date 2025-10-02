@@ -13,7 +13,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -162,10 +162,19 @@ class image_pattern_bars : public image_pattern {
         public:
         explicit image_pattern_bars(string const &init) {
                 if (init == "help"s) {
-                        col() << "Testcard bar usage:\n\t" << SBOLD(SRED("-t testcard:pattern=bars") << "[=text]") << " - optionally annotate with text" << "\n";
+                        col() << "Testcard bar usage:\n\t"
+                              << SBOLD(SRED("-t testcard:pattern=bars")
+                                       << "[=<text>[,big]]")
+                              << " - optionally annotate with text (+ big font)" << "\n";
                         throw 1;
                 }
                 annotate = init;
+
+                const std::string::size_type n = annotate.find(",big");
+                if (n == annotate.size() - 4) {
+                        annotate.resize(n);
+                        big = true;
+                }
         }
         private:
         enum generator_depth fill(int width, int height, unsigned char *data) override {
@@ -208,11 +217,14 @@ class image_pattern_bars : public image_pattern {
                         }
                 }
                 if (!annotate.empty()) {
-                        draw_line((char *) data, width * 4, annotate.c_str(), 0xFFFFFFFF, true);
+                        draw_line_scaled((char *) data, width * 4,
+                                         annotate.c_str(), 0xFFFFFFFF,
+                                         0xFF000000, big ? 6 : 1);
                 }
                 return generator_depth::bits8;
         }
         string annotate;
+        bool big = false;
 };
 
 /**
@@ -834,7 +846,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                 col() << "Pattern to use, one of: \n";
                 for (const auto *p :
                      {
-                        "bars",
+                        "bars[=<text>[,big]]",
                         BLANK_USAGE,
                         "diagonal*",
                         "ebu_bars",
