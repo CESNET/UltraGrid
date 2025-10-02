@@ -652,6 +652,15 @@ void VulkanDisplay::window_parameters_changed(WindowParameters new_parameters) {
                 auto render_area_size = context.get_render_area_size();
                 render_pipeline.update_render_area(render_area_size, current_image_description.size);
         }
+
+        // re-render some recent image for the case that no video is arriving:
+        // 1. to have defined content
+        // 2. with Wayland, to perform the changes (without content refresh, the
+        // window isn't resized)
+        auto *last_image = available_img_queue.try_pop();
+        if (last_image != nullptr) {
+                queue_image(TransferImage{ *last_image }, true);
+        }
 }
 
 std::string
