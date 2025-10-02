@@ -646,7 +646,10 @@ bool VulkanDisplay::display_queued_image() {
 }
 
 void VulkanDisplay::window_parameters_changed(WindowParameters new_parameters) {
-        if (new_parameters != context.get_window_parameters() && !new_parameters.is_minimized()) {
+        if (new_parameters == context.get_window_parameters() || new_parameters.is_minimized()) {
+                return;
+        }
+        {
                 std::scoped_lock lock{device_mutex};
                 context.recreate_swapchain(new_parameters, render_pipeline.get_render_pass());
                 auto render_area_size = context.get_render_area_size();
