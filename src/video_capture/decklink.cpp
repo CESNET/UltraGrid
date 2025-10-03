@@ -332,6 +332,7 @@ public:
                         s->enable_flags ^= bmdVideoInputDualStream3D;
                 }
 
+                IDeckLinkInput *deckLinkInput = device.deckLinkInput;
                 // set the codec but only if has changed
                 BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
                 if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) {
@@ -353,18 +354,22 @@ public:
                         {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
                 };
                 if (s->requested_bit_depth == 0 && (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
-                        const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
-                        LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME << "Detected " << depth
-                            << "-bit signal, use \":codec=UYVY\" to "
-                               "enforce 8-bit capture (old "
-                               "behavior).\n";
+                        const int depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? 10 : 12;
+                        if (depth == 12 && !decklink_supports_codec(deckLinkInput, bmdFormat12BitRGBLE)) {
+                                MSG(WARNING, "12-bit input detected but not supported "
+                                    "by the device! Using 10-bit.\n");
+                                csBitDepth = (flags & csMask) |
+                                             bmdDetectedVideoInput10BitDepth;
+                        }
+                        MSG(WARNING,
+                            "Detected %d-bit signal, use \":codec=UYVY\" to "
+                            "enforce 8-bit capture (old behavior).\n",
+                            depth);
                 }
 
                 unique_lock<mutex> lk(s->lock);
                 s->set_codec(m.at(csBitDepth));
 
-                IDeckLinkInput *deckLinkInput = device.deckLinkInput;
                 deckLinkInput->PauseStreams();
                 BMDPixelFormat pf{};
                 if (HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf); FAILED(result)) {
