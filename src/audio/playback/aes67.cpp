@@ -86,6 +86,9 @@ struct Sap_session{
         std::string description;
         std::string ptp_id;
 
+        /* Only 1ms packet time is guaranteed to be supported by receivers.
+         */
+        const static int frames_per_pkt = 48;
         Rtp_stream stream;
 };
 
@@ -94,6 +97,13 @@ std::string get_fmt_str(int sample_rate, int ch_count){
         fmt += std::to_string(sample_rate) + "/";
         fmt += std::to_string(ch_count);
         return fmt;
+}
+
+float sess_get_pkt_time(Sap_session& sap){
+        /* Various sources say that 1ms packet time at 44.1kHz should still
+         * contain 48 frames. TODO: Figure out how that should work in practice
+         */
+        return (sap.frames_per_pkt * 1000.f) / sap.stream.sample_rate;
 }
 
 std::string get_sdp(Sap_session& sap){
@@ -109,7 +119,11 @@ std::string get_sdp(Sap_session& sap){
 
         sdp += "m=audio 5004 RTP/AVP " + std::to_string(stream.fmt_id) + "\r\n";
         sdp += "a=rtpmap:" + std::to_string(stream.fmt_id) + " " + get_fmt_str(stream.sample_rate, stream.ch_count) + "\r\n";
-        sdp += "a=ptime:1\r\n"; //TODO support changing packet time
+        char tmp_buf[32] = {};
+        std::to_chars(tmp_buf, tmp_buf + sizeof(tmp_buf), sess_get_pkt_time(sap), std::chars_format::fixed);
+        sdp += "a=ptime:";
+        sdp += tmp_buf;
+        sdp += "\r\n";
 
         sdp += "a=ts-refclk:ptp=IEEE1588-2008:" + sap.ptp_id + ":0\r\n";
         sdp += "a=mediaclk:direct=0\r\n";
@@ -138,7 +152,7 @@ struct state_aes67_play{
         ring_buffer_uniq ring_buf;
         unsigned buf_len_ms = 100;
 
-        int32_t testoffset = 0;
+        int32_t frame_ts_offset = 0;
 
         Ptp_clock ptpclk;
 };
@@ -242,7 +256,7 @@ static void rtp_worker(state_aes67_play *s){
 
         auto hdr_size = rtp_pkt.size();
 
-        const unsigned frames_per_packet = 48; //TODO
+        const unsigned frames_per_packet = s->sap_sess.frames_per_pkt;
         const unsigned frame_size = s->desc.ch_count * s->desc.bps;
         int payload_size = frame_size * frames_per_packet;
         rtp_pkt.resize(hdr_size + payload_size);
@@ -250,7 +264,13 @@ static void rtp_worker(state_aes67_play *s){
         set_realtime_sched_this_thread();
 
         uint16_t seq = 0;
-        uint32_t timestamp = (s->ptpclk.get_time() * 3) / 62500 + s->testoffset; //TODO
+        uint32_t timestamp = (s->ptpclk.get_time() * 3) / 62500 + s->frame_ts_offset; //TODO
+
+        /* To prevent packets arriving with a timestamp higher than current
+         * time on the receiver due to inaccurate clock synchronization we move
+         * the timestamp by half a packet time into the past.
+         */
+        timestamp -= s->sap_sess.frames_per_pkt / 2;
         //timestamp = 0;
         auto next_pkt_time = clk::now();
         auto next_pkt_ptp_time = s->ptpclk.get_time();
@@ -331,14 +351,16 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
                                 return {};
                         }
-                } else if (key == "testoffset"){
-                        if(!parse_num(val, s->testoffset)){
+                } else if (key == "ts_offset"){
+                        if(!parse_num(val, s->frame_ts_offset)){
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
                                 return {};
                         }
                 } else if(key == "help"){
                         audio_play_aes67_help();
                         return INIT_NOERR;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unkown option %s\n", std::string(key).c_str());
                 }
         }
 
