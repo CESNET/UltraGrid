@@ -490,7 +490,7 @@ vidcap_decklink_print_card_info(IDeckLink *deckLink, const char *query_prop_fcc)
         }
 
         IDeckLinkInput *deckLinkInput = nullptr;
-        color_printf("\n\tsupported pixel formats:" TERM_BOLD);
+        color_printf("\n\tsupported input pixel formats:" TERM_BOLD);
         if ((deckLink->QueryInterface(IID_IDeckLinkInput,
                                       (void **) &deckLinkInput)) == S_OK) {
                 for (auto &c : uv_to_bmd_codec_map) {

@@ -1447,7 +1447,8 @@ void
 print_bmd_connections(IDeckLinkProfileAttributes *deckLinkAttributes,
                       BMDDeckLinkAttributeID id, const char *module_prefix)
 {
-        col() << "\tsupported connetions:";
+        printf("\tsupported %s connetions:",
+               id == BMDDeckLinkVideoInputConnections ? "input" : "output");
         int64_t connections = 0;
         if (deckLinkAttributes->GetInt(id, &connections) != S_OK) {
                 log_msg(LOG_LEVEL_ERROR, "\n%sCould not get connections.\n\n",

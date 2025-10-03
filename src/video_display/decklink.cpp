@@ -2247,7 +2247,7 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
 
                 displayModeNumber++;
         }
-        color_printf("\n\tsupported pixel formats:" TERM_BOLD);
+        color_printf("\n\tsupported output pixel formats:" TERM_BOLD);
         for (auto & c : uv_to_bmd_codec_map) {
                 if (decklink_supports_codec(deckLinkOutput, c.second)) {
                         printf(" %s", get_codec_name(c.first));
