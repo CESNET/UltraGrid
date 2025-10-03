@@ -37,7 +37,7 @@ sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086 # intentional
-sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
+sudo apt install $ffmpeg_build_dep libde265-dev meson
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 # own x264 build
 sudo apt --no-install-recommends install asciidoc xmlto

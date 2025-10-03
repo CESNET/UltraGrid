@@ -9,6 +9,14 @@ install_aom() {(
         sudo cmake --install .
 )}
 
+install_dav1d() {(
+        git clone --depth 1 https://code.videolan.org/videolan/dav1d.git
+        mkdir -p dav1d/build && cd dav1d/build
+        meson ..
+        ninja
+        sudo ninja install
+)}
+
 install_libvpx() {
         (
         git clone --depth 1 https://github.com/webmproject/libvpx.git
@@ -54,6 +62,7 @@ if [ "$(lsb_release -rs)" = 20.04 ]; then
         git am -3 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto"
 fi
 install_aom
+install_dav1d
 ( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j "$(nproc)" && sudo make install || exit 1 )
 install_libvpx
 install_nv_codec_headers
