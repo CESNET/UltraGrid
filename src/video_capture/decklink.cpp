@@ -334,6 +334,7 @@ public:
                 BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
                 unique_lock<mutex> lk(s->lock);
                 if (notificationEvents & bmdVideoInputColorspaceChanged && csBitDepth != configuredCsBitDepth) {
+                        configuredCsBitDepth = csBitDepth;
                         if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
                                 csBitDepth |= bmdDetectedVideoInput8BitDepth;
                         }
@@ -358,7 +359,6 @@ public:
                         }
 
                         s->set_codec(m.at(csBitDepth));
-                        configuredCsBitDepth = csBitDepth;
                 }
 
                 if (notificationEvents & bmdVideoInputDisplayModeChanged) {
