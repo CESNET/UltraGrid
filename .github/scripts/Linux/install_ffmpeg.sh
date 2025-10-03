@@ -11,8 +11,10 @@ cache_dir=/var/tmp/ffmpeg
 deps() {
         ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libsdl')
         # shellcheck disable=SC2086 # intentional
-        sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev \
-                libopenh264-dev
+        sudo apt install $ffmpeg_build_dep libde265-dev \
+                libopenh264-dev \
+                meson \
+
         sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' \
                 libvpx-dev nginx
 }
@@ -24,6 +26,14 @@ install_aom() {(
         cmake -DBUILD_SHARED_LIBS=1 ..
         cmake --build . --parallel "$(nproc)"
         sudo cmake --install .
+)}
+
+install_dav1d() {(
+        git clone --depth 1 https://code.videolan.org/videolan/dav1d.git
+        mkdir -p dav1d/build && cd dav1d/build
+        meson ..
+        ninja
+        sudo ninja install
 )}
 
 install_libvpx() {(
@@ -77,6 +87,7 @@ build_install() {
                 $cache_dir
         cd $cache_dir
         install_aom
+        install_dav1d
         install_libvpx
         install_nv_codec_headers
         install_onevpl
@@ -115,6 +126,7 @@ install_cached() {
         ( cd libvpx && sudo make install )
         ( cd nv-codec-headers && sudo make install )
         ( cd aom/build && sudo cmake --install . )
+        ( cd dav1d/build && sudo ninja install )
         sudo cmake --install SVT-AV1/Build
         sudo cmake --install SVT-HEVC/Build/linux/Release
         sudo cmake --install SVT-VP9/Build
