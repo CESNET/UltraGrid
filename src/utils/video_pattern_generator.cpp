@@ -64,6 +64,7 @@
 #include "debug.h"
 #include "pixfmt_conv.h"
 #include "ug_runtime_error.hpp"
+#include "utils/bitmap_font.h"         // for FONT_H
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/string_view_utils.hpp"
@@ -164,16 +165,20 @@ class image_pattern_bars : public image_pattern {
                 if (init == "help"s) {
                         col() << "Testcard bar usage:\n\t"
                               << SBOLD(SRED("-t testcard:pattern=bars")
-                                       << "[=<text>[,big]]")
-                              << " - optionally annotate with text (+ big font)" << "\n";
+                                       << "[=<text>[,XYpt]]")
+                              << " - optionally annotate with text (+ opt font size)" << "\n";
                         throw 1;
                 }
                 annotate = init;
 
-                const std::string::size_type n = annotate.find(",big");
-                if (n == annotate.size() - 4) {
-                        annotate.resize(n);
-                        big = true;
+                const char *last_comma = strrchr(init.c_str(), ',');
+                if (last_comma != nullptr) {
+                        char *endptr = nullptr;
+                        long val = strtol(last_comma + 1, &endptr, 10);
+                        if (strcmp(endptr, "pt") == 0) {
+                                annotate.resize(annotate.rfind(','));
+                                scale = (val + FONT_H - 1) / FONT_H;
+                        }
                 }
         }
         private:
@@ -219,12 +224,12 @@ class image_pattern_bars : public image_pattern {
                 if (!annotate.empty()) {
                         draw_line_scaled((char *) data, width * 4,
                                          annotate.c_str(), 0xFFFFFFFF,
-                                         0xFF000000, big ? 6 : 1);
+                                         0xFF000000, scale);
                 }
                 return generator_depth::bits8;
         }
         string annotate;
-        bool big = false;
+        int scale = 6;
 };
 
 /**
@@ -846,7 +851,7 @@ video_pattern_generator_create(const char *config, int width, int height, codec_
                 col() << "Pattern to use, one of: \n";
                 for (const auto *p :
                      {
-                        "bars[=<text>[,big]]",
+                        "bars[=<text>[,XYpt]]",
                         BLANK_USAGE,
                         "diagonal*",
                         "ebu_bars",
