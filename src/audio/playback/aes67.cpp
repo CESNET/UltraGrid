@@ -66,7 +66,9 @@ namespace {
 struct Rtp_stream{
         std::string name;
         std::string description;
-        std::map<uint8_t, audio_desc> fmts;
+        const static int fmt_id = 96;
+        int sample_rate;
+        int ch_count;
 
         std::string address;
         int port;
@@ -84,12 +86,19 @@ struct Sap_session{
         std::string description;
         std::string ptp_id;
 
-        std::vector<Rtp_stream> streams;
+        Rtp_stream stream;
 };
+
+std::string get_fmt_str(int sample_rate, int ch_count){
+        std::string fmt = "L24/";
+        fmt += std::to_string(sample_rate) + "/";
+        fmt += std::to_string(ch_count);
+        return fmt;
+}
 
 std::string get_sdp(Sap_session& sap){
         std::string sdp;
-        auto& stream = sap.streams[0];
+        auto& stream = sap.stream;
         sdp += "v=0\r\n";
         sdp += "o=- " + std::to_string(sap.sess_id) + " " +  std::to_string(sap.sess_ver) + " IN IP4 " + sap.origin_address + "\r\n";
         sdp += "s=Ultragrid AES67\r\n";
@@ -98,8 +107,8 @@ std::string get_sdp(Sap_session& sap){
         sdp += "t=0 0\r\n";
         sdp += "a=recvonly\r\n";
 
-        sdp += "m=audio 5004 RTP/AVP " + std::to_string(stream.fmts.begin()->first) + "\r\n"; //TODO list all
-        sdp += "a=rtpmap:" + std::to_string(stream.fmts.begin()->first) + " L24/48000/1\r\n"; //TODO actual format
+        sdp += "m=audio 5004 RTP/AVP " + std::to_string(stream.fmt_id) + "\r\n";
+        sdp += "a=rtpmap:" + std::to_string(stream.fmt_id) + " " + get_fmt_str(stream.sample_rate, stream.ch_count) + "\r\n";
         sdp += "a=ptime:1\r\n"; //TODO support changing packet time
 
         sdp += "a=ts-refclk:ptp=IEEE1588-2008:" + sap.ptp_id + ":0\r\n";
@@ -164,13 +173,18 @@ static void create_sap_sess(state_aes67_play *s){
         sess.sess_id = time(nullptr);
         sess.sess_ver = sess.sess_id;
         sess.origin_address = udp_host_addr(s->sdp_sock.get());
-        Rtp_stream stream{};
-        stream.fmts[96] = s->desc;
+
+        /* Only 48kHz is mandatory in AES67 receivers, so for now, we only
+         * support that. TODO: Support other rates as well.
+         */
+        sess.stream.sample_rate = 48000;
+        assert(s->desc.sample_rate == 48000);
+        sess.stream.ch_count = s->desc.ch_count;
+
         in_addr addr;
         addr.s_addr = (239 << 0) | (69 << 8) | (rand() << 16);
-        stream.address = inet_ntoa(addr);
-        stream.port = 5004;
-        sess.streams.push_back(std::move(stream));
+        sess.stream.address = inet_ntoa(addr);
+        sess.stream.port = 5004;
         sess.ptp_id = s->ptpclk.get_clock_id_str();
 
         s->sap_sess = std::move(sess);
@@ -200,14 +214,14 @@ static void sdp_worker(state_aes67_play *s){
 
 static void rtp_worker(state_aes67_play *s){
         //TODO
-        auto& stream = s->sap_sess.streams[0];
+        auto& stream = s->sap_sess.stream;
         auto rtp_sock = socket_udp_uniq(udp_init_if(stream.address.c_str(), s->network_interface_name.c_str(), stream.port, 0, 255, 4, false));
 
         using clk = std::chrono::steady_clock;
 
         std::vector<unsigned char> rtp_pkt;
         rtp_pkt.push_back(0x80); //Version, no padding, no extension, no cssr
-        rtp_pkt.push_back(96); //TODO payload type
+        rtp_pkt.push_back(stream.fmt_id);
 
         //Seq number
         rtp_pkt.push_back(0x00);
