@@ -2230,9 +2230,9 @@ print_output_modes(IDeckLink *deckLink, const char *query_prop_fcc)
                         int modeHeight = displayMode->GetHeight();
                         uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
                         displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                        printf(
-                            "\t\t%2d) %-20s  %d x %d \t %2.2f FPS %.4s, "
-                            "flags: %s\n",
+                        color_printf(
+                            "\t    " TBOLD("%2d")") %-14s  %d x %d\t%2.2f FPS %.4s, "
+                            "flgs: %s\n",
                             displayModeNumber,
                             get_str_from_bmd_api_str(displayModeString).c_str(),
                             modeWidth, modeHeight,
