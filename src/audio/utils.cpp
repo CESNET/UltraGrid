@@ -655,6 +655,18 @@ const char *audio_desc_to_cstring(struct audio_desc desc) {
         return str.c_str();
 }
 
+void swap_endianity(char *buf, int bps, unsigned sample_count) {
+        const int swap_count = bps / 2;
+        for(unsigned i = 0; i < sample_count; i++){
+                for(int j = 0; j < swap_count; j++){
+                        unsigned char tmp = buf[j];
+                        buf[j] = buf[bps - j - 1];
+                        buf[bps - j - 1] = tmp;;
+                }
+                buf += bps;
+        }
+}
+
 /**
  * Parses configuration string for audio format.
  *
