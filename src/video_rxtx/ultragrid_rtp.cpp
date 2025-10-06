@@ -35,48 +35,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "video_rxtx/ultragrid_rtp.hpp"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
-
-#include <sstream>
-#include <string>
-#include <stdexcept>
+#include <cassert>               // for assert
+#include <cstdio>                // for fprintf, stderr
+#include <cstdlib>               // for free, calloc
+#include <string>                // for basic_string, operator<, operator==
+#include <utility>               // for pair
+// IWYU pragma: no_include <sys/time.h> # via tv.h
+// IWYU pragma: no_include <iterator>   # std::pair is rather in utility
 
 #include "control_socket.h"
-#include "export.h"
+#include "debug.h"
+#include "rtp/fec.h"             // for fec
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
-#include "module.h"
 #include "pdb.h"
-#include "rtp/ldgm.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
 #include "utils/thread.h"
-#include "utils/vf_split.h"
-#include "video.h"
-#include "video_compress.h"
-#include "video_decompress.h"
 #include "video_display.h"
 #include "video_rxtx.hpp"
-#include "video_rxtx/ultragrid_rtp.hpp"
 #include "ug_runtime_error.hpp"
 #include "utils/worker.h"
-
-#include <chrono>
-#include <sstream>
-#include <utility>
 
 using namespace std;
 

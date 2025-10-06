@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,16 +38,27 @@
 #ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_
 #define VIDEO_RXTX_ULTRAGRID_RTP_H_
 
-#include "video_rxtx.hpp"
 #include "video_rxtx/rtp.hpp"
 
 #include <condition_variable>
+#include <cstddef>             // for size_t
+#include <cstdint>             // for uint32_t
 #include <list>
 #include <map>
+#include <memory>              // for shared_ptr
 #include <mutex>
 #include <string>
 
-struct control_state;
+#ifdef _WIN32
+#include <basetsd.h>           // for SSIZE_T
+typedef SSIZE_T ssize_t;
+#else
+#include <sys/types.h>         // for ssize_t
+#endif
+
+#include "types.h"             // for video_frame (ptr only), video_mode
+
+union param_u;
 
 class ultragrid_rtp_video_rxtx : public rtp_video_rxtx {
 public:
