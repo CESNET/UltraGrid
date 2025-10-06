@@ -164,6 +164,12 @@ std::ostream& operator<<(std::ostream& os, const codec_t& color_spec)
         return os;
 }
 
+/**
+ * currently unused (except of the unit test
+ * misc_test_video_desc_io_op_symmetry())
+ *
+ * the removal can be considered
+ */
 std::istream& operator>>(std::istream& is, video_desc& desc)
 {
         video_desc out;
