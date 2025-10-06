@@ -50,6 +50,7 @@
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "audio/utils.h"
 #include "compat/platform_sched.h"
 #include "rtp/net_udp.h"
 #include "debug.h"
@@ -295,16 +296,7 @@ static void rtp_worker(state_aes67_play *s){
                 unsigned avail_frames = ring_get_current_size(s->ring_buf.get()) / frame_size;
                 unsigned frames_to_write = std::min(frames_per_packet, avail_frames);
                 ring_buffer_read(s->ring_buf.get(), dst, frames_to_write * frame_size);
-
-                const int bps = s->desc.bps;
-                const int swap_count = bps / 2;
-                for(unsigned i = 0; i < frames_to_write * s->desc.ch_count; i++){
-                        for(int j = 0; j < swap_count; j++){
-                                unsigned char tmp = dst[i * bps + j];
-                                dst[i * bps + j] = dst[i * bps + bps - j - 1];
-                                dst[i * bps + bps - j - 1] = tmp;;
-                        }
-                }
+                swap_endianity(dst, s->desc.bps, frames_to_write * s->desc.ch_count);
 
                 udp_send(rtp_sock.get(), reinterpret_cast<char*>(rtp_pkt.data()), rtp_pkt.size());
                 seq += 1;
