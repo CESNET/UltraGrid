@@ -65,8 +65,6 @@
 namespace {
 
 struct Rtp_stream{
-        std::string name;
-        std::string description;
         const static int fmt_id = 96;
         int sample_rate;
         int ch_count;
