@@ -417,8 +417,6 @@ void * vidcap_testcard2_thread(void *arg)
         int prev_y2 = rand() % ((s->desc.height - 96) / 6) * 6;
         int down2 = rand() % 2, right2 = rand() % 2;
         
-        int stat_count_prev = 0;
-        
         gettimeofday(&s->last_audio_time, NULL);
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
 
@@ -565,7 +563,6 @@ next_frame:
                         if((++s->count) % ((int) s->desc.fps * 5) == 0) {
                                 s->play_audio_frame = 1;
                         }
-                        ++stat_count_prev;
                         goto next_frame;
                 }
                 
