@@ -146,6 +146,8 @@ const char *audio_desc_to_cstring(struct audio_desc desc);
 #define STORE_I32_SAMPLE(ptr, val, out_bps) memcpy((ptr), &(val), (out_bps))
 #endif
 
+void swap_endianity(char *buf, int bps, unsigned sample_count);
+
 /**
  * Appends data to audio frame
  *
