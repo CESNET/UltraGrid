@@ -152,14 +152,6 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 delete old_fec_state;
                 MSG(NOTICE, "Fec changed successfully\n");
         } break;
-        case SENDER_MSG_QUERY_VIDEO_MODE: {
-                if (!m_video_desc) {
-                        return new_response(RESPONSE_NO_CONTENT, nullptr);
-                }
-                ostringstream oss;
-                oss << m_video_desc;
-                return new_response(RESPONSE_OK, oss.str().c_str());
-        }
         case SENDER_MSG_RESET_SSRC: {
                 lock_guard<mutex> lock(m_network_devices_lock);
                 const uint32_t    old_ssrc   = rtp_my_ssrc(m_network_device);
@@ -187,7 +179,7 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 MSG(ERROR, "Unexpected audio message ID %d!\n", msg->type);
                 return new_response(RESPONSE_INT_SERV_ERR, nullptr);
         default:
-                MSG(ERROR, "Unknown message ID %d!\n", msg->type);
+                MSG(ERROR, "Unsupported message ID %d!\n", msg->type);
                 return new_response(RESPONSE_INT_SERV_ERR, nullptr);
         }
 
@@ -195,7 +187,7 @@ rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_video_desc{}
+        video_rxtx(params), m_fec_state(NULL)
 {
         m_participants = pdb_init("video", &video_offset);
         m_requested_receiver = params.at("receiver").str;

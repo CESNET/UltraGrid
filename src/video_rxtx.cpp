@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
 
 #include <sstream>
 #include <stdexcept>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -65,6 +66,7 @@
 
 using std::map;
 using std::shared_ptr;
+using std::ostringstream;
 using std::string;
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"),
@@ -168,9 +170,23 @@ void *video_rxtx::sender_thread(void *args) {
 
 void video_rxtx::check_sender_messages() {
         // process external messages
-        struct message *msg_external;
+        struct message *msg_external = nullptr;
         while((msg_external = check_message(&m_sender_mod))) {
-                struct response *r = process_sender_message((struct msg_sender *) msg_external);
+                struct response *r = nullptr;
+                auto *msg = (struct msg_sender *) msg_external;
+                if (msg->type == SENDER_MSG_QUERY_VIDEO_MODE) {
+                        if (!m_video_desc) {
+                                r = new_response(RESPONSE_NO_CONTENT, nullptr);
+                        } else {
+                                ostringstream oss;
+                                oss << m_video_desc;
+                                r = new_response(RESPONSE_OK,
+                                                 oss.str().c_str());
+                        }
+                } else { // delegate to implementations
+                        r = process_sender_message(msg);
+                }
+
                 free_message(msg_external, r);
         }
 }
@@ -191,6 +207,7 @@ void *video_rxtx::sender_loop() {
                         break;
                 }
 
+                m_video_desc = video_desc_from_frame(tx_frame.get());
                 export_video(m_common.exporter, tx_frame.get());
 
                 send_frame(std::move(tx_frame));
