@@ -51,6 +51,7 @@
 
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
+#include "audio/utils.h"
 #include "host.h"                 // for INIT_NOERR
 #include "lib_common.h"           // for REGISTER_MODULE, library_class
 #include "tv.h"                   // for get_time_in_ns, time_ns_t, NS_TO_US
@@ -237,17 +238,8 @@ static void aes67_rtp_worker(state_aes67_cap *s, Rtp_stream stream){
 
                 int sample_count = rtp_pkt.data_len / desc.bps;
 
-                unsigned char *src = static_cast<unsigned char *>(rtp_pkt.data);
-
-                const int bps = desc.bps;
-                const int swap_count = bps / 2;
-                for(int i = 0; i < sample_count; i++){
-                        for(int j = 0; j < swap_count; j++){
-                                unsigned char tmp = src[i * bps + j];
-                                src[i * bps + j] = src[i * bps + bps - j - 1];
-                                src[i * bps + bps - j - 1] = tmp;;
-                        }
-                }
+                char *src = static_cast<char *>(rtp_pkt.data);
+                swap_endianity(src, desc.bps, sample_count);
 
                 size_t to_write = std::min<size_t>(s->back_frame.frame.max_size - s->back_frame.data.size(), sample_count * desc.bps);
                 s->back_frame.data.insert(s->back_frame.data.end(), src, src + to_write);
