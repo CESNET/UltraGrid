@@ -110,8 +110,8 @@ std::string get_sdp(Sap_session& sap){
         auto& stream = sap.stream;
         sdp += "v=0\r\n";
         sdp += "o=- " + std::to_string(sap.sess_id) + " " +  std::to_string(sap.sess_ver) + " IN IP4 " + sap.origin_address + "\r\n";
-        sdp += "s=Ultragrid AES67\r\n";
-        sdp += "i=placeholder info\r\n"; //TODO
+        sdp += "s=" + sap.name + "\r\n";
+        sdp += "i=" + sap.description + "\r\n";
         sdp += "c=IN IP4 " + stream.address + "/127\r\n"; //TODO
         sdp += "t=0 0\r\n";
         sdp += "a=recvonly\r\n";
@@ -137,6 +137,9 @@ struct state_aes67_play{
         std::string network_interface_name;
         std::string sap_address;
         int sap_port;
+
+        std::string session_name = "UltraGrid AES67";
+        std::string session_description = "placeholder";
 
         std::atomic<bool> sdp_should_run = true;
         std::thread sdp_thread;
@@ -199,6 +202,9 @@ static void create_sap_sess(state_aes67_play *s){
         sess.stream.address = inet_ntoa(addr);
         sess.stream.port = 5004;
         sess.ptp_id = s->ptpclk.get_clock_id_str();
+
+        sess.name = s->session_name;
+        sess.description = s->session_description;
 
         s->sap_sess = std::move(sess);
 }
@@ -346,9 +352,10 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
                                 return {};
                         }
-                } else if(key == "help"){
-                        audio_play_aes67_help();
-                        return INIT_NOERR;
+                } else if(key == "sess_name"){
+                        s->session_name = val;
+                } else if(key == "sess_desc"){
+                        s->session_description = val;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unkown option %s\n", std::string(key).c_str());
                 }
