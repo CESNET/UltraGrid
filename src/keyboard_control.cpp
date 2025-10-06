@@ -5,7 +5,7 @@
  * With code taken from Olivier Mehani (set_tio()).
  */
 /*
- * Copyright (c) 2015-2024 CESNET
+ * Copyright (c) 2015-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -764,15 +764,12 @@ void keyboard_control::impl::info()
         }
 
 	{
-		struct video_desc desc{};
                 struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
                 m->type = SENDER_MSG_QUERY_VIDEO_MODE;
                 struct response *r = send_message_sync(m_root, "sender", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
                         const char *text = response_get_text(r);
-                        istringstream iss(text);
-                        iss >> desc;
-                        col() << TBOLD("Captured video format: ") << desc << "\n";
+                        col() << TBOLD("Transmitted video format: ") << text << "\n";
                 }
                 free_response(r);
 	}

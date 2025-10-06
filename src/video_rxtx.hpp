@@ -38,6 +38,7 @@
 #ifndef VIDEO_RXTX_H_
 #define VIDEO_RXTX_H_
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
@@ -124,6 +125,7 @@ private:
         bool m_poisoned, m_joined;
 
         video_desc       m_video_desc{};
+        std::atomic<codec_t> m_input_codec{};
 };
 
 class video_rxtx_loader {

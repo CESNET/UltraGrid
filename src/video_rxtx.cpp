@@ -158,10 +158,12 @@ void video_rxtx::send(shared_ptr<video_frame> frame) {
         if (!frame && m_poisoned) {
                 return;
         }
-        compress_frame(m_compression, frame);
         if (!frame) {
                 m_poisoned = true;
+        } else {
+                m_input_codec = frame->color_spec;
         }
+        compress_frame(m_compression, frame);
 }
 
 void *video_rxtx::sender_thread(void *args) {
@@ -179,7 +181,9 @@ void video_rxtx::check_sender_messages() {
                                 r = new_response(RESPONSE_NO_CONTENT, nullptr);
                         } else {
                                 ostringstream oss;
-                                oss << m_video_desc;
+                                oss << m_video_desc
+                                    << " (input " << get_codec_name(m_input_codec)
+                                    << ")";
                                 r = new_response(RESPONSE_OK,
                                                  oss.str().c_str());
                         }
