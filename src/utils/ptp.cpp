@@ -155,23 +155,23 @@ void Ptp_clock::update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts){
         int64_t error_ns = (int64_t) synth_ptp_ts - (int64_t) new_ptp_ts;
         spa_corr = spa_dll_update(&dll, error_ns);
 
-		avg.push(std::abs(error_ns));
+        avg.push(std::abs(error_ns));
 
-		double avg_error_us = avg.get() / 1000;
+        double avg_error_us = avg.get() / 1000;
 
-		if(avg.size() >= 10 && avg_error_us < LOCK_THRESH_uS_LOW){
-			if(!locked){
-				std::lock_guard<std::mutex> l(mut);
-				locked = true;
-				log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Clock locked\n");
-				cv.notify_all();
-			}
-		} else if(avg_error_us > LOCK_THRESH_uS_HIGH && locked){
-			std::lock_guard<std::mutex> l(mut);
-			locked = false;
-			log_msg(LOG_LEVEL_WARNING, MOD_NAME "Clock unlocked\n");
-			cv.notify_all();
-		}
+        if(avg.size() >= 10 && avg_error_us < LOCK_THRESH_uS_LOW){
+                if(!locked){
+                        std::lock_guard<std::mutex> l(mut);
+                        locked = true;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Clock locked\n");
+                        cv.notify_all();
+                }
+        } else if(avg_error_us > LOCK_THRESH_uS_HIGH && locked){
+                std::lock_guard<std::mutex> l(mut);
+                locked = false;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Clock unlocked (avg err: %f)\n", avg_error_us);
+                cv.notify_all();
+        }
 
         update_count.fetch_add(1, std::memory_order_seq_cst);
         local_snapshot.store(new_local_ts, std::memory_order_seq_cst);
