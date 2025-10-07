@@ -57,11 +57,6 @@ using namespace vulkan_display_detail;
 using namespace vulkan_display;
 
 namespace {
-constexpr bool is_yCbCr_format(vk::Format format) {
-        auto f = static_cast<VkFormat>(format);
-        return VK_FORMAT_G8B8G8R8_422_UNORM <= f && f <= VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM;
-}
-
 vk::PresentModeKHR get_present_mode(bool vsync_enabled, bool tearing_permitted){
         using Mode = vk::PresentModeKHR;
         if (vsync_enabled){
