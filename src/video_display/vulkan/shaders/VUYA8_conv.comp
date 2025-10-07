@@ -1,0 +1,41 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 0, binding = 0) uniform sampler2D inputImage;
+layout (set = 1, binding = 1, rgba8) uniform image2D resultImage;
+
+layout(push_constant) uniform constants
+{
+        uint width;
+        uint height;
+} image_size;
+
+// BT.709 YUV->RGB coefficients
+const float Y_SCALED  = 1.1643835;
+const float R_CR_709  = 1.7926522;
+const float G_CB_709  = -0.21323606;
+const float G_CR_709  = -0.5330038;
+const float B_CB_709  = 2.11242;
+
+void main()
+{
+        ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+        if(pixelCoords.x >= image_size.width ||
+           pixelCoords.y >= image_size.height)
+                return;
+
+        // Assuming input BGRA maps to YUVA: B=Y, G=U, R=V, A=A
+        vec4 yuv = texelFetch(inputImage, pixelCoords, 0).bgra;
+
+        float y = Y_SCALED * (yuv.r - 0.0625);
+        float u = yuv.g - 0.5;
+        float v = yuv.b - 0.5;
+
+        float r = y + R_CR_709 * v;
+        float g = y + G_CB_709 * u + G_CR_709 * v;
+        float b = y + B_CB_709 * u;
+        float a = yuv.a;
+
+        imageStore(resultImage, pixelCoords, vec4(r, g, b, a));
+}

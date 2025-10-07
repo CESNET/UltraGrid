@@ -50,6 +50,7 @@ enum class Format{
         YUYV8_422,
         YUYV16_422,
         UYVA16_422_conv,
+        VUYA8_conv,
         RGB10A2_conv,
         RGB16
 };
@@ -79,6 +80,7 @@ inline const FormatInfo& format_info(vulkan_display::Format format){
         static FormatInfo YUYV8_422 =       { VkF::eG8B8G8R8422Unorm,     };
         static FormatInfo YUYV16_422 =      { VkF::eG16B16G16R16422Unorm, };
         static FormatInfo UYVA16_422_conv = { VkF::eR16G16B16A16Uint,     {"UYVA16_conv"}, VkF::eR16G16B16A16Sfloat};
+        static FormatInfo VUYA8_conv =      { VkF::eR8G8B8A8Unorm,        {"VUYA8_conv"}, VkF::eR8G8B8A8Unorm};
         static FormatInfo RGB10A2_conv =    { VkF::eR8G8B8A8Uint,         {"RGB10A2_conv"}, VkF::eA2B10G10R10UnormPack32};
         static FormatInfo RGB16 =           { VkF::eR16G16B16Unorm        };
         switch (format) {
@@ -90,6 +92,7 @@ inline const FormatInfo& format_info(vulkan_display::Format format){
                 case F::YUYV8_422:       return YUYV8_422;
                 case F::YUYV16_422:      return YUYV16_422;
                 case F::UYVA16_422_conv: return UYVA16_422_conv;
+                case F::VUYA8_conv:      return VUYA8_conv;
                 case F::RGB10A2_conv:    return RGB10A2_conv;
                 case F::RGB16:           return RGB16;
         };
