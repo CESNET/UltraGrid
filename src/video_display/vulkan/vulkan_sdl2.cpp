@@ -751,7 +751,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
                 return nullptr;
         }
-        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
+        MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         SDL_ShowCursor(args.cursor);
         SDL_DisableScreenSaver();
