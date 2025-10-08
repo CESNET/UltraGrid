@@ -130,8 +130,18 @@ std::string get_sdp(Sap_session& sap){
         return sdp;
 }
 
-
-} //anon namespace
+uint64_t nanoseconds_to_media_ts(uint64_t nanoseconds, uint32_t sample_rate){
+        switch (sample_rate) {
+        case 48000:
+                return (nanoseconds * 3) / 62500;
+        case 96000:
+                return (nanoseconds * 3) / 31250;
+        case 44100:
+                return (nanoseconds * 441) / 10'000'000;
+        default:
+                return (nanoseconds * sample_rate) / 1'000'000'000;
+        }
+}
 
 struct state_aes67_play{
         std::string network_interface_name;
@@ -158,6 +168,21 @@ struct state_aes67_play{
 
         Ptp_clock ptpclk;
 };
+
+uint32_t get_rtp_timestamp(state_aes67_play *s){
+        uint32_t timestamp = nanoseconds_to_media_ts(s->ptpclk.get_time(), s->sap_sess.stream.sample_rate);
+        timestamp += s->frame_ts_offset;
+
+        /* To prevent packets arriving with a timestamp higher than current
+         * time on the receiver due to inaccurate clock synchronization we move
+         * the timestamp by half a packet time into the past.
+         */
+        timestamp -= s->sap_sess.frames_per_pkt / 2;
+        return timestamp;
+}
+
+} //anon namespace
+
 
 static std::vector<unsigned char> get_sap_pkt(Sap_session& sess){
         std::string sdp = get_sdp(sess);
@@ -269,20 +294,21 @@ static void rtp_worker(state_aes67_play *s){
         set_realtime_sched_this_thread();
 
         uint16_t seq = 0;
-        uint32_t timestamp = (s->ptpclk.get_time() * 3) / 62500 + s->frame_ts_offset; //TODO
-
-        /* To prevent packets arriving with a timestamp higher than current
-         * time on the receiver due to inaccurate clock synchronization we move
-         * the timestamp by half a packet time into the past.
-         */
-        timestamp -= s->sap_sess.frames_per_pkt / 2;
-        //timestamp = 0;
+        uint32_t rtp_timestamp = get_rtp_timestamp(s);
         auto next_pkt_time = clk::now();
         auto next_pkt_ptp_time = s->ptpclk.get_time();
         do{
                 std::this_thread::sleep_until(next_pkt_time);
                 auto now_ptp_ts = s->ptpclk.get_time();
-                next_pkt_ptp_time += 1000000;
+                next_pkt_ptp_time += 1000000; //TODO use packet time
+
+                auto now_next_diff = std::min(next_pkt_ptp_time - now_ptp_ts, now_ptp_ts - next_pkt_ptp_time);
+                if (now_next_diff > 1'000'000'000){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Packet timing off by more than 1s\n");
+                        rtp_timestamp = get_rtp_timestamp(s);
+                        next_pkt_time = clk::now();
+                        next_pkt_ptp_time = s->ptpclk.get_time();
+                }
 
                 if(next_pkt_ptp_time > now_ptp_ts){
                         next_pkt_time += std::chrono::nanoseconds(next_pkt_ptp_time - now_ptp_ts);
@@ -290,10 +316,10 @@ static void rtp_worker(state_aes67_play *s){
 
                 rtp_pkt[2] = seq >> 8;
                 rtp_pkt[3] = seq;
-                rtp_pkt[4] = timestamp >> 24;
-                rtp_pkt[5] = timestamp >> 16;
-                rtp_pkt[6] = timestamp >> 8;
-                rtp_pkt[7] = timestamp;
+                rtp_pkt[4] = rtp_timestamp >> 24;
+                rtp_pkt[5] = rtp_timestamp >> 16;
+                rtp_pkt[6] = rtp_timestamp >> 8;
+                rtp_pkt[7] = rtp_timestamp;
 
                 char *dst = reinterpret_cast<char *>(rtp_pkt.data() + hdr_size);
 
@@ -304,7 +330,7 @@ static void rtp_worker(state_aes67_play *s){
 
                 udp_send(rtp_sock.get(), reinterpret_cast<char*>(rtp_pkt.data()), rtp_pkt.size());
                 seq += 1;
-                timestamp += frames_per_packet;
+                rtp_timestamp += frames_per_packet;
         } while(s->rtp_should_run);
 }
 
