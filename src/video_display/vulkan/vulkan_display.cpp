@@ -312,7 +312,7 @@ void VulkanDisplay::destroy() {
 bool VulkanDisplay::is_image_description_supported(ImageDescription description) {
         std::scoped_lock lock(device_mutex);
 
-        auto& format_info = description.format_info();
+        const auto& format_info = description.format_info();
         if(!is_format_supported(context.get_gpu(), context.is_yCbCr_supported(), get_buffer_size(description),
                 format_info.buffer_format, vk::ImageTiling::eLinear, vk::ImageUsageFlagBits::eSampled))
         {
@@ -462,7 +462,7 @@ bool VulkanDisplay::queue_image(TransferImage image, bool discardable) {
 
 void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
         auto image_description = transfer_image.get_image_description();
-        auto& image_format_info = image_description.format_info();
+        const auto& image_format_info = image_description.format_info();
 
         if (image_description != current_image_description) {
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Recreating render_pipeline\n");

@@ -67,34 +67,23 @@ struct FormatInfo{
         vk::Format conversion_image_format{};
 };
 
-inline const FormatInfo& format_info(vulkan_display::Format format){
+inline FormatInfo format_info(vulkan_display::Format format){
 
         using F = vulkan_display::Format;
         using VkF = vk::Format;
 
-        static constexpr FormatInfo uninitialized =    { VkF::eUndefined,            };
-        static constexpr FormatInfo RGBA8 =            { VkF::eR8G8B8A8Unorm,        };
-        static constexpr FormatInfo RGB8 =             { VkF::eR8G8B8Srgb,           };
-        static constexpr FormatInfo UYVY8_422 =        { VkF::eB8G8R8G8422Unorm,     };
-        static constexpr FormatInfo UYVY8_422_conv =   { VkF::eR8G8B8A8Unorm,        "UYVY8_conv", VkF::eR8G8B8A8Unorm};
-        static constexpr FormatInfo YUYV8_422 =        { VkF::eG8B8G8R8422Unorm,     };
-        static constexpr FormatInfo VUYA8_4444_conv =  { VkF::eR8G8B8A8Unorm,        "VUYA8_conv", VkF::eR8G8B8A8Unorm};
-        static constexpr FormatInfo YUYV16_422 =       { VkF::eG16B16G16R16422Unorm, };
-        static constexpr FormatInfo UYVA16_4444_conv = { VkF::eR16G16B16A16Uint,     "UYVA16_conv", VkF::eR16G16B16A16Sfloat};
-        static constexpr FormatInfo RGB10A2_conv =     { VkF::eR8G8B8A8Uint,         "RGB10A2_conv", VkF::eA2B10G10R10UnormPack32};
-        static constexpr FormatInfo RGB16 =            { VkF::eR16G16B16Unorm        };
         switch (format) {
-                case F::uninitialized:   return uninitialized;
-                case F::RGBA8:           return RGBA8;
-                case F::RGB8:            return RGB8;
-                case F::UYVY8_422:       return UYVY8_422;
-                case F::UYVY8_422_conv:  return UYVY8_422_conv;
-                case F::YUYV8_422:       return YUYV8_422;
-                case F::VUYA8_4444_conv: return VUYA8_4444_conv;
-                case F::YUYV16_422:      return YUYV16_422;
-                case F::UYVA16_4444_conv: return UYVA16_4444_conv;
-                case F::RGB10A2_conv:    return RGB10A2_conv;
-                case F::RGB16:           return RGB16;
+        case F::uninitialized:    return { VkF::eUndefined,            };
+        case F::RGBA8:            return { VkF::eR8G8B8A8Unorm,        };
+        case F::RGB8:             return { VkF::eR8G8B8Srgb,           };
+        case F::UYVY8_422:        return { VkF::eB8G8R8G8422Unorm,     };
+        case F::UYVY8_422_conv:   return { VkF::eR8G8B8A8Unorm,        "UYVY8_conv", VkF::eR8G8B8A8Unorm };
+        case F::YUYV8_422:        return { VkF::eG8B8G8R8422Unorm,     };
+        case F::VUYA8_4444_conv:  return { VkF::eR8G8B8A8Unorm,        "VUYA8_conv", VkF::eR8G8B8A8Unorm };
+        case F::YUYV16_422:       return { VkF::eG16B16G16R16422Unorm, };
+        case F::UYVA16_4444_conv: return { VkF::eR16G16B16A16Uint,     "UYVA16_conv", VkF::eR16G16B16A16Sfloat };
+        case F::RGB10A2_conv:     return { VkF::eR8G8B8A8Uint,         "RGB10A2_conv", VkF::eA2B10G10R10UnormPack32 };
+        case F::RGB16:            return { VkF::eR16G16B16Unorm        };
         };
         abort();
 }
@@ -125,7 +114,7 @@ struct ImageDescription {
                 return !(*this == other);
         }
 
-        const detail::FormatInfo& format_info() const { return detail::format_info(format); }
+        detail::FormatInfo format_info() const { return detail::format_info(format); }
 };
 
 class TransferImage;
