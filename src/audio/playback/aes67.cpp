@@ -98,11 +98,11 @@ std::string get_fmt_str(int sample_rate, int ch_count){
         return fmt;
 }
 
-float sess_get_pkt_time(Sap_session& sap){
+uint64_t get_pkt_time_ns(unsigned frames_per_pkt, uint32_t sample_rate){
         /* Various sources say that 1ms packet time at 44.1kHz should still
          * contain 48 frames. TODO: Figure out how that should work in practice
          */
-        return (sap.frames_per_pkt * 1000.f) / sap.stream.sample_rate;
+        return (frames_per_pkt * 1'000'000'000ull) / sample_rate;
 }
 
 std::string get_sdp(Sap_session& sap){
@@ -119,7 +119,7 @@ std::string get_sdp(Sap_session& sap){
         sdp += "m=audio 5004 RTP/AVP " + std::to_string(stream.fmt_id) + "\r\n";
         sdp += "a=rtpmap:" + std::to_string(stream.fmt_id) + " " + get_fmt_str(stream.sample_rate, stream.ch_count) + "\r\n";
         char tmp_buf[32] = {};
-        std::to_chars(tmp_buf, tmp_buf + sizeof(tmp_buf), sess_get_pkt_time(sap), std::chars_format::fixed);
+        std::to_chars(tmp_buf, tmp_buf + sizeof(tmp_buf), get_pkt_time_ns(sap.frames_per_pkt, sap.stream.sample_rate) / 1000.f, std::chars_format::fixed);
         sdp += "a=ptime:";
         sdp += tmp_buf;
         sdp += "\r\n";
@@ -300,7 +300,7 @@ static void rtp_worker(state_aes67_play *s){
         do{
                 std::this_thread::sleep_until(next_pkt_time);
                 auto now_ptp_ts = s->ptpclk.get_time();
-                next_pkt_ptp_time += 1000000; //TODO use packet time
+                next_pkt_ptp_time += get_pkt_time_ns(frames_per_packet, s->sap_sess.stream.sample_rate);
 
                 auto now_next_diff = std::min(next_pkt_ptp_time - now_ptp_ts, now_ptp_ts - next_pkt_ptp_time);
                 if (now_next_diff > 1'000'000'000){
@@ -322,6 +322,7 @@ static void rtp_worker(state_aes67_play *s){
                 rtp_pkt[7] = rtp_timestamp;
 
                 char *dst = reinterpret_cast<char *>(rtp_pkt.data() + hdr_size);
+
 
                 unsigned avail_frames = ring_get_current_size(s->ring_buf.get()) / frame_size;
                 unsigned frames_to_write = std::min(frames_per_packet, avail_frames);
