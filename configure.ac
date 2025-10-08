@@ -1983,7 +1983,14 @@ AC_ARG_ENABLE(file,
         [file_req=$build_default]
 )
 
-if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; then
+if test "${file_req?}" = no; then
+        unset missing_item
+elif test "${libavcodec?}" != yes; then
+        missing_item=libavcodec
+elif test "${libswscale?}" != yes; then
+        missing_item=libswscale
+else
+        missing_item=libavformat
         PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
         if test "$found_libavformat" != yes; then
                 SAVED_LIBS=$LIBS
@@ -2010,7 +2017,8 @@ src/video_capture/file.o "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS"
         fi
 fi
 
-ENSURE_FEATURE_PRESENT([${file_req?}], [${file?}], [Vidcap file input dependencies not found])
+ENSURE_FEATURE_PRESENT([${file_req?}], [${file?}], [Vidcap file input ]dnl
+[dependencies not found: ${missing_item?}])
 
 # -------------------------------------------------------------------------------------------------
 # DRM display
