@@ -166,8 +166,8 @@ static void vidcap_file_show_help(bool full) {
         }
 }
 
+// s->lock must be held when calling this function
 static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
-        pthread_mutex_lock(&s->lock);
         struct video_frame *f = NULL;
         while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
                 VIDEO_FRAME_DISPOSE(f);
@@ -185,7 +185,6 @@ static void flush_captured_data(struct vidcap_state_lavf_decoder *s) {
                 avcodec_flush_buffers(s->aud_ctx);
         }
         s->audio_end_ts = AV_NOPTS_VALUE;
-        pthread_mutex_unlock(&s->lock);
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -355,6 +354,7 @@ static void print_current_pos(struct vidcap_state_lavf_decoder *s,
                         action_failed; \
                 } \
         } while (0)
+// s->lock must be held when calling this function
 static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
         struct msg_universal *msg;
         while ((msg = (struct msg_universal *) check_message(&s->mod)) != NULL) {
@@ -493,7 +493,9 @@ rewind_file(struct vidcap_state_lavf_decoder *s)
                     avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET),
                     {});
         }
+        pthread_mutex_lock(&s->lock);
         flush_captured_data(s);
+        pthread_mutex_unlock(&s->lock);
 }
 
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
