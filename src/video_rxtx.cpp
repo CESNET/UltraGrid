@@ -163,7 +163,7 @@ void video_rxtx::send(shared_ptr<video_frame> frame) {
         } else {
                 m_input_codec = frame->color_spec;
         }
-        compress_frame(m_compression, frame);
+        compress_frame(m_compression, std::move(frame));
 }
 
 void *video_rxtx::sender_thread(void *args) {
