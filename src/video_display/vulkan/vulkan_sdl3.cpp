@@ -511,9 +511,9 @@ const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulka
                 {UYVY, vkd::Format::UYVY8_422},
                 {UYVY, vkd::Format::UYVY8_422_conv},
                 {YUYV, vkd::Format::YUYV8_422},
-                {VUYA, vkd::Format::VUYA8_conv},
+                {VUYA, vkd::Format::VUYA8_4444_conv},
                 {Y216, vkd::Format::YUYV16_422},
-                {Y416, vkd::Format::UYVA16_422_conv},
+                {Y416, vkd::Format::UYVA16_4444_conv},
                 {R10k, vkd::Format::RGB10A2_conv},
                 {RG48, vkd::Format::RGB16},
         }};

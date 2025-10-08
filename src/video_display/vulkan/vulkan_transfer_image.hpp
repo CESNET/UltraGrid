@@ -48,9 +48,9 @@ enum class Format{
         UYVY8_422,
         UYVY8_422_conv,
         YUYV8_422,
+        VUYA8_4444_conv,
         YUYV16_422,
-        UYVA16_422_conv,
-        VUYA8_conv,
+        UYVA16_4444_conv,
         RGB10A2_conv,
         RGB16
 };
@@ -78,9 +78,9 @@ inline const FormatInfo& format_info(vulkan_display::Format format){
         static FormatInfo UYVY8_422 =       { VkF::eB8G8R8G8422Unorm,     };
         static FormatInfo UYVY8_422_conv =  { VkF::eR8G8B8A8Unorm,        {"UYVY8_conv"}, VkF::eR8G8B8A8Unorm};
         static FormatInfo YUYV8_422 =       { VkF::eG8B8G8R8422Unorm,     };
+        static FormatInfo VUYA8_4444_conv = { VkF::eR8G8B8A8Unorm,        {"VUYA8_conv"}, VkF::eR8G8B8A8Unorm};
         static FormatInfo YUYV16_422 =      { VkF::eG16B16G16R16422Unorm, };
-        static FormatInfo UYVA16_422_conv = { VkF::eR16G16B16A16Uint,     {"UYVA16_conv"}, VkF::eR16G16B16A16Sfloat};
-        static FormatInfo VUYA8_conv =      { VkF::eR8G8B8A8Unorm,        {"VUYA8_conv"}, VkF::eR8G8B8A8Unorm};
+        static FormatInfo UYVA16_4444_conv = { VkF::eR16G16B16A16Uint,    {"UYVA16_conv"}, VkF::eR16G16B16A16Sfloat};
         static FormatInfo RGB10A2_conv =    { VkF::eR8G8B8A8Uint,         {"RGB10A2_conv"}, VkF::eA2B10G10R10UnormPack32};
         static FormatInfo RGB16 =           { VkF::eR16G16B16Unorm        };
         switch (format) {
@@ -90,9 +90,9 @@ inline const FormatInfo& format_info(vulkan_display::Format format){
                 case F::UYVY8_422:       return UYVY8_422;
                 case F::UYVY8_422_conv:  return UYVY8_422_conv;
                 case F::YUYV8_422:       return YUYV8_422;
+                case F::VUYA8_4444_conv: return VUYA8_4444_conv;
                 case F::YUYV16_422:      return YUYV16_422;
-                case F::UYVA16_422_conv: return UYVA16_422_conv;
-                case F::VUYA8_conv:      return VUYA8_conv;
+                case F::UYVA16_4444_conv: return UYVA16_4444_conv;
                 case F::RGB10A2_conv:    return RGB10A2_conv;
                 case F::RGB16:           return RGB16;
         };
