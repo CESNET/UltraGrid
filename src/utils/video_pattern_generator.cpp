@@ -60,7 +60,7 @@
 #include <utility>
 #include <vector>
 
-#include "color.h"
+#include "color_space.h"
 #include "debug.h"
 #include "pixfmt_conv.h"
 #include "ug_runtime_error.hpp"

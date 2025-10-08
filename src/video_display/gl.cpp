@@ -65,7 +65,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "color.h"
+#include "color_space.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"    // for HAVE_SPOUT, HAVE_SYPHON
 #endif

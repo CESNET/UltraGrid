@@ -58,7 +58,7 @@
 #include <stdint.h>          // for uint32_t, uintptr_t, uint16_t, uint64_t
 #include <string.h>          // for memcpy
 
-#include "color.h"
+#include "color_space.h"
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, CLAMP

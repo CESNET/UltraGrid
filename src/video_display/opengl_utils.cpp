@@ -4,7 +4,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2025 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 #include "opengl_conversions.hpp"
 #include "video_frame.h"
 #include "video_codec.h"
-#include "color.h"
 #include "debug.h"
 #include "host.h"
 

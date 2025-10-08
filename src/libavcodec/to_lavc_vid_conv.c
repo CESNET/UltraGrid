@@ -49,7 +49,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "color.h"
+#include "color_space.h"
 #include "compat/net.h"                        // for htonl
 #include "compat/qsort_s.h"
 #include "debug.h"

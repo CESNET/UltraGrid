@@ -1,9 +1,9 @@
 /**
- * @file   color.c
+ * @file   color_space.c
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2024 CESNET
+ * Copyright (c) 2022-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "color.h"
+#include "color_space.h"
 
 #include <stdio.h>   // for fprintf, stderr
 #include <stdlib.h>  // for abort

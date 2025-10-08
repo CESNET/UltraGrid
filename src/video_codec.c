@@ -62,7 +62,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "color.h"
+#include "color_space.h"
 #include "compat/endian.h"       // for be32toh
 #include "compat/qsort_s.h"
 #include "compat/strings.h"      // for strcasecmp

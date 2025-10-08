@@ -57,7 +57,7 @@
 #include <stddef.h>                              // for NULL, ptrdiff_t, size_t
 #include <stdint.h>
 
-#include "color.h"
+#include "color_space.h"
 #include "compat/qsort_s.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"       // for HWACC_VDPAU

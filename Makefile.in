@@ -121,7 +121,7 @@ COMMON_OBJS     = \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
 		src/capture_filter.o \
-		src/color.o \
+		src/color_space.o \
 		src/compat/alarm.o \
 		src/compat/aligned_malloc.o \
 		src/compat/dlfunc.o \

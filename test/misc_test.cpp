@@ -14,7 +14,7 @@
 #include <unistd.h>
 #endif
 
-#include "color.h"
+#include "color_space.h"
 #include "types.h"
 #include "utils/fs.h"      // for NULL_FILE
 #include "utils/misc.h"

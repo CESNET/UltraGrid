@@ -14,7 +14,7 @@ TARGETS=astat_lib astat_test benchmark_ff_convs convert decklink_temperature \
 	mux_ivf \
 	thumbnailgen uyvy2yuv422p
 
-COMMON_OBJS = src/color.o src/debug.o src/video_codec.o src/pixfmt_conv.o \
+COMMON_OBJS = src/color_space.o src/debug.o src/video_codec.o src/pixfmt_conv.o \
 	src/compat/aligned_malloc.o \
 	src/utils/color_out.o src/utils/misc.o src/video_frame.o \
 	src/utils/pam.o src/utils/y4m.o \
