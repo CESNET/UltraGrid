@@ -471,7 +471,7 @@ void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
 
                 destroy_format_dependent_resources();
 
-                format_conversion_enabled = !image_format_info.conversion_shader.empty();
+                format_conversion_enabled = strlen(image_format_info.conversion_shader) != 0;
 
                 render_pipeline.reconfigure(device, format_conversion_enabled ?
                         image_format_info.conversion_image_format : image_format_info.buffer_format);
