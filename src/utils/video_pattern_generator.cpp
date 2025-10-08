@@ -73,7 +73,7 @@
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.h"
 
-#define BLANK_USAGE "blank[=0x<AABBGGRR>]"
+#define BLANK_USAGE "blank[=<color>|help]"
 #define MOD_NAME "[vid. patt. generator] "
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 constexpr int rg48_bpp = 6;
@@ -100,6 +100,55 @@ enum class generator_depth {
         bits8, ///< RGBA
         bits16 ///< RG48
 };
+
+/**
+ * @todo move to some of common files (video* ?) and link
+ * externally later when there will be more users of the function.
+ * @reutrns 4B color (uint32_t) or -1 if error
+ */
+static long long
+get_color_by_name(const char *col)
+{
+        static const struct {
+                const char *name;
+                uint32_t    val;
+        } colors[] = {
+                { "white",   0xFFFFFFU },
+                { "gray",    0x7F7F7FU },
+                { "black",   0x000000U },
+                { "red",     0x0000FFU },
+                { "green",   0x00FF00U },
+                { "blue",    0xFF0000U },
+                { "yellow",  0x00FFFFU },
+                { "magenta", 0xFF00FFU },
+                { "cyan",    0xFFFF00U },
+        };
+
+        if (strcmp(col, "help") == 0) {
+                color_printf("color in format " TBOLD("0x<AABBGGRR>") " or a symbolic name\n");
+                color_printf("Leading zeros can be omitted, eg. "
+                             "`0xFF` produces a red pattern.\n");
+                color_printf("\nfollowing symbolic names can be also used:\n");
+                for (unsigned i = 0; i < ARR_COUNT(colors); ++i) {
+                        color_printf("\t- " TBOLD("%s") "\n", colors[i].name);
+                }
+                color_printf("\n");
+                return -1;
+        }
+        char *endptr = nullptr;
+        errno = 0;
+        unsigned long val = strtoul(col, &endptr, 0);
+        if (errno == 0 && endptr[0] == '\0') {
+                return (uint32_t) val;
+        }
+        for (unsigned i = 0; i < ARR_COUNT(colors); ++i) {
+                if (strcasecmp(col, colors[i].name) == 0) {
+                        return 0xFFU << 24 | colors[i].val;
+                }
+        }
+        MSG(ERROR, "Unknown color: %s. Use 'help' for possible values.\n", col);
+        return -1;
+}
 
 class image_pattern {
         public:
@@ -327,16 +376,18 @@ class image_pattern_blank : public image_pattern {
                         if (init == "help"s) {
                                 color_printf("Testcard " TBOLD("blank") " usage:\n");
                                 color_printf("\t" TRED(TBOLD(
-                                    "-t testcard:patt=" BLANK_USAGE)) "\n");
-                                color_printf(
-                                    "\nLeading zeros can be omitted, eg. "
-                                    "`0xFF` produces a red pattern.\n");
+                                    "-t testcard:patt=" BLANK_USAGE)) "\n\n");
+                                get_color_by_name("help");
                                 color_printf(
                                     "Defaults to 0xFF000000.\n");
                                 throw 1;
                         }
                         if (!init.empty()) {
-                                color = stoll(init, nullptr, 0);
+                                const long long c = get_color_by_name(init.c_str());
+                                if (c == -1) {
+                                        throw 1;
+                                }
+                                color = c;
                         }
                 }
 
