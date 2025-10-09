@@ -5,6 +5,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_decompress.h"
+#include "jpegxs/jpegxs_conv.h"
 
 #define MOD_NAME "[JPEG XS dec.] "
 
@@ -20,7 +21,8 @@ struct state_decompress_jpegxs {
         svt_jpeg_xs_bitstream_buffer_t bitstream; // in_buf
         svt_jpeg_xs_image_buffer_t image_buffer; // out_buf
         svt_jpeg_xs_image_config_t image_config;
-        
+
+        void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst);
         struct video_desc desc;
         int rshift, gshift, bshift;
         int pitch;
@@ -37,9 +39,6 @@ static bool setup_image_output_buffer(svt_jpeg_xs_image_buffer_t *image_buffer, 
         
         uint32_t pixel_size = image_config->bit_depth <= 8 ? 1 : 2;
 
-        // printf("Strides: %d %d %d\n", image_config->components[0].width, image_config->components[1].width, image_config->components[2].width);
-        // printf("Heights: %d %d %d\n", image_config->components[0].height, image_config->components[1].height, image_config->components[2].height);
-
         for (uint8_t i = 0; i < 3; ++i) {
                 image_buffer->stride[i] = image_config->components[i].width;
                 image_buffer->alloc_size[i] = image_buffer->stride[i] * image_config->components[i].height * pixel_size;
@@ -53,36 +52,7 @@ static bool setup_image_output_buffer(svt_jpeg_xs_image_buffer_t *image_buffer, 
         return true;
 }
 
-static void yuv422p_to_uyvy(const svt_jpeg_xs_image_buffer *image, int width, int height, uint8_t *uyvy) {
-
-        uint8_t *src_y = (uint8_t*) image->data_yuv[0];
-        uint8_t *src_u = (uint8_t*) image->data_yuv[1];
-        uint8_t *src_v = (uint8_t*) image->data_yuv[2];
-
-        for (int y = 0; y < height; y++) {
-                uint8_t *dst_line = uyvy + y * width * 2;
-                const uint8_t *src_y_line = src_y + y * image->stride[0];
-                const uint8_t *src_u_line = src_u + y * image->stride[1];
-                const uint8_t *src_v_line = src_v + y * image->stride[2];
-
-                for (int x = 0; x < width; x += 2) {
-                        int chroma_index = x / 2;
-                        uint8_t u = src_u_line[chroma_index];
-                        uint8_t y0 = src_y_line[x];
-                        uint8_t v = src_v_line[chroma_index];
-                        uint8_t y1 = src_y_line[x + 1];
-
-                        int i = x * 2;
-                        dst_line[i + 0] = u;
-                        dst_line[i + 1] = y0;
-                        dst_line[i + 2] = v;
-                        dst_line[i + 3] = y1;
-                }
-        }
-}
-
 static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size) {
-        printf("JPEG XS CONFIGURE WITH\n");
 
         s->decoder.verbose = VERBOSE_SYSTEM_INFO;
         s->decoder.threads_num = 10;
@@ -93,6 +63,15 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
         if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS decoder\n");
                 return false;
+        }
+
+        if (s->out_codec == VIDEO_CODEC_NONE) {
+                const struct jpegxs_to_uv_conversion *conv = get_default_jpegxs_to_uv_conversion(s->image_config.format);
+                if (!conv || !conv->convert) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No default conversion for colour format: %d\n", s->image_config.format);
+                        return false;
+                }
+                s->convert_from_planar = conv->convert;
         }
 
         if (!setup_image_output_buffer(&s->image_buffer, &s->image_config)) {
@@ -106,7 +85,6 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
 static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        printf("JPEG XS RECONFIGURE\n");
         struct state_decompress_jpegxs *s = (struct state_decompress_jpegxs *) state;
 
         assert(out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
@@ -126,6 +104,15 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         s->gshift = gshift;
         s->bshift = bshift;
         s->desc = desc;
+
+        if (s->out_codec != VIDEO_CODEC_NONE) {
+                const struct jpegxs_to_uv_conversion *conv = get_jpegxs_to_uv_conversion(s->out_codec);
+                if (!conv || !conv->convert) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(s->out_codec));
+                        return false;
+                }
+                s->convert_from_planar = conv->convert;
+        }
 
         if (s->configured) {
                 svt_jpeg_xs_decoder_close(&s->decoder);
@@ -164,7 +151,6 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         UNUSED(frame_seq);
         UNUSED(callbacks);
         auto *s = (struct state_decompress_jpegxs *) state;
-        // printf("dst=%p buffer=%p src_len=%u\n", dst, buffer, src_len);
 
         if (!s->configured) {
                 if (!configure_with(s, buffer, src_len)) {
@@ -197,7 +183,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
                 return DECODER_NO_FRAME;
         }
 
-        yuv422p_to_uyvy(&dec_output.image, s->image_config.width, s->image_config.height, dst);
+        s->convert_from_planar(&dec_output.image, s->image_config.width, s->image_config.height, dst);
 
         return DECODER_GOT_FRAME;
 }
@@ -229,7 +215,6 @@ static void jpegxs_decompress_done(void *state) {
 
 static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc)
 {
-        // printf("compression=%s ugc=%s\n", get_codec_name(compression), get_codec_name(ugc));
         UNUSED(internal);
 
         if (compression != JPEG_XS) {

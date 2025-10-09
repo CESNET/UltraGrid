@@ -8,6 +8,7 @@
 #include "video.h"
 #include "video_compress.h"
 #include "utils/video_frame_pool.h"
+#include "jpegxs/jpegxs_conv.h"
 
 #define MOD_NAME "[JPEG XS enc.] "
 
@@ -81,91 +82,6 @@ ColourFormat subsampling_to_jpegxs(int ug_subs) {
         }
 }
 
-// unpack UYVY to YUV422 planar
-static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
-        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
-        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
-        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *src_line = uyvy + y * width * 2;
-                uint8_t *dst_y_line = dst_y + y * width;
-                uint8_t *dst_u_line = dst_u + y * (width / 2);
-                uint8_t *dst_v_line = dst_v + y * (width / 2);
-
-                for (int x = 0; x < width; x += 2) {
-                        int i = x * 2;
-                        uint8_t u = src_line[i + 0];
-                        uint8_t y0 = src_line[i + 1];
-                        uint8_t v = src_line[i + 2];
-                        uint8_t y1 = src_line[i + 3];
-
-                        dst_y_line[x + 0] = y0;
-                        dst_y_line[x + 1] = y1;
-
-                        int chroma_index = x / 2;
-                        dst_u_line[chroma_index] = u;
-                        dst_v_line[chroma_index] = v;
-                }
-        }
-}
-
-// unpack YUYV to YUV422 planar
-static void yuyv_to_yuv422p(const uint8_t *yuyv, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
-        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
-        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
-        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *src_line = yuyv + y * width * 2;
-                uint8_t *dst_y_line = dst_y + y * width;
-                uint8_t *dst_u_line = dst_u + y * (width / 2);
-                uint8_t *dst_v_line = dst_v + y * (width / 2);
-
-                for (int x = 0; x < width; x += 2) {
-                        int i = x * 2;
-                        uint8_t y0 = src_line[i + 0];
-                        uint8_t u = src_line[i + 1];
-                        uint8_t y1 = src_line[i + 2];
-                        uint8_t v = src_line[i + 3];
-
-                        dst_y_line[x + 0] = y0;
-                        dst_y_line[x + 1] = y1;
-
-                        int chroma_index = x / 2;
-                        dst_u_line[chroma_index] = u;
-                        dst_v_line[chroma_index] = v;
-                }
-        }
-}
-
-static void i420_to_yuv420p(const uint8_t *i420, int width, int height, svt_jpeg_xs_image_buffer *in_buf) {
-        const int y_size = width * height;
-        const int uv_width = width / 2;
-        const int uv_height = height / 2;
-        const int u_size = uv_width * uv_height;
-
-        const uint8_t *src_y = i420;
-        const uint8_t *src_u = i420 + y_size;
-        const uint8_t *src_v = i420 + y_size + u_size;
-
-        uint8_t *dst_y = (uint8_t *) in_buf->data_yuv[0];
-        uint8_t *dst_u = (uint8_t *) in_buf->data_yuv[1];
-        uint8_t *dst_v = (uint8_t *) in_buf->data_yuv[2];
-
-        for (int y = 0; y < height; ++y) {
-                memcpy(dst_y + y * width, src_y + y * width, width);
-        }
-
-        for (int y = 0; y < uv_height; ++y) {
-                memcpy(dst_u + y * uv_width, src_u + y * uv_width, uv_width);
-        }
-
-        for (int y = 0; y < uv_height; ++y) {
-                memcpy(dst_v + y * uv_width, src_v + y * uv_width, uv_width);
-        }
-}
-
 static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const svt_jpeg_xs_encoder_api_t *enc) {
 
         uint32_t pixel_size = enc->input_bit_depth <= 8 ? 1 : 2;
@@ -213,20 +129,12 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         s->encoder.source_height = desc.height;
         s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
 
-        switch (desc.color_spec) {
-        case UYVY:
-                s->convert_to_planar = uyvy_to_yuv422p;
-                break;
-        case YUYV:
-                s->convert_to_planar = yuyv_to_yuv422p;
-                break;
-        case I420:
-                s->convert_to_planar = i420_to_yuv420p;
-                break;
-        default:
+        const struct uv_to_jpegxs_conversion *conv = get_uv_to_jpegxs_conversion(desc.color_spec);
+        if (!conv || !conv->convert) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
                 return false;
         }
+        s->convert_to_planar = conv->convert;
 
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {

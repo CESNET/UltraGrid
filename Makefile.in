@@ -308,6 +308,16 @@ CXX_NO_SUFF_0 = @N=$$(echo $+ | awk '{print $$1}'); echo "Compiling $${N:-$@}...
 CXX_NO_SUFF_1 = $(REAL_CXX)
 CXX_NO_SUFF   = $(CXX_NO_SUFF_$(VERBOSE))
 
+src/jpegxs/to_jpegxs_conv.o: src/jpegxs/to_jpegxs_conv.c
+	$(MKDIR_P) $$(dirname $@)
+	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/jpegxs/to_jpegxs_conv.c -o $@
+	$(POSTPROCESS_DEPS)
+
+src/jpegxs/from_jpegxs_conv.o: src/jpegxs/from_jpegxs_conv.c
+	$(MKDIR_P) $$(dirname $@)
+	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/jpegxs/from_jpegxs_conv.c -o $@
+	$(POSTPROCESS_DEPS)
+
 src/libavcodec/from_lavc_vid_conv.o: src/libavcodec/from_lavc_vid_conv.c
 	$(MKDIR_P) $$(dirname $@)
 	$(CC_NO_SUFF) $(CFLAGS) $(OFAST) $(INC) -MD -c $(srcdir)/src/libavcodec/from_lavc_vid_conv.c -o $@
