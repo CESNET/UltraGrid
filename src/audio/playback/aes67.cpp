@@ -59,6 +59,7 @@
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/ptp.hpp"
+#include "utils/random.h"
 
 #define MOD_NAME "[aes67 aplay] "
 
@@ -226,7 +227,7 @@ static void create_sap_sess(state_aes67_play *s){
         sess.stream.bps = 3;
 
         in_addr addr{};
-        addr.s_addr = (239 << 0) | (69 << 8) | (rand() << 16);
+        addr.s_addr = (239 << 0) | (69 << 8) | (ug_rand() << 16);
         sess.stream.address = inet_ntoa(addr);
         sess.stream.port = 5004;
         sess.ptp_id = s->ptpclk.get_clock_id_str();
@@ -281,7 +282,7 @@ static void rtp_worker(state_aes67_play *s){
         rtp_pkt.push_back(0x00);
 
         //SSRC
-        uint32_t ssrc = rand();
+        uint32_t ssrc = ug_rand();
         rtp_pkt.push_back(ssrc >> 24);
         rtp_pkt.push_back(ssrc >> 16);
         rtp_pkt.push_back(ssrc >> 8);
