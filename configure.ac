@@ -3529,6 +3529,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/temporal_3d.o
         src/utils/sdp_parser.o
         src/audio/capture/aes67.o
+        src/audio/playback/aes67.o
         src/video_capture/aggregate.o
         src/video_capture/import.o
         src/video_capture/switcher.o
