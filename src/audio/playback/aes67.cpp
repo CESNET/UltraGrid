@@ -68,6 +68,7 @@ struct Rtp_stream{
         const static int fmt_id = 96;
         int sample_rate;
         int ch_count;
+        int bps;
 
         std::string address;
         int port;
@@ -91,8 +92,9 @@ struct Sap_session{
         Rtp_stream stream;
 };
 
-std::string get_fmt_str(int sample_rate, int ch_count){
-        std::string fmt = "L24/";
+std::string get_fmt_str(int sample_rate, int ch_count, int bps){
+        std::string fmt = "L";
+        fmt += std::to_string(bps * 8) + "/";
         fmt += std::to_string(sample_rate) + "/";
         fmt += std::to_string(ch_count);
         return fmt;
@@ -117,7 +119,7 @@ std::string get_sdp(Sap_session& sap){
         sdp += "a=recvonly\r\n";
 
         sdp += "m=audio 5004 RTP/AVP " + std::to_string(stream.fmt_id) + "\r\n";
-        sdp += "a=rtpmap:" + std::to_string(stream.fmt_id) + " " + get_fmt_str(stream.sample_rate, stream.ch_count) + "\r\n";
+        sdp += "a=rtpmap:" + std::to_string(stream.fmt_id) + " " + get_fmt_str(stream.sample_rate, stream.ch_count, stream.bps) + "\r\n";
         char tmp_buf[32] = {};
         std::to_chars(tmp_buf, tmp_buf + sizeof(tmp_buf), get_pkt_time_ns(sap.frames_per_pkt, sap.stream.sample_rate) / 1000.f, std::chars_format::fixed);
         sdp += "a=ptime:";
@@ -158,7 +160,7 @@ struct state_aes67_play{
         std::atomic<bool> rtp_should_run = true;
         std::thread rtp_thread;
 
-        audio_desc desc;
+        audio_desc in_desc;
         Sap_session sap_sess;
 
         ring_buffer_uniq ring_buf;
@@ -219,8 +221,9 @@ static void create_sap_sess(state_aes67_play *s){
          * support that. TODO: Support other rates as well.
          */
         sess.stream.sample_rate = 48000;
-        assert(s->desc.sample_rate == 48000);
-        sess.stream.ch_count = s->desc.ch_count;
+        assert(s->in_desc.sample_rate == 48000);
+        sess.stream.ch_count = s->in_desc.ch_count;
+        sess.stream.bps = 3;
 
         in_addr addr;
         addr.s_addr = (239 << 0) | (69 << 8) | (rand() << 16);
@@ -287,8 +290,9 @@ static void rtp_worker(state_aes67_play *s){
         auto hdr_size = rtp_pkt.size();
 
         const unsigned frames_per_packet = s->sap_sess.frames_per_pkt;
-        const unsigned frame_size = s->desc.ch_count * s->desc.bps;
-        int payload_size = frame_size * frames_per_packet;
+        const unsigned in_frame_size = s->in_desc.ch_count * s->in_desc.bps;
+        const unsigned out_frame_size = s->sap_sess.stream.ch_count * s->sap_sess.stream.bps;
+        int payload_size = out_frame_size * frames_per_packet;
         rtp_pkt.resize(hdr_size + payload_size);
 
         set_realtime_sched_this_thread();
@@ -323,11 +327,26 @@ static void rtp_worker(state_aes67_play *s){
 
                 char *dst = reinterpret_cast<char *>(rtp_pkt.data() + hdr_size);
 
+                void *src1 = nullptr;
+                int size1 = 0;
+                void *src2 = nullptr;
+                int size2 = 0;
 
-                unsigned avail_frames = ring_get_current_size(s->ring_buf.get()) / frame_size;
-                unsigned frames_to_write = std::min(frames_per_packet, avail_frames);
-                ring_buffer_read(s->ring_buf.get(), dst, frames_to_write * frame_size);
-                swap_endianity(dst, s->desc.bps, frames_to_write * s->desc.ch_count);
+                int frames_written = 0;
+
+                ring_get_read_regions(s->ring_buf.get(), in_frame_size * frames_per_packet, &src1, &size1, &src2, &size2);
+
+                change_bps2(dst, s->sap_sess.stream.bps, static_cast<const char *>(src1), s->in_desc.bps, size1, true);
+                frames_written += size1 / in_frame_size;
+                dst += frames_written * out_frame_size;
+                if(size2){
+                        int offset = (size1 / in_frame_size) * out_frame_size;
+                        change_bps2(dst + offset, s->sap_sess.stream.bps, static_cast<const char *>(src2), s->in_desc.bps, size2, true);
+                        frames_written += size2 / in_frame_size;
+                }
+                ring_advance_read_idx(s->ring_buf.get(), size1 + size2);
+
+                swap_endianity(dst, s->sap_sess.stream.bps, frames_written * s->sap_sess.stream.ch_count);
 
                 udp_send(rtp_sock.get(), reinterpret_cast<char*>(rtp_pkt.data()), rtp_pkt.size());
                 seq += 1;
@@ -450,7 +469,7 @@ static bool audio_play_aes67_reconfigure(void *state, struct audio_desc desc){
 
         stop_session(s);
 
-        s->desc = desc;
+        s->in_desc = desc;
         create_sap_sess(s);
 
         unsigned ring_size = (s->buf_len_ms * desc.sample_rate / 1000) * desc.ch_count * desc.bps * 2;
