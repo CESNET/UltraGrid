@@ -87,7 +87,7 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_jpegxs *s = (struct state_decompress_jpegxs *) state;
 
-        assert(out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
+        assert(out_codec == UYVY || out_codec == YUYV || out_codec == I420 || out_codec == RGB || out_codec == VIDEO_CODEC_NONE);
 
         if (s->out_codec == out_codec &&
                 s->pitch == pitch &&
@@ -226,7 +226,7 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
         }
 
         // supported output formats
-        if (ugc == UYVY) {
+        if (ugc == UYVY || ugc == YUYV || ugc == I420 || ugc == RGB) {
                 return VDEC_PRIO_PREFERRED;
         }
 
