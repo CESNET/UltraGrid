@@ -66,12 +66,12 @@ namespace {
 
 struct Rtp_stream{
         const static int fmt_id = 96;
-        int sample_rate;
-        int ch_count;
-        int bps;
+        int sample_rate = 0;
+        int ch_count = 0;
+        int bps = 0;
 
         std::string address;
-        int port;
+        int port = 0;
 };
 
 using sess_id_t = uint32_t;
@@ -148,7 +148,7 @@ uint64_t nanoseconds_to_media_ts(uint64_t nanoseconds, uint32_t sample_rate){
 struct state_aes67_play{
         std::string network_interface_name;
         std::string sap_address;
-        int sap_port;
+        int sap_port = 0;
 
         std::string session_name = "UltraGrid AES67";
         std::string session_description = "placeholder";
@@ -160,7 +160,7 @@ struct state_aes67_play{
         std::atomic<bool> rtp_should_run = true;
         std::thread rtp_thread;
 
-        audio_desc in_desc;
+        audio_desc in_desc = {};
         Sap_session sap_sess;
 
         ring_buffer_uniq ring_buf;
@@ -225,7 +225,7 @@ static void create_sap_sess(state_aes67_play *s){
         sess.stream.ch_count = s->in_desc.ch_count;
         sess.stream.bps = 3;
 
-        in_addr addr;
+        in_addr addr{};
         addr.s_addr = (239 << 0) | (69 << 8) | (rand() << 16);
         sess.stream.address = inet_ntoa(addr);
         sess.stream.port = 5004;
