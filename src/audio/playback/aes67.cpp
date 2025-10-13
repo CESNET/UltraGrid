@@ -333,7 +333,7 @@ static void rtp_worker(state_aes67_play *s){
                 void *src2 = nullptr;
                 int size2 = 0;
 
-                int frames_written = 0;
+                unsigned frames_written = 0;
 
                 ring_get_read_regions(s->ring_buf.get(), in_frame_size * frames_per_packet, &src1, &size1, &src2, &size2);
 
@@ -347,6 +347,10 @@ static void rtp_worker(state_aes67_play *s){
                 ring_advance_read_idx(s->ring_buf.get(), size1 + size2);
 
                 swap_endianity(dst, s->sap_sess.stream.bps, frames_written * s->sap_sess.stream.ch_count);
+
+                if(frames_written < frames_per_packet){
+                        memset(dst + frames_written * out_frame_size, 0, out_frame_size * (frames_per_packet - frames_written));
+                }
 
                 udp_send(rtp_sock.get(), reinterpret_cast<char*>(rtp_pkt.data()), rtp_pkt.size());
                 seq += 1;
