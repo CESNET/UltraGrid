@@ -339,7 +339,6 @@ static void rtp_worker(state_aes67_play *s){
 
                 change_bps2(dst, s->sap_sess.stream.bps, static_cast<const char *>(src1), s->in_desc.bps, size1, true);
                 frames_written += size1 / in_frame_size;
-                dst += frames_written * out_frame_size;
                 if(size2){
                         int offset = (size1 / in_frame_size) * out_frame_size;
                         change_bps2(dst + offset, s->sap_sess.stream.bps, static_cast<const char *>(src2), s->in_desc.bps, size2, true);
