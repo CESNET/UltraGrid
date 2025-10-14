@@ -78,9 +78,9 @@ struct Rtp_stream{
 using sess_id_t = uint32_t;
 
 struct Sap_session{
-        uint64_t sess_id; //Numeric session-id from RFC
-        uint64_t sess_ver;
-        uint16_t sap_hash; //Hash of sap packet that contained sdp for this version of session
+        uint64_t sess_id = 0; //Numeric session-id from RFC
+        uint64_t sess_ver = 0;
+        uint16_t sap_hash = 0; //Hash of sap packet that contained sdp for this version of session
         std::string origin_address;
         std::string name;
         std::string description;
