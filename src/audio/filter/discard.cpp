@@ -48,7 +48,6 @@
 #include "module.h"
 #include "audio/audio_filter.h"
 #include "audio/types.h"
-#include "audio/utils.h"
 #include "lib_common.h"
 
 struct state_discard{
