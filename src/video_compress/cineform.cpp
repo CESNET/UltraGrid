@@ -72,6 +72,7 @@
 #include "types.h"             // for video_desc, tile, video_frame, UYVY, RGB
 #include "utils/macros.h"      // for TOSTRING, to_fourcc
 #include "utils/color_out.h"   // for color_printf
+#include "utils/string_view_utils.hpp"
 #include "video_codec.h"       // for vc_get_linesize, get_codec_name
 #include "video_compress.h"    // for codec, module_option, encoder, compres...
 #include "video_frame.h"       // for vf_free, vf_alloc_desc_data, vf_copy_m...
@@ -150,34 +151,40 @@ static void usage() {
         printf("\n");
 }
 
-static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
-        char *item, *save_ptr = NULL;
-        if(fmt) {
-                while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
-                        if(strncasecmp("help", item, strlen("help")) == 0) {
-                                usage();
-                                return 1;
-                        } else if(strncasecmp("quality=", item, strlen("quality=")) == 0) {
-                                char *quality = item + strlen("quality=");
-                                int qual = atoi(quality);
-                                if(qual >= 1 && qual <= 6){
-                                        s->requested_quality = static_cast<CFHD_EncodingQuality>(qual);
-                                } else {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality must be in range 1-6.\n");
-                                        return -1;
-                                }
-                        } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
-                                char *threads = item + strlen("threads=");
-                                s->requested_threads = atoi(threads);
-                        } else if(strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
-                                char *pool_size = item + strlen("pool_size=");
-                                s->requested_pool_size = atoi(pool_size);
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: unknown option %s.\n",
-                                                item);
+static int parse_cfg(struct state_video_compress_cineform *s, std::string_view cfg) {
+        while(!cfg.empty()){
+                auto tok = tokenize(cfg, ':', '"');
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
+
+                if(key == "help") {
+                        usage();
+                        return 1;
+                } else if(key == "quality") {
+                        int qual;
+                        if(!parse_num(val, qual)){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
                                 return -1;
                         }
-                        fmt = NULL;
+                        if(qual < 1 || qual > 6){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality must be in range 1-6.\n");
+                                return -1;
+                        }
+                        s->requested_quality = static_cast<CFHD_EncodingQuality>(qual);
+                } else if(key == "threads") {
+                        if(!parse_num(val, s->requested_threads)){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
+                                return -1;
+                        }
+                } else if(key == "pool_size") {
+                        if(!parse_num(val, s->requested_pool_size)){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
+                                return -1;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: unknown option %s.\n",
+                                        std::string(key).c_str());
+                        return -1;
                 }
         }
 
@@ -190,9 +197,7 @@ static void * cineform_compress_init(struct module *parent, const char *opts)
 
         auto s = std::make_unique<state_video_compress_cineform>();
 
-        char *fmt = strdup(opts);
-        int ret = parse_fmt(s.get(), fmt);
-        free(fmt);
+        int ret = parse_cfg(s.get(), opts);
         if(ret != 0) {
                 return ret > 0 ? INIT_NOERR : nullptr;
         }
@@ -472,8 +477,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(void *state)
         }
 
         static auto dispose = [](struct video_frame *frame) {
-                std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef> *t = 
-                        static_cast<std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef> *>(frame->callbacks.dispose_udata);
+                auto t = static_cast<std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef> *>(frame->callbacks.dispose_udata);
                 if(t)
                         CFHD_ReleaseSampleBuffer(std::get<0>(*t), std::get<1>(*t));
                 vf_free(frame);
@@ -528,10 +532,10 @@ static compress_module_info get_cineform_module_info(){
 const struct video_compress_info cineform_info = {
         cineform_compress_init,
         cineform_compress_done,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         cineform_compress_push,
         cineform_compress_pop,
         get_cineform_module_info,
