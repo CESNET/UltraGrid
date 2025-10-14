@@ -78,7 +78,6 @@ struct Rtp_stream{
 using sess_id_t = uint32_t;
 
 struct Sap_session{
-        sess_id_t unique_identifier; //Hash computed from sdp username, session id and unicast address
         uint64_t sess_id; //Numeric session-id from RFC
         uint64_t sess_ver;
         uint16_t sap_hash; //Hash of sap packet that contained sdp for this version of session
