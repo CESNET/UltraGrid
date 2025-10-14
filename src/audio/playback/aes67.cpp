@@ -75,8 +75,6 @@ struct Rtp_stream{
         int port = 0;
 };
 
-using sess_id_t = uint32_t;
-
 struct Sap_session{
         uint64_t sess_id = 0; //Numeric session-id from RFC
         uint64_t sess_ver = 0;
