@@ -8,7 +8,7 @@
  * required by POSIX 2024.
  */
 /*
- * Copyright (c) 2025 CESNET
+ * Copyright (c) 2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,8 +40,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COMPAT_NET_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
-#define COMPAT_NET_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
+#ifndef COMPAT_ENDIAN_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
+#define COMPAT_ENDIAN_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
 
 #ifdef __APPLE__
         // https://github.com/zeromq/zmqpp/issues/164#issuecomment-246346344
@@ -72,15 +72,15 @@
             defined(_M_ARM64) || \
             (defined(__BYTE_ORDER__) && \
              __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-                #include<winsock2.h>
+                #include <stdlib.h>
                 #ifndef be16toh
-                        #define be16toh(x) ntohs(x)
-                        #define be32toh(x) ntohl(x)
-                        #define be64toh(x) ntohll(x)
+                        #define be16toh(x) _byteswap_ushort(x)
+                        #define be32toh(x) _byteswap_ulong(x)
+                        #define be64toh(x) _byteswap_uint64(x)
 
-                        #define htobe16(x) htons(x)
-                        #define htobe32(x) htonl(x)
-                        #define htobe64(x) htonll(x)
+                        #define htobe16(x) _byteswap_ushort(x)
+                        #define htobe32(x) _byteswap_ulong(x)
+                        #define htobe64(x) _byteswap_uint64(x)
 
                         #define htole16(x) (x)
                         #define htole32(x) (x)
@@ -103,4 +103,4 @@
         #include <endian.h>
 #endif
 
-#endif // defined COMPAT_NET_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
+#endif // defined COMPAT_ENDIAN_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
