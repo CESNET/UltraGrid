@@ -377,7 +377,7 @@ class image_pattern_blank : public image_pattern {
                                 color_printf("Testcard " TBOLD("blank") " usage:\n");
                                 color_printf("\t" TRED(TBOLD(
                                     "-t testcard:patt=" BLANK_USAGE)) "\n\n");
-                                get_color_by_name("help");
+                                (void) get_color_by_name("help");
                                 color_printf(
                                     "Defaults to 0xFF000000.\n");
                                 throw 1;
