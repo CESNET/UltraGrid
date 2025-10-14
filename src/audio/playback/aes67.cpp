@@ -403,7 +403,7 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
                 } else if(key == "sess_desc"){
                         s->session_description = val;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unkown option %s\n", std::string(key).c_str());
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option %s\n", std::string(key).c_str());
                 }
         }
 
