@@ -163,7 +163,7 @@ static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
                                 if(qual >= 1 && qual <= 6){
                                         s->requested_quality = static_cast<CFHD_EncodingQuality>(qual);
                                 } else {
-                                        log_msg(LOG_LEVEL_ERROR, "[cineform] Error: Quality must be in range 1-6.\n");
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality must be in range 1-6.\n");
                                         return -1;
                                 }
                         } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
@@ -173,7 +173,7 @@ static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
                                 char *pool_size = item + strlen("pool_size=");
                                 s->requested_pool_size = atoi(pool_size);
                         } else {
-                                log_msg(LOG_LEVEL_ERROR, "[cineform] Error: unknown option %s.\n",
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: unknown option %s.\n",
                                                 item);
                                 return -1;
                         }
@@ -197,19 +197,19 @@ static void * cineform_compress_init(struct module *parent, const char *opts)
                 return ret > 0 ? INIT_NOERR : nullptr;
         }
 
-        log_msg(LOG_LEVEL_NOTICE, "[cineform] : Threads: %d.\n", s->requested_threads);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Threads: %d.\n", s->requested_threads);
         CFHD_Error status = CFHD_ERROR_OKAY;
         status = CFHD_CreateEncoderPool(&s->encoderPoolRef,
                         s->requested_threads,
                         s->requested_pool_size,
                         nullptr);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create encoder pool\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create encoder pool\n");
                 return nullptr;
         }
         status = CFHD_MetadataOpen(&s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create metadataRef\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create metadataRef\n");
                 CFHD_ReleaseEncoderPool(s->encoderPoolRef);
                 return nullptr;
         }
@@ -242,7 +242,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
         if(s->started){
                 status = CFHD_StopEncoderPool(s->encoderPoolRef);
                 if(status != CFHD_ERROR_OKAY){
-                        log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to stop encoder pool\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to stop encoder pool\n");
                         return false;
                 }
         }
@@ -267,7 +267,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
         }
 
         if(pix_fmt == CFHD_PIXEL_FORMAT_UNKNOWN){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to find suitable pixel format\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to find suitable pixel format\n");
                 return false;
         }
 
@@ -280,7 +280,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                         s->requested_quality);
 
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to prepare to encode\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to prepare to encode\n");
                 return false;
         }
 
@@ -292,7 +292,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
 
         status = CFHD_AttachEncoderPoolMetadata(s->encoderPoolRef, s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to attach metadata to encoder pool\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to attach metadata to encoder pool\n");
         }
 
         uint32_t fcc_tag = to_fourcc('U', 'G', 'P', 'F');
@@ -304,18 +304,18 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                                   &val,
                                   false);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to add metadata %u\n", status);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to add metadata %u\n", status);
         }
 
         status = CFHD_AttachEncoderPoolMetadata(s->encoderPoolRef, s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to attach metadata to encoder pool\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to attach metadata to encoder pool\n");
         }
 
-        log_msg(LOG_LEVEL_INFO, "[cineform] start encoder pool\n");
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Start encoder pool\n");
         status = CFHD_StartEncoderPool(s->encoderPoolRef);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to start encoder pool\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to start encoder pool\n");
                 return false;
         }
 
@@ -373,7 +373,7 @@ static void cineform_compress_push(void *state, std::shared_ptr<video_frame> tx)
                                 vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec),
                                 nullptr);
                 if(status != CFHD_ERROR_OKAY){
-                        log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to push null %i pool\n", status);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to push null %i pool\n", status);
                 }
                 return;
         }
@@ -410,7 +410,7 @@ static void cineform_compress_push(void *state, std::shared_ptr<video_frame> tx)
                         nullptr);
 
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to push sample to encode pool\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to push sample to encode pool\n");
                 return;
         }
 }
@@ -467,7 +467,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(void *state)
         printf("[cineform] Encoding %u frame took %f milliseconds.\n", frame_num, t_res.tv_nsec / 1000000.0);
 #endif
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to wait for sample %d\n", status);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to wait for sample %d\n", status);
                 return {};
         }
 
@@ -486,7 +486,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(void *state)
                         &encoded_len);
         out->tiles[0].data_len = encoded_len;
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to get sample data\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get sample data\n");
                 return {};
         }
         out->callbacks.dispose_udata = new std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef>(s->encoderPoolRef, buf);
@@ -494,7 +494,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(void *state)
 
         lock.lock();
         if(s->frame_queue.empty()){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to pop\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to pop\n");
         } else {
                 auto &src = s->frame_queue.front();
                 vf_copy_metadata(out.get(), src.get());
