@@ -49,13 +49,12 @@
 #include <mutex>
 #include <queue>
 #include <cmath>
-#include <iostream>
 #include <thread>
 
 #include "host.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_codec.h"
+#include "types.h"
 #include "utils/fs.h"
 #include "utils/misc.h"
 #include "utils/macros.h"
@@ -94,8 +93,8 @@ struct state_unix_sock {
         std::condition_variable frame_available_cv;
         std::mutex lock;
 
-        struct video_desc desc;
-        struct video_desc display_desc;
+        video_desc desc = {};
+        video_desc display_desc = {};
 
         Ipc_frame_uniq ipc_frame;
         Ipc_frame_writer_uniq frame_writer;
@@ -107,7 +106,7 @@ struct state_unix_sock {
 
         ipc_frame_conv_func_t ipc_conv = ipc_frame_from_ug_frame;
 
-        struct module *parent;
+        module *parent = nullptr;
         std::thread thread_id;
 };
 
@@ -189,11 +188,11 @@ static void display_unix_sock_run(void *state)
         auto s = static_cast<state_unix_sock *>(state);
         int skipped = 0;
 
-        while (1) {
+        while (true) {
                 auto frame = [&]{
                         std::unique_lock<std::mutex> l(s->lock);
                         s->frame_available_cv.wait(l,
-                                        [s]{return s->incoming_queue.size() > 0;});
+                                        [s]{return !s->incoming_queue.empty();});
                         auto frame = std::move(s->incoming_queue.front());
                         s->incoming_queue.pop();
                         s->frame_consumed_cv.notify_one();
@@ -356,7 +355,7 @@ static void *display_unix_sock_init_no_preview(struct module *parent, const char
 static const struct video_display_info display_unix_sock_info = {
         display_unix_sock_probe,
         display_unix_sock_init_no_preview,
-        NULL, // _run
+        nullptr, // _run
         display_unix_sock_done,
         display_unix_sock_getf,
         display_unix_sock_putf,
@@ -370,7 +369,7 @@ static const struct video_display_info display_unix_sock_info = {
 static const struct video_display_info display_preview_info = {
         display_unix_sock_probe,
         display_unix_sock_init_preview,
-        NULL, // _run
+        nullptr, // _run
         display_unix_sock_done,
         display_unix_sock_getf,
         display_unix_sock_putf,
