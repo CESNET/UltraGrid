@@ -64,7 +64,7 @@ struct state_pipewire_play{
 
         std::string target;
 
-        audio_desc desc;
+        audio_desc desc = {};
         ring_buffer_uniq ring_buf;
         unsigned buf_len_ms = 100;
         unsigned quant = 128;
