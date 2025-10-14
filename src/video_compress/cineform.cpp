@@ -83,26 +83,26 @@
 struct state_video_compress_cineform{
         std::mutex mutex;
 
-        struct video_desc saved_desc;
-        struct video_desc precompress_desc;
-        struct video_desc compressed_desc;
+        video_desc saved_desc = {};
+        video_desc precompress_desc = {};
+        video_desc compressed_desc = {};
 
-        decoder_t dec;
+        decoder_t dec = {};
 
-        CFHD_EncodingQuality requested_quality;
-        int requested_threads;
-        int requested_pool_size;
+        CFHD_EncodingQuality requested_quality = CFHD_ENCODING_QUALITY_DEFAULT;
+        int requested_threads = DEFAULT_THREAD_COUNT;
+        int requested_pool_size = DEFAULT_POOL_SIZE;
 
-        CFHD_EncoderPoolRef encoderPoolRef;
-        CFHD_MetadataRef metadataRef;
+        CFHD_EncoderPoolRef encoderPoolRef = nullptr;
+        CFHD_MetadataRef metadataRef = nullptr;
 
-        uint32_t frame_seq_in;
-        uint32_t frame_seq_out;
+        uint32_t frame_seq_in = 0;
+        uint32_t frame_seq_out = 0;
 
         std::queue<std::unique_ptr<video_frame, decltype(&vf_free)>> frame_queue;
 
-        bool started;
-        bool stop;
+        bool started = false;
+        bool stop = false;
         std::condition_variable cv;
 
 #ifdef MEASUREMENT
@@ -190,11 +190,6 @@ static void * cineform_compress_init(struct module *parent, const char *opts)
         struct state_video_compress_cineform *s;
 
         s = new state_video_compress_cineform();
-
-        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-        s->requested_quality = CFHD_ENCODING_QUALITY_DEFAULT;
-        s->requested_threads = DEFAULT_THREAD_COUNT;
-        s->requested_pool_size = DEFAULT_POOL_SIZE;
 
         char *fmt = strdup(opts);
         int ret = parse_fmt(s, fmt);
