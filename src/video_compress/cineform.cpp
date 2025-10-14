@@ -187,15 +187,13 @@ static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
 static void * cineform_compress_init(struct module *parent, const char *opts)
 {
         (void) parent;
-        struct state_video_compress_cineform *s;
 
-        s = new state_video_compress_cineform();
+        auto s = std::make_unique<state_video_compress_cineform>();
 
         char *fmt = strdup(opts);
-        int ret = parse_fmt(s, fmt);
+        int ret = parse_fmt(s.get(), fmt);
         free(fmt);
         if(ret != 0) {
-                delete s;
                 return ret > 0 ? INIT_NOERR : nullptr;
         }
 
@@ -207,14 +205,12 @@ static void * cineform_compress_init(struct module *parent, const char *opts)
                         nullptr);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create encoder pool\n");
-                delete s;
                 return nullptr;
         }
         status = CFHD_MetadataOpen(&s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create metadataRef\n");
                 CFHD_ReleaseEncoderPool(s->encoderPoolRef);
-                delete s;
                 return nullptr;
         }
 
@@ -223,7 +219,7 @@ static void * cineform_compress_init(struct module *parent, const char *opts)
         s->started = false;
         s->stop = false;
 
-        return s;
+        return s.release();
 }
 
 static struct {
