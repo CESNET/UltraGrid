@@ -64,10 +64,10 @@ struct state_pipewire_cap{
 
         std::string target;
 
-        audio_desc desc;
+        audio_desc desc = {};
         ring_buffer_uniq ring_buf;
 
-        struct audio_frame frame;
+        audio_frame frame = {};
         std::vector<char> frame_data;
 
         unsigned ch_count = 1;
@@ -102,7 +102,7 @@ static void on_process(void *state){
 
 static void on_param_changed(void *state, uint32_t id, const struct spa_pod *param){
         auto s = static_cast<state_pipewire_cap *>(state);
-        spa_audio_info audio_params;
+        spa_audio_info audio_params{};
 
         if(!param || id != SPA_PARAM_Format)
                 return;
@@ -123,7 +123,7 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
                         audio_params.info.raw.rate);
 
         /* It is not expected that params change while the stream is active,
-         * therefore this should run only during during init (we wait for stream to
+         * therefore this should run only during init (we wait for stream to
          * change into the streaming state there).  As a result, we probably don't
          * need any extra synchronization between this and
          * audio_cap_pipewire_read().
