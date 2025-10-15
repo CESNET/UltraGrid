@@ -17,7 +17,7 @@ public:
 	~RecvLossWidget() = default;
 
 	void parseLine(std::string_view);
-	void reset();
+	void resetRecvReports();
 
 private slots:
 	void timeout();

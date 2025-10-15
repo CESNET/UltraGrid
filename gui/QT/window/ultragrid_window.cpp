@@ -105,7 +105,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	versionLabel.setText(QString("Ver: ") + verString);
 
-	receiverLoss.reset();
+	receiverLoss.resetRecvReports();
 
 	ui.localPreviewBar->addWidget(&rtcpRr);
 	ui.localPreviewBar->setAlignment(&rtcpRr, Qt::AlignBottom);
@@ -361,7 +361,7 @@ void UltragridWindow::start(){
 				ui.startButton->setText("Start");
 				ui.startButton->setEnabled(true);
 				ui.actionRefresh->setEnabled(true);
-				receiverLoss.reset();
+				receiverLoss.resetRecvReports();
 				clearFmtLabels();
 				rtcpRr.reset();
 				ui.send_bandwidth->reset();

@@ -7,7 +7,7 @@
 
 RecvLossWidget::RecvLossWidget(QWidget *parent) : QProgressBar(parent){
 	elapsedTimer.start();
-	reset();
+	resetRecvReports();
 	QObject::connect(&timer, &QTimer::timeout, this, &RecvLossWidget::timeout);
 	timer.setInterval(timeout_msec);
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
@@ -15,7 +15,7 @@ RecvLossWidget::RecvLossWidget(QWidget *parent) : QProgressBar(parent){
 #endif
 }
 
-void RecvLossWidget::reset(){
+void RecvLossWidget::resetRecvReports(){
 	timer.stop();
 	setRange(0, 100);
 	setValue(0);
