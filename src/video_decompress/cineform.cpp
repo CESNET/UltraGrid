@@ -42,6 +42,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <memory>
+#include <vector>
+
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -53,7 +56,6 @@
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"
 
-#include <vector>
 
 struct state_cineform_decompress {
         int width = 0;
@@ -82,24 +84,23 @@ struct state_cineform_decompress {
         video_desc saved_desc = {};
 };
 
-static void * cineform_decompress_init(void)
-{
-        struct state_cineform_decompress *s;
-
-        s = new state_cineform_decompress();
+static void *cineform_decompress_init(void){
+        auto s = std::make_unique<state_cineform_decompress>();
 
         CFHD_Error status;
         status = CFHD_OpenDecoder(&s->decoderRef, nullptr);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to open decoder\n");
+                return nullptr;
         }
         status = CFHD_OpenMetadata(&s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to open metadata\n");
                 CFHD_CloseDecoder(s->decoderRef);
+                return nullptr;
         }
 
-        return s;
+        return s.release();
 }
 
 static void cineform_decompress_done(void *state)
