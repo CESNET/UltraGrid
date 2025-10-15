@@ -81,7 +81,7 @@ struct state_cineform_decompress {
         CFHD_MetadataRef metadataRef = nullptr;
 };
 
-static void *cineform_decompress_init(void){
+static void *cineform_decompress_init(){
         auto s = std::make_unique<state_cineform_decompress>();
 
         CFHD_Error status;
@@ -102,8 +102,7 @@ static void *cineform_decompress_init(void){
 
 static void cineform_decompress_done(void *state)
 {
-        struct state_cineform_decompress *s =
-                (struct state_cineform_decompress *) state;
+        auto s = static_cast<struct state_cineform_decompress *>(state);
 
         CFHD_CloseDecoder(s->decoderRef);
         CFHD_CloseMetadata(s->metadataRef);
@@ -169,17 +168,24 @@ static const struct {
         {RGBA, CFHD_PIXEL_FORMAT_BGRa, abgr_to_rgba},
 };
 
-static bool configure_with(struct state_cineform_decompress *s,
-                struct video_desc desc)
+static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
+                int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        s->prepared_to_decode = false;
+        auto s = static_cast<struct state_cineform_decompress *>(state);
+
+        s->pitch = pitch;
+        s->rshift = rshift;
+        s->gshift = gshift;
+        s->bshift = bshift;
+        s->in_codec = desc.color_spec;
+        s->out_codec = out_codec;
         s->desc = desc;
+        s->prepared_to_decode = false;
 
         if(s->out_codec == VIDEO_CODEC_NONE){
                 log_msg(LOG_LEVEL_DEBUG, "[cineform] Will probe for internal format.\n");
                 return true;
         }
-
         for(const auto& i : decode_codecs){
                 if(i.ug_codec == s->out_codec){
                         s->decode_codec = i.cfhd_pixfmt;
@@ -191,25 +197,7 @@ static bool configure_with(struct state_cineform_decompress *s,
                         return true;
                 }
         }
-
         return false;
-}
-
-static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
-                int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
-{
-        struct state_cineform_decompress *s =
-                (struct state_cineform_decompress *) state;
-
-        s->pitch = pitch;
-        s->rshift = rshift;
-        s->gshift = gshift;
-        s->bshift = bshift;
-        s->in_codec = desc.color_spec;
-        s->out_codec = out_codec;
-        s->desc = desc;
-
-        return configure_with(s, desc);
 }
 
 static bool prepare(struct state_cineform_decompress *s,
@@ -270,7 +258,7 @@ static decompress_status probe_internal_cineform(struct state_cineform_decompres
                                        src,
                                        src_len,
                                        fmt_list,
-                                       sizeof(fmt_list) / sizeof(fmt_list[0]),
+                                       std::size(fmt_list),
                                        &count);
         log_msg(LOG_LEVEL_DEBUG, "[cineform] probing...\n");
 
@@ -354,7 +342,7 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
-        struct state_cineform_decompress *s = (struct state_cineform_decompress *) state;
+        auto s = static_cast<struct state_cineform_decompress *>(state);
         decompress_status res = DECODER_NO_FRAME;
 
         CFHD_Error status;
@@ -390,8 +378,7 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
 
 static int cineform_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
-        struct state_cineform_decompress *s =
-                (struct state_cineform_decompress *) state;
+        auto s = static_cast<struct state_cineform_decompress *>(state);
         UNUSED(s);
         int ret = FALSE;
 
