@@ -54,7 +54,6 @@ private:
 	AvailableSettings availableSettings;
 
 	QStringList launchArgs;
-	QStringList getOptionsForParam(QString param);
 	LogWindow log;
 	SettingsWindow settingsWindow;
 
