@@ -333,6 +333,11 @@ void Ptp_clock::set_clock_identity(uint64_t id){
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Selecting clock %s\n", clock_id_to_str(clock_identity));
 }
 
+bool Ptp_clock::is_locked() const{
+        std::lock_guard<std::mutex> l(mut);
+        return locked;
+}
+
 void Ptp_clock::start(std::string_view interface){
         network_interface = interface;
 

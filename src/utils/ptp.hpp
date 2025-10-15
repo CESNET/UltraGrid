@@ -91,6 +91,7 @@ public:
 
         const char* get_clock_id_str();
         void wait_for_lock();
+        [[nodiscard]] bool is_locked() const;
 
 private:
         std::string network_interface;
@@ -109,7 +110,7 @@ private:
         spa_dll dll;
         std::vector<detail::Sync_pkt_data> sync_pkts;
 
-        std::mutex mut;
+        mutable std::mutex mut;
         std::condition_variable cv;
         uint64_t clock_identity = 0;
         bool locked = false;
