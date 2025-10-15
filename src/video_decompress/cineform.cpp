@@ -56,24 +56,30 @@
 #include <vector>
 
 struct state_cineform_decompress {
-        int              width, height;
-        int              pitch;
-        int              rshift, gshift, bshift;
-        codec_t          in_codec;
-        codec_t          out_codec;
-        CFHD_PixelFormat decode_codec;
-        int              decode_linesize;
-        void (*convert)(unsigned char *dst_buffer,
+        int width = 0;
+        int height = 0;
+        int pitch = 0;
+        int rshift = 0;
+        int gshift = 0;
+        int bshift = 0;
+        codec_t in_codec = VIDEO_CODEC_NONE;
+        codec_t out_codec = VIDEO_CODEC_NONE;
+        CFHD_PixelFormat decode_codec = CFHD_PIXEL_FORMAT_UNKNOWN;
+        int decode_linesize = 0;
+
+        using convert_fun_t = void (*)(unsigned char *dst_buffer,
                         unsigned char *src_buffer,
                         int width, int height, int pitch);
+        convert_fun_t convert = nullptr;
+
         std::vector<unsigned char> conv_buf;
 
-        bool             prepared_to_decode;
+        bool prepared_to_decode = false;
 
-        CFHD_DecoderRef decoderRef;
-        CFHD_MetadataRef metadataRef;
+        CFHD_DecoderRef decoderRef = nullptr;
+        CFHD_MetadataRef metadataRef = nullptr;
 
-        struct video_desc saved_desc;
+        video_desc saved_desc = {};
 };
 
 static void * cineform_decompress_init(void)
@@ -81,10 +87,6 @@ static void * cineform_decompress_init(void)
         struct state_cineform_decompress *s;
 
         s = new state_cineform_decompress();
-
-        s->width = s->height = s->pitch = s->decode_linesize = 0;
-        s->convert = nullptr;
-        s->prepared_to_decode = false;
 
         CFHD_Error status;
         status = CFHD_OpenDecoder(&s->decoderRef, nullptr);
@@ -252,7 +254,7 @@ static bool prepare(struct state_cineform_decompress *s,
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to prepare for decoding\n");
                 return false;
-        } 
+        }
 
         s->prepared_to_decode = true;
         return true;
