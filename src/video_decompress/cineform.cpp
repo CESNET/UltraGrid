@@ -59,7 +59,6 @@ struct state_cineform_decompress {
         int              width, height;
         int              pitch;
         int              rshift, gshift, bshift;
-        int              max_compressed_len;
         codec_t          in_codec;
         codec_t          out_codec;
         CFHD_PixelFormat decode_codec;
