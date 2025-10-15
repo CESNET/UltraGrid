@@ -56,6 +56,7 @@
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"
 
+#define MOD_NAME "[cineform] "
 
 struct state_cineform_decompress {
         int pitch = 0;
@@ -87,12 +88,12 @@ static void *cineform_decompress_init(){
         CFHD_Error status;
         status = CFHD_OpenDecoder(&s->decoderRef, nullptr);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to open decoder\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to open decoder\n");
                 return nullptr;
         }
         status = CFHD_OpenMetadata(&s->metadataRef);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to open metadata\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to open metadata\n");
                 CFHD_CloseDecoder(s->decoderRef);
                 return nullptr;
         }
@@ -183,7 +184,7 @@ static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
         s->prepared_to_decode = false;
 
         if(s->out_codec == VIDEO_CODEC_NONE){
-                log_msg(LOG_LEVEL_DEBUG, "[cineform] Will probe for internal format.\n");
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Will probe for internal format.\n");
                 return true;
         }
         for(const auto& i : decode_codecs){
@@ -192,7 +193,7 @@ static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
                         s->convert = i.convert;
                         CFHD_GetImagePitch(desc.width, i.cfhd_pixfmt, &s->decode_linesize);
                         if(i.ug_codec == R12L){
-                                log_msg(LOG_LEVEL_NOTICE, "[cineform] Decoding to 12-bit RGB.\n");
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n");
                         }
                         return true;
                 }
@@ -237,7 +238,7 @@ static bool prepare(struct state_cineform_decompress *s,
                 s->conv_buf.clear();
         }
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to prepare for decoding\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to prepare for decoding\n");
                 return false;
         }
 
@@ -260,10 +261,10 @@ static decompress_status probe_internal_cineform(struct state_cineform_decompres
                                        fmt_list,
                                        std::size(fmt_list),
                                        &count);
-        log_msg(LOG_LEVEL_DEBUG, "[cineform] probing...\n");
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "probing...\n");
 
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] probe failed\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "probe failed\n");
                 return DECODER_NO_FRAME;
         }
 
@@ -304,7 +305,7 @@ static decompress_status probe_internal(struct state_cineform_decompress *s,
                                          src,
                                          src_len);
         if(status != CFHD_ERROR_OKAY){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] InitSampleMetadata failed\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "InitSampleMetadata failed\n");
                 return DECODER_NO_FRAME;
         }
 
@@ -315,7 +316,7 @@ static decompress_status probe_internal(struct state_cineform_decompress *s,
         char fcc[5];
         while((status = CFHD_ReadMetadata(s->metadataRef, &tag, &type, &data, &size)) == CFHD_ERROR_OKAY){
                 write_fcc(fcc, tag);
-                log_msg(LOG_LEVEL_DEBUG, "[cineform] Metadata found. tag = %s \n", fcc);
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Metadata found. tag = %s \n", fcc);
         }
 
         status = CFHD_FindMetadata(s->metadataRef,
@@ -324,12 +325,12 @@ static decompress_status probe_internal(struct state_cineform_decompress *s,
                                    &data,
                                    &size);
         if(status != CFHD_ERROR_OKAY || type != METADATATYPE_UINT32){
-                log_msg(LOG_LEVEL_ERROR, "[cineform] UGPF metadata not found or wrong type, "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "UGPF metadata not found or wrong type, "
                                          "falling back to cineform internal format detection.\n");
         } else {
                 codec_t pf = *static_cast<codec_t *>(data);
                 *internal_prop = get_pixfmt_desc(pf);
-                log_msg(LOG_LEVEL_NOTICE, "[cineform] Codec determined from metadata: %s \n", get_codec_name(pf));
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Codec determined from metadata: %s \n", get_codec_name(pf));
                 return DECODER_GOT_CODEC;
         }
 
@@ -370,7 +371,7 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
                 }
                 res = DECODER_GOT_FRAME;
         } else {
-                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to decode %i\n", status);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to decode %i\n", status);
         }
 
         return res;
