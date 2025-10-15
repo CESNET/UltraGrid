@@ -58,12 +58,11 @@
 
 
 struct state_cineform_decompress {
-        int width = 0;
-        int height = 0;
         int pitch = 0;
         int rshift = 0;
         int gshift = 0;
         int bshift = 0;
+        video_desc desc = {};
         codec_t in_codec = VIDEO_CODEC_NONE;
         codec_t out_codec = VIDEO_CODEC_NONE;
         CFHD_PixelFormat decode_codec = CFHD_PIXEL_FORMAT_UNKNOWN;
@@ -80,8 +79,6 @@ struct state_cineform_decompress {
 
         CFHD_DecoderRef decoderRef = nullptr;
         CFHD_MetadataRef metadataRef = nullptr;
-
-        video_desc saved_desc = {};
 };
 
 static void *cineform_decompress_init(void){
@@ -176,7 +173,7 @@ static bool configure_with(struct state_cineform_decompress *s,
                 struct video_desc desc)
 {
         s->prepared_to_decode = false;
-        s->saved_desc = desc;
+        s->desc = desc;
 
         if(s->out_codec == VIDEO_CODEC_NONE){
                 log_msg(LOG_LEVEL_DEBUG, "[cineform] Will probe for internal format.\n");
@@ -210,8 +207,7 @@ static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->in_codec = desc.color_spec;
         s->out_codec = out_codec;
-        s->width = desc.width;
-        s->height = desc.height;
+        s->desc = desc;
 
         return configure_with(s, desc);
 }
@@ -230,8 +226,8 @@ static bool prepare(struct state_cineform_decompress *s,
         int actualHeight;
         CFHD_PixelFormat actualFormat;
         status = CFHD_PrepareToDecode(s->decoderRef,
-                        s->saved_desc.width,
-                        s->saved_desc.height,
+                        s->desc.width,
+                        s->desc.height,
                         s->decode_codec,
                         CFHD_DECODED_RESOLUTION_FULL,
                         CFHD_DECODING_FLAGS_NONE,
@@ -241,14 +237,14 @@ static bool prepare(struct state_cineform_decompress *s,
                         &actualHeight,
                         &actualFormat
                         );
-        assert(actualWidth == s->width);
-        assert(actualHeight == s->height);
+        assert(actualWidth == (int) s->desc.width);
+        assert(actualHeight == (int) s->desc.height);
         assert(actualFormat == s->decode_codec);
         if(s->convert){
                 int actualPitch;
                 CFHD_GetImagePitch(actualWidth, actualFormat, &actualPitch);
                 assert(actualPitch == s->decode_linesize);
-                s->conv_buf.resize(s->height * s->decode_linesize);
+                s->conv_buf.resize(s->desc.height * s->decode_linesize);
         } else {
                 s->conv_buf.clear();
         }
@@ -382,7 +378,7 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
 
         if(status == CFHD_ERROR_OKAY){
                 if(s->convert){
-                        s->convert(dst, decode_dst, s->width, s->height, s->pitch);
+                        s->convert(dst, decode_dst, s->desc.width, s->desc.height, s->pitch);
                 }
                 res = DECODER_GOT_FRAME;
         } else {
