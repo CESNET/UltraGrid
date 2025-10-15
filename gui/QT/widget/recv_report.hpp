@@ -18,7 +18,7 @@ public:
 
 	void updateVal();
 	void parseLine(std::string_view line);
-	void reset();
+	void resetRecvReports();
 
 private slots:
 	void timeout();

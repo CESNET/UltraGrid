@@ -8,7 +8,7 @@
 
 RecvReportWidget::RecvReportWidget(QWidget *parent) : QProgressBar(parent){
 	elapsedTimer.start();
-	reset();
+	resetRecvReports();
 	QObject::connect(&timer, &QTimer::timeout, this, &RecvReportWidget::timeout);
 	timer.setInterval(timeout_msec);
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
@@ -16,7 +16,7 @@ RecvReportWidget::RecvReportWidget(QWidget *parent) : QProgressBar(parent){
 #endif
 }
 
-void RecvReportWidget::reset(){
+void RecvReportWidget::resetRecvReports(){
 	reports.clear();
 	timer.stop();
 	setRange(0, 100);

@@ -363,7 +363,7 @@ void UltragridWindow::start(){
 				ui.actionRefresh->setEnabled(true);
 				receiverLoss.resetRecvReports();
 				clearFmtLabels();
-				rtcpRr.reset();
+				rtcpRr.resetRecvReports();
 				ui.send_bandwidth->reset();
 
 				if(!requested && (es == QProcess::ExitStatus::CrashExit || ec != 0)){
