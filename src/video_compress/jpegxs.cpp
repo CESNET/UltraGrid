@@ -175,11 +175,46 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                 if (IS_KEY_PREFIX(tok, "bpp")) {
                         const char *bpp = strchr(tok, '=') + 1;
                         int num = 0, den = 1;
-                        if (sscanf(bpp, "%d/%d", &num, &den) == 2 || sscanf(bpp, "%d", &num) == 1) {
+                        if (strspn(bpp, "0123456789/") != strlen(bpp) && (sscanf(bpp, "%d/%d", &num, &den) == 2 || sscanf(bpp, "%d", &num)) && num > 0 && den > 0) {
                                 encoder.bpp_numerator = num;
                                 encoder.bpp_denominator = den;
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Wrong bpp format: %s\n", tok);
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid bits per pixel value '%s' (must be a positive integer or fraction, e.g., 2 or 3/4). Using default 3.\n", tok);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "decomp_v")) {
+                        const int v = atoi(strchr(tok, '=') + 1);
+                        if (0 <= v && v <= 2) {
+                                encoder.ndecomp_v = v;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid vertical decomposition value '%s' (must be 0, 1 or 2). Using default 2.\n", tok);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "decomp_h")) {
+                        const int h = atoi(strchr(tok, '=') + 1);
+                        if (1 <= h && h <= 5) {
+                                encoder.ndecomp_h = h;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid horizontal decomposition value '%s' (must be 1, 2, 3, 4 or 5). Using default 5.\n", tok);
+                        } 
+                } else if (IS_KEY_PREFIX(tok, "quantization")) {
+                        const int q = atoi(strchr(tok, '=') + 1);
+                        if (q == 0 || q == 1) {
+                                encoder.quantization = q;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid quantization method '%s' (must be 0 - deadzone, or 1 - uniform). Using default 0.\n", tok);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "slice_height")) {
+                        const int sh = atoi(strchr(tok, '=') + 1);
+                        if ((sh & ( (1 << encoder.ndecomp_v) - 1 )) == 0) {
+                                encoder.slice_height = sh;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid slice height value '%s' (must be a multiple of 2^decomp_v). Using default 16.\n", tok);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "rc")) {
+                        const int rc = atoi(strchr(tok, '=') + 1);
+                        if (0 <= rc && rc <= 3) {
+                                encoder.rate_control_mode = rc;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid rate control mode '%s' (must be 0 - CBR budget per precinct, 1 - CBR budget per precinct with padding movement, 2 - CBR budget per slice, or 3 - CBR budget per slice with max rate size). Using default 0.\n", tok);
                         }
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
@@ -279,7 +314,7 @@ shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> fra
 //         static_cast<struct state_video_compress_jpegxs *>(state)->push(std::move(in_frame));
 // }
 
-// static auto jpegxs_compress_pull(void *state) {
+// static auto jpegxs_compress_pop(void *state) {
 //         return static_cast<struct state_video_compress_jpegxs *>(state)->pop();
 // }
 
@@ -300,7 +335,7 @@ const struct video_compress_info jpegxs_info = {
         jpegxs_compress, // jpegxs_compress (synchronous)
         NULL,
         NULL, // jpegxs_compress_push (asynchronous)
-        NULL, //  jpegxs_compress_pull
+        NULL, //  jpegxs_compress_pop
         NULL,
         NULL,
         get_jpegxs_module_info // get_jpegxs_module_info
