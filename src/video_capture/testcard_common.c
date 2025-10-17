@@ -133,7 +133,7 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
 
         color_printf(TERM_FG_RED "\t8 bits\n" TERM_RESET);
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
-                if (is_codec_opaque(c) || get_bits_per_component(c) != 8 || (get_decoder_from_to(RGBA, c) == VIDEO_CODEC_NONE
+                if (is_codec_opaque(c) || get_bits_per_component(c) != 8 || (get_decoder_from_to(RGBA, c) == NULL
                                         && !testcard_conv_handled_internally(c))) {
                         continue;
                 }
@@ -148,8 +148,8 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
                 if (is_codec_opaque(c) || get_bits_per_component(c) == 8) {
                         continue;
                 }
-                if (get_decoder_from_to(RGBA, c) == VIDEO_CODEC_NONE &&
-                                ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c) == VIDEO_CODEC_NONE)) {
+                if (get_decoder_from_to(RGBA, c) == NULL &&
+                                ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c) == NULL)) {
                         continue;
                 }
                 color_printf(TERM_BOLD "\t\t%-4s" TERM_RESET " - %s\n", get_codec_name(c), get_codec_name_long(c));
