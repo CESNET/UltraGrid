@@ -39,6 +39,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef ALIGNED_MALLOC_H_7d80f999eb89
+#define ALIGNED_MALLOC_H_7d80f999eb89
 
 #ifdef _WIN32
 
@@ -68,3 +70,4 @@ void *aligned_malloc(size_t size, size_t alignment);
 #endif
 
 #endif
+#endif // ALIGNED_MALLOC_H_7d80f999eb89
