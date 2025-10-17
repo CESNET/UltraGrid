@@ -35,6 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef HD_RUM_DECOMPRESS_H_d6e9e9cd5dab
+#define HD_RUM_DECOMPRESS_H_d6e9e9cd5dab
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,3 +61,4 @@ void hd_rum_decompress_done(void *state);
 
 struct video_frame;
 
+#endif // HD_RUM_DECOMPRESS_H_d6e9e9cd5dab
