@@ -3,6 +3,7 @@
 #set correct glslc location
 GLSLC=glslc
 
+SOURCE_PATH="${SOURCE_PATH:-.}"
 DEST_PATH=../../../../share/ultragrid/vulkan_shaders
 
 declare -a SHADERS=("render.vert" "render.frag" "RGB10A2_conv.comp" "UYVA16_conv.comp" "UYVY8_conv.comp")
