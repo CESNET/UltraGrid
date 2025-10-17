@@ -237,7 +237,7 @@ create_implicit_dir(const char *prefix)
                         log_msg(LOG_LEVEL_ERROR,
                                 MOD_NAME "Directory creation failed: %s\n",
                                 ug_strerror(errno));
-                        return false;
+                        return NULL;
                 }
                 return strdup(name);
         }
