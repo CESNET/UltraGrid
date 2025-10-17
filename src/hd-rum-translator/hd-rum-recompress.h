@@ -35,6 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef HD_RUM_RECOMPRESS_H_270dffd1fb25
+#define HD_RUM_RECOMPRESS_H_270dffd1fb25
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -82,3 +84,4 @@ int recompress_get_num_active_ports(struct state_recompress *s);
 #include <string>
 void recompress_process_async(state_recompress *state, std::shared_ptr<video_frame> frame);
 #endif
+#endif // HD_RUM_RECOMPRESS_H_270dffd1fb25
