@@ -25,6 +25,8 @@
  * $Date: 2007/11/08 09:48:59 $
  *
  */
+#ifndef MD5_H_bfc1acbbf06e
+#define MD5_H_bfc1acbbf06e
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,3 +46,4 @@ void MD5Final(unsigned char digest[16], MD5CTX *context);
 #ifdef __cplusplus
 }
 #endif
+#endif // MD5_H_bfc1acbbf06e
