@@ -204,7 +204,7 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                         }
                 } else if (IS_KEY_PREFIX(tok, "slice_height")) {
                         const int sh = atoi(strchr(tok, '=') + 1);
-                        if ((sh & ( (1 << encoder.ndecomp_v) - 1 )) == 0) {
+                        if (sh > 0 && (sh & ( (1 << encoder.ndecomp_v) - 1 )) == 0) {
                                 encoder.slice_height = sh;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid slice height value '%s' (must be a multiple of 2^decomp_v). Using default 16.\n", tok);
