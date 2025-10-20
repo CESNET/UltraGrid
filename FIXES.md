@@ -1,3 +1,11 @@
+#### 1.9.12
+
+* AppImage comatibility improvement (fix missing gnutls, maybe also gdk[_pixbuf])
+* vcap/file: fixes (raw file rewinding + others)
+* vulkan_sdl2: fix (allow) integrated/discrete card selection
+* vcap/decklink: fix color-space change detection (regression)
+* CI build fixes
+
 #### 1.9.11
 
 * improve NVENC intra-refresh behavior (ported from master)
