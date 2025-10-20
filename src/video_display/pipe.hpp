@@ -43,6 +43,7 @@ struct video_frame;
 
 class frame_recv_delegate {
         public:
+                virtual ~frame_recv_delegate() = default;
                 /**
                  * Implementing method must release both audio and video frame received
                  * as parameters with AUDIO_FRAME_DISPOSE() and VIDEO_FRAME_DISPOSE().
