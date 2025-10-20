@@ -34,6 +34,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef WAV_READER_H_1c5041ffec02
+#define WAV_READER_H_1c5041ffec02
 
 #include <stdio.h> // FILE *
 
@@ -93,3 +95,4 @@ const char *get_wav_error(int errcode);
 }
 #endif
 
+#endif // WAV_READER_H_1c5041ffec02
