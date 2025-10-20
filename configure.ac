@@ -3034,6 +3034,7 @@ AC_ARG_ENABLE(spout,
     )
 
 FOUND_SPOUT=no
+missing_item="OpenGL"
 if test $system = Windows && test "$spout_req" != no && test "$OPENGL" = yes
 then
         AC_LANG_PUSH([C++])
@@ -3043,6 +3044,7 @@ then
                        [[auto *spout = GetSpout();]])],
                        FOUND_SPOUT=yes, FOUND_SPOUT=no)
         LIBS=$SAVED_LIBS
+        missing_item="SpoutLibrary.h"
         AC_LANG_POP([C++])
 fi
 
@@ -3053,7 +3055,7 @@ then
         spout=yes
 fi
 
-ENSURE_FEATURE_PRESENT([$spout_req], [$spout], [Could not found Spout dependencies!])
+ENSURE_FEATURE_PRESENT([$spout_req], [$spout], [Could not found Spout dependencies: ${missing_item?}])
 
 # -------------------------------------------------------------------------------------------------
 # MCU-like video mixer
