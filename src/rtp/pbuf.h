@@ -58,6 +58,8 @@
 /* The main playout buffer data structures. See "RTP: Audio and Video for the */
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
+#ifndef PBUF_H_071bf2cf5c0c
+#define PBUF_H_071bf2cf5c0c
 
 #ifdef __cplusplus
 #include <cstddef>        // for size_t
@@ -134,3 +136,4 @@ void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay);
 }
 #endif
 
+#endif // PBUF_H_071bf2cf5c0c
