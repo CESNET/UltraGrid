@@ -73,7 +73,7 @@ using std::thread;
 using std::unique_lock;
 
 namespace hd_rum_decompress {
-struct state_transcoder_decompress : public frame_recv_delegate {
+struct state_transcoder_decompress final : public frame_recv_delegate {
         ultragrid_rtp_video_rxtx* video_rxtx;
 
         struct state_recompress *recompress;
@@ -89,9 +89,9 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         struct control_state *control;
         thread         receiver_thread;
 
-        void frame_arrived(struct video_frame *f, struct audio_frame *a);
+        void frame_arrived(struct video_frame *f, struct audio_frame *a) override;
 
-        virtual ~state_transcoder_decompress() {}
+        ~state_transcoder_decompress() override = default;
         void worker();
 
         struct capture_filter *capture_filter_state;
