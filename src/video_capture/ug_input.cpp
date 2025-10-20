@@ -73,17 +73,17 @@ using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
 
-struct ug_input_state  : public frame_recv_delegate {
+struct ug_input_state final : public frame_recv_delegate {
         mutex lock;
         queue<pair<struct video_frame *, struct audio_frame *>> frame_queue;
         struct display *display;
 
-        void frame_arrived(struct video_frame *f, struct audio_frame *a);
+        void frame_arrived(struct video_frame *f, struct audio_frame *a) override;
         thread         receiver_thread;
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
         struct state_audio *audio;
 
-        virtual ~ug_input_state() {}
+        ~ug_input_state() override = default;
 
         std::chrono::steady_clock::time_point t0;
         int frames;
