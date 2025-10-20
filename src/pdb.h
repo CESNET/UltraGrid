@@ -51,6 +51,8 @@
  * $Date: 2009/12/11 15:29:39 $
  *
  */
+#ifndef PDB_H_821e0154057b
+#define PDB_H_821e0154057b
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -121,3 +123,4 @@ void                 pdb_iter_done(pdb_iter_t *it);
 }
 #endif
 
+#endif // PDB_H_821e0154057b
