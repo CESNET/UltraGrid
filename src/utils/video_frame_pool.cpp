@@ -185,7 +185,7 @@ std::shared_ptr<video_frame> video_frame_pool::impl::get_frame() {
                 } catch (std::exception &e) {
                         std::cerr << e.what() << std::endl;
                         deallocate_frame(ret);
-                        throw e;
+                        throw;
                 }
         }
         m_unreturned_frames += 1;
