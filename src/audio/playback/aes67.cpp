@@ -52,6 +52,7 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "audio/resampler.hpp"
 #include "compat/platform_sched.h"
 #include "rtp/net_udp.h"
 #include "debug.h"
@@ -167,6 +168,8 @@ struct state_aes67_play{
         int32_t frame_ts_offset = 0;
 
         std::optional<Ptp_clock> ptpclk;
+
+        audio_frame2_resampler resampler;
 };
 
 uint32_t get_rtp_timestamp(state_aes67_play *s){
@@ -454,14 +457,33 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
 static void audio_play_aes67_put_frame(void *state, const struct audio_frame *frame){
         auto s = static_cast<state_aes67_play *>(state);
 
-        auto avail = ring_get_available_write_size(s->ring_buf.get());
-        auto to_write = frame->data_len;
-        if(to_write > avail){
+        audio_frame2 frame2(frame);
+        frame2.resample(s->resampler, 48000);
+
+        void *ptr1;
+        int size1;
+        void *ptr2;
+        int size2;
+
+        int to_write = frame2.get_data_len();
+        ring_get_write_regions(s->ring_buf.get(), to_write, &ptr1, &size1, &ptr2, &size2);
+
+        if(int avail = size1 + size2; to_write > avail){
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Got frame of len %d, but ring has only %d free\n", frame->data_len, ring_get_available_write_size(s->ring_buf.get()));
                 to_write = avail;
         }
 
-        ring_buffer_write(s->ring_buf.get(), frame->data, to_write);
+        int frames1 = size1 / frame2.get_bps() / frame2.get_channel_count();
+        int frames2 = size2 / frame2.get_bps() / frame2.get_channel_count();
+
+        for(int i = 0; i < frame2.get_channel_count(); i++){
+                mux_channel(static_cast<char *>(ptr1), frame2.get_data(i), frame2.get_bps(), frames1 * frame2.get_bps(), s->sap_sess.stream.ch_count, i, 1.0);
+        }
+        for(int i = 0; i < frame2.get_channel_count(); i++){
+                mux_channel(static_cast<char *>(ptr2), frame2.get_data(i) + frames1 * frame2.get_bps(), frame2.get_bps(), frames2 * frame2.get_bps(), s->sap_sess.stream.ch_count, i, 1.0);
+        }
+
+        ring_advance_write_idx(s->ring_buf.get(), to_write);
 }
 
 static bool is_format_supported(void *data, size_t *len){
@@ -501,6 +523,7 @@ static bool audio_play_aes67_reconfigure(void *state, struct audio_desc desc){
 
         stop_session(s);
 
+        desc.sample_rate = 48000; //TODO: Do this more properly
         s->in_desc = desc;
         create_sap_sess(s);
 
