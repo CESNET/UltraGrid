@@ -568,7 +568,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
                         if(attempt + 1 == initialization_attempts){
-                            throw err;
+                            throw;
                         }
                 }
         }
