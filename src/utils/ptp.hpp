@@ -84,7 +84,7 @@ namespace detail{
 
 class Ptp_clock{
 public:
-        void start(std::string_view interface);
+        void start(std::string_view interface_name);
         void stop();
 
         uint64_t get_time();

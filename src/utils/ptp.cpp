@@ -338,8 +338,8 @@ bool Ptp_clock::is_locked() const{
         return locked;
 }
 
-void Ptp_clock::start(std::string_view interface){
-        network_interface = interface;
+void Ptp_clock::start(std::string_view interface_name){
+        network_interface = interface_name;
 
         constexpr size_t ring_size = sizeof(Timestamped_pkt) * 1000;
         event_pkt_ring.reset(ring_buffer_init(ring_size));
