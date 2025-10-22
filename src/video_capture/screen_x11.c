@@ -135,7 +135,7 @@ static bool initialize(struct vidcap_screen_x11_state *s) {
         }
 
         s->root = DefaultRootWindow(s->dpy);
-        if (!s->dpy) {
+        if (!s->root) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get root window!\n");
                 return false;
         }
