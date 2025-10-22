@@ -176,7 +176,7 @@ private:
         }
 
         std::atomic<bool> skip_repeated = true;
-        log_timestamp_mode show_timestamps;
+        log_timestamp_mode show_timestamps = LOG_TIMESTAMP_AUTO;
 
         bool interactive = false;
 
