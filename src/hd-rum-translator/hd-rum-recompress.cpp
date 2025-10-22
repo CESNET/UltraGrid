@@ -322,8 +322,6 @@ int recompress_get_num_active_ports(struct state_recompress *s){
 
 struct state_recompress *recompress_init(struct module *parent) {
         auto state = new state_recompress();
-        if(!state)
-                return nullptr;
 
         state->parent = parent;
 
