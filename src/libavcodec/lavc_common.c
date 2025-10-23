@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,16 +64,17 @@ static const struct {
         enum AVCodecID av;
         codec_t uv;
 } av_to_uv_map[] = {
-        { AV_CODEC_ID_H264, H264 },
-        { AV_CODEC_ID_HEVC, H265 },
-        { AV_CODEC_ID_MJPEG, JPEG },
-        { AV_CODEC_ID_JPEG2000, J2K },
-        { AV_CODEC_ID_VP8, VP8 },
-        { AV_CODEC_ID_VP9, VP9 },
-        { AV_CODEC_ID_HUFFYUV, HFYU },
-        { AV_CODEC_ID_FFV1, FFV1 },
-        { AV_CODEC_ID_AV1, AV1 },
-        { AV_CODEC_ID_PRORES, PRORES },
+        { AV_CODEC_ID_H264,     H264   },
+        { AV_CODEC_ID_HEVC,     H265   },
+        { AV_CODEC_ID_MJPEG,    JPEG   },
+        { AV_CODEC_ID_JPEG2000, J2K    },
+        { AV_CODEC_ID_VP8,      VP8    },
+        { AV_CODEC_ID_VP9,      VP9    },
+        { AV_CODEC_ID_HUFFYUV,  HFYU   },
+        { AV_CODEC_ID_FFV1,     FFV1   },
+        { AV_CODEC_ID_AV1,      AV1    },
+        { AV_CODEC_ID_PRORES,   PRORES },
+        { AV_CODEC_ID_APV,      APV    },
 };
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
