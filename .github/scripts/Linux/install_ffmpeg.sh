@@ -70,6 +70,15 @@ install_nv_codec_headers() {
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
+install_oapv() {(
+        git clone --depth 1 https://github.com/AcademySoftwareFoundation/openapv.git
+        export CFLAGS='-ffat-lto-objects'
+        cmake -B openapv/build -S openapv \
+                -DCMAKE_BUILD_TYPE=Release
+        cmake --build openapv/build --parallel "$(nproc)"
+        sudo cmake --install openapv/build
+)}
+
 install_onevpl() {(
         git clone --depth 1 https://github.com/oneapi-src/oneVPL
         mkdir oneVPL/build
@@ -90,6 +99,7 @@ build_install() {
         install_dav1d
         install_libvpx
         install_nv_codec_headers
+        install_oapv
         install_onevpl
         install_svt
         # apply patches
@@ -101,6 +111,7 @@ build_install() {
                 --enable-libdav1d \
                 --enable-libde265 \
                 --enable-libmp3lame \
+                --enable-liboapv \
                 --enable-libopenh264 \
                 --enable-libopus \
                 --enable-librav1e \
@@ -131,6 +142,7 @@ install_cached() {
         sudo cmake --install SVT-HEVC/Build/linux/Release
         sudo cmake --install SVT-VP9/Build
         sudo cmake --build oneVPL/build --config Release --target install
+        sudo cmake --install openapv/build
 
         sudo make install
         sudo ldconfig
