@@ -1107,10 +1107,12 @@ if test "$deltacast_req" != no; then
                 AC_LANG_PUSH(C++)
 
                 if test -n "$DELTACAST_PATH"; then
+                        DELTA_INC="-I$DELTACAST_PATH/Include\
+ -I$DELTACAST_PATH/include/videomaster"
                         CXXFLAGS_SAVE=$CXXFLAGS
-                        CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
+                        CXXFLAGS="$CXXFLAGS ${DELTA_INC?}"
                         CPPFLAGS_SAVE=$CPPFLAGS
-                        CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
+                        CPPFLAGS="$CPPFLAGS ${DELTA_INC?}"
                 fi
 
                 if test $system = Windows; then
@@ -1180,9 +1182,7 @@ if test "$deltacast_req" != no; then
                 fi
         fi
         if test "$deltacast_found" = yes; then
-                if test -n "$DELTACAST_PATH"; then
-                        INC="$INC -I$DELTACAST_PATH/Include"
-                fi
+                INC="$INC${DELTA_INC:- $DELTA_INC}"
                 add_module vidcap_deltacast "src/deltacast_common.o \
 src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
                 add_module display_deltacast "src/deltacast_common.o \
