@@ -317,6 +317,7 @@ get_decoders(
                         continue;
                 }
                 assert(codec_index < MAX_DECODERS);
+                usable_decoders[codec_index++] = codec;
                 preferred_decoders_it++;
         }
         // finally, add a default one if there are no preferred enc. or all fail
