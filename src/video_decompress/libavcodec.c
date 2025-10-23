@@ -236,7 +236,6 @@ enum {
 };
 
 struct decoder_info {
-        codec_t ug_codec;
         enum AVCodecID avcodec_id;
         // Note:
         // Make sure that if adding hw decoders to prefered_decoders[] that
@@ -251,31 +250,28 @@ struct decoder_info {
 };
 
 static const struct decoder_info decoders[] = {
-        { H264,             AV_CODEC_ID_H264,     { NULL /* "h264_cuvid" */ } },
-        { H265,             AV_CODEC_ID_HEVC,     { NULL /* "hevc_cuvid" */ } },
-        { JPEG,             AV_CODEC_ID_MJPEG,    { NULL }                    },
-        { J2K,              AV_CODEC_ID_JPEG2000, { NULL }                    },
-        { J2KR,             AV_CODEC_ID_JPEG2000, { NULL }                    },
-        { VP8,              AV_CODEC_ID_VP8,      { NULL }                    },
-        { VP9,              AV_CODEC_ID_VP9,      { NULL }                    },
-        { HFYU,             AV_CODEC_ID_HUFFYUV,  { NULL }                    },
-        { FFV1,             AV_CODEC_ID_FFV1,     { NULL }                    },
-        { AV1,              AV_CODEC_ID_AV1,      { "libdav1d" }              },
-        { PRORES_4444,      AV_CODEC_ID_PRORES,   { NULL }                    },
-        { PRORES_4444_XQ,   AV_CODEC_ID_PRORES,   { NULL }                    },
-        { PRORES_422_HQ,    AV_CODEC_ID_PRORES,   { NULL }                    },
-        { PRORES_422,       AV_CODEC_ID_PRORES,   { NULL }                    },
-        { PRORES_422_PROXY, AV_CODEC_ID_PRORES,   { NULL }                    },
-        { PRORES_422_LT,    AV_CODEC_ID_PRORES,   { NULL }                    },
-        { CFHD,             AV_CODEC_ID_CFHD,     { NULL }                    }
+        // { AV_CODEC_ID_H264, { NULL /* "h264_cuvid" */ } },
+        // { AV_CODEC_ID_HEVC, { NULL /* "hevc_cuvid" */ } },
+        { AV_CODEC_ID_AV1,  { "libdav1d" }              },
 };
 
+/**
+ * fills usable_decoders with decoders available for avcodec_id; if
+ * preferrred_decoders in decoders is set, these will be listed first
+ */
 static bool
-get_usable_decoders(
+get_decoders(
     enum AVCodecID    avcodec_id,
-    const char *const preferred_decoders[static MAX_PREFERED + 1],
     const AVCodec    *usable_decoders[static DEC_LEN])
 {
+        const char *const *preferred_decoders = (const char *[]){ NULL };
+        for (unsigned int i = 0; i < ARR_COUNT(decoders); ++i) {
+                if (decoders[i].avcodec_id == avcodec_id) {
+                        preferred_decoders = decoders[i].preferred_decoders;
+                        break;
+                }
+        }
+
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
         const char *param = get_commandline_param("force-lavd-decoder");
@@ -351,26 +347,18 @@ ADD_TO_PARAM("use-hw-accel", "* use-hw-accel[=<api>|help]\n"
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc, void *extradata, int extradata_size)
 {
-        const struct decoder_info *dec = NULL;
-
         s->consecutive_failed_decodes = 0;
 
-        for (unsigned int i = 0; i < sizeof decoders / sizeof decoders[0]; ++i) {
-                if (decoders[i].ug_codec == desc.color_spec) {
-                        dec = &decoders[i];
-                        break;
-                }
-        }
-
-        if (dec == NULL) {
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
+        const enum AVCodecID avcodec_id = get_ug_to_av_codec(desc.color_spec);
+        if (avcodec_id == AV_CODEC_ID_NONE) {
+                MSG(ERROR, "Unsupported codec %s!!!\n",
+                    get_codec_name(desc.color_spec));
                 return false;
         }
 
         // priority list of decoders that can be used for the codec
         const AVCodec *usable_decoders[DEC_LEN] = { NULL };
-        if (!get_usable_decoders(dec->avcodec_id, dec->preferred_decoders,
-                                 usable_decoders)) {
+        if (!get_decoders(avcodec_id, usable_decoders)) {
                 return false;
         }
 
@@ -1198,22 +1186,16 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                 return VDEC_PRIO_PREFERRED;
         }
 
-        unsigned i = 0;
-        for ( ; i < sizeof decoders / sizeof decoders[0]; ++i) {
-                if (decoders[i].ug_codec == compression) {
-                        const AVCodec *const decoder =
-                            avcodec_find_decoder(decoders[i].avcodec_id);
-                        if (decoder != NULL) {
-                                break;
-                        }
-                        MSG(WARNING,
-                            "Codec %s supported by lavd but "
-                            "not compiled in FFmpeg build.\n",
-                            get_codec_name(compression));
-                }
+        const enum AVCodecID avcodec_id = get_ug_to_av_codec(compression);
+        if (avcodec_id == AV_CODEC_ID_NONE) {
+                return VDEC_PRIO_NA;// lavd doesn't handle this compression
         }
-        if (i == sizeof decoders / sizeof decoders[0]) { // lavd doesn't handle this compression
-                return VDEC_PRIO_NA;
+
+        if (avcodec_find_decoder(avcodec_id) == NULL) {
+                MSG(WARNING,
+                    "Codec %s supported by lavd but "
+                    "not compiled in FFmpeg build.\n",
+                    get_codec_name(compression));
         }
 
         if (ugc == VC_NONE) { // probe
