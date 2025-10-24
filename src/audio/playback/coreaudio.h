@@ -34,6 +34,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef COREAUDIO_H_d905b553b0d1
+#define COREAUDIO_H_d905b553b0d1
 
 #include <stddef.h>
 
@@ -57,3 +59,4 @@ AudioDeviceID audio_ca_get_device_by_name(const char *name, int dir);
 
 /* vim: set expandtab sw=8: */
 
+#endif // COREAUDIO_H_d905b553b0d1
