@@ -77,7 +77,7 @@ namespace detail{
 
                 unsigned size() const { return count < n ? count : n; }
         private:
-                std::array<T, n> samples;
+                std::array<T, n> samples = {};
                 unsigned count = 0;
         };
 }
@@ -107,7 +107,7 @@ private:
         uint64_t synth_ptp_ts = 0;
         double spa_corr = 1.0;
         detail::Average<int64_t, 64> avg;
-        spa_dll dll;
+        spa_dll dll = {};
         std::vector<detail::Sync_pkt_data> sync_pkts;
 
         mutable std::mutex mut;
