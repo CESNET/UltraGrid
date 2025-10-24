@@ -192,57 +192,45 @@ static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 void usage(bool full);
 static void cleanup(struct state_video_compress_libav *s);
 
-static map<codec_t, codec_params_t> codec_params = {
-        { H264, codec_params_t{
+const char *get_vp9_encoder(bool /* rgb */) {
+#ifdef __x86_64__
+        return __builtin_cpu_supports("avx2") ? nullptr : "libaom-av1";
+#else
+        return nullptr;
+#endif
+}
+codec_params_t
+get_codec_params(codec_t ug_codec)
+{
+        switch (ug_codec) {
+        case H264: return {
                 [](bool is_rgb) { return is_rgb ? "libx264rgb" : "libx264"; },
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
                 setparam_h264_h265_av1,
                 100
-        }},
-        { H265, codec_params_t{
+        };
+        case H265: return {
                 [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 setparam_h264_h265_av1,
                 101
-        }},
-        { JPEG, codec_params_t{
-                nullptr,
-                1.2,
-                setparam_jpeg,
-                102
-        }},
-        { VP8, codec_params_t{
-                nullptr,
-                0.4,
-                setparam_vp8_vp9,
-                103
-        }},
-        { VP9, codec_params_t{
-                [](bool) {
-                      return
-#ifdef __x86_64__
-                          !__builtin_cpu_supports("avx2") ? "libvpx-vp9" :
-#endif
-                          nullptr; },
-                0.4,
-                setparam_vp8_vp9,
-                104
-        }},
-        { AV1, codec_params_t{
+        };
+        case JPEG:
+                return { nullptr, 1.2, setparam_jpeg, 102 };
+        case VP8:
+                return { nullptr, 0.4, setparam_vp8_vp9, 103 };
+        case VP9:
+                return { get_vp9_encoder, 0.4, setparam_vp8_vp9, 104 };
+        case AV1: return {
                 [](bool) { return is_arm_mac() ? "libaom-av1" : "libsvtav1"; },
                 0.1,
                 setparam_h264_h265_av1,
                 600
-        }},
-};
-codec_params_t
-get_codec_params(codec_t ug_codec)
-{
-        auto it = codec_params.find(ug_codec);
-        if (it != codec_params.end()) {
-                return it->second;
+        };
+        default:
+                break;
         }
         int capabilities_priority = 500 + (int) ug_codec;
         double avg_bpp = 0;
