@@ -65,7 +65,7 @@ namespace detail{
                         count++;
                 }
 
-                double get(){
+                double get() const {
                         double acc = 0;
                         unsigned c = size();
                         for(unsigned i = 0; i < c; i++){
@@ -75,7 +75,7 @@ namespace detail{
                         return acc / c;
                 }
 
-                unsigned size() { return count < n ? count : n; }
+                unsigned size() const { return count < n ? count : n; }
         private:
                 std::array<T, n> samples;
                 unsigned count = 0;
