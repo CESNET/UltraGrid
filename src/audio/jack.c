@@ -64,9 +64,9 @@
 struct state_jack {
         struct libjack_connection *libjack;
 
-        unsigned int sender:1,
-                        receiver:1;
-                        
+        bool sender;
+        bool receiver;
+
         jack_client_t *client;
         
         struct audio_frame record;
