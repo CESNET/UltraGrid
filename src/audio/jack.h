@@ -38,10 +38,6 @@
 #ifndef JACK_H_eb847b3873ae
 #define JACK_H_eb847b3873ae
 
-#ifndef __cplusplus
-#include <stdbool.h>
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
