@@ -561,18 +561,18 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
 
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
                         params->send_port, params->ttl, rtcp_bw,
-                        FALSE, rtp_recv_callback,
+                        false, rtp_recv_callback,
                         (uint8_t *) params->participants,
                         params->force_ip_version, false);
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
-                rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
-                rtp_set_option(r, RTP_OPT_PROMISC, TRUE);
-                rtp_set_option(r, RTP_OPT_RECORD_SOURCE, TRUE);
+                rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, true);
+                rtp_set_option(r, RTP_OPT_PROMISC, true);
+                rtp_set_option(r, RTP_OPT_RECORD_SOURCE, true);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
                 if (strcmp(params->addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0) {
-                        rtp_set_option(r, RTP_OPT_SEND_BACK, TRUE);
+                        rtp_set_option(r, RTP_OPT_SEND_BACK, true);
                 }
                 rtp_set_recv_buf(r, DEFAULT_AUDIO_RECV_BUF_SIZE);
         }
@@ -824,7 +824,7 @@ static void *audio_receiver_thread(void *arg)
                                 string msg;
                                 if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
                                                         curr_desc.ch_count,
-                                                        curr_desc.sample_rate) != TRUE) {
+                                                        curr_desc.sample_rate) != true) {
                                         log_l = LOG_LEVEL_ERROR;
                                         msg = "Audio reconfiguration failed";
                                         failed = true;
