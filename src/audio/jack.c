@@ -211,12 +211,12 @@ static int settings_init(struct state_jack *s, char *cfg)
                                 if(tok[1] != 'i' && tok[1] != 'o')
                                         return -1;
                                 if(tok[1] == 'i') {
-                                        s->receiver = TRUE;
+                                        s->receiver = true;
                                         if(tok[2] == '=')
                                                 s->in_port_pattern = strdup(&tok[3]);
                                 }
                                 if(tok[1] == 'o') {
-                                        s->sender = TRUE;
+                                        s->sender = true;
                                         if(tok[2] == '=')
                                                 s->out_port_pattern = strdup(&tok[3]);
                                 }
@@ -241,7 +241,7 @@ static int attach_input_ports(struct state_jack *s)
         const char **ports;
         if ((ports = s->libjack->get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
                  log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
-                 return FALSE;
+                 return false;
          }
          
          while (ports[i]) ++i;
@@ -259,7 +259,7 @@ static int attach_input_ports(struct state_jack *s)
          }
  
          free (ports);
-         return TRUE;
+         return true;
 }
 
 void * jack_start(const char *cfg)
@@ -279,8 +279,8 @@ void * jack_start(const char *cfg)
         s->in_ch_count = 1;
         s->play_buffer_start = s->play_buffer_end = 0;
         s->rec_buffer_start = s->rec_buffer_end = 0;
-        s->sender = FALSE;
-        s->receiver = FALSE;
+        s->sender = false;
+        s->receiver = false;
         s->out_channel_count = 0;
         
         char *cfg_copy = strdup(cfg);
