@@ -175,7 +175,7 @@ typedef struct {
         function<const char*(bool)> get_prefered_encoder; ///< can be nullptr
         double avg_bpp;
         void (*set_param)(AVCodecContext *, struct setparam_param *);
-        int capabilities_priority;
+        int capabilities_priority; ///< sort order in GUI (?)
 } codec_params_t;
 
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
@@ -213,12 +213,6 @@ static map<codec_t, codec_params_t> codec_params = {
                 setparam_jpeg,
                 102
         }},
-        { J2K, codec_params_t{
-                nullptr,
-                1.0,
-                setparam_default,
-                500
-        }},
         { VP8, codec_params_t{
                 nullptr,
                 0.4,
@@ -236,31 +230,32 @@ static map<codec_t, codec_params_t> codec_params = {
                 setparam_vp8_vp9,
                 104
         }},
-        { HFYU, codec_params_t{
-                nullptr,
-                0,
-                setparam_default,
-                501
-        }},
-        { FFV1, codec_params_t{
-                nullptr,
-                0,
-                setparam_default,
-                502
-        }},
         { AV1, codec_params_t{
                 [](bool) { return is_arm_mac() ? "libaom-av1" : "libsvtav1"; },
                 0.1,
                 setparam_h264_h265_av1,
                 600
         }},
-        { PRORES, codec_params_t{
-                nullptr,
-                0.5,
-                setparam_default,
-                300,
-        }},
 };
+codec_params_t
+get_codec_params(codec_t ug_codec)
+{
+        auto it = codec_params.find(ug_codec);
+        if (it != codec_params.end()) {
+                return it->second;
+        }
+        int capabilities_priority = 500 + (int) ug_codec;
+        double avg_bpp = 0;
+        if (ug_codec == J2K) {
+                avg_bpp = 1;
+        }
+        if (ug_codec == PRORES) {
+                avg_bpp = 0.5;
+                capabilities_priority = 300; // perhaps to be before 5xx ?
+        }
+        return codec_params_t{ nullptr, avg_bpp, setparam_default,
+                               capabilities_priority };
+}
 
 struct aux_header {
         char   buf[1024]{};
@@ -441,9 +436,10 @@ void usage(bool full) {
                          "contained in the stream)\n";
         }
         col() << "\nSupported codecs:\n";
-        for (auto && param : codec_params) {
-                enum AVCodecID avID = get_ug_to_av_codec(param.first);
-                if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
+        for (unsigned i = VC_FIRST; i < VC_END; ++i) {
+                auto           ug_codec = (codec_t) i;
+                enum AVCodecID avID     = get_ug_to_av_codec(ug_codec);
+                if (avID == AV_CODEC_ID_NONE) { // unhandled or old FFMPEG -> codec id is flushed to 0 in compat
                         continue;
                 }
                 char avail[1024];
@@ -454,7 +450,7 @@ void usage(bool full) {
                         strcpy(avail, "not available");
                 }
                 get_codec_details(avID, avail + strlen(avail), sizeof avail - strlen(avail));
-                col() << "\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
+                col() << "\t" << SBOLD(get_codec_name(ug_codec)) << " - " << avail << "\n";
 
         }
         col() << "\nUse '" << SBOLD("-c lavc:enc=<enc>:help")
@@ -662,9 +658,10 @@ static compress_module_info get_libavcodec_module_info(){
                         "",
                         "lavc_opt", ":", false});
 
-        for (const auto& param : codec_params) {
-                enum AVCodecID avID = get_ug_to_av_codec(param.first);
-                if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
+        for (unsigned c = VC_FIRST; c < VC_END; ++c) {
+                auto           ug_codec = (codec_t) c;
+                enum AVCodecID avID     = get_ug_to_av_codec(ug_codec);
+                if (avID == AV_CODEC_ID_NONE) { // unhandled or old FFMPEG -> codec id is flushed to 0 in compat
                         continue;
                 }
                 const AVCodec *i;
@@ -673,8 +670,8 @@ static compress_module_info get_libavcodec_module_info(){
                 }
 
                 codec codec_info;
-                codec_info.name = get_codec_name(param.first);
-                codec_info.priority = param.second.capabilities_priority;
+                codec_info.name = get_codec_name(ug_codec);
+                codec_info.priority = get_codec_params(ug_codec).capabilities_priority;
                 codec_info.encoders.emplace_back(
                                 encoder{"default", ":codec=" + codec_info.name});
 
@@ -904,7 +901,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         // average bit per pixel
         const double avg_bpp = params.requested_bpp > 0.0
                       ? params.requested_bpp
-                      : codec_params[ug_codec].avg_bpp;
+                      : get_codec_params(ug_codec).avg_bpp;
 
         bool set_bitrate = false;
         int_fast64_t bitrate =
@@ -948,7 +945,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->pix_fmt = pix_fmt;
         s->codec_ctx->bits_per_raw_sample = min<int>(get_bits_per_component(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
-        codec_params[ug_codec].set_param(s->codec_ctx, &params);
+        get_codec_params(ug_codec).set_param(s->codec_ctx, &params);
         set_codec_thread_mode(s->codec_ctx, &params);
         s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(
             params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1
@@ -1098,10 +1095,9 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
 
         // Else, try to open preferred encoder for requested codec
         const char *preferred_encoder = nullptr;
-        if (codec_params.find(*ug_codec) != codec_params.end() &&
-            codec_params[*ug_codec].get_prefered_encoder) {
-                preferred_encoder = codec_params[*ug_codec].get_prefered_encoder(
-                                src_rgb);
+        if (get_codec_params(*ug_codec).get_prefered_encoder) {
+                preferred_encoder =
+                    get_codec_params(*ug_codec).get_prefered_encoder(src_rgb);
         }
         if (preferred_encoder != nullptr) {
                 const AVCodec *codec = avcodec_find_encoder_by_name(preferred_encoder);
