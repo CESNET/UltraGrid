@@ -896,6 +896,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 {
         bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
         bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
+        const bool cqp_codec = is_mjpeg || is_vaapi;
 
         // make a copy because set_param callbacks may adjust parameters
         struct setparam_param params = s->params;
@@ -915,9 +916,8 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // set quality
         if (params.requested_cqp >= 0 ||
-            ((is_vaapi || is_mjpeg) && params.requested_crf == -1.0 &&
-             params.requested_bitrate == 0 &&
-             params.requested_bpp == 0.0)) {
+            (cqp_codec && params.requested_crf == -1.0 &&
+             params.requested_bitrate == 0 && params.requested_bpp == 0.0)) {
                 set_cqp(s->codec_ctx, params.requested_cqp);
         } else if (params.requested_crf >= 0.0 ||
                    (get_default_crf(s->codec_ctx->codec->name) != 0 &&
