@@ -5,7 +5,7 @@
  * code is written by DELTACAST's VideoMaster SDK example SampleTX
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET, zájnové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -212,6 +212,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deltacast            *s = (struct state_deltacast *)state;
         int VideoStandard = 0;
+        VHD_CLOCKDIVISOR clock_system = NB_VHD_CLOCKDIVISORS;
         int i;
         ULONG Result;
 
@@ -244,6 +245,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                                 desc.width == deltacast_frame_modes[i].width &&
                                 desc.height == deltacast_frame_modes[i].height) {
                         VideoStandard = deltacast_frame_modes[i].mode;
+                        clock_system = deltacast_frame_modes[i].clock_system;
                         log_msg(LOG_LEVEL_NOTICE, "[DELTACAST] %s mode selected.\n", deltacast_frame_modes[i].name);
                         break;
                 }
@@ -274,6 +276,8 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,VideoStandard);
         VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_DEPTH,2);
         VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_PRELOAD,0);
+        VHD_SetBoardProperty(s->BoardHandle, VHD_SDI_BP_CLOCK_SYSTEM,
+                             clock_system);
 
         Result = VHD_StartStream(s->StreamHandle);
         if (Result != VHDERR_NOERROR) {
@@ -447,9 +451,6 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         
         /* Disable RX0-TX0 by-pass relay loopthrough */
         delta_set_loopback_state(s->BoardHandle, (int) s->channel, FALSE);
-        
-        /* Select a 1/1 clock system */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,VHD_CLOCKDIV_1);
 
 	return s;
 #undef HANDLE_ERROR
