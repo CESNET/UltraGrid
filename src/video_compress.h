@@ -189,14 +189,14 @@ struct module_option{
 };
 
 struct encoder{
-        std::string name;
-        std::string opt_str;
+        std::string name; //Name displayed to user
+        std::string opt_str; //Option string to pass to ug (e.g. ":encoder=libx264")
 };
 
 struct codec{
-        std::string name;
+        std::string name; //Name displayed to user
         std::vector<encoder> encoders;
-        int priority;
+        int priority; //Lower number is higher priority, currently affects GUI sort order
 };
 
 struct compress_module_info{
