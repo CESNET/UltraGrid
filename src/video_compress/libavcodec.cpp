@@ -175,7 +175,7 @@ typedef struct {
         function<const char*(bool)> get_prefered_encoder; ///< can be nullptr
         double avg_bpp;
         void (*set_param)(AVCodecContext *, struct setparam_param *);
-        int capabilities_priority; ///< sort order in GUI (?)
+        int capabilities_priority; ///< affects sort order in GUI, lowest number is shown first
 } codec_params_t;
 
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
