@@ -1182,7 +1182,7 @@ if test "$deltacast_req" != no; then
                 fi
         fi
         if test "$deltacast_found" = yes; then
-                INC="$INC${DELTA_INC:- $DELTA_INC}"
+                INC="$INC${DELTA_INC:+ $DELTA_INC}"
                 add_module vidcap_deltacast "src/deltacast_common.o \
 src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o" "$DELTACAST_LIB"
                 add_module display_deltacast "src/deltacast_common.o \
