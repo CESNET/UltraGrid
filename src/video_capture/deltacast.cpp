@@ -193,11 +193,17 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         }
 
         /* Auto-detect clock system */
-        Result = VHD_GetBoardProperty(s->BoardHandle,
+        Result =
+#ifdef VHD_MIN_6_21
+            VHD_GetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, s->channel,
+                                   VHD_SDI_CP_CLOCK_DIVISOR, &s->ClockSystem);
+#else
+            VHD_GetBoardProperty(s->BoardHandle,
                                       DELTA_CH_TO_VAL(s->channel,
                                                       VHD_SDI_BP_RX0_CLOCK_DIV,
                                                       VHD_SDI_BP_RX4_CLOCK_DIV),
                                       &s->ClockSystem);
+#endif
 
         if(Result != VHDERR_NOERROR) {
                 MSG(ERROR,
@@ -208,9 +214,6 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         } else {
                 printf("\nIncoming clock system : %s\n",(s->ClockSystem==VHD_CLOCKDIV_1)?"European":"American");
         }
-
-         /* Select the detected clock system */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,s->ClockSystem);
 
         /* Create a logical stream to receive from RX0 connector */
         const VHD_STREAMTYPE StrmType = delta_rx_ch_to_stream_t(s->channel);
