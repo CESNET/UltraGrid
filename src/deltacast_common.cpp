@@ -480,32 +480,35 @@ delta_tx_ch_to_stream_t(unsigned channel)
         return NB_VHD_STREAMTYPES;
 }
 
-/// @see SDK Is4KInterface()
+/// @see SDK Is4KInterface() + Is8KInterface
 bool
 delta_is_quad_channel_interface(ULONG Interface)
 {
-        bool Result = FALSE;
         switch (Interface) {
+        // Is4KInterface
         case VHD_INTERFACE_4XHD_QUADRANT:
         case VHD_INTERFACE_4X3G_A_QUADRANT:
         case VHD_INTERFACE_4X3G_B_DL_QUADRANT:
-        // case VHD_INTERFACE_2X3G_B_DS_425_3:
+        case VHD_INTERFACE_2X3G_B_DS_425_3:
         case VHD_INTERFACE_4X3G_A_425_5:
         case VHD_INTERFACE_4X3G_B_DL_425_5:
-        // case VHD_INTERFACE_2X3G_B_DS_425_3_DUAL:
+        case VHD_INTERFACE_2X3G_B_DS_425_3_DUAL:
         case VHD_INTERFACE_4XHD_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_A_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_A_425_5_DUAL:
         case VHD_INTERFACE_4X3G_B_DL_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_B_DL_425_5_DUAL:
-                Result = TRUE;
-                break;
+        // Is8KInterface
+#if defined VHD_MIN_6_19
+        case VHD_INTERFACE_4X6G_2081_10_QUADRANT:
+        case VHD_INTERFACE_4X12G_2082_10_QUADRANT:
+        case VHD_INTERFACE_4X6G_2081_12:
+        case VHD_INTERFACE_4X12G_2082_12:
+#endif
+             return true;
         default:
-                Result = FALSE;
-                break;
-        }
-
-        return Result;
+             return false;
+   }
 }
 
 /// equally named fn in SDK
@@ -543,7 +546,6 @@ struct deltacast_mode_info {
         unsigned int       height;
         int                fps;
         enum interlacing_t interlacing;
-        unsigned long int  iface;
 };
 
 static struct deltacast_mode_info
@@ -551,31 +553,31 @@ deltacast_get_frame_mode(unsigned mode)
 {
         switch (mode) {
         // clang-format off
-        case VHD_VIDEOSTD_S274M_1080p_25Hz:   return { 1920, 1080, 25, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080p_30Hz:   return { 1920, 1080, 30, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080i_50Hz:   return { 1920, 1080, 25, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080i_60Hz:   return { 1920, 1080, 30, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S296M_720p_50Hz:    return { 1280,  720, 50, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S296M_720p_60Hz:    return { 1280,  720, 60, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S259M_PAL:          return {  720,  576, 25, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S259M_NTSC:         return {  720,  487, 30, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080p_24Hz:   return { 1920, 1080, 24, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080p_60Hz:   return { 1920, 1080, 60, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080p_50Hz:   return { 1920, 1080, 50, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080psf_24Hz: return { 1920, 1080, 24, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080psf_25Hz: return { 1920, 1080, 25, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
-        case VHD_VIDEOSTD_S274M_1080psf_30Hz: return { 1920, 1080, 30, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080p_25Hz:   return { 1920, 1080, 25, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S274M_1080p_30Hz:   return { 1920, 1080, 30, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S274M_1080i_50Hz:   return { 1920, 1080, 25, UPPER_FIELD_FIRST };
+        case VHD_VIDEOSTD_S274M_1080i_60Hz:   return { 1920, 1080, 30, UPPER_FIELD_FIRST };
+        case VHD_VIDEOSTD_S296M_720p_50Hz:    return { 1280,  720, 50, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S296M_720p_60Hz:    return { 1280,  720, 60, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S259M_PAL:          return {  720,  576, 25, UPPER_FIELD_FIRST };
+        case VHD_VIDEOSTD_S259M_NTSC:         return {  720,  487, 30, UPPER_FIELD_FIRST };
+        case VHD_VIDEOSTD_S274M_1080p_24Hz:   return { 1920, 1080, 24, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S274M_1080p_60Hz:   return { 1920, 1080, 60, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S274M_1080p_50Hz:   return { 1920, 1080, 50, PROGRESSIVE       };
+        case VHD_VIDEOSTD_S274M_1080psf_24Hz: return { 1920, 1080, 24, SEGMENTED_FRAME   };
+        case VHD_VIDEOSTD_S274M_1080psf_25Hz: return { 1920, 1080, 25, SEGMENTED_FRAME   };
+        case VHD_VIDEOSTD_S274M_1080psf_30Hz: return { 1920, 1080, 30, SEGMENTED_FRAME   };
         // UHD modes
-        case VHD_VIDEOSTD_3840x2160p_24Hz:    return { 3840, 2160, 24, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
-        case VHD_VIDEOSTD_3840x2160p_25Hz:    return { 3840, 2160, 25, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
-        case VHD_VIDEOSTD_3840x2160p_30Hz:    return { 3840, 2160, 30, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
-        case VHD_VIDEOSTD_3840x2160p_50Hz:    return { 3840, 2160, 50, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
-        case VHD_VIDEOSTD_3840x2160p_60Hz:    return { 3840, 2160, 60, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
-        case VHD_VIDEOSTD_4096x2160p_24Hz:    return { 4096, 2160, 24, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
-        case VHD_VIDEOSTD_4096x2160p_25Hz:    return { 4096, 2160, 25, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
-        case VHD_VIDEOSTD_4096x2160p_48Hz:    return { 4096, 2160, 48, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
-        case VHD_VIDEOSTD_4096x2160p_50Hz:    return { 4096, 2160, 50, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
-        case VHD_VIDEOSTD_4096x2160p_60Hz:    return { 4096, 2160, 60, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        case VHD_VIDEOSTD_3840x2160p_24Hz:    return { 3840, 2160, 24, PROGRESSIVE       };
+        case VHD_VIDEOSTD_3840x2160p_25Hz:    return { 3840, 2160, 25, PROGRESSIVE       };
+        case VHD_VIDEOSTD_3840x2160p_30Hz:    return { 3840, 2160, 30, PROGRESSIVE       };
+        case VHD_VIDEOSTD_3840x2160p_50Hz:    return { 3840, 2160, 50, PROGRESSIVE       };
+        case VHD_VIDEOSTD_3840x2160p_60Hz:    return { 3840, 2160, 60, PROGRESSIVE       };
+        case VHD_VIDEOSTD_4096x2160p_24Hz:    return { 4096, 2160, 24, PROGRESSIVE       };
+        case VHD_VIDEOSTD_4096x2160p_25Hz:    return { 4096, 2160, 25, PROGRESSIVE       };
+        case VHD_VIDEOSTD_4096x2160p_48Hz:    return { 4096, 2160, 48, PROGRESSIVE       };
+        case VHD_VIDEOSTD_4096x2160p_50Hz:    return { 4096, 2160, 50, PROGRESSIVE       };
+        case VHD_VIDEOSTD_4096x2160p_60Hz:    return { 4096, 2160, 60, PROGRESSIVE       };
         // clang-format on
         default:
                 return {};
@@ -611,8 +613,7 @@ deltacast_get_mode_info(unsigned mode, bool want_1001)
         return { .width       = info.width,
                  .height      = info.height,
                  .fps         = fps,
-                 .interlacing = info.interlacing,
-                 .iface       = info.iface };
+                 .interlacing = info.interlacing };
 }
 
 /**
@@ -655,4 +656,130 @@ deltacast_get_mode_name(unsigned mode, bool want_1001)
         }
 
         return buf;
+}
+
+// PrintVideoStandardInfo
+void
+delta_print_intefrace_info(ULONG Interface)
+{
+#ifdef HAVE_VHD_STRING
+        printf("\nIncoming interface : %s\n",
+               VHD_INTERFACE_ToString((VHD_INTERFACE) Interface));
+#else
+        (void) Interface;
+#endif
+}
+
+// SingleToQuadLinksInterface
+void
+delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
+                                     ULONG *pVideoStandard)
+{
+      switch (*pVideoStandard)
+      {
+      case VHD_VIDEOSTD_S274M_1080p_24Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160p_24Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S274M_1080p_25Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160p_25Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S274M_1080p_30Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160p_30Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+#if defined VHD_MIN_6_19
+      case VHD_VIDEOSTD_S274M_1080psf_24Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160psf_24Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S274M_1080psf_25Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160psf_25Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S274M_1080psf_30Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160psf_30Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+#endif
+      case VHD_VIDEOSTD_S274M_1080p_50Hz: *pVideoStandard = VHD_VIDEOSTD_3840x2160p_50Hz;
+         if (RXStatus&VHD_SDI_RXSTS_LEVELB_3G)
+            *pInterface = VHD_INTERFACE_4X3G_B_DL_QUADRANT;
+         else
+            *pInterface = VHD_INTERFACE_4X3G_A_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_S274M_1080p_60Hz:	*pVideoStandard = VHD_VIDEOSTD_3840x2160p_60Hz;
+         if (RXStatus&VHD_SDI_RXSTS_LEVELB_3G)
+            *pInterface = VHD_INTERFACE_4X3G_B_DL_QUADRANT;
+         else
+            *pInterface = VHD_INTERFACE_4X3G_A_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_S2048M_2048p_24Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_24Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S2048M_2048p_25Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_25Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S2048M_2048p_30Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_30Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+#if defined VHD_MIN_6_19
+      case VHD_VIDEOSTD_S2048M_2048psf_24Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160psf_24Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S2048M_2048psf_25Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160psf_25Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+      case VHD_VIDEOSTD_S2048M_2048psf_30Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160psf_30Hz;
+         *pInterface = VHD_INTERFACE_4XHD_QUADRANT; break;
+#endif
+      case VHD_VIDEOSTD_S2048M_2048p_48Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_48Hz;
+         if (RXStatus&VHD_SDI_RXSTS_LEVELB_3G)
+            *pInterface = VHD_INTERFACE_4X3G_B_DL_QUADRANT;
+         else
+            *pInterface = VHD_INTERFACE_4X3G_A_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_S2048M_2048p_50Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_50Hz;
+         if (RXStatus&VHD_SDI_RXSTS_LEVELB_3G)
+            *pInterface = VHD_INTERFACE_4X3G_B_DL_QUADRANT;
+         else
+            *pInterface = VHD_INTERFACE_4X3G_A_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_S2048M_2048p_60Hz:	*pVideoStandard = VHD_VIDEOSTD_4096x2160p_60Hz;
+         if (RXStatus&VHD_SDI_RXSTS_LEVELB_3G)
+            *pInterface = VHD_INTERFACE_4X3G_B_DL_QUADRANT;
+         else
+            *pInterface = VHD_INTERFACE_4X3G_A_QUADRANT;
+         break;
+#if defined VHD_MIN_6_19
+      case VHD_VIDEOSTD_3840x2160p_24Hz:
+         *pVideoStandard = VHD_VIDEOSTD_7680x4320p_24Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_3840x2160p_25Hz:
+         *pVideoStandard = VHD_VIDEOSTD_7680x4320p_25Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_3840x2160p_30Hz:
+         *pVideoStandard = VHD_VIDEOSTD_7680x4320p_30Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_3840x2160p_50Hz:
+         *pVideoStandard = VHD_VIDEOSTD_7680x4320p_50Hz;
+         *pInterface = VHD_INTERFACE_4X12G_2082_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_3840x2160p_60Hz:
+         *pVideoStandard = VHD_VIDEOSTD_7680x4320p_60Hz;
+         *pInterface = VHD_INTERFACE_4X12G_2082_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_24Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_24Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_25Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_25Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_30Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_30Hz;
+         *pInterface = VHD_INTERFACE_4X6G_2081_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_48Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_48Hz;
+         *pInterface = VHD_INTERFACE_4X12G_2082_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_50Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_50Hz;
+         *pInterface = VHD_INTERFACE_4X12G_2082_10_QUADRANT;
+         break;
+      case VHD_VIDEOSTD_4096x2160p_60Hz:
+         *pVideoStandard = VHD_VIDEOSTD_8192x4320p_60Hz;
+         *pInterface = VHD_INTERFACE_4X12G_2082_10_QUADRANT;
+         break;
+#endif
+      }
 }

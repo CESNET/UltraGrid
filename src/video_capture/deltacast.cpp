@@ -95,7 +95,7 @@ usage(bool full)
 {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(TRED("-t "
-                     "deltacast") "[:device=<index>][:channel=<idx>][:ch_layout=RL][:mode=<mode>]["
+                     "deltacast") "[:device=<index>][:channel=<idx>][:quad-link][:ch_layout=RL][:mode=<mode>]["
                      ":codec=<codec>]") "\n");
         color_printf("\t" TBOLD("-t "
                                 "deltacast:[full]help") "\n");
@@ -103,6 +103,7 @@ usage(bool full)
         printf("\nOptions:\n");
         color_printf("\t" TBOLD("device") " - board index\n");
         color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
+        color_printf("\t" TBOLD("quad-link") " - quad-link (4k/8k) capture\n");
         delta_print_ch_layout_help(full);
         color_printf("\t" TBOLD("mode") " - capture mode (see below)\n");
         color_printf("\t" TBOLD("codec") " - pixel format to capture (see list below)\n");
@@ -117,11 +118,7 @@ usage(bool full)
                         if (name == nullptr) {
                                 continue;
                         }
-                        const auto &info = deltacast_get_mode_info(i, is_1001);
-                        printf("\t%d: %s%s\n", i, name,
-                               info.iface != VHD_INTERFACE_AUTO
-                                   ? "\t\t(no autodetection)"
-                                   : "");
+                        printf("\t%d: %s\n", i, name);
                 }
         }
         printf("\nAvailable codecs:\n");
@@ -176,11 +173,18 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Interface = 0;
 
         /* Wait for channel locked */
-        Result = VHD_GetBoardProperty(s->BoardHandle,
+        Result =
+#ifdef VHD_MIN_6_21
+            VHD_GetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, s->channel,
+                                   VHD_CORE_CP_STATUS, &Status);
+
+#else
+            VHD_GetBoardProperty(s->BoardHandle,
                                       DELTA_CH_TO_VAL(s->channel,
                                                       VHD_CORE_BP_RX0_STATUS,
                                                       VHD_CORE_BP_RX4_STATUS),
                                       &Status);
+#endif
 
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot get channel status. Result = 0x%08" PRIX_ULONG "\n",Result);
@@ -234,6 +238,15 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                     s->channel, Result);
                 throw delta_init_exception();
         }
+        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_SDI_SP_INTERFACE,&Interface);
+        if (Result != VHDERR_NOERROR) {
+                DELTA_PRINT_ERROR(Result, "ERROR : Cannot detect incoming interfaced from RX%u.", s->channel)
+                throw delta_init_exception();
+        }
+        delta_print_intefrace_info(Interface);
+        if (s->quad_channel && !delta_is_quad_channel_interface(Interface)) {
+                delta_single_to_quad_links_interface(Status, &Interface, &s->VideoStandard);
+        }
 
         if(s->autodetect_format) {
                 /* Get auto-detected video standard */
@@ -262,7 +275,6 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         s->frame->interlacing = mode.interlacing;
         s->tile->width        = mode.width;
         s->tile->height       = mode.height;
-        Interface             = mode.iface;
         printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n",
                deltacast_get_mode_name(s->VideoStandard,
                                         s->ClockSystem == VHD_CLOCKDIV_1001),
@@ -365,6 +377,8 @@ static bool parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt,
                 } else if (IS_KEY_PREFIX(tok, "mode")) {
                         s->VideoStandard     = atoi(strchr(tok, '=') + 1);
                         s->autodetect_format = FALSE;
+                } else if (IS_KEY_PREFIX(tok, "quad-link")) {
+                        s->quad_channel = true;
                 } else if (IS_KEY_PREFIX(tok, "codec")) {
                         tok = strchr(tok, '=') + 1;
                         if (strcasecmp(tok, "raw") == 0)
@@ -447,10 +461,6 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
-        } else {
-                const auto &mode = deltacast_get_mode_info(
-                    s->VideoStandard, s->ClockSystem == VHD_CLOCKDIV_1001);
-                s->quad_channel = delta_is_quad_channel_interface(mode.iface);
         }
 
         /* Query VideoMasterHD information */
