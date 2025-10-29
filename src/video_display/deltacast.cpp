@@ -238,19 +238,25 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         s->frame->interlacing = desc.interlacing;
         s->frame->fps = desc.fps;
         
-        for (i = 0; i < deltacast_frame_modes_count; ++i)
+        for (i = 0; i < NB_VHD_VIDEOSTANDARDS; ++i)
         {
-                if(fabs(desc.fps - deltacast_frame_modes[i].fps) < 0.01 &&
-                                desc.interlacing == deltacast_frame_modes[i].interlacing &&
-                                desc.width == deltacast_frame_modes[i].width &&
-                                desc.height == deltacast_frame_modes[i].height) {
-                        VideoStandard = deltacast_frame_modes[i].mode;
-                        clock_system = deltacast_frame_modes[i].clock_system;
-                        log_msg(LOG_LEVEL_NOTICE, "[DELTACAST] %s mode selected.\n", deltacast_frame_modes[i].name);
+                for (bool is_1001 : { false, true }) {
+                        const auto &mode = deltacast_get_mode_info(i, is_1001);
+                        if (fabs(desc.fps - mode.fps) > 0.01 ||
+                            desc.interlacing != mode.interlacing ||
+                            desc.width != mode.width ||
+                            desc.height != mode.height) {
+                                continue;
+                        }
+                        VideoStandard = i;
+                        clock_system =
+                            is_1001 ? VHD_CLOCKDIV_1 : VHD_CLOCKDIV_1001;
+                        MSG(NOTICE, "%s mode selected.\n",
+                            deltacast_get_mode_name(i, is_1001));
                         break;
                 }
         }
-        if(i == deltacast_frame_modes_count) {
+        if(i == NB_VHD_VIDEOSTANDARDS) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to obtain video format for incoming video: %dx%d @ %2.2f %s\n", desc.width, desc.height,
                                                                         (double) desc.fps, get_interlacing_description(desc.interlacing));
 

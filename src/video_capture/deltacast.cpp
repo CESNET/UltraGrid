@@ -110,15 +110,20 @@ usage(bool full)
         print_available_delta_boards(full);
 
         printf("\nAvailable modes:\n");
-        for (int i = 0; i < deltacast_frame_modes_count; ++i)
-        {
-                printf("\t%d: %s", deltacast_frame_modes[i].mode,
-                                deltacast_frame_modes[i].name);
-                if (deltacast_frame_modes[i].iface != VHD_INTERFACE_AUTO)
-                        printf("\t\t(no autodetection)");
-                printf("\n");
+        for (int i = 0; i < NB_VHD_VIDEOSTANDARDS; ++i) {
+                for (bool is_1001 : {true, false}) {
+                        const char *name =
+                            deltacast_get_mode_name(i, is_1001);
+                        if (name == nullptr) {
+                                continue;
+                        }
+                        const auto &info = deltacast_get_mode_info(i, is_1001);
+                        printf("\t%d: %s%s\n", i, name,
+                               info.iface != VHD_INTERFACE_AUTO
+                                   ? "\t\t(no autodetection)"
+                                   : "");
+                }
         }
-        
         printf("\nAvailable codecs:\n");
         printf("\tUYVY\n");
         printf("\tv210\n");
@@ -148,17 +153,6 @@ static void vidcap_deltacast_probe(device_info **available_cards, int *count, vo
 
 class delta_init_exception {
 };
-
-static const struct deltacast_frame_mode_t *
-delta_get_mode(ULONG VideoStandard)
-{
-        for (int i = 0; i < deltacast_frame_modes_count; ++i) {
-                if (VideoStandard == (ULONG) deltacast_frame_modes[i].mode) {
-                        return &deltacast_frame_modes[i];
-                }
-        }
-        return nullptr;
-}
 
 #define DELTA_TRY_CMD(cmd, msg) \
         do {\
@@ -252,21 +246,23 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 }
         }
 
-
-        const struct deltacast_frame_mode_t *mode = delta_get_mode(s->VideoStandard);
-        if (mode == nullptr) {
+        const auto &mode = deltacast_get_mode_info(
+            s->VideoStandard, s->ClockSystem == VHD_CLOCKDIV_1001);
+        if (mode.width == 0) {
                 MSG(ERROR,
                     "Failed to obtain information about video format "
                     "%" PRIu_ULONG ".\n",
                     s->VideoStandard);
                 throw delta_init_exception();
         }
-        s->frame->fps         = mode->fps;
-        s->frame->interlacing = mode->interlacing;
-        s->tile->width        = mode->width;
-        s->tile->height       = mode->height;
-        Interface             = mode->iface;
-        printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", mode->name,
+        s->frame->fps         = mode.fps;
+        s->frame->interlacing = mode.interlacing;
+        s->tile->width        = mode.width;
+        s->tile->height       = mode.height;
+        Interface             = mode.iface;
+        printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n",
+               deltacast_get_mode_name(s->VideoStandard,
+                                        s->ClockSystem == VHD_CLOCKDIV_1001),
                s->tile->width, s->tile->height, (double) s->frame->fps,
                get_interlacing_description(s->frame->interlacing));
 
@@ -449,10 +445,9 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
         } else {
-                const struct deltacast_frame_mode_t *mode =
-                    delta_get_mode(s->VideoStandard);
-                s->quad_channel = mode != nullptr &&
-                                  delta_is_quad_channel_interface(mode->iface);
+                const auto &mode = deltacast_get_mode_info(
+                    s->VideoStandard, s->ClockSystem == VHD_CLOCKDIV_1001);
+                s->quad_channel = delta_is_quad_channel_interface(mode.iface);
         }
 
         /* Query VideoMasterHD information */

@@ -44,7 +44,9 @@
 #include <map>                   // for map, operator!=, _Rb_tree_iterator
 
 #include "debug.h"
+#include "types.h"
 #include "utils/color_out.h"
+#include "video_frame.h"         // for get_interlacing_suffix
 
 #define MOD_NAME "[DELTACAST] "
 
@@ -534,4 +536,122 @@ delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex, BOOL32 State)
                 MSG(VERBOSE, "Cannot set passive loopback for channel %d!\n",
                     ChannelIndex);
         }
+}
+
+struct deltacast_mode_info {
+        unsigned int       width;
+        unsigned int       height;
+        int                fps;
+        enum interlacing_t interlacing;
+        unsigned long int  iface;
+};
+
+static struct deltacast_mode_info
+deltacast_get_frame_mode(unsigned mode)
+{
+        switch (mode) {
+        // clang-format off
+        case VHD_VIDEOSTD_S274M_1080p_25Hz:   return { 1920, 1080, 25, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080p_30Hz:   return { 1920, 1080, 30, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080i_50Hz:   return { 1920, 1080, 25, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080i_60Hz:   return { 1920, 1080, 30, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S296M_720p_50Hz:    return { 1280,  720, 50, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S296M_720p_60Hz:    return { 1280,  720, 60, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S259M_PAL:          return {  720,  576, 25, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S259M_NTSC:         return {  720,  487, 30, UPPER_FIELD_FIRST, VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080p_24Hz:   return { 1920, 1080, 24, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080p_60Hz:   return { 1920, 1080, 60, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080p_50Hz:   return { 1920, 1080, 50, PROGRESSIVE,       VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080psf_24Hz: return { 1920, 1080, 24, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080psf_25Hz: return { 1920, 1080, 25, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
+        case VHD_VIDEOSTD_S274M_1080psf_30Hz: return { 1920, 1080, 30, SEGMENTED_FRAME,   VHD_INTERFACE_AUTO   };
+        // UHD modes
+        case VHD_VIDEOSTD_3840x2160p_24Hz:    return { 3840, 2160, 24, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
+        case VHD_VIDEOSTD_3840x2160p_25Hz:    return { 3840, 2160, 25, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
+        case VHD_VIDEOSTD_3840x2160p_30Hz:    return { 3840, 2160, 30, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
+        case VHD_VIDEOSTD_3840x2160p_50Hz:    return { 3840, 2160, 50, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        case VHD_VIDEOSTD_3840x2160p_60Hz:    return { 3840, 2160, 60, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        case VHD_VIDEOSTD_4096x2160p_24Hz:    return { 4096, 2160, 24, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
+        case VHD_VIDEOSTD_4096x2160p_25Hz:    return { 4096, 2160, 25, PROGRESSIVE,       VHD_INTERFACE_4XHD   };
+        case VHD_VIDEOSTD_4096x2160p_48Hz:    return { 4096, 2160, 48, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        case VHD_VIDEOSTD_4096x2160p_50Hz:    return { 4096, 2160, 50, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        case VHD_VIDEOSTD_4096x2160p_60Hz:    return { 4096, 2160, 60, PROGRESSIVE,       VHD_INTERFACE_4X3G_A };
+        // clang-format on
+        default:
+                return {};
+        };
+}
+
+/**
+ * @brief returns DELTACAST mode metadata
+ * @param mode      valid VHD_VIDEOSTANDARD item
+ * @param want_1001 American clock system to be used
+ * @return the mode information, {} if mode not found (can happen eg. if mode
+ * not handled by deltacast_get_frame_mode() asked, eg. 8K modes)
+ */
+struct deltacast_frame_mode_t
+deltacast_get_mode_info(unsigned mode, bool want_1001)
+{
+        // do not return "European" NTSC
+        if (mode == VHD_VIDEOSTD_S259M_NTSC && !want_1001) {
+                return {};
+        }
+        const struct deltacast_mode_info info = deltacast_get_frame_mode(mode);
+        if (info.width == 0) {
+                return {};
+        }
+        if (want_1001 && (info.fps == 25 || info.fps == 50)) {
+                return {};
+        }
+
+        double fps = info.fps;
+        if (want_1001) {
+                fps = fps * 1000. / 1001.;
+        }
+        return { .width       = info.width,
+                 .height      = info.height,
+                 .fps         = fps,
+                 .interlacing = info.interlacing,
+                 .iface       = info.iface };
+}
+
+/**
+ * @brief returns DELTACAST mode name
+ * @copydetails deltacast_get_mode_info
+ * @sa VHD_VIDEOSTANDARD_ToPrettyString (but doesn't alter for 1001 modes)
+ */
+const char *
+deltacast_get_mode_name(unsigned mode, bool want_1001)
+{
+        struct deltacast_frame_mode_t info =
+            deltacast_get_mode_info(mode, want_1001);
+        if (info.width == 0) {
+                return nullptr;
+        }
+        if (mode == VHD_VIDEOSTD_S259M_PAL) {
+                return "SMPTE 259M PAL";
+        }
+        if (mode == VHD_VIDEOSTD_S259M_NTSC) {
+                return "SMPTE 259M NTSC";
+        }
+        if (info.interlacing == UPPER_FIELD_FIRST) {
+                info.interlacing = INTERLACED_MERGED;
+                info.fps *= 2;
+        }
+        thread_local char buf[128];
+        if (info.height <= 1080) {
+                int std = 274;
+                if (info.width == 2048) {
+                        std = 2048;
+                } else if (info.height == 720) {
+                        std = 296;
+                }
+                snprintf_ch(buf, "SMPTE %dM %u%s %.4g Hz", std, info.height,
+                            get_interlacing_suffix(info.interlacing), info.fps);
+        } else {
+                snprintf_ch(buf, "%ux%u %.4g Hz", info.width, info.height,
+                            info.fps);
+        }
+
+        return buf;
 }
