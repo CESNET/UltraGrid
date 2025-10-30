@@ -808,6 +808,12 @@ delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
 const char *
 delta_get_board_type_name(ULONG BoardType)
 {
+#ifdef HAVE_VHD_STRING
+        thread_local char buf[128];
+        snprintf_ch(buf, "%s type",
+                    VHD_BOARDTYPE_ToPrettyString((VHD_BOARDTYPE) BoardType));
+        return buf;
+#else
         static const std::unordered_map<ULONG, std::string> board_type_map = {
                 { VHD_BOARDTYPE_HD,    "HD board type"     },
                 { VHD_BOARDTYPE_HDKEY, "HD key board type" },
@@ -824,4 +830,5 @@ delta_get_board_type_name(ULONG BoardType)
                 return it->second.c_str();
         }
         return "Unknown DELTACAST type";
+#endif
 }
