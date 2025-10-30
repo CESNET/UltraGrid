@@ -6,7 +6,7 @@
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -192,24 +192,20 @@ static void vidcap_deltacast_dvi_probe(device_info **available_cards, int *count
         *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
         *count = NbBoards;
         for (ULONG i = 0; i < NbBoards; ++i) {
-                string board{"Unknown board type"};
                 ULONG BoardType;
                 HANDLE BoardHandle = NULL;
                 Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                const char *board = "Unknown board type";
                 if (Result == VHDERR_NOERROR)
                 {
-                        auto it = board_type_map.find(BoardType);
-                        if (it != board_type_map.end()) {
-                                board = it->second;
-                        }
+                        board = delta_get_board_type_name(BoardType);
                 }
                 VHD_CloseBoardHandle(BoardHandle);
 
                 auto& card = (*available_cards)[i];
                 snprintf(card.dev, sizeof card.dev, ":device=%" PRIu_ULONG, i);
-                snprintf(card.name, sizeof card.name, "DELTACAST %s #%" PRIu_ULONG,
-                                board.c_str(), i);
+                snprintf_ch(card.name, "DELTACAST %s #%" PRIu_ULONG, board, i);
         }
 }
 

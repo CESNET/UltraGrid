@@ -44,6 +44,7 @@
 #include <cinttypes>             // for PRIu32
 #include <iostream>              // for basic_ostream, operator<<, cout, bas...
 #include <map>                   // for map, operator!=, _Rb_tree_iterator
+#include <unordered_map>
 
 #include "debug.h"
 #include "types.h"
@@ -272,11 +273,7 @@ print_available_delta_boards(bool full)
                             << delta_get_error_description(Result) << "\n";
                 }
 
-                std::string board{ "Unknown board type" };
-                auto        it = board_type_map.find(BoardType);
-                if (it != board_type_map.end()) {
-                        board = it->second;
-                }
+                const char *board = delta_get_board_type_name(BoardType);
                 col() << "\tBoard " << SBOLD(i) << ": " << SBOLD(board)
                       << " (driver: "
                       << delta_format_version(DriverVersion, false) << ")\n";
@@ -806,4 +803,25 @@ delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
          break;
 #endif
       }
+}
+
+const char *
+delta_get_board_type_name(ULONG BoardType)
+{
+        static const std::unordered_map<ULONG, std::string> board_type_map = {
+                { VHD_BOARDTYPE_HD,    "HD board type"     },
+                { VHD_BOARDTYPE_HDKEY, "HD key board type" },
+                { VHD_BOARDTYPE_SD,    "SD board type"     },
+                { VHD_BOARDTYPE_SDKEY, "SD key board type" },
+                { VHD_BOARDTYPE_DVI,   "DVI board type"    },
+                { VHD_BOARDTYPE_CODEC, "CODEC board type"  },
+                { VHD_BOARDTYPE_3G,    "3G board type"     },
+                { VHD_BOARDTYPE_3GKEY, "3G key board type" },
+                { VHD_BOARDTYPE_HDMI,  "HDMI board type"   },
+        };
+        auto it = board_type_map.find(BoardType);
+        if (it != board_type_map.end()) {
+                return it->second.c_str();
+        }
+        return "Unknown DELTACAST type";
 }

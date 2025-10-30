@@ -330,14 +330,9 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
 
                 if (Result == VHDERR_NOERROR)
                 {
-                        std::string board{"Unknown DELTACAST type"};
-                        auto it = board_type_map.find(BoardType);
-                        if (it != board_type_map.end()) {
-                                board = it->second;
-                        }
-                        snprintf((*available_cards)[*count - 1].name,
-                                        sizeof (*available_cards)[*count - 1].name - 1,
-                                        "DELTACAST %s", board.c_str());
+                        const char *board = delta_get_board_type_name(BoardType);
+                        snprintf_ch((*available_cards)[*count - 1].name,
+                                    "DELTACAST %s", board);
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }

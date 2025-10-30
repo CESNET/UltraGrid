@@ -53,7 +53,6 @@
 #define MAX_DELTA_CH 7 ///< maximal supported channel index
 
 #include <string>
-#include <unordered_map>
 #ifdef __APPLE__
 #include <VideoMasterHD/VideoMasterHD_Core.h>
 #ifdef ENUMBASE_DV
@@ -162,18 +161,6 @@ struct deltacast_frame_mode_t deltacast_get_mode_info(unsigned mode,
                                                        bool     want_1001);
 const char *deltacast_get_mode_name(unsigned mode, bool want_1001);
 
-static std::unordered_map<ULONG, std::string> board_type_map = {
-        { VHD_BOARDTYPE_HD, "HD board type" },
-        { VHD_BOARDTYPE_HDKEY, "HD key board type" },
-        { VHD_BOARDTYPE_SD, "SD board type"},
-        { VHD_BOARDTYPE_SDKEY, "SD key board type"},
-        { VHD_BOARDTYPE_DVI, "DVI board type"},
-        { VHD_BOARDTYPE_CODEC, "CODEC board type"},
-        { VHD_BOARDTYPE_3G, "3G board type"},
-        { VHD_BOARDTYPE_3GKEY, "3G key board type"},
-        { VHD_BOARDTYPE_HDMI, "HDMI board type"},
-};
-
 /// some DELTA enums use continuous values for a channel (RX or TX) < 4 and
 /// distinct for >= 4, so this is a simple displatcher
 #define DELTA_CH_TO_VAL(ch, base0, base4) \
@@ -199,6 +186,7 @@ void           delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex,
 void           delta_print_intefrace_info(ULONG Interface);
 void delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
                                           ULONG *pVideoStandard);
+const char *delta_get_board_type_name(ULONG BoardType);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \
