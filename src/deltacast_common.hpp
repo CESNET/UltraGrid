@@ -104,9 +104,15 @@
 #endif
 
 #ifdef __APPLE__
-#include <VideoMasterHD/VideoMasterHD_Ip_Board.h>
+        #if __has_include(<VideoMasterHD/VideoMasterHD_Ip_Board.h>)
+                #include <VideoMasterHD/VideoMasterHD_Ip_Board.h>
+                #define VHD_MIN_6_00 1
+        #endif
 #else
-#include <VideoMasterHD_Ip_Board.h>
+        #if __has_include(<VideoMasterHD_Ip_Board.h>)
+                #include <VideoMasterHD_Ip_Board.h>
+                #define VHD_MIN_6_00 1
+        #endif
 #endif
 #if defined VHD_IS_6_19
         #define VHD_MIN_6_19 1

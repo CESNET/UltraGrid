@@ -543,13 +543,13 @@ delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex, BOOL32 State)
         }
 }
 
+#if !defined VHD_MIN_6_00
 struct deltacast_mode_info {
         unsigned int       width;
         unsigned int       height;
         int                fps;
         enum interlacing_t interlacing;
 };
-
 static struct deltacast_mode_info
 deltacast_get_frame_mode(unsigned mode)
 {
@@ -585,6 +585,22 @@ deltacast_get_frame_mode(unsigned mode)
                 return {};
         };
 }
+// compat with old SDK
+static ULONG
+VHD_GetVideoCharacteristics(unsigned mode, ULONG *Width, ULONG *Height,
+                            BOOL32 *Interlaced, ULONG *Framerate)
+{
+        const struct deltacast_mode_info info = deltacast_get_frame_mode(mode);
+        if (info.width == 0) {
+                return VHDERR_NOTFOUND;
+        }
+        *Width = info.width;
+        *Height = info.height;
+        *Interlaced = info.interlacing == UPPER_FIELD_FIRST ? TRUE : FALSE;
+        *Framerate = info.fps;
+        return VHDERR_NOERROR;
+}
+#endif // not defined VHD_MIN_6_00
 
 /**
  * @brief returns DELTACAST mode metadata
@@ -600,22 +616,28 @@ deltacast_get_mode_info(unsigned mode, bool want_1001)
         if (mode == VHD_VIDEOSTD_S259M_NTSC && !want_1001) {
                 return {};
         }
-        const struct deltacast_mode_info info = deltacast_get_frame_mode(mode);
-        if (info.width == 0) {
-                return {};
-        }
-        if (want_1001 && (info.fps == 25 || info.fps == 50)) {
+        ULONG  Width      = 0;
+        ULONG  Height     = 0;
+        BOOL32 Interlaced = FALSE;
+        ULONG  Framerate  = 0;
+        ULONG  Result     = VHD_GetVideoCharacteristics(
+            (VHD_VIDEOSTANDARD) mode, &Width, &Height, &Interlaced, &Framerate);
+        if (Result != VHDERR_NOERROR) {
                 return {};
         }
 
-        double fps = info.fps;
+        if (want_1001 && (Framerate == 25 || Framerate == 50)) {
+                return {};
+        }
+
+        double fps = Framerate;
         if (want_1001) {
                 fps = fps * 1000. / 1001.;
         }
-        return { .width       = info.width,
-                 .height      = info.height,
+        return { .width       = Width,
+                 .height      = Height,
                  .fps         = fps,
-                 .interlacing = info.interlacing };
+                 .interlacing = Interlaced ? UPPER_FIELD_FIRST : PROGRESSIVE };
 }
 
 /**
