@@ -347,8 +347,6 @@ jobs:
       run: make check
     - name: make bundle
       run: |
-        cp gui/QT/uv-qt.exe bin
-        rm bin/run_tests.exe
         export DESTDIR=build/UltraGrid-$VERSION-win64
         make install
         for exe in "$DESTDIR"/*.exe; do

@@ -673,7 +673,7 @@ osx-gui-dmg:
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
-	$(INSTALL) -m 755 bin/uv $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 $(TARGET) $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
 	$(INSTALL) -m 755 $(srcdir)/data/template/bin/* $(DESTDIR)$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
