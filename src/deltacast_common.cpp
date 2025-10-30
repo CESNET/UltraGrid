@@ -646,7 +646,8 @@ deltacast_get_mode_name(unsigned mode, bool want_1001)
                 } else if (info.height == 720) {
                         std = 296;
                 }
-                snprintf_ch(buf, "SMPTE %dM %u%s %.4g Hz", std, info.height,
+                snprintf_ch(buf, "SMPTE %dM %ux%u%s %.4g Hz", std, info.width,
+                            info.height,
                             get_interlacing_suffix(info.interlacing), info.fps);
         } else {
                 snprintf_ch(buf, "%ux%u %.4g Hz", info.width, info.height,
