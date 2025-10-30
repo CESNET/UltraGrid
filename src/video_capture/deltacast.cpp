@@ -182,6 +182,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         /* Wait for channel locked */
         Result =
 #ifdef VHD_MIN_6_21
+            /* Check Dual and Link A status */
             VHD_GetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, s->channel,
                                    VHD_CORE_CP_STATUS, &Status);
 
@@ -508,18 +509,26 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         const auto Property = (VHD_CORE_BOARDPROPERTY) DELTA_CH_TO_VAL(
             s->channel, VHD_CORE_BP_RX0_TYPE, VHD_CORE_BP_RX4_TYPE);
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
-        if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
+        if (ChnType != VHD_CHNTYPE_HDSDI && ChnType != VHD_CHNTYPE_3GSDI &&
+            ChnType != VHD_CHNTYPE_3GSDI_ASI && ChnType != VHD_CHNTYPE_12GSDI &&
+            ChnType != VHD_CHNTYPE_12GSDI_ASI) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
                 HANDLE_ERROR
         }
 
-        /* Disable RX0-TX0 by-pass relay loopthrough */
-        delta_set_loopback_state(s->BoardHandle, (int) s->channel, FALSE);
-        if (s->quad_channel) {
-                assert(s->channel == 0);
-                delta_set_loopback_state(s->BoardHandle, 1, FALSE);
-                delta_set_loopback_state(s->BoardHandle, 2, FALSE);
-                delta_set_loopback_state(s->BoardHandle, 3, FALSE);
+        for (ULONG i = s->channel; i < s->channel + (s->quad_channel ? 4 : 1);
+             i++) {
+#ifdef VHD_MIN_6_21
+                /*Channel mode Setup*/
+                if ((ChnType == VHD_CHNTYPE_3GSDI_ASI) ||
+                    (ChnType == VHD_CHNTYPE_12GSDI_ASI)) {
+                        VHD_SetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, i,
+                                               VHD_CORE_CP_MODE,
+                                               VHD_CHANNEL_MODE_SDI);
+                }
+#endif
+                /* Disable RX-TX loopback(s) */
+                delta_set_loopback_state(s->BoardHandle, (int) i, FALSE);
         }
 
         s->initialize_flags = vidcap_params_get_flags(params);

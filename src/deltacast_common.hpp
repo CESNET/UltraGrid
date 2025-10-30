@@ -146,7 +146,10 @@
 // VHD_BOARDTYPE_HDMI is not deprecated anymore in 6.21
 #define VHD_BOARDTYPE_HDMI VHD_BOARDTYPE_HDMI_DEPRECATED
 #endif
-#endif
+#else
+        #define VHD_CHNTYPE_3GSDI_ASI VHD_CHNTYPE_DISABLE
+        #define VHD_CHNTYPE_12GSDI_ASI VHD_CHNTYPE_DISABLE
+#endif // not defined VHD_MIN_6_20
 
 struct deltacast_frame_mode_t {
 	unsigned int     width;
