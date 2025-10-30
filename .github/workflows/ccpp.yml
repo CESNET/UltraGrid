@@ -122,6 +122,8 @@ jobs:
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu /AppImage/AppRun --list-modules
         docker run --rm -v $PWD/squashfs-root:/AppImage aitest-arch /AppImage/AppRun --capabilities
         bash appdir-lint.sh squashfs-root
+    - name: Compute checksum
+      run: sha256sum UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
@@ -226,6 +228,8 @@ jobs:
           sleep $((n * 10))
         done
         mv UltraGrid.dmg UltraGrid-$VERSION.dmg
+    - name: Compute checksum
+      run: sha2 -256 UltraGrid-$VERSION.dmg || true
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
@@ -373,6 +377,9 @@ jobs:
       run: |
         cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
         $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build
+    - name: Compute checksum
+      if: steps.upload-release.conclusion != 'skipped'
+      run: sha256sum build/UltraGrid-$VERSION-win64.zip
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@main
