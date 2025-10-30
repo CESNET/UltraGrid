@@ -38,37 +38,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/stat.h>
-#ifndef _WIN32
-#include <sys/poll.h>
-#include <sys/ioctl.h>
-#endif
-#include <sys/time.h>
-#include <semaphore.h>
-
+#include <cassert>                 // for assert
+#include <cstdio>                  // for printf, NULL, perror, fclose, ferror
+#include <cstdlib>                 // for atoi, free, atof, calloc
+#include <cstring>                 // for strlen, strtok_r, strchr, strcmp
+#include <functional>              // for hash
+#include <iomanip>                 // for _Setw, setw, operator<<
 #include <map>
 #include <mutex>
+#include <ostream>                 // for operator<<
 #include <queue>
-#include <string>
 #include <unordered_map>
+#include <utility>                 // for pair
+// IWYU pragma: no_include <sys/time.h> # via tv.h
+// IWYU pragma: no_include <strings.h> # via compact/strings.h
 
-#include "audio/types.h"
+#include "compat/strings.h"        // IWYU pragma: keep
 #include "debug.h"
-#include "host.h"
 #include "deltacast_common.hpp"
 #include "lib_common.h"
+#include "pixfmt_conv.h"           // for vc_copylineRGBA
 #include "tv.h"
+#include "types.h"                 // for video_desc, device_info, tile, vid...
 #include "utils/color_out.h"
-#include "video.h"
+#include "utils/macros.h"          // for snprintf_ch
+#include "video_capture_params.h"  // for vidcap_params_get_flags, vidcap_pa...
+#include "video_codec.h"           // for get_codec_from_name
+#include "video_frame.h"           // for vf_free, vf_alloc_desc, vf_alloc_d...
 #include "video_capture.h"
 
 using namespace std;
