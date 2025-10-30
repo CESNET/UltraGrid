@@ -56,6 +56,9 @@
 const char *
 delta_get_error_description(ULONG CodeError)
 {
+#ifdef HAVE_VHD_STRING
+        return VHD_ERRORCODE_ToPrettyString((VHD_ERRORCODE) CodeError);
+#else // compat VHD < 6.30
         switch (CodeError) {
         case VHDERR_NOERROR:
                 return "No error";
@@ -164,6 +167,7 @@ delta_get_error_description(ULONG CodeError)
         default:
                 return "Unknown code error";
         }
+#endif
 }
 
 auto
