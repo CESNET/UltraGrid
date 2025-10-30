@@ -561,14 +561,9 @@ vidcap_deltacast_done(void *state)
         }
         if(s->BoardHandle) {
                 /* Re-establish RX-TX by-pass relay loopthrough */
-                VHD_SetBoardProperty(s->BoardHandle, s->channel, TRUE);
-                delta_set_loopback_state(s->BoardHandle, (int) s->channel,
-                                         FALSE);
-                if (s->quad_channel) {
-                        assert(s->channel == 0);
-                        delta_set_loopback_state(s->BoardHandle, 1, TRUE);
-                        delta_set_loopback_state(s->BoardHandle, 2, TRUE);
-                        delta_set_loopback_state(s->BoardHandle, 3, TRUE);
+                for (ULONG i = s->channel; i < s->channel + (s->quad_channel ? 4 : 1);
+                     i++) {
+                        delta_set_loopback_state(s->BoardHandle, i, TRUE);
                 }
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
