@@ -107,21 +107,26 @@ usage(bool full)
         color_printf("\t" TBOLD("channel") " - card channel index (default 0)\n");
         color_printf("\t" TBOLD("quad-link") " - quad-link (4k/8k) capture\n");
         delta_print_ch_layout_help(full);
-        color_printf("\t" TBOLD("mode") " - capture mode (see below)\n");
+        color_printf("\t" TBOLD("mode") " - capture mode (see below), if not given autodetected\n");
         color_printf("\t" TBOLD("codec") " - pixel format to capture (see list below)\n");
 
         print_available_delta_boards(full);
+        printf("\n");
 
-        printf("\nAvailable modes:\n");
-        for (int i = 0; i < NB_VHD_VIDEOSTANDARDS; ++i) {
-                for (bool is_1001 : {true, false}) {
-                        const char *name =
-                            deltacast_get_mode_name(i, is_1001);
-                        if (name == nullptr) {
-                                continue;
+        if (full) {
+                printf("Available modes:\n");
+                for (int i = 0; i < NB_VHD_VIDEOSTANDARDS; ++i) {
+                        for (bool is_1001 : {true, false}) {
+                                const char *name =
+                                    deltacast_get_mode_name(i, is_1001);
+                                if (name == nullptr) {
+                                        continue;
+                                }
+                                printf("\t%d: " TBOLD("%s") "\n", i, name);
                         }
-                        printf("\t%d: %s\n", i, name);
                 }
+        } else {
+                printf("(use " TBOLD(":fullhelp") " to list modes)\n");
         }
         printf("\nAvailable codecs:\n");
         printf("\tUYVY\n");
