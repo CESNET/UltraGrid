@@ -370,12 +370,10 @@ void VulkanDisplay::record_graphics_commands(PerFrameResources& frame_resources,
         cmd_buffer.begin(begin_info);
 
         if(format_conversion_enabled){
-                if(format_conversion_enabled){
-                        auto conversion_image_memory_barrier = frame_resources.converted_image.create_memory_barrier(
-                                vk::ImageLayout::eGeneral, vk::AccessFlagBits::eShaderWrite);
-                        cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eComputeShader,
-                                vk::DependencyFlagBits::eByRegion, nullptr, nullptr, conversion_image_memory_barrier);
-                }
+                auto conversion_image_memory_barrier = frame_resources.converted_image.create_memory_barrier(
+                        vk::ImageLayout::eGeneral, vk::AccessFlagBits::eShaderWrite);
+                cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eComputeShader,
+                        vk::DependencyFlagBits::eByRegion, nullptr, nullptr, conversion_image_memory_barrier);
 
                 auto transfer_image_memory_barrier = transfer_image.get_buffer().create_memory_barrier(
                         vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits::eShaderRead);
