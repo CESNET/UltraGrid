@@ -34,6 +34,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef RANDOM_H_8106af9ed98c
+#define RANDOM_H_8106af9ed98c
 
 #ifndef __cplusplus
 #include <stdint.h>
@@ -50,3 +52,4 @@ double   ug_drand(void);
 #ifdef __cplusplus
 }
 #endif
+#endif // RANDOM_H_8106af9ed98c
