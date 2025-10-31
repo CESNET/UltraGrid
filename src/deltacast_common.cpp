@@ -226,6 +226,61 @@ print_avail_channels(HANDLE BoardHandle)
         printf("\n");
 }
 
+static void
+print_board_info(int i, ULONG DllVersion, bool full)
+{
+        ULONG  BoardType     = 0U;
+        ULONG  DriverVersion = 0U;
+        HANDLE BoardHandle   = NULL;
+        ULONG  Result        = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
+        if (Result != VHDERR_NOERROR) {
+                LOG(LOG_LEVEL_ERROR)
+                    << "[DELTACAST] Unable to open board " << i << ": "
+                    << delta_get_error_description(Result) << "\n";
+                return;
+        }
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE,
+                                      &BoardType);
+        if (Result != VHDERR_NOERROR) {
+                LOG(LOG_LEVEL_ERROR)
+                    << "[DELTACAST] Unable to get board " << i
+                    << " type: " << delta_get_error_description(Result) << "\n";
+                return;
+        }
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_DRIVER_VERSION,
+                                      &DriverVersion);
+        if (Result != VHDERR_NOERROR) {
+                LOG(LOG_LEVEL_ERROR)
+                    << "[DELTACAST] Unable to get board " << i
+                    << " version: " << delta_get_error_description(Result)
+                    << "\n";
+        }
+
+        const char *board = delta_get_board_type_name(BoardType);
+        col() << "\tBoard " << SBOLD(i) << ": " << SBOLD(board)
+              << " (driver: " << delta_format_version(DriverVersion, false)
+              << ")\n";
+        if (full) {
+                print_avail_channels(BoardHandle);
+
+                ULONG IsBiDir = 2;
+                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR,
+                                     &IsBiDir);
+                printf("\t\tbidirectional (switchable) channels: "
+                       "%s\n",
+                       IsBiDir == 2      ? "ERROR"
+                       : IsBiDir == TRUE ? "supported"
+                                         : "not supported");
+        }
+        if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
+                LOG(LOG_LEVEL_WARNING)
+                    << "[DELTACAST] API and driver version mismatch: "
+                    << delta_format_version(DllVersion, true) << " vs "
+                    << delta_format_version(DriverVersion, true) << "\n";
+        }
+        VHD_CloseBoardHandle(BoardHandle);
+}
+
 void
 print_available_delta_boards(bool full)
 {
@@ -249,58 +304,7 @@ print_available_delta_boards(bool full)
 
         /* Query DELTA boards information */
         for (ULONG i = 0; i < NbBoards; i++) {
-                ULONG  BoardType     = 0U;
-                ULONG  DriverVersion = 0U;
-                HANDLE BoardHandle   = NULL;
-                ULONG  Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
-                if (Result != VHDERR_NOERROR) {
-                        LOG(LOG_LEVEL_ERROR)
-                            << "[DELTACAST] Unable to open board " << i << ": "
-                            << delta_get_error_description(Result) << "\n";
-                        continue;
-                }
-                Result = VHD_GetBoardProperty(
-                    BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-                if (Result != VHDERR_NOERROR) {
-                        LOG(LOG_LEVEL_ERROR)
-                            << "[DELTACAST] Unable to get board " << i
-                            << " type: " << delta_get_error_description(Result)
-                            << "\n";
-                        continue;
-                }
-                Result = VHD_GetBoardProperty(
-                    BoardHandle, VHD_CORE_BP_DRIVER_VERSION, &DriverVersion);
-                if (Result != VHDERR_NOERROR) {
-                        LOG(LOG_LEVEL_ERROR)
-                            << "[DELTACAST] Unable to get board " << i
-                            << " version: "
-                            << delta_get_error_description(Result) << "\n";
-                }
-
-                const char *board = delta_get_board_type_name(BoardType);
-                col() << "\tBoard " << SBOLD(i) << ": " << SBOLD(board)
-                      << " (driver: "
-                      << delta_format_version(DriverVersion, false) << ")\n";
-                if (full) {
-                        print_avail_channels(BoardHandle);
-
-                        ULONG IsBiDir = 2;
-                        VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR,
-                                             &IsBiDir);
-                        printf("\t\tbidirectional (switchable) channels: "
-                               "%s\n",
-                               IsBiDir == 2      ? "ERROR"
-                               : IsBiDir == TRUE ? "supported"
-                                                 : "not supported");
-                }
-                if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
-                        LOG(LOG_LEVEL_WARNING)
-                            << "[DELTACAST] API and driver version mismatch: "
-                            << delta_format_version(DllVersion, true) << " vs "
-                            << delta_format_version(DriverVersion, true)
-                            << "\n";
-                }
-                VHD_CloseBoardHandle(BoardHandle);
+                print_board_info(i, DllVersion, full);
         }
         std::cout << "\n";
 }
