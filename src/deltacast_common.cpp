@@ -414,8 +414,8 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
         Result = VHD_SetBiDirCfg(BrdId, it->second);
         if (Result == VHDERR_NOERROR) {
                 MSG(INFO,
-                    "Set bidirectional channel configuration %" PRIu32
-                    " In / %" PRIu32 " Out\n",
+                    "Set bidirectional channel configuration %" PRIu_ULONG
+                    " In / %" PRIu_ULONG " Out\n",
                     RequestedRx, NbChanOnBoard - RequestedRx);
                 return true;
         }

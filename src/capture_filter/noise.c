@@ -94,10 +94,11 @@ parse_fmt(struct state_noise *s, char *ccfg)
                 ccfg = nullptr;
                 if (IS_KEY_PREFIX(item, "magnitude")) {
                         char *endptr = nullptr;
-                        const long val =
-                            strtol(strchr(item, '=') + 1, &endptr, 0);
-                        if (val <= 0 || val > UINT_MAX || *endptr != '\0') {
-                                MSG(ERROR, "Wrong value given: %ld!\n", val);
+                        item = strchr(item, '=') + 1;
+                        const unsigned long val = strtoul(item, &endptr, 0);
+                        if (val > UINT_MAX || *endptr != '\0') {
+                                MSG(ERROR, "Wrong value given: %lu (%s)!\n",
+                                    val, item);
                                 return -1;
                         }
                         s->magnitude = val;
