@@ -448,7 +448,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
             s->channel, VHD_CORE_BP_TX0_TYPE, VHD_CORE_BP_TX4_TYPE);
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
+                MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
                 HANDLE_ERROR
         }
         

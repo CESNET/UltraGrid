@@ -512,7 +512,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         if (ChnType != VHD_CHNTYPE_HDSDI && ChnType != VHD_CHNTYPE_3GSDI &&
             ChnType != VHD_CHNTYPE_3GSDI_ASI && ChnType != VHD_CHNTYPE_12GSDI &&
             ChnType != VHD_CHNTYPE_12GSDI_ASI) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
+                MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
                 HANDLE_ERROR
         }
 
