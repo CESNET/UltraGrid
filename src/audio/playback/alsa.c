@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2024 CESNET
+ * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -155,12 +155,13 @@ struct state_alsa_playback {
 
 static void audio_play_alsa_write_frame(void *state, const struct audio_frame *frame);
 
+static long get_sched_latency_ns(void) __attribute__((unused));
 /**
  * @todo
  * the file /proc/sys/kernel/sched_latency_ns is no longer present
  * in current Linuxes - remove the function?
  */
-[[maybe_unused]] static long
+static long
 get_sched_latency_ns(void)
 {
         const char *proc_file = "/proc/sys/kernel/sched_latency_ns";
