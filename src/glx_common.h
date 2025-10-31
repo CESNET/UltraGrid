@@ -34,12 +34,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef GLX_COMMON_H_0f0455831a23
+#define GLX_COMMON_H_0f0455831a23
 
- #ifdef __cplusplus
- #include <csdint>
- #else
- #include <stdint.h>
- #endif
+#ifdef __cplusplus
+#include <csdint>
+#else
+#include <stdint.h>
+#endif
 
 typedef uint32_t glx_opengl_version_t;
 #define OPENGL_VERSION_UNSPECIFIED 0u
@@ -49,3 +51,4 @@ void *glx_init(glx_opengl_version_t version_t);
 void glx_make_current(void *context);
 void glx_validate(void *);
 void glx_free(void *);
+#endif // GLX_COMMON_H_0f0455831a23
