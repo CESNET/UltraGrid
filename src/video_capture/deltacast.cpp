@@ -4,6 +4,8 @@
  *
  * code is written by DELTACAST's VideoMaster SDK example SampleRX and
  * SampleRX4K
+ *
+ * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
  * Copyright (c) 2011-2025 CESNET

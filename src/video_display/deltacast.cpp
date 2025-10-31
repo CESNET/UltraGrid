@@ -3,6 +3,8 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * code is written by DELTACAST's VideoMaster SDK example SampleTX
+ *
+ * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
  * Copyright (c) 2012-2025 CESNET, zájnové sdružení právnických osob

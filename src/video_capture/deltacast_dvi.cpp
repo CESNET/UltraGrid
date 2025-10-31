@@ -2,6 +2,8 @@
  * @file   video_capture/deltacast_dvi.cpp
  * @author Martin Piatka    <445597@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
  * Copyright (c) 2013-2023 CESNET, z. s. p. o.

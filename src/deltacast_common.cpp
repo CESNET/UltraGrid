@@ -1,6 +1,8 @@
 /**
  * @file   deltacast_common.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
  * Copyright (c) 2014-2025 CESNET
