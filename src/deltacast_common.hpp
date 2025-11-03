@@ -10,7 +10,8 @@
  * require the use of older SDK to run on those.
  *
  * At this moment (2025-10), the source code compat is with 6.13 (last one
- * supporting DELTACAST DVI devices).
+ * supporting DELTACAST DVI devices) but also 5.19 compat is currently kept.
+ *
  * [ventuz]:
  * <https://www.ventuz.com/support/help/latest/MachineConfigurationVendors.html#SupportedModelsasofVentuz6.08.00>
  */
@@ -102,6 +103,7 @@
 #define DELTA_DVI_DEPRECATED 1
 #endif
 
+// VHD_MIN_X_YZ defined below means that the SDK version is at least X.YZ
 #ifdef __APPLE__
         #if __has_include(<VideoMasterHD/VideoMasterHD_Ip_Board.h>)
                 #include <VideoMasterHD/VideoMasterHD_Ip_Board.h>
@@ -149,6 +151,10 @@
         #define VHD_CHNTYPE_3GSDI_ASI VHD_CHNTYPE_DISABLE
         #define VHD_CHNTYPE_12GSDI_ASI VHD_CHNTYPE_DISABLE
 #endif // not defined VHD_MIN_6_20
+
+#if !defined VHD_MIN_6_00
+        #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE
+#endif
 
 struct deltacast_frame_mode_t {
 	unsigned int     width;

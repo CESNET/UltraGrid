@@ -51,6 +51,12 @@
 #include "utils/color_out.h"
 #include "video_frame.h"         // for get_interlacing_suffix
 
+#if !defined VHD_MIN_6_00
+#define VHD_GetBoardModel(BoardIndex) "UNKNOWN"
+#define VHD_GetPCIeIdentificationString(BoardIndex, pIdString_c) \
+        snprintf_ch(pIdString_c, "UNKNOWN")
+#endif
+
 #define MOD_NAME "[DELTACAST] "
 
 const char *
@@ -156,10 +162,12 @@ delta_get_error_description(ULONG CodeError)
                 return "Device removed";
         case VHDERR_LTCSOURCEUNLOCKED:
                 return "LTC source unlocked";
+#ifdef VHD_MIN_6_00
         case VHDERR_INVALIDACCESSRIGHT:
                 return "Invalid access right";
         case VHDERR_INVALIDCAPABILITY:
                 return "Invalid capability index";
+#endif // defined VHD_MIN_6_00
 #ifdef DELTA_DVI_DEPRECATED
         case VHDERR_DEPRECATED:
                 return "Symbol is deprecated";
@@ -290,7 +298,7 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
 
         ULONG  SerialNumber_UL[4] = {};
         ULONG  NbOfLane, BusType, FirmwareVersion, Firmware3Version, LowProfile,
-            NbRxChannels, NbTxChannels, Firmware4Version, ProductVersion = 0;
+            NbRxChannels, NbTxChannels, ProductVersion = 0;
         char pIdString_c[64];
 
         Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE,
@@ -319,8 +327,10 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
                              &NbRxChannels);
         VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_TXCHANNELS,
                              &NbTxChannels);
+#if defined VHD_MIN_6_00
         VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_PRODUCT_VERSION,
                              &ProductVersion);
+#endif
         VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BUS_TYPE, &BusType);
         VHD_GetPCIeIdentificationString(BoardIndex, pIdString_c);
 
@@ -340,6 +350,8 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
                        (Firmware3Version >> 16) & 0xFF,
                        (Firmware3Version >> 8) & 0xFF);
         }
+#if defined VHD_MIN_6_00
+        ULONG Firmware4Version = 0;
         if (BoardType == VHD_BOARDTYPE_IP) {
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_FIRMWARE4_VERSION,
                                      &Firmware4Version);
@@ -349,6 +361,7 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
                     (Firmware4Version >> 16) & 0xFF,
                     (Firmware4Version >> 8) & 0xFF);
         }
+#endif
         printf("\t  - Board serial# : 0x%08X%08X%08X%08X\n", SerialNumber_UL[3],
                SerialNumber_UL[2], SerialNumber_UL[1], SerialNumber_UL[0]);
 
@@ -362,7 +375,7 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
 #endif
         printf("\t  - %s on %s", delta_get_board_type_name(BoardType),
                bus_type_to_str(BusType));
-#undef bus_type_to_str "unknown bus"
+#undef bus_type_to_str
         if (NbOfLane)
                 printf(" (%d lane%s)\n", NbOfLane, (NbOfLane > 1) ? "s" : "");
         else
@@ -601,12 +614,14 @@ delta_is_quad_channel_interface(ULONG Interface)
         case VHD_INTERFACE_2X3G_B_DS_425_3:
         case VHD_INTERFACE_4X3G_A_425_5:
         case VHD_INTERFACE_4X3G_B_DL_425_5:
+#if defined VHD_MIN_6_00
         case VHD_INTERFACE_2X3G_B_DS_425_3_DUAL:
         case VHD_INTERFACE_4XHD_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_A_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_A_425_5_DUAL:
         case VHD_INTERFACE_4X3G_B_DL_QUADRANT_DUAL:
         case VHD_INTERFACE_4X3G_B_DL_425_5_DUAL:
+#endif
         // Is8KInterface
 #if defined VHD_MIN_6_19
         case VHD_INTERFACE_4X6G_2081_10_QUADRANT:
