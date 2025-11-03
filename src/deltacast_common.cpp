@@ -205,7 +205,7 @@ print_avail_channels(HANDLE BoardHandle)
         for (ULONG i = 0; i < NbOfChn; i++) {
                 VHD_GetChannelProperty(BoardHandle, VHD_RX_CHANNEL, i,
                                        VHD_CORE_CP_TYPE, &ChnType);
-                printf("RX%d=%s / ", i,
+                printf("RX%" PRIu_ULONG "=%s / ", i,
                        VHD_CHANNELTYPE_ToPrettyString(
                            ((VHD_CHANNELTYPE) ChnType)));
         }
@@ -214,7 +214,7 @@ print_avail_channels(HANDLE BoardHandle)
         for (ULONG i = 0; i < NbOfChn; i++) {
                 VHD_GetChannelProperty(BoardHandle, VHD_TX_CHANNEL, i,
                                        VHD_CORE_CP_TYPE, &ChnType);
-                printf("TX%d=%s / ", i,
+                printf("TX%" PRIu_ULONG "=%s / ", i,
                        VHD_CHANNELTYPE_ToPrettyString(
                            ((VHD_CHANNELTYPE) ChnType)));
         }
@@ -337,15 +337,17 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
         printf("\t  - PCIe Id string : %s\n", pIdString_c);
         printf("\t  - Driver %s\n",
                delta_format_version(DriverVersion, false).c_str());
-        printf("\t  - Board fpga firmware v%02X (%02X-%02X-%02X)\n",
+        printf("\t  - Board fpga firmware v%02" PRIX_ULONG " (%02" PRIX_ULONG
+               "-%02" PRIX_ULONG "-%02" PRIX_ULONG ")\n",
                FirmwareVersion & 0xFF, (FirmwareVersion >> 24) & 0xFF,
                (FirmwareVersion >> 16) & 0xFF, (FirmwareVersion >> 8) & 0xFF);
         if (BoardType == VHD_BOARDTYPE_3G || BoardType == VHD_BOARDTYPE_3GKEY ||
             (BoardType == VHD_BOARDTYPE_HD && NbTxChannels == 4)) {
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_FIRMWARE3_VERSION,
                                      &Firmware3Version);
-                printf("\t  - Board micro-controller firmware v%02X "
-                       "(%02X-%02X-%02X)\n",
+                printf("\t  - Board micro-controller firmware v%02" PRIX_ULONG
+                       " (%02" PRIX_ULONG "-%02" PRIX_ULONG "-%02" PRIX_ULONG
+                       ")\n",
                        Firmware3Version & 0xFF, (Firmware3Version >> 24) & 0xFF,
                        (Firmware3Version >> 16) & 0xFF,
                        (Firmware3Version >> 8) & 0xFF);
@@ -355,18 +357,23 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
         if (BoardType == VHD_BOARDTYPE_IP) {
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_FIRMWARE4_VERSION,
                                      &Firmware4Version);
-                printf(
-                    "\t  - Board microcode firmware v%02X (%02X-%02X-%02X)\n",
-                    Firmware4Version & 0xFF, (Firmware4Version >> 24) & 0xFF,
-                    (Firmware4Version >> 16) & 0xFF,
-                    (Firmware4Version >> 8) & 0xFF);
+                printf("\t  - Board microcode firmware v%02" PRIX_ULONG
+                       " (%02" PRIX_ULONG "-%02" PRIX_ULONG "-%02" PRIX_ULONG
+                       ")\n",
+                       Firmware4Version & 0xFF, (Firmware4Version >> 24) & 0xFF,
+                       (Firmware4Version >> 16) & 0xFF,
+                       (Firmware4Version >> 8) & 0xFF);
         }
 #endif
-        printf("\t  - Board serial# : 0x%08X%08X%08X%08X\n", SerialNumber_UL[3],
-               SerialNumber_UL[2], SerialNumber_UL[1], SerialNumber_UL[0]);
+        printf("\t  - Board serial# : 0x%08" PRIX_ULONG "%08" PRIX_ULONG
+               "%08" PRIX_ULONG "%08" PRIX_ULONG "\n",
+               SerialNumber_UL[3], SerialNumber_UL[2], SerialNumber_UL[1],
+               SerialNumber_UL[0]);
 
-        if (ProductVersion != 0)
-                printf("\t  - Board product v%04X\n", ProductVersion);
+        if (ProductVersion != 0) {
+                printf("\t  - Board product v%04" PRIX_ULONG "\n",
+                       ProductVersion);
+        }
 
 #ifdef HAVE_VHD_STRING
 #define bus_type_to_str(x) VHD_BUSTYPE_ToPrettyString((VHD_BUSTYPE) x)
@@ -377,11 +384,13 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
                bus_type_to_str(BusType));
 #undef bus_type_to_str
         if (NbOfLane)
-                printf(" (%d lane%s)\n", NbOfLane, (NbOfLane > 1) ? "s" : "");
+                printf(" (%" PRIu_ULONG " lane%s)\n", NbOfLane,
+                       (NbOfLane > 1) ? "s" : "");
         else
                 printf("\n");
         printf("\t  - %s\n", LowProfile ? "Low profile" : "Full height");
-        printf("\t  - %d In / %d Out\n", NbRxChannels, NbTxChannels);
+        printf("\t  - %" PRIu_ULONG " In / %" PRIu_ULONG " Out\n", NbRxChannels,
+               NbTxChannels);
 
         print_avail_channels(BoardHandle);
         const char *bidir_status = "ERROR";
