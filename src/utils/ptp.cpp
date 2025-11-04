@@ -102,6 +102,40 @@ struct Ptp_hdr{
         uint16_t port_number;
         uint16_t seq;
         uint8_t log_msg_interval;
+
+        static constexpr size_t header_length = 34;
+
+        std::vector<unsigned char> to_bytes() const{
+                std::vector<unsigned char> ret;
+                ret.resize(header_length);
+
+                write_val<1>(&ret[0], msg_type);
+                write_val<1>(&ret[1], 0x2); //Version
+                write_val<2>(&ret[2], msg_len);
+                write_val<1>(&ret[4], 0); //Domain number
+                write_val<1>(&ret[5], 0); //Reserved
+                write_val<2>(&ret[6], flags);
+                write_val<4>(&ret[8], correction_field);
+                write_val<4>(&ret[16], 0); //Reserved
+                write_val<8>(&ret[20], clock_identity);
+                write_val<8>(&ret[28], port_number);
+                write_val<2>(&ret[30], seq);
+
+                uint8_t control_field;
+                switch(msg_type){
+                case PTP_MSG_SYNC: control_field = 0x00; break;
+                case PTP_MSG_DELAY_REQ: control_field = 0x01; break;
+                case PTP_MSG_FOLLOWUP: control_field = 0x02; break;
+                case PTP_MSG_DELAY_RESP: control_field = 0x03; break;
+                case PTP_MSG_MANAGEMENT: control_field = 0x04; break;
+                default: control_field = 0x05; break;
+                }
+
+                write_val<1>(&ret[32], control_field);
+                write_val<1>(&ret[33], log_msg_interval);
+
+                return ret;
+        }
 };
 
 const char *clock_id_to_str(uint64_t id){
@@ -120,11 +154,9 @@ const char *clock_id_to_str(uint64_t id){
 }
 
 Ptp_hdr parse_ptp_header(uint8_t *buf, size_t len){
-        const size_t header_length = 34;
-
         Ptp_hdr ret{};
 
-        if(len < header_length){
+        if(len < Ptp_hdr::header_length){
                 return ret;
         }
 
@@ -142,7 +174,7 @@ Ptp_hdr parse_ptp_header(uint8_t *buf, size_t len){
         ret.seq = read_val<uint16_t, 2>(&buf[30]);
         ret.log_msg_interval = buf[33];
 
-        if(ret.msg_len >= header_length)
+        if(ret.msg_len >= Ptp_hdr::header_length)
                 ret.valid = true;
 
         return ret;
