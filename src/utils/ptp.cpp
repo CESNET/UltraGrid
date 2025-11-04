@@ -72,6 +72,25 @@ struct Timestamped_pkt{
         unsigned buflen = 0;
 };
 
+template<typename T, unsigned n>
+T read_val(uint8_t *ptr){
+        T ret{};
+        for(unsigned i = 0; i < n; ++i){
+                ret <<= 8;
+                ret |= ptr[i];
+        }
+
+        return ret;
+}
+
+template<unsigned n, typename T>
+void write_val(uint8_t *ptr, T val){
+        for(unsigned i = 0; i < n; ++i){
+                ptr[i] = (val >> ((n - 1 - i) * 8)) & 0xFF;
+        }
+}
+
+
 struct Ptp_hdr{
         bool valid = false;
 
@@ -84,17 +103,6 @@ struct Ptp_hdr{
         uint16_t seq;
         uint8_t log_msg_interval;
 };
-
-template<typename T, unsigned n>
-T read_val(uint8_t *ptr){
-        T ret{};
-        for(unsigned i = 0; i < n; ++i){
-                ret <<= 8;
-                ret |= ptr[i];
-        }
-
-        return ret;
-}
 
 const char *clock_id_to_str(uint64_t id){
         static char buf[16 + 7 + 1] = {};
