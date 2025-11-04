@@ -31,14 +31,9 @@ namespace {
 struct state_video_compress_jpegxs;
 
 struct state_video_compress_jpegxs {
-private:
         state_video_compress_jpegxs(struct module *parent, const char *opts);
-public:
-        ~state_video_compress_jpegxs() {
-                {
-                        std::unique_lock<std::mutex> lk(mtx);
-                }
 
+        ~state_video_compress_jpegxs() {
                 if (worker.joinable()) {
                         worker.join();
                 }
@@ -57,25 +52,24 @@ public:
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
         bool parse_fmt(char *fmt);
-        static state_video_compress_jpegxs *create(struct module *parent, const char *opts);
         void push(shared_ptr<video_frame> in_frame);
         shared_ptr<video_frame> pop();
 
         synchronized_queue<shared_ptr<struct video_frame>, -1> in_queue;
         synchronized_queue<shared_ptr<struct video_frame>, -1> out_queue;
-        mutex mtx;
         thread worker;
 };
 
 shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> frame);
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc);
+static void jpegxs_worker(state_video_compress_jpegxs *s);
 
 state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, const char *opts) {
         (void) parent;
 
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &encoder);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load JPEG XS default parameters\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load JPEG XS default parameters, error code: %x\n", err);
                 throw 1;
         }
 
@@ -90,6 +84,8 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
                 }
                 free(fmt);
         }
+
+        worker = thread(jpegxs_worker, this);
 }
 
 static void jpegxs_worker(state_video_compress_jpegxs *s) {
@@ -154,12 +150,6 @@ static void jpegxs_worker(state_video_compress_jpegxs *s) {
 
         s->out_queue.push(out_frame);
     }
-}
-
-state_video_compress_jpegxs *state_video_compress_jpegxs::create(struct module *parent, const char *opts) {
-        auto ret = new state_video_compress_jpegxs(parent, opts);
-        
-        return ret;
 }
 
 ColourFormat subsampling_to_jpegxs(int ug_subs) {
@@ -318,8 +308,7 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
         return true;
 }
 
-void *
-jpegxs_compress_init(struct module *parent, const char *opts) {
+static void *jpegxs_compress_init(struct module *parent, const char *opts) {
         struct state_video_compress_jpegxs *s;
         
         if (opts && strcmp(opts, "help") == 0) {
@@ -327,9 +316,7 @@ jpegxs_compress_init(struct module *parent, const char *opts) {
                 return INIT_NOERR;
         }
 
-        s = state_video_compress_jpegxs::create(parent, opts);
-
-        s->worker = std::thread(jpegxs_worker, s);
+        s = new state_video_compress_jpegxs(parent, opts);
 
         return s;
 }
@@ -416,8 +403,7 @@ static shared_ptr<video_frame> jpegxs_compress_pop(void *state) {
         return static_cast<struct state_video_compress_jpegxs *>(state)->pop();
 }
 
-static void
-jpegxs_compress_done(void *state) {
+static void jpegxs_compress_done(void *state) {
         delete (struct state_video_compress_jpegxs *) state;
 }
 
