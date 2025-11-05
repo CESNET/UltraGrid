@@ -59,6 +59,43 @@
 
 #define MOD_NAME "[DELTACAST] "
 
+static VHD_BOARDTYPE
+get_board_type(ULONG BoardIndex)
+{
+        HANDLE BoardHandle = nullptr;
+        ULONG  BoardType     = 0U;
+        ULONG  Result =
+            VHD_OpenBoardHandle(BoardIndex, &BoardHandle, nullptr, 0);
+        if (Result != VHDERR_NOERROR) {
+                DELTA_PRINT_ERROR(Result, "Unable to open board %d.",
+                                  BoardIndex);
+                return NB_VHD_BOARDTYPES;
+        }
+        Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE,
+                                      &BoardType);
+        VHD_CloseBoardHandle(BoardHandle);
+        if (Result != VHDERR_NOERROR) {
+                DELTA_PRINT_ERROR(Result, "Unable to get board %d type.",
+                                  BoardIndex);
+                return NB_VHD_BOARDTYPES;
+        }
+        return (VHD_BOARDTYPE) BoardType;
+}
+
+static const char *
+get_model_name(ULONG BoardIndex)
+{
+#if defined VHD_MIN_6_00
+        return  VHD_GetBoardModel(BoardIndex);
+#else
+        thread_local char buf[128];
+        snprintf_ch(buf, "%s #%" PRIu_ULONG,
+                    delta_get_board_type_name(get_board_type(BoardIndex)),
+                    BoardIndex);
+        return buf;
+#endif
+}
+
 const char *
 delta_get_error_description(ULONG CodeError)
 {
@@ -267,7 +304,7 @@ static void
 print_board_info(int BoardIndex, ULONG DllVersion, bool full)
 {
         color_printf("\tBoard " TBOLD("%d") ": " TBOLD("%s") "\n", BoardIndex,
-                     VHD_GetBoardModel(BoardIndex));
+                     get_model_name(BoardIndex));
 
         ULONG  DriverVersion = 0U;
         HANDLE BoardHandle   = nullptr;
