@@ -193,6 +193,7 @@ void           delta_print_intefrace_info(ULONG Interface);
 void delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
                                           ULONG *pVideoStandard);
 const char *delta_get_board_type_name(ULONG BoardType);
+bool        delta_chn_type_is_sdi(ULONG ChnType);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \

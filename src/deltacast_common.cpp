@@ -966,3 +966,12 @@ delta_get_board_type_name(ULONG BoardType)
         return "Unknown DELTACAST type";
 #endif
 }
+
+bool
+delta_chn_type_is_sdi(ULONG ChnType)
+{
+        return ChnType == VHD_CHNTYPE_HDSDI || ChnType == VHD_CHNTYPE_3GSDI ||
+               ChnType == VHD_CHNTYPE_3GSDI_ASI ||
+               ChnType == VHD_CHNTYPE_12GSDI ||
+               ChnType == VHD_CHNTYPE_12GSDI_ASI;
+}

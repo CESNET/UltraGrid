@@ -509,9 +509,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         const auto Property = (VHD_CORE_BOARDPROPERTY) DELTA_CH_TO_VAL(
             s->channel, VHD_CORE_BP_RX0_TYPE, VHD_CORE_BP_RX4_TYPE);
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
-        if (ChnType != VHD_CHNTYPE_HDSDI && ChnType != VHD_CHNTYPE_3GSDI &&
-            ChnType != VHD_CHNTYPE_3GSDI_ASI && ChnType != VHD_CHNTYPE_12GSDI &&
-            ChnType != VHD_CHNTYPE_12GSDI_ASI) {
+        if (!delta_chn_type_is_sdi(ChnType)) {
                 MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
                 HANDLE_ERROR
         }

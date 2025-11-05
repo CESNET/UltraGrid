@@ -3,6 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * code is written by DELTACAST's VideoMaster SDK example SampleTX
+ * and SDL_TXAudio (last update according to 6.32)
  *
  * @sa deltacast_common.hpp for common DELTACAST information
  */
@@ -66,7 +67,7 @@
 #include "utils/ring_buffer.h"
 
 #define DELTACAST_MAGIC to_fourcc('v', 'd', 'D', 'C')
-#define MOD_NAME "[DELTACAST] "
+#define MOD_NAME "[DELTACAST display] "
 
 struct state_deltacast {
         uint32_t            magic;
@@ -81,6 +82,7 @@ struct state_deltacast {
         HANDLE              BoardHandle, StreamHandle;
         HANDLE              SlotHandle;
         unsigned            channel;
+        ULONG               SlotsDroppedLast;
 
         pthread_mutex_t     lock;
 
@@ -145,6 +147,24 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
+static void
+print_slot_stats(struct state_deltacast *s, bool final_summary)
+{
+        ULONG SlotsCount, SlotsDropped;
+        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_DROPPED,
+                              &SlotsDropped);
+        if (SlotsDropped == s->SlotsDroppedLast && !final_summary) {
+                return;
+        }
+        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
+                              &SlotsCount);
+        log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
+                MOD_NAME "%" PRIu_ULONG " frames sent (%" PRIu_ULONG
+                         " dropped)\n",
+                SlotsCount, SlotsDropped);
+        s->SlotsDroppedLast = SlotsDropped;
+}
+
 static bool display_deltacast_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -198,9 +218,9 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
         gettimeofday(&tv, NULL);
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
-                double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[DELTACAST display] %lu frames in %g seconds = %g FPS\n",
-                        s->frames, seconds, fps);
+                display_print_fps(MOD_NAME, seconds, (int) s->frames, frame->fps);
+                print_slot_stats(s, false);
+
                 s->tv = tv;
                 s->frames = 0;
         }
@@ -277,7 +297,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         Result = VHD_OpenStreamHandle(s->BoardHandle, StrmType, ProcessingMode,
                                       nullptr, &s->StreamHandle, nullptr);
         if (Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to open stream handle.\n");
+                DELTA_PRINT_ERROR(Result, "Failed to open stream handle.\n");
                 return false;
         }
         
@@ -436,7 +456,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         const auto Property = (VHD_CORE_BOARDPROPERTY) DELTA_CH_TO_VAL(
             s->channel, VHD_CORE_BP_TX0_TYPE, VHD_CORE_BP_TX4_TYPE);
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
-        if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
+        if (!delta_chn_type_is_sdi(ChnType)) {
                 MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
                 HANDLE_ERROR
         }
@@ -452,6 +472,7 @@ static void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         assert(s != nullptr);
+        print_slot_stats(s, true);
 
         if (s->SlotHandle != nullptr) {
                 VHD_UnlockSlotHandle(s->SlotHandle);
