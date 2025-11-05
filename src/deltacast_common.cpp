@@ -52,7 +52,6 @@
 #include "video_frame.h"         // for get_interlacing_suffix
 
 #if !defined VHD_MIN_6_00
-#define VHD_GetBoardModel(BoardIndex) "UNKNOWN"
 #define VHD_GetPCIeIdentificationString(BoardIndex, pIdString_c) \
         snprintf_ch(pIdString_c, "UNKNOWN")
 #endif
@@ -85,15 +84,18 @@ get_board_type(ULONG BoardIndex)
 static const char *
 get_model_name(ULONG BoardIndex)
 {
-#if defined VHD_MIN_6_00
-        return  VHD_GetBoardModel(BoardIndex);
-#else
         thread_local char buf[128];
-        snprintf_ch(buf, "%s #%" PRIu_ULONG,
-                    delta_get_board_type_name(get_board_type(BoardIndex)),
-                    BoardIndex);
-        return buf;
+#if !defined VHD_MIN_6_00
+#define VHD_GetBoardModel(BoardIndex) \
+        delta_get_board_type_name(get_board_type(BoardIndex))
 #endif
+        snprintf_ch(buf, "%s #%" PRIu_ULONG,
+                    VHD_GetBoardModel(BoardIndex),
+                    BoardIndex);
+#ifdef VHD_GetBoardModel
+#undef VHD_GetBoardModel
+#endif
+        return buf;
 }
 
 const char *
