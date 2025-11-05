@@ -7,6 +7,7 @@
 #include <thread>
 #include <vector>
 #include <svt-jpegxs/SvtJpegxsEnc.h>
+#include <svt-jpegxs/SvtJpegxsImageBufferTools.h>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -26,6 +27,7 @@ using std::unique_lock;
 using std::unique_ptr;
 using std::vector;
 using std::queue;
+using namespace std::chrono;
 
 namespace {
 struct state_video_compress_jpegxs;
@@ -37,17 +39,15 @@ struct state_video_compress_jpegxs {
                 if (worker.joinable()) {
                         worker.join();
                 }
-
+                if (frame_pool) {
+                        svt_jpeg_xs_frame_pool_free(frame_pool);
+                }
                 svt_jpeg_xs_encoder_close(&encoder);
-                free(out_buf.buffer);
-                free(in_buf.data_yuv[0]);
-                free(in_buf.data_yuv[1]);
-                free(in_buf.data_yuv[2]);
         }
+        svt_jpeg_xs_image_config_t config;
         svt_jpeg_xs_encoder_api_t encoder;
+        svt_jpeg_xs_frame_pool_t *frame_pool;
         bool configured = 0;
-        svt_jpeg_xs_image_buffer_t in_buf;
-        svt_jpeg_xs_bitstream_buffer_t out_buf;
         video_frame_pool pool;
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
@@ -60,7 +60,6 @@ struct state_video_compress_jpegxs {
         thread worker;
 };
 
-shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> frame);
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc);
 static void jpegxs_worker(state_video_compress_jpegxs *s);
 
@@ -73,7 +72,6 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
                 throw 1;
         }
 
-        encoder.input_bit_depth = 8;
         encoder.bpp_numerator = 3;
 
         if(opts && opts[0] != '\0') {
@@ -89,41 +87,39 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
 }
 
 static void jpegxs_worker(state_video_compress_jpegxs *s) {
-    while (true) {
-
+while (true) {
         auto frame = s->in_queue.pop();
 
         if (!frame) {
-            s->out_queue.push(frame);
-            break;
+                s->out_queue.push(frame);
+                break;
         }
 
         if (!s->configured) {
                 struct video_desc desc = video_desc_from_frame(frame.get());
                 if (!configure_with(s, desc)) {
-                        break;;
+                        break;
                 }
         }
 
-        struct tile *in_tile = vf_get_tile(frame.get(), 0);
-        int width = in_tile->width;
-        int height = in_tile->height;
-
-        s->convert_to_planar((const uint8_t *) in_tile->data, width, height, &s->in_buf);
-
         svt_jpeg_xs_frame_t enc_input;
-        enc_input.bitstream = s->out_buf;
-        enc_input.image = s->in_buf;
-        enc_input.user_prv_ctx_ptr = NULL;
+        SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+        if (err != SvtJxsErrorNone) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
+                continue;
+        }
 
-        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, 1);
+        struct tile *in_tile = vf_get_tile(frame.get(), 0);
+        s->convert_to_planar((const uint8_t *) in_tile->data, in_tile->width, in_tile->height, &enc_input.image);
+
+        err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder, error code: %x\n", err);
                 continue;
         }
 
         svt_jpeg_xs_frame_t enc_output;
-        err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, 1);
+        err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
                 continue;
@@ -137,8 +133,8 @@ static void jpegxs_worker(state_video_compress_jpegxs *s) {
         out_frame->tile_count = 1;
         
         struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
-        out_tile->width = frame->tiles[0].width;
-        out_tile->height = frame->tiles[0].height;
+        out_tile->width = in_tile->width;
+        out_tile->height = in_tile->height;
         size_t enc_size = enc_output.bitstream.used_size;
         if (enc_size > out_tile->data_len) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
@@ -149,7 +145,8 @@ static void jpegxs_worker(state_video_compress_jpegxs *s) {
         memcpy(out_tile->data, enc_output.bitstream.buffer, enc_size);
 
         s->out_queue.push(out_frame);
-    }
+        svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
+}
 }
 
 ColourFormat subsampling_to_jpegxs(int ug_subs) {
@@ -165,16 +162,22 @@ ColourFormat subsampling_to_jpegxs(int ug_subs) {
         }
 }
 
-static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const svt_jpeg_xs_encoder_api_t *enc) {
+static bool setup_image_config(svt_jpeg_xs_image_config_t *conf, struct video_desc desc)
+{
+        conf->width  = desc.width;
+        conf->height = desc.height;
+        conf->bit_depth = get_bits_per_component(desc.color_spec);
+        conf->format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
+        conf->components_num = 3;
 
-        uint32_t pixel_size = enc->input_bit_depth <= 8 ? 1 : 2;
-        uint32_t w = enc->source_width;
-        uint32_t h = enc->source_height;
+        uint32_t bytes_per_pixel = conf->bit_depth <= 8 ? 1 : 2;
+        uint32_t w = conf->width;
+        uint32_t h = conf->height;
 
         uint32_t w_factor = 1;
         uint32_t h_factor = 1;
 
-        switch (enc->colour_format) {
+        switch (conf->format) {
         case COLOUR_FORMAT_PLANAR_YUV444_OR_RGB: // no subsampling
                 break;
         case COLOUR_FORMAT_PLANAR_YUV422: // half horizontal
@@ -189,17 +192,10 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
                 return false;
         }
 
-        in_buf->stride[0] = w;
-        in_buf->stride[1] = w / w_factor;
-        in_buf->stride[2] = w / w_factor;
-
         for (uint8_t i = 0; i < 3; ++i) {
-                in_buf->alloc_size[i] = in_buf->stride[i] * (h / (i == 0 ? 1 : h_factor)) * pixel_size;
-                in_buf->data_yuv[i] = malloc(in_buf->alloc_size[i]);
-                if (!in_buf->data_yuv[i]) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d\n", i);
-                        return false;
-                }
+                conf->components[i].width = w / (i == 0 ? 1 : w_factor);
+                conf->components[i].height = h / (i == 0 ? 1 : h_factor);
+                conf->components[i].byte_size = conf->components[i].width * conf->components[i].height * bytes_per_pixel;
         }
 
         return true;
@@ -207,10 +203,13 @@ static bool setup_image_input_buffer(svt_jpeg_xs_image_buffer_t *in_buf, const s
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc)
 {
+        setup_image_config(&s->config, desc);
+
         s->encoder.verbose = VERBOSE_SYSTEM_INFO;
-        s->encoder.source_width = desc.width;
-        s->encoder.source_height = desc.height;
-        s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
+        s->encoder.source_width = s->config.width;
+        s->encoder.source_height = s->config.height;
+        s->encoder.input_bit_depth = s->config.bit_depth;
+        s->encoder.colour_format = s->config.format;
 
         const struct uv_to_jpegxs_conversion *conv = get_uv_to_jpegxs_conversion(desc.color_spec);
         if (!conv || !conv->convert) {
@@ -221,24 +220,18 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder\n");
-                return false;
-        }
-
-        if (!setup_image_input_buffer(&s->in_buf, &s->encoder)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize input image buffer\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder: %x\n", err);
                 return false;
         }
 
         uint32_t bitstream_size = (uint32_t)(
                 ((uint64_t)s->encoder.source_width * s->encoder.source_height * 
                 s->encoder.bpp_numerator / s->encoder.bpp_denominator + 7) / 8);
+        uint32_t pool_size = 1;
 
-        s->out_buf.allocation_size = bitstream_size;
-        s->out_buf.used_size = 0;
-        s->out_buf.buffer = (uint8_t *) malloc(s->out_buf.allocation_size);
-        if (!s->out_buf.buffer) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize output image buffer\n");
+        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->config, bitstream_size, pool_size);
+        if (!s->frame_pool) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
                 return false;
         }
 
@@ -299,6 +292,14 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid rate control mode '%s' (must be 0 - CBR budget per precinct, 1 - CBR budget per precinct with padding movement, 2 - CBR budget per slice, or 3 - CBR budget per slice with max rate size). Using default 0.\n", tok);
                         }
+                } else if (IS_KEY_PREFIX(tok, "threads")) {
+                        const int threads = atoi(strchr(tok, '=') + 1);
+                        int max_threads = thread::hardware_concurrency();
+                        if (0 <= threads && threads <= max_threads) {
+                                encoder.threads_num = threads;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid number of threads '%s' (must be between 0 and %d). Using default 0, which means lowest possible number of threads is created.\n", tok, max_threads);
+                        }
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
                 }
@@ -320,68 +321,6 @@ static void *jpegxs_compress_init(struct module *parent, const char *opts) {
 
         return s;
 }
-
-shared_ptr<video_frame> jpegxs_compress(void *state, shared_ptr<video_frame> frame) {
-        if (!frame) {
-                return {};
-        }
-
-        auto *s = (struct state_video_compress_jpegxs *) state;
-
-        if (!s->configured) {
-                struct video_desc desc = video_desc_from_frame(frame.get());
-                if (!configure_with(s, desc)) {
-                        return NULL;
-                }
-        }
-
-        struct tile *in_tile = vf_get_tile(frame.get(), 0);
-        int width = in_tile->width;
-        int height = in_tile->height;
-
-        s->convert_to_planar((const uint8_t *) in_tile->data, width, height, &s->in_buf);
-
-        svt_jpeg_xs_frame_t enc_input;
-        enc_input.bitstream = s->out_buf;
-        enc_input.image = s->in_buf;
-        enc_input.user_prv_ctx_ptr = NULL;
-
-        SvtJxsErrorType_t err;
-        err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, 1 /*blocking*/);
-        if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder, error code: %x\n", err);
-                return NULL;
-        }
-
-        svt_jpeg_xs_frame_t enc_output;
-        err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, 1 /*blocking*/);
-        if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
-                return NULL;
-        }
-
-        shared_ptr<video_frame> out_frame = s->pool.get_frame();
-        out_frame->color_spec = JPEG_XS;
-        out_frame->fps = frame->fps;
-        out_frame->interlacing = frame->interlacing;
-        out_frame->frame_type = frame->frame_type;
-        out_frame->tile_count = 1;
-        
-        struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
-        out_tile->width = frame->tiles[0].width;
-        out_tile->height = frame->tiles[0].height;
-        size_t enc_size = enc_output.bitstream.used_size;
-        if (enc_size > out_tile->data_len) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
-                return {};
-        }
-        
-        out_tile->data_len = enc_size;
-        memcpy(out_tile->data, enc_output.bitstream.buffer, enc_size);
-
-        return out_frame;
-}
-
 
 void state_video_compress_jpegxs::push(shared_ptr<video_frame> frame)
 {
@@ -416,9 +355,9 @@ static compress_module_info get_jpegxs_module_info() {
 const struct video_compress_info jpegxs_info = {
         jpegxs_compress_init, // jpegxs_compress_init
         jpegxs_compress_done, // jpegxs_compress_done
-        NULL, // jpegxs_compress (synchronous)
         NULL,
-        jpegxs_compress_push, // jpegxs_compress_push (asynchronous)
+        NULL,
+        jpegxs_compress_push, // jpegxs_compress_push
         jpegxs_compress_pop, //  jpegxs_compress_pop
         NULL,
         NULL,

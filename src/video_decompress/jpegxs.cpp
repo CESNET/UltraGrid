@@ -1,5 +1,5 @@
+#include <assert.h>
 #include <svt-jpegxs/SvtJpegxsDec.h>
-#include <assert.h> 
 
 #include "debug.h"
 #include "lib_common.h"
@@ -18,8 +18,8 @@ struct state_decompress_jpegxs {
         }
         svt_jpeg_xs_decoder_api_t decoder;
         bool configured = 0;
-        svt_jpeg_xs_bitstream_buffer_t bitstream; // in_buf
-        svt_jpeg_xs_image_buffer_t image_buffer; // out_buf
+        svt_jpeg_xs_bitstream_buffer_t bitstream;
+        svt_jpeg_xs_image_buffer_t image_buffer;
         svt_jpeg_xs_image_config_t image_config;
 
         void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst);
