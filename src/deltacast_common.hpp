@@ -201,6 +201,7 @@ const char *delta_get_board_type_name(ULONG BoardType);
 bool        delta_chn_type_is_sdi(ULONG ChnType);
 void        delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
                                    const char *action);
+bool        delta_board_type_is_dv(ULONG BoardIndex);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \

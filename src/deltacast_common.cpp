@@ -1035,3 +1035,19 @@ delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
             SlotsCount, action, SlotsDropped);
         *SlotsDroppedLast = SlotsDropped;
 }
+
+bool
+delta_board_type_is_dv(ULONG BoardIndex)
+{
+        const ULONG BoardType = get_board_type(BoardIndex);
+        return BoardType == VHD_BOARDTYPE_DVI ||
+               BoardType == VHD_BOARDTYPE_HDMI ||
+#if defined VHD_MIN_6_00
+               BoardType == VHD_BOARDTYPE_HDMI20 ||
+               BoardType == VHD_BOARDTYPE_FLEX_DP ||
+               BoardType == VHD_BOARDTYPE_FLEX_HMI ||
+               BoardType == VHD_BOARDTYPE_MIXEDINTERFACE;
+#else
+               false;
+#endif
+}

@@ -510,6 +510,9 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
         if (!delta_chn_type_is_sdi(ChnType)) {
                 MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
+                if (delta_board_type_is_dv(BrdId)) {
+                        MSG(NOTICE, "Use 'deltacast_dv' capture device\n");
+                }
                 HANDLE_ERROR
         }
 
