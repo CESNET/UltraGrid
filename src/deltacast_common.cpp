@@ -975,3 +975,28 @@ delta_chn_type_is_sdi(ULONG ChnType)
                ChnType == VHD_CHNTYPE_12GSDI ||
                ChnType == VHD_CHNTYPE_12GSDI_ASI;
 }
+
+/**
+ * @param action           "sent" or "received"
+ * @param is_final_summary print always even if no change in dropped frames
+ *                         since last time
+ */
+void
+delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
+                       const char *action, bool is_final_summary)
+{
+        ULONG SlotsCount, SlotsDropped;
+        /* Print some statistics */
+        VHD_GetStreamProperty(StreamHandle, VHD_CORE_SP_SLOTS_DROPPED,
+                              &SlotsDropped);
+        if (SlotsDropped == *SlotsDroppedLast && !is_final_summary) {
+                return;
+        }
+        VHD_GetStreamProperty(StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
+                              &SlotsCount);
+        log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
+                MOD_NAME "%" PRIu_ULONG " frames %s (%" PRIu_ULONG
+                         " dropped)\n",
+                SlotsCount, action, SlotsDropped);
+        *SlotsDroppedLast = SlotsDropped;
+}

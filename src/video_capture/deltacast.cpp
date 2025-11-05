@@ -62,7 +62,7 @@
 #include "video_capture.h"
 #include "video_capture_params.h"
 
-#define MOD_NAME "[DELTACAST] "
+#define MOD_NAME "[DELTACAST capture] "
 
 using namespace std;
 
@@ -72,11 +72,11 @@ struct vidcap_deltacast_state {
         HANDLE            BoardHandle, StreamHandle;
         HANDLE            SlotHandle;
         unsigned int      channel;
+        ULONG             SlotsDroppedLast; ///< for statistics
 
         struct audio_frame audio_frame;
         
-        struct       timeval t, t0;
-        int          frames;
+        struct       timeval t0;
 
         ULONG             AudioBufferSize;
         VHD_AUDIOCHANNEL *pAudioChn;
@@ -450,7 +450,6 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
-        s->frames = 0;
         s->grab_audio = FALSE;
         s->autodetect_format = TRUE;
         s->frame->color_spec = UYVY;
@@ -551,6 +550,9 @@ vidcap_deltacast_done(void *state)
 
 	assert(s != NULL);
 
+        delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
+                               "received", true);
+
         if(s->SlotHandle)
                 VHD_UnlockSlotHandle(s->SlotHandle);
         if(s->StreamHandle) {
@@ -637,19 +639,17 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
          s->tile->data = (char*) pBuffer;
          s->tile->data_len = BufferSize;
 
-         /* Print some statistics */
          /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);
          VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_DROPPED,&SlotsDropped);
          printf("%u frames received (%u dropped)            \r",SlotsCount,SlotsDropped);*/
-        gettimeofday(&s->t, NULL);
-        double seconds = tv_diff(s->t, s->t0);    
-        if (seconds >= 5) {
-            float fps  = s->frames / seconds;
-            log_msg(LOG_LEVEL_INFO, "[DELTACAST cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-            s->t0 = s->t;
-            s->frames = 0;
+        struct timeval t;
+        gettimeofday(&t, nullptr);
+        double seconds = tv_diff(t, s->t0);    
+        if (seconds >= DELTA_DROP_WARN_INT_SEC) {
+                delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
+                                       "received", false);
+                s->t0 = t;
         }
-        s->frames++;
         
 	return s->frame;
 }
@@ -659,7 +659,7 @@ static const struct video_capture_info vidcap_deltacast_info = {
         vidcap_deltacast_init,
         vidcap_deltacast_done,
         vidcap_deltacast_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(deltacast, &vidcap_deltacast_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

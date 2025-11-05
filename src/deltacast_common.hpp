@@ -51,6 +51,7 @@
 #ifndef DELTACAST_COMMON_HPP
 #define DELTACAST_COMMON_HPP
 
+#include "module.h"
 #define MAX_DELTA_CH 7 ///< maximal supported channel index
 
 #include <string>
@@ -156,6 +157,10 @@
         #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE
 #endif
 
+enum {
+        DELTA_DROP_WARN_INT_SEC = 20,
+};
+
 struct deltacast_frame_mode_t {
 	unsigned int     width;
 	unsigned int     height;
@@ -194,6 +199,8 @@ void delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
                                           ULONG *pVideoStandard);
 const char *delta_get_board_type_name(ULONG BoardType);
 bool        delta_chn_type_is_sdi(ULONG ChnType);
+void        delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
+                                   const char *action, bool is_final_summary);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \

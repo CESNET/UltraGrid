@@ -76,13 +76,11 @@ struct state_deltacast {
         struct video_frame *frame;
         struct tile        *tile;
 
-        unsigned long int   frames;
-        unsigned long int   frames_last;
         bool                started;
         HANDLE              BoardHandle, StreamHandle;
         HANDLE              SlotHandle;
         unsigned            channel;
-        ULONG               SlotsDroppedLast;
+        ULONG               SlotsDroppedLast; ///< for statistics
 
         pthread_mutex_t     lock;
 
@@ -147,24 +145,6 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
-static void
-print_slot_stats(struct state_deltacast *s, bool final_summary)
-{
-        ULONG SlotsCount, SlotsDropped;
-        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_DROPPED,
-                              &SlotsDropped);
-        if (SlotsDropped == s->SlotsDroppedLast && !final_summary) {
-                return;
-        }
-        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
-                              &SlotsCount);
-        log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
-                MOD_NAME "%" PRIu_ULONG " frames sent (%" PRIu_ULONG
-                         " dropped)\n",
-                SlotsCount, SlotsDropped);
-        s->SlotsDroppedLast = SlotsDropped;
-}
-
 static bool display_deltacast_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -217,14 +197,11 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
         
         gettimeofday(&tv, NULL);
         double seconds = tv_diff(tv, s->tv);
-        if (seconds > 5) {
-                display_print_fps(MOD_NAME, seconds, (int) s->frames, frame->fps);
-                print_slot_stats(s, false);
-
+        if (seconds >= DELTA_DROP_WARN_INT_SEC) {
+                delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
+                                       "sent", false);
                 s->tv = tv;
-                s->frames = 0;
         }
-        s->frames++;
 
         return true;
 }
@@ -472,7 +449,9 @@ static void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         assert(s != nullptr);
-        print_slot_stats(s, true);
+
+        delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast, "sent",
+                               true);
 
         if (s->SlotHandle != nullptr) {
                 VHD_UnlockSlotHandle(s->SlotHandle);
@@ -629,7 +608,7 @@ static const struct video_display_info display_deltacast_info = {
         display_deltacast_get_property,
         display_deltacast_put_audio_frame,
         display_deltacast_reconfigure_audio,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(deltacast, &display_deltacast_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
