@@ -68,6 +68,8 @@
 #include "video_frame.h"           // for vf_free, vf_alloc_desc, vf_alloc_d...
 #include "video_capture.h"
 
+#define MOD_NAME "[vcap/delta_dv] "
+
 using namespace std;
 
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
@@ -75,9 +77,9 @@ using namespace std;
 struct vidcap_deltacast_dvi_state {
         ULONG             BoardType;
         HANDLE            BoardHandle, StreamHandle;
+        ULONG             SlotsDroppedLast; ///< for statistics
 
-        struct       timeval t, t0;
-        int          frames;
+        struct       timeval t0;
 
         codec_t      codec;
         bool         configured;
@@ -677,7 +679,6 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
         }
 
         gettimeofday(&s->t0, NULL);
-        s->frames = 0;
         
         *state = s;
 	return VIDCAP_INIT_OK;
@@ -710,6 +711,17 @@ vidcap_deltacast_dvi_done(void *state)
                 s->frames_to_free.pop();
                 VHD_UnlockSlotHandle(h);
         }
+
+        ULONG SlotsCount, SlotsDropped;
+        /* Print some statistics */
+        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_DROPPED,
+                              &SlotsDropped);
+        VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
+                              &SlotsCount);
+        log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
+                "%" PRIu_ULONG " frames %s (%" PRIu_ULONG
+                         " dropped)\n",
+                SlotsCount, "hh", SlotsDropped);
         
         VHD_StopStream(s->StreamHandle);
         VHD_CloseStreamHandle(s->StreamHandle);
@@ -797,18 +809,14 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
          }
 
          /* Print some statistics */
-         /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);
-         VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_DROPPED,&SlotsDropped);
-         printf("%u frames received (%u dropped)            \r",SlotsCount,SlotsDropped);*/
-        gettimeofday(&s->t, NULL);
-        double seconds = tv_diff(s->t, s->t0);    
-        if (seconds >= 5) {
-            float fps  = s->frames / seconds;
-            log_msg(LOG_LEVEL_INFO, "[DELTACAST cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-            s->t0 = s->t;
-            s->frames = 0;
+        struct timeval t;
+        gettimeofday(&t, NULL);
+        double seconds = tv_diff(t, s->t0);    
+        if (seconds >= DELTA_DROP_WARN_INT_SEC) {
+                delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
+                                       "received");
+                s->t0 = t;
         }
-        s->frames++;
         
 	return out;
 }
@@ -818,7 +826,7 @@ static const struct video_capture_info vidcap_deltacast_dvi_info = {
         vidcap_deltacast_dvi_init,
         vidcap_deltacast_dvi_done,
         vidcap_deltacast_dvi_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(deltacast-dv, &vidcap_deltacast_dvi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

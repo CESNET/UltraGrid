@@ -200,7 +200,7 @@ void delta_single_to_quad_links_interface(ULONG RXStatus, ULONG *pInterface,
 const char *delta_get_board_type_name(ULONG BoardType);
 bool        delta_chn_type_is_sdi(ULONG ChnType);
 void        delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
-                                   const char *action, bool is_final_summary);
+                                   const char *action);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \

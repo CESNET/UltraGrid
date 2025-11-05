@@ -983,20 +983,18 @@ delta_chn_type_is_sdi(ULONG ChnType)
  */
 void
 delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
-                       const char *action, bool is_final_summary)
+                       const char *action)
 {
-        ULONG SlotsCount, SlotsDropped;
+        ULONG SlotsCount = 0, SlotsDropped = 0;
         /* Print some statistics */
         VHD_GetStreamProperty(StreamHandle, VHD_CORE_SP_SLOTS_DROPPED,
                               &SlotsDropped);
-        if (SlotsDropped == *SlotsDroppedLast && !is_final_summary) {
+        if (SlotsDropped == *SlotsDroppedLast) {
                 return;
         }
         VHD_GetStreamProperty(StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
                               &SlotsCount);
-        log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
-                MOD_NAME "%" PRIu_ULONG " frames %s (%" PRIu_ULONG
-                         " dropped)\n",
-                SlotsCount, action, SlotsDropped);
+        MSG(WARNING, "%" PRIu_ULONG " frames %s (%" PRIu_ULONG " dropped)\n",
+            SlotsCount, action, SlotsDropped);
         *SlotsDroppedLast = SlotsDropped;
 }

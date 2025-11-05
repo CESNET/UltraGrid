@@ -550,9 +550,6 @@ vidcap_deltacast_done(void *state)
 
 	assert(s != NULL);
 
-        delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
-                               "received", true);
-
         if(s->SlotHandle)
                 VHD_UnlockSlotHandle(s->SlotHandle);
         if(s->StreamHandle) {
@@ -639,15 +636,13 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
          s->tile->data = (char*) pBuffer;
          s->tile->data_len = BufferSize;
 
-         /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);
-         VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_DROPPED,&SlotsDropped);
-         printf("%u frames received (%u dropped)            \r",SlotsCount,SlotsDropped);*/
+        /* Print some statistics */
         struct timeval t;
         gettimeofday(&t, nullptr);
         double seconds = tv_diff(t, s->t0);    
         if (seconds >= DELTA_DROP_WARN_INT_SEC) {
                 delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
-                                       "received", false);
+                                       "received");
                 s->t0 = t;
         }
         

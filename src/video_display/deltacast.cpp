@@ -199,7 +199,7 @@ static bool display_deltacast_putf(void *state, struct video_frame *frame, long 
         double seconds = tv_diff(tv, s->tv);
         if (seconds >= DELTA_DROP_WARN_INT_SEC) {
                 delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast,
-                                       "sent", false);
+                                       "sent");
                 s->tv = tv;
         }
 
@@ -449,9 +449,6 @@ static void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         assert(s != nullptr);
-
-        delta_print_slot_stats(s->StreamHandle, &s->SlotsDroppedLast, "sent",
-                               true);
 
         if (s->SlotHandle != nullptr) {
                 VHD_UnlockSlotHandle(s->SlotHandle);
