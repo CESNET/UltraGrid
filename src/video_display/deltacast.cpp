@@ -65,7 +65,7 @@
 #include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "utils/ring_buffer.h"
 
-#define DELTACAST_MAGIC 0x01005e02
+#define DELTACAST_MAGIC to_fourcc('v', 'd', 'D', 'C')
 #define MOD_NAME "[DELTACAST] "
 
 struct state_deltacast {
@@ -84,8 +84,8 @@ struct state_deltacast {
 
         pthread_mutex_t     lock;
 
-        unsigned int play_audio:1;
-        unsigned int audio_configured:1;
+        bool                play_audio;
+        bool                audio_configured;
         VHD_AUDIOINFO     AudioInfo;
         SHORT            *pSample;
         struct audio_desc  audio_desc;
@@ -388,20 +388,9 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
-        s->frames = 0;
-        
         gettimeofday(&s->tv, NULL);
         pthread_mutex_init(&s->lock, NULL);
-        
-        s->started = false;
-        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
-                s->play_audio = TRUE;
-        } else {
-                s->play_audio = FALSE;
-        }
-        
-        s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
-        s->audio_configured = FALSE;
+        s->play_audio = (flags & DISPLAY_FLAG_AUDIO_EMBEDDED) != 0U;
         
         char *tmp = strdup(fmt);
         if (!parse_fmt(s, tmp, &BrdId, &NbRxRequired, &NbTxRequired)) {
@@ -413,9 +402,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08" PRIX_ULONG "\n",
-                                Result);
+                DELTA_PRINT_ERROR(Result, "Cannot query VideoMasterHD");
                 HANDLE_ERROR
         }
         if (NbBoards == 0) {
@@ -432,7 +419,9 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu_ULONG " handle. Result = 0x%08" PRIX_ULONG "\n", BrdId, Result);
+                DELTA_PRINT_ERROR(
+                    Result, "Cannot open DELTA board %" PRIu_ULONG " handle",
+                    BrdId);
                 HANDLE_ERROR
         }
 
