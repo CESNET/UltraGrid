@@ -278,6 +278,11 @@ void Ptp_clock::ptp_worker_event(){
                 if(pkt.buflen == 0)
                         continue;
 
+                Ptp_hdr hdr = parse_ptp_header(pkt.buf, pkt.buflen);
+                if(!hdr.valid){
+                        continue;
+                }
+
                 ring_buffer_write(event_pkt_ring.get(), reinterpret_cast<const char*>(&pkt), sizeof(pkt));
 
         }
