@@ -139,23 +139,35 @@ struct vidcap_deltacast_dvi_state {
 
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 
-const static map<VHD_DV_EEDID_PRESET, const char *> edid_presets = {
-        { VHD_DV_EEDID_EMPTY,           "empty E-EDID - the host should force its output regardless of the DELTA-dvi E-EDID" },
-        { VHD_DV_EEDID_DVIA,            "DVI-A E-EDID" },
-        { VHD_DV_EEDID_DVID,            "DVI-D E-EDID" },
-        { VHD_DV_EEDID_HDMI,            "HDMI E-EDID" },
-        { VHD_DV_EEDID_DVID_DUAL,       "DVI-D E-EDID with dual-link formats" },
-        { VHD_DV_EEDID_HDMI_H4K,        "HDMI H4K E-EDID" },
-        { VHD_DV_EEDID_DVID_H4K,        "DVI-D H4K E-EDID" },
+static const char *
+get_edid_preset_name(VHD_DV_EEDID_PRESET preset)
+{
+        switch (preset) {
+        case VHD_DV_EEDID_EMPTY:          return  "empty E-EDID - the host should force its output regardless of the DELTA-dvi E-EDID";
+        case VHD_DV_EEDID_DVIA:           return  "DVI-A E-EDID";
+        case VHD_DV_EEDID_DVID:           return  "DVI-D E-EDID";
+        case VHD_DV_EEDID_HDMI:           return  "HDMI E-EDID";
+        case VHD_DV_EEDID_DVID_DUAL:      return  "DVI-D E-EDID with dual-link formats";
+        case VHD_DV_EEDID_HDMI_H4K:       return  "HDMI H4K E-EDID";
+        case VHD_DV_EEDID_DVID_H4K:       return  "DVI-D H4K E-EDID";
 #if defined VHD_MIN_6_00
-        { VHD_DV_EEDID_HDMI_H4K2,       "HDMI H4K2 E-EDID" },
-        { VHD_DV_EEDID_DVID_H4K2,       "DVI-D H4K2 E-EDID" },
-        { VHD_DV_EEDID_DISPLAYPORT_1_2, "DisplayPort 1.2 E-EDID" },
-        { VHD_DV_EEDID_HDMI_FLEX_HMI,   "HDMI FLEX-HMI E-EDID" },
-        { VHD_DV_EEDID_DVID_FLEX_HMI,   "DVI-D FLEX-HMI E-EDID" },
+       case  VHD_DV_EEDID_HDMI_H4K2:       return "HDMI H4K2 E-EDID";
+       case  VHD_DV_EEDID_DVID_H4K2:       return "DVI-D H4K2 E-EDID";
+       case  VHD_DV_EEDID_DISPLAYPORT_1_2: return "DisplayPort 1.2 E-EDID";
+       case  VHD_DV_EEDID_HDMI_FLEX_HMI:   return "HDMI FLEX-HMI E-EDID";
+       case  VHD_DV_EEDID_DVID_FLEX_HMI:   return "DVI-D FLEX-HMI E-EDID";
 #endif
-        { (VHD_DV_EEDID_PRESET) -1,     "avoid E-EDID loading" },
-};
+#if defined VHD_MIN_6_30
+       case VHD_DV_EEDID_HDMI_12GxC_HMI:      return "HDMI 12G-xC-hmi E-EDID";
+       case VHD_DV_EEDID_DVID_12GxC_HMI:      return "DVI-D 12G-xC-hmi E-EDID";
+       case VHD_DV_EEDID_HDMI_DELTA_HMI:      return "HDMI DELTA-hmi E-EDID";
+       case VHD_DV_EEDID_HDMI_DELTA_HMI_FRL3: return "HDMI DELTA-hmi E-EDID FRL1/2/3 Support";
+       case VHD_DV_EEDID_HDMI_DELTA_HMI_FRL5: return "HDMI DELTA-hmi E-EDID FRL1/2/3/4/5 Support";
+#endif
+       case NB_VHD_DV_EEDID_PRESET: abort();
+       }
+       return nullptr; // can occur if new presets add to SDK
+}
 
 static void
 usage(bool full)
@@ -172,8 +184,14 @@ usage(bool full)
               << MAX_DELTA_CH << ")\n";
 
         col() << SBOLD("\t<preset>") << " may be one of following\n";
-        for (const auto &it : edid_presets) {
-                col() << SBOLD("\t\t " << setw(2) << it.first) << " - " << it.second << "\n";
+        for (unsigned i = 0; i < NB_VHD_DV_EEDID_PRESET; ++i) {
+                const char *preset_name =
+                    get_edid_preset_name((VHD_DV_EEDID_PRESET) i);
+                if (preset_name == nullptr) {
+                        continue;
+                }
+                col() << "\t\t " << setw(2) << SBOLD(i) << " - " << preset_name
+                      << "\n";
         }
 
         col() << SBOLD("\t<color_spec>") << " may be one of following\n";
