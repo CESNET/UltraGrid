@@ -224,22 +224,14 @@ static void vidcap_deltacast_dvi_probe(device_info **available_cards, int *count
         }
 
         *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-        *count = NbBoards;
         for (ULONG i = 0; i < NbBoards; ++i) {
-                ULONG BoardType;
-                HANDLE BoardHandle = NULL;
-                Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
-                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-                const char *board = "Unknown board type";
-                if (Result == VHDERR_NOERROR)
-                {
-                        board = delta_get_board_type_name(BoardType);
+                if (!delta_board_type_is_dv(i)) { // skip SDI baords
+                        continue;
                 }
-                VHD_CloseBoardHandle(BoardHandle);
-
-                auto& card = (*available_cards)[i];
+                auto &card = (*available_cards)[*count];
                 snprintf(card.dev, sizeof card.dev, ":device=%" PRIu_ULONG, i);
-                snprintf_ch(card.name, "DELTACAST %s #%" PRIu_ULONG, board, i);
+                snprintf_ch(card.name, "DELTACAST %s", delta_get_model_name(i));
+                *count += 1;
         }
 }
 

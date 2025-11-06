@@ -81,8 +81,8 @@ get_board_type(ULONG BoardIndex)
         return (VHD_BOARDTYPE) BoardType;
 }
 
-static const char *
-get_model_name(ULONG BoardIndex)
+const char *
+delta_get_model_name(ULONG BoardIndex)
 {
         thread_local char buf[128];
 #if !defined VHD_MIN_6_00
@@ -306,7 +306,7 @@ static void
 print_board_info(int BoardIndex, ULONG DllVersion, bool full)
 {
         color_printf("\tBoard " TBOLD("%d") ": " TBOLD("%s") "\n", BoardIndex,
-                     get_model_name(BoardIndex));
+                     delta_get_model_name(BoardIndex));
 
         ULONG  DriverVersion = 0U;
         HANDLE BoardHandle   = nullptr;

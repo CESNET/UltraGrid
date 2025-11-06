@@ -144,16 +144,21 @@ static void vidcap_deltacast_probe(device_info **available_cards, int *count, vo
 
         ULONG             Result,DllVersion,NbBoards;
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
-        if (Result == VHDERR_NOERROR) {
-                *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-                *count = NbBoards;
-                for (ULONG i = 0; i < NbBoards; ++i) {
-                        auto& card = (*available_cards)[i];
-                        snprintf(card.dev, sizeof(card.dev), ":device=%" PRIu_ULONG, i);
-                        snprintf(card.name, sizeof(card.name), "DELTACAST SDI board %" PRIu_ULONG, i);
-                        snprintf(card.extra, sizeof(card.extra), "\"embeddedAudioAvailable\":\"t\"");
+        if (Result != VHDERR_NOERROR) {
+                return;
+        }
+        *available_cards =
+            (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
+        for (ULONG i = 0; i < NbBoards; ++i) {
+                if (delta_board_type_is_dv(i)) { // skip DVI/HDMI boards
+                        continue;
                 }
-	}
+                auto &card = (*available_cards)[*count];
+                snprintf_ch(card.dev, ":device=%" PRIu_ULONG, i);
+                snprintf_ch(card.name, "DELTACAST %s", delta_get_model_name(i));
+                snprintf_ch(card.extra, "\"embeddedAudioAvailable\":\"t\"");
+                *count += 1;
+        }
 }
 
 class delta_init_exception {

@@ -312,26 +312,18 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
         /* Query DELTA boards information */
         for (ULONG i = 0; i < NbBoards; i++)
         {
-                ULONG BoardType;
-                HANDLE            BoardHandle = NULL;
-                ULONG Result = VHD_OpenBoardHandle(i,&BoardHandle,NULL,0);
-                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-
+                if (delta_board_type_is_dv(i)) { // skip DVI/HDMI boards
+                        continue;
+                }
                 *count += 1;
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
                 snprintf((*available_cards)[*count - 1].dev, sizeof (*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
                 snprintf((*available_cards)[*count - 1].extra, sizeof (*available_cards)[*count - 1].extra, R"("embeddedAudioAvailable":"t")");
+                snprintf_ch((*available_cards)[*count - 1].name, "DELTACAST %s",
+                            delta_get_model_name(i));
                 (*available_cards)[*count - 1].repeatable = false;
-
-                if (Result == VHDERR_NOERROR)
-                {
-                        const char *board = delta_get_board_type_name(BoardType);
-                        snprintf_ch((*available_cards)[*count - 1].name,
-                                    "DELTACAST %s", board);
-                        VHD_CloseBoardHandle(BoardHandle);
-                }
         }
 
 }
