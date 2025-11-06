@@ -1048,8 +1048,9 @@ delta_board_type_is_dv(ULONG BoardIndex)
                BoardType == VHD_BOARDTYPE_HDMI20 ||
                BoardType == VHD_BOARDTYPE_FLEX_DP ||
                BoardType == VHD_BOARDTYPE_FLEX_HMI ||
-               BoardType == VHD_BOARDTYPE_MIXEDINTERFACE;
-#else
-               false;
 #endif
+#if defined VHD_MIN_6_21
+               BoardType == VHD_BOARDTYPE_MIXEDINTERFACE ||
+#endif
+               false;
 }
