@@ -111,7 +111,7 @@ show_help(bool full)
 
         print_available_delta_boards(full);
 
-        printf("\nDefault board is 0.\n");
+        printf("Default board is 0.\n");
 }
 
 static struct video_frame *

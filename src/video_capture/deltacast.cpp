@@ -111,7 +111,6 @@ usage(bool full)
         color_printf("\t" TBOLD("codec") " - pixel format to capture (see list below)\n");
 
         print_available_delta_boards(full);
-        printf("\n");
 
         if (full) {
                 printf("Available modes:\n");
@@ -133,8 +132,9 @@ usage(bool full)
         printf("\tv210\n");
         printf("\traw\n");
 
-        printf("\nDefault board is 0. If mode is omitted, it will be autodetected "
-                        "(except of UHD modes). Default codec is UYVY.\n");
+        printf("\nDefault board is 0, codec is UYVY.\n");
+        printf("This module handles SDI devices, for DP/HDMI ones, use "
+               "'deltacast-dv' capture device.\n");
 }
 
 static void vidcap_deltacast_probe(device_info **available_cards, int *count, void (**deleter)(void *))
@@ -517,7 +517,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         if (!delta_chn_type_is_sdi(ChnType)) {
                 MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
                 if (delta_board_type_is_dv(BrdId)) {
-                        MSG(NOTICE, "Use 'deltacast_dv' capture device\n");
+                        MSG(NOTICE, "Use 'deltacast-dv' capture device\n");
                 }
                 HANDLE_ERROR
         }
