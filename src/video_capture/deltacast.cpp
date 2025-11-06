@@ -139,6 +139,7 @@ usage(bool full)
 
 static void vidcap_deltacast_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        *count = 0;
         *deleter = free;
 
         ULONG             Result,DllVersion,NbBoards;
