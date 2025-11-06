@@ -150,7 +150,7 @@ static void vidcap_deltacast_probe(device_info **available_cards, int *count, vo
         *available_cards =
             (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
         for (ULONG i = 0; i < NbBoards; ++i) {
-                if (delta_board_type_is_dv(i)) { // skip DVI/HDMI boards
+                if (delta_board_type_is_dv(i, false)) { // skip DVI/HDMI-only boards
                         continue;
                 }
                 auto &card = (*available_cards)[*count];
@@ -516,7 +516,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
         VHD_GetBoardProperty(s->BoardHandle, Property, &ChnType);
         if (!delta_chn_type_is_sdi(ChnType)) {
                 MSG(ERROR, "ERROR : The selected channel is not a SDI one\n");
-                if (delta_board_type_is_dv(BrdId)) {
+                if (delta_board_type_is_dv(BrdId, false)) {
                         MSG(NOTICE, "Use 'deltacast-dv' capture device\n");
                 }
                 HANDLE_ERROR

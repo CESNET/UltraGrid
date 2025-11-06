@@ -1039,18 +1039,18 @@ delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
 }
 
 bool
-delta_board_type_is_dv(ULONG BoardIndex)
+delta_board_type_is_dv(ULONG BoardIndex, [[maybe_unused]] bool include_mixed)
 {
         const ULONG BoardType = get_board_type(BoardIndex);
         return BoardType == VHD_BOARDTYPE_DVI ||
                BoardType == VHD_BOARDTYPE_HDMI ||
 #if defined VHD_MIN_6_00
                BoardType == VHD_BOARDTYPE_HDMI20 ||
-               BoardType == VHD_BOARDTYPE_FLEX_DP ||
-               BoardType == VHD_BOARDTYPE_FLEX_HMI ||
+               (include_mixed && BoardType == VHD_BOARDTYPE_FLEX_DP) ||
+               (include_mixed && BoardType == VHD_BOARDTYPE_FLEX_HMI) ||
 #endif
 #if defined VHD_MIN_6_21
-               BoardType == VHD_BOARDTYPE_MIXEDINTERFACE ||
+               (include_mixed && BoardType == VHD_BOARDTYPE_MIXEDINTERFACE) ||
 #endif
                false;
 }
