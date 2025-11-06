@@ -187,7 +187,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 
         /* Wait for channel locked */
         Result =
-#ifdef VHD_MIN_6_21
+#ifdef VHD_MIN_6_30
             /* Check Dual and Link A status */
             VHD_GetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, s->channel,
                                    VHD_CORE_CP_STATUS, &Status);
@@ -212,7 +212,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 
         /* Auto-detect clock system */
         Result =
-#ifdef VHD_MIN_6_21
+#ifdef VHD_MIN_6_30
             VHD_GetChannelProperty(s->BoardHandle, VHD_RX_CHANNEL, s->channel,
                                    VHD_SDI_CP_CLOCK_DIVISOR, &s->ClockSystem);
 #else
@@ -524,7 +524,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         for (ULONG i = s->channel; i < s->channel + (s->quad_channel ? 4 : 1);
              i++) {
-#ifdef VHD_MIN_6_21
+#ifdef VHD_MIN_6_30
                 /*Channel mode Setup*/
                 if ((ChnType == VHD_CHNTYPE_3GSDI_ASI) ||
                     (ChnType == VHD_CHNTYPE_12GSDI_ASI)) {

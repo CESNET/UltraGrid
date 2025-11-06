@@ -122,14 +122,18 @@
         #ifdef VHD_CORE_BP_BYPASS_RELAY_0
 // enum membber until 6.20, macro since 6.21
                 #define VHD_MIN_6_21 1
-#endif
-#if !defined VHD_MIN_6_21 && !defined VHD_IS_6_20 // 6.19 or 6.20
+        #endif
+        #if !defined VHD_MIN_6_21 && !defined VHD_IS_6_20 // 6.19 or 6.20
                 #warning cannot determine if VideoMaster is 6.19 or 6.20 - \
                         assuming 6.20. Pass -DVHD_IS_6_19 (or 6_20) to enforce \
                         specific version.
-#endif
+        #endif
         #define VHD_MIN_6_20 1
         #define VHD_MIN_6_19 1
+#endif
+
+#ifdef HAVE_VHD_STRING
+        #define VHD_MIN_6_30 1
 #endif
 
 // compat
