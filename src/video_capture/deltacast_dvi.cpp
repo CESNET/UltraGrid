@@ -3,6 +3,8 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
+ * code is written by DELTACAST's VideoMaster SDK example Sample_RX_DVI
+ *
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
@@ -386,49 +388,40 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 VHD_DV_CS       InputCS;
                 ULONG             PxlClk = 0;
                 /* Get auto-detected resolution */
-                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
-                else
+                if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width)) != VHDERR_NOERROR) {
                         printf("ERROR : Cannot detect incoming active width from RX0. "
                                         "Result = 0x%08" PRIX_ULONG "\n", Result);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
-                else
-                        printf("ERROR : Cannot detect incoming active height from RX0. "
-                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
-                else
-                        printf("ERROR : Cannot detect if incoming stream from RX0 is "
-                                        "interlaced or progressive. Result = 0x%08" PRIX_ULONG "\n", Result);
-
-                if (Result == VHDERR_NOERROR) {
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
-                        if(s->BoardType == VHD_BOARDTYPE_HDMI)
-                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS);
-                        else
-                                printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
-                                                delta_get_error_description(Result));
-                }
-
-                if (Result == VHDERR_NOERROR) {
-                        if (s->BoardType == VHD_BOARDTYPE_HDMI)
-                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk);
-                        else
-                                printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
-                                                delta_get_error_description(Result));
-                }
-
-                if(Result == VHDERR_NOERROR)
-                        printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
-                else
-                        printf("ERROR : Cannot detect incoming refresh rate from RX0. "
-                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
-
-                if(Result != VHDERR_NOERROR) {
                         return false;
                 }
+                if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height)) != VHDERR_NOERROR) {
+                        printf("ERROR : Cannot detect incoming active height from RX0. "
+                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
+                        return false;
+                }
+                if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B)) != VHDERR_NOERROR) {
+                        printf("ERROR : Cannot detect if incoming stream from RX0 is "
+                                        "interlaced or progressive. Result = 0x%08" PRIX_ULONG "\n", Result);
+                        return false;
+                }
+                if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate)) != VHDERR_NOERROR) {
+                        printf("ERROR : Cannot detect incoming refresh rate from RX0. Result = 0x%08" PRIX_ULONG "\n",Result);
+                        return false;
+                }
+
+                if (s->BoardType == VHD_BOARDTYPE_HDMI) {
+                        if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS)) != VHDERR_NOERROR) {
+                                printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
+                                        delta_get_error_description(Result));
+                                return false;
+                        }
+                        if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk)) != VHDERR_NOERROR) {
+                                printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
+                                                delta_get_error_description(Result));
+                                return false
+                        }
+                }
+
+                printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
 
                 /* Configure stream. Only VHD_DVI_SP_ACTIVE_WIDTH, VHD_DVI_SP_ACTIVE_HEIGHT and
                    VHD_DVI_SP_INTERLACED properties are required for HDMI and Component
