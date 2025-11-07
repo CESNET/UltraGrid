@@ -51,7 +51,7 @@
 #include "utils/color_out.h"
 #include "video_frame.h"         // for get_interlacing_suffix
 
-#if !defined VHD_MIN_6_00
+#if !defined VHD_MIN_6_19
 #define VHD_GetPCIeIdentificationString(BoardIndex, pIdString_c) \
         snprintf_ch(pIdString_c, "UNKNOWN")
 #endif
@@ -204,9 +204,11 @@ delta_get_error_description(ULONG CodeError)
 #ifdef VHD_MIN_6_00
         case VHDERR_INVALIDACCESSRIGHT:
                 return "Invalid access right";
+#endif // defined VHD_MIN_6_00
+#ifdef VHD_MIN_6_19
         case VHDERR_INVALIDCAPABILITY:
                 return "Invalid capability index";
-#endif // defined VHD_MIN_6_00
+#endif // defined VHD_MIN_6_19
 #ifdef DELTA_DVI_DEPRECATED
         case VHDERR_DEPRECATED:
                 return "Symbol is deprecated";
@@ -366,7 +368,7 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
                              &NbRxChannels);
         VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_TXCHANNELS,
                              &NbTxChannels);
-#if defined VHD_MIN_6_00
+#if defined VHD_MIN_6_19
         VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_PRODUCT_VERSION,
                              &ProductVersion);
 #endif
@@ -713,7 +715,7 @@ delta_set_loopback_state(HANDLE BoardHandle, int ChannelIndex, BOOL32 State)
         }
 }
 
-#if !defined VHD_MIN_6_00
+#if !defined VHD_MIN_6_13
 struct deltacast_mode_info {
         unsigned int       width;
         unsigned int       height;
@@ -1056,6 +1058,8 @@ delta_board_type_is_dv(VHD_BOARDTYPE         BoardType,
         case VHD_BOARDTYPE_ASI: return false;
 #if defined VHD_MIN_6_00
         case VHD_BOARDTYPE_IP: return false;
+#endif
+#if defined VHD_MIN_6_13
         case VHD_BOARDTYPE_HDMI20: return true;
         case VHD_BOARDTYPE_FLEX_DP: return include_mixed;
         case VHD_BOARDTYPE_FLEX_SDI: return false;

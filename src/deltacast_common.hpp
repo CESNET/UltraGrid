@@ -100,8 +100,12 @@
 
 #include "types.h"
 
+#if defined ENUMBASE_DV
+#define VHD_MIN_6_13 1
+#endif
+
 #if defined VHD_DV_SP_INPUT_CS // (VideoMasterHD 6.14)
-#define DELTA_DVI_DEPRECATED 1
+#define VHD_MIN_6_14 1
 #endif
 
 // VHD_MIN_X_YZ defined below means that the SDK version is at least X.YZ
@@ -137,7 +141,7 @@
 #endif
 
 // compat
-#ifdef DELTA_DVI_DEPRECATED
+#ifdef VHD_MIN_6_14
 #define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
 #define VHD_BOARDTYPE_HDKEY VHD_BOARDTYPE_HDKEY_DEPRECATED
 #endif
@@ -145,19 +149,18 @@
 // bring any new define and thus it is undistinguishable from 6.19. As a
 // consequence, it won't compile with 6.19.
 #if defined VHD_MIN_6_20
-#define VHD_BOARDTYPE_SD VHD_BOARDTYPE_SD_DEPRECATED
-#define VHD_BOARDTYPE_SDKEY VHD_BOARDTYPE_SDKEY_DEPRECATED
-#define VHD_CHNTYPE_SDSDI VHD_CHNTYPE_SDSDI_DEPRECATED
-#ifndef VHD_CORE_BP_BYPASS_RELAY_0 // not defined in 6.20
-// VHD_BOARDTYPE_HDMI is not deprecated anymore in 6.21
-#define VHD_BOARDTYPE_HDMI VHD_BOARDTYPE_HDMI_DEPRECATED
-#endif
+        #define VHD_BOARDTYPE_SD VHD_BOARDTYPE_SD_DEPRECATED
+        #define VHD_BOARDTYPE_SDKEY VHD_BOARDTYPE_SDKEY_DEPRECATED
+        #define VHD_CHNTYPE_SDSDI VHD_CHNTYPE_SDSDI_DEPRECATED
+        #if !defined VHD_MIN_6_21 // HDMI deprecatedd just in 6.20
+                #define VHD_BOARDTYPE_HDMI VHD_BOARDTYPE_HDMI_DEPRECATED
+        #endif
 #else
         #define VHD_CHNTYPE_3GSDI_ASI VHD_CHNTYPE_DISABLE
         #define VHD_CHNTYPE_12GSDI_ASI VHD_CHNTYPE_DISABLE
 #endif // not defined VHD_MIN_6_20
 
-#if defined VHD_MIN_6_00
+#if defined VHD_MIN_6_13
         #define VHD_BOARDTYPE_FLEX VHD_BOARDTYPE_FLEX_DEPRECATED
 #else
         #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE

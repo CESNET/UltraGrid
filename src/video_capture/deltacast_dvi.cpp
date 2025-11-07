@@ -93,7 +93,7 @@ struct vidcap_deltacast_dvi_state {
 #define BADEEDID 1
 
 // compat
-#if !defined VHD_MIN_6_00
+#if !defined VHD_MIN_6_13
 #define VHD_DV_EEDID_PRESET VHD_DVI_EEDID_PRESET
 #define VHD_DV_EEDID_EMPTY VHD_EEDID_EMPTY
 #define VHD_DV_EEDID_DVIA VHD_EEDID_DVIA
@@ -126,7 +126,7 @@ struct vidcap_deltacast_dvi_state {
 #define NB_VHD_DV_MODES NB_VHD_DVI_MODES
 #endif
 
-#if defined DELTA_DVI_DEPRECATED
+#if defined VHD_MIN_6_14
 #define VHD_DV_EEDID_DVIA VHD_DV_EEDID_DVIA_DEPRECATED
 #define VHD_DV_MODE_DVI_A VHD_DV_MODE_DVI_A_DEPRECATED
 #define VHD_DV_MODE_ANALOG_COMPONENT_VIDEO VHD_DV_MODE_ANALOG_COMPONENT_VIDEO_DEPRECATED
@@ -150,7 +150,7 @@ get_edid_preset_name(VHD_DV_EEDID_PRESET preset)
         case VHD_DV_EEDID_DVID_DUAL:      return  "DVI-D E-EDID with dual-link formats";
         case VHD_DV_EEDID_HDMI_H4K:       return  "HDMI H4K E-EDID";
         case VHD_DV_EEDID_DVID_H4K:       return  "DVI-D H4K E-EDID";
-#if defined VHD_MIN_6_00
+#if defined VHD_MIN_6_13
        case  VHD_DV_EEDID_HDMI_H4K2:       return "HDMI H4K2 E-EDID";
        case  VHD_DV_EEDID_DVID_H4K2:       return "DVI-D H4K2 E-EDID";
        case  VHD_DV_EEDID_DISPLAYPORT_1_2: return "DisplayPort 1.2 E-EDID";
@@ -312,7 +312,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                            standard. Manual setting or overriding of these properties is allowed
                            Resolution, refresh rate and graphic timing standard can be auto-detect
                            with VHD_DetectDviAFormat function */
-#if ! defined DELTA_DVI_DEPRECATED
+#if ! defined VHD_MIN_6_14
                         Result = VHD_DetectDviAFormat(s->StreamHandle,&DviAStd,&Width,&Height,&RefreshRate,
                                         &Interlaced_B);
 #else
