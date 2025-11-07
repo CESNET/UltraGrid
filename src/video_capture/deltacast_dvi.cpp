@@ -3,7 +3,9 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * code is written by DELTACAST's VideoMaster SDK example Sample_RX_DVI
+ * Code is written by DELTACAST's VideoMaster SDK example Sample_RX_DVI
+ * (later SAMPLE_RX_DVI_D). Consulted also VHD 6.32 Sample_RX_DisplayPort
+ * sample.
  *
  * @sa deltacast_common.hpp for common DELTACAST information
  */
@@ -127,6 +129,20 @@ struct vidcap_deltacast_dvi_state {
 #define VHD_DV_BT_VIDEO VHD_DVI_BT_VIDEO
 #define NB_VHD_DV_EEDID_PRESET NB_VHD_EEDID
 #define NB_VHD_DV_MODES NB_VHD_DVI_MODES
+#define NB_VHD_DV_STREAMPROPERTIES NB_VHD_DVI_STREAMPROPERTIES
+#endif
+
+#if !defined VHD_MIN_6_19
+#define VHD_DV_SAMPLING ULONG
+#endif
+
+#if !defined VHD_MIN_6_30
+#define VHD_DV_SP_CABLE_BIT_SAMPLING NB_VHD_DV_STREAMPROPERTIES
+#endif
+
+#if !defined HAVE_VHD_STRING
+#define VHD_DV_SAMPLING_ToString(x) "UNKNOWN"
+#define VHD_DV_CS_ToString(x) "UNKNOWN"
 #endif
 
 #if defined VHD_MIN_6_14
@@ -282,6 +298,9 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         }
 
         printf("\nIncoming Dvi mode detected: ");
+#ifdef HAVE_VHD_STRING
+        puts(VHD_DV_MODE_ToPrettyString(DviMode));
+#else
         switch(DviMode)
         {
                 case VHD_DV_MODE_DVI_D                   : printf("DVI-D\n");break;
@@ -290,6 +309,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 case VHD_DV_MODE_HDMI                    : printf("HDMI\n");break;
                 default                                   : break;
         }
+#endif
 
         /* Disable EDID auto load */
         Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
@@ -341,6 +361,8 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 int Dual_B = FALSE;
                 VHD_DV_CS       InputCS;
                 ULONG             PxlClk = 0;
+                VHD_DV_SAMPLING CableBitSampling;
+
                 /* Get auto-detected resolution */
                 if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width)) != VHDERR_NOERROR) {
                         printf("ERROR : Cannot detect incoming active width from RX0. "
@@ -381,7 +403,15 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         }
                 }
 
-                printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s) %s link\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive", Dual_B ? "Dual" : "Single");
+                if (DviMode == VHD_DV_MODE_DISPLAYPORT) {
+                        if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_CABLE_BIT_SAMPLING,(ULONG*)&CableBitSampling)) != VHDERR_NOERROR) {
+                                DELTA_PRINT_ERROR(Result, "ERROR : Cannot detect incoming cable bit sampling from RX0." );
+                                return false;
+                        }
+                }
+
+                printf("Incoming graphic resolution : %ux%u (%s)\n", Width, Height, Interlaced_B ? "Interlaced" : "Progressive");
+                printf("Refresh rate : %u\n", RefreshRate);
 
                 /* Configure stream. Only VHD_DVI_SP_ACTIVE_WIDTH, VHD_DVI_SP_ACTIVE_HEIGHT and
                    VHD_DVI_SP_INTERLACED properties are required for HDMI and Component
@@ -393,13 +423,21 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,Height);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,Interlaced_B);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE, RefreshRate);
+                if (DviMode == VHD_DV_MODE_DVI_D) {
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,Dual_B);
+                        printf("%s link\n", Dual_B ? "Dual" : "Single");
+                }
                 if (DviMode == VHD_DV_MODE_HDMI || DviMode == VHD_DV_MODE_DISPLAYPORT) {
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS, InputCS);
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK, PxlClk);
+                        printf("Input CS : %s\n", VHD_DV_CS_ToString(InputCS));
+                        printf("Pixel clock : %u\n", PxlClk);
                 }
-                if (DviMode == VHD_DV_MODE_DVI_D) {
-                        VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,Dual_B);
+                if (DviMode == VHD_DV_MODE_DISPLAYPORT) {
+                     VHD_SetStreamProperty(s->StreamHandle, VHD_DV_SP_CABLE_BIT_SAMPLING, CableBitSampling);
+                     printf("Cable bit sampling: %s\n", VHD_DV_SAMPLING_ToString(CableBitSampling));
                 }
+
         }
 
         Result = VHD_StartStream(s->StreamHandle);
@@ -574,8 +612,11 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 goto error;
         }
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_BOARD_TYPE, &s->BoardType);
-        if (s->BoardType != VHD_BOARDTYPE_DVI && s->BoardType != VHD_BOARDTYPE_HDMI) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected board is not an DVI or HDMI one\n");
+        if (not delta_board_type_is_dv((VHD_BOARDTYPE) s->BoardType, true)) {
+                MSG(ERROR,
+                    "ERROR : The selected board is not a DVI, HDMI or DP "
+                    "(flex) one, have: %s\n",
+                    delta_get_board_type_name(s->BoardType));
                 goto bad_channel;
         }
 
@@ -584,8 +625,10 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 goto no_stream;
         }
         Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId,
-                        s->BoardType == VHD_BOARDTYPE_HDMI ? VHD_DV_STPROC_JOINED : VHD_DV_STPROC_DEFAULT,
-                        NULL, &s->StreamHandle, NULL);
+                                      s->BoardType == VHD_BOARDTYPE_DVI
+                                          ? VHD_DV_STPROC_DEFAULT
+                                          : VHD_DV_STPROC_JOINED,
+                                      nullptr, &s->StreamHandle, nullptr);
         if (Result != VHDERR_NOERROR)
         {
                 log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot open RX0 stream on DELTA-DVI board handle. "
