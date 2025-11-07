@@ -109,6 +109,7 @@ struct vidcap_deltacast_dvi_state {
 #define VHD_DV_MODE_DVI_D VHD_DVI_MODE_DVI_D
 #define VHD_DV_MODE_DVI_A VHD_DVI_MODE_DVI_A
 #define VHD_DV_MODE_HDMI VHD_DVI_MODE_HDMI
+#define VHD_DV_MODE_DISPLAYPORT NB_VHD_DV_MODES
 #define VHD_DV_SP_MODE VHD_DVI_SP_MODE
 #define VHD_DV_SP_DISABLE_EDID_AUTO_LOAD VHD_DVI_SP_DISABLE_EDID_AUTO_LOAD
 #define VHD_DV_DVI_A_STANDARD VHD_DVI_A_STANDARD
@@ -335,56 +336,9 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         return false;
                 }
         }
-        else if(DviMode == VHD_DV_MODE_DVI_D)
+        else
         {
                 int Dual_B = FALSE;
-                /* Get auto-detected resolution */
-                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
-                else
-                        printf("ERROR : Cannot detect incoming active width from RX0. "
-                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
-                else
-                        printf("ERROR : Cannot detect incoming active height from RX0. "
-                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
-                else
-                        printf("ERROR : Cannot detect if incoming stream from RX0 is "
-                                        "interlaced or progressive. Result = 0x%08" PRIX_ULONG "\n", Result);
-                if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,(ULONG*)&Dual_B);
-                else
-                        printf("ERROR : Cannot detect incoming refresh rate from RX0. "
-                                        "Result = 0x%08" PRIX_ULONG "\n", Result);
-
-                if(Result == VHDERR_NOERROR)
-                        printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s) %s link\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive", Dual_B ? "Dual" : "Single");
-                else
-                        printf("ERROR : Cannot detect if incoming stream from RX0 is dual or simple link. Result = 0x%08" PRIX_ULONG "\n", Result);
-
-                if(Result != VHDERR_NOERROR) {
-                        return false;
-                }
-
-                /* Configure stream. Only VHD_DVI_SP_ACTIVE_WIDTH, VHD_DVI_SP_ACTIVE_HEIGHT and
-                   VHD_DVI_SP_INTERLACED properties are required for DVI-D.
-                   VHD_DVI_SP_REFRESH_RATE,VHD_DVI_SP_DUAL_LINK are optional
-                   VHD_DVI_SP_PIXEL_CLOCK, VHD_DVI_SP_TOTAL_WIDTH, VHD_DVI_SP_TOTAL_HEIGHT,
-                   VHD_DVI_SP_H_SYNC, VHD_DVI_SP_H_FRONT_PORCH, VHD_DVI_SP_V_SYNC and
-                   VHD_DVI_SP_V_FRONT_PORCH properties are not applicable for DVI-D */
-
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,Width);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,Height);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,Interlaced_B);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,RefreshRate);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,Dual_B);
-        }
-        else if(DviMode == VHD_DV_MODE_HDMI || DviMode == VHD_DV_MODE_ANALOG_COMPONENT_VIDEO)
-        {
                 VHD_DV_CS       InputCS;
                 ULONG             PxlClk = 0;
                 /* Get auto-detected resolution */
@@ -408,7 +362,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         return false;
                 }
 
-                if (s->BoardType == VHD_BOARDTYPE_HDMI) {
+                if (DviMode == VHD_DV_MODE_HDMI || DviMode == VHD_DV_MODE_DISPLAYPORT) {
                         if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS)) != VHDERR_NOERROR) {
                                 printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
                                         delta_get_error_description(Result));
@@ -417,11 +371,17 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk)) != VHDERR_NOERROR) {
                                 printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08" PRIX_ULONG " (%s)\n", Result,
                                                 delta_get_error_description(Result));
-                                return false
+                                return false;
+                        }
+                }
+                if (DviMode == VHD_DV_MODE_DVI_D) {
+                        if ((Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,(ULONG*)&Dual_B)) != VHDERR_NOERROR) {
+                                printf("ERROR : Cannot detect if incoming stream from RX0 is dual or simple link. Result = 0x%08" PRIX_ULONG "\n", Result);
+                                return false;
                         }
                 }
 
-                printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
+                printf("\nIncoming graphic resolution : %" PRIu_ULONG "x%" PRIu_ULONG " @%" PRIu_ULONG "Hz (%s) %s link\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive", Dual_B ? "Dual" : "Single");
 
                 /* Configure stream. Only VHD_DVI_SP_ACTIVE_WIDTH, VHD_DVI_SP_ACTIVE_HEIGHT and
                    VHD_DVI_SP_INTERLACED properties are required for HDMI and Component
@@ -433,9 +393,12 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,Height);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,Interlaced_B);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE, RefreshRate);
-                if (s->BoardType == VHD_BOARDTYPE_HDMI) {
+                if (DviMode == VHD_DV_MODE_HDMI || DviMode == VHD_DV_MODE_DISPLAYPORT) {
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS, InputCS);
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK, PxlClk);
+                }
+                if (DviMode == VHD_DV_MODE_DVI_D) {
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,Dual_B);
                 }
         }
 
