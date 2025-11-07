@@ -157,7 +157,9 @@
         #define VHD_CHNTYPE_12GSDI_ASI VHD_CHNTYPE_DISABLE
 #endif // not defined VHD_MIN_6_20
 
-#if !defined VHD_MIN_6_00
+#if defined VHD_MIN_6_00
+        #define VHD_BOARDTYPE_FLEX VHD_BOARDTYPE_FLEX_DEPRECATED
+#else
         #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE
 #endif
 
@@ -205,8 +207,9 @@ const char *delta_get_board_type_name(ULONG BoardType);
 bool        delta_chn_type_is_sdi(ULONG ChnType);
 void        delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
                                    const char *action);
-bool        delta_board_type_is_dv(ULONG BoardIndex, bool include_mixed);
-const char *delta_get_model_name(ULONG BoardIndex);
+VHD_BOARDTYPE delta_get_board_type(ULONG BoardIndex);
+bool          delta_board_type_is_dv(VHD_BOARDTYPE BoardType, bool include_mixed);
+const char   *delta_get_model_name(ULONG BoardIndex);
 
 #ifdef HAVE_VHD_STRING
         #define DELTA_PRINT_ERROR(error_code, error_message, ...) \

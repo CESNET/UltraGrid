@@ -312,8 +312,8 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
         /* Query DELTA boards information */
         for (ULONG i = 0; i < NbBoards; i++)
         {
-                if (delta_board_type_is_dv(i, false)) { // skip DVI/HDMI-only boards
-                        continue;
+                if (delta_board_type_is_dv(delta_get_board_type(i), false)) {
+                        continue; // skip DVI/HDMI-only boards
                 }
                 *count += 1;
                 *available_cards = (struct device_info *)

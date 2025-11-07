@@ -58,8 +58,8 @@
 
 #define MOD_NAME "[DELTACAST] "
 
-static VHD_BOARDTYPE
-get_board_type(ULONG BoardIndex)
+VHD_BOARDTYPE
+delta_get_board_type(ULONG BoardIndex)
 {
         HANDLE BoardHandle = nullptr;
         ULONG  BoardType     = 0U;
@@ -87,7 +87,7 @@ delta_get_model_name(ULONG BoardIndex)
         thread_local char buf[128];
 #if !defined VHD_MIN_6_00
 #define VHD_GetBoardModel(BoardIndex) \
-        delta_get_board_type_name(get_board_type(BoardIndex))
+        delta_get_board_type_name(delta_get_board_type(BoardIndex))
 #endif
         snprintf_ch(buf, "%s #%" PRIu_ULONG,
                     VHD_GetBoardModel(BoardIndex),
@@ -1039,18 +1039,30 @@ delta_print_slot_stats(HANDLE StreamHandle, ULONG *SlotsDroppedLast,
 }
 
 bool
-delta_board_type_is_dv(ULONG BoardIndex, [[maybe_unused]] bool include_mixed)
+delta_board_type_is_dv(VHD_BOARDTYPE         BoardType,
+                       [[maybe_unused]] bool include_mixed)
 {
-        const ULONG BoardType = get_board_type(BoardIndex);
-        return BoardType == VHD_BOARDTYPE_DVI ||
-               BoardType == VHD_BOARDTYPE_HDMI ||
+        switch (BoardType) {
+        case VHD_BOARDTYPE_HD: return false;
+        case VHD_BOARDTYPE_HDKEY: return false;
+        case VHD_BOARDTYPE_SD: return false;
+        case VHD_BOARDTYPE_SDKEY: return false;
+        case VHD_BOARDTYPE_DVI: return true;
+        case VHD_BOARDTYPE_CODEC: return include_mixed; // _MIXEDINTERFACE
+        case VHD_BOARDTYPE_3G: return false;
+        case VHD_BOARDTYPE_3GKEY: return false;
+        case VHD_BOARDTYPE_HDMI: return true;
+        case VHD_BOARDTYPE_FLEX: return include_mixed;
+        case VHD_BOARDTYPE_ASI: return false;
 #if defined VHD_MIN_6_00
-               BoardType == VHD_BOARDTYPE_HDMI20 ||
-               (include_mixed && BoardType == VHD_BOARDTYPE_FLEX_DP) ||
-               (include_mixed && BoardType == VHD_BOARDTYPE_FLEX_HMI) ||
+        case VHD_BOARDTYPE_IP: return false;
+        case VHD_BOARDTYPE_HDMI20: return true;
+        case VHD_BOARDTYPE_FLEX_DP: return include_mixed;
+        case VHD_BOARDTYPE_FLEX_SDI: return false;
+        case VHD_BOARDTYPE_12G: return false;
+        case VHD_BOARDTYPE_FLEX_HMI: return include_mixed;
 #endif
-#if defined VHD_MIN_6_21
-               (include_mixed && BoardType == VHD_BOARDTYPE_MIXEDINTERFACE) ||
-#endif
-               false;
+        case NB_VHD_BOARDTYPES: return false;
+        }
+        return false;
 }

@@ -243,8 +243,8 @@ static void vidcap_deltacast_dvi_probe(device_info **available_cards, int *count
 
         *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
         for (ULONG i = 0; i < NbBoards; ++i) {
-                if (!delta_board_type_is_dv(i, true)) { // skip SDI baords
-                        continue;
+                if (!delta_board_type_is_dv(delta_get_board_type(i), true)) {
+                        continue; // skip SDI-only boards
                 }
                 auto &card = (*available_cards)[*count];
                 snprintf(card.dev, sizeof card.dev, ":device=%" PRIu_ULONG, i);
