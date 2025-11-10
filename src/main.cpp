@@ -222,9 +222,10 @@ print_help_item(const string &name, initializer_list<string> help)
         cout << "\n";
 }
 
-static void usage(const char *exec_path, bool full = false)
+static void
+usage(bool full = false)
 {
-        col() << "Usage: " << SBOLD(SRED((exec_path ? exec_path : "<executable_path>")) << " [options] address\n\n");
+        col() << "Usage: " << SBOLD(SRED((uv_argv[0])) << " [options] address\n\n");
         printf("Options:\n");
         print_help_item("-h | -H, --fullhelp", {"show usage (basic/full)"});
         print_help_item("-d <display_device>", {"select display device, use '-d help'",
@@ -862,7 +863,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'h':
-                        usage(uv_argv[0], false);
+                        usage(false);
                         return 1;
                 case 'P':
                         if (!parse_port(optarg, opt)) {
@@ -911,7 +912,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->audio.echo_cancellation = true;
                         break;
                 case 'H':
-                        usage(uv_argv[0], true);
+                        usage(true);
                         return 1;
                 case 'D':
                         if (int ret = parse_cuda_device(optarg)) {
