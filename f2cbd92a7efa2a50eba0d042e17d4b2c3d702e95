@@ -1,0 +1,28 @@
+Full error output:
+```
+Compiling src/main.cpp...
+In file included from /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++allocator.h:33,
+                 from /usr/include/c++/15.2.1/bits/allocator.h:46,
+                 from /usr/include/c++/15.2.1/string:45,
+                 from /usr/include/c++/15.2.1/bits/locale_classes.h:42,
+                 from /usr/include/c++/15.2.1/bits/ios_base.h:43,
+                 from /usr/include/c++/15.2.1/ios:46,
+                 from /usr/include/c++/15.2.1/bits/ostream.h:43,
+                 from /usr/include/c++/15.2.1/ostream:42,
+                 from /usr/include/c++/15.2.1/iostream:43,
+                 from src/main.cpp:75:
+In member function ‘void std::__new_allocator<_Tp>::deallocate(_Tp*, size_type) [with _Tp = std::__cxx11::basic_string<char>]’,
+    inlined from ‘static void std::allocator_traits<std::allocator<_CharT> >::deallocate(allocator_type&, pointer, size_type) [with _Tp = std::__cxx11::basic_string<char>]’ at /usr/include/c++/15.2.1/bits/alloc_traits.h:649:23,
+    inlined from ‘void std::_Vector_base<_Tp, _Alloc>::_M_deallocate(pointer, std::size_t) [with _Tp = std::__cxx11::basic_string<char>; _Alloc = std::allocator<std::__cxx11::basic_string<char> >]’ at /usr/include/c++/15.2.1/bits/stl_vector.h:396:19,
+    inlined from ‘void std::_Vector_base<_Tp, _Alloc>::_M_deallocate(pointer, std::size_t) [with _Tp = std::__cxx11::basic_string<char>; _Alloc = std::allocator<std::__cxx11::basic_string<char> >]’ at /usr/include/c++/15.2.1/bits/stl_vector.h:392:7,
+    inlined from ‘std::_Vector_base<_Tp, _Alloc>::~_Vector_base() [with _Tp = std::__cxx11::basic_string<char>; _Alloc = std::allocator<std::__cxx11::basic_string<char> >]’ at /usr/include/c++/15.2.1/bits/stl_vector.h:375:15,
+    inlined from ‘std::vector<_Tp, _Alloc>::~vector() [with _Tp = std::__cxx11::basic_string<char>; _Alloc = std::allocator<std::__cxx11::basic_string<char> >]’ at /usr/include/c++/15.2.1/bits/stl_vector.h:805:7,
+    inlined from ‘void usage(const char*, bool)’ at src/main.cpp:233:24:
+/usr/include/c++/15.2.1/bits/new_allocator.h:172:66: warning: ‘void operator delete(void*, std::size_t)’ called on pointer ‘__result’ with nonzero offset 32 [-Wfree-nonheap-object]
+  172 |         _GLIBCXX_OPERATOR_DELETE(_GLIBCXX_SIZED_DEALLOC(__p, __n));
+      |                                                                  ^
+src/main.cpp: In function ‘void usage(const char*, bool)’:
+src/main.cpp:222:13: note: declared here
+  222 | static void usage(const char *exec_path, bool full = false)
+      |             ^~~~~
+```
