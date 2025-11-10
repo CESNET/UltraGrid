@@ -40,7 +40,7 @@
 #ifndef COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
 #define COMPAT_STRINGS_H_D54CAFC8_A1A0_4FF5_80A0_91F34FB11E12
   
-#include <string.h>
+#include <string.h> // for strerror
 
 #ifdef _WIN32
 #ifndef strcasecmp
@@ -50,7 +50,7 @@
 #define strncasecmp _strnicmp
 #endif // ! defined strncasecmp
 #else // ! defined _WIN32
-#include <strings.h>
+#include <strings.h> // IWYU pragma: export
 #endif // _WIN32
 
 #ifdef __cplusplus

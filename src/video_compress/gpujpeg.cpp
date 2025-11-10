@@ -57,8 +57,7 @@
 #include <utility>                       // for move
 #include <vector>
 
-#include "compat/strings.h"              // IWYU pragma: keep // for strcasecmp
-// IWYU pragma: no_include <strings.h> # via compact/strings.h
+#include "compat/strings.h"              // for strcasecmp
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
