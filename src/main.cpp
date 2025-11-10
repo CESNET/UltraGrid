@@ -72,6 +72,7 @@
 #include <cstring>                      // for strcmp, strlen, strtok_r, strchr
 #include <exception>                    // for exception
 #include <getopt.h>
+#include <initializer_list>             // for initializer_list
 #include <iostream>
 #include <map>                          // for map
 #include <memory>
@@ -199,7 +200,9 @@ static void signal_handler(int signum)
         exit_uv(0);
 }
 
-static void print_help_item(const string &name, const vector<string> &help) {
+static void
+print_help_item(const string &name, initializer_list<string> help)
+{
         int help_lines = 0;
 
         col() << "\t" << TBOLD(<< name <<);
