@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <svt-jpegxs/SvtJpegxsDec.h>
+#include <svt-jpegxs/SvtJpegxsImageBufferTools.h>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -11,16 +12,15 @@
 
 struct state_decompress_jpegxs {
         ~state_decompress_jpegxs() {
-                for (uint8_t i = 0; i < image_config.components_num; ++i) {
-                        free(image_buffer.data_yuv[i]);
+                if (frame_pool) {
+                        svt_jpeg_xs_frame_pool_free(frame_pool);
                 }
                 svt_jpeg_xs_decoder_close(&decoder);
         }
-        svt_jpeg_xs_decoder_api_t decoder;
-        bool configured = 0;
-        svt_jpeg_xs_bitstream_buffer_t bitstream;
-        svt_jpeg_xs_image_buffer_t image_buffer;
         svt_jpeg_xs_image_config_t image_config;
+        svt_jpeg_xs_decoder_api_t decoder;
+        svt_jpeg_xs_frame_pool_t *frame_pool;
+        bool configured = 0;
 
         void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst);
         struct video_desc desc;
@@ -33,23 +33,6 @@ static void *jpegxs_decompress_init(void) {
         struct state_decompress_jpegxs *s = new state_decompress_jpegxs();
 
         return s;
-}
-
-static bool setup_image_output_buffer(svt_jpeg_xs_image_buffer_t *image_buffer, const svt_jpeg_xs_image_config_t *image_config) {
-        
-        uint32_t pixel_size = image_config->bit_depth <= 8 ? 1 : 2;
-
-        for (uint8_t i = 0; i < 3; ++i) {
-                image_buffer->stride[i] = image_config->components[i].width;
-                image_buffer->alloc_size[i] = image_buffer->stride[i] * image_config->components[i].height * pixel_size;
-                image_buffer->data_yuv[i] = malloc(image_buffer->alloc_size[i]);
-                if (!image_buffer->data_yuv[i]) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d\n", i);
-                        return false;
-                }
-        }
-
-        return true;
 }
 
 static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size) {
@@ -65,6 +48,12 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
                 return false;
         }
 
+        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->image_config, 0, 1);
+        if (!s->frame_pool) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
+                return false;
+        }
+
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 const struct jpegxs_to_uv_conversion *conv = get_default_jpegxs_to_uv_conversion(s->image_config.format);
                 if (!conv || !conv->convert) {
@@ -72,10 +61,6 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
                         return false;
                 }
                 s->convert_from_planar = conv->convert;
-        }
-
-        if (!setup_image_output_buffer(&s->image_buffer, &s->image_config)) {
-                return false;
         }
 
         s->configured = true;
@@ -162,29 +147,34 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
                 return jpegxs_probe_internal_codec(s, internal_prop);
         }
 
-        s->bitstream.buffer = buffer;
-        s->bitstream.used_size = src_len;
+        svt_jpeg_xs_bitstream_buffer_t bitstream;
+        bitstream.buffer = buffer;
+        bitstream.used_size = src_len;
+        bitstream.allocation_size = src_len;
 
         svt_jpeg_xs_frame_t dec_input;
-        dec_input.bitstream = s->bitstream;
-        dec_input.image = s->image_buffer;
+        SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &dec_input, /*blocking*/ 1);
+        if (err != SvtJxsErrorNone) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
+                return DECODER_NO_FRAME;
+        }
+        dec_input.bitstream = bitstream;
 
-        SvtJxsErrorType_t err;  
         err = svt_jpeg_xs_decoder_send_frame(&s->decoder, &dec_input, 1 /*blocking*/);
-        if (err) {
+        if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to decoder, error code: %x\n", err);
                 return DECODER_NO_FRAME;
         }
 
         svt_jpeg_xs_frame_t dec_output;
         err = svt_jpeg_xs_decoder_get_frame(&s->decoder, &dec_output, 1 /*blocking*/);
-        if (err) {
+        if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
                 return DECODER_NO_FRAME;
         }
 
         s->convert_from_planar(&dec_output.image, s->image_config.width, s->image_config.height, dst);
-
+        svt_jpeg_xs_frame_pool_release(s->frame_pool, &dec_output);
         return DECODER_GOT_FRAME;
 }
 
