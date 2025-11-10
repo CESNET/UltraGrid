@@ -37,29 +37,41 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>                        // for isdigit
 #include <condition_variable>
+#include <cstdint>                       // for uint8_t, uint32_t
+#include <cstdio>                        // for printf
+#include <cstdlib>                       // for atoi, abort, free, EXIT_FAILURE
 #include <cstring>
-#include <initializer_list>
 #include <libgpujpeg/gpujpeg_common.h>
 #include <libgpujpeg/gpujpeg_encoder.h>
+#include <libgpujpeg/gpujpeg_type.h>     // for gpujpeg_color_space, gpujpeg...
 #include <libgpujpeg/gpujpeg_version.h>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <ostream>                       // for operator<<, basic_ostream
 #include <set>
+#include <string>                        // for basic_string, char_traits
 #include <thread>
+#include <utility>                       // for move
 #include <vector>
 
+#include "compat/strings.h"              // IWYU pragma: keep // for strcasecmp
+// IWYU pragma: no_include <strings.h> # via compact/strings.h
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"                 // for decoder_t, get_best_decoder_...
 #include "tv.h"
+#include "types.h"                       // for video_desc, video_frame, tile
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
-#include "video.h"
+#include "video_codec.h"                 // for codec_is_a_rgb, get_codec_name
 #include "video_compress.h"
+#include "video_frame.h"                 // for vf_get_tile, vf_restore_meta...
 
 #ifndef GPUJPEG_VERSION_INT
 #error "Old GPUJPEG API detected!"
@@ -84,8 +96,6 @@ using std::unique_ptr;
 using std::vector;
 
 namespace {
-struct state_video_compress_gpujpeg;
-
 /**
  * @brief state for single instance of encoder running on one GPU
  */
