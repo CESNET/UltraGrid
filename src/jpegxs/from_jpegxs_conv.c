@@ -1,8 +1,10 @@
 #include <svt-jpegxs/SvtJpegxs.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "jpegxs_conv.h"
 #include "types.h"
+#include "video_codec.h"
 
 static void yuv422p_to_uyvy(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst) {
 
@@ -74,7 +76,7 @@ static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
 };
 
 const struct jpegxs_to_uv_conversion *get_jpegxs_to_uv_conversion(codec_t codec) {
-    
+
         const struct jpegxs_to_uv_conversion *conv = jpegxs_to_uv_conversions;
         while (conv->dst != VIDEO_CODEC_NONE) {
                 if (conv->dst == codec)

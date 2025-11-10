@@ -44,7 +44,7 @@ struct state_video_compress_jpegxs {
                 }
                 svt_jpeg_xs_encoder_close(&encoder);
         }
-        svt_jpeg_xs_image_config_t config;
+        svt_jpeg_xs_image_config_t image_config;
         svt_jpeg_xs_encoder_api_t encoder;
         svt_jpeg_xs_frame_pool_t *frame_pool;
         bool configured = 0;
@@ -162,55 +162,8 @@ ColourFormat subsampling_to_jpegxs(int ug_subs) {
         }
 }
 
-static bool setup_image_config(svt_jpeg_xs_image_config_t *conf, struct video_desc desc)
-{
-        conf->width  = desc.width;
-        conf->height = desc.height;
-        conf->bit_depth = get_bits_per_component(desc.color_spec);
-        conf->format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
-        conf->components_num = 3;
-
-        uint32_t bytes_per_pixel = conf->bit_depth <= 8 ? 1 : 2;
-        uint32_t w = conf->width;
-        uint32_t h = conf->height;
-
-        uint32_t w_factor = 1;
-        uint32_t h_factor = 1;
-
-        switch (conf->format) {
-        case COLOUR_FORMAT_PLANAR_YUV444_OR_RGB: // no subsampling
-                break;
-        case COLOUR_FORMAT_PLANAR_YUV422: // half horizontal
-                w_factor = 2;
-                break;
-        case COLOUR_FORMAT_PLANAR_YUV420: // half horizontal + vertical
-                w_factor = 2;
-                h_factor = 2;
-                break;
-        default:
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported colour format\n");
-                return false;
-        }
-
-        for (uint8_t i = 0; i < 3; ++i) {
-                conf->components[i].width = w / (i == 0 ? 1 : w_factor);
-                conf->components[i].height = h / (i == 0 ? 1 : h_factor);
-                conf->components[i].byte_size = conf->components[i].width * conf->components[i].height * bytes_per_pixel;
-        }
-
-        return true;
-}
-
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc)
 {
-        setup_image_config(&s->config, desc);
-
-        s->encoder.verbose = VERBOSE_SYSTEM_INFO;
-        s->encoder.source_width = s->config.width;
-        s->encoder.source_height = s->config.height;
-        s->encoder.input_bit_depth = s->config.bit_depth;
-        s->encoder.colour_format = s->config.format;
-
         const struct uv_to_jpegxs_conversion *conv = get_uv_to_jpegxs_conversion(desc.color_spec);
         if (!conv || !conv->convert) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
@@ -218,20 +171,31 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         }
         s->convert_to_planar = conv->convert;
 
-        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
+        s->encoder.verbose = VERBOSE_SYSTEM_INFO;
+        s->encoder.source_width = desc.width;
+        s->encoder.source_height = desc.height;
+        s->encoder.input_bit_depth = get_bits_per_component(desc.color_spec);
+        s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
+
+        SvtJxsErrorType_t err = SvtJxsErrorNone;
+        uint32_t bitstream_size;
+        uint32_t pool_size = 1;
+        
+        err = svt_jpeg_xs_encoder_get_image_config(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder, &s->image_config, &bitstream_size);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder: %x\n", err);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get image config from JPEG XS encoder parameters: %x\n", err);
                 return false;
         }
 
-        uint32_t bitstream_size = (uint32_t)(
-                ((uint64_t)s->encoder.source_width * s->encoder.source_height * 
-                s->encoder.bpp_numerator / s->encoder.bpp_denominator + 7) / 8);
-        uint32_t pool_size = 1;
-
-        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->config, bitstream_size, pool_size);
+        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->image_config, bitstream_size, pool_size);
         if (!s->frame_pool) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
+                return false;
+        }
+
+        err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
+        if (err != SvtJxsErrorNone) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder: %x\n", err);
                 return false;
         }
 
