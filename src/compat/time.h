@@ -5,7 +5,7 @@
  * time-related compatibility header
  */
 /*
- * Copyright (c) 2024 CESNET
+ * Copyright (c) 2024-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@
 #ifndef COMPAT_MISC_H_7C0E2D4B_7D55_4107_918B_7BF2BEB92428
 #define COMPAT_MISC_H_7C0E2D4B_7D55_4107_918B_7BF2BEB92428
 
-#include <time.h>
+#include <time.h>  // IWYU pragma: export
 
 #ifndef __STDC_LIB_EXT1__
 #ifdef _WIN32

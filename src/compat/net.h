@@ -41,6 +41,7 @@
 #ifndef COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
 #define COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
 
+// IWYU pragma: begin_exports
 #ifdef _WIN32
 #include <winsock2.h>
 typedef SOCKET fd_t;
@@ -52,5 +53,6 @@ typedef SOCKET fd_t;
 typedef int fd_t;
 #define INVALID_SOCKET (-1)
 #endif
+// IWYU pragma: end_exports
 
 #endif // defined COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056

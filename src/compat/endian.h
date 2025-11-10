@@ -100,7 +100,7 @@
         #endif
 
 #else
-        #include <endian.h>
+        #include <endian.h> // IWYU pragma: export
 #endif
 
 #endif // defined COMPAT_ENDIAN_H_A5D7C443_895D_465E_A46D_BF5E6DAA833F
