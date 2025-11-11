@@ -50,6 +50,8 @@
 #define MAX_PACKET_LEN 128
 #define PTP_ADDRESS "224.0.1.129"
 
+#define PTP_FLAG_TWOSTEP 0x200
+
 #define PTP_MSG_ANNOUNCE 0xb
 #define PTP_MSG_SYNC 0x0
 #define PTP_MSG_FOLLOWUP 0x8
@@ -197,7 +199,7 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
                 }
         }
 
-        if(header.msg_type == PTP_MSG_SYNC && (header.flags & 0x200)){
+        if(header.msg_type == PTP_MSG_SYNC && (header.flags & PTP_FLAG_TWOSTEP)){
                 uint64_t sec = read_val<uint64_t, 6>(&buf[34]);
                 uint32_t nsec = read_val<uint32_t, 4>(&buf[40]);
 
