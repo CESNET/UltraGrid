@@ -124,12 +124,8 @@ install_pcp() {
                 cd libpcpnatpmp
                 # TODO TOREMOVE when not needed
                 if is_win; then
-                        git checkout 46341d6
-                        sed "/int gettimeofday/i\\
-struct timezone;\\
-struct timeval;\\
-" libpcp/src/windows/pcp_gettimeofday.h > fixed
-                        mv fixed libpcp/src/windows/pcp_gettimeofday.h
+                        git am "$curdir"/patches/\
+libpcpnatpmp-0001-win32-build-fixes.patch
                 fi
                 sed 's/AC_PREREQ(.*)/AC_PREREQ(\[2.69\])/' configure.ac \
                         > configure.ac.fixed

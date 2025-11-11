@@ -1,0 +1,82 @@
+From ecedae2d978922c5e25fb90d6b2e8d3cf21b325c Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Tue, 11 Nov 2025 16:01:50 +0100
+Subject: [PATCH] win32 build fixes
+
+---
+ lib/src/net/gateway.c              | 2 +-
+ lib/src/net/pcp_socket.c           | 8 ++++----
+ lib/src/windows/pcp_gettimeofday.h | 2 ++
+ 3 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/lib/src/net/gateway.c b/lib/src/net/gateway.c
+index f314c2f..25d02bf 100644
+--- a/lib/src/net/gateway.c
++++ b/lib/src/net/gateway.c
+@@ -307,7 +307,7 @@ int getgateways(struct sockaddr_in6 **gws) {
+             (IPV6_IS_ADDR_ANY(&row->NextHop.Ipv6.sin6_addr))) {
+             continue;
+         } else if ((row->NextHop.si_family == AF_INET) &&
+-                   (&row->NextHop.Ipv6.sin6_addr == INADDR_ANY)) {
++                   (row->NextHop.Ipv4.sin_addr.s_addr == INADDR_ANY)) {
+             continue;
+         } else if (row->NextHop.si_family == AF_INET) {
+             (*gws)[ret].sin6_family = AF_INET6;
+diff --git a/lib/src/net/pcp_socket.c b/lib/src/net/pcp_socket.c
+index 36cac6f..a61ad6d 100644
+--- a/lib/src/net/pcp_socket.c
++++ b/lib/src/net/pcp_socket.c
+@@ -460,9 +460,9 @@ static ssize_t pcp_socket_sendto_impl(PCP_SOCKET sock, const void *buf,
+ 
+ #if defined(IPV6_PKTINFO)
+     if (src_addr) {
++#ifndef WIN32
+         struct in6_pktinfo ipi6 = {0};
+ 
+-#ifndef WIN32
+         uint8_t c[CMSG_SPACE(sizeof(struct in6_pktinfo))] = {0};
+         struct iovec iov;
+         struct msghdr msg;
+@@ -487,7 +487,7 @@ static ssize_t pcp_socket_sendto_impl(PCP_SOCKET sock, const void *buf,
+         ret = sendmsg(sock, &msg, flags);
+ #else  // WIN32
+         WSABUF wsaBuf;
+-        wsaBuf.buf = buf;
++        wsaBuf.buf = (void *) buf;
+         wsaBuf.len = len;
+         uint8_t c[WSA_CMSG_SPACE(sizeof(struct in6_pktinfo))] = {0};
+ 
+@@ -497,7 +497,7 @@ static ssize_t pcp_socket_sendto_impl(PCP_SOCKET sock, const void *buf,
+         wsaMsg.namelen = addrlen;
+         wsaMsg.lpBuffers = &wsaBuf;
+         wsaMsg.dwBufferCount = 1;
+-        wsaMsg.Control.buf = c;
++        wsaMsg.Control.buf = (void *) c;
+ 
+         // Set the source address inside the control message
+         if (IN6_IS_ADDR_V4MAPPED(&src_addr->sin6_addr)) {
+@@ -528,7 +528,7 @@ static ssize_t pcp_socket_sendto_impl(PCP_SOCKET sock, const void *buf,
+         if (WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &WSARecvMsg_GUID,
+                      sizeof(GUID), &WSARecvMsg, sizeof(WSARecvMsg),
+                      &dwBytesReturned, NULL, NULL) == SOCKET_ERROR) {
+-            PCP_LOG(PCP_LOGLVL_PERR, ("WSAIoctl failed"));
++            pcp_logger(PCP_LOGLVL_PERR, "WSAIoctl failed");
+             return 1;
+         }
+ 
+diff --git a/lib/src/windows/pcp_gettimeofday.h b/lib/src/windows/pcp_gettimeofday.h
+index fb6f4fa..9249de2 100644
+--- a/lib/src/windows/pcp_gettimeofday.h
++++ b/lib/src/windows/pcp_gettimeofday.h
+@@ -26,6 +26,8 @@
+ #ifndef PCP_GETTIMEOFDAY
+ #define PCP_GETTIMEOFDAY
+ 
++struct timeval;
++struct timezone;
+ int gettimeofday(struct timeval *tv, struct timezone *tz);
+ 
+ #endif /*PCP_GETTIMEOFDAY*/
+-- 
+2.51.1
+
