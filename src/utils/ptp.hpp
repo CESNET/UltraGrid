@@ -127,6 +127,8 @@ private:
 
         void update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts);
 
+        void drop_sync_pkts_older_than(uint16_t seq);
+
         void set_clock_identity(uint64_t);
 
 };

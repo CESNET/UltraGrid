@@ -185,6 +185,11 @@ void Ptp_clock::update_clock(uint64_t new_local_ts, uint64_t new_ptp_ts){
         update_count.fetch_add(1, std::memory_order_seq_cst);
 }
 
+void Ptp_clock::drop_sync_pkts_older_than(uint16_t seq){
+        auto new_end = std::remove_if(sync_pkts.begin(), sync_pkts.end(), [seq](const detail::Sync_pkt_data& pkt){ return pkt.seq <= seq; });
+        sync_pkts.erase(new_end, sync_pkts.end());
+}
+
 void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
         Ptp_hdr header = parse_ptp_header(buf, len);
         if(!header.valid){
@@ -224,8 +229,7 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
 
                 update_clock(it->local_ts, new_ptp_ts);
 
-                auto new_end = std::remove_if(sync_pkts.begin(), sync_pkts.end(), [=](const detail::Sync_pkt_data& pkt){ return pkt.seq <= header.seq; });
-                sync_pkts.erase(new_end, sync_pkts.end());
+                drop_sync_pkts_older_than(header.seq);
 
                 return;
         }
