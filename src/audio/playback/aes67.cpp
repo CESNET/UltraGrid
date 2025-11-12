@@ -281,7 +281,11 @@ static void rtp_worker(state_aes67_play *s){
         auto next_pkt_time = clk::now();
         auto next_pkt_ptp_time = s->ptpclk->get_time();
         do{
+#ifdef _WIN32
+                while(clk::now() < next_pkt_time) { }
+#else
                 std::this_thread::sleep_until(next_pkt_time);
+#endif
                 auto now_ptp_ts = s->ptpclk->get_time();
                 next_pkt_ptp_time += get_pkt_time_ns(frames_per_packet, s->sap_sess.stream.sample_rate);
 
