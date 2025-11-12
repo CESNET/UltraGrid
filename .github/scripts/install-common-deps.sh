@@ -123,11 +123,6 @@ install_pcp() {
         git clone https://github.com/libpcpnatpmp/libpcpnatpmp.git
         (
                 cd libpcpnatpmp
-                # TODO TOREMOVE when not needed
-                if is_win; then
-                        git am "$curdir"/patches/\
-libpcpnatpmp-0001-win32-build-fixes.patch
-                fi
                 sed 's/AC_PREREQ(.*)/AC_PREREQ(\[2.69\])/' configure.ac \
                         > configure.ac.fixed
                 mv configure.ac.fixed configure.ac
