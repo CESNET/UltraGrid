@@ -156,6 +156,7 @@ get_default_crf(const char *codec_name)
 
 struct setparam_param {
         struct video_desc desc {};
+        AVPixelFormat av_pix_fmt;
         bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int interlaced_dct = -1; ///< -1 default; 0 disable/not enable; 1 enable
@@ -183,6 +184,7 @@ static void libavcodec_compress_done(void *state);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265_av1(AVCodecContext *, struct setparam_param *);
 static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
+static void setparam_oapv(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
@@ -202,6 +204,7 @@ const char *get_vp9_encoder(bool /* rgb */) {
 codec_params_t
 get_codec_params(codec_t ug_codec)
 {
+        int capabilities_priority = 500 + (int) ug_codec;
         switch (ug_codec) {
         case H264: return {
                 [](bool is_rgb) { return is_rgb ? "libx264rgb" : "libx264"; },
@@ -229,10 +232,11 @@ get_codec_params(codec_t ug_codec)
                 setparam_h264_h265_av1,
                 600
         };
+        case APV:
+                return { nullptr, 0, setparam_oapv, capabilities_priority };
         default:
                 break;
         }
-        int capabilities_priority = 500 + (int) ug_codec;
         double avg_bpp = 0;
         if (ug_codec == J2K) {
                 avg_bpp = 1;
@@ -884,6 +888,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // make a copy because set_param callbacks may adjust parameters
         struct setparam_param params = s->params;
+        params.av_pix_fmt = pix_fmt;
         params.lavc_opts = s->req_lavc_opts;
 
         // average bit per pixel
@@ -1730,6 +1735,52 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *para
         if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
         }
+}
+
+/**
+ * @details liboapv seem to require setting the profile to match the pixel
+ * format, otherwise oapv_encode() return -400 ([GH bug]). As the default
+ * profile is "422-10", we perhaps want to use this anyways, otherwise the codec
+ * would convert the input to match the profile according to the command
+ * `oapv_app_enc` help.
+ * [GH bug]: https://github.com/CESNET/UltraGrid/issues/472
+ */
+static void
+setparam_oapv(AVCodecContext */*codec_ctx*/, struct setparam_param *param)
+{
+        auto it = param->lavc_opts.find("oapv-params");
+        if (it->second.find("profile=") != std::string::npos) {
+                return; // do not overwrite profile if set explicitly
+        }
+        const char *profile = nullptr;
+        switch (param->av_pix_fmt) {
+        // clang-format off
+        case AV_PIX_FMT_GRAY10:     profile = "400-10";  break;
+        case AV_PIX_FMT_YUV422P10:  profile = "422-10";  break;
+        case AV_PIX_FMT_YUV422P12:  profile = "422-12";  break;
+        case AV_PIX_FMT_YUV444P10:  profile = "444-10";  break;
+        case AV_PIX_FMT_YUV444P12:  profile = "444-12";  break;
+        case AV_PIX_FMT_YUVA444P10: profile = "4444-10"; break;
+        case AV_PIX_FMT_YUVA444P12: profile = "4444-14"; break;
+        // clang-format on
+        default:
+                MSG(WARNING,
+                    "Unhandled APV (liboapv) pixel format %s, not setting "
+                    "preset.\n",
+                    av_get_pix_fmt_name(param->av_pix_fmt));
+                return;
+        }
+        char oapv_params[STR_LEN];
+        oapv_params[0] = '\0';
+        // if some oapv-params passed from command-line, append the preset after
+        if (it != param->lavc_opts.end()) {
+                snprintf_ch(oapv_params, "%s:", it->second.c_str());
+        }
+        int neeeded = snprintf(oapv_params + strlen(oapv_params),
+                               sizeof oapv_params - strlen(oapv_params),
+                               "profile=%s", profile);
+        assert(neeeded < (int) sizeof oapv_params);
+        param->lavc_opts["oapv-params"] = oapv_params;
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
