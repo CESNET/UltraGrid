@@ -919,7 +919,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 check_av_opt_set<double, true>(s->codec_ctx->priv_data, "crf",
                                                crf, "CRF");
         } else if (strcmp(s->codec_ctx->codec->name, "libopenh264") != 0) {
-                set_bitrate = true;
+                set_bitrate = bitrate > 0;
         }
         if (set_bitrate || params.requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = bitrate;
