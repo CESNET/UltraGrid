@@ -93,7 +93,7 @@ enum {
 };
 #define MOD_NAME "[testcard] "
 #define AUDIO_BUFFER_SAMPLES (AUDIO_SAMPLE_RATE * BUFFER_SEC)
-#define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 })
+#define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 24.0, PROGRESSIVE, 1 })
 #define DEFAULT_PATTERN "bars"
 
 struct audio_len_pattern {
