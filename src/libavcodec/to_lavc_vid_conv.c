@@ -623,26 +623,30 @@ static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
 }
 
 #if defined __GNUC__
-static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422,  AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
 #endif
-static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
-#define WRITE_RES \
+#define WRITE_RES(idx) \
         res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
                 (1 << (depth - 4)); \
-        res_cb = (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
-                 (1 << (depth - 1)); \
-        res_cr = (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
-                 (1 << (depth - 1)); \
-        *dst_y++  = CLAMP_LIMITED_Y(res_y, depth); \
-        *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth); \
-        *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth);
+        *dst_y++ = CLAMP_LIMITED_Y(res_y, depth); \
+        if (!out_422 || idx % 2 == 0) { \
+                res_cb = \
+                    (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
+                    (1 << (depth - 1)); \
+                res_cr = \
+                    (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
+                    (1 << (depth - 1)); \
+                *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth); \
+                *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth); \
+        }
 
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
@@ -666,7 +670,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 			src += 4;
 
 			b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-                        WRITE_RES // 0
+                        WRITE_RES(0)
 			r = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // r1
 			g = src[BYTE_SWAP(2)];
 			g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
@@ -674,7 +678,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 			src += 4;
 
 			b |= src[BYTE_SWAP(0)] << 4; // b1
-                        WRITE_RES // 1
+                        WRITE_RES(1)
 			r = src[BYTE_SWAP(1)];
 			r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
 			g = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // g2
@@ -682,14 +686,14 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 
 			b = src[BYTE_SWAP(0)];
 			b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-                        WRITE_RES // 2
+                        WRITE_RES(2)
 			r = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // r3
 			g = src[BYTE_SWAP(3)];
 			src += 4;
 
 			g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
 			b = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // b3
-                        WRITE_RES // 3
+                        WRITE_RES(3)
 			r = src[BYTE_SWAP(2)];
 			r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
 			g = src[BYTE_SWAP(3)] >> 4;
@@ -698,14 +702,14 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 			g |= src[BYTE_SWAP(0)] << 4; // g4
 			b = src[BYTE_SWAP(1)];
 			b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-			WRITE_RES // 4
+			WRITE_RES(4)
 			r = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // r5
 			src += 4;
 
 			g = src[BYTE_SWAP(0)];
 			g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
 			b = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // b5
-                        WRITE_RES // 5
+                        WRITE_RES(5)
 			r = src[BYTE_SWAP(3)];
 			src += 4;
 
@@ -713,7 +717,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 			g = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // g6
 			b = src[BYTE_SWAP(2)];
 			b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-                        WRITE_RES // 6
+                        WRITE_RES(6)
 			r = src[BYTE_SWAP(3)] >> 4;
 			src += 4;
 
@@ -721,7 +725,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 			g = src[BYTE_SWAP(1)];
 			g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
 			b = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // b7
-                        WRITE_RES // 7
+                        WRITE_RES(7)
 			src += 4;
                 }
         }
@@ -729,17 +733,32 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 
 static void r12l_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv444pXXle(10, out_frame, in_data, width, height);
+        r12l_to_yuv4XXpYYle(10, false, out_frame, in_data, width, height);
 }
 
 static void r12l_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv444pXXle(12, out_frame, in_data, width, height);
+        r12l_to_yuv4XXpYYle(12, false, out_frame, in_data, width, height);
 }
 
 static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv444pXXle(16, out_frame, in_data, width, height);
+        r12l_to_yuv4XXpYYle(16, false, out_frame, in_data, width, height);
+}
+
+static void r12l_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv4XXpYYle(10, true, out_frame, in_data, width, height);
+}
+
+static void r12l_to_yuv422p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv4XXpYYle(12, true, out_frame, in_data, width, height);
+}
+
+static void r12l_to_yuv422p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv4XXpYYle(16, true, out_frame, in_data, width, height);
 }
 
 /// @brief Converts RG48 to yuv444p 10/12/14 le
@@ -1174,6 +1193,9 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R12L, AV_PIX_FMT_YUV444P10LE, r12l_to_yuv444p10le },
                 { R12L, AV_PIX_FMT_YUV444P12LE, r12l_to_yuv444p12le },
                 { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p16le },
+                { R12L, AV_PIX_FMT_YUV422P10LE, r12l_to_yuv422p10le },
+                { R12L, AV_PIX_FMT_YUV422P12LE, r12l_to_yuv422p12le },
+                { R12L, AV_PIX_FMT_YUV422P16LE, r12l_to_yuv422p16le },
                 { RG48, AV_PIX_FMT_YUV444P10LE, rg48_to_yuv444p10le },
                 { RG48, AV_PIX_FMT_YUV444P12LE, rg48_to_yuv444p12le },
                 { RG48, AV_PIX_FMT_YUV444P16LE, rg48_to_yuv444p16le },
