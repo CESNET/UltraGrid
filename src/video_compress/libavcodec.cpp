@@ -155,7 +155,6 @@ get_default_crf(const char *codec_name)
 }
 
 struct setparam_param {
-        setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
         struct video_desc desc {};
         bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
@@ -163,8 +162,9 @@ struct setparam_param {
         int header_inserter_req = -1;
         string thread_mode;
         int slices = -1;
-        map<string, string> &lavc_opts; ///< user-supplied options from command-line
-        set<string>         &blacklist_opts; ///< options that should be blacklisted
+        map<string, string>
+            lavc_opts; ///< set to user-supplied options before the setparam
+                       ///< call which may alter those
         long long int       requested_bitrate = 0;
         double              requested_bpp = 0;
         double              requested_crf = -1;
@@ -281,12 +281,11 @@ struct state_video_compress_libav {
 
         struct video_desc compressed_desc{};
 
-        struct setparam_param params{lavc_opts, blacklist_opts};
+        struct setparam_param params;
         string              req_encoder;
         int                 requested_gop = DEFAULT_GOP_SIZE;
 
-        map<string, string> lavc_opts; ///< user-supplied options from command-line
-        set<string>         blacklist_opts; ///< options that has been processed by setparam handlers and should not be passed to codec
+        map<string, string> req_lavc_opts; ///< user-supplied options from command-line
 
         bool hwenc = false;
         AVFrame *hwframe = nullptr;
@@ -603,7 +602,7 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                         replace_all(c_val_dup, DELDEL, ":");
                         string key, val;
                         key = string(item, strchr(item, '='));
-                        s->lavc_opts[key] = c_val_dup;
+                        s->req_lavc_opts[key] = c_val_dup;
                         free(c_val_dup);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Error: unknown option %s.\n",
@@ -885,6 +884,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // make a copy because set_param callbacks may adjust parameters
         struct setparam_param params = s->params;
+        params.lavc_opts = s->req_lavc_opts;
 
         // average bit per pixel
         const double avg_bpp = params.requested_bpp > 0.0
@@ -942,10 +942,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->header_inserter = params.header_inserter_req == 1;
 
         // set user supplied parameters
-        for (auto const &item : s->lavc_opts) {
-                if (s->blacklist_opts.count(item.first) == 1) {
-                        continue;
-                }
+        for (auto const &item : params.lavc_opts) {
                 if (!check_av_opt_set<const char *, true>(
                         s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str())) {
                         return false;
@@ -1302,16 +1299,16 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
         string hint;
         string quality_hurt = "latency";
         if (regex_match(s->codec_ctx->codec->name, regex(".*nvenc.*"))) {
-                if (s->lavc_opts.find("delay") == s->lavc_opts.end()) {
+                if (s->req_lavc_opts.find("delay") == s->req_lavc_opts.end()) {
                         hint = "\"delay=<frames>\" option to NVENC compression (2 suggested)";
                 }
         } else if (strcmp(s->codec_ctx->codec->name, "libaom-av1") == 0) {
-                if (s->lavc_opts.find("cpu-used") == s->lavc_opts.end()) {
+                if (s->req_lavc_opts.find("cpu-used") == s->req_lavc_opts.end()) {
                         hint = "\"cpu-used=8\" option for quality/speed trade-off to AOM AV1 compression (values 0-8 allowed)";
                         quality_hurt = "quality";
                 }
         } else if (strcmp(s->codec_ctx->codec->name, "libsvt_hevc") == 0) {
-                if (s->lavc_opts.find("preset") == s->lavc_opts.end()) {
+                if (s->req_lavc_opts.find("preset") == s->req_lavc_opts.end()) {
                         hint =
                             "\"preset=12\" option for quality/speed trade-off "
                             "to libsvt_hevc compression (values 0-12 allowed)";
@@ -1859,9 +1856,9 @@ configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
         }
 
         string x265_params;
-        if (param->lavc_opts.find("x265-params") != param->lavc_opts.end()) {
-                x265_params = param->lavc_opts.at("x265-params");
-                param->blacklist_opts.insert("x265-params");
+        if (auto it = param->lavc_opts.find("x265-params"); it != param->lavc_opts.end()) {
+                x265_params = it->second;
+                param->lavc_opts.erase(it);
         }
         auto x265_params_append = [&](const string &key, const string &val) {
                 if (x265_params.find(key) == string::npos) {
@@ -1908,7 +1905,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         const char *rc = DEFAULT_QSV_RC;
         if (auto it = param->lavc_opts.find("rc"); it != param->lavc_opts.end()) {
                 rc = it->second.c_str();
-                param->blacklist_opts.insert("rc");
+                param->lavc_opts.erase(it);
         }
         if (strcmp(rc, "help") == 0) {
                 col() << "\n\n"
