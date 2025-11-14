@@ -48,10 +48,10 @@ extern "C" {
 #include <stdint.h>   // for uintmax_t
 #endif
 
-#ifdef __GLIBC__
-#define WARN_UNUSED __attribute__ ((warn_unused_result))
+#if __STDC_VERSION__ >= 202311L || __cplusplus >= 201703L || __GNUC__ >= 10
+#define NODISCARD [[nodiscard]]
 #else
-#define WARN_UNUSED
+#define NODISCARD
 #endif
 
 // functions documented at definition
@@ -67,9 +67,9 @@ void append_number(char **ptr, const char *ptr_end, uintmax_t num);
 void append_sig_desc(char **ptr, const char *ptr_end, int signum);
 void write_all(int fd, size_t len, const char *msg);
 const char *pretty_print_fourcc(const void *fcc);
-char *sprintf_append(char *str, const char *format, ...) WARN_UNUSED;
+NODISCARD char *sprintf_append(char *str, const char *format, ...);
 
-#undef WARN_UNUSED
+#undef NODISCARD
 
 #ifdef __cplusplus
 }
