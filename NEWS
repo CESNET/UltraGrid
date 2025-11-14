@@ -4,7 +4,7 @@
 * Cineform can be decoded through lavd (if native not compiled)
 * vo_pp,cf/text performance improved
 * AJA: use new libajantv2 open-source library instead of old ntv2 one
-* set multithreading for some less common lavc encoders (eg. openh264)
+* enable multithreading for some less common lavc encoders (eg. OpenH264)
 * vcap/decklink: improve profile handling, support for topological ID
 * cmpto_j2k: support for CPU implementation, added R12L CUDA conversion
 * vcap/dshow: support for OBS virtual camera
