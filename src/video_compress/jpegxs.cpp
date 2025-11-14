@@ -17,6 +17,7 @@
 #include "utils/synchronized_queue.h"
 #include "jpegxs/jpegxs_conv.h"
 
+#define DEFAULT_POOL_SIZE 5
 #define MOD_NAME "[JPEG XS enc.] "
 
 using std::shared_ptr;
@@ -27,7 +28,7 @@ using std::unique_lock;
 using std::unique_ptr;
 using std::vector;
 using std::queue;
-using namespace std::chrono;
+using std::atomic;
 
 namespace {
 struct state_video_compress_jpegxs;
@@ -36,32 +37,50 @@ struct state_video_compress_jpegxs {
         state_video_compress_jpegxs(struct module *parent, const char *opts);
 
         ~state_video_compress_jpegxs() {
-                if (worker.joinable()) {
-                        worker.join();
+                if (worker_send.joinable()) {
+                        worker_send.join();
+                }
+                if (worker_get.joinable()) {
+                        worker_get.join();
                 }
                 if (frame_pool) {
                         svt_jpeg_xs_frame_pool_free(frame_pool);
                 }
                 svt_jpeg_xs_encoder_close(&encoder);
         }
-        svt_jpeg_xs_image_config_t image_config;
+
         svt_jpeg_xs_encoder_api_t encoder;
+        svt_jpeg_xs_image_config_t image_config;
         svt_jpeg_xs_frame_pool_t *frame_pool;
+        int pool_size = DEFAULT_POOL_SIZE;
+
         bool configured = 0;
+        bool stop = 0;
+
         video_frame_pool pool;
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
+        
         bool parse_fmt(char *fmt);
         void push(shared_ptr<video_frame> in_frame);
         shared_ptr<video_frame> pop();
 
         synchronized_queue<shared_ptr<struct video_frame>, -1> in_queue;
         synchronized_queue<shared_ptr<struct video_frame>, -1> out_queue;
-        thread worker;
+
+        thread worker_send;
+        thread worker_get;
+
+        mutex mtx;
+        condition_variable cv_configured;
+
+        atomic<uint64_t> frames_sent{0};
+        atomic<uint64_t> frames_received{0};
 };
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc);
-static void jpegxs_worker(state_video_compress_jpegxs *s);
+static void jpegxs_worker_send(state_video_compress_jpegxs *s);
+static void jpegxs_worker_get(state_video_compress_jpegxs *s);
 
 state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, const char *opts) {
         (void) parent;
@@ -83,15 +102,21 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
                 free(fmt);
         }
 
-        worker = thread(jpegxs_worker, this);
+        worker_send = thread(jpegxs_worker_send, this);
+        worker_get = thread(jpegxs_worker_get, this); 
 }
 
-static void jpegxs_worker(state_video_compress_jpegxs *s) {
+static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
 while (true) {
         auto frame = s->in_queue.pop();
 
         if (!frame) {
                 s->out_queue.push(frame);
+        {
+                unique_lock<mutex> lock(s->mtx);
+                s->stop = true;
+        }
+                s->cv_configured.notify_one();
                 break;
         }
 
@@ -118,23 +143,40 @@ while (true) {
                 continue;
         }
 
+        s->frames_sent++;
+}
+}
+
+static void jpegxs_worker_get(state_video_compress_jpegxs *s) {
+{
+        unique_lock<mutex> lock(s->mtx);
+        s->cv_configured.wait(lock, [&]{
+                return s->configured || s->stop;
+        });
+
+        if (!s->configured && s->stop) {
+                return;
+        }
+}
+while (true) {
+{
+        unique_lock<mutex> lock(s->mtx);
+        if (s->stop && s->frames_received == s->frames_sent) {
+                return;
+        }
+}
+
         svt_jpeg_xs_frame_t enc_output;
-        err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, /*blocking*/ 1);
+        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
                 continue;
         }
+        s->frames_received++;
 
         shared_ptr<video_frame> out_frame = s->pool.get_frame();
-        out_frame->color_spec = JPEG_XS;
-        out_frame->fps = frame->fps;
-        out_frame->interlacing = frame->interlacing;
-        out_frame->frame_type = frame->frame_type;
-        out_frame->tile_count = 1;
         
         struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
-        out_tile->width = in_tile->width;
-        out_tile->height = in_tile->height;
         size_t enc_size = enc_output.bitstream.used_size;
         if (enc_size > out_tile->data_len) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
@@ -179,7 +221,6 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 
         SvtJxsErrorType_t err = SvtJxsErrorNone;
         uint32_t bitstream_size;
-        uint32_t pool_size = 1;
         
         err = svt_jpeg_xs_encoder_get_image_config(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder, &s->image_config, &bitstream_size);
         if (err != SvtJxsErrorNone) {
@@ -187,7 +228,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 return false;
         }
 
-        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->image_config, bitstream_size, pool_size);
+        s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->image_config, bitstream_size, s->pool_size);
         if (!s->frame_pool) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
                 return false;
@@ -202,8 +243,12 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         struct video_desc compressed_desc;
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
-        s->pool.reconfigure(compressed_desc, bitstream_size);
+        s->pool.reconfigure(compressed_desc, bitstream_size); 
+{
+        unique_lock<mutex> lock(s->mtx);
         s->configured = true;
+}
+        s->cv_configured.notify_one();
 
         return true;
 }
@@ -220,6 +265,13 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                                 encoder.bpp_denominator = den;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid bits per pixel value '%s' (must be a positive integer or fraction, e.g., 2 or 3/4). Using default 3.\n", tok);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "pool_size")) {
+                        const int ps = atoi(strchr(tok, '=') + 1);
+                        if (0 <= ps) {
+                                pool_size = ps;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid pool size value '%s' (must be a positive integer). Using default 5.\n", tok);
                         }
                 } else if (IS_KEY_PREFIX(tok, "decomp_v")) {
                         const int v = atoi(strchr(tok, '=') + 1);
