@@ -126,9 +126,8 @@ install_pcp() {
                 sed 's/AC_PREREQ(.*)/AC_PREREQ(\[2.69\])/' configure.ac \
                         > configure.ac.fixed
                 mv configure.ac.fixed configure.ac
-
-                ./autogen.sh || true # autogen exits with 1
-                CFLAGS=-fPIC ./configure --disable-shared
+                ./autogen.sh
+                ./configure
                 make -j "$(nproc)"
                 sudo make install
         )
