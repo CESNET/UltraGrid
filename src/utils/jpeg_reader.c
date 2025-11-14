@@ -196,6 +196,12 @@ enum jpeg_marker_code {
         JPEG_MARKER_ERROR = 0x100
 };
 
+struct jpeg_reader
+{
+        const uint8_t *const image_end;
+        enum jpeg_color_spec header_color_space;
+        bool in_spiff;
+};
 
 static const char* jpeg_marker_name(enum jpeg_marker_code code)
 {
@@ -711,47 +717,62 @@ read_spiff_header(uint8_t** image, enum jpeg_color_spec *color_space, bool *in_s
 }
 
 static int
-read_spiff_directory(uint8_t** image, const uint8_t* image_end, int length, _Bool *in_spiff)
+read_spiff_directory(uint8_t** image, struct jpeg_reader *reader, int length)
 {
-    if (length < 4) {
-        fprintf(stderr, "[GPUJPEG] [Error] APP8 SPIFF directory too short (%d bytes)\n", length + 2);
-        image += length;
+    if ( length < 8 ) { // ELEN at least 8
+        MSG(ERROR, "APP8 SPIFF directory too short (%d bytes)\n", length);
+        image += length - 2;
         return -1;
     }
     uint32_t tag = read_4byte(*image);
-    debug_msg("Read SPIFF tag 0x%x with length %d.\n", tag, length + 2);
-    if (tag == SPIFF_ENTRY_TAG_EOD && length == SPIFF_ENTRY_TAG_EOD_LENGHT - 2) {
-        int marker_soi = read_marker(image, image_end);
+    MSG(DEBUG2, "Read SPIFF tag 0x%x with length %d.\n", tag, length);
+    if ( tag == SPIFF_ENTRY_TAG_EOD && length == SPIFF_ENTRY_TAG_EOD_LENGHT ) {
+        int marker_soi = read_marker(image, reader->image_end);
         if ( marker_soi != JPEG_MARKER_SOI ) {
-            verbose_msg("SPIFF entry 0x1 should be followed directly with SOI.\n");
+            MSG(VERBOSE, "SPIFF entry 0x1 should be followed directly with SOI.\n");
             return -1;
         }
-        debug_msg("SPIFF EOD presented.\n");
-        *in_spiff = 0;
-    } else if (tag >> 24U != 0) {
-        verbose_msg( "Erroneous SPIFF tag 0x%x (first byte should be 0).", tag);
-    } else {
-        debug_msg("SPIFF tag 0x%x with length %d presented.\n", tag, length + 2);
+        MSG(DEBUG2, "SPIFF EOD presented.\n");
+        reader->in_spiff = false;
+        return 0;
     }
+
+    if ( tag >> 24U != 0 ) { // given by the standard
+        MSG(VERBOSE, "Erroneous SPIFF tag 0x%x (first byte should be 0).", tag);
+        *image += length - 6;
+        return 0;
+    }
+    // if ( tag == SPIFF_ENTRY_TAG_ORIENATAION ) {
+    //     int rotation = gpujpeg_reader_read_byte(*image);
+    //     bool flip = gpujpeg_reader_read_byte(*image);
+    //     reader->metadata->vals[GPUJPEG_METADATA_ORIENTATION].orient.rotation = rotation;
+    //     reader->metadata->vals[GPUJPEG_METADATA_ORIENTATION].orient.flip = flip;
+    //     reader->metadata->vals[GPUJPEG_METADATA_ORIENTATION].set = 1;
+    //     DEBUG_MSG(reader->param.verbose, "SPIFF CW rotation: %d deg%s\n", rotation * 90, flip ? ", mirrored" : "");
+    //     *image += 2; // 2 bytes reserved
+    //     return 0;
+    // }
+    MSG(DEBUG2, "Unhandled SPIFF tag 0x%x with length %d presented.\n", tag, length);
+    *image += length - 6;
     return 0;
 }
 
 static int
-read_app8(uint8_t** image, const uint8_t* image_end, enum jpeg_color_spec *color_space, bool *in_spiff)
+read_app8(uint8_t** image, struct jpeg_reader *reader)
 {
-    if(image_end - *image < 2) {
+    if(reader->image_end - *image < 2) {
         fprintf(stderr, "[GPUJPEG] [Error] Could not read APP8 marker length (end of data)\n");
         return -1;
     }
     int length = read_2byte(*image);
     length -= 2;
-    if(image_end - *image < length) {
+    if(reader->image_end - *image < length) {
         fprintf(stderr, "[GPUJPEG] [Error] APP8 marker goes beyond end of data\n");
         return -1;
     }
 
-    if (*in_spiff) {
-        return read_spiff_directory(image, image_end, length, in_spiff);
+    if (reader->in_spiff) {
+        return read_spiff_directory(image, reader, length);
     }
 
     if (length + 2 != SPIFF_MARKER_LEN) {
@@ -776,7 +797,7 @@ read_app8(uint8_t** image, const uint8_t* image_end, enum jpeg_color_spec *color
         return 0;
     }
 
-    return read_spiff_header(image, color_space, in_spiff);
+    return read_spiff_header(image, &reader->header_color_space, &reader->in_spiff);
 }
 
 static int
@@ -858,7 +879,9 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         info->com[0] = '\0'; // if COM is not present
         info->color_spec = JPEG_COLOR_SPEC_YCBCR_JPEG; // default
         bool marker_present[255] = { 0 };
-        bool in_spiff = false;
+        struct jpeg_reader reader = {
+                .image_end = image_end,
+        };
 
         // currently reading up to SOS marker gives us all needed data
         while (!marker_present[JPEG_MARKER_EOI] && !marker_present[JPEG_MARKER_SOS]
@@ -919,7 +942,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
                                 break;
 
                         case JPEG_MARKER_APP8:
-                                if ( read_app8(&image, image_end, &info->color_spec, &in_spiff ) != 0 ) {
+                                if ( read_app8(&image, &reader ) != 0 ) {
                                         return -1;
                                 }
                                 break;
