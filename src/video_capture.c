@@ -13,7 +13,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
  * Copyright (c) 2001-2004 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,18 +105,16 @@ int initialize_video_capture(struct module *parent,
                 tprev = tlast;
                 tlast = vidcap_params_get_next(tlast);
         }
-        if (vidcap_params_get_driver(tlast) == NULL
-                        && vidcap_params_get_capture_filter(tlast) != NULL) {
+        // handle capture filter specified after last vcap - normally should
+        // preceed, unless only one vcap used
+        if (vidcap_params_get_driver(tlast) == NULL &&
+            vidcap_params_get_capture_filter(tlast) != NULL) {
                 if (tprev != param) { // more than one -t
                         log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
                                 "specified before capture (-t)\n");
                         return -1;
                 }
-                if (vidcap_params_get_capture_filter(tprev) != NULL) { // one -t but -F specified both before and after it
-                        log_msg(LOG_LEVEL_ERROR, "Multiple capture filter specification.\n");
-                        return -1;
-                }
-                vidcap_params_set_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
+                vidcap_params_add_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
         }
         // similarly for audio connection
         if (vidcap_params_get_driver(tlast) == NULL

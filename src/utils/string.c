@@ -39,6 +39,8 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <signal.h>
+#include <stdarg.h>          // for va_end, va_start, va_list
+#include <stdlib.h>          // for realloc
 #include <string.h>
 
 #ifdef _WIN32
@@ -48,7 +50,6 @@
 #endif
 
 #include "compat/strings.h"
-#include "debug.h"
 #include "utils/macros.h"    // for MIN
 #include "utils/string.h"
 
@@ -261,4 +262,30 @@ ug_strcasestr(const char *haystick, const char *needle)
                 haystick += 1;
         }
         return NULL;
+}
+
+/**
+ * appends formatted string to str
+ *
+ * original str is realloc-ed (invalidated) so the result must be assigned
+ */
+char *
+sprintf_append(char *str, const char *format, ...)
+{
+        va_list ap;
+        va_start(ap, format);
+        int size = vsnprintf(NULL, 0, format, ap);
+        assert(size >= 0);
+        va_end(ap);
+
+        char *nbuf = realloc(str, strlen(str) + size + 1);
+        assert(nbuf != NULL);
+        str = nbuf;
+
+        va_start(ap, format);
+        int ret = vsprintf(str + strlen(str), format, ap);
+        assert(ret >= 0);
+        va_end(ap);
+
+        return str;
 }

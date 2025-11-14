@@ -948,16 +948,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         opt->audio.codec_cfg = optarg;
                         break;
-                case 'F': {
-                                  std::string curr;
-                                  if(auto val = vidcap_params_get_capture_filter(opt->vidcap_params_tail); val != nullptr){
-                                          curr = val;
-                                          curr += ",";
-                                  }
-                                  curr += optarg;
-                                  vidcap_params_set_capture_filter(opt->vidcap_params_tail, curr.c_str());
-                                  break;
-                          }
+                case 'F':
+                        vidcap_params_add_capture_filter(
+                            opt->vidcap_params_tail, optarg);
+                        break;
                 case 'e':
                         snprintf_ch(opt->common.encryption, "%s", optarg);
                         break;

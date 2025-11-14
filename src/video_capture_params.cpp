@@ -44,6 +44,7 @@
 #include <string>
 
 #include "utils/config_file.h"
+#include "utils/string.h"       // for sprintf_append
 
 using namespace std;
 
@@ -186,10 +187,16 @@ void vidcap_params_set_driver(struct vidcap_params *params, const char *driver)
         params->driver = strdup(driver);
 }
 
-void vidcap_params_set_capture_filter(struct vidcap_params *params,
+void vidcap_params_add_capture_filter(struct vidcap_params *params,
                 const char *req_capture_filter)
 {
-        params->requested_capture_filter = strdup(req_capture_filter);
+        if (params->requested_capture_filter == nullptr) { // assign
+                params->requested_capture_filter = strdup(req_capture_filter);
+                return;
+        }
+        // or append
+        params->requested_capture_filter = sprintf_append(
+            params->requested_capture_filter, ",%s", req_capture_filter);
 }
 
 const char *vidcap_params_get_capture_filter(const struct vidcap_params *params)
