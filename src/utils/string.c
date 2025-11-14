@@ -49,6 +49,12 @@
 #include <unistd.h>
 #endif
 
+#ifdef _MSC_VER
+#define _Thread_local __declspec( thread )
+#include <BaseTsd.h>         // for SSIZE_T
+typedef SSIZE_T ssize_t;
+#endif
+
 #include "compat/strings.h"
 #include "utils/macros.h"    // for MIN
 #include "utils/string.h"
