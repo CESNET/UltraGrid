@@ -20,7 +20,7 @@ n=-1; while n=$((n + 1)); [ "$n" -lt "$LEN" ]; do
         fi
         ID=$(jq ".[$n].id" "$JSON")
         JSON2=$(mktemp)
-        STATUS=$(curl -Sf -H "Authorization: token $GITHUB_TOKEN" -X DELETE \
+        STATUS=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X DELETE \
 "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ID" \
 -w '%{http_code}' -o "$JSON2")
         check_errors "$JSON2"

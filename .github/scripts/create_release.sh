@@ -21,7 +21,7 @@ REPL_NL=':a;N;$!ba;s/\n/\\n/g'
 markdown_replaces='s/\\_/\\\\_/g;s/\\\*/\\\\*/g' # escape MD escape sequences
 
 sudo apt install jq
-URL=$(curl -Sf -H "Authorization: token $GITHUB_TOKEN" -X GET\
+URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET\
  "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" |
   jq -r '.url')
 REQ=PATCH
