@@ -5,7 +5,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2013-2023 CESNET z.s.p.o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,16 +37,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include "video_capture_params.h"
 
+#include <cstdlib>              // for free, calloc
+#include <cstring>              // for strdup, NULL, strchr
 #include <string>
 
 #include "utils/config_file.h"
-#include "video_capture_params.h"
 
 using namespace std;
 
