@@ -937,7 +937,7 @@ void print_version()
         }
 #endif
 
-        col() << SBOLD(S256_FG(T_TOMATO, PACKAGE_STRING <<
+        col() << SBOLD(S256_FG(T_ARCTIC_LIME, PACKAGE_STRING <<
                 (is_release ? "" : "+"))) <<
                 " (" << get_version_details() << ")\n";
 }

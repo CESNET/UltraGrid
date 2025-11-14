@@ -7,6 +7,12 @@
 
 taken from <https://sourceforge.net/projects/screencapturer/>
 
+## splashscreen.xcf
+
+source for src/video_display/splashscreen.h, old version
+
+Current version is hosted at <https://github.com/MartinPulec/UltraGrid-assets>.
+
 ## template/
 
  various distribution templates (see template/README.md)
