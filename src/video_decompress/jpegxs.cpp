@@ -55,7 +55,7 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
         }
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                const struct jpegxs_to_uv_conversion *conv = get_default_jpegxs_to_uv_conversion(s->image_config.format);
+                const struct jpegxs_to_uv_conversion *conv = get_default_jpegxs_to_uv_conversion(s->image_config.format, s->image_config.bit_depth);
                 if (!conv || !conv->convert) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "No default conversion for colour format: %d\n", s->image_config.format);
                         return false;
@@ -72,7 +72,7 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_jpegxs *s = (struct state_decompress_jpegxs *) state;
 
-        assert(out_codec == UYVY || out_codec == YUYV || out_codec == I420 || out_codec == RGB || out_codec == VIDEO_CODEC_NONE);
+        assert(out_codec == UYVY || out_codec == YUYV || out_codec == I420 || out_codec == RGB || out_codec == v210 || out_codec == R10k || out_codec == VIDEO_CODEC_NONE);
 
         if (s->out_codec == out_codec &&
                 s->pitch == pitch &&
@@ -109,7 +109,7 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
 
 static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpegxs *s, struct pixfmt_desc *internal_prop)
 {
-        internal_prop->depth = 8;
+        internal_prop->depth = s->image_config.bit_depth;
         internal_prop->rgb = false;
 
         switch (s->image_config.format) {
@@ -216,7 +216,7 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
         }
 
         // supported output formats
-        if (ugc == UYVY || ugc == YUYV || ugc == I420 || ugc == RGB) {
+        if (ugc == UYVY || ugc == YUYV || ugc == I420 || ugc == RGB || ugc == v210 || ugc == R10k) {
                 return VDEC_PRIO_PREFERRED;
         }
 

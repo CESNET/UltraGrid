@@ -62,8 +62,6 @@ struct state_video_compress_jpegxs {
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
         
         bool parse_fmt(char *fmt);
-        void push(shared_ptr<video_frame> in_frame);
-        shared_ptr<video_frame> pop();
 
         synchronized_queue<shared_ptr<struct video_frame>, -1> in_queue;
         synchronized_queue<shared_ptr<struct video_frame>, -1> out_queue;
@@ -220,7 +218,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         s->encoder.colour_format = subsampling_to_jpegxs(get_subsampling(desc.color_spec) / 10);
 
         SvtJxsErrorType_t err = SvtJxsErrorNone;
-        uint32_t bitstream_size;
+        uint32_t bitstream_size = 0;
         
         err = svt_jpeg_xs_encoder_get_image_config(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder, &s->image_config, &bitstream_size);
         if (err != SvtJxsErrorNone) {
@@ -325,11 +323,73 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
         return true;
 }
 
+static const struct {
+        const char *label;
+        const char *key;
+        const char *help_name;
+        const char *description;
+        const char *opt_str;
+        bool is_boolean;
+        const char *placeholder;
+} usage_opts[] = {
+        {"Bits per pixel", "bpp", "bpp",
+                "\t\tTarget bits-per-pixel ratio for the encoder. May be given as an\n"
+                "\t\tinteger (e.g., 2) or as a fraction (e.g., 3/4). Controls the\n"
+                "\t\toutput bitrate indirectly. Must be a positive value.\n",
+                ":bpp=", false, "3"
+        },
+        {"Vertical decomposition", "decomp_v", "decomp_v",
+                "\t\tNumber of vertical wavelet decompositions. Allowed values are\n"
+                "\t\t0, 1, or 2.\n",
+                ":decomp_v=", false, "2"
+        },
+        {"Horizontal decomposition", "decomp_h", "decomp_h",
+                "\t\tNumber of horizontal wavelet decompositions. Allowed values\n"
+                "\t\tare between 1 and 5.\n",
+                ":decomp_h=", false, "5"
+        },
+        {"Quantization algorithm", "quantization", "quantization",
+                "\t\tSelects the quantization algorithm: 0 = deadzone, 1 = uniform.\n",
+                ":quantization=", false, "0"
+        },
+        {"Slice height", "slice_height", "slice_height",
+                "\t\tHeight of a slice in lines. Must be a positive integer and a\n"
+                "\t\tmultiple of 2^decomp_v.\n",
+                ":slice_height=", false, "16"
+        },
+        {"Rate control mode", "rc", "rc",
+                "\t\tRate control mode:\n"
+                "\t\t 0 = CBR budget per precinct\n"
+                "\t\t 1 = CBR budget per precinct with padding movement\n"
+                "\t\t 2 = CBR budget per slice\n"
+                "\t\t 3 = CBR budget per slice with max rate size\n",
+                ":rc=", false, "0"
+        },
+        {"Threads scaling parameter", "threads", "threads",
+                "\t\tNumber of encoder threads. Must be between 0 and the number of\n"
+                "\t\tavailable CPU cores. Value 0 means the lowest possible number\n"
+                "\t\tof threads is created by the encoder.\n",
+                ":threads=", false, "0"
+        },
+};
+
 static void *jpegxs_compress_init(struct module *parent, const char *opts) {
         struct state_video_compress_jpegxs *s;
         
         if (opts && strcmp(opts, "help") == 0) {
-                col() << "JPEG XS compression usage:\n";
+                color_printf(TBOLD("JPEG XS") " compression usage:\n");
+                color_printf("\t" TBOLD(
+                        TRED("-c jpegxs") "[:bpp=<ratio>][:decomp_v=<0-2>][:decomp_h=<1-5>]"
+                                          "[:quantization=<0-1>][:slice_height=<n>][:rc=<mode>]"
+                                          "[:threads=<num_threads>][:pool_size=<n>]") "\n");
+                color_printf("\t" TBOLD(TRED("-c jpegxs") ":help") "\n");
+
+                color_printf("\nwhere:\n");
+                for (const auto &opt : usage_opts) {
+                        color_printf("\t" TBOLD("<%s>") "\n%s\n",
+                                opt.key, opt.description);
+                }
+                printf("\n");
                 return INIT_NOERR;
         }
 
@@ -338,24 +398,12 @@ static void *jpegxs_compress_init(struct module *parent, const char *opts) {
         return s;
 }
 
-void state_video_compress_jpegxs::push(shared_ptr<video_frame> frame)
-{
-        in_queue.push(frame);
-}
-
-shared_ptr<video_frame> state_video_compress_jpegxs::pop()
-{
-        auto frame = out_queue.pop();
-
-        return frame;
-}
-
 static void jpegxs_compress_push(void *state, shared_ptr<video_frame> frame) {
-        static_cast<struct state_video_compress_jpegxs *>(state)->push(std::move(frame));
+        static_cast<struct state_video_compress_jpegxs *>(state)->in_queue.push(std::move(frame));
 }
 
 static shared_ptr<video_frame> jpegxs_compress_pop(void *state) {
-        return static_cast<struct state_video_compress_jpegxs *>(state)->pop();
+        return static_cast<struct state_video_compress_jpegxs *>(state)->out_queue.pop();
 }
 
 static void jpegxs_compress_done(void *state) {
