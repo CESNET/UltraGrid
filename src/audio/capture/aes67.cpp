@@ -104,7 +104,7 @@ struct Allocated_audio_frame{
                 frame.data = data.data();
         }
 
-        bool is_desc_same(const audio_desc& desc){
+        [[nodiscard]] bool is_desc_same(const audio_desc& desc) const{
                 return frame.ch_count == desc.ch_count
                         && frame.bps == desc.bps
                         && frame.sample_rate == desc.sample_rate;
