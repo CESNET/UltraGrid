@@ -219,8 +219,6 @@ static void aes67_rtp_worker(state_aes67_cap *s, Rtp_stream stream){
                                 rtp_pkt.timestamp,
                                 rtp_pkt.payload_type);
 
-                std::lock_guard<std::mutex> lk(s->frame_mut);
-
                 if(rtp_pkt.payload_type != last_payload_type){
                         auto fmt_it = stream.fmts.find(rtp_pkt.payload_type);
                         if(fmt_it == stream.fmts.end()){
@@ -231,18 +229,20 @@ static void aes67_rtp_worker(state_aes67_cap *s, Rtp_stream stream){
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Reconfigured\n");
                         last_payload_type = rtp_pkt.payload_type;
                 }
-                if(!s->back_frame.is_desc_same(desc)){
-                        s->back_frame = Allocated_audio_frame(desc);
-                }
-
-                int sample_count = rtp_pkt.data_len / desc.bps;
-
                 char *src = static_cast<char *>(rtp_pkt.data);
+                int sample_count = rtp_pkt.data_len / desc.bps;
                 swap_endianity(src, desc.bps, sample_count);
 
-                size_t to_write = std::min<size_t>(s->back_frame.frame.max_size - s->back_frame.data.size(), sample_count * desc.bps);
-                s->back_frame.data.insert(s->back_frame.data.end(), src, src + to_write);
-                s->back_frame.frame.data_len = s->back_frame.data.size();
+                {
+                        std::scoped_lock lk(s->frame_mut);
+
+                        if(!s->back_frame.is_desc_same(desc)){
+                                s->back_frame = Allocated_audio_frame(desc);
+                        }
+                        size_t to_write = std::min<size_t>(s->back_frame.frame.max_size - s->back_frame.data.size(), sample_count * desc.bps);
+                        s->back_frame.data.insert(s->back_frame.data.end(), src, src + to_write);
+                        s->back_frame.frame.data_len = s->back_frame.data.size();
+                }
                 s->frame_cond.notify_one();
         }
 
