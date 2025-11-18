@@ -36,10 +36,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>               // for uint32_t
-#include <stdlib.h>               // for free, NULL, malloc
-#include <stdio.h>                // for printf
-#include <string.h>               // for strcmp
+#include <cstdint>               // for uint32_t
+#include <cstdlib>               // for free, NULL, malloc
+#include <cstdio>                // for printf
+#include <cstring>               // for strcmp
 
 #include <thread>
 #include <atomic>
@@ -47,7 +47,6 @@
 #include <string_view>
 #include <mutex>
 #include <condition_variable>
-#include <queue>
 
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
