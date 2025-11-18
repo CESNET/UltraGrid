@@ -224,6 +224,7 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/test_tv.o \
 	    test/test_net_udp.o \
 	    test/test_rtp.o \
+	    src/utils/sdp_parser.o \
 	    test/test_sdp_parser.o \
 	    test/run_tests.o
 
