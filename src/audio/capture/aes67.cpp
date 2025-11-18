@@ -83,9 +83,9 @@ struct Rtp_stream{
 using sess_id_t = uint32_t;
 
 struct Sap_session{
-        sess_id_t unique_identifier; //Hash computed from sdp username, session id and unicast address
-        uint64_t sess_ver;
-        uint16_t sap_hash; //Hash of sap packet that contained sdp for this version of session
+        sess_id_t unique_identifier = 0; //Hash computed from sdp username, session id and unicast address
+        uint64_t sess_ver = 0;
+        uint16_t sap_hash = 0; //Hash of sap packet that contained sdp for this version of session
         std::string name;
         std::string description;
 
@@ -119,7 +119,7 @@ struct Allocated_audio_frame{
 struct state_aes67_cap {
         std::string network_interface_name;
         std::string sap_address;
-        int sap_port;
+        int sap_port = 0;
         std::string requested_sess_hash;
         unsigned req_stream_idx = 0;
 
