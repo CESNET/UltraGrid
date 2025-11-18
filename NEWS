@@ -1,3 +1,7 @@
+next
+====
+* added AES67 capture
+
 1.10
 ====
 * added reflector wrapper handling both audio+video
