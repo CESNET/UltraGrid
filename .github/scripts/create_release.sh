@@ -25,7 +25,7 @@ URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET\
  "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" |
   jq -r '.url')
 REQ=PATCH
-if [ "$URL" = null ]; then # release doesn't yet exist
+if [ "${URL?}" = null ]; then # release doesn't yet exist
   REQ=POST
   URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
 fi
