@@ -721,7 +721,7 @@ read_spiff_directory(uint8_t** image, struct jpeg_reader *reader, int length)
 {
     if ( length < 8 ) { // ELEN at least 8
         MSG(ERROR, "APP8 SPIFF directory too short (%d bytes)\n", length);
-        image += length - 2;
+        *image += length - 2;
         return -1;
     }
     uint32_t tag = read_4byte(*image);
