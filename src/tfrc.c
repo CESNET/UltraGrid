@@ -44,6 +44,8 @@
  *
  */
 
+#include <stdbool.h>
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -478,9 +480,9 @@ int tfrc_feedback_is_due(struct tfrc *state, time_ns_t curr_time)
 
         if ((state->RTT == 0) || state->feedback_timer > curr_time) {
                 /* Not yet time to send feedback to the sender... */
-                return FALSE;
+                return false;
         }
-        return TRUE;
+        return true;
 }
 
 double tfrc_feedback_txrate(struct tfrc *state, time_ns_t curr_time)
