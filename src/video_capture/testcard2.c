@@ -280,6 +280,10 @@ usage()
 }
 
 #ifdef HAVE_LIBSDL_TTF
+/**
+ * @details if not-NULL is returned, the resulting font should be removed by
+ * TTF_CloseFont() + TTF_Quit() should be called
+ */
 static TTF_Font *
 get_sdl_render_font()
 {
@@ -302,6 +306,7 @@ get_sdl_render_font()
         }
         MSG(ERROR, "Unable to load any usable font! Last error: %s\n",
             TTF_GetError());
+        TTF_Quit();
         return NULL;
 }
 #endif
@@ -414,6 +419,12 @@ static void vidcap_testcard2_done(void *state)
         free(s->audio_silence);
         free(s->bg);
         free(s->data);
+#ifdef HAVE_LIBSDL_TTF
+        if (s->sdl_font != NULL) {
+                TTF_CloseFont(s->sdl_font);
+                TTF_Quit();
+        }
+#endif
         free(s);
 }
 
