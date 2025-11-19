@@ -155,10 +155,10 @@ int tv_gt(struct timeval a, struct timeval b)
 {
         /* Returns (a>b) */
         if (a.tv_sec > b.tv_sec) {
-                return TRUE;
+                return true;
         }
         if (a.tv_sec < b.tv_sec) {
-                return FALSE;
+                return false;
         }
         assert(a.tv_sec == b.tv_sec);
         return a.tv_usec > b.tv_usec;
