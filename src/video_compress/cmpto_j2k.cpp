@@ -52,9 +52,10 @@
 #endif // HAVE_CONFIG_H
 
 #include <cassert>
+#include <cinttypes>                 // for PRIdMAX, PRIuMAX
 #include <cmath>
 #include <condition_variable>
-#include <cstdint>                   // for uintmax_t
+#include <cstdint>                   // for intmax_t, uintmax_t
 #include <limits>                    // for numeric_limits
 #include <mutex>
 #include <string>
@@ -741,10 +742,12 @@ static void usage(bool full) {
                     std::nextafter(std::numeric_limits<typeof(var)>::max(), \
                                   -std::numeric_limits<double>::infinity()); \
                 if (val < (minval) || val > maxval) { \
-                        LOG(LOG_LEVEL_ERROR) \
-                            << "[J2K] Wrong value " << (str) \
-                            << " for " #var "! Value must be >= " << (minval) \
-                            << ".\n"; \
+                        MSG(ERROR, \
+                            "Wrong value %.0f (%s) for " #var \
+                            "! Value must be in range [%" PRIdMAX \
+                            "..%" PRIuMAX "].\n", \
+                            val, (str), (intmax_t) (minval), \
+                            maxval); \
                         return NULL; \
                 } \
                 (var) = val; \
