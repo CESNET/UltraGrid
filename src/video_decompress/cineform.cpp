@@ -381,22 +381,22 @@ static int cineform_decompress_get_property(void *state, int property, void *val
 {
         auto s = static_cast<struct state_cineform_decompress *>(state);
         UNUSED(s);
-        int ret = FALSE;
+        int ret = false;
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if(*len >= sizeof(int)) {
 #ifdef CINEFORM_ACCEPT_CORRUPTED
-                                *(int *) val = TRUE;
+                                *(int *) val = true;
 #else
-                                *(int *) val = FALSE;
+                                *(int *) val = false;
 #endif
                                 *len = sizeof(int);
-                                ret = TRUE;
+                                ret = true;
                         }
                         break;
                 default:
-                        ret = FALSE;
+                        ret = false;
         }
 
         return ret;
