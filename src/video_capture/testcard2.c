@@ -66,9 +66,6 @@
 #                define SDL_DestroySurface SDL_FreeSurface
 #                define SDL_ERR (-1)
 #        endif // defined HAVE_SDL3
-#else
-#        include "utils/bitmap_font.h"
-#        define SDL_DestroySurface(...)
 #endif
 
 #include "audio/types.h"                // for audio_frame
@@ -81,6 +78,7 @@
 #include "tv.h"                         // for tv_diff, tv_add_usec, tv_diff...
 #include "types.h"                      // for video_desc, RGBA, video_frame
 #include "utils/color_out.h"            // for color_printf, TBOLD, TRED
+#include "utils/bitmap_font.h"          // for font, FONT_H, FONT_W_SPACE
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
 #include "utils/random.h"               // for ug_rand
@@ -117,6 +115,7 @@ static void vidcap_testcard2_done(void *state);
 void * vidcap_testcard2_thread(void *args);
 
 struct testcard_state2 {
+        bool use_builtin_font;
 #ifdef HAVE_LIBSDL_TTF
         TTF_Font *sdl_font;
 #endif
@@ -253,6 +252,8 @@ parse_fmt(struct testcard_state2 *s, char *fmt)
                         s->noise = IS_KEY_PREFIX(tmp, "noise")
                                        ? atoi(strchr(tmp, '=') + 1)
                                        : NOISE_DEFAULT;
+                } else if (IS_PREFIX(tmp, "builtin")) {
+                        s->use_builtin_font = true;
                 } else {
                         MSG(ERROR, "Unknown option: %s\n", tmp);
                         return false;
@@ -268,8 +269,7 @@ usage()
         color_printf("testcard2 is an alternative implementation of testing "
                      "signal source.\n");
         color_printf("It is less maintained than mainline testcard and has "
-                     "less features but has some extra ones, i. a. a timer (if "
-                     "SDL(2)_ttf is found.\n");
+                     "less features but has some extra ones, i. a. a timer\n");
         color_printf("\n");
         color_printf("testcard2 usage:\n");
         color_printf(TBOLD(
@@ -277,8 +277,9 @@ usage()
         color_printf("or\n");
         color_printf(
             TBOLD(TRED("\t-t testcard2") "[:size=<width>x<height>][:fps=<fps>]["
-                                         ":codec=<codec>][:mode=<mode>]") "\n");
+                                         ":codec=<codec>][:mode=<mode>][:builtin]") "\n");
         printf("\nOptions:\n");
+        color_printf("\t" TBOLD("builtin") " - use builtin font even if SDL_ttf was found\n");
         color_printf("\t" TBOLD("noise[=<val>]") " - add noise to the image\n");
         printf("\n");
         testcard_show_codec_help("testcard2", true);
@@ -332,13 +333,6 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         platform_sem_init(&s->semaphore, 0, 0);
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->data_consumed_cv, NULL);
-#ifdef HAVE_LIBSDL_TTF
-        s->sdl_font = get_sdl_render_font();
-        if (s->sdl_font == NULL) {
-                vidcap_testcard2_done(s);
-                return VIDCAP_INIT_FAIL;
-        }
-#endif
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         bool ret = true;
@@ -359,6 +353,17 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                        s->desc.width, s->desc.height);
                 vidcap_testcard2_done(s);
                 return VIDCAP_INIT_FAIL;
+        }
+
+        if (!s->use_builtin_font) {
+#ifdef HAVE_LIBSDL_TTF
+                s->sdl_font = get_sdl_render_font();
+                if (s->sdl_font == NULL) {
+                        s->use_builtin_font = true; // fallback
+                }
+#else
+                s->use_builtin_font = true;
+#endif
         }
 
         {
@@ -395,7 +400,9 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         s->seconds_tone_played = 0.0;
         s->play_audio_frame = 0;
 
-        printf("Testcard capture set to %dx%d\n", s->desc.width, s->desc.height);
+        MSG(NOTICE, "Testcard2 capture set to %dx%d, using %s font\n",
+            s->desc.width, s->desc.height,
+            s->use_builtin_font ? "builtin/raster" : "TTF");
 
         gettimeofday(&s->start_time, NULL);
 
@@ -454,10 +461,10 @@ add_noise(unsigned char *data, size_t len, unsigned bpp, unsigned noisiness)
         }
 }
 
-#ifdef HAVE_LIBSDL_TTF
 static void
 render_sdl_ttf(struct testcard_state2 *s, const char *frames, uint32_t *banner)
 {
+#ifdef HAVE_LIBSDL_TTF
         const SDL_Color col  = { 0, 0, 0, 0 };
         SDL_Surface    *text = TTF_RenderText_Solid(s->sdl_font,
 #ifdef HAVE_SDL3
@@ -478,8 +485,12 @@ render_sdl_ttf(struct testcard_state2 *s, const char *frames, uint32_t *banner)
                 }
         }
         SDL_DestroySurface(text);
-}
 #else
+        (void) s, (void) frames, (void) banner;
+        abort();
+#endif // defined HAVE_LIBSDL_TTF
+}
+
 static void
 render_builtin(struct testcard_state2 *s, const char *frames, char *banner)
 {
@@ -492,7 +503,6 @@ render_builtin(struct testcard_state2 *s, const char *frames, char *banner)
         draw_line_scaled(banner + yoff * linesz + xoff * 4, linesz,
                          frames, 0xFF000000U, 0xFFFFFFFFU, scale);
 }
-#endif // defined HAVE_LIBSDL_TTF
 
 /**
  * Only text banner is rendered in RGBA, other elements (background, squares) are already
@@ -580,11 +590,11 @@ void * vidcap_testcard2_thread(void *arg)
                                 (int) since_start / 60 % 60,
                                 (int) since_start % 60,
                                  s->count % (int) s->desc.fps);
-#ifdef HAVE_LIBSDL_TTF
-                render_sdl_ttf(s, frames, banner);
-#else
-                render_builtin(s, frames, (char *) banner);
-#endif
+                if (s->use_builtin_font) {
+                        render_builtin(s, frames, (char *) banner);
+                } else {
+                        render_sdl_ttf(s, frames, banner);
+                }
 
                 testcard_convert_buffer(
                     RGBA, s->desc.color_spec,
