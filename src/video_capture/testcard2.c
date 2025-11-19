@@ -112,7 +112,9 @@ enum {
 void * vidcap_testcard2_thread(void *args);
 
 struct testcard_state2 {
-
+#ifdef HAVE_LIBSDL_TTF
+        TTF_Font *sdl_font;
+#endif
         int count;
         unsigned char *bg; ///< bars converted to dest color_spec
         unsigned noise; ///< add noise if >0; the magnitude is distance
@@ -277,6 +279,33 @@ usage()
         testcard_show_codec_help("testcard2", true);
 }
 
+#ifdef HAVE_LIBSDL_TTF
+static TTF_Font *
+get_sdl_render_font()
+{
+        TTF_Font *font = NULL;
+        if (TTF_Init() == SDL_ERR) {
+                MSG(ERROR, "Unable to initialize SDL_ttf: %s\n",
+                    TTF_GetError());
+                return NULL;
+        }
+        const char *const *font_candidates = get_font_candidates();
+        while (*font_candidates != NULL) {
+                font = TTF_OpenFont(*font_candidates, FONT_HEIGHT);
+                if (font != NULL) {
+                        MSG(INFO, "using font %s\n", *font_candidates);
+                        return font;
+                }
+                MSG(VERBOSE, "Tried font %s: %s\n", *font_candidates,
+                    TTF_GetError());
+                font_candidates += 1;
+        }
+        MSG(ERROR, "Unable to load any usable font! Last error: %s\n",
+            TTF_GetError());
+        return NULL;
+}
+#endif
+
 static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
@@ -289,6 +318,13 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         s->desc = DEFAULT_FORMAT;
+#ifdef HAVE_LIBSDL_TTF
+        s->sdl_font = get_sdl_render_font();
+        if (s->sdl_font == NULL) {
+                free(s);
+                return VIDCAP_INIT_FAIL;
+        }
+#endif
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         bool ret = true;
@@ -420,33 +456,6 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
 
-#ifdef HAVE_LIBSDL_TTF
-#define EXIT_THREAD { free(banner); exit_uv(1); s->should_exit = true; platform_sem_post(&s->semaphore); return NULL; }
-        TTF_Font * font = NULL;
-        if (TTF_Init() == SDL_ERR) {
-          log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
-            TTF_GetError());
-          EXIT_THREAD
-        }
-
-        const char *const *font_candidates = get_font_candidates();
-        while (*font_candidates != NULL) {
-                font = TTF_OpenFont(*font_candidates, FONT_HEIGHT);
-                if (font != NULL) {
-                        MSG(INFO, "using font %s\n", *font_candidates);
-                        break;
-                }
-                MSG(VERBOSE, "Tried font %s: %s\n", *font_candidates,
-                    TTF_GetError());
-                font_candidates += 1;
-        }
-        if(!font) {
-                MSG(ERROR, "Unable to load any usable font! Last error: %s\n",
-                    TTF_GetError());
-                EXIT_THREAD
-        }
-
-#endif
         /// @note R12l has pixel block size 8 pixels, so the below won't work for that pixfmt
         unsigned char square_cols[2][48];
         uint32_t src[6 + MAX_PADDING] = { 0 };
@@ -512,7 +521,7 @@ void * vidcap_testcard2_thread(void *arg)
                                  s->count % (int) s->desc.fps);
 #ifdef HAVE_LIBSDL_TTF
                 SDL_Color col = { 0, 0, 0, 0 };
-                SDL_Surface *text = TTF_RenderText_Solid(font,
+                SDL_Surface *text = TTF_RenderText_Solid(s->sdl_font,
 #        ifdef HAVE_SDL3
                         frames, 0, col);
 #        else
