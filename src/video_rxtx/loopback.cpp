@@ -109,7 +109,7 @@ void *loopback_video_rxtx::receiver_loop()
                 lk.unlock();
                 auto new_desc = video_desc_from_frame(frame.get());
                 if (m_configure_desc != new_desc) {
-                        if (display_reconfigure(m_display_device, new_desc, VIDEO_NORMAL) == FALSE) {
+                        if (display_reconfigure(m_display_device, new_desc, VIDEO_NORMAL) == false) {
                                 LOG(LOG_LEVEL_ERROR) << "Unable to reconfigure display!\n";
                                 continue;
                         }
