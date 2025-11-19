@@ -108,7 +108,12 @@ enum {
         (struct video_desc){ 1920, 1080, UYVY, 24, PROGRESSIVE, 1 }
 #define MOD_NAME "[testcard2] "
 
+// compat
+#ifndef PTHREAD_NULL // defined by POSIX v8
+#define PTHREAD_NULL ((pthread_t) { 0 })
+#endif
 
+static void vidcap_testcard2_done(void *state);
 void * vidcap_testcard2_thread(void *args);
 
 struct testcard_state2 {
@@ -323,10 +328,14 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         s->desc = DEFAULT_FORMAT;
+        s->thread_id = PTHREAD_NULL;
+        platform_sem_init(&s->semaphore, 0, 0);
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->data_consumed_cv, NULL);
 #ifdef HAVE_LIBSDL_TTF
         s->sdl_font = get_sdl_render_font();
         if (s->sdl_font == NULL) {
-                free(s);
+                vidcap_testcard2_done(s);
                 return VIDCAP_INIT_FAIL;
         }
 #endif
@@ -341,14 +350,14 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         }
         free(fmt);
         if (!ret) {
-                free(s);
+                vidcap_testcard2_done(s);
                 return VIDCAP_INIT_FAIL;
         }
 
         if (s->desc.width <= 0 || s->desc.height <= 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video size, given: %dx%d\n",
                        s->desc.width, s->desc.height);
-                free(s);
+                vidcap_testcard2_done(s);
                 return VIDCAP_INIT_FAIL;
         }
 
@@ -386,13 +395,9 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         s->seconds_tone_played = 0.0;
         s->play_audio_frame = 0;
 
-        platform_sem_init(&s->semaphore, 0, 0);
         printf("Testcard capture set to %dx%d\n", s->desc.width, s->desc.height);
 
         gettimeofday(&s->start_time, NULL);
-        
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->data_consumed_cv, NULL);
 
         pthread_create(&s->thread_id, NULL, vidcap_testcard2_thread, s);
 
@@ -411,7 +416,12 @@ static void vidcap_testcard2_done(void *state)
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->data_consumed_cv);
 
-        pthread_join(s->thread_id, NULL);
+        pthread_t null_thread_id;
+        memset(&null_thread_id, 0, sizeof null_thread_id); // for safe memcmp
+        null_thread_id = PTHREAD_NULL;
+        if (memcmp(&s->thread_id, &null_thread_id, sizeof s->thread_id) != 0) {
+                pthread_join(s->thread_id, NULL);
+        }
 
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->data_consumed_cv);
