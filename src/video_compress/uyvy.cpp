@@ -148,7 +148,7 @@ uyvy_compress_init(struct module *parent, const char *)
         glUniform1i(glGetUniformLocation(s->program_rgba_to_yuv422,"image"),0);
         glUseProgram(0);
 
-        s->configured = FALSE;
+        s->configured = false;
 
         gl_context_make_current(NULL);
 
@@ -168,7 +168,7 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
                         break;
                 default:
                         fprintf(stderr, "[UYVY compress] We can transform only RGB or RGBA to UYVY.\n");
-                        return FALSE;
+                        return false;
         }
 
         struct video_desc compressed_desc;
@@ -213,7 +213,7 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
 
         glViewport( 0, 0, tx->tiles[0].width / 2, tx->tiles[0].height);
 
-        s->configured = TRUE;
+        s->configured = true;
         s->saved_desc = video_desc_from_frame(tx);
 
         return true;
