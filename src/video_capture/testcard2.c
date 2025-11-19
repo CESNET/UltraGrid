@@ -454,6 +454,46 @@ add_noise(unsigned char *data, size_t len, unsigned bpp, unsigned noisiness)
         }
 }
 
+#ifdef HAVE_LIBSDL_TTF
+static void
+render_sdl_ttf(struct testcard_state2 *s, const char *frames, uint32_t *banner)
+{
+        const SDL_Color col  = { 0, 0, 0, 0 };
+        SDL_Surface    *text = TTF_RenderText_Solid(s->sdl_font,
+#ifdef HAVE_SDL3
+                                                 frames, 0, col);
+#else
+                                                 frames, col);
+#endif
+        long xoff = ((long) s->desc.width - text->w) / 2;
+        long yoff = (BANNER_HEIGHT - text->h) / 2;
+        for (int i = 0; i < text->h; i++) {
+                uint32_t *d = banner + xoff + (i + yoff) * s->desc.width;
+                for (int j = 0; j < MIN(text->w, (int) s->desc.width - xoff);
+                     j++) {
+                        if (((char *) text->pixels)[i * text->pitch + j]) {
+                                *d = 0x00000000U;
+                        }
+                        d++;
+                }
+        }
+        SDL_DestroySurface(text);
+}
+#else
+static void
+render_builtin(struct testcard_state2 *s, const char *frames, char *banner)
+{
+        int  scale  = FONT_HEIGHT / FONT_H;
+        int  w      = strlen(frames) * FONT_W_SPACE * scale;
+        int  h      = FONT_H * scale;
+        long xoff   = ((long) s->desc.width - w) / 2;
+        long yoff   = (BANNER_HEIGHT - h) / 2;
+        int  linesz = vc_get_linesize(s->desc.width, RGBA);
+        draw_line_scaled(banner + yoff * linesz + xoff * 4, linesz,
+                         frames, 0xFF000000U, 0xFFFFFFFFU, scale);
+}
+#endif // defined HAVE_LIBSDL_TTF
+
 /**
  * Only text banner is rendered in RGBA, other elements (background, squares) are already
  * converted to destination color space. Keep in mind that the regions should be aligned
@@ -541,34 +581,10 @@ void * vidcap_testcard2_thread(void *arg)
                                 (int) since_start % 60,
                                  s->count % (int) s->desc.fps);
 #ifdef HAVE_LIBSDL_TTF
-                SDL_Color col = { 0, 0, 0, 0 };
-                SDL_Surface *text = TTF_RenderText_Solid(s->sdl_font,
-#        ifdef HAVE_SDL3
-                        frames, 0, col);
-#        else
-                        frames, col);
-#        endif
-                long xoff = ((long) s->desc.width - text->w) / 2;
-                long yoff = (BANNER_HEIGHT - text->h) / 2;
-                for (int i = 0 ; i < text->h; i++) {
-                        uint32_t *d = banner + xoff + (i + yoff) * s->desc.width;
-                        for (int j = 0 ; j < MIN(text->w, (int) s->desc.width - xoff); j++) {
-                                if (((char *)text->pixels) [i * text->pitch + j]) {
-                                        *d = 0x00000000U;
-                                }
-                                d++;
-                        }
-                }
+                render_sdl_ttf(s, frames, banner);
 #else
-                int scale = FONT_HEIGHT / FONT_H;
-                int w = strlen(frames) * FONT_W_SPACE * scale;
-                int h = FONT_H * scale;
-                long xoff = ((long) s->desc.width - w) / 2;
-                long yoff = (BANNER_HEIGHT - h) / 2;
-                int linesz = vc_get_linesize(s->desc.width, RGBA);
-                draw_line_scaled((char *) banner + yoff * linesz + xoff * 4,
-                                 linesz, frames, 0xFF000000U, 0xFFFFFFFFU, scale);
-#endif // defined HAVE_LIBSDL_TTF
+                render_builtin(s, frames, (char *) banner);
+#endif
 
                 testcard_convert_buffer(
                     RGBA, s->desc.color_spec,
@@ -578,7 +594,6 @@ void * vidcap_testcard2_thread(void *arg)
                                                     s->desc.color_spec)),
                     (unsigned char *) banner, (int) s->desc.width,
                     BANNER_HEIGHT);
-                SDL_DestroySurface(text);
 
 next_frame:
                 next_frame_time = s->start_time;
