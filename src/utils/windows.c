@@ -43,6 +43,7 @@
 #include <vfwmsgs.h>
 #include <dbghelp.h>
 #include <io.h>
+#include <stdbool.h>
 
 #include "utils/macros.h"
 #endif // defined _WIN32
@@ -301,7 +302,7 @@ print_stacktrace_win()
         HANDLE         process;
 
         process = GetCurrentProcess();
-        SymInitialize(process, NULL, TRUE);
+        SymInitialize(process, NULL, true);
 
         frames = CaptureStackBackTrace(0, 100, stack, NULL);
         symbol =
@@ -315,7 +316,7 @@ print_stacktrace_win()
                 BOOL ret =  SymFromAddr(process, (DWORD64) (stack[i]), 0, symbol);
                 char buf[STR_LEN];
                 snprintf_ch(buf, "%i (%p): ", frames - i - 1, stack[i]);
-                if (ret == TRUE) {
+                if (ret == true) {
                         snprintf(buf + strlen(buf), sizeof buf - strlen(buf),
                                  "%s - 0x%0llX\n", symbol->Name,
                                  symbol->Address);
