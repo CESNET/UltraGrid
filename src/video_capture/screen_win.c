@@ -453,7 +453,7 @@ static int run_child_process() {
         STARTUPINFO si = { 0 };
         PROCESS_INFORMATION pi = { 0 };
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Starting child process:\n%s\n", cmd);
-        const bool ret = CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL,
+        const bool ret = CreateProcess(NULL, cmd, NULL, NULL, false, 0, NULL,
                                        NULL, &si, &pi);
         if (ret) {
                 WaitForSingleObject(pi.hProcess, INFINITE);
