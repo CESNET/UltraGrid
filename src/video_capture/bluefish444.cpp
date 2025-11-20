@@ -267,7 +267,7 @@ static int CompleteBlueAsyncReq(HANDLE hDevice, LPOVERLAPPED pOverlap)
 {
         DWORD bytesReturned;
         ResetEvent(pOverlap->hEvent);
-        GetOverlappedResult(hDevice, pOverlap, &bytesReturned, TRUE);
+        GetOverlappedResult(hDevice, pOverlap, &bytesReturned, true);
         //cout << "Bytes ret: " << bytesReturned << endl;
         return bytesReturned;
 }
@@ -278,7 +278,7 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
 #ifdef _WIN32
         assert(s->attachedDevices == 1);
 
-        BOOL bWaitForField = TRUE;
+        BOOL bWaitForField = true;
 
         //We need to wait for a major interrupt (sub field interrupt == 0) before we schedule a frame to be captured
         UINT SubFieldIrqs = 0;
@@ -295,7 +295,7 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
 
                 bfcVideoSyncStructGet(s->pSDK[0], s->pIrqInfo, VideoMsc, SubFieldIrqs);
                 if(s->video_desc.interlacing == PROGRESSIVE || (VideoMsc & 0x1))
-                        bWaitForField = FALSE;
+                        bWaitForField = false;
 
         }while(!((SubFieldIrqs == 0) && !bWaitForField));       //we need to schedule the field capture when SubFieldIrqs is 0
 #else
@@ -643,13 +643,13 @@ static void *worker(void *arg)
                 if(s->SubField) {
                         if(SubFieldIrqs == 0) {
                                 nOffset = (nChunks - 1) * ChunkSize;
-                                current_frame->video->last_fragment = TRUE;
+                                current_frame->video->last_fragment = true;
                         } else {
                                 nOffset = (SubFieldIrqs - 1) * ChunkSize;
-                                current_frame->video->last_fragment = FALSE;
+                                current_frame->video->last_fragment = false;
                         }
                         current_frame->video->tiles[0].data_len = ChunkSize;
-                        current_frame->video->fragment = TRUE;
+                        current_frame->video->fragment = true;
                         current_frame->video->tiles[0].offset = nOffset;
                         current_frame->video->frame_fragment_id = CurrentFieldCount & 0x3fff;
                 }
@@ -817,7 +817,7 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
 
 #ifdef _WIN32
         memset(&s->OverlapChA, 0, sizeof(s->OverlapChA));
-        s->OverlapChA.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        s->OverlapChA.hEvent = CreateEvent(NULL, true, false, NULL);
 #endif
 
         int iDevices = 0;
@@ -1067,7 +1067,7 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         if(res->fragment) {
                 if(res->frame_fragment_id % 2 == 0) {
                         //upper field
-                        res->last_fragment = FALSE;
+                        res->last_fragment = false;
                 } else {
                         //bottom field
                         res->tiles[0].offset += res->tiles[0].data_len * 2;

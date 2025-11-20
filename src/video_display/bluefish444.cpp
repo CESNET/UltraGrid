@@ -267,7 +267,7 @@ void *display_bluefish444_state::playback_loop() noexcept
 #ifdef _WIN32
         OVERLAPPED Overlapped[MAX_BLUE_OUT_CHANNELS];
         for (int i = 0;i < MAX_BLUE_OUT_CHANNELS; ++ i) {
-                Overlapped[i].hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+                Overlapped[i].hEvent = CreateEvent(NULL, true, false, NULL);
         }
 #endif
 
@@ -333,7 +333,7 @@ void *display_bluefish444_state::playback_loop() noexcept
                 if(WaitResult) {
                         for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                                 DWORD BytesReturned = 0;
-                                GetOverlappedResult(bfcGetHandle(m_pSDK[i]), &Overlapped[i], &BytesReturned, TRUE);
+                                GetOverlappedResult(bfcGetHandle(m_pSDK[i]), &Overlapped[i], &BytesReturned, true);
                                 ResetEvent(Overlapped[i].hEvent);
                         }
                 }
