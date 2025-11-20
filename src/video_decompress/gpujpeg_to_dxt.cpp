@@ -190,7 +190,7 @@ static void * gpujpeg_to_dxt_decompress_init(void)
         s->occupied_count = 0;
 
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
-                int ret = gpujpeg_init_device(cuda_devices[i], TRUE);
+                int ret = gpujpeg_init_device(cuda_devices[i], true);
                 if(ret != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", cuda_devices[0]);
                         delete s;
@@ -260,12 +260,12 @@ static int gpujpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc 
                 assert(status != NULL);
                 if (!status->success) {
                         delete status;
-                        return FALSE;
+                        return false;
                 }
                 delete status;
         }
 
-        return TRUE;
+        return true;
 }
 
 /**
@@ -341,7 +341,7 @@ static int gpujpeg_to_dxt_decompress_get_property(void *state, int property, voi
         UNUSED(val);
         UNUSED(len);
 
-        return FALSE;
+        return false;
 }
 
 static void gpujpeg_to_dxt_decompress_done(void *state)
