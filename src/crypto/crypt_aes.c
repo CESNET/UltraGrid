@@ -35,6 +35,8 @@
  * John Skodon <skodonj@webquill.com>
  */
 
+#include <stdbool.h>
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -99,7 +101,7 @@ int makeKey(keyInstance * key, BYTE direction, int keyLen, const char *keyMateri
                 key->Nr = rijndaelKeySetupDec(key->rk, cipherKey, keyLen);
         }
         rijndaelKeySetupEnc(key->ek, cipherKey, keyLen);
-        return TRUE;
+        return true;
 }
 
 int cipherInit(cipherInstance * cipher, BYTE mode, char *IV)
@@ -139,7 +141,7 @@ int cipherInit(cipherInstance * cipher, BYTE mode, char *IV)
         } else {
                 memset(cipher->IV, 0, MAX_IV_SIZE);
         }
-        return TRUE;
+        return true;
 }
 
 int blockEncrypt(cipherInstance * cipher, keyInstance * key,
@@ -187,7 +189,8 @@ int blockEncrypt(cipherInstance * cipher, keyInstance * key,
         case MODE_CFB1:
                 iv = cipher->IV;
                 for (i = numBlocks; i > 0; i--) {
-                        memcpy(outBuffer, input, 16);
+                        
+memcpy(outBuffer, input, 16);
                         for (k = 0; k < 128; k++) {
                                 rijndaelEncrypt(key->ek, key->Nr, iv, block);
                                 outBuffer[k >> 3] ^=
@@ -328,7 +331,8 @@ int blockDecrypt(cipherInstance * cipher, keyInstance * key,
                 iv = cipher->IV;
                 for (i = numBlocks; i > 0; i--) {
                         memcpy(outBuffer, input, 16);
-                        for (k = 0; k < 128; k++) {
+                        
+for (k = 0; k < 128; k++) {
                                 rijndaelEncrypt(key->ek, key->Nr, iv, block);
                                 for (t = 0; t < 15; t++) {
                                         iv[t] = (iv[t] << 1) | (iv[t + 1] >> 7);
@@ -467,5 +471,5 @@ int cipherUpdateRounds(cipherInstance * cipher, keyInstance * key,
 
         memcpy(outBuffer, block, 16);
 
-        return TRUE;
+        return true;
 }
