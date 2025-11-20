@@ -122,6 +122,22 @@ static void rgbp10le_to_r10k(const svt_jpeg_xs_image_buffer_t *src, int width, i
         }
 }
 
+static void rgbp12le_to_r12l(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst) {
+
+        for (int y = 0; y < height; ++y) {
+                uint16_t *dst_row = (uint16_t *)(dst + y * vc_get_linesize(width, R12L));
+                uint16_t *src_r = (uint16_t *) src->data_yuv[0] + y * src->stride[0];
+                uint16_t *src_g = (uint16_t *) src->data_yuv[1] + y * src->stride[1];
+                uint16_t *src_b = (uint16_t *) src->data_yuv[2] + y * src->stride[2];
+
+                for (int x = 0; x < width; ++x) {
+                        *dst_row++ = *src_b++ & 0x0FFF;
+                        *dst_row++ = *src_g++ & 0x0FFF;
+                        *dst_row++ = *src_r++ & 0x0FFF;
+                }
+        }
+}
+
 static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
         { COLOUR_FORMAT_PLANAR_YUV422, UYVY, 8, yuv422p_to_uyvy },
         { COLOUR_FORMAT_PLANAR_YUV422, YUYV, 8, yuv422p_to_yuyv },
@@ -129,6 +145,7 @@ static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
         { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, RGB, 8, rgbp_to_rgb },
         { COLOUR_FORMAT_PLANAR_YUV422, v210, 10, yuv422p10le_to_v210 },
         { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R10k, 10, rgbp10le_to_r10k },
+        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R12L, 12,  rgbp12le_to_r12l},
         { COLOUR_FORMAT_INVALID, VIDEO_CODEC_NONE, 0, NULL }
 };
 
