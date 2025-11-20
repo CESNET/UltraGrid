@@ -38,6 +38,8 @@
 
 #define __USE_MINGW_ANSI_STDIO 1
 
+#include <stdbool.h>
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -82,7 +84,7 @@ static void rijndaelVKKAT(FILE * fp, int keyLength)
         for (i = 0; i < keyLength; i++) {
                 keyMaterial[i / 4] = byteVal;   /* set only the i-th bit of the i-th test key */
                 r = makeKey(&keyInst, DIR_ENCRYPT, keyLength, (char *) keyMaterial);
-                if (TRUE != r) {
+                if (true != r) {
                         fprintf(stderr, "makeKey error %d\n", r);
                         exit(-1);
                 }
@@ -90,7 +92,7 @@ static void rijndaelVKKAT(FILE * fp, int keyLength)
                 fprintf(fp, "KEY=%s\n", keyMaterial);
                 memset(block, 0, 16);
                 r = cipherInit(&cipherInst, MODE_ECB, NULL);
-                if (TRUE != r) {
+                if (true != r) {
                         fprintf(stderr, "cipherInit error %d\n", r);
                         exit(-1);
                 }
@@ -531,12 +533,12 @@ static void rijndaelCBC_MCT(FILE * fp, int keyLength, BYTE direction)
                 keyMaterial[keyLength / 4] = 0;
                 fprintf(fp, "KEY=%s\n", keyMaterial);
                 r = makeKey(&keyInst, direction, keyLength, (char *) keyMaterial);
-                if (TRUE != r) {
+                if (true != r) {
                         fprintf(stderr, "makeKey error %d\n", r);
                         exit(-1);
                 }
                 r = cipherInit(&cipherInst, MODE_ECB, NULL);
-                if (TRUE != r) {
+                if (true != r) {
                         fprintf(stderr, "cipherInit error %d\n", r);
                         exit(-1);
                 }
