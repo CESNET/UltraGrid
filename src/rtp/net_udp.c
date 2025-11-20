@@ -50,6 +50,7 @@
 
 #include <pthread.h>
 #include <stdalign.h>
+#include <stdbool.h>
 #include <stdint.h>       // for uint16_t, uintmax_t
 
 #ifndef _WIN32
@@ -1773,13 +1774,13 @@ void udp_async_wait(socket_udp *s)
                 int count = WSA_MAXIMUM_WAIT_EVENTS;
                 if (s->overlapped_count - i < WSA_MAXIMUM_WAIT_EVENTS)
                         count = s->overlapped_count - i;
-                DWORD ret = WSAWaitForMultipleEvents(count, s->overlapped_events + i, TRUE, INFINITE, TRUE);
+                DWORD ret = WSAWaitForMultipleEvents(count, s->overlapped_events + i, true, INFINITE, true);
                 if (ret == WSA_WAIT_FAILED) {
                         socket_error("WSAWaitForMultipleEvents");
                 }
         }
         for (int i = 0; i < s->overlapped_count; i++) {
-                if (WSAResetEvent(s->overlapped[i].hEvent) == FALSE) {
+                if (WSAResetEvent(s->overlapped[i].hEvent) == false) {
                         socket_error("WSAResetEvent");
                 }
                 free(s->dispose_udata[i]);
