@@ -324,10 +324,10 @@ static struct video_frame *display_sage_getf(void *state)
 
         pthread_mutex_lock(&s->buffer_writable_lock);
         while (!s->buffer_writable) {
-                s->grab_waiting = TRUE;
+                s->grab_waiting = true;
                 pthread_cond_wait(&s->buffer_writable_cond,
                                 &s->buffer_writable_lock);
-                s->grab_waiting = FALSE;
+                s->grab_waiting = false;
         }
         pthread_mutex_unlock(&s->buffer_writable_lock);
 
