@@ -438,7 +438,7 @@ print_board_info(int BoardIndex, ULONG DllVersion, bool full)
         ULONG       IsBiDir      = 0;
         if (VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR, &IsBiDir) ==
             VHDERR_NOERROR) {
-                bidir_status = IsBiDir == TRUE ? "supported" : "not supported";
+                bidir_status = IsBiDir == true ? "supported" : "not supported";
         }
         printf("\t  - bidirectional (switchable) channels: "
                "%s\n",
@@ -500,7 +500,7 @@ delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx,
         ULONG  NbRxOnBoard = 0;
         ULONG  NbTxOnBoard = 0;
         ULONG  NbChanOnBoard;
-        BOOL32 IsBiDir = FALSE;
+        BOOL32 IsBiDir = false;
 
         Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_RXCHANNELS,
                                       &NbRxOnBoard);
@@ -768,7 +768,7 @@ VHD_GetVideoCharacteristics(unsigned mode, ULONG *Width, ULONG *Height,
         }
         *Width = info.width;
         *Height = info.height;
-        *Interlaced = info.interlacing == UPPER_FIELD_FIRST ? TRUE : FALSE;
+        *Interlaced = info.interlacing == UPPER_FIELD_FIRST ? true : false;
         *Framerate = info.fps;
         return VHDERR_NOERROR;
 }
@@ -790,7 +790,7 @@ deltacast_get_mode_info(unsigned mode, bool want_1001)
         }
         ULONG  Width      = 0;
         ULONG  Height     = 0;
-        BOOL32 Interlaced = FALSE;
+        BOOL32 Interlaced = false;
         ULONG  Framerate  = 0;
         ULONG  Result     = VHD_GetVideoCharacteristics(
             (VHD_VIDEOSTANDARD) mode, &Width, &Height, &Interlaced, &Framerate);

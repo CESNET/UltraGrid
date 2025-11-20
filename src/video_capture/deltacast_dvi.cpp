@@ -276,7 +276,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         VHD_DV_MODE DviMode,
         ULONG Width, ULONG Height, ULONG RefreshRate)
 {
-        BOOL32 Interlaced_B = FALSE;
+        BOOL32 Interlaced_B = false;
         ULONG             Result = VHDERR_NOERROR;
 
         struct timeval t0, t;
@@ -312,7 +312,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
 #endif
 
         /* Disable EDID auto load */
-        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
+        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DISABLE_EDID_AUTO_LOAD,true);
         if(Result != VHDERR_NOERROR) {
                 DELTA_PRINT_ERROR(Result, "ERROR : Cannot disable EDID auto load.");
                 return false;
@@ -362,7 +362,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         }
         else
         {
-                int Dual_B = FALSE;
+                int Dual_B = false;
                 VHD_DV_CS       InputCS;
                 ULONG             PxlClk = 0;
                 VHD_DV_SAMPLING CableBitSampling;
@@ -696,7 +696,7 @@ no_format:
 no_stream:
         
         /* Re-establish RX0-TX0 by-pass relay loopthrough */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,true);
 bad_channel:
         VHD_CloseBoardHandle(s->BoardHandle);
 error:
@@ -732,7 +732,7 @@ vidcap_deltacast_dvi_done(void *state)
         VHD_StopStream(s->StreamHandle);
         VHD_CloseStreamHandle(s->StreamHandle);
         /* Re-establish RX0-TX0 by-pass relay loopthrough */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,true);
         VHD_CloseBoardHandle(s->BoardHandle);
         
         delete s;

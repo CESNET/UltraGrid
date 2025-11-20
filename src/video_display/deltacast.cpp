@@ -266,7 +266,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         ULONG ProcessingMode = 0;
         if (desc.color_spec == RAW) {
                 ProcessingMode = VHD_SDI_STPROC_RAW;
-        } else if (s->play_audio == TRUE) {
+        } else if (s->play_audio == true) {
                 ProcessingMode = VHD_SDI_STPROC_JOINED;
         } else {
                 ProcessingMode = VHD_SDI_STPROC_DISJOINED_VIDEO;
@@ -431,7 +431,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         }
         
         /* Disable RX0-TX0 by-pass relay loopthrough */
-        delta_set_loopback_state(s->BoardHandle, (int) s->channel, FALSE);
+        delta_set_loopback_state(s->BoardHandle, (int) s->channel, false);
 
 	return s;
 #undef HANDLE_ERROR
@@ -453,7 +453,7 @@ static void display_deltacast_done(void *state)
         }
         if (s->BoardHandle != nullptr) {
                 delta_set_loopback_state(s->BoardHandle, (int) s->channel,
-                                         TRUE);
+                                         true);
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
 
@@ -526,7 +526,7 @@ display_deltacast_reconfigure_audio(void *state, int quant_samples,
         assert(channels <= 16);
 
         pthread_mutex_lock(&s->lock);
-        s->audio_configured = FALSE;
+        s->audio_configured = false;
         for(i = 0; i < 16; ++i) {
                 ring_buffer_destroy(s->audio_channels[i]);
                 s->audio_channels[i] = NULL;
@@ -566,7 +566,7 @@ display_deltacast_reconfigure_audio(void *state, int quant_samples,
                 pAudioChn->pData = new BYTE[s->audio_desc.bps * s->audio_desc.sample_rate];
         }
 
-        s->audio_configured = TRUE;
+        s->audio_configured = true;
         pthread_mutex_unlock(&s->lock);
 
         return true;

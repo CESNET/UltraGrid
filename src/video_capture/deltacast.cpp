@@ -358,7 +358,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                         s->audio_frame.data;
 
                 LOG(LOG_LEVEL_NOTICE) << "[DELTACAST] Grabbing audio enabled: " << audio_desc_from_frame(&s->audio_frame) << "\n";
-                s->grab_audio = TRUE;
+                s->grab_audio = true;
         }
 
         /* Start stream */
@@ -390,7 +390,7 @@ static bool parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt,
                         *BrdId = atoi(strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "mode")) {
                         s->VideoStandard     = atoi(strchr(tok, '=') + 1);
-                        s->autodetect_format = FALSE;
+                        s->autodetect_format = false;
                 } else if (IS_KEY_PREFIX(tok, "quad-link")) {
                         s->quad_channel = true;
                 } else if (IS_KEY_PREFIX(tok, "codec")) {
@@ -456,8 +456,8 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
-        s->grab_audio = FALSE;
-        s->autodetect_format = TRUE;
+        s->grab_audio = false;
+        s->autodetect_format = true;
         s->frame->color_spec = UYVY;
         s->audio_frame.data = NULL;
 
@@ -534,7 +534,7 @@ vidcap_deltacast_init(struct vidcap_params *params, void **state)
                 }
 #endif
                 /* Disable RX-TX loopback(s) */
-                delta_set_loopback_state(s->BoardHandle, (int) i, FALSE);
+                delta_set_loopback_state(s->BoardHandle, (int) i, false);
         }
 
         s->initialize_flags = vidcap_params_get_flags(params);
@@ -569,7 +569,7 @@ vidcap_deltacast_done(void *state)
                 /* Re-establish RX-TX by-pass relay loopthrough */
                 for (ULONG i = s->channel; i < s->channel + (s->quad_channel ? 4 : 1);
                      i++) {
-                        delta_set_loopback_state(s->BoardHandle, i, TRUE);
+                        delta_set_loopback_state(s->BoardHandle, i, true);
                 }
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
