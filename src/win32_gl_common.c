@@ -46,6 +46,7 @@
 #endif
 
 #include <assert.h>
+#include <stdbool.h>
 #include <GL/glew.h>
 #include <GL/wglew.h>
 #include <wingdi.h>
@@ -115,7 +116,7 @@ static void *owner_thread(void *arg) {
                 goto release_context;
         }
 
-        if(wglMakeCurrent(context->hdc, context->hglrc) == FALSE) {
+        if(wglMakeCurrent(context->hdc, context->hglrc) == false) {
                 fprintf(stderr, "Unable to make context current.\n");
                 PrintError(GetLastError());
                 goto release_context;
@@ -323,7 +324,7 @@ void win32_context_make_current(void *arg)
         } else {
                 ret = wglMakeCurrent(context->hdc, context->hglrc);
         }
-        if(ret == FALSE) {
+        if(ret == false) {
                 fprintf(stderr, "Warning: wglMakeCurrent did not succeeded!\n");
                 PrintError(GetLastError());
         }
