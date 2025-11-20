@@ -18,7 +18,7 @@ deps() {
         fluidsynth_build_dep=$(get_build_deps_excl libfluidsynth3 libsdl2-dev)
         sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
         # shellcheck disable=SC2086 # intentional
-        sudo apt install $fluidsynth_build_dep $sdl2_ttf_build_dep
+        sudo apt install $fluidsynth_build_dep $sdl2_ttf_build_dep libxtst-dev
 }
 
 # build SDL, SDL_ttf and fluidsynth and also install them
