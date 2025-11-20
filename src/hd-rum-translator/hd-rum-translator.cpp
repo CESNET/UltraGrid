@@ -483,7 +483,7 @@ static void *writer(void *arg)
             // distribute it to output ports that don't need transcoding
 #ifdef _WIN32
             // send it asynchronously in MSW (performance optimalization)
-            SleepEx(0, TRUE); // allow system to call our completion routines in APC
+            SleepEx(0, true); // allow system to call our completion routines in APC
             int ref = 0;
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
