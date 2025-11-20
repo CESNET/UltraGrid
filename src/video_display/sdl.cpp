@@ -342,7 +342,7 @@ static void display_sdl_run(void *arg)
                         case SDL_KEYDOWN:
                                 switch (sdl_event.key.keysym.sym) {
                                 case SDLK_d:
-                                        s->deinterlace = s->deinterlace ? FALSE : TRUE;
+                                        s->deinterlace = s->deinterlace ? false : true;
                                         log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
                                                         s->deinterlace ? "ON" : "OFF");
                                         break;
@@ -537,7 +537,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         
         if (flags) {
                 if (flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
-                        s->play_audio = TRUE;
+                        s->play_audio = true;
                         configure_audio(s);
                 } else {
                         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
@@ -548,7 +548,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                         return NULL;
                 }
         } else {
-                s->play_audio = FALSE;
+                s->play_audio = false;
         }
 
         // keycontrol_register_key(&s->mod, 'q', "execute exit", "quit");
@@ -668,7 +668,7 @@ static void configure_audio(struct state_sdl *s)
         SDL_Init(SDL_INIT_AUDIO);
         
         if(SDL_GetAudioStatus() !=  SDL_AUDIO_STOPPED) {
-                s->play_audio = FALSE;
+                s->play_audio = false;
                 fprintf(stderr, "[SDL] Audio init failed - driver is already used (testcard?)\n");
                 return;
         }
@@ -742,7 +742,7 @@ static bool display_sdl_reconfigure_audio(void *state, int quant_samples, int ch
 
         return true;
 error:
-        s->play_audio = FALSE;
+        s->play_audio = false;
         s->audio_frame.max_size = 0;
         s->audio_frame.data = NULL;
         return false;
