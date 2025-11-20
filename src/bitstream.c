@@ -11,11 +11,17 @@
  * $Date: 2007/11/08 09:48:59 $
  */
 
+
+#include <assert.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+
 #include "bitstream.h"
 
 typedef struct s_bitstream {
-        u_char *buf;            /* head of bitstream            */
-        u_char *pos;            /* current byte in bitstream    */
+        unsigned char *buf;            /* head of bitstream            */
+        unsigned char *pos;            /* current byte in bitstream    */
         unsigned int remain;    /* bits remaining               */
         unsigned int len;       /* length of bitstream in bytes */
 } bs;
@@ -27,27 +33,27 @@ int bs_create(bitstream_t ** ppb)
         if (pb) {
                 memset(pb, 0, sizeof(bs));
                 *ppb = pb;
-                return TRUE;
+                return true;
         }
-        return FALSE;
+        return false;
 }
 
 int bs_destroy(bitstream_t ** ppb)
 {
         free(*ppb);
-        return TRUE;
+        return true;
 }
 
-int bs_attach(bitstream_t * b, u_char * buf, int blen)
+int bs_attach(bitstream_t * b, unsigned char * buf, int blen)
 {
         b->buf = b->pos = buf;
         b->remain = 8;
         b->len = blen;
         memset(b->buf, 0, b->len);
-        return TRUE;
+        return true;
 }
 
-int bs_put(bitstream_t * b, u_char bits, uint8_t nbits)
+int bs_put(bitstream_t * b, unsigned char bits, uint8_t nbits)
 {
         assert(nbits != 0 && nbits <= 8);
 
@@ -68,12 +74,12 @@ int bs_put(bitstream_t * b, u_char bits, uint8_t nbits)
         }
 
         assert((unsigned int)(b->pos - b->buf) <= b->len);
-        return TRUE;
+        return true;
 }
 
-u_char bs_get(bitstream_t * b, uint8_t nbits)
+unsigned char bs_get(bitstream_t * b, uint8_t nbits)
 {
-        u_char out;
+        unsigned char out;
 
         if (b->remain == 0) {
                 b->pos++;
