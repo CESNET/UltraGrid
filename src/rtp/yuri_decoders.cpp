@@ -71,7 +71,7 @@ static int decode_yuri_audio_frame(struct coded_data *cdata, yuri_decoder_data *
 
         if (network_desc.codec != AC_PCM) {
                 s->log[yuri::log::warning] << "Compressed audio is not yet supported!";
-                return FALSE;
+                return false;
         }
 
         yuri::core::pRawAudioFrame frame = yuri::core::RawAudioFrame::create_empty(
@@ -80,7 +80,7 @@ static int decode_yuri_audio_frame(struct coded_data *cdata, yuri_decoder_data *
         received_data = reinterpret_cast<char *>(frame->data());
         s->yuri_frame = frame;
         if (!s->yuri_frame) {
-                return FALSE;
+                return false;
         }
 
         while (cdata != NULL) {
@@ -105,7 +105,7 @@ static int decode_yuri_audio_frame(struct coded_data *cdata, yuri_decoder_data *
                 cdata = cdata->nxt;
         }
 
-        return TRUE;
+        return true;
 }
 
 static int decode_yuri_video_frame(struct coded_data *cdata, yuri_decoder_data *s)
@@ -124,7 +124,7 @@ static int decode_yuri_video_frame(struct coded_data *cdata, yuri_decoder_data *
 
         s->yuri_frame = yuri::ultragrid::create_yuri_from_uv_desc(&network_desc, buffer_length, s->log);
         if (!s->yuri_frame) {
-                return FALSE;
+                return false;
         }
 
         auto raw = dynamic_pointer_cast<yuri::core::RawVideoFrame>(s->yuri_frame);
@@ -151,7 +151,7 @@ static int decode_yuri_video_frame(struct coded_data *cdata, yuri_decoder_data *
 
                 if (substream > 0) {
                         s->log[yuri::log::warning] << "Multiple substreams for video yet supported!";
-                        return FALSE;
+                        return false;
                 }
 
                 len = pckt->data_len - sizeof(video_payload_hdr_t);
@@ -162,7 +162,7 @@ static int decode_yuri_video_frame(struct coded_data *cdata, yuri_decoder_data *
                 cdata = cdata->nxt;
         }
 
-        return TRUE;
+        return true;
 }
 
 int decode_yuri_frame(struct coded_data *cdata, void *decoder_data)
@@ -174,7 +174,7 @@ int decode_yuri_frame(struct coded_data *cdata, void *decoder_data)
                 return decode_yuri_audio_frame(cdata, s);
         } else {
                 s->log[yuri::log::warning] << "Unsupported UltraGrid pt " << cdata->data->pt << "!";
-                return FALSE;
+                return false;
         }
 }
 
