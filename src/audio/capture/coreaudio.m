@@ -46,6 +46,7 @@
 #include <CoreAudio/AudioHardware.h>
 #include <assert.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -152,7 +153,7 @@ static OSStatus InputProc(void *inRefCon,
 
                 pthread_mutex_lock(&s->lock);
                 ring_buffer_write(s->buffer, s->tmp, write_bytes);
-                s->data_ready = TRUE;
+                s->data_ready = true;
                 if(s->boss_waiting)
                         pthread_cond_signal(&s->cv);
                 pthread_mutex_unlock(&s->lock);
@@ -275,8 +276,8 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         assert(s != NULL);
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->cv, NULL);
-        s->boss_waiting = FALSE;
-        s->data_ready = FALSE;
+        s->boss_waiting = false;
+        s->data_ready = false;
         s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
         s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
 
@@ -410,17 +411,17 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 static struct audio_frame *audio_cap_ca_read(void *state)
 {
         struct state_ca_capture *s = (struct state_ca_capture *) state;
-        int ret = FALSE;
+        int ret = false;
 
         pthread_mutex_lock(&s->lock);
         ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
         if(!ret) {
-                s->data_ready = FALSE;
-                s->boss_waiting = TRUE;
+                s->data_ready = false;
+                s->boss_waiting = true;
                 while(!s->data_ready) {
                         pthread_cond_wait(&s->cv, &s->lock);
                 }
-                s->boss_waiting = FALSE;
+                s->boss_waiting = false;
                 ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size);
         }
         pthread_mutex_unlock(&s->lock);
