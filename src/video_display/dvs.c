@@ -49,6 +49,8 @@
  *
  */
 
+#include <stdbool.h>
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -390,14 +392,14 @@ static void *display_dvs_run(void *arg)
         while (1) {
                 pthread_mutex_lock(&s->lock);
 
-                while (s->work_to_do == FALSE) {
-                        s->worker_waiting = TRUE;
+                while (s->work_to_do == false) {
+                        s->worker_waiting = true;
                         pthread_cond_wait(&s->worker_cv, &s->lock);
-                        s->worker_waiting = FALSE;
+                        s->worker_waiting = false;
                 }
 
                 s->display_buffer = s->tmp_buffer;
-                s->work_to_do = FALSE;
+                s->work_to_do = false;
 
                 if (s->boss_waiting) {
                         pthread_cond_signal(&s->boss_cv);
@@ -460,12 +462,12 @@ display_dvs_getf(void *state)
                 else {
                         pthread_mutex_lock(&s->audio_reconf_lock);
                         if(s->audio_reconf_pending) {
-                                s->audio_reconf_possible = TRUE;
+                                s->audio_reconf_possible = true;
                                 pthread_cond_signal(&s->audio_reconf_possible_cv);
                         }
                         while(!s->audio_reconf_done)
                                 pthread_cond_wait(&s->audio_reconf_done_cv, &s->audio_reconf_lock);
-                        s->audio_reconf_possible = FALSE;
+                        s->audio_reconf_possible = false;
                         pthread_mutex_unlock(&s->audio_reconf_lock);
                 }
 		/* Prepare the new RTP buffer... */
@@ -488,7 +490,7 @@ display_dvs_getf(void *state)
                         s->fifo_buffer->audio[0].addr[0] = s->audio_fifo_data;
                 }
 	}
-	s->first_run = FALSE;
+	s->first_run = false;
 
         return s->frame;
 }
@@ -502,14 +504,14 @@ static bool display_dvs_putf(void *state, struct video_frame *frame, long long f
         pthread_mutex_lock(&s->lock);
         if(s->work_to_do && flags != PUTF_BLOCKING) {
                 pthread_mutex_unlock(&s->lock);
-                return FALSE;
+                return false;
         }
 
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
-                s->boss_waiting = TRUE;
+                s->boss_waiting = true;
                 pthread_cond_wait(&s->boss_cv, &s->lock);
-                s->boss_waiting = FALSE;
+                s->boss_waiting = false;
         }
 
         // pass poisoned pill
@@ -520,7 +522,7 @@ static bool display_dvs_putf(void *state, struct video_frame *frame, long long f
         /* ...and give it more to do... */
         s->tmp_buffer = s->fifo_buffer;
         s->fifo_buffer = NULL;
-        s->work_to_do = TRUE;
+        s->work_to_do = true;
 
         /* ...and signal the worker */
         if (s->worker_waiting) {
@@ -674,7 +676,7 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
         s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));
         s->magic = HDSP_MAGIC;
 
-        s->mode_set_manually = FALSE;
+        s->mode_set_manually = false;
         
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
@@ -733,10 +735,10 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
         s->audio_ring_buffer = NULL;
         s->audio_fifo_data = NULL;
         if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
-                s->play_audio = TRUE;
+                s->play_audio = true;
         } else {
-                s->play_audio = FALSE;
-                sv_option(s->sv, SV_OPTION_AUDIOMUTE, TRUE);
+                s->play_audio = false;
+                sv_option(s->sv, SV_OPTION_AUDIOMUTE, true);
         }
         
         /* Start the display thread... */
@@ -747,8 +749,8 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
                 goto error;
         }
 
-        s->worker_waiting = TRUE;
-	s->first_run = TRUE;
+        s->worker_waiting = true;
+	s->first_run = true;
 
         if(s->mode) {
                 struct video_desc desc;
@@ -773,23 +775,23 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
 
                 display_dvs_reconfigure(s,
                                 desc);
-                s->mode_set_manually = TRUE;
+                s->mode_set_manually = true;
         }
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
         pthread_cond_init(&s->worker_cv, NULL);
-        s->work_to_do = FALSE;
-        s->boss_waiting = FALSE;
-        s->worker_waiting = FALSE;
+        s->work_to_do = false;
+        s->boss_waiting = false;
+        s->worker_waiting = false;
         s->display_buffer = NULL;
 
         pthread_mutex_init(&s->audio_reconf_lock, NULL);
         pthread_cond_init(&s->audio_reconf_possible_cv, NULL);
         pthread_cond_init(&s->audio_reconf_done_cv, NULL);
-        s->audio_reconf_possible = FALSE;
-        s->audio_reconf_pending = FALSE;
-        s->audio_reconf_done = FALSE;
+        s->audio_reconf_possible = false;
+        s->audio_reconf_pending = false;
+        s->audio_reconf_done = false;
 
         /*if (pthread_create(&(s->thread_id), NULL, display_thread_hd, (void *)s)
             != 0) {
@@ -888,7 +890,7 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
         int res = SV_OK;
         
         pthread_mutex_lock(&s->audio_reconf_lock);
-        s->audio_reconf_pending = TRUE;
+        s->audio_reconf_pending = true;
         while(!s->audio_reconf_possible)
                 pthread_cond_wait(&s->audio_reconf_possible_cv, &s->audio_reconf_lock);
 
@@ -954,18 +956,18 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
                 goto error;
         }
 
-        s->audio_reconf_done = FALSE;
+        s->audio_reconf_done = false;
 
         ret = true;
         goto unlock;
 error:
         fprintf(stderr, "Setting audio error  %s\n",
                   sv_geterrortext(res));
-        s->play_audio = FALSE;
+        s->play_audio = false;
         ret = false;
 
 unlock:
-        s->audio_reconf_done = TRUE;
+        s->audio_reconf_done = true;
         pthread_cond_signal(&s->audio_reconf_done_cv);
         pthread_mutex_unlock(&s->audio_reconf_lock);
 
