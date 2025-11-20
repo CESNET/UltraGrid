@@ -922,7 +922,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	HANDLE_ERR("Cannot query sample grabber filter for control interface");
 
 	// make the sample grabber buffer frames
-	res = s->sampleGrabber->SetBufferSamples(TRUE);
+	res = s->sampleGrabber->SetBufferSamples(true);
 	HANDLE_ERR("Cannot set sample grabber to buffer samples");
 
 	// set media type for sample grabber; this is not done a very detailed setup, because it would be unnecessarily complicated to do so
@@ -1394,7 +1394,7 @@ static int LocateSubtype(const GUID *pSubtype)
         // Scan the mapping list seeing if the source GUID matches any known
         // bitmap subtypes, the list is terminated by a GUID_NULL entry
 
-        while (TRUE) {
+        while (true) {
                 pMediaSubtype = BitCountMap[iPosition].pSubtype;
                 if (IsEqualGUID(*pMediaSubtype,*pSubtype) ||
                                 IsEqualGUID(*pMediaSubtype,GUID_NULL)
