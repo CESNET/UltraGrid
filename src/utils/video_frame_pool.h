@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024 CESNET
+ * Copyright (c) 2020-2025 CESNET, zájmoveé sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,7 +82,7 @@ struct video_frame_pool {
                  * If the pool size is exhausted (see constructor param),
                  * the call will block until there is some available.
                  */
-                std::shared_ptr<video_frame> get_frame();
+                std::shared_ptr<video_frame> get_frame() noexcept(false);
 
                 /** @returns legacy struct pointer with dispose callback properly set */
                 struct video_frame *get_disposable_frame();

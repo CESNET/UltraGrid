@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2024 CESNET
+ * Copyright (c) 2020-2025 CESNET, zájmoveé sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,11 @@
 #include <stdexcept>
 #include <utility>
 
+#include "debug.h"             // for MSG
 #include "video_codec.h"
 #include "video_frame.h"
+
+#define MOD_NAME "[video_frame_pool] "
 
 struct video_frame_pool::impl {
       public:
@@ -183,7 +186,7 @@ std::shared_ptr<video_frame> video_frame_pool::impl::get_frame() {
                                 ret->tiles[i].data_len = m_max_data_len;
                         }
                 } catch (std::exception &e) {
-                        std::cerr << e.what() << std::endl;
+                        MSG(ERROR, "%s\n", e.what());
                         deallocate_frame(ret);
                         throw;
                 }
