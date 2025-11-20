@@ -67,6 +67,22 @@ static void rgb_to_rgbp(const uint8_t *src, int width, int height, svt_jpeg_xs_i
         }
 }
 
+static void rgba_to_rgbp(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
+
+        for (int y = 0; y < height; ++y) {
+                uint8_t *dst_r = (uint8_t *) dst->data_yuv[0] + y * dst->stride[0];
+                uint8_t *dst_g = (uint8_t *) dst->data_yuv[1] + y * dst->stride[1];
+                uint8_t *dst_b = (uint8_t *) dst->data_yuv[2] + y * dst->stride[2];
+
+                for (int x = 0; x < width; ++x) {
+                        *dst_r++ = *src++;
+                        *dst_g++ = *src++;
+                        *dst_b++ = *src++;
+                        src++; // ignore alpha channel
+                }
+        }
+}
+
 static void v210_to_yuv422p10le(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
 
         for (int y = 0; y < height; ++y) {
@@ -116,13 +132,31 @@ static void r10k_to_rgbp10le(const uint8_t *src, int width, int height, svt_jpeg
         }       
 }
 
+static void r12l_to_rgbp12le(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
+
+        for (int y = 0; y < height; ++y) {
+                const uint16_t *src_row = (const uint16_t *)(src + y * vc_get_linesize(width, R12L));
+                uint16_t *dst_r = (uint16_t *) dst->data_yuv[0] + y * dst->stride[0];
+                uint16_t *dst_g = (uint16_t *) dst->data_yuv[1] + y * dst->stride[1];
+                uint16_t *dst_b = (uint16_t *) dst->data_yuv[2] + y * dst->stride[2];
+
+                for (int x = 0; x < width; ++x) {
+                        *dst_b++ = *src_row++ & 0x0FFF;
+                        *dst_r++ = *src_row++ & 0x0FFF;
+                        *dst_g++ = *src_row++ & 0x0FFF;
+                }
+        }       
+}
+
 static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {
         { UYVY, COLOUR_FORMAT_PLANAR_YUV422, uyvy_to_yuv422p },
         { YUYV, COLOUR_FORMAT_PLANAR_YUV422, yuyv_to_yuv422p },
         { I420, COLOUR_FORMAT_PLANAR_YUV420, i420_to_yuv420p },
         { RGB, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, rgb_to_rgbp },
+        { RGBA, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, rgba_to_rgbp },
         { v210, COLOUR_FORMAT_PLANAR_YUV422, v210_to_yuv422p10le},
         { R10k, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, r10k_to_rgbp10le },
+        { R12L, COLOUR_FORMAT_PACKED_YUV444_OR_RGB, r12l_to_rgbp12le },
         { VIDEO_CODEC_NONE, COLOUR_FORMAT_INVALID, NULL }
 };
 

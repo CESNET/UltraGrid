@@ -17,12 +17,14 @@ struct state_decompress_jpegxs {
                 }
                 svt_jpeg_xs_decoder_close(&decoder);
         }
-        svt_jpeg_xs_image_config_t image_config;
         svt_jpeg_xs_decoder_api_t decoder;
+        svt_jpeg_xs_image_config_t image_config;
         svt_jpeg_xs_frame_pool_t *frame_pool;
+        
         bool configured = 0;
 
         void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst);
+
         struct video_desc desc;
         int rshift, gshift, bshift;
         int pitch;
@@ -72,7 +74,7 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_jpegxs *s = (struct state_decompress_jpegxs *) state;
 
-        assert(out_codec == UYVY || out_codec == YUYV || out_codec == I420 || out_codec == RGB || out_codec == v210 || out_codec == R10k || out_codec == VIDEO_CODEC_NONE);
+        assert(out_codec == UYVY || out_codec == YUYV || out_codec == I420 || out_codec == RGB || out_codec == v210 || out_codec == R10k || out_codec == R12L || out_codec == VIDEO_CODEC_NONE);
 
         if (s->out_codec == out_codec &&
                 s->pitch == pitch &&
@@ -216,7 +218,7 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
         }
 
         // supported output formats
-        if (ugc == UYVY || ugc == YUYV || ugc == I420 || ugc == RGB || ugc == v210 || ugc == R10k) {
+        if (ugc == UYVY || ugc == YUYV || ugc == I420 || ugc == RGB || ugc == v210 || ugc == R10k || ugc == R12L) {
                 return VDEC_PRIO_PREFERRED;
         }
 
