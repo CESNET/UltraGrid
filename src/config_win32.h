@@ -102,11 +102,6 @@ typedef SOCKET          fd_t;
  */
 typedef unsigned int	in_addr_t;
 
-#ifndef TRUE
-#define FALSE	0
-#define	TRUE	1
-#endif /* TRUE */
-
 #define USERNAMELEN	8
 #define WORDS_SMALLENDIAN 1
 
