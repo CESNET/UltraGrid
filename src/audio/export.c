@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
-
+#include <assert.h>             // for assert
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>             // for memcpy, strdup
 
-#include "audio/audio.h"
+#include "audio/types.h"        // for audio_desc, audio_frame, AC_PCM
 #include "audio/utils.h"
 #include "audio/wav_writer.h"
-#include "debug.h"
 #include "export.h"
 #include "utils/misc.h" // ug_strerror
 #include "utils/ring_buffer.h"
