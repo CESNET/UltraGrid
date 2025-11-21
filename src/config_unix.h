@@ -143,10 +143,6 @@
 int gettimeofday(struct timeval *tp, void * );
 #endif
 
-#ifdef KILL_NOT_DECLARED
-int kill(pid_t pid, int sig);
-#endif
-
 typedef u_char  ttl_t;
 typedef int     fd_t;
 
