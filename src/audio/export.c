@@ -42,9 +42,11 @@
 #include <unistd.h>
 #include <string.h>             // for memcpy, strdup
 
+#define WANT_PTHREAD_NULL
 #include "audio/types.h"        // for audio_desc, audio_frame, AC_PCM
 #include "audio/utils.h"
 #include "audio/wav_writer.h"
+#include "compat/misc.h"        // for PTHREAD_NULL
 #include "export.h"
 #include "utils/misc.h" // ug_strerror
 #include "utils/ring_buffer.h"
@@ -160,7 +162,7 @@ struct audio_export * audio_export_init(const char *filename)
 
         unlink(filename);
         s->filename = strdup(filename);
-        s->thread_id = 0;
+        s->thread_id = PTHREAD_NULL;
         s->ring = NULL;
 
         pthread_mutex_init(&s->lock, NULL);
@@ -179,7 +181,7 @@ void audio_export_destroy(struct audio_export *s)
         if (s == NULL) {
                 return;
         }
-        if (s->thread_id) {
+        if (!pthread_equal(s->thread_id, PTHREAD_NULL)) {
                 pthread_mutex_lock(&s->lock);
                 s->should_exit_worker = true;
                 s->new_work_ready     = true;

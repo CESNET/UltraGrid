@@ -68,7 +68,9 @@
 #        endif // defined HAVE_SDL3
 #endif
 
+#define WANT_PTHREAD_NULL
 #include "audio/types.h"                // for audio_frame
+#include "compat/misc.h"                // for PTHREAD_NULL
 #include "compat/platform_semaphore.h"  // for platform_sem_post, platform_s...
 #include "compat/usleep.h"              // for usleep
 #include "debug.h"                      // for log_msg, LOG_LEVEL_ERROR, LOG...
@@ -105,11 +107,6 @@ enum {
 #define DEFAULT_FORMAT \
         (struct video_desc){ 1920, 1080, UYVY, 24, PROGRESSIVE, 1 }
 #define MOD_NAME "[testcard2] "
-
-// compat
-#ifndef PTHREAD_NULL // defined by POSIX v8
-#define PTHREAD_NULL ((pthread_t) { 0 })
-#endif
 
 static void vidcap_testcard2_done(void *state);
 void * vidcap_testcard2_thread(void *args);

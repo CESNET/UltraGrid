@@ -6,7 +6,7 @@
  * in a separate file.
  */
 /*
- * Copyright (c) 2021-2024 CESNET
+ * Copyright (c) 2021-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,13 @@
                 static_assert(sizeof(off_t) >= 8, "off_t less than 64b");
         #endif // !defined _WIN32
 #endif // defined WANT_FSEEKO
+
+#ifdef WANT_PTHREAD_NULL
+        #include <pthread.h>
+        #ifndef PTHREAD_NULL // defined by POSIX v8
+                #define PTHREAD_NULL ((pthread_t) { 0 })
+        #endif
+#endif
 
 #endif // defined COMPAT_MISC_H_20C709DB_F4A8_4744_A0A9_96036B277011
 

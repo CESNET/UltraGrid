@@ -62,9 +62,11 @@
 #include <unistd.h>                // for unlink
 #endif // defined _WIN32
 
+#define WANT_PTHREAD_NULL
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
 #include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
+#include "compat/misc.h"           // for PTHREAD_NULL
 #include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
@@ -604,6 +606,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     if (s == NULL) {
         return VIDCAP_INIT_FAIL;
     }
+    s->artsp_state.artsp_thread_id = PTHREAD_NULL;
+    s->vrtsp_state.vrtsp_thread_id = PTHREAD_NULL;
 
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state.codec[0] = '\0';
@@ -1205,10 +1209,10 @@ vidcap_rtsp_done(void *state) {
     pthread_cond_signal(&s->keepalive_cv);
     pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
-    if (s->vrtsp_state.vrtsp_thread_id) {
+    if (!pthread_equal(s->vrtsp_state.vrtsp_thread_id, PTHREAD_NULL)) {
         pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
     }
-    if (s->keep_alive_rtsp_thread_id) {
+    if (!pthread_equal(s->keep_alive_rtsp_thread_id, PTHREAD_NULL)) {
         pthread_join(s->keep_alive_rtsp_thread_id, NULL);
     }
 
