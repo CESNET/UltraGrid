@@ -56,6 +56,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>                   // for intmax_t, uintmax_t
+#include <exception>                 // for exception
 #include <limits>                    // for numeric_limits
 #include <mutex>
 #include <string>
@@ -907,7 +908,12 @@ static void j2k_compress_push(void *state, std::shared_ptr<video_frame> tx)
                         "Allocate custom image data",
                         HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(&udata->desc, &s->compressed_desc, sizeof(s->compressed_desc));
-        new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
+        try {
+                new (&udata->frame) shared_ptr<video_frame>(get_copy(s, tx.get()));
+        } catch (std::exception &e) {
+                MSG(ERROR, "Cannot get frame copy: %s\n", e.what());
+                return;
+        }
         vf_store_metadata(tx.get(), udata->metadata);
 
         if (s->pool_in_cuda_memory) {
