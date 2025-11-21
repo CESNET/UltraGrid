@@ -139,10 +139,6 @@
 
 #endif /* HAVE_IPv6 */
 
-#ifdef GETTOD_NOT_DECLARED
-int gettimeofday(struct timeval *tp, void * );
-#endif
-
 typedef u_char  ttl_t;
 typedef int     fd_t;
 
