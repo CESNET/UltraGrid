@@ -89,10 +89,6 @@
 #include <malloc.h>
 #endif
 
-#ifdef HAVE_BSTRING_H
-#include <bstring.h>
-#endif
-
 #ifdef HAVE_SYS_SOCK_IO_H
 #include <sys/sockio.h>
 #endif
