@@ -368,9 +368,7 @@ static struct {
 static void
 set_cpu_pool(struct state_video_compress_j2k *s, bool /*have_cuda_preprocess*/)
 {
-        s->pool = video_frame_pool({ .max_used_frames = s->max_in_frames,
-                                     .alloc = default_data_allocator(),
-                                     .quiet = true });
+        s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
 }
 #define CPU_CONV_PARAM "j2k-enc-cpu-conv"
 ADD_TO_PARAM(
@@ -387,23 +385,19 @@ set_cuda_pool(struct state_video_compress_j2k *s, bool have_cuda_preprocess)
                              "conversion...\n");
         } else if (s->precompress_codec == VC_NONE || have_cuda_preprocess) {
                 s->pool_in_cuda_memory = true;
-                s->pool                = video_frame_pool(
-                    { .max_used_frames = s->max_in_frames,
-                                     .alloc = cmpto_j2k_enc_cuda_buffer_data_allocator<
-                                         cuda_wrapper_malloc, cuda_wrapper_free>(),
-                                     .quiet = true });
+                s->pool                  = video_frame_pool(
+                    s->max_in_frames,
+                    cmpto_j2k_enc_cuda_buffer_data_allocator<
+                                         cuda_wrapper_malloc, cuda_wrapper_free>());
                 return;
         }
         s->pool = video_frame_pool(
-            { .max_used_frames = s->max_in_frames,
-              .alloc           = cmpto_j2k_enc_cuda_buffer_data_allocator<
-                            cuda_wrapper_malloc_host, cuda_wrapper_free_host>(),
-              .quiet = true });
+            s->max_in_frames,
+            cmpto_j2k_enc_cuda_buffer_data_allocator<cuda_wrapper_malloc_host,
+                                                     cuda_wrapper_free_host>());
 #else
         assert(!have_cuda_preprocess); // if CUDA not found, we shouldn't have
-        s->pool = video_frame_pool({ .max_used_frames = s->max_in_frames,
-                                     .alloc = default_data_allocator(),
-                                     .quiet = true });
+        s->pool = video_frame_pool(s->max_in_frames, default_data_allocator());
 #endif
 }
 

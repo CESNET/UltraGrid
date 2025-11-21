@@ -62,9 +62,6 @@ struct default_data_allocator : public video_frame_pool_allocator {
 struct video_frame_pool_params {
         unsigned int max_used_frames = 0;
         video_frame_pool_allocator const &alloc = default_data_allocator();
-        bool                              quiet =
-            false; ///< if exception thrown, do not print e.what() - the caller
-                   ///< is catching the error and will handle the message
 };
 
 struct video_frame_pool {

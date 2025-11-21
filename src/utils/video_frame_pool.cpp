@@ -73,7 +73,6 @@ struct video_frame_pool::impl {
         void deallocate_frame(struct video_frame *frame);
 
         std::unique_ptr<video_frame_pool_allocator> m_allocator = std::unique_ptr<video_frame_pool_allocator>(new default_data_allocator);
-        bool                                        m_quiet;
         std::queue<struct video_frame *>            m_free_frames;
         std::mutex                                  m_lock;
         std::condition_variable                     m_frame_returned;
@@ -145,8 +144,7 @@ struct video_frame_pool_allocator *default_data_allocator::clone() const {
 //  \/ | (_| (- (_) __ |  |  (_| ||| (- __ |_) (_) (_) | . . | ||| |_) |
 //                                         |                       |
 video_frame_pool::impl::impl(const video_frame_pool_params &params)
-    : m_allocator(params.alloc.clone()), m_quiet(params.quiet),
-      m_max_used_frames(params.max_used_frames)
+    : m_allocator(params.alloc.clone()), m_max_used_frames(params.max_used_frames)
 {
 }
 
@@ -190,8 +188,7 @@ std::shared_ptr<video_frame> video_frame_pool::impl::get_frame() {
                                 ret->tiles[i].data_len = m_max_data_len;
                         }
                 } catch (std::exception &e) {
-                        log_msg(m_quiet ? LOG_LEVEL_DEBUG : LOG_LEVEL_ERROR,
-                                MOD_NAME "%s\n", e.what());
+                        MSG(ERROR, "%s\n", e.what());
                         deallocate_frame(ret);
                         throw;
                 }
