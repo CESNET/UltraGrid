@@ -65,7 +65,6 @@
 
 #include <assert.h>
 #include <process.h>
-#include <malloc.h>
 #include <stdio.h>
 #include <memory.h>
 #include <errno.h>

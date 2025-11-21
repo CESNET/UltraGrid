@@ -85,10 +85,6 @@
 #include <stdlib.h>  
 #include <string.h>
 
-#ifdef HAVE_MALLOC_H
-#include <malloc.h>
-#endif
-
 #ifdef HAVE_SYS_SOCK_IO_H
 #include <sys/sockio.h>
 #endif
