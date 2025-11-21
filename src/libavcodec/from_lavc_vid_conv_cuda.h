@@ -4,9 +4,12 @@
  * This file contains CUDA-accelerated conversions from FFmpeg to UltraGrid
  * pixfmts.
  * @sa from_lavc_vid_conv.h
+ * @todo
+ * Consider removal - the actual conversions has not been merged until now
+ * (2025-11), the imnplementation in .cu file is just a stub.
  */
 /*
- * Copyright (c) 2024 CESNET, z. s. p. o.
+ * Copyright (c) 2024-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

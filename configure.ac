@@ -1897,10 +1897,10 @@ AC_ARG_ENABLE(libavcodec,
 )
 
 AC_ARG_ENABLE(lavc-cuda-conv,
-      AS_HELP_STRING([--disable-lavc-cuda-conv], [disable lavc CUDA conversions (default is auto)]
+      AS_HELP_STRING([--enable-lavc-cuda-conv], [enable lavc CUDA conversions (default is disable)]
               [Requires: libavcodec CUDA]),
         [lavc_cuda_conv_req=$enableval],
-        [lavc_cuda_conv_req=$build_default]
+        [lavc_cuda_conv_req=no]
 )
 
 if test "$libavcodec_req" != no; then
