@@ -423,10 +423,7 @@ static void vidcap_testcard2_done(void *state)
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->data_consumed_cv);
 
-        pthread_t null_thread_id;
-        memset(&null_thread_id, 0, sizeof null_thread_id); // for safe memcmp
-        null_thread_id = PTHREAD_NULL;
-        if (memcmp(&s->thread_id, &null_thread_id, sizeof s->thread_id) != 0) {
+        if (!pthread_equal(s->thread_id, PTHREAD_NULL)) {
                 pthread_join(s->thread_id, NULL);
         }
 
