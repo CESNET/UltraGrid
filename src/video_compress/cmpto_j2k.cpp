@@ -52,10 +52,10 @@
 #endif // HAVE_CONFIG_H
 
 #include <cassert>
-#include <cfloat>
 #include <cmath>
-#include <climits>
 #include <condition_variable>
+#include <cstdint>                   // for uintmax_t
+#include <limits>                    // for numeric_limits
 #include <mutex>
 #include <string>
 #include <utility>
@@ -737,7 +737,10 @@ static void usage(bool full) {
                 if (std::isnan(val)) { \
                         return nullptr; \
                 } \
-                if (val < (minval) || val > DBL_MAX) { \
+                const uintmax_t maxval = \
+                    std::nextafter(std::numeric_limits<typeof(var)>::max(), \
+                                  -std::numeric_limits<double>::infinity()); \
+                if (val < (minval) || val > maxval) { \
                         LOG(LOG_LEVEL_ERROR) \
                             << "[J2K] Wrong value " << (str) \
                             << " for " #var "! Value must be >= " << (minval) \
