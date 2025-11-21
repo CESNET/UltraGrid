@@ -176,29 +176,30 @@ struct audio_export * audio_export_init(const char *filename)
 
 void audio_export_destroy(struct audio_export *s)
 {
-        if(s) {
-                if(s->thread_id) {
-                        pthread_mutex_lock(&s->lock);
-                        s->should_exit_worker = true;
-                        s->new_work_ready = true;
-                        if(s->worker_waiting) {
-                                pthread_cond_signal(&s->worker_cv);
-                        }
-                        pthread_mutex_unlock(&s->lock);
-                        pthread_join(s->thread_id, NULL);
-                }
-
-                if (s->wav != NULL) {
-                        wav_writer_close(s->wav);
-                }
-                if (s->ring != NULL) {
-                        ring_buffer_destroy(s->ring);
-                }
-                pthread_cond_destroy(&s->worker_cv);
-                pthread_mutex_destroy(&s->lock);
-                free(s->filename);
-                free(s);
+        if (s == NULL) {
+                return;
         }
+        if (s->thread_id) {
+                pthread_mutex_lock(&s->lock);
+                s->should_exit_worker = true;
+                s->new_work_ready     = true;
+                if (s->worker_waiting) {
+                        pthread_cond_signal(&s->worker_cv);
+                }
+                pthread_mutex_unlock(&s->lock);
+                pthread_join(s->thread_id, NULL);
+        }
+
+        if (s->wav != NULL) {
+                wav_writer_close(s->wav);
+        }
+        if (s->ring != NULL) {
+                ring_buffer_destroy(s->ring);
+        }
+        pthread_cond_destroy(&s->worker_cv);
+        pthread_mutex_destroy(&s->lock);
+        free(s->filename);
+        free(s);
 }
 
 void audio_export_raw(struct audio_export *s, void *data, unsigned len){
