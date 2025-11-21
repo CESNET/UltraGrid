@@ -155,11 +155,5 @@ typedef int     fd_t;
 #define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
 
-#ifdef __cplusplus
-#define CONF_NIX_EXT_C extern "C"
-#else
-#define CONF_NIX_EXT_C extern
-#endif
-
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF _WIN32 */
