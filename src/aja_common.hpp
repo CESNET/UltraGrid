@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 class CNTV2Card;
 
 #ifdef _MSC_VER
-#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
 #define bug_msg(x, ...) \
         log_msg(x, __VA_ARGS__); \
         log_msg(x, " Please report a bug if you reach here.\n")
