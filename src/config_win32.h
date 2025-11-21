@@ -102,8 +102,6 @@ typedef SOCKET          fd_t;
  */
 typedef unsigned int	in_addr_t;
 
-#define WORDS_SMALLENDIAN 1
-
 #define NEED_INET_ATON
 
 #include <time.h>		/* For clock_t */
