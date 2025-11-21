@@ -734,7 +734,10 @@ static void usage(bool full) {
 #define ASSIGN_CHECK_VAL(var, str, minval) \
         do { \
                 const double val = unit_evaluate_dbl(str, false, nullptr); \
-                if (std::isnan(val) || val < (minval) || val > DBL_MAX) { \
+                if (std::isnan(val)) { \
+                        return nullptr; \
+                } \
+                if (val < (minval) || val > DBL_MAX) { \
                         LOG(LOG_LEVEL_ERROR) \
                             << "[J2K] Wrong value " << (str) \
                             << " for " #var "! Value must be >= " << (minval) \
