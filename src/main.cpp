@@ -85,12 +85,14 @@
 #include <utility>                      // for move
 #include <vector>                       // for vector
 
+#define WANT_PTHREAD_NULL
 #include "audio/audio.h"                // for audio_options, additional_aud...
 #include "audio/audio_capture.h"        // for audio_capture_get_vidcap_flags
 #include "audio/audio_playback.h"       // for audio_playback_help
 #include "audio/codec.h"                // for audio_codec_params, get_name_...
 #include "audio/types.h"                // for AC_NONE, AUDIO_FRAME_DISPOSE
 #include "compat/alarm.h"               // for alarm
+#include "compat/misc.h"                // for PTHREAD_NULL
 #include "compat/strings.h"             // for strcasecmp
 #include "control_socket.h"
 #include "cuda_wrapper.h"
@@ -1335,10 +1337,9 @@ int main(int argc, char *argv[])
 #endif
         ug_options opt{};
 
-        pthread_t receiver_thread_id,
-                  capture_thread_id;
-        bool receiver_thread_started = false,
-             capture_thread_started = false;
+        pthread_t receiver_thread_id = PTHREAD_NULL;
+        pthread_t capture_thread_id  = PTHREAD_NULL;
+
         unsigned display_flags = 0;
         struct control_state *control = NULL;
         int ret;
@@ -1540,8 +1541,6 @@ int main(int argc, char *argv[])
                                 perror("Unable to create display thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
-                        } else {
-                                receiver_thread_started = true;
                         }
                 }
 
@@ -1552,8 +1551,6 @@ int main(int argc, char *argv[])
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
-                        } else {
-                                capture_thread_started = true;
                         }
                 }
 
@@ -1596,12 +1593,11 @@ int main(int argc, char *argv[])
         }
 
 cleanup:
-        if (strcmp("none", opt.requested_display) != 0 &&
-                        receiver_thread_started)
+        if (!pthread_equal(receiver_thread_id, PTHREAD_NULL)) {
                 pthread_join(receiver_thread_id, NULL);
+        }
 
-        if ((opt.video_rxtx_mode & MODE_SENDER) != 0U
-                        && capture_thread_started) {
+        if (!pthread_equal(capture_thread_id, PTHREAD_NULL)) {
                 pthread_join(capture_thread_id, NULL);
         }
 

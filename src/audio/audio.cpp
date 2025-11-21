@@ -59,6 +59,7 @@
 #include <sstream>
 #include <string>
 
+#define WANT_PTHREAD_NULL
 #include "../export.h" // not audio/export.h
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
@@ -72,6 +73,7 @@
 #include "audio/playback/sdi.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
+#include "compat/misc.h"                // for PTHREAD_NULL
 #include "config.h"                     // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
@@ -165,11 +167,9 @@ struct state_audio {
 
         struct tx *tx_session = nullptr;
         fec       *fec_state = nullptr;
-        
-        pthread_t audio_sender_thread_id{},
-                  audio_receiver_thread_id{};
-        bool audio_sender_thread_started = false,
-             audio_receiver_thread_started = false;
+
+        pthread_t audio_sender_thread_id   = PTHREAD_NULL;
+        pthread_t audio_receiver_thread_id = PTHREAD_NULL;
 
         char *audio_channel_map = nullptr;
         const char *audio_scale = nullptr;
@@ -302,7 +302,6 @@ int audio_init(struct state_audio **ret,
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
 
-        s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
         s->exporter = common->exporter;
@@ -491,8 +490,6 @@ void audio_start(struct state_audio *s) {
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
                         log_msg(LOG_LEVEL_FATAL, "Error creating audio thread. Quitting\n");
                         exit_uv(EXIT_FAIL_AUDIO);
-                } else {
-			s->audio_sender_thread_started = true;
 		}
         }
 
@@ -501,8 +498,6 @@ void audio_start(struct state_audio *s) {
                     (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
                         log_msg(LOG_LEVEL_FATAL, "Error creating audio thread. Quitting\n");
                         exit_uv(EXIT_FAIL_AUDIO);
-                } else {
-			s->audio_receiver_thread_started = true;
 		}
         }
 }
@@ -511,10 +506,12 @@ void audio_join(struct state_audio *s) {
         if (!s) {
                 return;
         }
-        if(s->audio_receiver_thread_started)
+        if (!pthread_equal(s->audio_receiver_thread_id, PTHREAD_NULL)) {
                 pthread_join(s->audio_receiver_thread_id, NULL);
-        if(s->audio_sender_thread_started)
+        }
+        if (!pthread_equal(s->audio_sender_thread_id, PTHREAD_NULL)) {
                 pthread_join(s->audio_sender_thread_id, NULL);
+        }
 }
         
 void audio_done(struct state_audio *s)
