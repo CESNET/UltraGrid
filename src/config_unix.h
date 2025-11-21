@@ -150,8 +150,6 @@ int kill(pid_t pid, int sig);
 typedef u_char  ttl_t;
 typedef int     fd_t;
 
-#define USERNAMELEN	8
-
 #include "compat/aligned_malloc.h"
 
 #define INVALID_SOCKET (-1)

@@ -102,7 +102,6 @@ typedef SOCKET          fd_t;
  */
 typedef unsigned int	in_addr_t;
 
-#define USERNAMELEN	8
 #define WORDS_SMALLENDIAN 1
 
 #define NEED_INET_ATON
