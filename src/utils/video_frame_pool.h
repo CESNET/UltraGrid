@@ -59,6 +59,14 @@ struct default_data_allocator : public video_frame_pool_allocator {
         struct video_frame_pool_allocator *clone() const override;
 };
 
+struct video_frame_pool_params {
+        unsigned int max_used_frames = 0;
+        video_frame_pool_allocator const &alloc = default_data_allocator();
+        bool                              quiet =
+            false; ///< if exception thrown, do not print e.what() - the caller
+                   ///< is catching the error and will handle the message
+};
+
 struct video_frame_pool {
         public:
                 /**
@@ -68,6 +76,7 @@ struct video_frame_pool {
                  *                        is unreturned, get_frames() will block.
                  */
                 video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator());
+                video_frame_pool(const video_frame_pool_params &params);
                 video_frame_pool &operator=(video_frame_pool &&);
                 ~video_frame_pool();
 
