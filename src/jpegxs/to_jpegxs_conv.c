@@ -156,7 +156,7 @@ static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {
         { RGBA, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, rgba_to_rgbp },
         { v210, COLOUR_FORMAT_PLANAR_YUV422, v210_to_yuv422p10le},
         { R10k, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, r10k_to_rgbp10le },
-        { R12L, COLOUR_FORMAT_PACKED_YUV444_OR_RGB, r12l_to_rgbp12le },
+        { R12L, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, r12l_to_rgbp12le },
         { VIDEO_CODEC_NONE, COLOUR_FORMAT_INVALID, NULL }
 };
 
