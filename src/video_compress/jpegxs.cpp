@@ -258,7 +258,7 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                 if (IS_KEY_PREFIX(tok, "bpp")) {
                         const char *bpp = strchr(tok, '=') + 1;
                         int num = 0, den = 1;
-                        if (strspn(bpp, "0123456789/") != strlen(bpp) && (sscanf(bpp, "%d/%d", &num, &den) == 2 || sscanf(bpp, "%d", &num)) && num > 0 && den > 0) {
+                        if (strspn(bpp, "0123456789/") == strlen(bpp) && (sscanf(bpp, "%d/%d", &num, &den) == 2 || sscanf(bpp, "%d", &num)) && num > 0 && den > 0) {
                                 encoder.bpp_numerator = num;
                                 encoder.bpp_denominator = den;
                         } else {
