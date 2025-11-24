@@ -368,6 +368,7 @@ setup_wayland
 # while portaudio is linked directly to JACK library
 set_ld_preload ultragrid_aplay_portaudio.so libjack
 set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
+set_ld_preload_exe "$AI_LIB_PATH/../bin/uv-qt" libOpenGL.so.0
 
 ## @param $@   <tool> <arguments
 setup_firejail() {
