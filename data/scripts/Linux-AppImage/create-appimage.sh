@@ -149,6 +149,10 @@ for n in $EXCLUDE_LIST; do
         if [ "$n" = libjack.so.0 ] || [ "$n" = libpipewire-0.3.so.0 ]; then
                 continue
         fi
+        # not included in U25.10 live
+        if [ "$n" = libOpenGL.so.0 ]; then
+                continue
+        fi
         if [ -f "$APPPREFIX/lib/$n" ]; then
                 rm "$APPPREFIX/lib/$n"
         fi
