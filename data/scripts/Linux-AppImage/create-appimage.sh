@@ -143,14 +143,19 @@ while read -r x; do
         NAME=$(echo "$x" | awk '{ print $1 }')
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
+# these dependencies will be preloaded by AppRun if found in system - include
+# them for the cases when isn't
+should_be_included() {
+        INCLUDE_LIST="\
+        libOpenGL.so.0\
+        libjack.so.0\
+        libpipewire-0.3.so.0\
+        "
+        echo "$INCLUDE_LIST" |
+                grep -E -q '(^|[^[:alnum:]_])'"${1?}"'([^[:alnum:]_]|$)'
+}
 for n in $EXCLUDE_LIST; do
-        # these dependencies preloaded by AppRun if found in system - include
-        # them for the cases when isn't
-        if [ "$n" = libjack.so.0 ] || [ "$n" = libpipewire-0.3.so.0 ]; then
-                continue
-        fi
-        # not included in U25.10 live
-        if [ "$n" = libOpenGL.so.0 ]; then
+        if should_be_included "$n"; then
                 continue
         fi
         if [ -f "$APPPREFIX/lib/$n" ]; then
