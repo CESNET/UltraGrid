@@ -192,7 +192,7 @@ static void aes67_rtp_worker(state_aes67_cap *s, Rtp_stream stream){
 
         auto rtp_sock = udp_init_if(stream.address.c_str(), s->network_interface_name.c_str(), stream.port, 0, 255, 0, false);
 
-        int last_payload_type = 0;
+        uint32_t last_payload_type = UINT32_MAX;
         audio_desc desc{};
         
         using namespace std::literals::chrono_literals;
