@@ -169,7 +169,7 @@ Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
 
         [[maybe_unused]] uint8_t version = charbuf[0] >> 6;
         bool padding = charbuf[0] & (1 << 5);
-        bool extension = charbuf[0] & (1 << 4);
+        [[maybe_unused]] bool extension = charbuf[0] & (1 << 4);
         ret.csrc_count = charbuf[0] & 0x0F;
         ret.marker = charbuf[1] & 0x80;
         ret.payload_type = charbuf[1] & 0x7F;
@@ -186,7 +186,7 @@ Rtp_pkt_view Rtp_pkt_view::from_buffer(void *buf, size_t size){
                 if(ret.data_len == 0)
                         return ret;
 
-                uint8_t padding_bytes = ((uint8_t *)(ret.data))[ret.data_len - 1];
+                uint8_t padding_bytes = static_cast<uint8_t *>(ret.data)[ret.data_len - 1];
                 if(padding_bytes > ret.data_len)
                         return ret;
 
