@@ -2797,8 +2797,15 @@ get_av_to_uv_conversion_int(int av_codec, codec_t uv_codec)
         ret->dec = dec;
         ret->convert = av_convert;
         ret->src_pixfmt = intermediate;
-        watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
-        watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
+
+        const struct pixfmt_desc interm_desc = get_pixfmt_desc(intermediate);
+        const struct pixfmt_desc out_desc    = get_pixfmt_desc(uv_codec);
+        watch_pixfmt_degrade(
+            MOD_NAME, av_pixfmt_get_desc(av_codec),
+            (struct pixfmt_desc) {
+                .depth = MIN(interm_desc.depth, out_desc.depth),
+                .subsampling =
+                    MIN(interm_desc.subsampling, out_desc.subsampling) });
 
         return ret;
 }
