@@ -1,6 +1,16 @@
 # inspired by https://github.com/aferrero2707/appimage-testsuite
 # installing libraries included in https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+# see also https://raw.githubusercontent.com/AppImageCommunity/pkg2appimage/refs/heads/master/excludedeblist
 FROM ubuntu
 RUN apt-get update
-RUN apt-get install -y libasound2 libegl1-mesa libfontconfig1 libgl1-mesa-glx \
+RUN \
+. /etc/os-release; \
+if [ "$VERSION_ID" != 22.04 ]; then \
+    T64=t64; \
+fi; \
+apt-get install -y\
+    libasound2$T64\
+    libegl1\
+    libfontconfig1\
+    libglx-mesa0\
     libgmp10 libharfbuzz0b libopengl0 libp11-kit0 libx11-6 xvfb
