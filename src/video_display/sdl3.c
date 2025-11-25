@@ -869,6 +869,8 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 MSG(ERROR, "Unable to create renderer: %s\n", SDL_GetError());
                 return false;
         }
+        SDL_CHECK(
+            SDL_SetRenderDrawColor(s->renderer, 0, 0, 0, SDL_ALPHA_OPAQUE));
         if (s->vsync) {
                 // try adaptive first, if it doesn't succeed try 1
                 if (!SDL_SetRenderVSync(s->renderer,
