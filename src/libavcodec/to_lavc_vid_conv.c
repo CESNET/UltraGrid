@@ -1620,8 +1620,16 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
         }
         verbose_msg(MOD_NAME "converting %s to %s over %s\n", get_codec_name(in_pixfmt),
                         av_get_pix_fmt_name(out_pixfmt), get_codec_name(s->decoded_codec));
-        watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(in_pixfmt), get_pixfmt_desc(s->decoded_codec));
-        watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(s->decoded_codec), av_pixfmt_get_desc(out_pixfmt));
+        const struct pixfmt_desc interm_desc =
+            get_pixfmt_desc(s->decoded_codec);
+        const struct pixfmt_desc out_desc = av_pixfmt_get_desc(out_pixfmt);
+        watch_pixfmt_degrade(
+            MOD_NAME, get_pixfmt_desc(in_pixfmt),
+            (struct pixfmt_desc) {
+                .depth = MIN(interm_desc.depth, out_desc.depth),
+                .subsampling =
+                    MIN(interm_desc.subsampling, out_desc.subsampling) });
+
         s->decoded = (unsigned char *) malloc(
             (long) vc_get_linesize(width, s->decoded_codec) * height +
             MAX_PADDING);
