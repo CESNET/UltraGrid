@@ -212,10 +212,12 @@ jobs:
       run: |
         for n in lib opt; do if [ -d "/usr/local/$n" ]
          then sudo mv /usr/local/$n /usr/local/$n-; fi; done # hide local libs
+        if [ -d /opt/homebrew ]; then sudo mv /opt/homebrew /opt/homebrew-; fi
         sudo mv $(xcrun --show-sdk-path)/System/Library/Frameworks /tmp/FRMWK
         make distcheck TARGET=uv-qt.app/Contents/MacOS/uv REFLECTOR_TARGET=uv-qt.app/Contents/MacOS/hd-rum-transcode GUI_EXE=uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do if [ -d "/usr/local/$n-" ]
          then sudo mv /usr/local/$n- /usr/local/$n; fi; done # return back
+        if [ -d /opt/homebrew- ]; then sudo mv /opt/homebrew- /opt/homebrew; fi
         sudo mv /tmp/FRMWK $(xcrun --show-sdk-path)/System/Library/Frameworks
     - name: sign+notarize
       if: env.KEY_CHAIN != null
