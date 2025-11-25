@@ -626,7 +626,7 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 	if [ $(MACOS_LEGACY) = no ]; then \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
 			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null || \
-			[ !-f $$n ]; then continue; fi; \
+			[ ! -f $$n ]; then continue; fi; \
 			mv -f $$n $$n-real; dsymutil $$n-real; \
 			$(CP) -f $(srcdir)/data/scripts/macos-wrapper $$n; \
 		done; \
