@@ -39,7 +39,7 @@
 #include "utils/string_view_utils.hpp"
 
 Sap_packet_view Sap_packet_view::from_buffer(const void *buf, size_t size){
-        Sap_packet_view ret;
+        Sap_packet_view ret{};
 
         std::string_view sap(static_cast<const char *>(buf), size);
 
@@ -89,7 +89,7 @@ Sap_packet_view Sap_packet_view::from_buffer(const void *buf, size_t size){
 }
 
 Sdp_view Sdp_view::from_buffer(const void *buf, size_t size){
-        Sdp_view ret;
+        Sdp_view ret{};
 
         std::string_view sdp(static_cast<const char *>(buf), size);
 
