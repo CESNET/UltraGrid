@@ -248,11 +248,11 @@ display_frame(struct state_sdl3 *s, struct video_frame *frame)
                 s->cs_data->convert(frame, tex_data, pitch);
         }
 
-        SDL_RenderClear(s->renderer);
+        SDL_CHECK(SDL_RenderClear(s->renderer));
         SDL_UnlockTexture(frame_data->texture);
         SDL_CHECK(
             SDL_RenderTexture(s->renderer, frame_data->texture, NULL, NULL));
-        SDL_RenderPresent(s->renderer);
+        SDL_CHECK(SDL_RenderPresent(s->renderer));
 
         if (s->cs_data->convert == NULL) {
                 SDL_CHECK(SDL_LockTexture(frame_data->texture, NULL,
@@ -334,7 +334,7 @@ display_sdl3_process_key(struct state_sdl3 *s, int64_t key)
                 return true;
         case 'f':
                 s->fs = !s->fs;
-                SDL_SetWindowFullscreen(s->window, s->fs);
+                SDL_CHECK(SDL_SetWindowFullscreen(s->window, s->fs));
                 return true;
         case 'q':
                 exit_uv(0);
@@ -384,9 +384,9 @@ display_sdl3_run(void *arg)
                                 int              key;
                                 if (strstr(msg->text, "win-title ") ==
                                     msg->text) {
-                                        SDL_SetWindowTitle(
+                                        SDL_CHECK(SDL_SetWindowTitle(
                                             s->window,
-                                            msg->text + strlen("win-title "));
+                                            msg->text + strlen("win-title ")));
                                         r = new_response(RESPONSE_OK, NULL);
                                 } else if (sscanf(msg->text, "%d", &key) == 1) {
                                         if (!display_sdl3_process_key(s, key)) {
@@ -439,13 +439,13 @@ display_sdl3_run(void *arg)
                         int height = sqrt(
                             area / ((double) s->current_display_desc.width /
                                     s->current_display_desc.height));
-                        SDL_SetWindowSize(s->window, width, height);
+                        SDL_CHECK(SDL_SetWindowSize(s->window, width, height));
                         MSG(DEBUG, "resizing to %d x %d\n", width, height);
                 } else if (sdl_event.type == SDL_EVENT_WINDOW_RESIZED) {
                         // clear both buffers
-                        SDL_RenderClear(s->renderer);
+                        SDL_CHECK(SDL_RenderClear(s->renderer));
                         display_frame(s, s->last_frame);
-                        SDL_RenderClear(s->renderer);
+                        SDL_CHECK(SDL_RenderClear(s->renderer));
                         display_frame(s, s->last_frame);
                 } else if (sdl_event.type == SDL_EVENT_QUIT) {
                         exit_uv(0);
@@ -491,7 +491,7 @@ static void
 show_help(const char *driver, bool full)
 {
         if (driver != NULL) {
-                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver);
+                SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver));
         }
         SDL_CHECK(SDL_InitSubSystem(SDL_INIT_VIDEO));
         printf("SDL options:\n");
@@ -703,35 +703,34 @@ recreate_textures(struct state_sdl3 *s, struct video_desc desc)
 
         for (int i = 0; i < BUFFER_COUNT; ++i) {
                 SDL_PropertiesID prop = SDL_CreateProperties();
-                SDL_SetNumberProperty(prop,
-                                      SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER,
-                                      s->cs_data->sdl_tex_fmt);
-                SDL_SetNumberProperty(prop,
-                                      SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER,
-                                      SDL_TEXTUREACCESS_STREAMING);
-                SDL_SetNumberProperty(prop,
-                                      SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER,
-                                      desc.width);
-                SDL_SetNumberProperty(prop,
+                SDL_CHECK(SDL_SetNumberProperty(
+                    prop, SDL_PROP_TEXTURE_CREATE_FORMAT_NUMBER,
+                    s->cs_data->sdl_tex_fmt));
+                SDL_CHECK(SDL_SetNumberProperty(
+                    prop, SDL_PROP_TEXTURE_CREATE_ACCESS_NUMBER,
+                    SDL_TEXTUREACCESS_STREAMING));
+                SDL_CHECK(SDL_SetNumberProperty(
+                    prop, SDL_PROP_TEXTURE_CREATE_WIDTH_NUMBER, desc.width));
+                SDL_CHECK(SDL_SetNumberProperty(prop,
                                       SDL_PROP_TEXTURE_CREATE_HEIGHT_NUMBER,
-                                      desc.height);
+                                      desc.height));
                 if (!codec_is_a_rgb(desc.color_spec)) {
                         const enum SDL_Colorspace cs =
                             get_commandline_param("color-601") != NULL
                                 ? SDL_COLORSPACE_BT601_LIMITED
                                 : SDL_COLORSPACE_BT709_LIMITED;
-                        SDL_SetNumberProperty(
+                        SDL_CHECK(SDL_SetNumberProperty(
                             prop, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER,
-                            cs);
+                            cs));
                 }
                 if (desc.color_spec == R10k) {
-                        SDL_SetNumberProperty(
+                        SDL_CHECK(SDL_SetNumberProperty(
                             prop, SDL_PROP_TEXTURE_CREATE_COLORSPACE_NUMBER,
-                            SDL_COLORSPACE_SRGB);
+                            SDL_COLORSPACE_SRGB));
                 }
                 SDL_Texture *texture =
                     SDL_CreateTextureWithProperties(s->renderer, prop);
-                SDL_SetTextureBlendMode(texture, s->req_blend_mode);
+                SDL_CHECK(SDL_SetTextureBlendMode(texture, s->req_blend_mode));
                 SDL_DestroyProperties(prop);
                 if (!texture) {
                         log_msg(LOG_LEVEL_ERROR,
@@ -859,9 +858,9 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
         SDL_SetPointerProperty(
             renderer_prop, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, s->window);
         if (strlen(s->req_renderers_name) > 0) {
-                SDL_SetStringProperty(renderer_prop,
-                                      SDL_PROP_RENDERER_CREATE_NAME_STRING,
-                                      s->req_renderers_name);
+                SDL_CHECK(SDL_SetStringProperty(
+                    renderer_prop, SDL_PROP_RENDERER_CREATE_NAME_STRING,
+                    s->req_renderers_name));
         }
         s->renderer = SDL_CreateRendererWithProperties(renderer_prop);
         SDL_DestroyProperties(renderer_prop);
@@ -894,8 +893,9 @@ skip_window_creation:
         MSG(VERBOSE, "Setting SDL3 pix fmt: %s\n",
             SDL_GetPixelFormatName(s->cs_data->sdl_tex_fmt));
 
-        SDL_SetRenderLogicalPresentation(s->renderer, desc.width, desc.height,
-                                         SDL_LOGICAL_PRESENTATION_LETTERBOX);
+        SDL_CHECK(SDL_SetRenderLogicalPresentation(
+            s->renderer, desc.width, desc.height,
+            SDL_LOGICAL_PRESENTATION_LETTERBOX));
 
         if (!recreate_textures(s, desc)) {
                 return false;
@@ -1079,7 +1079,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 #endif // defined __linux__
 
         if (driver != NULL) {
-                SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver);
+                SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver));
         }
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
                 MSG(ERROR, "Unable to initialize SDL3 video: %s\n",
@@ -1095,8 +1095,8 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
-        SDL_HideCursor();
-        SDL_DisableScreenSaver();
+        SDL_CHECK(SDL_HideCursor());
+        SDL_CHECK(SDL_DisableScreenSaver());
 
         module_init_default(&s->mod);
         s->mod.new_message = display_sdl3_new_message;
@@ -1154,7 +1154,7 @@ display_sdl3_done(void *state)
                 SDL_DestroyWindow(s->window);
         }
 
-        SDL_ShowCursor();
+        SDL_CHECK(SDL_ShowCursor());
 
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
