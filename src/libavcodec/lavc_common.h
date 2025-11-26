@@ -44,6 +44,7 @@
 extern "C" {
 #endif
 
+// IWYU pragma: begin_exports
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/mem.h>
@@ -51,6 +52,7 @@ extern "C" {
 #include <libavutil/pixfmt.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/version.h>
+// IWYU pragma: end_exports
 
 #ifdef __cplusplus
 }

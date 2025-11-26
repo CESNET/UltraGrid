@@ -6,7 +6,7 @@
  * @sa from_lavc_vid_conv.h
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@
 #define LIBAVCODEC_TO_LAVC_VID_CONV_0C22E28C_A3F1_489D_87DC_E56D76E3598B
 
 #include "libavcodec/lavc_common.h"
-#include "video_codec.h"
+#include "types.h"             // for codec_t
 
 #ifdef __cplusplus
 extern "C" {
