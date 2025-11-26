@@ -810,21 +810,22 @@ void print_pix_fmts(const list<enum AVPixelFormat>
  * Unusable pixel formats and a currently selected one are removed from
  * req_pix_fmts.
  */
-static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::const_iterator &it,
-                list<enum AVPixelFormat>::const_iterator end,
-                const enum AVPixelFormat *codec_pix_fmts)
+static enum AVPixelFormat
+get_first_matching_pix_fmt(list<enum AVPixelFormat>::const_iterator &req_it,
+                           list<enum AVPixelFormat>::const_iterator  end,
+                           const enum AVPixelFormat *const codec_pix_fmts)
 {
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
 
-        for ( ; it != end; it++) {
-                const enum AVPixelFormat *tmp = codec_pix_fmts;
-                enum AVPixelFormat fmt;
-                while((fmt = *tmp++) != AV_PIX_FMT_NONE) {
-                        if (fmt == *it) {
-                                enum AVPixelFormat ret = *it++;
+        for ( ; req_it != end; req_it++) {
+                const enum AVPixelFormat *codec_it = codec_pix_fmts;
+                while (*codec_it != AV_PIX_FMT_NONE) {
+                        if (*codec_it == *req_it) {
+                                enum AVPixelFormat ret = *req_it++;
                                 return ret;
                         }
+                        codec_it++;
                 }
         }
 
