@@ -783,17 +783,14 @@ fail:
 void
 print_codec_supp_pix_fmts(const enum AVPixelFormat *const codec_pix_fmts)
 {
-        log_msg(log_level,
-                MOD_NAME "Codec supported pixel formats: " TBOLD("%s") "\n",
-                get_avpixfmts_names(codec_pix_fmts));
+        MSG(INFO, "Codec supported pixel formats: " TBOLD("%s") "\n",
+            get_avpixfmts_names(codec_pix_fmts));
 }
 
 void
 print_pix_fmts(const list<enum AVPixelFormat> &req_pix_fmts,
                const enum AVPixelFormat *const codec_pix_fmts)
 {
-        print_codec_supp_pix_fmts(codec_pix_fmts);
-
         // available pixel formats with respect to input pixel format
         enum AVPixelFormat  pixfmts[AV_PIX_FMT_NB];
         enum AVPixelFormat *pixfmts_it = pixfmts;
@@ -1232,12 +1229,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
+        const AVPixelFormat *const codec_pix_fmts =
+            avc_get_supported_pix_fmts(nullptr, codec);
         list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->req_conv_prop);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         set<AVPixelFormat> fmts_tried;
         while ((pix_fmt = get_first_matching_pix_fmt(
                     requested_pix_fmt_it, requested_pix_fmt.cend(),
-                    avc_get_supported_pix_fmts(nullptr, codec))) !=
+                    codec_pix_fmts)) !=
                AV_PIX_FMT_NONE) {
                 fmts_tried.insert(pix_fmt);
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
@@ -1245,9 +1244,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
 	}
 
+        print_codec_supp_pix_fmts(codec_pix_fmts);
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
-                print_pix_fmts(requested_pix_fmt,
-                               avc_get_supported_pix_fmts(nullptr, codec));
+                print_pix_fmts(requested_pix_fmt, codec_pix_fmts);
         }
 
         if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
