@@ -1761,7 +1761,9 @@ setparam_oapv(AVCodecContext */*codec_ctx*/, struct setparam_param *param)
         case AV_PIX_FMT_YUV444P10:  profile = "444-10";  break;
         case AV_PIX_FMT_YUV444P12:  profile = "444-12";  break;
         case AV_PIX_FMT_YUVA444P10: profile = "4444-10"; break;
-        case AV_PIX_FMT_YUVA444P12: profile = "4444-14"; break;
+#ifdef AV_PIX_FMT_YUVA444P12
+        case AV_PIX_FMT_YUVA444P12: profile = "4444-12"; break;
+#endif
         // clang-format on
         default:
                 MSG(WARNING,
