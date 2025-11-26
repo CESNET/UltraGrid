@@ -871,6 +871,110 @@ r12l_to_p210le(AVFrame *__restrict out_frame,
 }
 #endif // P210_PRESENT
 
+// copied from r12l_to_p210le
+static void
+r12l_to_ayuv64le(AVFrame *__restrict out_frame,
+               const unsigned char *__restrict in_data, int width, int height)
+{
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH16);
+#define WRITE_RES(idx) \
+        *dst++ = 0xffff; /* alpha */ \
+        res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - DEPTH16)) + \
+                (1 << (DEPTH16 - 4)); \
+        *dst++ = CLAMP_LIMITED_Y(res_y, DEPTH16); \
+        res_cb = \
+            (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE + 12 - DEPTH16)) + \
+            (1 << (DEPTH16 - 1)); \
+        res_cr = \
+            (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE + 12 - DEPTH16)) + \
+            (1 << (DEPTH16 - 1)); \
+        *dst++ = CLAMP_LIMITED_CBCR(res_cb, depth); \
+        *dst++ = CLAMP_LIMITED_CBCR(res_cr, depth); \
+
+        const int src_linesize = vc_get_linesize(width, R12L);
+        for (int y = 0; y < height; ++y) {
+                const unsigned char *src = in_data + y * src_linesize;
+                uint16_t *dst = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+			comp_type_t r = 0;
+			comp_type_t g = 0;
+			comp_type_t b = 0;
+                        comp_type_t res_y = 0;
+                        comp_type_t res_cb = 0;
+                        comp_type_t res_cr = 0;
+
+			r = src[BYTE_SWAP(0)];
+			r |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+			g = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // g0
+			b = src[BYTE_SWAP(3)];
+			src += 4;
+
+			b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+                        WRITE_RES(0)
+			r = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // r1
+			g = src[BYTE_SWAP(2)];
+			g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+			b = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			b |= src[BYTE_SWAP(0)] << 4; // b1
+                        WRITE_RES(1)
+			r = src[BYTE_SWAP(1)];
+			r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			g = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // g2
+			src += 4;
+
+			b = src[BYTE_SWAP(0)];
+			b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+                        WRITE_RES(2)
+			r = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // r3
+			g = src[BYTE_SWAP(3)];
+			src += 4;
+
+			g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+			b = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // b3
+                        WRITE_RES(3)
+			r = src[BYTE_SWAP(2)];
+			r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+			g = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			g |= src[BYTE_SWAP(0)] << 4; // g4
+			b = src[BYTE_SWAP(1)];
+			b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			WRITE_RES(4)
+			r = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // r5
+			src += 4;
+
+			g = src[BYTE_SWAP(0)];
+			g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+			b = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // b5
+                        WRITE_RES(5)
+			r = src[BYTE_SWAP(3)];
+			src += 4;
+
+			r |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+			g = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // g6
+			b = src[BYTE_SWAP(2)];
+			b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+                        WRITE_RES(6)
+			r = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			r |= src[BYTE_SWAP(0)] << 4; // r7
+			g = src[BYTE_SWAP(1)];
+			g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			b = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // b7
+                        WRITE_RES(7)
+			src += 4;
+                }
+        }
+#undef WRITE_RES
+}
+
 /// @brief Converts RG48 to yuv444p 10/12/14 le
 #if defined __GNUC__
 static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -1308,6 +1412,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if P210_PRESENT
                 { R12L, AV_PIX_FMT_P210LE,      r12l_to_p210le },
 #endif // defined P210_PRESENT
+                { R12L, AV_PIX_FMT_AYUV64LE,    r12l_to_ayuv64le },
                 { RG48, AV_PIX_FMT_YUV444P10LE, rg48_to_yuv444p10le },
                 { RG48, AV_PIX_FMT_YUV444P12LE, rg48_to_yuv444p12le },
                 { RG48, AV_PIX_FMT_YUV444P16LE, rg48_to_yuv444p16le },
