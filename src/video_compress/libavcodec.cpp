@@ -190,7 +190,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
 
 static void print_codec_aux_usage(string const &name);
 static bool show_coder_help(string const &name, bool encoder = true);
-static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
+static void print_codec_supp_pix_fmts(const enum AVPixelFormat *codec_pix_fmts);
 void usage(bool full);
 static void cleanup(struct state_video_compress_libav *s);
 
@@ -780,25 +780,41 @@ fail:
 }
 #endif
 
-void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
+void
+print_codec_supp_pix_fmts(const enum AVPixelFormat *const codec_pix_fmts)
+{
         log_msg(log_level,
                 MOD_NAME "Codec supported pixel formats: " TBOLD("%s") "\n",
-                get_avpixfmts_names(first));
+                get_avpixfmts_names(codec_pix_fmts));
 }
 
-void print_pix_fmts(const list<enum AVPixelFormat>
-                &req_pix_fmts, const enum AVPixelFormat *first) {
-        print_codec_supp_pix_fmts(first);
+void
+print_pix_fmts(const list<enum AVPixelFormat> &req_pix_fmts,
+               const enum AVPixelFormat *const codec_pix_fmts)
+{
+        print_codec_supp_pix_fmts(codec_pix_fmts);
 
+        // available pixel formats with respect to input pixel format
         enum AVPixelFormat  pixfmts[AV_PIX_FMT_NB];
         enum AVPixelFormat *pixfmts_it = pixfmts;
+        // intersection of pixfmts and codec_pix_fmts (codec supported fmts)
+        enum AVPixelFormat  intersect[AV_PIX_FMT_NB];
+        enum AVPixelFormat *intersect_it = intersect;
         for (const auto &c : req_pix_fmts) {
                 *pixfmts_it++ = c;
+                const enum AVPixelFormat *codec_it = codec_pix_fmts;
+                while (*codec_it != AV_PIX_FMT_NONE) {
+                        if (c == *codec_it++) {
+                                *intersect_it++ = c;
+                                break;
+                        }
+                }
         }
-        *pixfmts_it++ = AV_PIX_FMT_NONE;
-        log_msg(log_level,
-                MOD_NAME "Supported pixel formats: " TBOLD("%s") "\n",
-                get_avpixfmts_names(pixfmts));
+        *pixfmts_it = *intersect_it = AV_PIX_FMT_NONE;
+        log_msg(log_level, MOD_NAME "Usable pixel formats: " TBOLD("%s") "\n",
+                get_avpixfmts_names(intersect));
+        MSG(DEBUG, "Supported pixel formats: " TBOLD("%s") "\n",
+            get_avpixfmts_names(pixfmts));
 }
 
 /**
