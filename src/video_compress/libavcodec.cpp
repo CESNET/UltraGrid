@@ -65,6 +65,7 @@
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
+#include "types.h"                               // for UYVY, RGBA, v210, RGB
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/debug.h"                  // for debug_file_dump
@@ -1993,7 +1994,16 @@ configure_videotoolbox_hevc(AVCodecContext * /*codec_ctx*/,
         if (param->lavc_opts.find("profile") == param->lavc_opts.end()) {
                 // enforce AV_PROFILE_HEVC_REXT, otherwise we will get Main10
                 // profile (10-bit 4:2:0) - even for UYVY
-                param->lavc_opts["profile"] = "rext";
+                const char *profile = "rext";
+                // but user may requested :subsampling=420 -> use main[10] :
+                if (av_pixfmt_get_subsampling(param->av_pix_fmt) == SUBS_420) {
+                        profile = av_pix_fmt_desc_get(param->av_pix_fmt)
+                                              ->comp[0]
+                                              .depth == DEPTH8
+                                      ? "main"
+                                      : "main10";
+                }
+                param->lavc_opts["profile"] = profile;
         }
 }
 
