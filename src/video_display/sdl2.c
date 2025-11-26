@@ -152,6 +152,8 @@ static const struct {
         {'q', "quit"},
 };
 
+/// @param cmd  command be excecuted checking the return falue
+/// @param ...  optional action
 #define SDL_CHECK(cmd, ...) \
         do { \
                 int ret = cmd; \
