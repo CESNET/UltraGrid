@@ -272,6 +272,11 @@ add_whitelist() {
                 path"$HOME${1#\~}"
         fi
 
+        # if the path doesn't exist, whitelist will fail, solves eg. "file:help"
+        if [ ! -e "$path" ]; then
+                return
+        fi
+
         if contains_mount "$path"; then
                 disable_mount=no
         fi
@@ -300,12 +305,13 @@ whitelist_file_path() {
         fi
         if expr "$n" : '.*file[:=]' >/dev/null || expr "$n" : '.*filename' \
                         >/dev/null; then
-                parent_dir=$(dirname "path")
+                fullpath=$(realpath "path")
+                parent_dir=$(dirname "$fullpath")
                 if [ "$parent_dir" = /dev ] || [ "$parent_dir" = /tmp ]; then
                         return
                 fi
                 # whitelist the parent folder to allow file creation
-                printf -- "$separator--whitelist=\"%s\"" "$parent_dir"
+                add_whitelist "$parent_dir"
         fi
 }
 
