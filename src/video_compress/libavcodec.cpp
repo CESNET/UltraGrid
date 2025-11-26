@@ -1986,6 +1986,17 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         }
 }
 
+static void
+configure_videotoolbox_hevc(AVCodecContext * /*codec_ctx*/,
+                            struct setparam_param *param)
+{
+        if (param->lavc_opts.find("profile") == param->lavc_opts.end()) {
+                // enforce AV_PROFILE_HEVC_REXT, otherwise we will get Main10
+                // profile (10-bit 4:2:0) - even for UYVY
+                param->lavc_opts["profile"] = "rext";
+        }
+}
+
 static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_param *param) {
         param->thread_mode = "no"; // VA-API doesn't support threads
         // interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
@@ -2198,6 +2209,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv_h264_hevc(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "hevc_videotoolbox") == 0) {
+                configure_videotoolbox_hevc(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "libaom-av1") == 0) {
                 configure_aom_av1(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "librav1e") == 0) {
