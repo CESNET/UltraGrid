@@ -781,22 +781,22 @@ fail:
 #endif
 
 void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
-        char out[STR_LEN];
-        snprintf(out, sizeof out,
-                 MOD_NAME "Codec supported pixel formats: " TBOLD("%s"),
-                 get_avpixfmts_names(first));
-        LOG(LOG_LEVEL_VERBOSE) << wrap_paragraph(out) << TERM_RESET "\n";
+        MSG(VERBOSE, "Codec supported pixel formats: " TBOLD("%s") "\n",
+            get_avpixfmts_names(first));
 }
 
 void print_pix_fmts(const list<enum AVPixelFormat>
                 &req_pix_fmts, const enum AVPixelFormat *first) {
         print_codec_supp_pix_fmts(first);
-        char out[STR_LEN] = MOD_NAME "Supported pixel formats:" TERM_BOLD;
-        for (auto &c : req_pix_fmts) {
-                snprintf(out + strlen(out), sizeof out - strlen(out), " %s",
-                         av_get_pix_fmt_name(c));
+
+        enum AVPixelFormat  pixfmts[AV_PIX_FMT_NB];
+        enum AVPixelFormat *pixfmts_it = pixfmts;
+        for (const auto &c : req_pix_fmts) {
+                *pixfmts_it++ = c;
         }
-        LOG(LOG_LEVEL_VERBOSE) << wrap_paragraph(out) << TERM_RESET "\n";
+        *pixfmts_it++ = AV_PIX_FMT_NONE;
+        MSG(VERBOSE, "Supported pixel formats: " TBOLD("%s") "\n",
+            get_avpixfmts_names(pixfmts));
 }
 
 /**
