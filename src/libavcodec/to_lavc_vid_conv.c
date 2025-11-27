@@ -46,8 +46,14 @@
 #define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
 
 #include <assert.h>
+#include <libavutil/frame.h>                   // for AVFrame, av_frame_alloc
+#include <libavutil/pixdesc.h>                 // for av_get_pix_fmt_name
+#include <limits.h>                            // for CHAR_BIT
 #include <stdbool.h>
+#include <stddef.h>                            // for NULL, ptrdiff_t, size_t
 #include <stdint.h>
+#include <stdlib.h>                            // for free, calloc, abort
+#include <string.h>                            // for memcpy
 
 #include "color_space.h"
 #include "compat/net.h"                        // for htonl
@@ -56,10 +62,14 @@
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "libavcodec/to_lavc_vid_conv_cuda.h"
+#include "libavcodec/utils.h"                  // for uv_to_av_pixfmt, get_u...
+#include "pixfmt_conv.h"                       // for get_decoder_from_to
+#include "tv.h"                                // for get_time_in_ns, time_ns_t
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/parallel_conv.h"
 #include "utils/worker.h"
-#include "video.h"
+#include "video_codec.h"                       // for vc_get_linesize, get_p...
+#include "video_frame.h"                       // for buf_get_planes
 
 #ifdef __SSE3__
 #include "pmmintrin.h"
@@ -788,14 +798,12 @@ r12l_to_p210le(AVFrame *__restrict out_frame,
         }
 
         const int src_linesize = vc_get_linesize(width, R12L);
-        for (int y = 0; y < height; ++y) {
-                const unsigned char *src = in_data + y * src_linesize;
-                uint16_t            *dst_y =
-                    (uint16_t *) (void *) (out_frame->data[0] +
-                                           out_frame->linesize[0] * y);
-                uint16_t *dst_cbcr =
-                    (uint16_t *) (void *) (out_frame->data[1] +
-                                           out_frame->linesize[1] * y);
+        for (size_t y = 0; y < (size_t) height; ++y) {
+                const unsigned char *src = in_data + (y * src_linesize);
+                uint16_t            *dst_y    = (void *) (out_frame->data[0] +
+                                            (out_frame->linesize[0] * y));
+                uint16_t            *dst_cbcr = (void *) (out_frame->data[1] +
+                                               (out_frame->linesize[1] * y));
 
                 OPTIMIZED_FOR(int x = 0; x < width; x += 8)
                 {
@@ -906,11 +914,10 @@ r12l_to_ayuv64le(AVFrame *__restrict out_frame,
         *dst++ = CLAMP_LIMITED_CBCR(res_cr, depth);
 
         const int src_linesize = vc_get_linesize(width, R12L);
-        for (int y = 0; y < height; ++y) {
-                const unsigned char *src = in_data + y * src_linesize;
-                uint16_t            *dst =
-                    (uint16_t *) (void *) (out_frame->data[0] +
-                                           out_frame->linesize[0] * y);
+        for (size_t y = 0; y < (size_t) height; ++y) {
+                const unsigned char *src = in_data + (y * src_linesize);
+                uint16_t            *dst = (void *) (out_frame->data[0] +
+                                          (out_frame->linesize[0] * y));
 
                 OPTIMIZED_FOR(int x = 0; x < width; x += 8)
                 {
