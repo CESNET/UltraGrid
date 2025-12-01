@@ -423,7 +423,7 @@ static int start_pipewire(vcap_pw_state *s)
         auto flags = PW_STREAM_FLAG_MAP_BUFFERS |
                 PW_STREAM_FLAG_DONT_RECONNECT;
 
-        if(!s->user_options.target.empty()){
+        if(!s->user_options.target.empty() || s->mode == vcap_pw_state::Mode::Screen_capture){
                 flags |= PW_STREAM_FLAG_AUTOCONNECT;
         }
 
