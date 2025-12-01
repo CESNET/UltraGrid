@@ -3,3 +3,4 @@
 * fix temporarily broken r12l_to_gbrp16le (GH-476)
 * missing arm64 macOS dependency on brotlicommon (GH-478)
 * add libOpenGL.0.so library fallback to Linux AppImage
+* fix Pipewire screen capture not starting
