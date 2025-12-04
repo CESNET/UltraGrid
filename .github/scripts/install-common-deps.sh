@@ -36,7 +36,8 @@ cineform-0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch
 )}
 
 download_build_aja() {
-        git clone --depth 1 https://github.com/aja-video/libajantv2.git
+        aja_url=https://github.com/aja-video/libajantv2.git
+        git clone -b release --depth 1 $aja_url
         # TODO TOREMOVE this workarounds when not needed
         tr -d '\n' < libajantv2/VERSION.txt > ver-fix-no-NL$$.txt &&
                 mv ver-fix-no-NL$$.txt libajantv2/VERSION.txt
