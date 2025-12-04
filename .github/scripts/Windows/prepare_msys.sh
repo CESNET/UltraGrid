@@ -79,7 +79,7 @@ install_deltacast() {(
         mkdir VideoMaster
         cd VideoMaster
         filename=videomaster-win.x64-dev.zip
-        if curl -f -S "$SDK_URL/$filename" -O; then
+        if curl -f -S "$SDK_URL/$filename" -o $filename; then
                 FEATURES="$FEATURES --enable-deltacast"
                 echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
                 unzip "$filename"
