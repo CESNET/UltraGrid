@@ -1288,13 +1288,16 @@ AC_ARG_ENABLE(avfoundation,
     [avfoundation_req=auto]
     )
 
-if test "$system?" = MacOSX && test "${avfoundation_req?}" != no
+if test "${system?}" = MacOSX && test "${avfoundation_req?}" != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
 	add_module "" "$AVFOUNDATION_OBJ" "$AVFOUNDATION_LIB"
 	avfoundation=yes
 fi
+
+ENSURE_FEATURE_PRESENT([${avfoundation_req?}], [${avfoundation?}],
+        [AV Foundation not found])
 
 # ------------------------------------------------------------------------------
 # SDL1/2/3 Stuff
