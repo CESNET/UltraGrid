@@ -1,25 +1,24 @@
 #!/bin/sh -eu
 
-MACOS_VER_MAJOR=$(uname -r | cut -f 1 -d .)
+cat << 'EOF'
+#!/bin/sh -eu
 
-req_macos_arm64=14
-req_darwin_arm64=23
+EOF
 
-req_macos_x86_64=13
-req_darwin_x86_64=22
+# req_macos is evaluated during the build (EOF not in '')
+cat << EOF
+req_macos=$(sw_vers -productVersion | cut -d. -f1)
 
-if [ "$(uname -m)" = arm64 ]; then
-        req_macos=$req_macos_arm64
-        req_darwin=$req_darwin_arm64
-else
-        req_macos=$req_macos_x86_64
-        req_darwin=$req_darwin_x86_64
-fi
+EOF
+
+# following macos var will be evaluated on run-time
+cat << 'EOF'
+macos=$(sw_vers -productVersion | cut -d. -f1)
 
 MSG="Please use an alternative build for macOS older than ${req_macos:?}, available at:
 https://github.com/CESNET/UltraGrid/releases/download/continuous/UltraGrid-nightly-alt.dmg"
 
-if [ "$MACOS_VER_MAJOR" -lt "${req_darwin:?}" ]; then
+if [ "${macos:?}" -lt "${req_macos:?}" ]; then
         BASENAME=$(basename "$0")
         if [ "$BASENAME" = uv-qt ]; then
                 osascript -e "tell application \"SystemUIServer\"
@@ -32,3 +31,4 @@ end"
 fi
 
 exec "$0-real" "$@"
+EOF
