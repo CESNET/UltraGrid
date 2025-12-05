@@ -64,17 +64,23 @@ static const struct {
         enum AVCodecID av;
         codec_t uv;
 } av_to_uv_map[] = {
-        { AV_CODEC_ID_H264,     H264   },
-        { AV_CODEC_ID_HEVC,     H265   },
-        { AV_CODEC_ID_MJPEG,    JPEG   },
-        { AV_CODEC_ID_JPEG2000, J2K    },
-        { AV_CODEC_ID_VP8,      VP8    },
-        { AV_CODEC_ID_VP9,      VP9    },
-        { AV_CODEC_ID_HUFFYUV,  HFYU   },
-        { AV_CODEC_ID_FFV1,     FFV1   },
-        { AV_CODEC_ID_AV1,      AV1    },
-        { AV_CODEC_ID_PRORES,   PRORES },
-        { AV_CODEC_ID_APV,      APV    },
+        { AV_CODEC_ID_H264,     H264             },
+        { AV_CODEC_ID_HEVC,     H265             },
+        { AV_CODEC_ID_MJPEG,    JPEG             },
+        { AV_CODEC_ID_JPEG2000, J2K              },
+        { AV_CODEC_ID_VP8,      VP8              },
+        { AV_CODEC_ID_VP9,      VP9              },
+        { AV_CODEC_ID_HUFFYUV,  HFYU             },
+        { AV_CODEC_ID_FFV1,     FFV1             },
+        { AV_CODEC_ID_AV1,      AV1              },
+        { AV_CODEC_ID_PRORES,   PRORES           },
+        { AV_CODEC_ID_PRORES,   PRORES_4444      },
+        { AV_CODEC_ID_PRORES,   PRORES_4444_XQ   },
+        { AV_CODEC_ID_PRORES,   PRORES_422_HQ    },
+        { AV_CODEC_ID_PRORES,   PRORES_422       },
+        { AV_CODEC_ID_PRORES,   PRORES_422_PROXY },
+        { AV_CODEC_ID_PRORES,   PRORES_422_LT    },
+        { AV_CODEC_ID_APV,      APV              },
 };
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
