@@ -104,6 +104,10 @@ case "$RUNNER_OS" in
 --enable-libbacktrace \
 --enable-syphon \
 "
+                macos_major=$(sw_vers -productVersion | cut -d. -f1)
+                if [ "$macos_major" -ge 15 ]; then
+                        FEATURES="$FEATURES --disable-screen"
+                fi
                 ;;
         Windows)
                 FEATURES="$FEATURES $CUDA_FEATURES --enable-dshow --enable-spout --enable-wasapi"

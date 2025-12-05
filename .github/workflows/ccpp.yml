@@ -144,7 +144,7 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        os: [macos-13, macos-14]
+        os: [macos-15-intel, macos-14]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     env:
