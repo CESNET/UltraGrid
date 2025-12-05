@@ -111,6 +111,12 @@ if ls $APPPREFIX/lib/libwayland-* >/dev/null 2>&1; then
         mv $APPPREFIX/lib/libwayland-* $APPPREFIX/lib/wayland
 fi
 
+# hide libOpenGL.so.0 libraries
+if [ -f $APPPREFIX/lib/libOpenGL.so.0 ]; then
+        mkdir $APPPREFIX/lib/libopengl
+        mv $APPPREFIX/lib/libOpenGL.so.0 $APPPREFIX/lib/libopengl
+fi
+
 add_fonts
 
 if command -v curl >/dev/null; then

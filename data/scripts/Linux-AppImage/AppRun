@@ -263,6 +263,20 @@ setup_wayland() {
         n_ld_library_path="$n_ld_library_path:$AI_LIB_PATH/wayland"
 }
 
+setup_libopengl() {
+        qt_ogl=$(echo "$DIR"/usr/lib/libQt[5-9]OpenGL.so*)
+        LOADER=$(get_loader)
+        if [ ! -x "$LOADER" ] || [ ! -f "$qt_ogl" ]; then
+                return
+        fi
+        ldd=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$qt_ogl")
+        if ! echo "$ldd" | grep libOpenGL.so.0 | grep -q 'not found'; then
+                return # we have libOpenGL.so.0 in system
+        fi
+        debug_msg "Using bundled libOpenGL.so.0*"
+        n_ld_library_path="$n_ld_library_path:$AI_LIB_PATH/libopengl"
+}
+
 add_whitelist() {
         # expand tilde expansion (like ~/video.mp4; only single ~ now)
         # shellcheck disable=SC2088 # intentional
@@ -370,11 +384,11 @@ get_custom_firejail_rules() {
 . "$DIR/scripts/preload.sh"
 setup_vaapi
 setup_wayland
+setup_libopengl
 # ultragrid_aplay_jack.so is not used because it loads JACK with dlopen,
 # while portaudio is linked directly to JACK library
 set_ld_preload ultragrid_aplay_portaudio.so libjack
 set_ld_preload ultragrid_vidcap_pipewire.so libpipewire
-set_ld_preload_exe "$AI_LIB_PATH/../bin/uv-qt" libOpenGL.so.0
 
 ## @param $@   <tool> <arguments
 setup_firejail() {
