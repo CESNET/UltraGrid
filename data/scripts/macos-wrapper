@@ -2,10 +2,24 @@
 
 MACOS_VER_MAJOR=$(uname -r | cut -f 1 -d .)
 
-MSG="Please use an alternative build for macOS older than 13, available at:
+req_macos_arm64=14
+req_darwin_arm64=23
+
+req_macos_x86_64=13
+req_darwin_x86_64=22
+
+if [ "$(uname -m)" = arm64 ]; then
+        req_macos=$req_macos_arm64
+        req_darwin=$req_darwin_arm64
+else
+        req_macos=$req_macos_x86_64
+        req_darwin=$req_darwin_x86_64
+fi
+
+MSG="Please use an alternative build for macOS older than ${req_macos:?}, available at:
 https://github.com/CESNET/UltraGrid/releases/download/continuous/UltraGrid-nightly-alt.dmg"
 
-if [ "$MACOS_VER_MAJOR" -lt 22 ]; then
+if [ "$MACOS_VER_MAJOR" -lt "${req_darwin:?}" ]; then
         BASENAME=$(basename "$0")
         if [ "$BASENAME" = uv-qt ]; then
                 osascript -e "tell application \"SystemUIServer\"
