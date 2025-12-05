@@ -249,7 +249,7 @@ setup_vaapi() {
 
 setup_wayland() {
         # use bundled Wayland libs only when not present in system
-        sdl_l=$DIR/usr/lib/libSDL2-2.0.so.0
+        sdl_l=$(echo "$DIR"/usr/lib/libSDL[2-9][.-]*so*)
         LOADER=$(get_loader)
         if [ -x "$LOADER" ] && [ -f "$sdl_l" ]; then
                 ldd=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$sdl_l")
