@@ -13,6 +13,9 @@ dir=$(dirname "$0")
 # shellcheck source=/dev/null
 . "$dir/json-common.sh"
 
+ug_nightly_archive_url=https://ces.net/UGNightlyArchive
+ug_alt_builds_url=https://ces.net/UGAltBuilds
+
 # Joins line that starts with space to previous:
 # https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
 MERG_LN=':a ; $!N ; s/\n\s+/ / ; ta ; P ; D'
@@ -34,9 +37,9 @@ if [ "$VERSION" = continuous ]; then
         TITLE='continuous builds'
         SUMMARY="Current builds from Git master branch. macOS alternative\
  build is rebuilt daily, Linux ARM builds weekly. Archived builds can be\
- found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/),\
+ found [here]($ug_nightly_archive_url),\
  additional alternative builds\
- [here](https://frakira.fi.muni.cz/~xpulec/ug-alt-builds/)."
+ [here]($ug_alt_builds_url)."
         PRERELEASE=true
 else
         TITLE="UltraGrid $VERSION"
