@@ -4,3 +4,6 @@
 * missing arm64 macOS dependency on brotlicommon (GH-478)
 * add libOpenGL.0.so library fallback to Linux AppImage
 * fix Pipewire screen capture not starting
+* build fixes
+* reenable AV Foundation (not being enabled on macOS)
+* fix decoding ProRes
