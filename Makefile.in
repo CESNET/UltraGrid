@@ -626,7 +626,7 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 			if expr $$n : '.*-real$$' >/dev/null || expr $$n : '.*\.sh$$' >/dev/null || \
 			[ !-f $$n ]; then continue; fi; \
 			mv -f $$n $$n-real; dsymutil $$n-real; \
-			$(CP) -f $(srcdir)/data/scripts/macos-wrapper $$n; \
+			$(srcdir)/data/scripts/gen-macos-wrapper.sh > $$n; chmod 755 $$n; \
 		done; \
 	fi
 
