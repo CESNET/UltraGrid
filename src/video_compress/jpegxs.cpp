@@ -351,7 +351,7 @@ static const struct {
         },
         {"Quantization algorithm", "quantization", "quantization",
                 "\t\tSelects the quantization algorithm: 0 = deadzone, 1 = uniform.\n"
-                "\t\tThe default is dead-zone quantization.",
+                "\t\tThe default is dead-zone quantization.\n",
                 ":quantization=", false, "0"
         },
         {"Slice height", "slice_height", "slice_height",
@@ -370,7 +370,7 @@ static const struct {
         {"Threads scaling parameter", "threads", "threads",
                 "\t\tNumber of encoder threads. Must be between 0 and the number of\n"
                 "\t\tavailable CPU cores. Value 0 means the lowest possible number\n"
-                "\t\tof threads is created by the encoder.\n",
+                "\t\tof threads is created by the encoder. The default is 0.\n",
                 ":threads=", false, "0"
         },
         {"JPEG XS pool size", "pool_size", "pool_size",
