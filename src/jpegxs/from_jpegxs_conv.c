@@ -139,14 +139,14 @@ static void rgbp12le_to_r12l(const svt_jpeg_xs_image_buffer_t *src, int width, i
 }
 
 static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
-        { COLOUR_FORMAT_PLANAR_YUV422, UYVY, 8, yuv422p_to_uyvy },
-        { COLOUR_FORMAT_PLANAR_YUV422, YUYV, 8, yuv422p_to_yuyv },
-        { COLOUR_FORMAT_PLANAR_YUV420, I420, 8, yuv420p_to_i420 },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, RGB, 8, rgbp_to_rgb },
-        { COLOUR_FORMAT_PLANAR_YUV422, v210, 10, yuv422p10le_to_v210 },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R10k, 10, rgbp10le_to_r10k },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R12L, 12,  rgbp12le_to_r12l},
-        { COLOUR_FORMAT_INVALID, VIDEO_CODEC_NONE, 0, NULL }
+        { COLOUR_FORMAT_PLANAR_YUV422, UYVY, yuv422p_to_uyvy },
+        { COLOUR_FORMAT_PLANAR_YUV422, YUYV, yuv422p_to_yuyv },
+        { COLOUR_FORMAT_PLANAR_YUV420, I420, yuv420p_to_i420 },
+        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, RGB, rgbp_to_rgb },
+        { COLOUR_FORMAT_PLANAR_YUV422, v210, yuv422p10le_to_v210 },
+        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R10k, rgbp10le_to_r10k },
+        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R12L, rgbp12le_to_r12l},
+        { COLOUR_FORMAT_INVALID, VIDEO_CODEC_NONE, NULL }
 };
 
 const struct jpegxs_to_uv_conversion *get_jpegxs_to_uv_conversion(codec_t codec) {
@@ -154,18 +154,6 @@ const struct jpegxs_to_uv_conversion *get_jpegxs_to_uv_conversion(codec_t codec)
         const struct jpegxs_to_uv_conversion *conv = jpegxs_to_uv_conversions;
         while (conv->dst != VIDEO_CODEC_NONE) {
                 if (conv->dst == codec)
-                        return conv;
-                conv++;
-        }
-
-        return NULL;
-}
-
-const struct jpegxs_to_uv_conversion *get_default_jpegxs_to_uv_conversion(ColourFormat_t fmt, int depth) {
-
-        const struct jpegxs_to_uv_conversion *conv = jpegxs_to_uv_conversions;
-        while (conv->dst != VIDEO_CODEC_NONE) {
-                if (conv->src == fmt && conv->depth == depth)
                         return conv;
                 conv++;
         }
