@@ -335,31 +335,33 @@ static const struct {
         {"Bits per pixel", "bpp", "bpp",
                 "\t\tTarget bits-per-pixel ratio for the encoder. May be given as an\n"
                 "\t\tinteger (e.g., 2) or as a fraction (e.g., 3/4). Controls the\n"
-                "\t\toutput bitrate indirectly. Must be a positive value.\n",
+                "\t\toutput bitrate indirectly. Must be a positive value.\n"
+                "\t\tThe default is 3.\n",
                 ":bpp=", false, "3"
         },
         {"Vertical decomposition", "decomp_v", "decomp_v",
                 "\t\tNumber of vertical wavelet decompositions. Allowed values are\n"
-                "\t\t0, 1, or 2.\n",
+                "\t\t0, 1, or 2. The default is 2.\n",
                 ":decomp_v=", false, "2"
         },
         {"Horizontal decomposition", "decomp_h", "decomp_h",
                 "\t\tNumber of horizontal wavelet decompositions. Allowed values\n"
-                "\t\tare between 1 and 5.\n",
+                "\t\tare between 1 and 5. The default is 5.\n",
                 ":decomp_h=", false, "5"
         },
         {"Quantization algorithm", "quantization", "quantization",
-                "\t\tSelects the quantization algorithm: 0 = deadzone, 1 = uniform.\n",
+                "\t\tSelects the quantization algorithm: 0 = deadzone, 1 = uniform.\n"
+                "\t\tThe default is dead-zone quantization.",
                 ":quantization=", false, "0"
         },
         {"Slice height", "slice_height", "slice_height",
                 "\t\tHeight of a slice in lines. Must be a positive integer and a\n"
-                "\t\tmultiple of 2^decomp_v.\n",
+                "\t\tmultiple of 2^decomp_v. The default is 16.\n",
                 ":slice_height=", false, "16"
         },
         {"Rate control mode", "rc", "rc",
                 "\t\tRate control mode:\n"
-                "\t\t 0 = CBR budget per precinct\n"
+                "\t\t 0 = CBR budget per precinct (default option)\n"
                 "\t\t 1 = CBR budget per precinct with padding movement\n"
                 "\t\t 2 = CBR budget per slice\n"
                 "\t\t 3 = CBR budget per slice with max rate size\n",
@@ -370,6 +372,12 @@ static const struct {
                 "\t\tavailable CPU cores. Value 0 means the lowest possible number\n"
                 "\t\tof threads is created by the encoder.\n",
                 ":threads=", false, "0"
+        },
+        {"JPEG XS pool size", "pool_size", "pool_size",
+                "\t\tThe size of the SVT-JPEG-XS frame pool. Increasing the pool size\n"
+                "\t\tenables more frames to be sent to the encoder's internal queue.\n"
+                "\t\tThe default is 5.\n",
+                ":pool_size=", false, "5"
         },
 };
 
@@ -413,19 +421,32 @@ static void jpegxs_compress_done(void *state) {
 static compress_module_info get_jpegxs_module_info() {
         compress_module_info module_info;
         module_info.name = "jpegxs";
+
+        for(const auto& opt : usage_opts){
+                module_info.opts.emplace_back(module_option{opt.label,
+                                opt.description, opt.placeholder, opt.key, opt.opt_str, false});
+        }
+
+        codec codec_info;
+        codec_info.name = "JPEG XS";
+        codec_info.priority = 400;
+        codec_info.encoders.emplace_back(encoder{"default", ""});
+
+        module_info.codecs.emplace_back(std::move(codec_info));
+
         return module_info;
 }
 
 const struct video_compress_info jpegxs_info = {
-        jpegxs_compress_init, // jpegxs_compress_init
-        jpegxs_compress_done, // jpegxs_compress_done
+        jpegxs_compress_init,
+        jpegxs_compress_done,
         NULL,
         NULL,
-        jpegxs_compress_push, // jpegxs_compress_push
-        jpegxs_compress_pop, //  jpegxs_compress_pop
+        jpegxs_compress_push,
+        jpegxs_compress_pop,
         NULL,
         NULL,
-        get_jpegxs_module_info // get_jpegxs_module_info
+        get_jpegxs_module_info,
 };
 
 REGISTER_MODULE(jpegxs, &jpegxs_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

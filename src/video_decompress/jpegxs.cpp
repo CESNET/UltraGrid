@@ -37,8 +37,8 @@ static void *jpegxs_decompress_init(void) {
         return s;
 }
 
-static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size) {
-
+static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size)
+{
         s->decoder.verbose = VERBOSE_SYSTEM_INFO;
         s->decoder.threads_num = 10;
         s->decoder.use_cpu_flags = CPU_FLAGS_ALL;
@@ -54,15 +54,6 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
         if (!s->frame_pool) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
                 return false;
-        }
-
-        if (s->out_codec == VIDEO_CODEC_NONE) {
-                const struct jpegxs_to_uv_conversion *conv = get_default_jpegxs_to_uv_conversion(s->image_config.format, s->image_config.bit_depth);
-                if (!conv || !conv->convert) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No default conversion for colour format: %d\n", s->image_config.format);
-                        return false;
-                }
-                s->convert_from_planar = conv->convert;
         }
 
         s->configured = true;
@@ -109,26 +100,35 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         return true;
 }
 
-static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpegxs *s, struct pixfmt_desc *internal_prop)
+static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpegxs *s, struct pixfmt_desc *internal_prop, unsigned char *buffer, size_t buffer_size)
 {
-        internal_prop->depth = s->image_config.bit_depth;
-        internal_prop->rgb = false;
+        uint32_t size;
+        SvtJxsErrorType_t err = svt_jpeg_xs_decoder_get_single_frame_size(buffer, buffer_size, &s->image_config, &size, 0);
+        if (err != SvtJxsErrorNone) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get frame size from bitstream, error code: %x\n", err);
+                abort();
+        }
+        assert(buffer_size == size);
 
+        internal_prop->depth = s->image_config.bit_depth;
         switch (s->image_config.format) {
         case COLOUR_FORMAT_PLANAR_YUV420:
                 internal_prop->subsampling = 4200;
+                internal_prop->rgb = false;
                 break;
         case COLOUR_FORMAT_PLANAR_YUV422:
                 internal_prop->subsampling = 4220;
+                internal_prop->rgb = false;
                 break;
         case COLOUR_FORMAT_PLANAR_YUV444_OR_RGB:
                 internal_prop->subsampling = 4440;
+                internal_prop->rgb = true;
                 break;
         default:
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported colour format\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to probe JPEG XS codec - unsupported colour format\n");
                 abort();
         }
-        
+
         return DECODER_GOT_CODEC;
 }
 
@@ -139,14 +139,14 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         UNUSED(callbacks);
         auto *s = (struct state_decompress_jpegxs *) state;
 
+        if (s->out_codec == VIDEO_CODEC_NONE) {
+                return jpegxs_probe_internal_codec(s, internal_prop, buffer, src_len);
+        }
+
         if (!s->configured) {
                 if (!configure_with(s, buffer, src_len)) {
                         return DECODER_NO_FRAME;
                 }
-        }
-
-        if (s->out_codec == VIDEO_CODEC_NONE) {
-                return jpegxs_probe_internal_codec(s, internal_prop);
         }
 
         svt_jpeg_xs_bitstream_buffer_t bitstream;
@@ -226,12 +226,12 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
 }
 
 static const struct video_decompress_info jpegxs_info = {
-        jpegxs_decompress_init, // jpegxs_decompress_init
-        jpegxs_decompress_reconfigure, // jpegxs_decompress_reconfigure
-        jpegxs_decompress, // jpegxs_decompress
-        jpegxs_decompress_get_property, // jpegxs_decompress_get_property
-        jpegxs_decompress_done, // jpegxs_decompress_done
-        jpegxs_decompress_get_priority, // jpegxs_decompress_get_priority
+        jpegxs_decompress_init,
+        jpegxs_decompress_reconfigure,
+        jpegxs_decompress,
+        jpegxs_decompress_get_property,
+        jpegxs_decompress_done,
+        jpegxs_decompress_get_priority,
 };
 
 REGISTER_MODULE(jpegxs, &jpegxs_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
