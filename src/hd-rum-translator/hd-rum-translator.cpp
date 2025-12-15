@@ -655,7 +655,7 @@ static int parse_global_opts(int argc, char **argv,
                 { "verbose",                optional_argument, nullptr, 'V'},
                 { "capabilities",           no_argument,       nullptr, 'b'},
                 { "help",                   no_argument,       nullptr, 'h'},
-                { "contol-port",            required_argument, nullptr, 'n'},
+                { "control-port",           required_argument, nullptr, 'n'},
                 { "conference",             required_argument, nullptr, 'r'},
                 { "version",                no_argument,       nullptr, 'v'},
                 { nullptr,                  0,                 nullptr, 0  }
@@ -666,7 +666,7 @@ static int parse_global_opts(int argc, char **argv,
         while ((ch = getopt_long(argc, argv, optstring, getopt_options,
                                  nullptr)) != -1) {
                 switch (ch) {
-                case 'c':
+                case 'n':
                         parsed->control_port            = stoi(optarg);
                         parsed->control_connection_type = 0;
                         if (strchr(optarg, ':') != nullptr) {
