@@ -13,8 +13,8 @@ dir=$(dirname "$0")
 # shellcheck source=/dev/null
 . "$dir/json-common.sh"
 
-ug_nightly_archive_url=https://ces.net/UGNightlyArchive
-ug_alt_builds_url=https://ces.net/UGAltBuilds
+ug_nightly_archive_url=https://ces.net/UltraGridArchive
+ug_alt_builds_url=https://ces.net/UltraGridAltBuilds
 
 # Joins line that starts with space to previous:
 # https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
