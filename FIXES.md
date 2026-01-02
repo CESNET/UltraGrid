@@ -1,3 +1,7 @@
+#### 1.10.2
+
+* fix Vulkan display crashing on keypresses in console
+
 #### 1.10.1
 
 * fix temporarily broken r12l_to_gbrp16le (GH-476)
