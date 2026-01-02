@@ -14,7 +14,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -136,7 +136,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_HOST (('A' << 8) | 'H')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
-#define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
@@ -728,6 +727,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"limit-bitrate",          required_argument, nullptr, 'l'},
                 {"capture",                required_argument, nullptr, 't'},
                 {"mtu",                    required_argument, nullptr, 'm'},
+                {"control-port",           required_argument, nullptr, 'n'},
                 {"postprocess",            required_argument, nullptr, 'p'},
                 {"receive",                required_argument, nullptr, 'r'},
                 {"send",                   required_argument, nullptr, 's'},
@@ -753,7 +753,6 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {"audio-delay",            required_argument, 0, OPT_AUDIO_DELAY},
                 {"audio-host",             required_argument, 0, OPT_AUDIO_HOST},
                 {"audio-protocol",         required_argument, 0, OPT_AUDIO_PROTOCOL},
-                {"control-port",           required_argument, 0, OPT_CONTROL_PORT},
                 {"audio-scale",            required_argument, 0, OPT_AUDIO_SCALE},
                 {"echo-cancellation",      no_argument,       0, OPT_ECHO_CANCELLATION},
                 {"mcast-if",               required_argument, 0, OPT_MCAST_IF},
@@ -766,7 +765,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 {0, 0, 0, 0}
         };
         const char *optstring =
-            "46A:CD:E::F:HI:LM:N::O:P:ST:U:Va:b::c:e:f:d:hi:l:m:p:r:s:t:vx:";
+            "46A:CD:E::F:HI:LM:N::O:P:ST:U:Va:b::c:e:f:d:hi:l:m:n:p:r:s:t:vx:";
 
         int ch = 0;
         while ((ch =
@@ -957,7 +956,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 case 'e':
                         snprintf_ch(opt->common.encryption, "%s", optarg);
                         break;
-                case OPT_CONTROL_PORT:
+                case 'n':
                         if (!parse_control_port(optarg, opt)) {
                                 return -EXIT_FAIL_USAGE;
                         }
