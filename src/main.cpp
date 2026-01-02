@@ -131,21 +131,19 @@
 static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
-#define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
-#define OPT_AUDIO_DELAY (('A' << 8) | 'D')
-#define OPT_AUDIO_HOST (('A' << 8) | 'H')
-#define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
-#define OPT_AUDIO_SCALE (('a' << 8) | 's')
-#define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
-#define OPT_MCAST_IF (('M' << 8) | 'I')
-#define OPT_PIX_FMTS (('P' << 8) | 'F')
-#define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
-#define OPT_RTSP_SERVER (('R' << 8) | 'S')
-#define OPT_VIDEO_CODECS (('V' << 8) | 'C')
-#define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
-#define OPT_WINDOW_TITLE (('W' << 8) | 'T')
-
-#define MAX_CAPTURE_COUNT 17
+constexpr int OPT_AUDIO_CAPTURE_CHANNELS = ('a' << 8) | 'c';
+constexpr int OPT_AUDIO_DELAY            = ('A' << 8) | 'D';
+constexpr int OPT_AUDIO_HOST             = ('A' << 8) | 'H';
+constexpr int OPT_AUDIO_PROTOCOL         = ('A' << 8) | 'P';
+constexpr int OPT_AUDIO_SCALE            = ('a' << 8) | 's';
+constexpr int OPT_ECHO_CANCELLATION      = ('E' << 8) | 'C';
+constexpr int OPT_MCAST_IF               = ('M' << 8) | 'I';
+constexpr int OPT_PIX_FMTS               = ('P' << 8) | 'F';
+constexpr int OPT_PIXFMT_CONV_POLICY     = ('P' << 8) | 'C';
+constexpr int OPT_RTSP_SERVER            = ('R' << 8) | 'S';
+constexpr int OPT_VIDEO_CODECS           = ('V' << 8) | 'C';
+constexpr int OPT_VIDEO_PROTOCOL         = ('V' << 8) | 'P';
+constexpr int OPT_WINDOW_TITLE           = ('W' << 8) | 'T';
 
 using namespace std;
 using namespace std::chrono;
