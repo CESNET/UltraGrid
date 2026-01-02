@@ -125,11 +125,11 @@
 #include "video_display.h"
 #include "video_rxtx.hpp"
 
-#define MOD_NAME                "[main] "
-#define PORT_BASE               5004
+constexpr char MOD_NAME[] = "[main] ";
 
-static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
-static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
+constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
+constexpr char DEFAULT_AUDIO_CODEC[]       = "PCM";
+constexpr int  PORT_BASE                   = 5004;
 
 constexpr int OPT_AUDIO_CAPTURE_CHANNELS = ('a' << 8) | 'c';
 constexpr int OPT_AUDIO_DELAY            = ('A' << 8) | 'D';
@@ -638,7 +638,7 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                 set_audio = toupper(optarg[0]) == 'A';
                 set_video = toupper(optarg[0]) == 'V';
                 if (!set_audio && !set_video) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong protocol setting: " << optarg << "\n";
+                        MSG(ERROR, "Wrong protocol setting: %s\n", optarg);
                         return false;
                 }
                 optarg += 2;
@@ -652,11 +652,13 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
         }
         switch (ch) {
                 case OPT_AUDIO_PROTOCOL:
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--audio-protocol deprecated, use '-x A:proto'\n";
+                        MSG(WARNING,
+                            "--audio-protocol deprecated, use '-x A:proto'\n");
                         set_video = false;
                         break;
                 case OPT_VIDEO_PROTOCOL:
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--video-protocol deprecated, use '-x V:proto'\n";
+                        MSG(WARNING,
+                            "--video-protocol deprecated, use '-x V:proto'\n");
                         set_audio = false;
                         break;
         }
