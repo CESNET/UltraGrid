@@ -10,6 +10,7 @@
 ##                           password $KEY_FILE_PASS)
 
 set -eu
+set -o pipefail || true
 
 if expr "$GITHUB_REF" : 'refs/tags/' >/dev/null; then
   TAG=${GITHUB_REF#refs/tags/}
@@ -155,7 +156,7 @@ set_ximea_url() {
         ximea_path=$(curl -f https://www.ximea.com/software-downloads |
                 grep -v 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 |
                 sed -n "/$ximea_pattern/"\
-' { s-^.*\(/getattachment[^"]*\).*$-\1-; p; q; }')
+' { s-^.*\(/getattachment[^"]*\).*$-\1-; p; }' | head -n 1)
         XIMEA_DOWNLOAD_URL=https://www.ximea.com$ximea_path
         export XIMEA_DOWNLOAD_URL
         printf "XIMEA_DOWNLOAD_URL=%s\n" "$XIMEA_DOWNLOAD_URL" >> "$GITHUB_ENV"
