@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1768,7 +1768,8 @@ static void
 setparam_oapv(AVCodecContext */*codec_ctx*/, struct setparam_param *param)
 {
         auto it = param->lavc_opts.find("oapv-params");
-        if (it->second.find("profile=") != std::string::npos) {
+        if (it != param->lavc_opts.end() &&
+            it->second.find("profile=") != std::string::npos) {
                 return; // do not overwrite profile if set explicitly
         }
         const char *profile = nullptr;
