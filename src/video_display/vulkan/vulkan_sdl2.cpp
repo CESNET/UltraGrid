@@ -6,7 +6,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
  /*
-  * Copyright (c) 2018-2025 CESNET
+  * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
@@ -206,6 +206,7 @@ struct state_vulkan_sdl2 {
         explicit state_vulkan_sdl2(module* parent) {
                 module_init_default(&mod);
                 mod.new_message = display_vulkan_new_message;
+                mod.priv_data = this;
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
 
@@ -973,7 +974,7 @@ bool display_vulkan_get_property(void* state, int property, void* val, size_t* l
 }
 
 void display_vulkan_new_message(module* mod) {
-        auto s = reinterpret_cast<state_vulkan_sdl2*>(mod);
+        auto s = reinterpret_cast<state_vulkan_sdl2*>(mod->priv_data);
         assert(s->magic == magic_vulkan_sdl2);
 
         SDL_Event event{};
