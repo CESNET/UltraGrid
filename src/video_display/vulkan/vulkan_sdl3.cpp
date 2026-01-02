@@ -201,6 +201,7 @@ struct state_vulkan_sdl3 {
                 module_init_default(&mod);
                 mod.new_message = display_vulkan_new_message;
                 mod.cls = MODULE_CLASS_DATA;
+                mod.priv_data = this;
                 module_register(&mod, parent);
 
                 sdl_user_new_message_event = SDL_RegisterEvents(1);
@@ -1002,7 +1003,7 @@ bool display_vulkan_get_property(void* state, int property, void* val, size_t* l
 }
 
 void display_vulkan_new_message(module* mod) {
-        auto s = reinterpret_cast<state_vulkan_sdl3*>(mod);
+        auto s = reinterpret_cast<state_vulkan_sdl3*>(mod->priv_data);
         assert(s->magic == magic_vulkan_sdl3);
 
         SDL_Event event{};
