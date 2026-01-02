@@ -10,7 +10,7 @@
 ##                           password $KEY_FILE_PASS)
 
 set -eu
-set -o pipefail || true
+set -o pipefail
 
 if expr "$GITHUB_REF" : 'refs/tags/' >/dev/null; then
   TAG=${GITHUB_REF#refs/tags/}
