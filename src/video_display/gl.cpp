@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2025 CESNET
+ * Copyright (c) 2010-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -907,6 +907,8 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
 
+        glfwSetErrorCallback(glfw_print_error);
+
 	struct state_gl *s = nullptr;
         try {
                 s = new state_gl(parent);
@@ -1801,8 +1803,6 @@ ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        glfwSetErrorCallback(glfw_print_error);
-
         if (ref_count_init_once<int>()(glfwInit, glfw_init_count)
                 .value_or(GLFW_TRUE) == GLFW_FALSE) {
                 LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
