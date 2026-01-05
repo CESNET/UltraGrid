@@ -62,6 +62,26 @@ if [ -n "$QT_DIR" ]; then
         PLUGIN_LIBS=$(find "$DST_PLUGIN_DIR" -type f)
 fi
 
+# append to string delimited with space if \$$1 non-empty
+append() { eval "$1=\"\$$1\${$1:+ }$2\""; }
+
+# deploy libdecor + its plugin(s) - it is dlopen-ed so not automatic
+if [ -f $APPPREFIX/lib/ultragrid/ultragrid_display_gl.so ] ||
+   [ -f $APPPREFIX/lib/ultragrid/ultragrid_display_sdl.so ]; then
+        libdecor=$(find /usr/lib -name libdecor-0.so.0 | head -n 1)
+        if [ -f "$libdecor" ]; then
+                cp "$libdecor" $APPPREFIX/lib/
+                append PLUGIN_LIBS $APPPREFIX/lib/libdecor-0.so.0
+                plugins=$(dirname "$libdecor")/libdecor/plugins-1
+                if [ -d "$plugins" ]; then
+                        dst=$APPPREFIX/lib/libdecor/plugins-1
+                        mkdir -p $dst
+                        cp "$plugins"/*.so $dst/
+                        append PLUGIN_LIBS "$(find "$dst" -type f -exec echo {} +)"
+                fi
+        fi
+fi
+
 if [ -f $APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so ]; then
         if ! command -v convert >/dev/null; then
                 handle_error 'IM convert missing! (needed for bundle)'

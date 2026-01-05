@@ -20,6 +20,7 @@ LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
+export LIBDECOR_PLUGIN_DIR="$DIR/usr/lib/libdecor/plugins-1"
 export QT_QPA_FONTDIR="$DIR/usr/share/fonts"
 export UG_FONT_DIR="$DIR/usr/share/fonts"
 QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
