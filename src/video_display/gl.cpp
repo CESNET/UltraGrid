@@ -1652,8 +1652,10 @@ static void printGlewError(GLenum err) {
 }
 #endif // defined GLEW_VERSION
 
-static void glfw_print_error(int error_code, const char* description) {
-        LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
+static void
+glfw_print_error(int error_code, const char *description)
+{
+        MSG(ERROR, "GLFW error 0x%08X: %s\n",  error_code, description);
 }
 
 /**
