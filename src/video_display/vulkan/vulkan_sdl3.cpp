@@ -227,12 +227,11 @@ struct state_vulkan_sdl3 {
 // make sure that state_vulkan_sdl3 is C compatible
 static_assert(std::is_standard_layout_v<state_vulkan_sdl3>);
 
-//todo C++20 : change to to_array
-constexpr std::array<std::pair<char, std::string_view>, 3> display_vulkan_keybindings{{
+constexpr std::pair<int64_t, std::string_view> display_vulkan_keybindings[] = {
         {'d', "toggle deinterlace"},
         {'f', "toggle fullscreen"},
         {'q', "quit"}
-}};
+};
 
 constexpr void update_description(const video_desc& video_desc, video_frame& frame) {
         frame.color_spec = video_desc.color_spec;
@@ -256,6 +255,7 @@ constexpr int64_t translate_sdl_key_to_ug(SDL_KeyboardEvent keyev) {
 
         bool ctrl = false;
         bool shift = false;
+        bool alt = false;
         if (keyev.mod & SDL_KMOD_CTRL) {
                 ctrl = true;
         }
@@ -266,6 +266,11 @@ constexpr int64_t translate_sdl_key_to_ug(SDL_KeyboardEvent keyev) {
         }
         keyev.mod &= ~SDL_KMOD_SHIFT;
 
+        if (keyev.mod & SDL_KMOD_LALT) {
+                alt = true;
+        }
+        keyev.mod &= ~SDL_KMOD_LALT;
+
         if (keyev.mod != 0) {
                 return -1;
         }
@@ -274,7 +279,13 @@ constexpr int64_t translate_sdl_key_to_ug(SDL_KeyboardEvent keyev) {
                 if (shift) {
                         keyev.key = toupper(keyev.key);
                 }
-                return ctrl ? K_CTRL(keyev.key) : keyev.key;
+                if (ctrl){
+                        return K_CTRL(keyev.key);
+                }
+                if (alt){
+                        return K_ALT(keyev.key);
+                }
+                return keyev.key;
         }
         switch (keyev.key) {
                 case SDLK_RIGHT: return K_RIGHT;
@@ -512,7 +523,9 @@ void show_help() {
 
         col() << "\n\tKeyboard shortcuts:\n";
         for (auto& binding : display_vulkan_keybindings) {
-                col() << SBOLD("\t\t'" << binding.first) << "'\t - " << binding.second << "\n";
+                char keyname[50];
+                get_keycode_name(binding.first, keyname, sizeof keyname);
+                col() << SBOLD("\t\t" << keyname) << "\t - " << binding.second << "\n";
         }
         SDL_Quit();
 }
