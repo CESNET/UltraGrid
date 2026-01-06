@@ -6,7 +6,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
  /*
-  * Copyright (c) 2018-2025 CESNET
+  * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include <cstdio>                                          // for sscanf
 #include <cstdlib>                                         // for calloc
 #include <cstring>                                         // for strchr, strcmp
+#include <map>                                             // for map
 
 #include "debug.h"
 #include "host.h"
@@ -486,6 +487,7 @@ void show_help() {
         col() << SBOLD("\t     pos=<x>,<y>") << " - set window position\n";
         col() << SBOLD("\t    size=<W>x<H>") << " - set window size\n";
         col() << SBOLD("\twindow_flags=<f>") << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
+        col() << SBOLD("\thint=<key>=<val>") << " - set SDL hint (eg. SDL_VIDEO_WAYLAND_PREFER_LIBDECOR=0): hint can be used repeatedly\n";
         
         print_gpus();
 
@@ -607,6 +609,7 @@ struct command_line_arguments {
         uint32_t window_flags = 0 ; ///< user requested flags
         uint32_t gpu_idx = vkd::no_gpu_selected;
         std::string driver{};
+        std::map<std::string, std::string> hints;
 };
 
 bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl3& s, char *fmt) {
@@ -687,6 +690,12 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                 } else if (IS_KEY_PREFIX(token, "window_flags")) {
                         token = strchr(token, '=') + 1;
                         args.window_flags |= cstoi(strchr(token, '=') + 1);
+                } else if (IS_KEY_PREFIX(token, "hint") && strchr(token, '=') != strrchr(token, '=')) {
+                        char *key = strchr(token, '=') + 1;
+                        char *val = strchr(key, '=');
+                        *val = '\0';
+                        val++;
+                        args.hints[key] = val;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << wrong_option_msg << token << '\n';
                         return false;
@@ -793,6 +802,11 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (!args.driver.empty()) {
                 SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str()));
         }
+        for (auto &it : args.hints) {
+                SDL_CHECK(SDL_SetHint(it.first.c_str(), it.second.c_str()));
+                MSG(INFO, "Setting %s to %s\n", it.first.c_str(), it.second.c_str());
+        }
+
         bool ret = SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL3: %s\n", SDL_GetError());
