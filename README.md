@@ -11,7 +11,7 @@ UltraGrid - A High Definition Collaboratory
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
    * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
-   * Copyright (c) 2005-2025 CESNET
+   * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
    * All rights reserved.
 
    This software is distributed under license, see the file
