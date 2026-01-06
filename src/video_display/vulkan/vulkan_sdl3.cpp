@@ -868,6 +868,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         SDL_CHECK(SDL_DisableScreenSaver());
 
         for (auto& binding : display_vulkan_keybindings) {
+                if (binding.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
+                        continue;
+                }
                 std::string msg = std::to_string(static_cast<int>(binding.first));
                 keycontrol_register_key(&s->mod, binding.first, msg.c_str(), binding.second.data());
         }
