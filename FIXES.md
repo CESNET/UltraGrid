@@ -1,6 +1,8 @@
 #### 1.10.2
 
 * fix Vulkan display crashing on keypresses in console
+* fix GL display show/hide cursor keybind
+* fix control port argument in hd-rum-translator
 
 #### 1.10.1
 
