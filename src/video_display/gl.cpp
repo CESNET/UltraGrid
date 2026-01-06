@@ -62,8 +62,6 @@
 #include <mutex>
 #include <queue>
 #include <string>
-#include <string_view>
-#include <unordered_map>
 
 #include "color_space.h"
 #ifdef HAVE_CONFIG_H
@@ -110,16 +108,13 @@ using std::map;
 using std::min;
 using std::mutex;
 using std::ostringstream;
-using std::pair;
 using std::queue;
 using std::stof;
 using std::stoi;
 using std::stol;
 using std::string;
-using std::string_view;
 using std::swap;
 using std::unique_lock;
-using std::unordered_map;
 using std::vector;
 using std::chrono::duration;
 using std::chrono::duration_cast;
@@ -346,24 +341,43 @@ void main()
 } // main end
 )raw";
 
-unordered_map<codec_t, const char *> glsl_programs = {
-        { UYVY, uyvy_to_rgb_fp },
-        { Y416, yuva_to_rgb_fp },
-        { VUYA, vuya_to_rgb_fp },
-        { v210, v210_to_rgb_fp },
-        { DXT1_YUV, fp_display_dxt1_yuv },
-        { DXT5, fp_display_dxt5ycocg },
+const static struct {
+        codec_t     codec;
+        const char *prog_name;
+} glsl_programs[] = {
+        { UYVY,     uyvy_to_rgb_fp       },
+        { Y416,     yuva_to_rgb_fp       },
+        { VUYA,     vuya_to_rgb_fp       },
+        { v210,     v210_to_rgb_fp       },
+        { DXT1_YUV, fp_display_dxt1_yuv  },
+        { DXT5,     fp_display_dxt5ycocg },
 };
 
-static constexpr pair<int64_t, string_view> keybindings[] = {
-        pair<int64_t, string_view>{'f', "toggle fullscreen"},
-        pair<int64_t, string_view>{'q', "quit"},
-        pair<int64_t, string_view>{K_ALT('d'), "toggle deinterlace"},
-        pair<int64_t, string_view>{K_ALT('p'), "pause video"},
-        pair<int64_t, string_view>{K_ALT('s'), "screenshot"},
-        pair<int64_t, string_view>{K_ALT('m'), "force show/hide cursor (default is autohide when not moving)"},
-        pair<int64_t, string_view>{K_CTRL_DOWN, "make window 10% smaller"},
-        pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
+static bool
+needs_shader(codec_t codec)
+{
+        for (unsigned i = 0; i < countof(glsl_programs); ++i) {
+                if (glsl_programs[i].codec == codec) {
+                        return true;
+                }
+        }
+        return false;
+}
+
+static const struct
+{
+        int64_t     key;
+        const char *description;
+} keybindings[] = {
+        { 'f',         "toggle fullscreen"                              },
+        { 'q',         "quit"                                           },
+        { K_ALT('d'),  "toggle deinterlace"                             },
+        { K_ALT('p'),  "pause video"                                    },
+        { K_ALT('s'),  "screenshot"                                     },
+        { K_ALT('m'),
+         "force show/hide cursor (default is autohide when not moving)" },
+        { K_CTRL_DOWN, "make window 10% smaller"                        },
+        { K_CTRL_UP,   "make window 10% bigger"                         }
 };
 
 #ifdef GLFW_PLATFORM
@@ -403,7 +417,7 @@ static bool check_rpi_pbo_quirks();
 static void set_gamma(struct state_gl *s);
 
 struct state_gl {
-        unordered_map<codec_t, GLuint> PHandles;
+        GLuint          PHandles[VC_COUNT] = {};
         GLuint          PHandle_deint = 0;
         GLuint          current_program = 0;
 
@@ -655,10 +669,11 @@ static void gl_show_help(bool full) {
         }
 
         printf("\nkeyboard shortcuts:\n");
-        for (auto const &i : keybindings) {
+        for (unsigned i = 0; i < countof(keybindings); i++) {
                 char keyname[50];
-                get_keycode_name(i.first, keyname, sizeof keyname);
-                col() << "\t" << TBOLD(<< keyname <<) << "\t\t" << i.second << "\n";
+                get_keycode_name(keybindings[i].key, keyname, sizeof keyname);
+                color_printf("\t" TBOLD("%s") "\t\t%s\n", keyname,
+                             keybindings[i].description);
         }
 
         if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
@@ -939,13 +954,15 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                         s->fs ? "ON" : "OFF", state_gl::deint_to_string(s->deinterlace));
 
         gl_load_splashscreen(s);
-        for (auto const &i : keybindings) {
-                if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
-                        continue;
+        for (unsigned i = 0; i < countof(keybindings); i++) {
+                if (keybindings[i].key == 'q') {
+                        continue; // don't report 'q' to avoid accidental close,
+                                  // user can use Ctrl-c there
                 }
                 char msg[18];
-                snprintf(msg, sizeof msg, "%" PRIx64, i.first);
-                keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
+                snprintf_ch(msg, "%" PRIx64, keybindings[i].key);
+                keycontrol_register_key(&s->mod, keybindings[i].key, msg,
+                                        keybindings[i].description);
         }
 
 #if GLFW_VERSION_MAJOR < 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
@@ -1144,7 +1161,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                         desc.width, desc.height, 0,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
                                         NULL);
-                        s->current_program = s->PHandles.at(DXT1_YUV);
+                        s->current_program = s->PHandles[DXT1_YUV];
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -1159,7 +1176,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles.at(UYVY);
+                s->current_program = s->PHandles[UYVY];
         } else if (desc.color_spec == v210) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -1173,9 +1190,9 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
-                s->current_program = s->PHandles.at(v210);
+                s->current_program = s->PHandles[v210];
         } else if (desc.color_spec == Y416) {
-                s->current_program = s->PHandles.at(Y416);
+                s->current_program = s->PHandles[Y416];
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -1205,7 +1222,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles.at(VUYA);
+                s->current_program = s->PHandles[VUYA];
         } else if (desc.color_spec == RGB) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
@@ -1238,7 +1255,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles.at(DXT5);
+                s->current_program = s->PHandles[DXT5];
         }
 #ifdef HWACC_VDPAU
         else if (desc.color_spec == HW_VDPAU) {
@@ -1917,14 +1934,14 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        for (auto &it : glsl_programs) {
-                GLuint prog = gl_substitute_compile_link(vert, it.second);
+        for (unsigned i = 0; i < countof(glsl_programs); i++) {
+                GLuint prog = gl_substitute_compile_link(vert, glsl_programs[i].prog_name);
                 if (prog == 0U) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to link program for %s!\n", get_codec_name(it.first));
+                        MSG(ERROR, "Unable to link program for %s!\n", glsl_programs[i].prog_name);
                         handle_error(1);
                         continue;
                 }
-                s->PHandles[it.first] = prog;
+                s->PHandles[glsl_programs[i].codec] = prog;
         }
 
         if ((s->PHandle_deint = gl_substitute_compile_link(vert, deinterlace_fp)) == 0) {
@@ -1953,7 +1970,7 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
         glfwMakeContextCurrent(s->window);
 
         for (auto &it : s->PHandles) {
-                glDeleteProgram(it.second);
+                glDeleteProgram(it);
         }
         glDeleteTextures(1, &s->texture_display);
         glDeleteTextures(1, &s->texture_raw);
@@ -2242,10 +2259,8 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                                                             // 10-bit processing
                                 return false;
                         }
-                        if (glsl_programs.find(c) != glsl_programs.end() &&
-                            s->PHandles.find(c) ==
-                                s->PHandles.end()) { // GLSL shader needed but
-                                                     // compilation failed
+                        if (needs_shader(c) && s->PHandles[c] == 0) {
+                                // GLSL shader needed but compilation failed
                                 return false;
                         }
                         if (c == HW_VDPAU && !s->vdp_interop) {
