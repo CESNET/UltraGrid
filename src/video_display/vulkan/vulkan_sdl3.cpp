@@ -186,7 +186,7 @@ struct state_vulkan_sdl3 {
         bool keep_aspect = false;
 
         bool cursor_is_shown = true;
-        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
+        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE, SC_MODE_COUNT } show_cursor = SC_AUTOHIDE;
         chrono::steady_clock::time_point last_cursor_movement{};
 
         int width = 0;
@@ -230,7 +230,8 @@ static_assert(std::is_standard_layout_v<state_vulkan_sdl3>);
 constexpr std::pair<int64_t, std::string_view> display_vulkan_keybindings[] = {
         {'d', "toggle deinterlace"},
         {'f', "toggle fullscreen"},
-        {'q', "quit"}
+        {'q', "quit"},
+        {K_ALT('m'), "change cursor hide mode"},
 };
 
 constexpr void update_description(const video_desc& video_desc, video_frame& frame) {
@@ -315,6 +316,18 @@ constexpr bool display_vulkan_process_key(state_vulkan_sdl3& s, int64_t key) {
                 }
                 case 'q':
                         exit_uv(0);
+                        return true;
+                case K_ALT('m'):
+                        s.show_cursor = (state_vulkan_sdl3::show_cursor_t)(((int) s.show_cursor + 1) % state_vulkan_sdl3::SC_MODE_COUNT);
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): "
+                                << s.show_cursor << "\n";
+                        if(s.show_cursor == state_vulkan_sdl3::SC_FALSE){
+                                SDL_CHECK(SDL_HideCursor());
+                                s.cursor_is_shown = false;
+                        } else if(s.show_cursor == state_vulkan_sdl3::SC_TRUE){
+                                SDL_CHECK(SDL_ShowCursor());
+                                s.cursor_is_shown = true;
+                        }
                         return true;
                 default:
                         return false;
