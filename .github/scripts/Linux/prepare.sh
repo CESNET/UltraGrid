@@ -25,8 +25,7 @@ sudo apt install appstream `# appstreamcli for mkappimage AppStream validation` 
         asciidoc
 sudo apt install fonts-dejavu-core
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
-sudo apt install libdecor-0-0 &&
- ls /usr/lib/x86_64-linux-gnu/libdecor/plugins-1/*so >/dev/null # check plugin
+sudo apt install libdecor-0-0 libdecor-0-plugin-1-cairo
 sudo apt install libglew-dev
 sudo apt install libglm-dev
 sudo apt install imagemagick libmagickwand-dev
