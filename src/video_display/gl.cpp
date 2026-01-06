@@ -361,7 +361,7 @@ static constexpr pair<int64_t, string_view> keybindings[] = {
         pair<int64_t, string_view>{K_ALT('d'), "toggle deinterlace"},
         pair<int64_t, string_view>{K_ALT('p'), "pause video"},
         pair<int64_t, string_view>{K_ALT('s'), "screenshot"},
-        pair<int64_t, string_view>{K_ALT('c'), "show/hide cursor"},
+        pair<int64_t, string_view>{K_ALT('m'), "force show/hide cursor (default is autohide when not moving)"},
         pair<int64_t, string_view>{K_CTRL_DOWN, "make window 10% smaller"},
         pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
 };
