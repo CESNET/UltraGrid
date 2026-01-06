@@ -185,6 +185,10 @@ struct state_vulkan_sdl3 {
         bool fullscreen = false;
         bool keep_aspect = false;
 
+        bool cursor_is_shown = true;
+        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
+        chrono::steady_clock::time_point last_cursor_movement{};
+
         int width = 0;
         int height = 0;
         
@@ -338,6 +342,14 @@ void process_events(state_vulkan_sdl3& s) {
         while (SDL_PollEvent(&sdl_event)) {
                 if (sdl_event.type == s.sdl_user_new_message_event) {
                         process_user_messages(s);
+                } else if (sdl_event.type == SDL_EVENT_MOUSE_MOTION){
+                        s.last_cursor_movement = chrono::steady_clock::now();
+                        if(s.show_cursor == state_vulkan_sdl3::SC_AUTOHIDE
+                                && !s.cursor_is_shown)
+                        {
+                                SDL_CHECK(SDL_ShowCursor());
+                                s.cursor_is_shown = true;
+                        }
                 } else if (sdl_event.type == SDL_EVENT_KEY_DOWN && sdl_event.key.repeat == 0) {
                         auto& keysym = sdl_event.key;
                         log_msg(LOG_LEVEL_VERBOSE, 
@@ -396,6 +408,13 @@ void display_vulkan_run(void* state) {
         s->time = chrono::steady_clock::now();
         while (!s->should_exit) {
                 process_events(*s);
+                if(s->show_cursor == state_vulkan_sdl3::SC_AUTOHIDE
+                        && s->cursor_is_shown
+                        && chrono::steady_clock::now() - s->last_cursor_movement > chrono::seconds(2))
+                {
+                        SDL_CHECK(SDL_HideCursor());
+                        s->cursor_is_shown = false;
+                }
                 try {
                         bool displayed = s->vulkan->display_queued_image();
                         if (displayed) {
@@ -464,7 +483,7 @@ void show_help() {
         
         col() << "VULKAN_SDL3 options:\n";
         col() << SBOLD(SRED("\t-d vulkan")
-                        << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<d>|"
+                        << "[:d|:fs|:keep-aspect|:[no]cursor|:nodecorate|:novsync|:tearing|:validation|:display=<d>|"
                         ":driver=<drv>|:gpu=<gpu_id>|:pos=<x>,<y>|:size=<W>x<H>|:window_flags=<f>|:help])") << "\n";
 
         col() << ("\twhere:\n");
@@ -473,7 +492,7 @@ void show_help() {
         col() << SBOLD("\t              fs") << " - fullscreen\n";
         
         col() << SBOLD("\t     keep-aspect") << " - keep window aspect ratio respective to the video\n";
-        col() << SBOLD("\t        nocursor") << " - hides cursor\n";
+        col() << SBOLD("\t      [no]cursor") << " - force show/hide cursor (default is autohide when not moving)\n";
         col() << SBOLD("\t      nodecorate") << " - disable window border\n";
         col() << SBOLD("\t         novsync") << " - disable vsync\n";
         col() << SBOLD("\t         tearing") << " - permits screen tearing\n";
@@ -644,8 +663,10 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                         s.fullscreen = true;
                 } else if (strcmp(token, "keep-aspect") == 0) {
                         s.keep_aspect = true;
+                } else if (strcmp(token, "cursor") == 0) {
+                        s.show_cursor = state_vulkan_sdl3::SC_TRUE;
                 } else if (strcmp(token, "nocursor") == 0) {
-                        args.cursor = false;
+                        s.show_cursor = state_vulkan_sdl3::SC_FALSE;
                 } else if (strcmp(token, "nodecorate") == 0) {
                         args.window_flags |= SDL_WINDOW_BORDERLESS;
                 } else if (strcmp(token, "novsync") == 0) {
@@ -814,8 +835,9 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
-        if (!args.cursor) {
+        if (s->show_cursor == state_vulkan_sdl3::SC_FALSE) {
                 SDL_CHECK(SDL_HideCursor());
+                s->cursor_is_shown = false;
         }
         SDL_CHECK(SDL_DisableScreenSaver());
 
