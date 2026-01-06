@@ -106,7 +106,6 @@ using std::lock_guard;
 using std::map;
 using std::min;
 using std::mutex;
-using std::ostringstream;
 using std::queue;
 using std::stof;
 using std::stoi;
@@ -1767,15 +1766,11 @@ static void print_gamma_ramp(GLFWmonitor *monitor) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot get gamma ramp!\n";
                 return;
         }
-        ostringstream oss;
-        oss << "Gamma ramp:\n";
+        MSG(VERBOSE, "Gamma ramp:\n");
         for (unsigned int i = 0; i < ramp->size; ++i) {
-                oss << "r[" << i << "]=" << ramp->red[i] <<
-                        ", g[" << i << "]=" << ramp->green[i] <<
-                        ", b[" << i << "]=" << ramp->blue[i] << "\n";
-
+                MSG(VERBOSE, "r[%u]=%hd, g[%u]=%hd, b[%u]=%hd\n", i,
+                    ramp->red[i], i, ramp->green[i], i, ramp->blue[i]);
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << oss.str();
 }
 
 static void set_gamma(struct state_gl *s) {
