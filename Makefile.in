@@ -146,6 +146,7 @@ COMMON_OBJS     = \
 		src/utils/audio_buffer.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
+		src/utils/dictionary.o \
 		src/utils/fs.o \
 		src/utils/jpeg_reader.o \
 		src/utils/list.o \

@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2025 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,6 +75,7 @@
 #include "tv.h"               // for ts_add_nsec
 #include "types.h"            // for video_desc, tile, video_frame, device...
 #include "utils/color_out.h"  // for color_printf, TBOLD, TRED
+#include "utils/dictionary.h" // for dictionary
 #include "utils/list.h"       // for simple_linked_list_append, simple_lin...
 #include "utils/macros.h"     // for STR_LEN
 #include "video.h"            // for get_video_desc_from_string
@@ -162,6 +163,7 @@ struct state_sdl3 {
         SDL_Window   *window;
         SDL_Renderer *renderer;
 
+        struct dictionary *hints;
         bool       fs;
         enum deint deinterlace;
         bool       keep_aspect;
@@ -540,6 +542,10 @@ show_help(const char *driver, bool full)
         if (full) {
                 color_printf(TBOLD("   blend[=<val>]") " - set alpha blending "
                                                        "(default is opaque)\n");
+                color_printf(TBOLD(
+                    "   hint=<key>=<val>") " - set SDL hint (eg. "
+                                           "SDL_VIDEO_WAYLAND_PREFER_LIBDECOR="
+                                           "0): hint can be used repeatedly\n");
         }
         if (driver == NULL) {
                 color_printf(
@@ -994,6 +1000,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         s->display_idx = -1;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
+        s->hints = dictionary_init();
 
         if (fmt == NULL) {
                 fmt = "";
@@ -1010,7 +1017,6 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         s->display_idx = atoi(strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "driver")) {
                         driver = strchr(tok, '=') + 1;
-                        ;
                 } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
                 } else if (IS_PREFIX(tok, "help") || strcmp(tok, "fullhelp") == 0) {
@@ -1063,6 +1069,8 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         s->req_blend_mode = atoi(strchr(tok, '=') + 1);
                 } else if (strcmp(tok, "blend") == 0) {
                         s->req_blend_mode = SDL_BLENDMODE_BLEND;
+                } else if (IS_KEY_PREFIX(tok, "hint") && strchr(tok, '=') != strrchr(tok, '=')) {
+                        dictionary_insert2(s->hints, strchr(tok, '=') + 1);
                 } else {
                         MSG(ERROR, "Wrong option: %s\n", tok);
                         free(s);
@@ -1082,6 +1090,11 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
 
         if (driver != NULL) {
                 SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver));
+        }
+        for (const char *key, *val = dictionary_first(s->hints, &key);
+             val != NULL; val = dictionary_next(s->hints, &key)) {
+                SDL_CHECK(SDL_SetHint(key, val));
+                MSG(INFO, "Setting %s to %s\n", key, val);
         }
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
                 MSG(ERROR, "Unable to initialize SDL3 video: %s\n",
@@ -1170,6 +1183,7 @@ display_sdl3_done(void *state)
 
         module_done(&s->mod);
 
+        dictionary_destroy(s->hints);
         free(s);
 }
 
