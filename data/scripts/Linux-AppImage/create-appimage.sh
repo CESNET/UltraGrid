@@ -66,8 +66,8 @@ fi
 append() { eval "$1=\"\$$1\${$1:+ }$2\""; }
 
 # deploy libdecor + its plugin(s) - it is dlopen-ed so not automatic
-if [ -f $APPPREFIX/lib/ultragrid/ultragrid_display_gl.so ] ||
-   [ -f $APPPREFIX/lib/ultragrid/ultragrid_display_sdl.so ]; then
+pfix=$APPPREFIX/lib/ultragrid/ultragrid_display_
+if [ -f ${pfix}gl.so ] || [ -f ${pfix}sdl.so ] || [ -f ${pfix}vulkan.so ]; then
         libdecor=$(find /usr/lib -name libdecor-0.so.0 | head -n 1)
         if [ -f "$libdecor" ]; then
                 cp "$libdecor" $APPPREFIX/lib/
