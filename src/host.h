@@ -12,7 +12,7 @@
  * This file contains common (global) variables and functions.
  */
 /*
- * Copyright (c) 2005-2025, CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -107,7 +107,6 @@ typedef void (*mainloop_t)(void *);
 extern mainloop_t mainloop;
 extern void *mainloop_udata;
 
-extern int glfw_init_count;
 extern char pixfmt_conv_pref[]; // defined in video_codec.c
 extern char *sage_network_device;
 

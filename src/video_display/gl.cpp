@@ -79,7 +79,6 @@
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"        // for OPTIMIZED_FOR, countof
-#include "utils/ref_count.hpp"
 #include "video.h"
 #include "video_display.h"
 
@@ -369,15 +368,14 @@ static const struct
         int64_t     key;
         const char *description;
 } keybindings[] = {
-        { 'f',         "toggle fullscreen"                              },
-        { 'q',         "quit"                                           },
-        { K_ALT('d'),  "toggle deinterlace"                             },
-        { K_ALT('p'),  "pause video"                                    },
-        { K_ALT('s'),  "screenshot"                                     },
-        { K_ALT('m'),
-         "force show/hide cursor (default is autohide when not moving)" },
-        { K_CTRL_DOWN, "make window 10% smaller"                        },
-        { K_CTRL_UP,   "make window 10% bigger"                         }
+        { 'f',         "toggle fullscreen"               },
+        { 'q',         "quit"                            },
+        { K_ALT('d'),  "toggle deinterlace"              },
+        { K_ALT('p'),  "pause video"                     },
+        { K_ALT('s'),  "screenshot"                      },
+        { K_ALT('m'),  "cycle show/hide/autohide cursor" },
+        { K_CTRL_DOWN, "make window 10% smaller"         },
+        { K_CTRL_UP,   "make window 10% bigger"          },
 };
 
 #ifdef GLFW_PLATFORM
@@ -394,6 +392,7 @@ const static struct {
 
 /* Prototyping */
 static bool check_print_display_gl_version(void);
+static void display_gl_done(void *state);
 static bool display_gl_init_opengl(struct state_gl *s);
 static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
@@ -483,18 +482,6 @@ struct state_gl {
 #endif
         bool         vdp_interop = false;
         vector<char> scratchpad; ///< scratchpad sized WxHx8
-
-        state_gl(struct module *parent) {
-                module_init_default(&mod);
-                mod.cls = MODULE_CLASS_DATA;
-                module_register(&mod, parent);
-        }
-
-        ~state_gl() {
-                ref_count_terminate_last()(glfwTerminate, glfw_init_count);
-
-                module_done(&mod);
-        }
 
         static const char *deint_to_string(state_gl::deint val) {
                 switch (val) {
@@ -676,10 +663,6 @@ static void gl_show_help(bool full) {
                              keybindings[i].description);
         }
 
-        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
-                return;
-        }
         gl_print_monitors(full);
         if (full) {
                 gl_print_platforms();
@@ -692,7 +675,6 @@ static void gl_show_help(bool full) {
         } else {
                 MSG(WARNING, "Cannot create window!\n");
         }
-        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 
         col() << "Compiled " << SBOLD("features: ") << "SPOUT - "
               << FEATURE_PRESENT(SPOUT) << ", Syphon - "
@@ -925,13 +907,22 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         UNUSED(flags);
 
         glfwSetErrorCallback(glfw_print_error);
+        if (glfwInit() != GLFW_TRUE) {
+                MSG(ERROR, "Cannot initialize GLFW!\n");
+                return nullptr;
+        }
 
 	struct state_gl *s = nullptr;
         try {
-                s = new state_gl(parent);
+                s = new state_gl();
         } catch (...) {
+                glfwTerminate();
                 return nullptr;
         }
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DATA;
+        module_register(&s->mod, parent);
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
@@ -943,7 +934,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 }
                 free(tmp);
                 if (!ret) {
-                        delete s;
+                        display_gl_done(s);
                         return strstr(fmt, "help") == nullptr ? nullptr : INIT_NOERR;
                 }
         }
@@ -976,7 +967,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 #endif
 
         if (!display_gl_init_opengl(s)) {
-                delete s;
+                display_gl_done(s);
                 return nullptr;
         }
 
@@ -1828,12 +1819,6 @@ ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        if (ref_count_init_once<int>()(glfwInit, glfw_init_count)
-                .value_or(GLFW_TRUE) == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
-                return false;
-        }
-
         gl_print_current_platform();
 
         if (s->req_monitor_idx != -1) {
@@ -2300,7 +2285,9 @@ static void display_gl_done(void *state)
 
         assert(s->magic == MAGIC_GL);
 
-        display_gl_cleanup_opengl(s);
+        if (s->window) {
+                display_gl_cleanup_opengl(s);
+        }
 
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
@@ -2315,6 +2302,10 @@ static void display_gl_done(void *state)
         }
 
         vf_free(s->current_frame);
+
+        glfwTerminate();
+
+        module_done(&s->mod);
 
         delete s;
 }
