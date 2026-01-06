@@ -164,6 +164,7 @@ struct state_sdl3 {
         SDL_Renderer *renderer;
 
         struct dictionary *hints;
+        bool       show_cursor;
         bool       fs;
         enum deint deinterlace;
         bool       keep_aspect;
@@ -502,7 +503,7 @@ show_help(const char *driver, bool full)
         color_printf(TBOLD(TRED(
             "\t-d sdl") "[[:fs|:d|:display=<d>|:driver=<drv>|:novsync|:"
                         "renderer=<name[s]>|:nodecorate|:size[=WxH]|:window_"
-                        "flags=<f>|:keep-aspect]*]") "\n");
+                        "flags=<f>|:keep-aspect|:show_cursor]*]") "\n");
         color_printf(TBOLD(
             "\t-d sdl[:driver=<drv>]:[full]help") "\n");
         printf("where:\n");
@@ -523,6 +524,7 @@ show_help(const char *driver, bool full)
                                                "respective to the video\n");
         color_printf(TBOLD("         novsync") " - disable sync on VBlank\n");
         color_printf(TBOLD("      nodecorate") " - disable window border\n");
+        color_printf(TBOLD("     show_cursor") " - do not hide cursor\n");
         color_printf(
             TBOLD("            size") " - window size in pixels with optional "
                                       "position\n"
@@ -1071,6 +1073,8 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         s->req_blend_mode = SDL_BLENDMODE_BLEND;
                 } else if (IS_KEY_PREFIX(tok, "hint") && strchr(tok, '=') != strrchr(tok, '=')) {
                         dictionary_insert2(s->hints, strchr(tok, '=') + 1);
+                } else if (IS_PREFIX(tok, "show_cursor")) {
+                        s->show_cursor = true;
                 } else {
                         MSG(ERROR, "Wrong option: %s\n", tok);
                         free(s);
@@ -1110,7 +1114,9 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
-        SDL_CHECK(SDL_HideCursor());
+        if (!s->show_cursor) {
+                SDL_CHECK(SDL_HideCursor());
+        }
         SDL_CHECK(SDL_DisableScreenSaver());
 
         module_init_default(&s->mod);
