@@ -337,22 +337,25 @@ void main()
 
 const static struct pixfmt_config {
         codec_t     codec;
+        GLint       tex_disp_int_fmt;
+        GLenum      tex_disp_fmt;
+        GLenum      tex_disp_type;
         const char *prog_name;
 } pixfmt_configs[] = {
-        { DXT1,     nullptr              },
-        { DXT1_YUV, fp_display_dxt1_yuv  },
-        { DXT5,     fp_display_dxt5ycocg },
+        { DXT1,     0,           0,       0,                              nullptr              },
+        { DXT1_YUV, GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               fp_display_dxt1_yuv  },
+        { DXT5,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               fp_display_dxt5ycocg },
 #ifdef HWACC_VDPAU
-        { HW_VDPAU, nullptr              },
+        { HW_VDPAU, 0,           0,       0,                              nullptr              },
 #endif
-        { R10k,     nullptr              },
-        { RG48,     nullptr              },
-        { RGB,      nullptr              },
-        { RGBA,     nullptr              },
-        { UYVY,     uyvy_to_rgb_fp       },
-        { VUYA,     vuya_to_rgb_fp       },
-        { Y416,     yuva_to_rgb_fp       },
-        { v210,     v210_to_rgb_fp       },
+        { R10k,     GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, nullptr              },
+        { RG48,     GL_RGB,      GL_RGB,  GL_UNSIGNED_SHORT,              nullptr              },
+        { RGB,      GL_RGB,      GL_RGB,  GL_UNSIGNED_BYTE,               nullptr              },
+        { RGBA,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               nullptr              },
+        { UYVY,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               uyvy_to_rgb_fp       },
+        { VUYA,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               vuya_to_rgb_fp       },
+        { Y416,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_SHORT,              yuva_to_rgb_fp       },
+        { v210,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_SHORT,              v210_to_rgb_fp       },
 };
 
 static struct pixfmt_config const*
@@ -1121,25 +1124,11 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                  */
                                 buffer);
                 free(buffer);
-                if(desc.color_spec == DXT1_YUV) {
-                        glActiveTexture(GL_TEXTURE0 + 0);
-                        glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                        desc.width, desc.height, 0,
-                                        GL_RGBA, GL_UNSIGNED_BYTE,
-                                        NULL);
-                }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 (desc.width + 1) / 2, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_BYTE,
-                                NULL);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
         } else if (desc.color_spec == v210) {
@@ -1149,12 +1138,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 vc_get_linesize(desc.width, v210) / 4, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
                                 NULL);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_SHORT,
-                                NULL);
         } else if (desc.color_spec == Y416) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -1162,47 +1145,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_SHORT,
-                                NULL);
-        } else if (desc.color_spec == RGBA) {
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_BYTE,
-                                NULL);
         } else if (desc.color_spec == VUYA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_BYTE,
-                                NULL);
-        } else if (desc.color_spec == RGB) {
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-                                desc.width, desc.height, 0,
-                                GL_RGB, GL_UNSIGNED_BYTE,
-                                NULL);
-        } else if (desc.color_spec == R10k) {
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
-                                nullptr);
-        } else if (desc.color_spec == RG48) {
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-                                desc.width, desc.height, 0,
-                                GL_RGB, GL_UNSIGNED_SHORT,
-                                nullptr);
         } else if (desc.color_spec == DXT5) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -1211,18 +1159,21 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 (desc.width + 3) / 4 * 4, s->dxt_height, 0,
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_BYTE,
-                                NULL);
         }
 #ifdef HWACC_VDPAU
         else if (desc.color_spec == HW_VDPAU) {
                 s->vdp.init();
         }
 #endif
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, s->texture_display);
+        struct pixfmt_config const *cfg = get_pixfmt_config(desc.color_spec);
+        if (cfg->tex_disp_fmt != 0) {
+                glTexImage2D(GL_TEXTURE_2D, 0, cfg->tex_disp_int_fmt,
+                             desc.width, desc.height, 0, cfg->tex_disp_fmt,
+                             cfg->tex_disp_type, nullptr);
+        }
+
         s->current_program = s->PHandles[desc.color_spec];
 
         if (s->current_program) {
