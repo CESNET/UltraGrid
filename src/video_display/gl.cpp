@@ -473,7 +473,6 @@ struct state_gl {
         int pos_y = INT_MIN;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
-        struct dictionary *init_hints;
         struct dictionary *window_hints;
         int use_pbo = -1;
         int req_monitor_idx = -1;
@@ -646,17 +645,22 @@ static void gl_show_help(bool full) {
                              keybindings[i].description);
         }
 
-        gl_print_monitors(full);
-        if (full) {
-                gl_print_platforms();
-        }
-        GLFWwindow *window = glfwCreateWindow(32, 32, DEFAULT_WIN_NAME, nullptr, nullptr);
-        if (window != nullptr) {
-                glfwMakeContextCurrent(window);
-                check_print_display_gl_version();
-                glfwDestroyWindow(window);
+        if (glfwInit() != GLFW_FALSE) {
+                gl_print_monitors(full);
+                if (full) {
+                        gl_print_platforms();
+                }
+                GLFWwindow *window = glfwCreateWindow(32, 32, DEFAULT_WIN_NAME,
+                                                      nullptr, nullptr);
+                if (window != nullptr) {
+                        glfwMakeContextCurrent(window);
+                        check_print_display_gl_version();
+                        glfwDestroyWindow(window);
+                } else {
+                        MSG(WARNING, "Cannot create window!\n");
+                }
         } else {
-                MSG(WARNING, "Cannot create window!\n");
+                MSG(ERROR, "Cannot initialize GLFW!\n");
         }
 
         col() << "Compiled " << SBOLD("features: ") << "SPOUT - "
@@ -733,7 +737,7 @@ get_hint_from_string(const char *string)
 
 /// @param window_hints true for window hints, otherwise init hints
 static void
-parse_hints(struct state_gl *s, bool window_hints, char *hints)
+set_hints(struct state_gl *s, bool window_hints, char *hints)
 {
         char *tok      = nullptr;
         char *save_ptr = nullptr;
@@ -747,29 +751,35 @@ parse_hints(struct state_gl *s, bool window_hints, char *hints)
                 const char *key_s = tok;
                 const char *val_s = strchr(tok, '=') + 1;
                 *strchr(tok, '=') = '\0';
-                dictionary_insert(window_hints ? s->window_hints
-                                               : s->init_hints,
-                                  key_s, val_s);
+                if (window_hints) {
+                        dictionary_insert(s->window_hints, key_s, val_s);
+                } else {
+#if GLFW_VERSION_MAJOR < 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
+                        MSG(WARNING,
+                            "GLFW version < 3.3 doesn't support init hints. "
+                            "Ignoring them.\n");
+#else
+                        glfwInitHint(get_hint_from_string(key_s),
+                                     get_hint_from_string(val_s));
+#endif
+                }
         }
 }
 
 static bool
-set_platform(struct state_gl *s, const char *platform)
+set_platform(const char *platform)
 {
 #ifdef GLFW_PLATFORM
         for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
-                        char platform[32];
-                        snprintf_ch(platform, "%d", platform_map[i].platform_id);
-                        dictionary_insert(s->init_hints,
-                                          TOSTRING(GLFW_PLATFORM), platform);
+                        glfwInitHint(GLFW_PLATFORM, platform_map[i].platform_id);
                         return true;
                 }
         }
         MSG(ERROR, "Unknown platform: %s\n", platform);
         return false;
 #else
-        (void) s, (void)  platform;
+        (void) platform;
         MSG(ERROR, "platforms unsupported (old GLFW)\n");
         return false;
 #endif
@@ -881,11 +891,11 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if (strcmp(tok, "noresizable") == 0) {
                         s->noresizable = true;
                 } else if (strstr(tok, "window_hint=") == tok) {
-                        parse_hints(s, true, strchr(tok, '=') + 1);
+                        set_hints(s, true, strchr(tok, '=') + 1);
                 } else if (strstr(tok, "init_hint=") == tok) {
-                        parse_hints(s, false, strchr(tok, '=') + 1);
+                        set_hints(s, false, strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "platform")) {
-                        ret = ret && set_platform(s, strchr(tok, '=') + 1);
+                        ret = ret && set_platform(strchr(tok, '=') + 1);
                 } else if (strcmp(tok, "list_hints") == 0) {
                         list_hints();
                         return false;
@@ -903,16 +913,11 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         UNUSED(flags);
 
         glfwSetErrorCallback(glfw_print_error);
-        if (glfwInit() != GLFW_TRUE) {
-                MSG(ERROR, "Cannot initialize GLFW!\n");
-                return nullptr;
-        }
 
         auto *s = new state_gl();
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
-        s->init_hints = dictionary_init();
         s->window_hints = dictionary_init();
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
@@ -932,6 +937,12 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 }
         }
 
+        if (glfwInit() != GLFW_TRUE) {
+                MSG(ERROR, "Cannot initialize GLFW!\n");
+                display_gl_done(s);
+                return nullptr;
+        }
+
         s->use_pbo = s->use_pbo == -1 ? !check_rpi_pbo_quirks() : s->use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
@@ -948,18 +959,6 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 keycontrol_register_key(&s->mod, keybindings[i].key, msg,
                                         keybindings[i].description);
         }
-
-#if GLFW_VERSION_MAJOR < 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
-        if (dictionary_first(s->init_hints, nullptr) != nullptr) {
-                MSG(WARNING, "GLFW version < 3.3 doesn't support init hints. "
-                             "Ignoring them.\n");
-        }
-#else
-        DICTIONARY_ITERATE(s->init_hints, key_s, val_s) {
-                glfwInitHint(get_hint_from_string(key_s),
-                             get_hint_from_string(val_s));
-        }
-#endif
 
         if (!display_gl_init_opengl(s)) {
                 display_gl_done(s);
@@ -2218,7 +2217,6 @@ static void display_gl_done(void *state)
 
         vf_free(s->current_frame);
         free(s->scratchpad);
-        dictionary_destroy(s->init_hints);
         dictionary_destroy(s->window_hints);
 
         glfwTerminate();
