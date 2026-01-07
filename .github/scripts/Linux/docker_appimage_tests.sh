@@ -1,5 +1,7 @@
 #!/bin/sh -eu
 
+echo "Starting Docker AppImage tests..." >&2
+
 mkdir aitest-context # empty build context
 ./UltraGrid-"$VERSION"-x86_64.AppImage --appimage-extract
 
@@ -27,7 +29,19 @@ for n in $test_list; do
         name=$(printf "%s" "$n" | tr -c '[:alnum:]' '[_*]') # replace :. with _ for valid identifer
         eval "${name}_pid"=$!
 done
+
+set +e
+rc=0
 for n in $test_list; do
         name=$(printf "%s" "$n" | tr -c '[:alnum:]' '[_*]')
-        eval wait "\$${name}_pid"
+        if eval wait "\$${name}_pid"; then
+                echo "Docker AppImage test $name succeeded" >&2
+        else
+                rc=$?
+                echo "Docker AppImage test $name FAILED with error code $rc" >&2
+        fi
 done
+if [ $rc -ne 0 ]; then
+        exit $rc
+fi
+echo "All Docker AppImage tests succeeded" >&2
