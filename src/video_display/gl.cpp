@@ -911,14 +911,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 return nullptr;
         }
 
-	struct state_gl *s = nullptr;
-        try {
-                s = new state_gl();
-        } catch (...) {
-                glfwTerminate();
-                return nullptr;
-        }
-
+        auto *s = new state_gl();
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
