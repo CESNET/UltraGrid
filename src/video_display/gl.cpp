@@ -104,9 +104,6 @@ using std::cout;
 using std::lock_guard;
 using std::mutex;
 using std::queue;
-using std::stof;
-using std::stoi;
-using std::stol;
 using std::string;
 using std::swap;
 using std::unique_lock;
@@ -418,6 +415,10 @@ static void upload_texture(struct state_gl *s, char *data);
 static bool check_rpi_pbo_quirks();
 static void set_gamma(struct state_gl *s);
 
+enum show_cursor { SC_AUTOHIDE, SC_TRUE, SC_FALSE };
+enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
+enum modeset { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 };
+
 struct state_gl {
         GLuint          PHandles[VC_COUNT] = {};
         GLuint          PHandle_deint = 0;
@@ -436,7 +437,7 @@ struct state_gl {
         GLFWwindow     *window = nullptr;
 
         bool            fs = false;
-        enum class deint { off, on, force } deinterlace = deint::off;
+        enum deint      deinterlace = DEINT_OFF;
         int             mode_depth = 0;
 
         struct video_frame *current_frame = nullptr;
@@ -458,7 +459,7 @@ struct state_gl {
         int             vsync = 1;
         bool            noresizable = false;
         volatile bool   paused = false;
-        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
+        enum show_cursor show_cursor = SC_AUTOHIDE;
         time_ns_t cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
 
@@ -474,7 +475,7 @@ struct state_gl {
         int pos_x = INT_MIN;
         int pos_y = INT_MIN;
 
-        enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
+        enum modeset modeset = NOMODESET; ///< positive vals force framerate
         struct dictionary *window_hints;
         int use_pbo = -1;
         int req_monitor_idx = -1;
@@ -484,15 +485,21 @@ struct state_gl {
         bool         vdp_interop = false;
         void*        scratchpad{}; ///< scratchpad sized WxHx8
 
-        static const char *deint_to_string(state_gl::deint val) {
-                switch (val) {
-                        case state_gl::deint::off: return "OFF";
-                        case state_gl::deint::on: return "ON";
-                        case state_gl::deint::force: return "FORCE";
-                }
-                return NULL;
-        }
 };
+
+static const char *
+deint_to_string(enum deint val)
+{
+        switch (val) {
+        case DEINT_OFF:
+                return "OFF";
+        case DEINT_ON:
+                return "ON";
+        case DEINT_FORCE:
+                return "FORCE";
+        }
+        return nullptr;
+}
 
 static void gl_print_monitors(bool fullhelp) {
         printf("\nmonitors:\n");
@@ -833,19 +840,22 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         return false;
                 }
                 if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
-                        s->deinterlace = !strcmp(tok, "d") ? state_gl::deint::on : state_gl::deint::force;
+                        s->deinterlace = !strcmp(tok, "d") ? DEINT_ON : DEINT_FORCE;
                 } else if(!strncmp(tok, "fs", 2)) {
                         s->fs = true;
-                        if (char *val = strchr(tok, '=')) {
-                                s->req_monitor_idx = stoi(val + 1);
+                        const char *val = strchr(tok, '=');
+                        if (val != nullptr) {
+                                s->req_monitor_idx =
+                                    (int) strtol(val + 1, nullptr, 0);
                         }
                 } else if(strstr(tok, "modeset") != nullptr) {
                         if (strcmp(tok, "nomodeset") != 0) {
-                                if (char *val = strchr(tok, '=')) {
+                                const char *val = strchr(tok, '=');
+                                if (val != nullptr) {
                                         val += 1;
-                                        s->modeset = strcmp(val, "size") == 0 ? state_gl::MODESET_SIZE_ONLY : (enum state_gl::modeset_t) stoi(val);
+                                        s->modeset = strcmp(val, "size") == 0 ? MODESET_SIZE_ONLY : (enum modeset) atoi(val);
                                 } else {
-                                        s->modeset = state_gl::MODESET;
+                                        s->modeset = MODESET;
                                 }
                         }
                 } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
@@ -868,7 +878,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                                 s->vsync = atoi(tok + strlen("vsync="));
                         }
                 } else if (!strcasecmp(tok, "cursor")) {
-                        s->show_cursor = state_gl::SC_TRUE;
+                        s->show_cursor = SC_TRUE;
                 } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
 #if defined HAVE_SYPHON || defined HAVE_SPOUT
                         if (strchr(tok, '=')) {
@@ -881,9 +891,9 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         return false;
 #endif
                 } else if (strstr(tok, "gamma=") == tok) {
-                        s->gamma = stof(strchr(tok, '=') + 1);
+                        s->gamma = strtod(strchr(tok, '=') + 1, nullptr);
                         if (strchr(tok, '/')) {
-                                s->gamma /= stof(strchr(tok, '/') + 1);
+                                s->gamma /= strtod(strchr(tok, '=') + 1, nullptr);
                         }
                 } else if (!strcasecmp(tok, "hide-window")) {
                         dictionary_insert(s->window_hints,
@@ -954,7 +964,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         s->use_pbo = s->use_pbo == -1 ? !check_rpi_pbo_quirks() : s->use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
-                        s->fs ? "ON" : "OFF", state_gl::deint_to_string(s->deinterlace));
+                        s->fs ? "ON" : "OFF", deint_to_string(s->deinterlace));
 
         for (unsigned i = 0; i < std::size(keybindings); i++) {
                 if (keybindings[i].key == 'q') {
@@ -1026,7 +1036,7 @@ display_gl_reconfigure(void *state, struct video_desc desc)
                     "consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n",
                     s->mode_depth);
         }
-        if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == state_gl::deint::off) {
+        if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == DEINT_OFF) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
         }
 
@@ -1043,16 +1053,16 @@ static void glfw_print_video_mode(struct state_gl *s) {
         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Display mode set to: " << mode->width << "x" << mode->height << "@" << mode->refreshRate << "\n";
 }
 
-static int get_refresh_rate(enum state_gl::modeset_t modeset, GLFWmonitor *mon, double video_refresh_rate) {
+static int get_refresh_rate(enum modeset modeset, GLFWmonitor *mon, double video_refresh_rate) {
         if (!mon) {
                 return GLFW_DONT_CARE;
         }
         switch (modeset) {
-                case state_gl::modeset_t::MODESET:
+                case MODESET:
                         return round(video_refresh_rate);
-                case state_gl::modeset_t::MODESET_SIZE_ONLY:
+                case MODESET_SIZE_ONLY:
                         return GLFW_DONT_CARE;
-                case state_gl::modeset_t::NOMODESET: {
+                case NOMODESET: {
                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
                         return mode->refreshRate;
                 }
@@ -1070,7 +1080,7 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
                 int width = round(height * aspect);
                 GLFWmonitor *mon = s->monitor;
                 int refresh_rate = get_refresh_rate(s->modeset, mon, fps);
-                if (s->modeset == state_gl::modeset_t::NOMODESET) {
+                if (s->modeset == NOMODESET) {
                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
                         width = mode->width;
                         height = mode->height;
@@ -1343,7 +1353,7 @@ static void gl_process_frames(struct state_gl *s)
                 free_message(msg, r);
         }
 
-        if (s->show_cursor == state_gl::SC_AUTOHIDE) {
+        if (s->show_cursor == SC_AUTOHIDE) {
                 if (s->cursor_shown_from != 0) {
                         const auto now = get_time_in_ns();
                         if (now - s->cursor_shown_from > SEC_TO_NS(2)) {
@@ -1388,7 +1398,7 @@ static void gl_process_frames(struct state_gl *s)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 
         gl_render(s, frame->tiles[0].data);
-        if (s->deinterlace == state_gl::deint::force || (s->deinterlace == state_gl::deint::on && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
+        if (s->deinterlace == DEINT_FORCE || (s->deinterlace == DEINT_ON && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
                 glUseProgram(s->PHandle_deint);
         }
         gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
@@ -1453,7 +1463,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                 int width = s->current_display_desc.width;
                                 int height = s->current_display_desc.height;
                                 GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
-                                if (mon && s->modeset == state_gl::modeset_t::NOMODESET) {
+                                if (mon && s->modeset == NOMODESET) {
                                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
                                         width = mode->width;
                                         height = mode->height;
@@ -1469,9 +1479,9 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         exit_uv(0);
                         break;
                 case K_ALT('d'):
-                        s->deinterlace = s->deinterlace == state_gl::deint::off ? state_gl::deint::on : state_gl::deint::off;
+                        s->deinterlace = s->deinterlace == DEINT_OFF ? DEINT_ON : DEINT_OFF;
                         MSG(NOTICE, "Deinterlacing: %s\n",
-                            state_gl::deint_to_string(s->deinterlace));
+                            deint_to_string(s->deinterlace));
                         break;
                 case K_ALT('p'):
                         s->paused = !s->paused;
@@ -1483,9 +1493,9 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         screenshot(s->current_frame);
                         break;
                 case K_ALT('m'):
-                        s->show_cursor = (state_gl::show_cursor_t) (((int) s->show_cursor + 1) % 3);
+                        s->show_cursor = (enum show_cursor) (((int) s->show_cursor + 1) % 3);
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
-                        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
+                        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == SC_TRUE ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
                         break;
                 case K_CTRL_UP:
                         s->window_size_factor *= 1.1;
@@ -1528,7 +1538,7 @@ static void glfw_key_callback(GLFWwindow* win, int key, int /* scancode */, int 
 static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 {
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
-        if (s->show_cursor == state_gl::SC_AUTOHIDE) {
+        if (s->show_cursor == SC_AUTOHIDE) {
                 if (s->cursor_shown_from == 0) {
                         glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
@@ -1631,18 +1641,18 @@ static void set_mac_color_space(void) {
         if (!col) {
                 return;
         }
-        glfwWindowHint(GLFW_COCOA_NS_COLOR_SPACE, stoi(col, nullptr, 16));
+        glfwWindowHint(GLFW_COCOA_NS_COLOR_SPACE, strtoul(col, nullptr, 16));
 #endif // defined GLFW_COCOA_NS_COLOR_SPACE
 }
 
 static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprogram)
 {
         char *fp = strdup(fprogram);
-        int index = 1;
+        unsigned index = 1;
         const char *col = get_commandline_param("color");
         if (col) {
-                int color = stol(col, nullptr, 16) >> 4; // first nibble
-                if (color > 0 && color <= 3) {
+                unsigned color = strtoul(col, nullptr, 16) >> 4; // first nibble
+                if (color <= 3) {
                         index = color;
                 } else {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
@@ -1777,7 +1787,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
                 width = s->fixed_w;
                 height = s->fixed_h;
-        } else if (mon != nullptr && s->modeset == state_gl::modeset_t::NOMODESET) {
+        } else if (mon != nullptr && s->modeset == NOMODESET) {
                 const GLFWvidmode* mode = glfwGetVideoMode(mon);
                 width = mode->width;
                 height = mode->height;
@@ -1801,7 +1811,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfw_print_video_mode(s);
         glfwSetWindowUserPointer(s->window, s);
         set_gamma(s);
-        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
+        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
         glfwMakeContextCurrent(s->window);
         glfwSetKeyCallback(s->window, glfw_key_callback);
         glfwSetCursorPosCallback(s->window, glfw_mouse_callback);
