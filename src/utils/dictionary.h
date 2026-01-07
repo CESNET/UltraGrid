@@ -38,7 +38,7 @@
 #ifndef DICTIONARY_H_A228804B_D47D_4AE3_85A4_D479101FDAA8
 #define DICTIONARY_H_A228804B_D47D_4AE3_85A4_D479101FDAA8
 
-struct dictionary *dictionary_init();
+struct dictionary *dictionary_init(void);
 void dictionary_insert(struct dictionary *dictionary, const char *key,
                        const char *val);
 void dictionary_insert2(struct dictionary *dictionary, const char *key_val);

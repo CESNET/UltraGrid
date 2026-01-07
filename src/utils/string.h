@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2025 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,7 @@ extern "C" {
 #include <stdint.h>   // for uintmax_t
 #endif
 
-#if __STDC_VERSION__ >= 202311L || __cplusplus >= 201703L || __GNUC__ >= 10
+#if __STDC_VERSION__ >= 202311L || __cplusplus >= 201703L || __GNUC__ > 10
 #define NODISCARD [[nodiscard]]
 #else
 #define NODISCARD
