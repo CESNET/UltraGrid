@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -976,8 +976,6 @@ void control_done(struct control_state *s)
         }
         assert(s->magic == MODULE_MAGIC);
 
-        module_done(&s->mod);
-
         if(s->started) {
                 s->stats_lock.lock();
                 s->stat_event_queue.push({});
@@ -998,6 +996,8 @@ void control_done(struct control_state *s)
                 // by the time of control_thread exit
                 CLOSESOCKET(s->socket_fd);
         }
+
+        module_done(&s->mod);
 
         delete s;
 }
