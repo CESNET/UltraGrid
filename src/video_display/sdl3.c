@@ -77,7 +77,7 @@
 #include "utils/color_out.h"  // for color_printf, TBOLD, TRED
 #include "utils/dictionary.h" // for dictionary
 #include "utils/list.h"       // for simple_linked_list_append, simple_lin...
-#include "utils/macros.h"     // for STR_LEN
+#include "utils/macros.h"     // for STR_LEN, countof
 #include "video.h"            // for get_video_desc_from_string
 #include "video_codec.h"      // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"    // for display_property, get_splashscreen
@@ -656,7 +656,7 @@ query_renderer_supported_fmts(SDL_Renderer    *renderer,
                 }
         }
         int count = 0;
-        for (unsigned i = 0; i < ARR_COUNT(pf_mapping_template); ++i) {
+        for (unsigned i = 0; i < countof(pf_mapping_template); ++i) {
                 const SDL_PixelFormat *it = fmts;
                 while (*it != SDL_PIXELFORMAT_UNKNOWN) {
                         if (*it == SDL_PIXELFORMAT_P010 && blacklist_p010) {

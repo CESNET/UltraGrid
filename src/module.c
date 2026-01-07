@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@
 #include "debug.h"
 #include "messaging.h"      // for check_message, free_message, ...
 #include "utils/list.h"
-#include "utils/macros.h"          // for ARR_COUNT, to_fourcc
+#include "utils/macros.h"   // for countof, to_fourcc
 
 #define MOD_NAME "[module] "
 #define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
@@ -212,7 +212,7 @@ static const char *const module_class_name_pairs[] = {
 
 const char *module_class_name(enum module_class cls)
 {
-        if ((unsigned int) cls >= ARR_COUNT(module_class_name_pairs)) {
+        if ((unsigned int) cls >= countof(module_class_name_pairs)) {
                 MSG(ERROR, "No name for module class %d!\n", (int) cls);
                 return NULL;
         }

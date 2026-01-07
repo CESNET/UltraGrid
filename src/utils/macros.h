@@ -64,7 +64,6 @@
 #ifndef countof // defined in C2Y stdcountof.h
 #define countof(arr) (sizeof (arr) / sizeof (arr)[0])
 #endif
-#define ARR_COUNT(arr) countof(arr)
 
 #undef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))

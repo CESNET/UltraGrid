@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
-#include "utils/macros.h"            // for IS_KEY_PREFIX, TOSTRING
+#include "utils/macros.h"            // for IS_KEY_PREFIX, TOSTRING, countof
 #include "utils/misc.h"
 #include "utils/opencl.h"
 #include "utils/parallel_conv.h"
@@ -239,7 +239,7 @@ const static struct cmpto_j2k_technology *const technologies[] = {
  */
 static const struct cmpto_j2k_technology *
 get_technology_by_name(const char *name) {
-        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+        for (size_t i = 0; i < countof(technologies); ++i) {
                 if (strcasecmp(name, technologies[i]->name) == 0) {
                         return technologies[i];
                 }
@@ -684,14 +684,14 @@ print_cmpto_j2k_technologies(bool full)
                 MSG(ERROR, "Cannot get list of technologies!\n");
                 return;
         }
-        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+        for (size_t i = 0; i < countof(technologies); ++i) {
                 if ((version->technology & technologies[i]->cmpto_supp_bit) !=
                     0) {
                         color_printf("\t" TBOLD("- %s") "\n", technologies[i]->name);
                 }
         }
 
-        for (size_t i = 0; i < ARR_COUNT(technologies); ++i) {
+        for (size_t i = 0; i < countof(technologies); ++i) {
                 if ((version->technology & technologies[i]->cmpto_supp_bit) !=
                     0) {
                         printf("\n");

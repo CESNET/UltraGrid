@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,7 @@
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "utils/debug.h"          // for debug_file_dump
-#include "utils/macros.h"
+#include "utils/macros.h"         // for countof
 #include "video.h"
 #include "video_codec.h"
 #include "video_decompress.h"
@@ -265,7 +265,7 @@ get_decoders(
     const AVCodec    *usable_decoders[static DEC_LEN])
 {
         const char *const *preferred_decoders = (const char *[]){ NULL };
-        for (unsigned int i = 0; i < ARR_COUNT(decoders); ++i) {
+        for (unsigned int i = 0; i < countof(decoders); ++i) {
                 if (decoders[i].avcodec_id == avcodec_id) {
                         preferred_decoders = decoders[i].preferred_decoders;
                         break;

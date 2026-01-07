@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2025 CESNET
+ * Copyright (c) 2025-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 
 #include "compat/strings.h"    // for strcasecmp
 #include "debug.h"             // for MSG
-#include "utils/macros.h"      // for ARR_COUNT, SHORT_STR
+#include "utils/macros.h"      // for SHORT_STR, countof
 #include "utils/color_out.h"   // for TBOLD
 
 #define CHECK_OPENCL(cmd, errmsg, erraction) \
@@ -93,7 +93,7 @@ print_device_details(cl_device_id device)
         if (clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof device_type,
                             &device_type, NULL) == CL_SUCCESS) {
                 const char *type = "UNKNOWN";
-                for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
+                for (unsigned i = 0; i < countof(dev_type_map); ++i) {
                         if (dev_type_map[i].cl_type == device_type) {
                                 type = dev_type_map[i].name;
                         }
@@ -265,7 +265,7 @@ opencl_get_device(void **platform_id, void **device_id)
                                                     CL_DEVICE_TYPE_GPU,
                                                     CL_DEVICE_TYPE_CPU,
                                                     CL_DEVICE_TYPE_ALL };
-                for (unsigned i = 0; i < ARR_COUNT(try_type); i++) {
+                for (unsigned i = 0; i < countof(try_type); i++) {
                         if (get_device(try_type[i], 0, 0, platform_id,
                                        device_id)) {
                                 return true;
@@ -284,7 +284,7 @@ opencl_get_device(void **platform_id, void **device_id)
                         req_device_idx = atoi(strchr(req_device, '-') + 1);
                 }
         } else {
-                for (unsigned i = 0; i < ARR_COUNT(dev_type_map); ++i) {
+                for (unsigned i = 0; i < countof(dev_type_map); ++i) {
                         if (strcasecmp(dev_type_map[i].name, req_device) == 0) {
                                 req_type = dev_type_map[i].cl_type;
                         }

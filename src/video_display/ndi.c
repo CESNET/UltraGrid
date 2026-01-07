@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2024 CESNET
+ * Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@
 #include "ndi_common.h"
 #include "types.h"
 #include "utils/color_out.h"
-#include "utils/macros.h"     // for ARR_COUNT, OPTIMIZED_FOR
+#include "utils/macros.h"     // for OPTIMIZED_FOR, countof
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"
@@ -116,7 +116,7 @@ static bool display_ndi_reconfigure(void *state, struct video_desc desc)
         struct display_ndi *s = (struct display_ndi *) state;
 
         const struct mapping *m = NULL;
-        for (size_t i = 0; i < ARR_COUNT(codec_mapping); ++i) {
+        for (size_t i = 0; i < countof(codec_mapping); ++i) {
                 if (codec_mapping[i].ug_codec == desc.color_spec) {
                         m = &codec_mapping[i];
                 }

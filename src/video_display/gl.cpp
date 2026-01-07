@@ -80,7 +80,7 @@
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
-#include "utils/macros.h" // OPTIMIZED_FOR
+#include "utils/macros.h"        // for OPTIMIZED_FOR, countof
 #include "utils/ref_count.hpp"
 #include "video.h"
 #include "video_display.h"
@@ -549,7 +549,7 @@ static void
 gl_print_platforms()
 {
         printf("available platforms:\n");
-        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (glfwPlatformSupported(platform_map[i].platform_id)) {
                         color_printf("\t- " TBOLD("%s") "\n", platform_map[i].name);
                 }
@@ -562,7 +562,7 @@ gl_print_current_platform()
 {
         const int platform = glfwGetPlatform();
         const char *name = "UNKNOWN/ERROR";
-        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (platform_map[i].platform_id == platform) {
                         name = platform_map[i].name;
                         break;
@@ -769,7 +769,7 @@ static bool
 set_platform(struct state_gl *s, const char *platform)
 {
 #ifdef GLFW_PLATFORM
-        for (unsigned i = 0; i < ARR_COUNT(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
                         s->init_hints[GLFW_PLATFORM] = platform_map[i].platform_id;
                         return true;

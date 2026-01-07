@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,7 +72,7 @@
 #include "pixfmt_conv.h"
 #include "types.h"
 #include "utils/debug.h"  // for DEBUG_TIMER_*
-#include "utils/macros.h" // OPTIMIZED_FOR
+#include "utils/macros.h" // for OPTIMIZED_FOR, countof
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel
 #include "video.h"
@@ -3174,7 +3174,7 @@ int
 from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc)
 {
         bool found_a_conversion = false;
-        for (unsigned i = 0; i < ARR_COUNT(av_to_uv_conversions); i++) {
+        for (unsigned i = 0; i < countof(av_to_uv_conversions); i++) {
                 if (av_to_uv_conversions[i].uv_codec == ugc) {
                         found_a_conversion = true;
                         break;
@@ -3186,7 +3186,7 @@ from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc)
         if (internal.depth == 0) { // unspecified internal format
                 return VDEC_PRIO_LOW;
         }
-        for (unsigned i = 0; i < ARR_COUNT(av_to_uv_conversions); i++) {
+        for (unsigned i = 0; i < countof(av_to_uv_conversions); i++) {
                 if (av_to_uv_conversions[i].uv_codec != ugc) {
                         continue;
                 }

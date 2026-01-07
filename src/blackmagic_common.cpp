@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
-#include "utils/macros.h"
+#include "utils/macros.h"        // for countof
 #include "utils/string.h"        // for DELDEL
 #include "utils/windows.h"
 #include "utils/worker.h"
@@ -786,12 +786,12 @@ static const struct {
 #undef BMDFCC
 
 static string fcc_to_string(uint32_t fourcc) {
-        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+        for (unsigned i = 0; i < countof(opt_name_map); ++i) {
                 if (opt_name_map[i].fourcc == fourcc) {
                         return opt_name_map[i].name;
                 }
         }
-        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+        for (unsigned i = 0; i < countof(val_name_map); ++i) {
                 if (val_name_map[i].fourcc == fourcc) {
                         return val_name_map[i].name;
                 }
@@ -936,7 +936,7 @@ bmd_opt_help()
         color_printf("\n");
 
         color_printf("List of keys:\n");
-        for (unsigned i = 0; i < ARR_COUNT(opt_name_map); ++i) {
+        for (unsigned i = 0; i < countof(opt_name_map); ++i) {
                 if (opt_name_map[i].fourcc == 0) {
                         color_printf("\n%s:\n", opt_name_map[0].name);
                 } else {
@@ -952,7 +952,7 @@ bmd_opt_help()
         color_printf("\n");
         color_printf("Incomplete " TBOLD("(!)") " list of values:\n");
         color_printf("(note that the value belongs to its appropriate key)\n");
-        for (unsigned i = 0; i < ARR_COUNT(val_name_map); ++i) {
+        for (unsigned i = 0; i < countof(val_name_map); ++i) {
                 uint32_t val = htonl(val_name_map[i].fourcc);
                 color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
                              val_name_map[i].name);
@@ -1589,7 +1589,7 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop,
 {
         const struct status_property *s_prop = nullptr;
 
-        for (unsigned i = 0; i < ARR_COUNT(status_map); ++i) {
+        for (unsigned i = 0; i < countof(status_map); ++i) {
                 if (status_map[i].prop == prop) {
                         s_prop = &status_map[i];
                         break;
@@ -1835,7 +1835,7 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
                   "Cannot obtain IID_IDeckLinkStatus from DeckLink",
                   return nullptr);
         // print status_map values now
-        for (unsigned u = 0; u < ARR_COUNT(status_map); ++u) {
+        for (unsigned u = 0; u < countof(status_map); ++u) {
                 if (capture && status_map[u].playback_only) {
                         continue;
                 }

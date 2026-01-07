@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2025 CESNET
+ * Copyright (c) 2025-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@
 #include "types.h"                // for device_info
 #include "utils/color_out.h"      // for color_printf, TBOLD, TRED
 #include "utils/fs.h"             // for get_install_root, get_temp_file
-#include "utils/macros.h"         // for ARR_COUNT, IS_KEY_PREFIX
+#include "utils/macros.h"         // for IS_KEY_PREFIX, countof
 
 struct module;
 
@@ -196,13 +196,13 @@ get_soundfont()
 
         const char *force_bundled_sf = getenv("ULTRAGRID_BUNDLED_SF");
         if (force_bundled_sf != NULL && strcmp(force_bundled_sf, "1") == 0) {
-                for (size_t i = ARR_COUNT(sf_candidates) - 1; i > 0; --i) {
+                for (size_t i = countof(sf_candidates) - 1; i > 0; --i) {
                         sf_candidates[i] = sf_candidates[i - 1];
                 }
                 sf_candidates[0] = bundled;
         }
 
-        for (size_t i = 0; i < ARR_COUNT(sf_candidates); ++i) {
+        for (size_t i = 0; i < countof(sf_candidates); ++i) {
                 const char *path = sf_candidates[i];
                 FILE *f = fopen(path, "rb");
                 debug_msg(MOD_NAME
