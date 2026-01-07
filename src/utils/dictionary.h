@@ -38,6 +38,8 @@
 #ifndef DICTIONARY_H_A228804B_D47D_4AE3_85A4_D479101FDAA8
 #define DICTIONARY_H_A228804B_D47D_4AE3_85A4_D479101FDAA8
 
+#include <stddef.h>
+
 struct dictionary *dictionary_init(void);
 void dictionary_insert(struct dictionary *dictionary, const char *key,
                        const char *val);
@@ -46,5 +48,10 @@ const char *dictionary_lookup(struct dictionary *dictionary, const char *key);
 const char *dictionary_first(struct dictionary *dictionary, const char **key);
 const char *dictionary_next(struct dictionary *dictionary, const char **key);
 void        dictionary_destroy(struct dictionary *dictionary);
+
+#define DICTIONARY_ITERATE(dict, key_var, val_var) for (const char *key_var = NULL, \
+             *val_var = dictionary_first(dict, &(key_var)); \
+             (val_var) != NULL; \
+             (val_var) = dictionary_next(dict, &(key_var)))
 
 #endif // defined DICTIONARY_H_A228804B_D47D_4AE3_85A4_D479101FDAA8

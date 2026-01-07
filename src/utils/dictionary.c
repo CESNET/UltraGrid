@@ -147,7 +147,9 @@ dictionary_first(struct dictionary *dictionary, const char **key)
                 return NULL;
         }
         dictionary->iterator = dictionary->items;
-        *key                 = dictionary->iterator->key;
+        if (key != NULL) {
+                *key = dictionary->iterator->key;
+        }
         return dictionary->iterator->val;
 }
 

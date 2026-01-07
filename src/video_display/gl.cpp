@@ -78,6 +78,9 @@
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
+extern "C" {
+#include "utils/dictionary.h"
+}
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"        // for OPTIMIZED_FOR, countof
 #include "video.h"
@@ -88,7 +91,6 @@
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 #define GL_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x38e52705
 #define GL_DISABLE_10B_OPT_PARAM_NAME "gl-disable-10b"
-#define GL_WINDOW_HINT_OPT_PARAM_NAME "glfw-window-hint" ///< @todo TOREMOVE
 #define MAX_BUFFER_SIZE 1
 #define ADAPTIVE_VSYNC -1
 #define SYSTEM_VSYNC 0xFE
@@ -97,11 +99,8 @@
 #include "gl_vdpau.hpp"
 
 using std::condition_variable;
-using std::copy;
 using std::cout;
 using std::lock_guard;
-using std::map;
-using std::min;
 using std::mutex;
 using std::queue;
 using std::stof;
@@ -110,7 +109,6 @@ using std::stol;
 using std::string;
 using std::swap;
 using std::unique_lock;
-using std::vector;
 using std::chrono::duration;
 using namespace std::chrono_literals;
 
@@ -475,17 +473,15 @@ struct state_gl {
         int pos_y = INT_MIN;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
-        map<int, int> init_hints;
-        map<int, int> window_hints = {
-                {GLFW_AUTO_ICONIFY, GLFW_FALSE}
-        };
+        struct dictionary *init_hints;
+        struct dictionary *window_hints;
         int use_pbo = -1;
         int req_monitor_idx = -1;
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
         bool         vdp_interop = false;
-        vector<char> scratchpad; ///< scratchpad sized WxHx8
+        void*        scratchpad{}; ///< scratchpad sized WxHx8
 
         static const char *deint_to_string(state_gl::deint val) {
                 switch (val) {
@@ -714,12 +710,26 @@ static bool set_size(struct state_gl *s, const char *tok)
         return true;
 }
 
-static const map<string, int> hint_map = {
+static const struct {
+        const char *name;
+        int val;
+} hint_map[] = {
         {"autoiconify", 0x20006},
         { "platform",   0x50003},
         { "x11",        0x60003},
         { "wayland",    0x60004},
 };
+static int
+get_hint_from_string(const char *string)
+{
+        for (unsigned i = 0; i < countof(hint_map); i++) {
+                if (strcmp(hint_map[i].name, string) == 0) {
+                        return hint_map[i].val;
+                }
+        }
+        // else use numeric value
+        return (int) strtol(string, nullptr, 0);
+}
 
 /// @param window_hints true for window hints, otherwise init hints
 static void
@@ -737,17 +747,9 @@ parse_hints(struct state_gl *s, bool window_hints, char *hints)
                 const char *key_s = tok;
                 const char *val_s = strchr(tok, '=') + 1;
                 *strchr(tok, '=') = '\0';
-                const int key     = hint_map.find(key_s) != hint_map.end()
-                                        ? hint_map.at(key_s)
-                                        : stoi(key_s, nullptr, 0);
-                const int val     = hint_map.find(val_s) != hint_map.end()
-                                        ? hint_map.at(val_s)
-                                        : stoi(val_s, nullptr, 0);
-                if (window_hints) {
-                        s->window_hints[key] = val;
-                } else {
-                        s->init_hints[key] = val;
-                }
+                dictionary_insert(window_hints ? s->window_hints
+                                               : s->init_hints,
+                                  key_s, val_s);
         }
 }
 
@@ -757,7 +759,10 @@ set_platform(struct state_gl *s, const char *platform)
 #ifdef GLFW_PLATFORM
         for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
-                        s->init_hints[GLFW_PLATFORM] = platform_map[i].platform_id;
+                        char platform[32];
+                        snprintf_ch(platform, "%d", platform_map[i].platform_id);
+                        dictionary_insert(s->init_hints,
+                                          TOSTRING(GLFW_PLATFORM), platform);
                         return true;
                 }
         }
@@ -788,9 +793,9 @@ list_hints()
                      "glfw3.h>).\n\n");
 
         color_printf("Some of hints keys and values:\n");
-        for (const auto &h : hint_map) {
-                color_printf("\t" TBOLD("%s") " - %#x\n", h.first.c_str(),
-                             h.second);
+        for (unsigned i = 0; i < countof(hint_map); i++) {
+                color_printf("\t" TBOLD("%s") " - %#x\n", hint_map[i].name,
+                             hint_map[i].val);
         }
         color_printf("\n");
 
@@ -830,7 +835,9 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         char *pos = strchr(tok,'/');
                         if(pos) s->video_aspect /= atof(pos + 1);
                 } else if(!strcasecmp(tok, "nodecorate")) {
-                        s->window_hints[GLFW_DECORATED] =  GLFW_FALSE;
+                        dictionary_insert(s->window_hints,
+                                          TOSTRING(GLFW_DECORATED),
+                                          TOSTRING(GLFW_FALSE));
                 } else if(!strcasecmp(tok, "novsync")) {
                         s->vsync = 0;
                 } else if(!strcasecmp(tok, "single")) {
@@ -861,7 +868,9 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                                 s->gamma /= stof(strchr(tok, '/') + 1);
                         }
                 } else if (!strcasecmp(tok, "hide-window")) {
-                        s->window_hints[GLFW_VISIBLE] = GLFW_FALSE;
+                        dictionary_insert(s->window_hints,
+                                          TOSTRING(GLFW_VISIBLE),
+                                          TOSTRING(GLFW_FALSE));
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
                         s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                 } else if (strstr(tok, "size=") == tok ||
@@ -903,6 +912,10 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
+        s->init_hints = dictionary_init();
+        s->window_hints = dictionary_init();
+        dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
+                          TOSTRING(GLFW_FALSE));
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
@@ -937,12 +950,14 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         }
 
 #if GLFW_VERSION_MAJOR < 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
-        if(!s->init_hints.empty()){
-                log_msg(LOG_LEVEL_WARNING, "GLFW version < 3.3 doesn't support init hints. Ignoring them.\n");
+        if (dictionary_first(s->init_hints, nullptr) != nullptr) {
+                MSG(WARNING, "GLFW version < 3.3 doesn't support init hints. "
+                             "Ignoring them.\n");
         }
 #else
-        for (auto const &hint : s->init_hints) {
-                glfwInitHint(hint.first, hint.second);
+        DICTIONARY_ITERATE(s->init_hints, key_s, val_s) {
+                glfwInitHint(get_hint_from_string(key_s),
+                             get_hint_from_string(val_s));
         }
 #endif
 
@@ -1224,7 +1239,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 	}
 #endif
 
-        s->scratchpad.resize(desc.width * desc.height * 8);
+        s->scratchpad = realloc(s->scratchpad, desc.width * desc.height * 8);
         s->current_display_desc = desc;
 }
 
@@ -1330,7 +1345,7 @@ static void gl_process_frames(struct state_gl *s)
 
         {
                 unique_lock<mutex> lk(s->lock);
-                double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
+                double timeout = MIN(2.0 / s->current_display_desc.fps, 0.1);
                 s->new_frame_ready_cv.wait_for(lk, duration<double>(timeout), [s] {
                                 return s->frame_queue.size() > 0;});
                 if (s->frame_queue.size() == 0) {
@@ -1650,36 +1665,16 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
 static void
 display_gl_set_window_hints(struct state_gl *s)
 {
-        for (auto const &hint : s->window_hints) {
-                glfwWindowHint(hint.first, hint.second);
+
+        DICTIONARY_ITERATE(s->window_hints, key_s, val_s) {
+                glfwWindowHint(get_hint_from_string(key_s),
+                               get_hint_from_string(val_s));
         }
 #ifndef _WIN32
         if (s->noresizable) {
                 glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         }
 #endif
-
-        /// @todo TOREMOVE
-        const char *hints = get_commandline_param(GL_WINDOW_HINT_OPT_PARAM_NAME);
-        if (hints == nullptr) {
-                return;
-        }
-        vector<char> data(strlen(hints) + 1);
-        copy(hints, hints + strlen(hints) + 1, data.begin());
-        char *hints_c = data.data();
-        char *tmp = hints_c;
-        char *tok = nullptr;
-        char *save_ptr = nullptr;
-        while ((tok = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
-                tmp = nullptr;
-                if (strchr(tok, '=') == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Malformed window hint - missing value (expected <k>=<v>).\n";
-                        continue;
-                }
-                int key = stoi(tok, 0, 0);
-                int val = stoi(strchr(tok, '=') + 1, 0, 0);
-                glfwWindowHint(key, val);
-        }
 }
 
 static void print_gamma_ramp(GLFWmonitor *monitor) {
@@ -1727,9 +1722,6 @@ vdp_interop_supported()
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
-ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
-         "* " GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>[:<k2>=<v2>...]\n"
-         "  Set window hint <k> to value <v> (deprecated, use option)\n");
 /**
  * Initializes OpenGL stuff. If this function succeeds, display_gl_cleanup_opengl() needs
  * to be called to release resources.
@@ -2025,8 +2017,11 @@ static void upload_texture(struct state_gl *s, char *data)
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
         } else {
                 if (s->current_display_desc.color_spec == R10k) { // perform byte swap
-                        process_r10k(reinterpret_cast<uint32_t *>(s->scratchpad.data()), reinterpret_cast<uint32_t *>(data), s->current_display_desc.width, s->current_display_desc.height);
-                        data = s->scratchpad.data();
+                        process_r10k((uint32_t *) s->scratchpad,
+                                     (uint32_t *) data,
+                                     s->current_display_desc.width,
+                                     s->current_display_desc.height);
+                        data = (char *) s->scratchpad;
                 }
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, data);
         }
@@ -2222,6 +2217,9 @@ static void display_gl_done(void *state)
         }
 
         vf_free(s->current_frame);
+        free(s->scratchpad);
+        dictionary_destroy(s->init_hints);
+        dictionary_destroy(s->window_hints);
 
         glfwTerminate();
 
