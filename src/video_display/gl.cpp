@@ -479,9 +479,7 @@ struct state_gl {
         struct dictionary *window_hints;
         int use_pbo = -1;
         int req_monitor_idx = -1;
-#ifdef HWACC_VDPAU
-        struct state_vdpau vdp;
-#endif
+        struct state_vdpau *vdp{};
         bool         vdp_interop = false;
         void*        scratchpad{}; ///< scratchpad sized WxHx8
 
@@ -1200,12 +1198,10 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 (desc.width + 3) / 4 * 4, s->dxt_height, 0,
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
+        } else if (desc.color_spec == HW_VDPAU) {
+                s->vdp = vdp_init();
         }
-#ifdef HWACC_VDPAU
-        else if (desc.color_spec == HW_VDPAU) {
-                s->vdp.init();
-        }
-#endif
+
         glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
         struct pixfmt_config const *cfg = get_pixfmt_config(desc.color_spec);
@@ -1985,12 +1981,12 @@ static void upload_compressed_texture(struct state_gl *s, char *data) {
 
 static void upload_texture(struct state_gl *s, char *data)
 {
-#ifdef HWACC_VDPAU
         if (s->current_display_desc.color_spec == HW_VDPAU) {
-                s->vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(data));
+                vdp_load_frame(s->vdp,
+                               reinterpret_cast<struct hw_vdpau_frame *>(data));
                 return;
         }
-#endif
+
         if (s->current_display_desc.color_spec == DXT1 || s->current_display_desc.color_spec == DXT1_YUV || s->current_display_desc.color_spec == DXT5) {
                 upload_compressed_texture(s, data);
                 return;
@@ -2248,6 +2244,7 @@ static void display_gl_done(void *state)
         glfwTerminate();
 
         module_done(&s->mod);
+        vdp_destroy(s->vdp);
 
         delete s;
 }

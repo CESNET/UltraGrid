@@ -282,3 +282,23 @@ void state_vdpau::uninit(){
                 textures[i] = 0;
         }
 }
+
+struct state_vdpau *
+vdp_init()
+{
+        struct state_vdpau *vdp = new state_vdpau();
+        vdp->init();
+        return vdp;
+}
+
+void
+vdp_load_frame(struct state_vdpau *vdp, hw_vdpau_frame *frame)
+{
+        vdp->loadFrame(frame);
+}
+
+void
+vdp_destroy(struct state_vdpau *vdp)
+{
+        delete vdp;
+}

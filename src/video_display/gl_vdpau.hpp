@@ -95,7 +95,15 @@ struct state_vdpau {
 
 };
 
+struct state_vdpau * vdp_init();
+void vdp_load_frame(struct state_vdpau *vdp, hw_vdpau_frame *frame);
+void vdp_destroy(struct state_vdpau *vdp);
 
+#else
+
+#define vdp_init() 0
+#define vdp_destroy(...)
+#define vdp_load_frame(...)
 
 #endif //HWACC_VDPAU
 #endif //GL_VDPAU_HPP_667244de5757
