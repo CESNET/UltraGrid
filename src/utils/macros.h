@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2025 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,7 +61,10 @@
 #define SWAP(a, b) do { b ^= a; a ^= b; b ^= a; } while (0)
 #define SWAP_PTR(a, b) do { void *tmp = (a); (a) = (b); (b) = tmp; } while(0)
 
-#define ARR_COUNT(arr) (sizeof (arr) / sizeof (arr)[0])
+#ifndef countof // defined in C2Y stdcountof.h
+#define countof(arr) (sizeof (arr) / sizeof (arr)[0])
+#endif
+#define ARR_COUNT(arr) countof(arr)
 
 #undef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
