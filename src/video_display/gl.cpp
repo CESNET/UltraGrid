@@ -1114,8 +1114,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int) round(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
 
-        s->current_program = 0;
-
         gl_check_error();
 
         if(desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV) {
@@ -1144,7 +1142,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                         desc.width, desc.height, 0,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
                                         NULL);
-                        s->current_program = s->PHandles[DXT1_YUV];
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -1159,7 +1156,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles[UYVY];
         } else if (desc.color_spec == v210) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -1173,9 +1169,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
-                s->current_program = s->PHandles[v210];
         } else if (desc.color_spec == Y416) {
-                s->current_program = s->PHandles[Y416];
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -1205,7 +1199,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles[VUYA];
         } else if (desc.color_spec == RGB) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
@@ -1238,13 +1231,14 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandles[DXT5];
         }
 #ifdef HWACC_VDPAU
         else if (desc.color_spec == HW_VDPAU) {
                 s->vdp.init();
         }
 #endif
+        s->current_program = s->PHandles[desc.color_spec];
+
         if (s->current_program) {
                 glUseProgram(s->current_program);
                 if (GLint l = glGetUniformLocation(s->current_program, "image"); l != -1) {
