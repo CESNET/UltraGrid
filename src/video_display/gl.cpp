@@ -95,13 +95,9 @@
 
 #include "gl_vdpau.hpp"
 
-using std::begin;
 using std::condition_variable;
 using std::copy;
-using std::copy_if;
 using std::cout;
-using std::end;
-using std::find;
 using std::lock_guard;
 using std::map;
 using std::min;
@@ -339,27 +335,35 @@ void main()
 } // main end
 )raw";
 
-const static struct {
+const static struct pixfmt_config {
         codec_t     codec;
         const char *prog_name;
-} glsl_programs[] = {
-        { UYVY,     uyvy_to_rgb_fp       },
-        { Y416,     yuva_to_rgb_fp       },
-        { VUYA,     vuya_to_rgb_fp       },
-        { v210,     v210_to_rgb_fp       },
+} pixfmt_configs[] = {
+        { DXT1,     nullptr              },
         { DXT1_YUV, fp_display_dxt1_yuv  },
         { DXT5,     fp_display_dxt5ycocg },
+#ifdef HWACC_VDPAU
+        { HW_VDPAU, nullptr              },
+#endif
+        { R10k,     nullptr              },
+        { RG48,     nullptr              },
+        { RGB,      nullptr              },
+        { RGBA,     nullptr              },
+        { UYVY,     uyvy_to_rgb_fp       },
+        { VUYA,     vuya_to_rgb_fp       },
+        { Y416,     yuva_to_rgb_fp       },
+        { v210,     v210_to_rgb_fp       },
 };
 
-static bool
-needs_shader(codec_t codec)
+static struct pixfmt_config const*
+get_pixfmt_config(codec_t codec)
 {
-        for (unsigned i = 0; i < countof(glsl_programs); ++i) {
-                if (glsl_programs[i].codec == codec) {
-                        return true;
+        for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
+                if (pixfmt_configs[i].codec == codec) {
+                        return &pixfmt_configs[i];
                 }
         }
-        return false;
+        return nullptr;
 }
 
 static const struct
@@ -490,23 +494,6 @@ struct state_gl {
                 }
                 return NULL;
         }
-};
-
-static constexpr codec_t gl_supp_codecs[] = {
-#ifdef HWACC_VDPAU
-        HW_VDPAU,
-#endif
-        UYVY,
-        VUYA,
-        v210,
-        R10k,
-        RGBA,
-        RGB,
-        RG48,
-        Y416,
-        DXT1,
-        DXT1_YUV,
-        DXT5
 };
 
 static void gl_print_monitors(bool fullhelp) {
@@ -1001,8 +988,7 @@ display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
-        assert(find(begin(gl_supp_codecs), end(gl_supp_codecs),
-                    desc.color_spec) != end(gl_supp_codecs));
+        assert(get_pixfmt_config(desc.color_spec) != nullptr);
         if (get_bits_per_component(desc.color_spec) > 8) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
         }
@@ -1901,14 +1887,17 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        for (unsigned i = 0; i < countof(glsl_programs); i++) {
-                GLuint prog = gl_substitute_compile_link(vert, glsl_programs[i].prog_name);
+        for (unsigned i = 0; i < countof(pixfmt_configs); i++) {
+                if (pixfmt_configs[i].prog_name == nullptr) {
+                        continue;
+                }
+                GLuint prog = gl_substitute_compile_link(vert, pixfmt_configs[i].prog_name);
                 if (prog == 0U) {
-                        MSG(ERROR, "Unable to link program for %s!\n", glsl_programs[i].prog_name);
+                        MSG(ERROR, "Unable to link program for %s!\n", pixfmt_configs[i].prog_name);
                         handle_error(1);
                         continue;
                 }
-                s->PHandles[glsl_programs[i].codec] = prog;
+                s->PHandles[pixfmt_configs[i].codec] = prog;
         }
 
         if ((s->PHandle_deint = gl_substitute_compile_link(vert, deinterlace_fp)) == 0) {
@@ -2217,28 +2206,28 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
 
         switch (property) {
         case DISPLAY_PROPERTY_CODECS: {
-                UG_ASSERT(*len >= sizeof gl_supp_codecs);
-                auto filter_codecs = [s](codec_t c) {
+                UG_ASSERT(*len >= countof(pixfmt_configs) * sizeof(codec_t));
+                *len = 0;
+                for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
+                        codec_t c = pixfmt_configs[i].codec;
                         if (get_bits_per_component(c) > DEPTH8 &&
                             commandline_params.find(
                                 GL_DISABLE_10B_OPT_PARAM_NAME) !=
                                 commandline_params.end()) { // option to disable
                                                             // 10-bit processing
-                                return false;
+                                continue;
                         }
-                        if (needs_shader(c) && s->PHandles[c] == 0) {
-                                // GLSL shader needed but compilation failed
-                                return false;
+                        if (get_pixfmt_config(c)->prog_name != nullptr &&
+                            s->PHandles[c] == 0) { // GLSL shader needed but
+                                                   // compilation failed
+                                continue;
                         }
                         if (c == HW_VDPAU && !s->vdp_interop) {
-                                return false;
+                                continue;
                         }
-                        return true;
+                        memcpy((char *) val + *len, &c, sizeof c);
+                        *len += sizeof c;
                 };
-                const codec_t *endptr =
-                    copy_if(begin(gl_supp_codecs), end(gl_supp_codecs),
-                            (codec_t *) val, filter_codecs);
-                *len = (const char *) endptr - (char *) val;
                 return true;
         }
         case DISPLAY_PROPERTY_RGB_SHIFT:
