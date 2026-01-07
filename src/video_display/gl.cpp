@@ -75,6 +75,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
@@ -111,9 +112,6 @@ using std::swap;
 using std::unique_lock;
 using std::vector;
 using std::chrono::duration;
-using std::chrono::duration_cast;
-using std::chrono::seconds;
-using std::chrono::steady_clock;
 using namespace std::chrono_literals;
 
 static const char * deinterlace_fp = R"raw(
@@ -461,7 +459,7 @@ struct state_gl {
         bool            noresizable = false;
         volatile bool   paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
-        steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
+        time_ns_t cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
 
         double          window_size_factor = 1.0;
@@ -1321,11 +1319,11 @@ static void gl_process_frames(struct state_gl *s)
         }
 
         if (s->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (s->cursor_shown_from != steady_clock::time_point()) {
-                        const auto now = steady_clock::now();
-                        if (duration_cast<seconds>(now - s->cursor_shown_from).count() > 2) {
+                if (s->cursor_shown_from != 0) {
+                        const auto now = get_time_in_ns();
+                        if (now - s->cursor_shown_from > SEC_TO_NS(2)) {
                                 glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-                                s->cursor_shown_from = steady_clock::time_point();
+                                s->cursor_shown_from = 0;
                         }
                 }
         }
@@ -1507,10 +1505,10 @@ static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 {
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         if (s->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (s->cursor_shown_from == steady_clock::time_point()) {
+                if (s->cursor_shown_from == 0) {
                         glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
-                s->cursor_shown_from = steady_clock::now();
+                s->cursor_shown_from = get_time_in_ns();
         }
 }
 
