@@ -632,6 +632,9 @@ get_supported_pfs(const struct fmt_data *supp_fmts, codec_t *codecs)
         return count;
 }
 
+#define NO_BLACKLIST_D3D_P010 "sdl3-no-blacklist-d3d-p010"
+ADD_TO_PARAM(NO_BLACKLIST_D3D_P010, "* "NO_BLACKLIST_D3D_P010 "\n"
+                "  Do not blacklist P010 format for Direct3D 11/12.\n");
 static void
 query_renderer_supported_fmts(SDL_Renderer    *renderer,
                               struct fmt_data *supp_fmts, bool blacklist_p010)
@@ -646,6 +649,10 @@ query_renderer_supported_fmts(SDL_Renderer    *renderer,
                 SDL_DestroyProperties(renderer_props);
                 MSG(ERROR, "No supported pixel format!\n");
                 return;
+        }
+
+        if (get_commandline_param(NO_BLACKLIST_D3D_P010)) {
+                blacklist_p010 = false;
         }
 
         if (log_level >= LOG_LEVEL_VERBOSE) {
