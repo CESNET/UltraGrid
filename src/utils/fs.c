@@ -4,7 +4,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2018-2025 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,13 +87,10 @@ const char *get_temp_dir(void)
         }
 #else
         const char *req_tmp_dir = getenv("TMPDIR");
-        if (req_tmp_dir) {
-                temp_dir[sizeof temp_dir - 1] = '\0';
-                strncpy(temp_dir, req_tmp_dir, sizeof temp_dir - 1);
-        } else {
-                strcpy(temp_dir, P_tmpdir);
+        if (!req_tmp_dir) {
+                req_tmp_dir = P_tmpdir;
         }
-        strncat(temp_dir, "/", sizeof temp_dir - strlen(temp_dir) - 1);
+        snprintf_ch(temp_dir, "%s/", req_tmp_dir);
 #endif
 
         return temp_dir;
@@ -274,8 +271,7 @@ FILE *get_temp_file(const char **filename) {
         }
         return ret;
 #else
-        strncpy(filename_buf, get_temp_dir(), sizeof filename_buf - 1);
-        strncat(filename_buf, "/uv.XXXXXX", sizeof filename_buf - strlen(filename_buf) - 1);
+        snprintf_ch(filename_buf, "%s%s", get_temp_dir(), "/uv.XXXXXX");
         umask(S_IRWXG|S_IRWXO);
         int fd = mkstemp(filename_buf);
         if (fd == -1) {
@@ -302,9 +298,8 @@ char *strdup_path_with_expansion(const char *orig_path) {
                 return strdup(orig_path);
         }
         char *new_path = malloc(MAX_PATH_SIZE);
-        new_path[MAX_PATH_SIZE - 1] = '\0';
         assert(new_path != NULL);
-        strncpy(new_path, home, MAX_PATH_SIZE - 1);
-        strncat(new_path, orig_path + 1, MAX_PATH_SIZE - strlen(new_path) - 1);
+        int ret = snprintf(new_path, MAX_PATH_SIZE, "%s%s", home, orig_path + 1);
+        assert(ret < MAX_PATH_SIZE);
         return new_path;
 }
