@@ -633,8 +633,9 @@ get_supported_pfs(const struct fmt_data *supp_fmts, codec_t *codecs)
 }
 
 #define NO_BLACKLIST_D3D_P010 "sdl3-no-blacklist-d3d-p010"
-ADD_TO_PARAM(NO_BLACKLIST_D3D_P010, "* "NO_BLACKLIST_D3D_P010 "\n"
-                "  Do not blacklist P010 format for Direct3D 11/12.\n");
+ADD_TO_PARAM(NO_BLACKLIST_D3D_P010,
+             "* " NO_BLACKLIST_D3D_P010 "\n"
+             "  Do not blacklist P010 format for Direct3D 11/12 renderers.\n");
 static void
 query_renderer_supported_fmts(SDL_Renderer    *renderer,
                               struct fmt_data *supp_fmts, bool blacklist_p010)
@@ -907,7 +908,7 @@ skip_window_creation:
         if (s->cs_data == NULL) {
                 return false;
         }
-        MSG(VERBOSE, "Setting SDL3 pix fmt: %s\n",
+        MSG(INFO, "Setting SDL3 pix fmt: %s\n",
             SDL_GetPixelFormatName(s->cs_data->sdl_tex_fmt));
 
         SDL_CHECK(SDL_SetRenderLogicalPresentation(
