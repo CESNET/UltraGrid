@@ -38,22 +38,20 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #else
 #define SRCDIR ".."
 #endif
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
-#include "debug.h"
-#include "utils/fs.h"
-#include "utils/macros.h"
-#include "utils/string.h"
+#ifdef _WIN32
+#include <windows.h> // for GetModuleFileNameA, GetTempPathA
+#endif
 
 // for get_exec_path
 #ifdef __APPLE__
@@ -67,6 +65,11 @@
 #include <unistd.h>     // for getcwd
 #include "host.h"       // for uv_argv
 #endif
+
+#include "debug.h"
+#include "utils/fs.h"
+#include "utils/macros.h"
+#include "utils/string.h"
 
 #define MOD_NAME "[fs] "
 
@@ -271,7 +274,7 @@ FILE *get_temp_file(const char **filename) {
         }
         return ret;
 #else
-        snprintf_ch(filename_buf, "%s%s", get_temp_dir(), "/uv.XXXXXX");
+        snprintf_ch(filename_buf, "%s%s", get_temp_dir(), "uv.XXXXXX");
         umask(S_IRWXG|S_IRWXO);
         int fd = mkstemp(filename_buf);
         if (fd == -1) {
