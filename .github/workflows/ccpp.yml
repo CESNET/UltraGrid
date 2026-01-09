@@ -319,17 +319,8 @@ jobs:
     - name: bootsrap MSYS2
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
 
-    - name: Run actions/cache for Spout build
-      id: cache-spout
-      uses: actions/cache@main
-      with:
-        path: 'C:\Spout2'
-        key: cache-spout-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_spout.sh') }}
-    - name: Build Spout
-      if: steps.cache-spout.outputs.cache-hit != 'true'
-      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh build
     - name: Install Spout
-      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
 
     - name: Run actions/cache for CineForm build
       id: cache-cineform
