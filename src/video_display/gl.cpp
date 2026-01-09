@@ -1017,8 +1017,11 @@ display_gl_reconfigure(void *state, struct video_desc desc)
                     "only!\n",
                     recv_depth, s->mode_depth);
         }
-        if (get_bits_per_component(desc.color_spec) > 8) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
+        if (recv_depth > DEPTH8 && s->mode_depth > DEPTH8) {
+                MSG(WARNING,
+                    "Displaying %d bits - performance degradation may occur, "
+                    "consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n",
+                    s->mode_depth);
         }
         if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == state_gl::deint::off) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
