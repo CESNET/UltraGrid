@@ -436,6 +436,7 @@ struct state_gl {
 
         bool            fs = false;
         enum class deint { off, on, force } deinterlace = deint::off;
+        int             mode_depth = 0;
 
         struct video_frame *current_frame = nullptr;
 
@@ -952,7 +953,6 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", state_gl::deint_to_string(s->deinterlace));
 
-        gl_load_splashscreen(s);
         for (unsigned i = 0; i < countof(keybindings); i++) {
                 if (keybindings[i].key == 'q') {
                         continue; // don't report 'q' to avoid accidental close,
@@ -968,6 +968,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 display_gl_done(s);
                 return nullptr;
         }
+
+        gl_load_splashscreen(s);
 
         return (void*)s;
 }
@@ -1008,6 +1010,13 @@ display_gl_reconfigure(void *state, struct video_desc desc)
         struct state_gl	*s = (struct state_gl *) state;
 
         assert(get_pixfmt_config(desc.color_spec) != nullptr);
+        const int recv_depth = get_bits_per_component(desc.color_spec);
+        if (recv_depth > s->mode_depth) {
+                MSG(WARNING,
+                    "%d bit pixel format received but display mode is %d bit "
+                    "only!\n",
+                    recv_depth, s->mode_depth);
+        }
         if (get_bits_per_component(desc.color_spec) > 8) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
         }
@@ -1547,7 +1556,7 @@ check_print_display_gl_version()
         return true;
 }
 
-static void
+static int
 display_gl_print_depth(GLFWmonitor *monitor)
 {
         int bits[3];
@@ -1561,6 +1570,7 @@ display_gl_print_depth(GLFWmonitor *monitor)
         MSG(INFO, "mode %dx%d@%d; depth - R: %d, G: %d, B: %d\n", mode->width,
             mode->height, mode->refreshRate, mode->redBits, mode->greenBits,
             mode->blueBits);
+        return mode->redBits;
 }
 
 static void display_gl_render_last(GLFWwindow *win) {
@@ -1812,7 +1822,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 s->window = nullptr;
                 return false;
         }
-        display_gl_print_depth(s->monitor);
+        s->mode_depth = display_gl_print_depth(s->monitor);
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
