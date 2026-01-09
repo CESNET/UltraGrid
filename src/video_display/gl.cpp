@@ -2000,8 +2000,10 @@ static void upload_texture(struct state_gl *s, char *data)
                 width = vc_get_linesize(width, s->current_display_desc.color_spec) / 4;
         }
         /// swaps bytes and removes 256B padding
-        auto process_r10k = [](uint32_t * __restrict out, const uint32_t *__restrict in, long width, long height) {
+        auto process_r10k = [](uint32_t * __restrict out, const void *__restrict in_v, long width, long height) {
                 DEBUG_TIMER_START(process_r10k);
+                assert((uintptr_t) in_v % 4 == 0);
+                const uint32_t *in = (const uint32_t *) in_v;
                 long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
                 for (long i = 0; i < height; i += 1) {
                         OPTIMIZED_FOR (long j = 0; j < width; j += 1) {
@@ -2034,7 +2036,7 @@ static void upload_texture(struct state_gl *s, char *data)
         } else {
                 if (s->current_display_desc.color_spec == R10k) { // perform byte swap
                         process_r10k((uint32_t *) s->scratchpad,
-                                     (uint32_t *) data,
+                                     data,
                                      s->current_display_desc.width,
                                      s->current_display_desc.height);
                         data = (char *) s->scratchpad;
