@@ -379,7 +379,7 @@ const static struct {
 #endif // defined GLFW_PLATFORM
 
 /* Prototyping */
-static bool check_display_gl_version(bool print_ver);
+static bool check_print_display_gl_version(void);
 static bool display_gl_init_opengl(struct state_gl *s);
 static bool display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
@@ -672,8 +672,10 @@ static void gl_show_help(bool full) {
         GLFWwindow *window = glfwCreateWindow(32, 32, DEFAULT_WIN_NAME, nullptr, nullptr);
         if (window != nullptr) {
                 glfwMakeContextCurrent(window);
-                check_display_gl_version(true);
+                check_print_display_gl_version();
                 glfwDestroyWindow(window);
+        } else {
+                MSG(WARNING, "Cannot create window!\n");
         }
         ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 
@@ -1582,7 +1584,7 @@ static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 }
 
 static bool
-check_display_gl_version(bool print_ver)
+check_print_display_gl_version()
 {
         auto version = (const char *) glGetString(GL_VERSION);
         if (!version) {
@@ -1593,12 +1595,8 @@ check_display_gl_version(bool print_ver)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
                 return false;
         }
-        if (print_ver) { // from help
-                color_printf(TBOLD("OpenGL version:") " %s\n", version);
-        } else {
-                MSG(INFO, "OpenGL 2.0 is supported...\n");
-                MSG(VERBOSE, "Supported OpenGL version is %s.\n", version);
-        }
+        MSG(INFO, "supported version: %s, vendor: %s, renderer: %s\n", version,
+            glGetString(GL_VENDOR), glGetString(GL_RENDERER));
         return true;
 }
 
@@ -1887,7 +1885,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 }
         }
 #endif
-        if (!check_display_gl_version(false)) {
+        if (!check_print_display_gl_version()) {
                 glfwDestroyWindow(s->window);
                 s->window = nullptr;
                 return false;
