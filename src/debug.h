@@ -4,7 +4,7 @@
  * AUTHOR:  Isidor Kouvelas + Colin Perkins + Mark Handley + Orion Hodson
  * 
  * Copyright (c) 1995-2000 University College London
- * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,12 +82,25 @@ void debug_dump(const void*lp, int len);
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
 ///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
+
 #if defined _MSC_VER
-#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+        #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+#elif defined __MINGW32__
+        __MINGW_GNU_PRINTF(2, 3) void log_msg(int log_level,
+                const char *format, ...);
 #else
-void log_msg(int log_level, const char *format, ...) __attribute__((format (printf, 2, 3)));
+        void log_msg(int log_level, const char *format, ...)
+            __attribute__((format(printf, 2, 3)));
 #endif
-void log_msg_once(int log_level, uint32_t id, const char *msg, ...) __attribute__((format (printf, 3, 4)));
+
+#if defined __MINGW32__
+        __MINGW_GNU_PRINTF(3, 4)
+        void log_msg_once(int log_level, uint32_t id, const char *msg, ...);
+#else
+        void log_msg_once(int log_level, uint32_t id, const char *msg, ...)
+             __attribute__((format (printf, 3, 4)));
+#endif
+
 void log_perror(int log_level, const char *msg);
 #define MSG(l, fmt, ...) \
         if (log_level >= LOG_LEVEL_##l) \
@@ -104,7 +117,13 @@ bool parse_log_cfg(const char *conf_str,
 		bool *logger_skip_repeats,
 		enum log_timestamp_mode *show_timestamps);
 
-void bug_msg(int level, const char *format, ...) __attribute__((format (printf, 2, 3)));
+#if defined __MINGW32__
+        __MINGW_GNU_PRINTF(2, 3)
+        void bug_msg(int level, const char *format, ...);
+#else
+        void bug_msg(int level, const char *format, ...)
+            __attribute__((format(printf, 2, 3)));
+#endif
 
 #ifdef __cplusplus
 }
