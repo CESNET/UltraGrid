@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -622,6 +622,9 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
 
         case NDIlib_frame_type_status_change:
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Status changed!\n";
+                break;
+        case NDIlib_frame_type_source_change:
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Source changed!\n";
                 break;
         case NDIlib_frame_type_max:
                 assert(0 && "NDIlib_frame_type_max is invalid!");
