@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2025 CESNET
+ * Copyright (c) 2019-2026 CESNET, zájmové sružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -277,7 +277,8 @@ get_windows_build()
         typedef NTSTATUS(WINAPI * RtlGetVersionFunc)(
             PRTL_OSVERSIONINFOW lpVersionInformation);
         RtlGetVersionFunc pRtlGetVersion =
-            (RtlGetVersionFunc) GetProcAddress(hNtDll, "RtlGetVersion");
+            (RtlGetVersionFunc) (void *) GetProcAddress(hNtDll,
+                                                        "RtlGetVersion");
         if (pRtlGetVersion == NULL) {
                 MSG(VERBOSE, "Cannot get RtlGetVersion from ntdll.dll!\n");
                 return 0;

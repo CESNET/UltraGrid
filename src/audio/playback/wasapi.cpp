@@ -3,7 +3,7 @@
  * @author Martin Pulec <martin.pulec@cesnet.cz>
  */
 /*
- *  Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ *  Copyright (c) 2019-2026 CESNET, zájmové sružení právnických osob
  *  All rights reserved.
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -102,7 +102,7 @@ string wasapi_get_name(IMMDevice *pDevice); // defined in audio/playback/wasapi.
 static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
         *deleter = free;
-        *available_devices = (struct device_info *) malloc(0);
+        *available_devices = nullptr;
         *dev_count = 0;
 
         IMMDeviceEnumerator *enumerator = nullptr;
