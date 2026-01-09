@@ -10,7 +10,7 @@
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
- * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -410,8 +410,12 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         }
                 }
 
-                printf("Incoming graphic resolution : %ux%u (%s)\n", Width, Height, Interlaced_B ? "Interlaced" : "Progressive");
-                printf("Refresh rate : %u\n", RefreshRate);
+                printf("Incoming graphic resolution : %" PRIu_ULONG
+                       "x%" PRIu_ULONG "  (%s)\n",
+                       Width, Height,
+                       Interlaced_B ? "Interlaced" : "Progressive");
+
+                printf("Refresh rate : %" PRIu_ULONG "\n", RefreshRate);
 
                 /* Configure stream. Only VHD_DVI_SP_ACTIVE_WIDTH, VHD_DVI_SP_ACTIVE_HEIGHT and
                    VHD_DVI_SP_INTERLACED properties are required for HDMI and Component
@@ -431,7 +435,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS, InputCS);
                         VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK, PxlClk);
                         printf("Input CS : %s\n", VHD_DV_CS_ToString(InputCS));
-                        printf("Pixel clock : %u\n", PxlClk);
+                        printf("Pixel clock : %" PRIu_ULONG "\n", PxlClk);
                 }
                 if (DviMode == VHD_DV_MODE_DISPLAYPORT) {
                      VHD_SetStreamProperty(s->StreamHandle, VHD_DV_SP_CABLE_BIT_SAMPLING, CableBitSampling);

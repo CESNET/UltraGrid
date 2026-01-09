@@ -5,7 +5,7 @@
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
- * Copyright (c) 2014-2025 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,8 @@ delta_get_board_type(ULONG BoardIndex)
         ULONG  Result =
             VHD_OpenBoardHandle(BoardIndex, &BoardHandle, nullptr, 0);
         if (Result != VHDERR_NOERROR) {
-                DELTA_PRINT_ERROR(Result, "Unable to open board %d.",
+                DELTA_PRINT_ERROR(Result,
+                                  "Unable to open board %" PRIu_ULONG ".",
                                   BoardIndex);
                 return NB_VHD_BOARDTYPES;
         }
@@ -74,7 +75,8 @@ delta_get_board_type(ULONG BoardIndex)
                                       &BoardType);
         VHD_CloseBoardHandle(BoardHandle);
         if (Result != VHDERR_NOERROR) {
-                DELTA_PRINT_ERROR(Result, "Unable to get board %d type.",
+                DELTA_PRINT_ERROR(Result,
+                                  "Unable to get board %" PRIu_ULONG " type.",
                                   BoardIndex);
                 return NB_VHD_BOARDTYPES;
         }
