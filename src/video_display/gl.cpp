@@ -1600,12 +1600,20 @@ check_print_display_gl_version()
         return true;
 }
 
-static void display_gl_print_depth() {
+static void
+display_gl_print_depth(GLFWmonitor *monitor)
+{
         int bits[3];
         glGetIntegerv(GL_RED_BITS, &bits[0]);
         glGetIntegerv(GL_GREEN_BITS, &bits[1]);
         glGetIntegerv(GL_BLUE_BITS, &bits[2]);
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Buffer depth - R: " << bits[0] << "b, G: " << bits[1] << "b, B: " << bits[2] << "b\n";
+        MSG(VERBOSE, "Buffer depth - R: %d, G: %d, B: %d\n", bits[0], bits[1],
+            bits[2]);
+
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        MSG(INFO, "mode %dx%d@%d; depth - R: %d, G: %d, B: %d\n", mode->width,
+            mode->height, mode->refreshRate, mode->redBits, mode->greenBits,
+            mode->blueBits);
 }
 
 static void display_gl_render_last(GLFWwindow *win) {
@@ -1890,7 +1898,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 s->window = nullptr;
                 return false;
         }
-        display_gl_print_depth();
+        display_gl_print_depth(s->monitor);
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
