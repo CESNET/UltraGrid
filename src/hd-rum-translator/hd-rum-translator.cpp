@@ -106,6 +106,7 @@ struct replica {
     replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, int force_ip_version) {
         magic = REPLICA_MAGIC;
         host = addr;
+        ip_address = addr; // Store IP address for identification
         m_tx_port = tx_port;
         sock = std::shared_ptr<socket_udp>(udp_init(addr, rx_port, tx_port, 255, force_ip_version, false), udp_exit);
         int mode = 0;
@@ -133,6 +134,7 @@ struct replica {
     struct module mod;
     uint32_t magic;
     string host;
+    string ip_address; // Add this field for IP-based identification
     int m_tx_port;
 
     enum type_t {
@@ -386,7 +388,14 @@ static void *writer(void *arg)
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
                 char *port_spec = msg->text + strlen("delete-port ");
                 int index = -1;
-                if (isdigit(port_spec[0])) {
+                bool is_all_digits = true;
+                for (int j = 0; port_spec[j] != '\0'; j++) {
+                    if (!isdigit(port_spec[j])) {
+                        is_all_digits = false;
+                        break;
+                    }
+                }
+                if (is_all_digits && strlen(port_spec) > 0) {
                     int i = stoi(port_spec);
                     if (i >= 0 && i < (int) s->replicas.size()) {
                         index = i;
@@ -394,16 +403,31 @@ static void *writer(void *arg)
                         log_msg(LOG_LEVEL_WARNING, "Invalid port index: %d. Not removing.\n", i);
                     }
                 } else {
+                    // It's not all digits, so treat as IP address or name
                     int i = 0;
+                    // Check for IP address match first
                     for (auto r : s->replicas) {
-                        if (strcmp(r->mod.name, port_spec) == 0) {
-                            index = i;
-                            break;
+                    // Ensure replica and its IP address are valid before comparing
+                    if (!r->ip_address.empty() && r->ip_address == port_spec) {
+                        index = i;
+                        break;
                         }
                         i++;
                     }
+                    // If not found by IP, check by port name
                     if (index == -1) {
-                        log_msg(LOG_LEVEL_WARNING, "Unknown port name: %s. Not removing.\n", port_spec);
+                        i = 0;
+                        for (auto r : s->replicas) {
+                            if (strcmp(r->mod.name, port_spec) == 0) {
+                                index = i;
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    // Log if neither IP address or name matches
+                    if (index == -1) {
+                        log_msg(LOG_LEVEL_WARNING, "Unknown port (IP or name): %s. Not removing.\n", port_spec);
                     }
                 }
                 if (index >= 0) {
@@ -412,6 +436,31 @@ static void *writer(void *arg)
                     s->replicas.erase(s->replicas.begin() + index);
                     log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
                 }
+            } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
+                       strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
+                           // Debug: Check what we actually have
+                           fprintf(stderr, "[DEBUG] s->replicas.size() = %zu\n", s->replicas.size());
+                           // List all current root ports and their IP addresses
+                           string port_list = "Root ports:\n";
+                           if (s->replicas.empty()) {
+                           port_list += "  No ports configured.\n";
+                        } else {
+                            for (size_t i = 0; i < s->replicas.size(); i++) {
+                                const auto& replica = s->replicas[i];
+                                const char* type_str = (replica->type == replica::type_t::USE_SOCK) ? "forwarding" :
+                                                 (replica->type == replica::type_t::RECOMPRESS) ? "transcoding" : "none";
+                                char port_info[512];
+                                snprintf(port_info, sizeof(port_info), "  [%zu] %s:%d (%s) - %s\n",
+                                    i, replica->ip_address.c_str(), replica->m_tx_port,
+                                    replica->mod.name, type_str);
+                                port_list += port_info;
+                            }
+                        }
+                    // Also print to console for debugging
+                    fprintf(stderr, "%s", port_list.c_str());
+                    fflush(stderr);
+                    // Send back to netcat client
+                    r = new_response(RESPONSE_OK, port_list.c_str());
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
                 // format of parameters is either:
                 // <host>:<port> [<compression>]
@@ -482,7 +531,7 @@ static void *writer(void *arg)
 
             // distribute it to output ports that don't need transcoding
 #ifdef _WIN32
-            // send it asynchronously in MSW (performance optimalization)
+            // send it asynchronously in MSW (performance optimization)
             SleepEx(0, true); // allow system to call our completion routines in APC
             int ref = 0;
             for (unsigned int i = 0; i < s->replicas.size(); i++) {

@@ -852,7 +852,6 @@ static void * control_thread(void *args)
                                         socket_error("[control socket] accept");
                                         continue;
                                 }
-
                                 // all remote sockets are written sequentially so
                                 // we don't want to block if one gets stuck
                                 set_socket_nonblock(fd);
@@ -1063,7 +1062,8 @@ get_control_state(struct module *mod)
         return (struct control_state *) control_mod->priv_data;
 }
 
-static void print_control_help() {
+
+    static void print_control_help() {
         color_printf("Control internal commands:\n"
                         TBOLD("\texit") "\n"
                         TBOLD("\tpause") "\n"
@@ -1081,10 +1081,14 @@ static void print_control_help() {
                                 " - (un)mutes audio sender or receiver\n"
                         TBOLD("\tpostprocess <new_postprocess> | flush") "\n"
                         TBOLD("\tdump-tree")"\n");
+        color_printf("\nHD-RUM Translator commands:\n"
+                        TBOLD("\tcreate-port <host:port> [compression]") " - create new output port\n"
+                        TBOLD("\tdelete-port <index|ip_address|port_name>") " - remove output port\n"
+                        TBOLD("\tlist-ports") " - show all configured output ports and their IP addresses\n");
         color_printf("\nOther commands can be issued directly to individual "
                         "modules (see \"" TBOLD("dump-tree") "\"), eg.:\n"
                         "\t" TBOLD("capture.filter mirror") "\n"
                         "\nSometimes those modules support help (eg. \"" TBOLD("capture.filter help") "\")\n\n");
         color_printf(TBOLD(u8"¹") " audio commands applying to receiver\n\n");
-}
+    }
 
