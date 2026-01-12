@@ -63,14 +63,23 @@ void spout_sender_unregister(void *s) {
 void spout_set_log_level(void *s, int ug_level) {
         auto *spout = static_cast<SPOUTHANDLE>(s);
         enum SpoutLibLogLevel l;
+        // SPOUT_LOG_SILENT  (0) - Disable all messages
+	// SPOUT_LOG_VERBOSE (1) - Show all messages
+	// SPOUT_LOG_NOTICE  (2) - Show information messages - default
+	// SPOUT_LOG_WARNING (3) - Something might go wrong
+	// SPOUT_LOG_ERROR   (4) - Something did go wrong
+	// SPOUT_LOG_FATAL   (5) - Something bad happened
         switch (ug_level) {
-                case LOG_LEVEL_QUIET: l = SPOUT_LOG_SILENT; break;
-                case LOG_LEVEL_FATAL:
-                case LOG_LEVEL_ERROR:
-                case LOG_LEVEL_WARNING: l = (enum SpoutLibLogLevel) (7 - ug_level); break;
-                case LOG_LEVEL_NOTICE:
-                case LOG_LEVEL_INFO: l = SPOUT_LOG_NOTICE; break;
-                default: l = SPOUT_LOG_VERBOSE;
+        // clang-format off
+        case LOG_LEVEL_QUIET:   l = SPOUT_LOG_SILENT; break;
+        case LOG_LEVEL_FATAL:   l = SPOUT_LOG_FATAL; break;
+        case LOG_LEVEL_ERROR:   l = SPOUT_LOG_ERROR; break;
+        case LOG_LEVEL_WARNING:
+        case LOG_LEVEL_NOTICE:
+        case LOG_LEVEL_INFO:    l = SPOUT_LOG_WARNING; break;
+        case LOG_LEVEL_VERBOSE: l = SPOUT_LOG_NOTICE; break; // this is a bit chatty...
+        default:                l = SPOUT_LOG_VERBOSE; break;
+        // clang-format on
         }
 
         spout->SetSpoutLogLevel(l);
