@@ -63,7 +63,7 @@ void module_init_default(struct module *module_data)
 static void
 module_mutex_lock(pthread_mutex_t *lock)
 {
-        MSG(DEBUG, "Locking lock %p\n", lock);
+        MSG(DEBUG2, "Locking lock %p\n", lock);
 
  #if _POSIX_TIMEOUTS > 0 // macOS doesn't have pthread_mutex_timedlock()
         struct timespec ts;
@@ -89,7 +89,7 @@ module_mutex_lock(pthread_mutex_t *lock)
 static void
 module_mutex_unlock(pthread_mutex_t *lock)
 {
-        MSG(DEBUG, "Unlocking lock %p\n", lock);
+        MSG(DEBUG2, "Unlocking lock %p\n", lock);
         pthread_mutex_unlock(lock);
 }
 
