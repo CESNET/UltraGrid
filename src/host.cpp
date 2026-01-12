@@ -192,6 +192,16 @@ void *mainloop_udata;
 // required for NVCC+MSVC compiled objs if /nodefaultlib is used
 extern "C" int _fltused = 0;
 #endif
+#ifdef _WIN32
+extern "C" {
+// this is a bit dirty because this assumes that the this static initialization
+// happens before NV pre-main init (it doesn't work /isn't honored/ if run from
+// main!); but it is actually (currently) true (possibly implementation
+// defined?). Values: 0 - autoselect; 1 - enforce nvidia
+__declspec(dllexport) unsigned long NvOptimusEnablement =
+    getenv("NV_OPTIMUS_ENABLEMENT") ? atoi(getenv("NV_OPTIMUS_ENABLEMENT")) : 0;
+}
+#endif
 
 struct init_data {
         bool com_initialized = false;
