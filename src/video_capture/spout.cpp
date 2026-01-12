@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2023 CESNET z.s.p.o.
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 
 #include <array>
 #include <cctype>
+#include <cstdlib>        // for abort
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -81,6 +82,21 @@ struct state_vidcap_spout {
         int frames;
 };
 
+static shared_ptr<SPOUTLIBRARY>
+get_spout(bool probe)
+{
+        SPOUTLIBRARY *receiver = GetSpout();
+        if (receiver == nullptr) {
+                int ll = probe ? LOG_LEVEL_VERBOSE : LOG_LEVEL_ERROR;
+                log_msg(ll, MOD_NAME "Error creating Spout state!\n");
+                if (probe) {
+                        return {};
+                }
+                abort();
+        }
+        return shared_ptr<SPOUTLIBRARY>(receiver, [](auto s) { s->Release(); });
+}
+
 static void usage()
 {
         col() << "Usage:\n";
@@ -90,7 +106,7 @@ static void usage()
         col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
         col() << "\t" << TBOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
         col() << "\nServers:\n";
-        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+        auto receiver = get_spout(false);
         int count = receiver->GetSenderCount();
 
         for (int i = 0; i < count; ++i) {
@@ -182,7 +198,7 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         }
         gl_context_make_current(&s->glc);
 
-        s->spout_state = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+        s->spout_state = get_spout(false);
         spout_set_log_level(s->spout_state.get(), log_level);
         if (strlen(s->server_name) != 0) {
                 s->spout_state->SetReceiverName(s->server_name);
@@ -257,7 +273,10 @@ static void vidcap_spout_probe(device_info **available_cards, int *count, void (
         *deleter = free;
         *count = 0;
 
-        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+        auto receiver = get_spout(true);
+        if (!receiver) {
+                return;
+        }
 
         int sender_count = receiver->GetSenderCount();
 
