@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2017-2026 CESNET, zajmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,4 +74,5 @@ void spout_set_log_level(void *s, int ug_level) {
         }
 
         spout->SetSpoutLogLevel(l);
+        spout->EnableSpoutLog();
 }
