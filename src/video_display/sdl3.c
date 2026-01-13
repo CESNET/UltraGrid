@@ -1011,6 +1011,16 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
         s->hints = dictionary_init();
+        s->free_frame_queue = simple_linked_list_init();
+
+        module_init_default(&s->mod);
+        s->mod.new_message = display_sdl3_new_message;
+        s->mod.cls         = MODULE_CLASS_DATA;
+        module_register(&s->mod, parent);
+
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->frame_consumed_cv, NULL);
+        pthread_cond_init(&s->reconfigured_cv, NULL);
 
         if (fmt == NULL) {
                 fmt = "";
@@ -1031,7 +1041,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         s->fs = true;
                 } else if (IS_PREFIX(tok, "help") || strcmp(tok, "fullhelp") == 0) {
                         show_help(driver, strcmp(tok, "fullhelp") == 0);
-                        free(s);
+                        display_sdl3_done(s);
                         return INIT_NOERR;
                 } else if (IS_PREFIX(tok, "novsync")) {
                         s->vsync = false;
@@ -1042,7 +1052,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                 } else if (IS_KEY_PREFIX(tok, "fixed_size") ||
                            IS_KEY_PREFIX(tok, "size")) {
                         if (!set_size(s, tok)) {
-                                free(s);
+                                display_sdl3_done(s);
                                 return NULL;
                         }
                 } else if (strcmp(tok, "fixed_size") == 0) {
@@ -1055,7 +1065,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         if (sscanf(strchr(tok, '=') + 1, "%i", &f) != 1) {
                                 log_msg(LOG_LEVEL_ERROR,
                                         "Wrong window_flags: %s\n", tok);
-                                free(s);
+                                display_sdl3_done(s);
                                 return NULL;
                         }
                         s->window_flags |= f;
@@ -1063,7 +1073,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         tok = strchr(tok, '=') + 1;
                         if (strchr(tok, ',') == NULL) {
                                 MSG(ERROR, "position: %s\n", tok);
-                                free(s);
+                                display_sdl3_done(s);
                                 return NULL;
                         }
                         s->x = atoi(tok);
@@ -1085,7 +1095,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
                         s->show_cursor = true;
                 } else {
                         MSG(ERROR, "Wrong option: %s\n", tok);
-                        free(s);
+                        display_sdl3_done(s);
                         return NULL;
                 }
                 tmp = NULL;
@@ -1111,13 +1121,13 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
                 MSG(ERROR, "Unable to initialize SDL3 video: %s\n",
                     SDL_GetError());
-                free(s);
+                display_sdl3_done(s);
                 return NULL;
         }
         if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
                 MSG(ERROR, "Unable to initialize SDL3 events: %s\n",
                     SDL_GetError());
-                free(s);
+                display_sdl3_done(s);
                 return NULL;
         }
         MSG(NOTICE, "Using driver: %s\n", SDL_GetCurrentVideoDriver());
@@ -1127,21 +1137,10 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int flags)
         }
         SDL_CHECK(SDL_DisableScreenSaver());
 
-        module_init_default(&s->mod);
-        s->mod.new_message = display_sdl3_new_message;
-        s->mod.cls         = MODULE_CLASS_DATA;
-        module_register(&s->mod, parent);
-
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->frame_consumed_cv, NULL);
-        pthread_cond_init(&s->reconfigured_cv, NULL);
-
         s->sdl_user_new_frame_event = SDL_RegisterEvents(3);
         assert(s->sdl_user_new_frame_event != (Uint32) -1);
         s->sdl_user_new_message_event = s->sdl_user_new_frame_event + 1;
         s->sdl_user_reconfigure_event = s->sdl_user_new_frame_event + 2;
-
-        s->free_frame_queue = simple_linked_list_init();
 
         for (unsigned int i = 0; i < sizeof keybindings / sizeof keybindings[0];
              ++i) {
