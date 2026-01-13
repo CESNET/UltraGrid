@@ -83,9 +83,9 @@ struct state_video_compress_jpegxs {
                 cleanup();
         }
 
-        svt_jpeg_xs_encoder_api_t encoder;
-        svt_jpeg_xs_image_config_t image_config;
-        svt_jpeg_xs_frame_pool_t *frame_pool;
+        svt_jpeg_xs_encoder_api_t encoder{};
+        svt_jpeg_xs_image_config_t image_config{};
+        svt_jpeg_xs_frame_pool_t *frame_pool{};
         int pool_size = DEFAULT_POOL_SIZE;
 
         bool configured = 0;
@@ -96,7 +96,7 @@ struct state_video_compress_jpegxs {
 
         video_frame_pool pool;
 
-        void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
+        void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst) = nullptr;
         
         void cleanup();
         bool parse_fmt(char *fmt);
