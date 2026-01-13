@@ -440,7 +440,7 @@ static void *writer(void *arg)
                 } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
                         strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
                     // List all current root ports and their IP addresses
-                    string port_list = "Root ports:\n";
+                    string port_list = "\nRoot ports:\n";
                     if (s->replicas.empty()) {
                         port_list += "  No ports configured.\n";
                     } else {
@@ -488,6 +488,22 @@ static void *writer(void *arg)
                         continue;
                     }
                     char *compress = strtok_r(NULL, " ", &save_ptr);
+
+                    // Check if a replica with the same host and port already exists
+                    bool exists = false;
+                    for (auto r : s->replicas) {
+                        if (r->ip_address == host && r->m_tx_port == tx_port) {
+                            exists = true;
+                            break;
+                        }
+                    }
+
+                    if (exists) {
+                        log_msg(LOG_LEVEL_ERROR, "Output port %s:%d already exists.\n", host, tx_port);
+                        r = new_response(RESPONSE_CONFLICT, "Port already exists");
+                        free_message((struct message *) msg, r);
+                        continue;
+                    }
 
                     struct common_opts opts = { COMMON_OPTS_INIT };
                     int idx = create_output_port(s,
