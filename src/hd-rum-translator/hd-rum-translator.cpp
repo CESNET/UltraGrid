@@ -436,84 +436,81 @@ static void *writer(void *arg)
                     s->replicas.erase(s->replicas.begin() + index);
                     log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
                 }
-            } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
-                       strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
-                           // Debug: Check what we actually have
-                           fprintf(stderr, "[DEBUG] s->replicas.size() = %zu\n", s->replicas.size());
-                           // List all current root ports and their IP addresses
-                           string port_list = "Root ports:\n";
-                           if (s->replicas.empty()) {
-                           port_list += "  No ports configured.\n";
-                        } else {
-                            for (size_t i = 0; i < s->replicas.size(); i++) {
-                                const auto& replica = s->replicas[i];
-                                const char* type_str = (replica->type == replica::type_t::USE_SOCK) ? "forwarding" :
-                                                 (replica->type == replica::type_t::RECOMPRESS) ? "transcoding" : "none";
-                                char port_info[512];
-                                snprintf(port_info, sizeof(port_info), "  [%zu] %s:%d (%s) - %s\n",
-                                    i, replica->ip_address.c_str(), replica->m_tx_port,
-                                    replica->mod.name, type_str);
-                                port_list += port_info;
-                            }
-                        }
-                    // Also print to console for debugging
-                    fprintf(stderr, "%s", port_list.c_str());
-                    fflush(stderr);
-                    // Send back to netcat client
-                    r = new_response(RESPONSE_OK, port_list.c_str());
-            } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
-                // format of parameters is either:
-                // <host>:<port> [<compression>]
-                // or (for compat with older CoUniverse version)
-                // <host> <port> [<compression>]
-                char *host_port, *port_str = NULL, *save_ptr;
-                char *host;
-                int tx_port;
-                strtok_r(msg->text, " ", &save_ptr);
-                host_port = strtok_r(NULL, " ", &save_ptr);
-                if (host_port && (strchr(host_port, ':') != NULL || (port_str = strtok_r(NULL, " ", &save_ptr)) != NULL)) {
-                    if (port_str) {
-                        host = host_port;
-                        tx_port = stoi(port_str);
+                r = new_response(RESPONSE_OK, NULL);
+                } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
+                        strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
+                    // List all current root ports and their IP addresses
+                    string port_list = "Root ports:\n";
+                    if (s->replicas.empty()) {
+                        port_list += "  No ports configured.\n";
                     } else {
-                        tx_port = stoi(strrchr(host_port, ':') + 1);
-                        host = host_port;
-                        *strrchr(host_port, ':') = '\0';
+                        for (size_t i = 0; i < s->replicas.size(); i++) {
+                            const auto& replica = s->replicas[i];
+                            const char* type_str = (replica->type == replica::type_t::USE_SOCK) ? "forwarding" :
+                                (replica->type == replica::type_t::RECOMPRESS) ? "transcoding" : "none";
+                            char port_info[512];
+                            snprintf(port_info, sizeof(port_info), "[%zu] %s:%d (%s) - %s\n",
+                                i, replica->ip_address.c_str(), replica->m_tx_port,
+                                replica->mod.name, type_str);
+                                port_list += port_info;  // FIXED: was port_list += port_list
+                        }
                     }
-                    // handle square brackets around an IPv6 address
-                    if (host[0] == '[' && host[strlen(host) - 1] == ']') {
-                        host += 1;
-                        host[strlen(host) - 1] = '\0';
+                    log_msg(LOG_LEVEL_NOTICE, "Ports: %s\n", port_list.c_str());
+                    r = new_response(RESPONSE_OK, port_list.c_str());
+                } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
+                    // format of parameters is either:
+                    // <host>:<port> [<compression>]
+                    // or (for compat with older CoUniverse version)
+                    // <host> <port> [<compression>]
+                    char *host_port, *port_str = NULL, *save_ptr;
+                    char *host;
+                    int tx_port;
+                    strtok_r(msg->text, " ", &save_ptr);
+                    host_port = strtok_r(NULL, " ", &save_ptr);
+                    if (host_port && (strchr(host_port, ':') != NULL || (port_str = strtok_r(NULL, " ", &save_ptr)) != NULL)) {
+                        if (port_str) {
+                            host = host_port;
+                            tx_port = stoi(port_str);
+                        } else {
+                            tx_port = stoi(strrchr(host_port, ':') + 1);
+                            host = host_port;
+                            *strrchr(host_port, ':') = '\0';
+                        }
+                        // handle square brackets around an IPv6 address
+                        if (host[0] == '[' && host[strlen(host) - 1] == ']') {
+                            host += 1;
+                            host[strlen(host) - 1] = '\0';
+                        }
+                    } else {
+                        const char *err_msg = "wrong format";
+                        log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
+                        free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
+                        continue;
                     }
+                    char *compress = strtok_r(NULL, " ", &save_ptr);
+
+                    struct common_opts opts = { COMMON_OPTS_INIT };
+                    int idx = create_output_port(s,
+                            host, 0, tx_port, s->bufsize, &opts,
+                            compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
+
+                    if(idx < 0) {
+                        r = new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port.");
+                        continue;
+                    }
+
+                    if(compress)
+                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
+                    else
+                        log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
+
+                    r = new_response(RESPONSE_OK, NULL);
                 } else {
-                    const char *err_msg = "wrong format";
-                    log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
-                    free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
-                    continue;
-                }
-                char *compress = strtok_r(NULL, " ", &save_ptr);
-
-                struct common_opts opts = { COMMON_OPTS_INIT };
-                int idx = create_output_port(s,
-                        host, 0, tx_port, s->bufsize, &opts,
-                        compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
-
-                if(idx < 0) {
-                    free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port."));
-                    continue;
+                    r = new_response(RESPONSE_BAD_REQUEST, NULL);
                 }
 
-                if(compress)
-                    log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
-                else
-                    log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
-
-            } else {
-                r = new_response(RESPONSE_BAD_REQUEST, NULL);
+                free_message((struct message *) msg, r);
             }
-
-            free_message((struct message *) msg, r ? r : new_response(RESPONSE_OK, NULL));
-        }
 
         // then process incoming packets
         while (s->qhead != s->qtail) {
@@ -574,10 +571,16 @@ static void *writer(void *arg)
             pthread_cond_signal(&s->qfull_cond);
             pthread_mutex_unlock(&s->qfull_mtx);
         }
-
         pthread_mutex_lock(&s->qempty_mtx);
-        if (s->qempty)
-            pthread_cond_wait(&s->qempty_cond, &s->qempty_mtx);
+        if (s->qempty) {
+            // Use timed wait instead of indefinite wait so we can process messages periodically
+            struct timespec timeout;
+            struct timeval now;
+            gettimeofday(&now, NULL);
+            timeout.tv_sec = now.tv_sec + 1;  // Wake up every 1 second
+            timeout.tv_nsec = now.tv_usec * 1000;
+            pthread_cond_timedwait(&s->qempty_cond, &s->qempty_mtx, &timeout);
+        }
         s->qempty = 1;
         pthread_mutex_unlock(&s->qempty_mtx);
     }
