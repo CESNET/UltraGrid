@@ -56,15 +56,15 @@ struct state_decompress_jpegxs {
                         svt_jpeg_xs_decoder_close(&decoder);
                 }
         }
-        svt_jpeg_xs_decoder_api_t decoder;
-        svt_jpeg_xs_image_config_t image_config;
-        svt_jpeg_xs_frame_pool_t *frame_pool;
+        svt_jpeg_xs_decoder_api_t decoder{};
+        svt_jpeg_xs_image_config_t image_config{};
+        svt_jpeg_xs_frame_pool_t *frame_pool{};
         
         bool configured = 0;
 
-        void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst);
+        void (*convert_from_planar)(const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst) = nullptr;
 
-        struct video_desc desc;
+        struct video_desc desc{};
         int rshift, gshift, bshift;
         int pitch;
         codec_t out_codec;
