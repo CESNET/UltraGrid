@@ -295,6 +295,14 @@ usage(bool full = false)
                 print_help_item("--video-codecs", {"list of video codecs"});
         }
         print_help_item("address", {"destination address"});
+        if (full) {
+                color_printf("Environment variables: "
+                             TBOLD("NDILIB_REDIST_FOLDER")
+#ifdef _WIN32
+                              ", " TBOLD("NV_OPTIMUS_ENABLEMENT")
+#endif
+                             " and others (less important)\n");
+        }
         printf("\n");
 }
 
