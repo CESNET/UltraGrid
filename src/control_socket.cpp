@@ -655,17 +655,25 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 dump_tree(s->root_module, 0);
                 resp = new_response(RESPONSE_OK, NULL);
         } else { // assume message in format "path message"
-                struct msg_universal *msg = (struct msg_universal *)
-                        new_message(sizeof(struct msg_universal));
+            struct msg_universal *msg = (struct msg_universal *)
+            new_message(sizeof(struct msg_universal));
 
-                if (strchr(message, ' ')) {
-                        memcpy(path, message, strchr(message, ' ') - message);
-                        strncpy(msg->text, strchr(message, ' ') + 1, sizeof(path) - 1);
-                } else {
-                        strncpy(path, message, sizeof(path) - 1); // empty message ??
+            if (strchr(message, ' ')) {
+                size_t path_len = strchr(message, ' ') - message;
+                memcpy(path, message, path_len);
+                path[path_len] = '\0';
+                strncpy(msg->text, strchr(message, ' ') + 1, sizeof(msg->text) - 1);
+
+                // If path is "root", send directly to root module
+                if (strcmp(path, "root") == 0) {
+                    path[0] = '\0';
                 }
+            } else {
+                path[0] = '\0';
+                strncpy(msg->text, message, sizeof(msg->text) - 1);
+            }
 
-                resp = send_message(s->root_module, path, (struct message *) msg);
+            resp = send_message_sync(s->root_module, path, (struct message *) msg, 100, 0);
         }
 
         if(!resp) {
@@ -695,8 +703,12 @@ static void send_response(fd_t fd, struct response *resp)
         if (ret < 0) {
                 socket_error("Unable to write response");
         }
+    #ifndef _WIN32
+            // Force flush on POSIX systems
+            fsync(fd);
+    #endif
 
-        free_response(resp);
+    free_response(resp);
 }
 
 static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int *new_buffer_len)
