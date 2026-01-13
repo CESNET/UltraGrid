@@ -572,7 +572,7 @@ gl_print_current_platform()
 }
 #endif // not defined GLFW_PLATFORM
 
-#define FEATURE_PRESENT(x) (strcmp(STRINGIFY(x), "1") == 0 ? "on" : "off")
+#define FEATURE_PRESENT(x) (STRINGIFY(x)[0] == 1 ? "on" : "off")
 
 /**
  * Show help
