@@ -3166,6 +3166,10 @@ av_to_uv_convert(const av_to_uv_convert_t *convert,
 int
 from_lavc_pf_priority(struct pixfmt_desc internal, codec_t ugc)
 {
+        if (codec_is_hw_accelerated(ugc)) {
+                return VDEC_PRIO_NA;
+        }
+
         bool found_a_conversion = false;
         for (unsigned i = 0; i < ARR_COUNT(av_to_uv_conversions); i++) {
                 if (av_to_uv_conversions[i].uv_codec == ugc) {
