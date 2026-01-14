@@ -1095,8 +1095,6 @@ AC_ARG_ENABLE(deltacast,
               [deltacast_req=$enableval],
               [deltacast_req=$build_default]
               )
-DELTACAST_PATH=$DELTACAST_DIRECTORY
-
 AC_ARG_WITH(deltacast,
             [  --with-deltacast=DIR    specify location of DELTACAST],
             [DELTACAST_PATH=$withval
@@ -1106,6 +1104,13 @@ if test "$deltacast_req" != no; then
         if test "$system" = Linux || test "$system" = Windows; then
                 AC_LANG_PUSH(C++)
 
+                if test ${system?} = Windows; then
+                        EXTRA_HEADERS="#include <windows.h>"
+                else
+                        DELTACAST_PATH=${DELTACAST_DIRECTORY:-/usr}
+                        EXTRA_HEADERS=
+                fi
+
                 if test -n "$DELTACAST_PATH"; then
                         DELTA_INC="-I$DELTACAST_PATH/Include\
  -I$DELTACAST_PATH/include/videomaster"
@@ -1113,12 +1118,6 @@ if test "$deltacast_req" != no; then
                         CXXFLAGS="$CXXFLAGS ${DELTA_INC?}"
                         CPPFLAGS_SAVE=$CPPFLAGS
                         CPPFLAGS="$CPPFLAGS ${DELTA_INC?}"
-                fi
-
-                if test $system = Windows; then
-                        EXTRA_HEADERS="#include <windows.h>"
-                else
-                        EXTRA_HEADERS=
                 fi
 
                 AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
@@ -1137,7 +1136,7 @@ if test "$deltacast_req" != no; then
                 if test -n "$DELTACAST_PATH"; then
                         if test "${ac_cv_sizeof_int_p?}" -eq 8 &&
                         test "${system?}" = Linux; then
-                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
+                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/lib"
                         else
                                 DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
                         fi
