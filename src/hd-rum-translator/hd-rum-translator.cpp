@@ -333,8 +333,18 @@ static int create_output_port(struct hd_rum_translator_state *s,
 {
         struct replica *rep;
         try {
-            rep = new replica(addr, rx_port, tx_port, bufsize, &s->mod,
+            // Process the address string to handle IPv6 brackets
+            char *processed_addr = strdup(addr);
+            if (processed_addr[0] == '[' && processed_addr[strlen(processed_addr) - 1] == ']') {
+                processed_addr[0] = '\0';
+                memmove(processed_addr, processed_addr + 1, strlen(processed_addr));
+                processed_addr[strlen(processed_addr) - 1] = '\0';
+            }
+
+            rep = new replica(processed_addr, rx_port, tx_port, bufsize, &s->mod,
                               common->force_ip_version);
+            free(processed_addr);
+
             if(use_server_sock){
                     rep->sock = s->server_socket;
             }
@@ -362,7 +372,8 @@ static int create_output_port(struct hd_rum_translator_state *s,
         }
 
         assert((unsigned) idx == s->replicas.size() - 1);
-        recompress_port_set_active(s->recompress, idx, compression != nullptr);
+        recompress_port_set_active(s->recompress, idx,
+            rep->type == replica::type_t::RECOMPRESS);
 
         return idx;
 }
@@ -407,10 +418,10 @@ static void *writer(void *arg)
                     int i = 0;
                     // Check for IP address match first
                     for (auto r : s->replicas) {
-                    // Ensure replica and its IP address are valid before comparing
-                    if (!r->ip_address.empty() && r->ip_address == port_spec) {
-                        index = i;
-                        break;
+                        // Ensure replica and its IP address are valid before comparing
+                        if (!r->ip_address.empty() && r->ip_address == port_spec) {
+                            index = i;
+                            break;
                         }
                         i++;
                     }
@@ -434,13 +445,19 @@ static void *writer(void *arg)
                     recompress_remove_port(s->recompress, index);
                     delete s->replicas[index];
                     s->replicas.erase(s->replicas.begin() + index);
-                    log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
+
+                    char buffer[256];
+                    snprintf(buffer, sizeof(buffer), "Deleted output port %d.\n", index);
+                    log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                    r = new_response(RESPONSE_OK, buffer);
+                } else {
+                    r = new_response(RESPONSE_NOT_FOUND, "Port not found");
                 }
-                r = new_response(RESPONSE_OK, NULL);
+
                 } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
                         strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
                     // List all current root ports and their IP addresses
-                    string port_list = "\nRoot ports:\n";
+                    string port_list = "\n";
                     if (s->replicas.empty()) {
                         port_list += "  No ports configured.\n";
                     } else {
@@ -455,8 +472,10 @@ static void *writer(void *arg)
                                 port_list += port_info;  // FIXED: was port_list += port_list
                         }
                     }
-                    log_msg(LOG_LEVEL_NOTICE, "Ports: %s\n", port_list.c_str());
-                    r = new_response(RESPONSE_OK, port_list.c_str());
+                    char buffer[2048];
+                    snprintf(buffer, sizeof(buffer), "Ports: %s\n", port_list.c_str());
+                    log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                    r = new_response(RESPONSE_OK, buffer);
                 } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
                     // format of parameters is either:
                     // <host>:<port> [<compression>]
@@ -515,19 +534,21 @@ static void *writer(void *arg)
                         continue;
                     }
 
-                    if(compress)
-                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
-                    else
-                        log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
-
-                    r = new_response(RESPONSE_OK, NULL);
-                } else {
-                    r = new_response(RESPONSE_BAD_REQUEST, NULL);
-                }
+                    if(compress) {
+                        char buffer[256];
+                        snprintf(buffer, sizeof(buffer), "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
+                        log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                        r = new_response(RESPONSE_OK, buffer);
+                    } else {
+                        char buffer[256];
+                        snprintf(buffer, sizeof(buffer), "Created new forwarding output port %s:%d.\n", host, tx_port);
+                        log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                        r = new_response(RESPONSE_OK, buffer);
+                    }
 
                 free_message((struct message *) msg, r);
             }
-
+        }
         // then process incoming packets
         while (s->qhead != s->qtail) {
             if(s->qhead->size == 0) { // poisoned pill
@@ -593,14 +614,13 @@ static void *writer(void *arg)
             struct timespec timeout;
             struct timeval now;
             gettimeofday(&now, NULL);
-            timeout.tv_sec = now.tv_sec + 1;  // Wake up every 1 second
-            timeout.tv_nsec = now.tv_usec * 1000;
+            timeout.tv_sec = now.tv_sec + 0;
+            timeout.tv_nsec = now.tv_usec * 1000 + 500000;
             pthread_cond_timedwait(&s->qempty_cond, &s->qempty_mtx, &timeout);
         }
         s->qempty = 1;
         pthread_mutex_unlock(&s->qempty_mtx);
     }
-
     return NULL;
 }
 
