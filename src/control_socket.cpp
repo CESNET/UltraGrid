@@ -88,7 +88,7 @@ using namespace std;
 
 struct client {
         fd_t fd;
-        char buff[1024];
+        char buff[2048];
         int buff_len;
 
         struct client *prev;

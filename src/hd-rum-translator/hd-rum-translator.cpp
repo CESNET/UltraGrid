@@ -134,7 +134,7 @@ struct replica {
     struct module mod;
     uint32_t magic;
     string host;
-    string ip_address; // Add this field for IP-based identification
+    string ip_address;
     int m_tx_port;
 
     enum type_t {
@@ -148,9 +148,13 @@ struct replica {
     socklen_t sockaddr_len;
 };
 
+void writer_new_message_callback(struct module *m);
+
 struct hd_rum_translator_state {
     hd_rum_translator_state() {
         init_root_module(&mod);
+        mod.priv_data = this;
+        mod.new_message = writer_new_message_callback;
         pthread_mutex_init(&qempty_mtx, NULL);
         pthread_mutex_init(&qfull_mtx, NULL);
         pthread_cond_init(&qempty_cond, NULL);
@@ -378,6 +382,18 @@ static int create_output_port(struct hd_rum_translator_state *s,
         return idx;
 }
 
+void writer_new_message_callback(struct module *m) {
+    // add callback function
+    struct hd_rum_translator_state *s = (struct hd_rum_translator_state *) m->priv_data;
+    if (s) {
+        log_msg(LOG_LEVEL_DEBUG, "Message callback triggered, waking up writer thread\n");
+        // Wake up the writer thread when a new message arrives
+        pthread_mutex_lock(&s->qempty_mtx);
+        pthread_cond_signal(&s->qempty_cond);
+        pthread_mutex_unlock(&s->qempty_mtx);
+    }
+}
+
 static void *writer(void *arg)
 {
     struct hd_rum_translator_state *s =
@@ -397,6 +413,7 @@ static void *writer(void *arg)
         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
             struct response *r = NULL;
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
+                char buffer[2048];
                 char *port_spec = msg->text + strlen("delete-port ");
                 int index = -1;
                 bool is_all_digits = true;
@@ -412,6 +429,7 @@ static void *writer(void *arg)
                         index = i;
                     } else {
                         log_msg(LOG_LEVEL_WARNING, "Invalid port index: %d. Not removing.\n", i);
+                        snprintf(buffer, sizeof(buffer), "Invalid port index: %d. Not removing.\n", i);
                     }
                 } else {
                     // It's not all digits, so treat as IP address or name
@@ -439,23 +457,26 @@ static void *writer(void *arg)
                     // Log if neither IP address or name matches
                     if (index == -1) {
                         log_msg(LOG_LEVEL_WARNING, "Unknown port (IP or name): %s. Not removing.\n", port_spec);
+                        snprintf(buffer, sizeof(buffer), "Unknown port (IP or name): %s. Not removing.\n", port_spec);
                     }
                 }
                 if (index >= 0) {
                     recompress_remove_port(s->recompress, index);
                     delete s->replicas[index];
                     s->replicas.erase(s->replicas.begin() + index);
-
-                    char buffer[256];
                     snprintf(buffer, sizeof(buffer), "Deleted output port %d.\n", index);
                     log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
                     r = new_response(RESPONSE_OK, buffer);
                 } else {
                     r = new_response(RESPONSE_NOT_FOUND, "Port not found");
                 }
-
+                log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                r = new_response(RESPONSE_OK, buffer);
+                free_message((struct message *) msg, r);
+                continue;
                 } else if (strncasecmp(msg->text, "list-ports", strlen("list-ports")) == 0 ||
                         strncasecmp(msg->text, "query-ports", strlen("query-ports")) == 0) {
+                    char buffer[2048];
                     // List all current root ports and their IP addresses
                     string port_list = "\n";
                     if (s->replicas.empty()) {
@@ -472,15 +493,17 @@ static void *writer(void *arg)
                                 port_list += port_info;  // FIXED: was port_list += port_list
                         }
                     }
-                    char buffer[2048];
                     snprintf(buffer, sizeof(buffer), "Ports: %s\n", port_list.c_str());
                     log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
                     r = new_response(RESPONSE_OK, buffer);
+                    free_message((struct message *) msg, r);
+                    continue;
                 } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
                     // format of parameters is either:
                     // <host>:<port> [<compression>]
                     // or (for compat with older CoUniverse version)
                     // <host> <port> [<compression>]
+                    char buffer[2048];
                     char *host_port, *port_str = NULL, *save_ptr;
                     char *host;
                     int tx_port;
@@ -501,7 +524,7 @@ static void *writer(void *arg)
                             host[strlen(host) - 1] = '\0';
                         }
                     } else {
-                        const char *err_msg = "wrong format";
+                        const char *err_msg = "wrong format\n";
                         log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
                         free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
                         continue;
@@ -519,7 +542,7 @@ static void *writer(void *arg)
 
                     if (exists) {
                         log_msg(LOG_LEVEL_ERROR, "Output port %s:%d already exists.\n", host, tx_port);
-                        r = new_response(RESPONSE_CONFLICT, "Port already exists");
+                        r = new_response(RESPONSE_CONFLICT, "Port already exists\n");
                         free_message((struct message *) msg, r);
                         continue;
                     }
@@ -530,23 +553,19 @@ static void *writer(void *arg)
                             compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
 
                     if(idx < 0) {
-                        r = new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port.");
+                        r = new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port.\n");
                         continue;
                     }
 
                     if(compress) {
-                        char buffer[256];
                         snprintf(buffer, sizeof(buffer), "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
-                        log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
-                        r = new_response(RESPONSE_OK, buffer);
                     } else {
-                        char buffer[256];
                         snprintf(buffer, sizeof(buffer), "Created new forwarding output port %s:%d.\n", host, tx_port);
-                        log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
-                        r = new_response(RESPONSE_OK, buffer);
                     }
-
-                free_message((struct message *) msg, r);
+                    log_msg(LOG_LEVEL_NOTICE, "%s", buffer);
+                    r = new_response(RESPONSE_OK, buffer);
+                    free_message((struct message *) msg, r);
+                    continue;
             }
         }
         // then process incoming packets
@@ -610,13 +629,8 @@ static void *writer(void *arg)
         }
         pthread_mutex_lock(&s->qempty_mtx);
         if (s->qempty) {
-            // Use timed wait instead of indefinite wait so we can process messages periodically
-            struct timespec timeout;
-            struct timeval now;
-            gettimeofday(&now, NULL);
-            timeout.tv_sec = now.tv_sec + 0;
-            timeout.tv_nsec = now.tv_usec * 1000 + 500000;
-            pthread_cond_timedwait(&s->qempty_cond, &s->qempty_mtx, &timeout);
+            // Wait indefinitely - we'll be woken up by new packets or messages
+            pthread_cond_wait(&s->qempty_cond, &s->qempty_mtx);
         }
         s->qempty = 1;
         pthread_mutex_unlock(&s->qempty_mtx);
