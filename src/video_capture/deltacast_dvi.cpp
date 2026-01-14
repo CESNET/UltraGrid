@@ -729,9 +729,9 @@ vidcap_deltacast_dvi_done(void *state)
         VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_SLOTS_COUNT,
                               &SlotsCount);
         log_msg(SlotsDropped > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
-                "%" PRIu_ULONG " frames %s (%" PRIu_ULONG
+                "%" PRIu_ULONG " frames received (%" PRIu_ULONG
                          " dropped)\n",
-                SlotsCount, "hh", SlotsDropped);
+                SlotsCount, SlotsDropped);
         
         VHD_StopStream(s->StreamHandle);
         VHD_CloseStreamHandle(s->StreamHandle);
