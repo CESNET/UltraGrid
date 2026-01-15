@@ -520,6 +520,9 @@ if test $cuda_req != no; then
         # nvcc is intentional here
         AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
                 [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
+        if -z "$NVCC" && -e "$CUDACXX"; then
+                NVCC=$CUDACXX
+        fi
 fi
 
 if test -n "${NVCC?}" && test "${cross_compile?}" = no && test "${cuda_req?}" != no
