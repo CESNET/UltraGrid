@@ -1105,20 +1105,24 @@ if test "$deltacast_req" != no; then
                 AC_LANG_PUSH(C++)
 
                 if test ${system?} = Windows; then
+                        DELTACAST_PATH=\
+${DELTACAST_DIRECTORY:-/c/PROGRA~1/DELTACAST/VideoMaster/resources}
+                        DELTA_INC=-I$DELTACAST_PATH/include
+                        DELTACAST_LIB=-L$DELTACAST_PATH/lib
                         EXTRA_HEADERS="#include <windows.h>"
                 else
                         DELTACAST_PATH=${DELTACAST_DIRECTORY:-/usr}
+                        DELTA_INC=-I$DELTACAST_PATH/include/videomaster
+                        DELTA_INC="$DELTA_INC -I$DELTACAST_PATH/Include" # old SDK compat
+                        DELTACAST_LIB=-L$DELTACAST_PATH/lib
+                        # no lib path compat for old SDKs - install them with 'make install'
                         EXTRA_HEADERS=
                 fi
 
-                if test -n "$DELTACAST_PATH"; then
-                        DELTA_INC="-I$DELTACAST_PATH/Include\
- -I$DELTACAST_PATH/include/videomaster"
-                        CXXFLAGS_SAVE=$CXXFLAGS
-                        CXXFLAGS="$CXXFLAGS ${DELTA_INC?}"
-                        CPPFLAGS_SAVE=$CPPFLAGS
-                        CPPFLAGS="$CPPFLAGS ${DELTA_INC?}"
-                fi
+                CXXFLAGS_SAVE=$CXXFLAGS
+                CXXFLAGS="$CXXFLAGS ${DELTA_INC?}"
+                CPPFLAGS_SAVE=$CPPFLAGS
+                CPPFLAGS="$CPPFLAGS ${DELTA_INC?}"
 
                 AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
                                  [], [],
@@ -1132,15 +1136,7 @@ if test "$deltacast_req" != no; then
                                   ]])
 
                 SAVED_LIBS=$LIBS
-                DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
-                if test -n "$DELTACAST_PATH"; then
-                        if test "${ac_cv_sizeof_int_p?}" -eq 8 &&
-                        test "${system?}" = Linux; then
-                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/lib"
-                        else
-                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
-                        fi
-                fi
+                DELTACAST_LIB="$DELTACAST_LIB -lvideomasterhd_audio -lvideomasterhd"
                 LIBS="$LIBS $DELTACAST_LIB"
                 AC_MSG_CHECKING([DELTACAST library presence])
                 AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
