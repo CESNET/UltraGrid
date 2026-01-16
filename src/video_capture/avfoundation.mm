@@ -167,7 +167,11 @@ enum usage_verbosity {
         col() << "\t" << SBOLD("<uid>") << " is a device unique identifier\n";
         col() << "\t" << SBOLD("<fps>") << " is a number of frames per second (can be a number with a decimal point)\n";
         col() <<  "\t" << SBOLD("<fr_idx>") << " is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
-        col() <<"\t" << SBOLD("<preset>") << " may be " << SBOLD("\"low\"") << ", " << SBOLD("\"medium\"") << ", " << SBOLD("\"high\"") << ", " << SBOLD("\"VGA\"") << " or " << SBOLD("\"HD\"") << "\n";
+        color_printf("\t" TBOLD("<preset>") " may be " TBOLD("\"low\"") ", "
+                TBOLD("\"medium\"") ", " TBOLD("\"high\"") ", "
+                TBOLD("\"VGA\"") ", " TBOLD("\"HD\"") " or any "
+                "preset known by AVF such as "
+                TBOLD("AVCaptureSessionPresetPhoto") "\n");
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
         col() << "Examples:" << "\n";
@@ -440,7 +444,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                         if (it != preset_to_av.end()) {
                                 preset = it->second;
                         } else {
-                                NSLog(@"Unknown preset %@!", [params valueForKey:@"preset"]);
+                                // try the actual value
+                                preset = [params valueForKey:@"preset"];
                         }
                 }
                 MSG(INFO, "using preset: %s\n", [preset UTF8String]);
