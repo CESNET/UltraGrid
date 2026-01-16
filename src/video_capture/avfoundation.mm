@@ -292,8 +292,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 vector<CGDirectDisplayID> screens(num_screens);
                 CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
                 AVCaptureScreenInput* capture_screen_input =
-                        [[AVCaptureScreenInput alloc]
-                        initWithDisplayID:screens[idx]];
+                        [[[AVCaptureScreenInput alloc]
+                        initWithDisplayID:screens[idx]] autorelease];
                 capture_screen_input.capturesCursor = YES;
                 capture_screen_input.capturesMouseClicks = YES;
                 if (m_fps_req) {
@@ -498,6 +498,12 @@ fromConnection:(AVCaptureConnection *)connection
         [m_session stopRunning];
         [m_session release];
 
+        while (m_queue.size() > 0) {
+                struct video_frame *frame = m_queue.front();
+                VIDEO_FRAME_DISPOSE(frame);
+                m_queue.pop();
+        }
+
         [super dealloc];
 }
 
@@ -589,6 +595,7 @@ fromConnection:(AVCaptureConnection *)connection
 
 static void vidcap_avfoundation_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+@autoreleasepool {
         *deleter = free;
 
         struct device_info *cards = NULL;
@@ -637,11 +644,12 @@ static void vidcap_avfoundation_probe(struct device_info **available_cards, int 
         *available_cards = cards;
         *count = card_count;
 }
+}
 
 static NSMutableDictionary *
 parse_fmt(char *fmt)
 {
-        NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
+        NSMutableDictionary *init_params = [[[NSMutableDictionary alloc] init] autorelease];
         char                *item        = nullptr;
         char                *save_ptr    = nullptr;
         char                *cfg         = fmt;
@@ -676,8 +684,6 @@ parse_fmt(char *fmt)
                 NSString *key = [NSString stringWithCString:key_cstr
                         encoding:NSASCIIStringEncoding];
                 [init_params setObject:val forKey:key];
-                [key release];
-                [val release];
 
                 cfg = NULL;
         }
@@ -686,6 +692,7 @@ parse_fmt(char *fmt)
 
 static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
 {
+@autoreleasepool {
         if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
                 [vidcap_avfoundation_state usage: VERB_NORMAL];
                 return VIDCAP_INIT_NOERR;
@@ -714,13 +721,12 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
                 cerr << [[e reason] UTF8String] << "\n";
                 ret = nullptr;
         }
-        [init_params release];
-        if (ret) {
-                *state = ret;
-                return VIDCAP_INIT_OK;
-        } else {
+        if (!ret) {
                 return VIDCAP_INIT_FAIL;
         }
+        *state = ret;
+        return VIDCAP_INIT_OK;
+}
 }
 
 static void vidcap_avfoundation_done(void *state)
