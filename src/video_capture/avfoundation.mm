@@ -52,6 +52,7 @@
 #include "video_capture.h"
 
 #define MOD_NAME "[AVFoundation] "
+#define SCR_OFF 100
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
@@ -106,6 +107,7 @@ using std::chrono::milliseconds;
 @interface vidcap_avfoundation_state : NSObject
 {
         AVCaptureDevice *m_device;
+        bool             m_is_screen_cap;
         AVCaptureSession *m_session;
         mutex m_lock;
         condition_variable m_frame_ready;
@@ -178,10 +180,11 @@ enum usage_verbosity {
         // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                 int j = 0;
-                string default_dev = device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : "";
-                col() << default_dev << i++ << ": " << SBOLD([[device
-                        localizedName] UTF8String]) << " (uid: " <<
-                        [[device uniqueID] UTF8String] << ")\n";
+                const char *default_dev = device == [AVCaptureDevice
+                        defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : " ";
+                color_printf("%s%3d: " TBOLD("%s") " (uid: %s)\n", default_dev, i++,
+                        [[device localizedName] UTF8String],
+                        [[device uniqueID] UTF8String]);
                 if (verbose == VERB_SHORT) {
                         continue;
                 }
@@ -209,6 +212,17 @@ enum usage_verbosity {
                 }
                 col() << "\n";
         }
+
+        uint32_t num_screens    = 0;
+        CGGetActiveDisplayList(0, NULL, &num_screens);
+        if (num_screens > 0) {
+            CGDirectDisplayID screens[num_screens];
+            CGGetActiveDisplayList(num_screens, screens, &num_screens);
+            for (unsigned j = 0; j < num_screens; j++) {
+                color_printf("%4u: " TBOLD("Capture screen %u") "\n\n", SCR_OFF + j, j);
+            }
+        }
+
         col() << "device marked with an asterisk ('*') is default\n";
         if (verbose == VERB_NORMAL) {
                 col() << "(type '-t avfoundation:fullhelp' to see available framerates)\n";
@@ -231,8 +245,12 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 {
         self = [super init];
         bool use_preset = true;
+        int device_idx = [params valueForKey:@"device"]
+                ? [[params valueForKey:@"device"] intValue] : -1;
 
-        m_fps_req = 0.0;
+        m_fps_req = [params valueForKey:@"fps"]
+                ? [[params valueForKey:@"fps"] doubleValue] : 0;
+        m_is_screen_cap = device_idx >= SCR_OFF;
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
@@ -255,10 +273,27 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         // chosen device.
 
         // Find a suitable AVCaptureDevice
-        int device_idx = [params valueForKey:@"device"] ? [[params valueForKey:@"device"] intValue] : -1;
         NSString *device_uid = [params valueForKey:@"uid"];
         NSString *device_name = [params valueForKey:@"name"];
-        if (device_idx != -1 || device_name != nullptr ||
+        if (m_is_screen_cap) {
+                uint32_t num_screens    = 0;
+                CGGetActiveDisplayList(0, NULL, &num_screens);
+                unsigned idx = device_idx - SCR_OFF;
+                if (idx >= num_screens) {
+                        [NSException raise:@"Invalid argument" format:@"Screen capture device index %d is invalid", device_idx];
+                }
+                CGDirectDisplayID screens[num_screens];
+                CGGetActiveDisplayList(num_screens, screens, &num_screens);
+                AVCaptureScreenInput* capture_screen_input =
+                        [[AVCaptureScreenInput alloc]
+                        initWithDisplayID:screens[idx]];
+                capture_screen_input.capturesCursor = YES;
+                capture_screen_input.capturesMouseClicks = YES;
+                if (m_fps_req) {
+                        capture_screen_input.minFrameDuration = CMTimeMake(1, m_fps_req);
+                }
+                m_device = (AVCaptureDevice*) capture_screen_input;
+        } else if (device_idx != -1 || device_name != nullptr ||
             device_uid != nullptr) {
                 int i = -1;
                 for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
@@ -294,11 +329,14 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 [NSException raise:@"No device" format:@"No capture device was found!"];
         }
 
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: " << [[m_device localizedName] UTF8String] << "\n";
+        MSG(NOTICE, "Using device: %s\n", m_is_screen_cap
+                ? [[m_device description] UTF8String]
+                : [[m_device localizedName] UTF8String]);
 
         // Create a device input with the device and add it to the session.
-        AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:m_device
-                error:&error];
+        AVCaptureDeviceInput *input = m_is_screen_cap
+                ? (AVCaptureDeviceInput *) m_device
+                : [AVCaptureDeviceInput deviceInputWithDevice:m_device error:&error];
         if (!input) {
                 [NSException raise:@"No media" format:@"No media input!"];
         }
@@ -339,9 +377,6 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 if (i != mode) {
                         NSLog(@"Mode index out of bounds!");
                         format = nil;
-                }
-                if ([params valueForKey:@"fps"]) {
-                        m_fps_req = [[params valueForKey:@"fps"] doubleValue];
                 }
                 if ([params valueForKey:@"fr_idx"]) {
                         rate_idx_req = [[params valueForKey:@"fr_idx"] intValue];
@@ -409,9 +444,9 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 
 	// set device frame rate also to capture output to prevent rate oscilation
         AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
-        if (conn.isVideoMinFrameDurationSupported)
+        if (!m_is_screen_cap && conn.isVideoMinFrameDurationSupported)
                 conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
-        if (NSAppKitVersionNumber >= NSAppKitVersionNumber10_9) {
+        if (!m_is_screen_cap && NSAppKitVersionNumber >= NSAppKitVersionNumber10_9) {
                 if (conn.isVideoMaxFrameDurationSupported)
                         conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
         }
