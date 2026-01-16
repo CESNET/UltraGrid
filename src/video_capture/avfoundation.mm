@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET z.s.p.o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -110,9 +110,7 @@ using std::chrono::milliseconds;
         mutex m_lock;
         condition_variable m_frame_ready;
         queue<struct video_frame *> m_queue;
-	chrono::steady_clock::time_point m_t0;
         double m_fps_req;
-	int m_frames;
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
@@ -234,8 +232,6 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         self = [super init];
         bool use_preset = true;
 
-	m_t0 = chrono::steady_clock::now();
-	m_frames = 0;
         m_fps_req = 0.0;
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
@@ -532,24 +528,12 @@ fromConnection:(AVCaptureConnection *)connection
         m_frame_ready.wait_for(lock, milliseconds(100), [&]{return m_queue.size() != 0;});
         if (m_queue.size() == 0) {
                 return NULL;
-        } else {
-                struct video_frame *ret;
-                ret = m_queue.front();
-                m_queue.pop();
-
-		m_frames++;
-
-		chrono::steady_clock::time_point now = chrono::steady_clock::now();
-		double seconds = chrono::duration_cast<chrono::microseconds>(now - m_t0).count() / 1000000.0;
-		if (seconds >= 5) {
-			cout << "[AVfoundation capture] " << m_frames << " frames in "
-				<< seconds << " seconds = " <<  m_frames / seconds << " FPS\n";
-			m_t0 = now;
-			m_frames = 0;
-		}
-
-                return ret;
         }
+
+        struct video_frame *ret;
+        ret = m_queue.front();
+        m_queue.pop();
+        return ret;
 }
 @end
 
@@ -705,7 +689,7 @@ static const struct video_capture_info vidcap_avfoundation_info = {
         vidcap_avfoundation_init,
         vidcap_avfoundation_done,
         vidcap_avfoundation_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(avfoundation, &vidcap_avfoundation_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
