@@ -185,9 +185,9 @@ enum usage_verbosity {
         // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                 int j = 0;
-                const char *default_dev = device == [AVCaptureDevice
-                        defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : " ";
-                color_printf("%s%3d: " TBOLD("%s") " (uid: %s)\n", default_dev, i++,
+                const char default_dev = device == [AVCaptureDevice
+                        defaultDeviceWithMediaType:AVMediaTypeVideo] ? '*' : ' ';
+                color_printf("%c%3d: " TBOLD("%s") " (uid: %s)\n", default_dev, i++,
                         [[device localizedName] UTF8String],
                         [[device uniqueID] UTF8String]);
                 if (verbose == VERB_SHORT) {
@@ -224,7 +224,10 @@ enum usage_verbosity {
             vector<CGDirectDisplayID>  screens(num_screens);
             CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
             for (unsigned j = 0; j < num_screens; j++) {
-                color_printf("%4u: " TBOLD("Capture screen %u") "\n\n", SCR_OFF + j, j);
+                const char default_dev = i == 0
+                        && screens[j] == CGMainDisplayID() ? '*' : ' ';
+                color_printf("%c%3u: " TBOLD("Capture screen %u") "\n\n", default_dev,
+                        SCR_OFF + j, j);
             }
         }
 
@@ -245,6 +248,15 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         }
 };
 #endif // at least mac 10.14
+
+static void
+set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps) {
+        capture_screen_input.capturesCursor = YES;
+        capture_screen_input.capturesMouseClicks = YES;
+        if (fps) {
+                capture_screen_input.minFrameDuration = CMTimeMake(1, fps);
+        }
+}
 
 - (id)initWithParams: (NSDictionary *) params
 {
@@ -294,11 +306,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 AVCaptureScreenInput* capture_screen_input =
                         [[[AVCaptureScreenInput alloc]
                         initWithDisplayID:screens[idx]] autorelease];
-                capture_screen_input.capturesCursor = YES;
-                capture_screen_input.capturesMouseClicks = YES;
-                if (m_fps_req) {
-                        capture_screen_input.minFrameDuration = CMTimeMake(1, m_fps_req);
-                }
+                set_scren_cap_properties(capture_screen_input, m_fps_req);
                 m_device = (AVCaptureDevice*) capture_screen_input;
         } else if (device_idx != -1 || device_name != nullptr ||
             device_uid != nullptr) {
@@ -330,6 +338,14 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         } else {
                 m_device = [AVCaptureDevice
                         defaultDeviceWithMediaType:AVMediaTypeVideo];
+                if (m_device == nil) {
+                        CGDirectDisplayID mainScreenID = CGMainDisplayID();
+                        AVCaptureScreenInput* capture_screen_input =
+                                [[[AVCaptureScreenInput alloc]
+                                 initWithDisplayID:mainScreenID] autorelease];
+                        set_scren_cap_properties(capture_screen_input, m_fps_req);
+                        m_device = (AVCaptureDevice*) capture_screen_input;
+                }
         }
 
         if (m_device == nil) {
