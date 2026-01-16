@@ -459,16 +459,14 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
 					forKey:(id)kCVPixelBufferPixelFormatTypeKey];
 			}
 		}
-        } else {
-                NSString *preset = AVCaptureSessionPresetMedium;
-                if ([params valueForKey:@"preset"]) {
-                        auto it = preset_to_av.find([[params valueForKey:@"preset"] UTF8String]);
-                        if (it != preset_to_av.end()) {
-                                preset = it->second;
-                        } else {
-                                // try the actual value
-                                preset = [params valueForKey:@"preset"];
-                        }
+        } else if ([params valueForKey:@"preset"]) {
+                NSString *preset = nil;
+                auto it = preset_to_av.find([[params valueForKey:@"preset"] UTF8String]);
+                if (it != preset_to_av.end()) {
+                        preset = it->second;
+                } else {
+                        // try the actual value
+                        preset = [params valueForKey:@"preset"];
                 }
                 MSG(INFO, "using preset: %s\n", [preset UTF8String]);
                 m_session.sessionPreset = preset;
