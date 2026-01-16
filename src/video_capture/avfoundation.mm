@@ -44,6 +44,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -217,8 +218,8 @@ enum usage_verbosity {
         uint32_t num_screens    = 0;
         CGGetActiveDisplayList(0, NULL, &num_screens);
         if (num_screens > 0) {
-            CGDirectDisplayID screens[num_screens];
-            CGGetActiveDisplayList(num_screens, screens, &num_screens);
+            vector<CGDirectDisplayID>  screens(num_screens);
+            CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
             for (unsigned j = 0; j < num_screens; j++) {
                 color_printf("%4u: " TBOLD("Capture screen %u") "\n\n", SCR_OFF + j, j);
             }
@@ -285,8 +286,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 if (idx >= num_screens) {
                         [NSException raise:@"Invalid argument" format:@"Screen capture device index %d is invalid", device_idx];
                 }
-                CGDirectDisplayID screens[num_screens];
-                CGGetActiveDisplayList(num_screens, screens, &num_screens);
+                vector<CGDirectDisplayID> screens(num_screens);
+                CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
                 AVCaptureScreenInput* capture_screen_input =
                         [[AVCaptureScreenInput alloc]
                         initWithDisplayID:screens[idx]];
