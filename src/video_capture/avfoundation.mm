@@ -113,6 +113,7 @@ using std::chrono::milliseconds;
         condition_variable m_frame_ready;
         queue<struct video_frame *> m_queue;
         double m_fps_req;
+        struct video_desc m_saved_desc;
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
@@ -251,6 +252,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         m_fps_req = [params valueForKey:@"fps"]
                 ? [[params valueForKey:@"fps"] doubleValue] : 0;
         m_is_screen_cap = device_idx >= SCR_OFF;
+        m_device = nil;
+        m_saved_desc = {};
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
@@ -439,6 +442,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                                 NSLog(@"Unknown preset %@!", [params valueForKey:@"preset"]);
                         }
                 }
+                MSG(INFO, "using preset: %s\n", [preset UTF8String]);
                 m_session.sessionPreset = preset;
         }
 
@@ -516,6 +520,12 @@ fromConnection:(AVCaptureConnection *)connection
 	desc.fps = m_fps_req != 0 ? m_fps_req : 1.0 / CMTimeGetSeconds(dur);
 	desc.tile_count = 1;
 	desc.interlacing = PROGRESSIVE;
+
+        if (!video_desc_eq(m_saved_desc, desc)) {
+                MSG(NOTICE, "capturing video format: %s\n",
+                        video_desc_to_string(desc));
+                m_saved_desc = desc;
+        }
 
 	struct video_frame *ret = nullptr;
 
