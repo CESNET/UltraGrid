@@ -169,16 +169,15 @@ enum usage_verbosity {
         col() <<  "\t" << SBOLD("<fr_idx>") << " is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
         color_printf("\t" TBOLD("<preset>") " may be " TBOLD("\"low\"") ", "
                 TBOLD("\"medium\"") ", " TBOLD("\"high\"") ", "
-                TBOLD("\"VGA\"") ", " TBOLD("\"HD\"") " or any "
-                "preset known by AVF such as "
-                TBOLD("AVCaptureSessionPresetPhoto") "\n");
+                TBOLD("\"VGA\"") " or any preset known to AVF such as "
+                TBOLD("AVCaptureSessionPresetPhoto") " or " TBOLD("..Preset1920x1080") "\n");
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
         col() << "Examples:" << "\n";
         col() << "\t" << SBOLD("-t avfoundation") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:preset=high") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:pr=AVCaptureSessionPreset1280x720") << "\n";
         col() << "\t" << SBOLD("-t avfoundation:device=0:preset=high") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:device=0:mode=24:fps=30") << " (advanced)" << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:dev=0:mode=24:fps=30") << " (advanced)" << "\n";
         col() << "\n";
         col() << "Available AV foundation capture devices and modes:" << "\n";
         int i = 0;
