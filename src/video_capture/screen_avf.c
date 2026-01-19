@@ -1,0 +1,101 @@
+/**
+ * @file   video_capture/screen_avf.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * screen capture using AVFoundation
+ */
+/*
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, is permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <stdlib.h>                // for calloc, free
+#include <strings.h>               // for strcasecmp
+
+#include "lib_common.h"            // for REGISTER_MODULE, library_class
+#include "types.h"                 // for device_info
+#include "utils/macros.h"          // for snprintf_ch
+#include "video_capture.h"         // for video_capture_info, VIDCAP_INIT_NOERR
+#include "video_capture_params.h"  // for vidcap_params_get_fmt
+
+struct audio_frame;
+struct vidcap_params;
+
+#define MOD_NAME "[screen cap avf] "
+
+// items defined in avfoundation.mm
+extern const struct video_capture_info vidcap_avfoundation_info;
+bool avfoundation_usage(const char *fmt, bool for_screen);
+extern const unsigned AVF_SCR_CAP_OFF;
+
+static void
+vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
+                        void (**deleter)(void *))
+{
+        *available_cards = calloc(*count, sizeof(struct device_info));
+        *count           = 1;
+        *deleter         = free;
+
+        snprintf_ch((*available_cards)[0].dev, ":%u", AVF_SCR_CAP_OFF);
+        snprintf_ch((*available_cards)[0].name, "Screen capture");
+}
+
+static int
+vidcap_screen_avf_init(struct vidcap_params *params, void **state)
+{
+        if (avfoundation_usage(vidcap_params_get_fmt(params), true)) {
+                return VIDCAP_INIT_NOERR; // help shown
+        }
+        return vidcap_avfoundation_info.init(params, state);
+}
+
+static void
+vidcap_screen_avf_done(void *state)
+{
+        return vidcap_avfoundation_info.done(state);
+}
+
+static struct video_frame *
+vidcap_screen_avf_grab(void *state, struct audio_frame **audio)
+{
+        return vidcap_avfoundation_info.grab(state, audio);
+}
+
+static const struct video_capture_info vidcap_screen_avf_info = {
+        vidcap_screen_avf_probe,
+        vidcap_screen_avf_init,
+        vidcap_screen_avf_done,
+        vidcap_screen_avf_grab,
+        MOD_NAME,
+};
+
+REGISTER_MODULE(screen, &vidcap_screen_avf_info, LIBRARY_CLASS_VIDEO_CAPTURE,
+                VIDEO_CAPTURE_ABI_VERSION);

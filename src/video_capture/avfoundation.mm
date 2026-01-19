@@ -54,10 +54,15 @@
 
 #define MOD_NAME "[AVFoundation] "
 #define SCR_CAP_NAME_PREF "Capture screen "
-#define SCR_CAP_OFF 100
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
+
+// definitions used also by screen_avf
+extern "C" {
+        extern const unsigned AVF_SCR_CAP_OFF = 100;
+        bool avfoundation_usage(const char *fmt, bool for_screen);
+} // extern "C"
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 140000
 #define DESK_VIEW_IF_DEFINED ,AVCaptureDeviceTypeDeskViewCamera
@@ -143,17 +148,40 @@ fromConnection:(AVCaptureConnection *)connection;
         }];
 }
 
-enum usage_verbosity {
-        VERB_SHORT,
-        VERB_NORMAL,
-        VERB_FULL,
-};
-
-+ (void)usage: (enum usage_verbosity) verbose
+/**
+ * @param for_screen  print from screen (-t screen:help), not avfoundation:help
+ * @retval true - help shown; false - help not requested
+ */
+bool
+avfoundation_usage(const char *fmt, bool for_screen = false)
 {
-        col() << "AV Foundation capture usage:" << "\n";
-        col() << "\t" << SBOLD(SRED("-t avfoundation") << "[:device=<idx>|:name=<name>|:uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:[short|full]help") << "\n";
+        enum {
+                VERB_SHORT,
+                VERB_NORMAL,
+                VERB_FULL,
+        } verbose;
+        if (strcasecmp(fmt, "help") == 0) {
+                verbose = VERB_NORMAL;
+        } else if (strcasecmp(fmt, "shorthelp") == 0) {
+                verbose = VERB_SHORT;
+        } else if (strcasecmp(fmt, "fullhelp") == 0) {
+                verbose = VERB_FULL;
+        } else {
+                return false;
+        }
+
+        if (for_screen) {
+                color_printf(TBOLD("screen") " capture - AV Foundation implementation.\n");
+                color_printf("You can use also " TBOLD("avfoundation") " capture directly.\n");
+                color_printf("\nUsage:\n");
+        } else {
+                color_printf(TBOLD("AV Foundation") " capture usage:\n");
+        }
+        const char *mod_name = for_screen ? "screen" : "avfoundation";
+        color_printf("\t" TBOLD(TRED("-t %s") "[:device=<idx>|:name=<name>|"
+                ":uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|"
+                ":fr_idx=<fr_idx>]]") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:[short|full]help") "\n", mod_name);
         col() << "\n";
         col() << "where:\n";
         col() << "\t" << SBOLD("<idx>") << " represents a device index in a list below\n";
@@ -171,16 +199,28 @@ enum usage_verbosity {
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
         col() << "Examples:" << "\n";
-        col() << "\t" << SBOLD("-t avfoundation") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:pr=1280x720") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:device=0:preset=High") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:dev=0:mode=24:fps=30") << " (advanced)" << "\n";
+        color_printf("\t" TBOLD("-t %s") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:pr=1280x720:fps=30") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:device=0:preset=High") "\n", mod_name);
+        if (!for_screen) {
+                color_printf("\t" TBOLD("-t %s:dev=0:mode=24:fps=30")
+                        " (advanced, not for screen cap)" "\n", mod_name);
+        }
         col() << "\n";
-        col() << "Available AV foundation capture devices and modes:" << "\n";
+        if (for_screen) {
+                color_printf("Available AV Foundation " TBOLD("screen")
+                        " displays:\n");
+        } else {
+                color_printf("Available " TBOLD("AV Foundation")
+                        " capture devices and modes:\n");
+        }
         int i = 0;
         // deprecated rewrite example: https://github.com/flutter/plugins/blob/e85f8ac1502db556e03953794ad0aa9149ddb02a/packages/camera/camera_avfoundation/ios/Classes/CameraPlugin.m#L108
         // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
+                if (for_screen) {
+                        continue;
+                }
                 int j = 0;
                 const char default_dev = device == [AVCaptureDevice
                         defaultDeviceWithMediaType:AVMediaTypeVideo] ? '*' : ' ';
@@ -224,15 +264,16 @@ enum usage_verbosity {
                 const char default_dev = i == 0
                         && screens[j] == CGMainDisplayID() ? '*' : ' ';
                 color_printf("%c%3u: " TBOLD(SCR_CAP_NAME_PREF "%u") " (uid: %u)"
-                        "\n\n", default_dev, SCR_CAP_OFF + j, j, screens[j]);
+                        "\n\n", default_dev, AVF_SCR_CAP_OFF + j, j, screens[j]);
             }
         }
 
         col() << "device marked with an asterisk ('*') is default\n";
-        if (verbose == VERB_NORMAL) {
+        if (!for_screen && verbose == VERB_NORMAL) {
                 col() << "(type '-t avfoundation:fullhelp' to see available framerates)\n";
                 col() << "(type '-t avfoundation:shorthelp' to hide modes)\n";
         }
+        return true;
 }
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
@@ -267,12 +308,12 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
         if (device_name) {
                 if (sscanf([device_name UTF8String], SCR_CAP_NAME_PREF "%d",
                                 &device_idx) == 1) { // eg. "Capture screen 0"
-                        device_idx += SCR_CAP_OFF;
+                        device_idx += AVF_SCR_CAP_OFF;
                 }
         }
         m_fps_req = [params valueForKey:@"fps"]
                 ? [[params valueForKey:@"fps"] doubleValue] : 0;
-        m_is_screen_cap = device_idx >= SCR_CAP_OFF
+        m_is_screen_cap = device_idx >= (int) AVF_SCR_CAP_OFF
                 || (device_uid && [device_uid length] <= 3);
         m_device = nil;
         m_saved_desc = {};
@@ -303,7 +344,7 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
                 CGDirectDisplayID id;
                 if (device_idx != -1) {
                         CGGetActiveDisplayList(0, NULL, &num_screens);
-                        unsigned idx = device_idx - SCR_CAP_OFF;
+                        unsigned idx = device_idx - AVF_SCR_CAP_OFF;
                         if (device_idx != -1 && idx >= num_screens) {
                                 [NSException raise:@"Invalid argument" format:@"Screen capture device index %d is invalid", device_idx];
                         }
@@ -718,15 +759,8 @@ parse_fmt(char *fmt)
 static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
 {
 @autoreleasepool {
-        if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
-                [vidcap_avfoundation_state usage: VERB_NORMAL];
-                return VIDCAP_INIT_NOERR;
-        } else if (strcasecmp(vidcap_params_get_fmt(params), "shorthelp") == 0) {
-                [vidcap_avfoundation_state usage: VERB_SHORT];
-                return VIDCAP_INIT_NOERR;
-        } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                [vidcap_avfoundation_state usage: VERB_FULL];
-                return VIDCAP_INIT_NOERR;
+        if (avfoundation_usage(vidcap_params_get_fmt(params))) {
+                return VIDCAP_INIT_NOERR; // help shown
         }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
@@ -765,7 +799,7 @@ static struct video_frame *vidcap_avfoundation_grab(void *state, struct audio_fr
         return [(vidcap_avfoundation_state *) state grab];
 }
 
-static const struct video_capture_info vidcap_avfoundation_info = {
+extern const struct video_capture_info vidcap_avfoundation_info = {
         vidcap_avfoundation_probe,
         vidcap_avfoundation_init,
         vidcap_avfoundation_done,
