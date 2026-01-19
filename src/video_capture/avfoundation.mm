@@ -71,13 +71,6 @@
 using std::string;
 
 namespace vidcap_avfoundation {
-std::unordered_map<std::string, NSString *> preset_to_av = {
-        { "high", AVCaptureSessionPresetHigh },
-        { "medium", AVCaptureSessionPresetMedium },
-        { "low", AVCaptureSessionPresetLow },
-        { "VGA", AVCaptureSessionPreset640x480 },
-        { "HD", AVCaptureSessionPreset1280x720 },
-};
 
 std::unordered_map<CMPixelFormatType, std::tuple<codec_t, int, int, int>> av_to_uv = {
         {kCVPixelFormatType_32ARGB, {RGBA, 8, 16, 24}},
@@ -167,16 +160,19 @@ enum usage_verbosity {
         col() << "\t" << SBOLD("<uid>") << " is a device unique identifier\n";
         col() << "\t" << SBOLD("<fps>") << " is a number of frames per second (can be a number with a decimal point)\n";
         col() <<  "\t" << SBOLD("<fr_idx>") << " is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
-        color_printf("\t" TBOLD("<preset>") " may be " TBOLD("\"low\"") ", "
-                TBOLD("\"medium\"") ", " TBOLD("\"high\"") ", "
-                TBOLD("\"VGA\"") " or any preset known to AVF such as "
-                TBOLD("AVCaptureSessionPresetPhoto") " or " TBOLD("..Preset1920x1080") "\n");
+        color_printf("\t" TBOLD("<preset>") " may be any of "
+                TUNDERLINE("AVCaptureSessionPreset<preset>") " such as "
+                TBOLD("Low") ", " TBOLD("Medium") ", " TBOLD("High") ", "
+                TBOLD("Photo") ", "  TBOLD("1280x720") ", " TBOLD("1920x1080")
+                ", " TBOLD("320x240") ", "  TBOLD("352x288") ", "
+                TBOLD("3840x160") ", " TBOLD("3840x2160") ", " TBOLD("640x480")
+                " or " TBOLD("960x540") "\n");
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
         col() << "Examples:" << "\n";
         col() << "\t" << SBOLD("-t avfoundation") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:pr=AVCaptureSessionPreset1280x720") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:device=0:preset=high") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:pr=1280x720") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:device=0:preset=High") << "\n";
         col() << "\t" << SBOLD("-t avfoundation:dev=0:mode=24:fps=30") << " (advanced)" << "\n";
         col() << "\n";
         col() << "Available AV foundation capture devices and modes:" << "\n";
@@ -460,14 +456,15 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
 			}
 		}
         } else if ([params valueForKey:@"preset"]) {
-                NSString *preset = nil;
-                auto it = preset_to_av.find([[params valueForKey:@"preset"] UTF8String]);
-                if (it != preset_to_av.end()) {
-                        preset = it->second;
-                } else {
-                        // try the actual value
-                        preset = [params valueForKey:@"preset"];
-                }
+                // for compat make first letter Upper - the preset opt used to
+                // be "low" so make it "Low"
+                NSString *firstLetterUpper = [[[params valueForKey:@"preset"]
+                        substringToIndex:1] uppercaseString];
+                NSString *restOfString = [[params valueForKey:@"preset"]
+                        substringFromIndex:1];
+                NSString *preset = [ @"AVCaptureSessionPreset" stringByAppendingString:
+                        [firstLetterUpper stringByAppendingString:restOfString]];
+
                 MSG(INFO, "using preset: %s\n", [preset UTF8String]);
                 m_session.sessionPreset = preset;
         }
