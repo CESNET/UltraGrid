@@ -155,8 +155,9 @@ fi
 
 if test $system = MacOSX; then
         MACOS_LEGACY=no
-        os_version_major=`uname -r |cut -d . -f 1`
-        if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
+        macos_major=$(sw_vers -productVersion | cut -d. -f1)
+        macos_minor=$(sw_vers -productVersion | cut -d. -f2)
+        if test ${macos_major?} -eq 10 && test ${macos_minor?} -lt 15; then
                 MACOS_LEGACY=yes
         fi
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
@@ -2219,7 +2220,7 @@ AC_ARG_ENABLE(screen,
 
 case "$system" in
 	MacOSX)
-                if test "$os_version_major" -lt 24; then # Darwin 24.0.0 is macOS 15
+                if test "${macos_major?}" -lt 15; then
                         screen_cap=yes
                         SCREEN_CAP_LIB="-framework CoreFoundation"
                 fi
