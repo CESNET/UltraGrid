@@ -513,12 +513,20 @@ avfoundation_get_screen_count(void) {
 			}
 		}
         } else if ([params valueForKey:@"preset"]) {
+                NSString *req_preset = [params valueForKey:@"preset"];
+                if ([req_preset isEqualToString:@"VGA"]) {
+                        MSG(WARNING, "preset VGA deprecated - use 640x480\n");
+                        req_preset = @"640x480";
+                }
+                if ([req_preset isEqualToString:@"HD"]) {
+                        MSG(WARNING, "preset HD deprecated - use 1280x720\n");
+                        req_preset = @"640x480";
+                }
                 // for compat make first letter Upper - the preset opt used to
                 // be "low" so make it "Low"
-                NSString *firstLetterUpper = [[[params valueForKey:@"preset"]
-                        substringToIndex:1] uppercaseString];
-                NSString *restOfString = [[params valueForKey:@"preset"]
-                        substringFromIndex:1];
+                NSString *firstLetterUpper = [[req_preset substringToIndex:1]
+                        uppercaseString];
+                NSString *restOfString = [req_preset substringFromIndex:1];
                 NSString *preset = [ @"AVCaptureSessionPreset" stringByAppendingString:
                         [firstLetterUpper stringByAppendingString:restOfString]];
 
