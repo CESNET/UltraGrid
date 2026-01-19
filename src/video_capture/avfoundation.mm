@@ -53,7 +53,8 @@
 #include "video_capture.h"
 
 #define MOD_NAME "[AVFoundation] "
-#define SCR_OFF 100
+#define SCR_CAP_NAME_PREF "Capture screen "
+#define SCR_CAP_OFF 100
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
@@ -222,8 +223,8 @@ enum usage_verbosity {
             for (unsigned j = 0; j < num_screens; j++) {
                 const char default_dev = i == 0
                         && screens[j] == CGMainDisplayID() ? '*' : ' ';
-                color_printf("%c%3u: " TBOLD("Capture screen %u") " (uid: %u)"
-                        "\n\n", default_dev, SCR_OFF + j, j, screens[j]);
+                color_printf("%c%3u: " TBOLD(SCR_CAP_NAME_PREF "%u") " (uid: %u)"
+                        "\n\n", default_dev, SCR_CAP_OFF + j, j, screens[j]);
             }
         }
 
@@ -260,11 +261,18 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
         bool use_preset = true;
         int device_idx = [params valueForKey:@"device"]
                 ? [[params valueForKey:@"device"] intValue] : -1;
+        NSString *device_name = [params valueForKey:@"name"];
         NSString *device_uid = [params valueForKey:@"uid"];
 
+        if (device_name) {
+                if (sscanf([device_name UTF8String], SCR_CAP_NAME_PREF "%d",
+                                &device_idx) == 1) { // eg. "Capture screen 0"
+                        device_idx += SCR_CAP_OFF;
+                }
+        }
         m_fps_req = [params valueForKey:@"fps"]
                 ? [[params valueForKey:@"fps"] doubleValue] : 0;
-        m_is_screen_cap = device_idx >= SCR_OFF
+        m_is_screen_cap = device_idx >= SCR_CAP_OFF
                 || (device_uid && [device_uid length] <= 3);
         m_device = nil;
         m_saved_desc = {};
@@ -290,13 +298,12 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
         // chosen device.
 
         // Find a suitable AVCaptureDevice
-        NSString *device_name = [params valueForKey:@"name"];
         if (m_is_screen_cap) {
                 uint32_t num_screens    = 0;
                 CGDirectDisplayID id;
                 if (device_idx != -1) {
                         CGGetActiveDisplayList(0, NULL, &num_screens);
-                        unsigned idx = device_idx - SCR_OFF;
+                        unsigned idx = device_idx - SCR_CAP_OFF;
                         if (device_idx != -1 && idx >= num_screens) {
                                 [NSException raise:@"Invalid argument" format:@"Screen capture device index %d is invalid", device_idx];
                         }
