@@ -40,6 +40,7 @@
 #include <stdlib.h>                // for calloc, free
 #include <strings.h>               // for strcasecmp
 
+#include "compat/c23.h"            // C23 fallback defines (nullptr etc.)
 #include "lib_common.h"            // for REGISTER_MODULE, library_class
 #include "types.h"                 // for device_info
 #include "utils/macros.h"          // for snprintf_ch
@@ -53,19 +54,29 @@ struct vidcap_params;
 
 // items defined in avfoundation.mm
 extern const struct video_capture_info vidcap_avfoundation_info;
-bool avfoundation_usage(const char *fmt, bool for_screen);
+bool                  avfoundation_usage(const char *fmt, bool for_screen);
+unsigned              avfoundation_get_screen_count(void);
+extern const char     AFV_SCR_CAP_NAME_PREF[];
 extern const unsigned AVF_SCR_CAP_OFF;
 
 static void
 vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
                         void (**deleter)(void *))
 {
-        *available_cards = calloc(*count, sizeof(struct device_info));
-        *count           = 1;
+        *available_cards = nullptr;
+        *count           = (int) avfoundation_get_screen_count();
         *deleter         = free;
+        if (*count == 0) {
+                return;
+        }
+        *available_cards = calloc(*count, sizeof(struct device_info));
 
-        snprintf_ch((*available_cards)[0].dev, ":%u", AVF_SCR_CAP_OFF);
-        snprintf_ch((*available_cards)[0].name, "Screen capture");
+        for (int i = 0; i < *count; ++i) {
+                snprintf_ch((*available_cards)[i].name, ":%u",
+                            AVF_SCR_CAP_OFF + i);
+                snprintf_ch((*available_cards)[i].dev, "%s%d",
+                            AFV_SCR_CAP_NAME_PREF, i);
+        }
 }
 
 static int

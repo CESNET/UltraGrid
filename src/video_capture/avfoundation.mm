@@ -58,10 +58,12 @@
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
 
-// definitions used also by screen_avf
+// definitions used (also) by screen_avf
 extern "C" {
         extern const unsigned AVF_SCR_CAP_OFF = 100;
-        bool avfoundation_usage(const char *fmt, bool for_screen);
+        extern const char     AFV_SCR_CAP_NAME_PREF[] = SCR_CAP_NAME_PREF;
+        unsigned avfoundation_get_screen_count(void);
+        bool     avfoundation_usage(const char *fmt, bool for_screen);
 } // extern "C"
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 140000
@@ -294,6 +296,13 @@ set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps)
         if (fps) {
                 capture_screen_input.minFrameDuration = CMTimeMake(1, fps);
         }
+}
+
+unsigned
+avfoundation_get_screen_count(void) {
+        uint32_t num_screens = 0;
+        CGGetActiveDisplayList(0, NULL, &num_screens);
+        return num_screens;
 }
 
 - (id)initWithParams: (NSDictionary *) params
