@@ -55,9 +55,6 @@
 #define MOD_NAME "[AVFoundation] "
 #define SCR_CAP_NAME_PREF "Capture screen "
 
-#define NSAppKitVersionNumber10_8 1187
-#define NSAppKitVersionNumber10_9 1265
-
 // definitions used (also) by screen_avf
 extern "C" {
         extern const unsigned AVF_SCR_CAP_OFF = 100;
@@ -536,11 +533,9 @@ avfoundation_get_screen_count(void) {
 
 	// set device frame rate also to capture output to prevent rate oscilation
         AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
-        if (!m_is_screen_cap && conn.isVideoMinFrameDurationSupported)
+        if (!m_is_screen_cap && conn.isVideoMinFrameDurationSupported) {
                 conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
-        if (!m_is_screen_cap && NSAppKitVersionNumber >= NSAppKitVersionNumber10_9) {
-                if (conn.isVideoMaxFrameDurationSupported)
-                        conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
+                conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
         }
 
         // You must also call lockForConfiguration: before calling the AVCaptureSession method startRunning, or the session's preset will override the selected active format on the capture device.
