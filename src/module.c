@@ -45,6 +45,7 @@
 #include <stdlib.h>         // for free, atoi, calloc
 #include <string.h>         // for strlen, strchr, memcpy, strdup, strncat
 #include <time.h>           // for clock_gettime
+#include <unistd.h>         // for _POSIX_TIMEOUTS
 
 #include "compat/c23.h"     // for countof
 #include "compat/strings.h" // for strcasecmp
