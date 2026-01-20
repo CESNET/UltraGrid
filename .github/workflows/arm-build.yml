@@ -41,7 +41,9 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+         https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+        Install_NDI_SDK_v6_Linux.tar.gz >> $GITHUB_OUTPUT
     - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
@@ -51,7 +53,7 @@ jobs:
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
-       Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
+       Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
 
     - name: Run actions/cache for ARM Chroot
       id: cache-bootstrap
