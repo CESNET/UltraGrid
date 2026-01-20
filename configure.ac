@@ -2213,23 +2213,43 @@ sc_details=
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
-[  --enable-screen@<:@=x11,pipewire@:>@  @<:@Linux only@:>@ choose implementation (can be both)]
-[                          Requires: none (OSX) x11 or pipewire (Linux) dshow (Win)],
+AS_HELP_STRING([--enable-screen@<:@=x11,pipewire,cg@:>@],
+[choose implementation (Linux: can be both x11 and pipewire; macOS: cg]
+[ - use Core Graphics implementation instead of AV Foundation).]
+[Requires: macOS<15 (cg), AVF (macOS otherwise); X11 or PipeWire (Linux); DShow (Win)]),
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
     )
 
-case "$system" in
-	MacOSX)
-                if test "${macos_major?}" -lt 15; then
-                        screen_cap=yes
+if test "${system?}" = Linux && test "${screen_cap_req?}" = yes; then
+        screen_cap_req=pipewire,x11
+fi
+
+if test "${system?}" = Windows && test "${screen_cap_req?}" != no; then
+        SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
+        DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
+        screen_cap=$dshow
+fi
+
+if test "${system?}" = MacOSX && test "${screen_cap_req?}" != no; then
+        if test "${avfoundation?}" = no || test "${screen_cap_req?}" = cg; then
+                if test "${macos_major?}" -ge 15; then
+                        AC_MSG_WARN([Core Graphics screen capture]dnl
+ [unsupported since macOS 15!])
+                else
+                        SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
                         SCREEN_CAP_LIB="-framework CoreFoundation"
+                        screen_modules="Core Graphics"
+                        screen_cap=yes
                 fi
-	;;
-        Windows)
-                screen_cap=$dshow
-        ;;
-esac
+        else
+                if test "${avfoundation?}" = yes; then
+                        SCREEN_CAP_OBJ="src/video_capture/screen_avf.o"
+                        screen_modules="AV Foundation"
+                        screen_cap=yes
+                fi
+        fi
+fi
 
 # X11
 screen_cap_x11=no
@@ -2263,7 +2283,8 @@ fi
 # PipeWire
 found_screen_screen_pw_deps=no
 screen_cap_pw=no
-if test $screen_cap_req != no && test $screen_cap_req != x11; then
+if test ${system?} = Linux && test ${screen_cap_req?} != no &&
+                test ${screen_cap_req} != x11; then
         PKG_CHECK_MODULES([SCREEN_PW_DEPS], [glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
 fi
 
@@ -2286,23 +2307,22 @@ fi
 
 if test $screen_cap_req != no && test $screen_cap = yes
 then
-        if test $system = MacOSX; then
-                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
-        elif test $system = Linux; then
+        if test $system = Linux; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_linux.o"
-        else
-                SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
-                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
         fi
         add_module vidcap_screen "$SCREEN_CAP_OBJ" "$SCREEN_CAP_LIB"
 else
         screen_cap=no
 fi
 
-if { test $screen_cap_req = yes && { test $screen_cap = no || { test $system = Linux && { test $screen_cap_x11 = no || test $screen_cap_pw = no; }; }; }; } \
-        || { test $screen_cap_req = x11 && test $screen_cap_x11 = no; } || { test $screen_cap_req = pipewire && test $screen_cap_pw = no; }
-then
-        AC_MSG_ERROR([Screen capture not found]);
+ENSURE_FEATURE_PRESENT([$screen_cap_req], [$screen_cap], [Screen capture not found])
+
+if { expr "x${screen_cap_req?}" : "x.*x11" >/dev/null &&
+        test "${screen_cap_x11?}" = no; } ||
+   { expr "x${screen_cap_req?}" : "x.*pipewire" >/dev/null &&
+        test "${screen_cap_pw?}" = no; }; then
+        AC_MSG_ERROR([Desired screen capture implementation not found!]
+ [Wanted: ${screen_cap_req?}])
 fi
 
 if test -n "$screen_modules"; then

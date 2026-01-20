@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET z.s.p.o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -52,9 +53,15 @@
 #include "video_capture.h"
 
 #define MOD_NAME "[AVFoundation] "
+#define SCR_CAP_NAME_PREF "Capture screen "
 
-#define NSAppKitVersionNumber10_8 1187
-#define NSAppKitVersionNumber10_9 1265
+// definitions used (also) by screen_avf
+extern "C" {
+        extern const unsigned AVF_SCR_CAP_OFF = 100;
+        extern const char     AFV_SCR_CAP_NAME_PREF[] = SCR_CAP_NAME_PREF;
+        unsigned avfoundation_get_screen_count(void);
+        bool     avfoundation_usage(const char *fmt, bool for_screen);
+} // extern "C"
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 140000
 #define DESK_VIEW_IF_DEFINED ,AVCaptureDeviceTypeDeskViewCamera
@@ -69,13 +76,6 @@
 using std::string;
 
 namespace vidcap_avfoundation {
-std::unordered_map<std::string, NSString *> preset_to_av = {
-        { "high", AVCaptureSessionPresetHigh },
-        { "medium", AVCaptureSessionPresetMedium },
-        { "low", AVCaptureSessionPresetLow },
-        { "VGA", AVCaptureSessionPreset640x480 },
-        { "HD", AVCaptureSessionPreset1280x720 },
-};
 
 std::unordered_map<CMPixelFormatType, std::tuple<codec_t, int, int, int>> av_to_uv = {
         {kCVPixelFormatType_32ARGB, {RGBA, 8, 16, 24}},
@@ -106,13 +106,13 @@ using std::chrono::milliseconds;
 @interface vidcap_avfoundation_state : NSObject
 {
         AVCaptureDevice *m_device;
+        bool             m_is_screen_cap;
         AVCaptureSession *m_session;
         mutex m_lock;
         condition_variable m_frame_ready;
         queue<struct video_frame *> m_queue;
-	chrono::steady_clock::time_point m_t0;
         double m_fps_req;
-	int m_frames;
+        struct video_desc m_saved_desc;
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
@@ -147,17 +147,40 @@ fromConnection:(AVCaptureConnection *)connection;
         }];
 }
 
-enum usage_verbosity {
-        VERB_SHORT,
-        VERB_NORMAL,
-        VERB_FULL,
-};
-
-+ (void)usage: (enum usage_verbosity) verbose
+/**
+ * @param for_screen  print from screen (-t screen:help), not avfoundation:help
+ * @retval true - help shown; false - help not requested
+ */
+bool
+avfoundation_usage(const char *fmt, bool for_screen = false)
 {
-        col() << "AV Foundation capture usage:" << "\n";
-        col() << "\t" << SBOLD(SRED("-t avfoundation") << "[:device=<idx>|:name=<name>|:uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:[short|full]help") << "\n";
+        enum {
+                VERB_SHORT,
+                VERB_NORMAL,
+                VERB_FULL,
+        } verbose;
+        if (strcasecmp(fmt, "help") == 0) {
+                verbose = VERB_NORMAL;
+        } else if (strcasecmp(fmt, "shorthelp") == 0) {
+                verbose = VERB_SHORT;
+        } else if (strcasecmp(fmt, "fullhelp") == 0) {
+                verbose = VERB_FULL;
+        } else {
+                return false;
+        }
+
+        if (for_screen) {
+                color_printf(TBOLD("screen") " capture - AV Foundation implementation.\n");
+                color_printf("You can use also " TBOLD("avfoundation") " capture directly.\n");
+                color_printf("\nUsage:\n");
+        } else {
+                color_printf(TBOLD("AV Foundation") " capture usage:\n");
+        }
+        const char *mod_name = for_screen ? "screen" : "avfoundation";
+        color_printf("\t" TBOLD(TRED("-t %s") "[:device=<idx>|:name=<name>|"
+                ":uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|"
+                ":fr_idx=<fr_idx>]]") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:[short|full]help") "\n", mod_name);
         col() << "\n";
         col() << "where:\n";
         col() << "\t" << SBOLD("<idx>") << " represents a device index in a list below\n";
@@ -165,25 +188,44 @@ enum usage_verbosity {
         col() << "\t" << SBOLD("<uid>") << " is a device unique identifier\n";
         col() << "\t" << SBOLD("<fps>") << " is a number of frames per second (can be a number with a decimal point)\n";
         col() <<  "\t" << SBOLD("<fr_idx>") << " is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
-        col() <<"\t" << SBOLD("<preset>") << " may be " << SBOLD("\"low\"") << ", " << SBOLD("\"medium\"") << ", " << SBOLD("\"high\"") << ", " << SBOLD("\"VGA\"") << " or " << SBOLD("\"HD\"") << "\n";
+        color_printf("\t" TBOLD("<preset>") " may be any of "
+                TUNDERLINE("AVCaptureSessionPreset<preset>") " such as "
+                TBOLD("Low") ", " TBOLD("Medium") ", " TBOLD("High") ", "
+                TBOLD("Photo") ", "  TBOLD("1280x720") ", " TBOLD("1920x1080")
+                ", " TBOLD("320x240") ", "  TBOLD("352x288") ", "
+                TBOLD("3840x2160") ", " TBOLD("3840x2160") ", " TBOLD("640x480")
+                " or " TBOLD("960x540") "\n");
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
         col() << "Examples:" << "\n";
-        col() << "\t" << SBOLD("-t avfoundation") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:preset=high") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:device=0:preset=high") << "\n";
-        col() << "\t" << SBOLD("-t avfoundation:device=0:mode=24:fps=30") << " (advanced)" << "\n";
+        color_printf("\t" TBOLD("-t %s") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:pr=1280x720:fps=30") "\n", mod_name);
+        color_printf("\t" TBOLD("-t %s:device=0:preset=High") "\n", mod_name);
+        if (!for_screen) {
+                color_printf("\t" TBOLD("-t %s:dev=0:mode=24:fps=30")
+                        " (advanced, not for screen cap)" "\n", mod_name);
+        }
         col() << "\n";
-        col() << "Available AV foundation capture devices and modes:" << "\n";
+        if (for_screen) {
+                color_printf("Available AV Foundation " TBOLD("screen")
+                        " displays:\n");
+        } else {
+                color_printf("Available " TBOLD("AV Foundation")
+                        " capture devices and modes:\n");
+        }
         int i = 0;
         // deprecated rewrite example: https://github.com/flutter/plugins/blob/e85f8ac1502db556e03953794ad0aa9149ddb02a/packages/camera/camera_avfoundation/ios/Classes/CameraPlugin.m#L108
         // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
+                if (for_screen) {
+                        continue;
+                }
                 int j = 0;
-                string default_dev = device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : "";
-                col() << default_dev << i++ << ": " << SBOLD([[device
-                        localizedName] UTF8String]) << " (uid: " <<
-                        [[device uniqueID] UTF8String] << ")\n";
+                const char default_dev = device == [AVCaptureDevice
+                        defaultDeviceWithMediaType:AVMediaTypeVideo] ? '*' : ' ';
+                color_printf("%c%3d: " TBOLD("%s") " (uid: %s)\n", default_dev, i++,
+                        [[device localizedName] UTF8String],
+                        [[device uniqueID] UTF8String]);
                 if (verbose == VERB_SHORT) {
                         continue;
                 }
@@ -211,11 +253,31 @@ enum usage_verbosity {
                 }
                 col() << "\n";
         }
-        col() << "device marked with an asterisk ('*') is default\n";
-        if (verbose == VERB_NORMAL) {
+
+        uint32_t num_screens    = 0;
+        CGGetActiveDisplayList(0, NULL, &num_screens);
+        if (num_screens > 0) {
+            vector<CGDirectDisplayID>  screens(num_screens);
+            CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
+            for (unsigned j = 0; j < num_screens; j++) {
+                const char default_dev = i == 0
+                        && screens[j] == CGMainDisplayID() ? '*' : ' ';
+                color_printf("%c%3u: " TBOLD(SCR_CAP_NAME_PREF "%u") " (uid: %u)"
+                        "\n\n", default_dev, AVF_SCR_CAP_OFF + j, j, screens[j]);
+            }
+        }
+
+        if (i == 0 && num_screens == 0) {
+                MSG(WARNING, "No devices found!\n");
+        } else {
+                color_printf("device marked with an asterisk ('*') is default\n");
+        }
+
+        if (!for_screen && verbose == VERB_NORMAL) {
                 col() << "(type '-t avfoundation:fullhelp' to see available framerates)\n";
                 col() << "(type '-t avfoundation:shorthelp' to hide modes)\n";
         }
+        return true;
 }
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
@@ -229,14 +291,43 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 };
 #endif // at least mac 10.14
 
+static void
+set_scren_cap_properties(AVCaptureScreenInput* capture_screen_input, double fps) {
+        capture_screen_input.capturesCursor = YES;
+        capture_screen_input.capturesMouseClicks = YES;
+        if (fps) {
+                capture_screen_input.minFrameDuration = CMTimeMake(1, fps);
+        }
+}
+
+unsigned
+avfoundation_get_screen_count(void) {
+        uint32_t num_screens = 0;
+        CGGetActiveDisplayList(0, NULL, &num_screens);
+        return num_screens;
+}
+
 - (id)initWithParams: (NSDictionary *) params
 {
         self = [super init];
         bool use_preset = true;
+        int device_idx = [params valueForKey:@"device"]
+                ? [[params valueForKey:@"device"] intValue] : -1;
+        NSString *device_name = [params valueForKey:@"name"];
+        NSString *device_uid = [params valueForKey:@"uid"];
 
-	m_t0 = chrono::steady_clock::now();
-	m_frames = 0;
-        m_fps_req = 0.0;
+        if (device_name) {
+                if (sscanf([device_name UTF8String], SCR_CAP_NAME_PREF "%d",
+                                &device_idx) == 1) { // eg. "Capture screen 0"
+                        device_idx += AVF_SCR_CAP_OFF;
+                }
+        }
+        m_fps_req = [params valueForKey:@"fps"]
+                ? [[params valueForKey:@"fps"] doubleValue] : 0;
+        m_is_screen_cap = device_idx >= (int) AVF_SCR_CAP_OFF
+                || (device_uid && [device_uid length] <= 3);
+        m_device = nil;
+        m_saved_desc = {};
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101400
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
@@ -259,10 +350,27 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         // chosen device.
 
         // Find a suitable AVCaptureDevice
-        int device_idx = [params valueForKey:@"device"] ? [[params valueForKey:@"device"] intValue] : -1;
-        NSString *device_uid = [params valueForKey:@"uid"];
-        NSString *device_name = [params valueForKey:@"name"];
-        if (device_idx != -1 || device_name != nullptr ||
+        if (m_is_screen_cap) {
+                uint32_t num_screens    = 0;
+                CGDirectDisplayID id;
+                if (device_idx != -1) {
+                        CGGetActiveDisplayList(0, NULL, &num_screens);
+                        unsigned idx = device_idx - AVF_SCR_CAP_OFF;
+                        if (device_idx != -1 && idx >= num_screens) {
+                                [NSException raise:@"Invalid argument" format:@"Screen capture device index %d is invalid", device_idx];
+                        }
+                        vector<CGDirectDisplayID> screens(num_screens);
+                        CGGetActiveDisplayList(num_screens, screens.data(), &num_screens);
+                        id = screens[idx];
+                } else {
+                        id = atoi([device_uid UTF8String]);
+                }
+                AVCaptureScreenInput* capture_screen_input =
+                        [[[AVCaptureScreenInput alloc]
+                        initWithDisplayID:id] autorelease];
+                set_scren_cap_properties(capture_screen_input, m_fps_req);
+                m_device = (AVCaptureDevice*) capture_screen_input;
+        } else if (device_idx != -1 || device_name != nullptr ||
             device_uid != nullptr) {
                 int i = -1;
                 for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
@@ -292,17 +400,28 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         } else {
                 m_device = [AVCaptureDevice
                         defaultDeviceWithMediaType:AVMediaTypeVideo];
+                if (m_device == nil) {
+                        CGDirectDisplayID mainScreenID = CGMainDisplayID();
+                        AVCaptureScreenInput* capture_screen_input =
+                                [[[AVCaptureScreenInput alloc]
+                                 initWithDisplayID:mainScreenID] autorelease];
+                        set_scren_cap_properties(capture_screen_input, m_fps_req);
+                        m_device = (AVCaptureDevice*) capture_screen_input;
+                }
         }
 
         if (m_device == nil) {
                 [NSException raise:@"No device" format:@"No capture device was found!"];
         }
 
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: " << [[m_device localizedName] UTF8String] << "\n";
+        MSG(NOTICE, "Using device: %s\n", m_is_screen_cap
+                ? [[m_device description] UTF8String]
+                : [[m_device localizedName] UTF8String]);
 
         // Create a device input with the device and add it to the session.
-        AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:m_device
-                error:&error];
+        AVCaptureDeviceInput *input = m_is_screen_cap
+                ? (AVCaptureDeviceInput *) m_device
+                : [AVCaptureDeviceInput deviceInputWithDevice:m_device error:&error];
         if (!input) {
                 [NSException raise:@"No media" format:@"No media input!"];
         }
@@ -343,9 +462,6 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 if (i != mode) {
                         NSLog(@"Mode index out of bounds!");
                         format = nil;
-                }
-                if ([params valueForKey:@"fps"]) {
-                        m_fps_req = [[params valueForKey:@"fps"] doubleValue];
                 }
                 if ([params valueForKey:@"fr_idx"]) {
                         rate_idx_req = [[params valueForKey:@"fr_idx"] intValue];
@@ -398,26 +514,33 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 					forKey:(id)kCVPixelBufferPixelFormatTypeKey];
 			}
 		}
-        } else {
-                NSString *preset = AVCaptureSessionPresetMedium;
-                if ([params valueForKey:@"preset"]) {
-                        auto it = preset_to_av.find([[params valueForKey:@"preset"] UTF8String]);
-                        if (it != preset_to_av.end()) {
-                                preset = it->second;
-                        } else {
-                                NSLog(@"Unknown preset %@!", [params valueForKey:@"preset"]);
-                        }
+        } else if ([params valueForKey:@"preset"]) {
+                NSString *req_preset = [params valueForKey:@"preset"];
+                if ([req_preset isEqualToString:@"VGA"]) {
+                        MSG(WARNING, "preset VGA deprecated - use 640x480\n");
+                        req_preset = @"640x480";
                 }
+                if ([req_preset isEqualToString:@"HD"]) {
+                        MSG(WARNING, "preset HD deprecated - use 1280x720\n");
+                        req_preset = @"1280x720";
+                }
+                // for compat make first letter Upper - the preset opt used to
+                // be "low" so make it "Low"
+                NSString *firstLetterUpper = [[req_preset substringToIndex:1]
+                        uppercaseString];
+                NSString *restOfString = [req_preset substringFromIndex:1];
+                NSString *preset = [ @"AVCaptureSessionPreset" stringByAppendingString:
+                        [firstLetterUpper stringByAppendingString:restOfString]];
+
+                MSG(INFO, "using preset: %s\n", [preset UTF8String]);
                 m_session.sessionPreset = preset;
         }
 
 	// set device frame rate also to capture output to prevent rate oscilation
         AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
-        if (conn.isVideoMinFrameDurationSupported)
+        if (!m_is_screen_cap && conn.isVideoMinFrameDurationSupported) {
                 conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
-        if (NSAppKitVersionNumber >= NSAppKitVersionNumber10_9) {
-                if (conn.isVideoMaxFrameDurationSupported)
-                        conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
+                conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
         }
 
         // You must also call lockForConfiguration: before calling the AVCaptureSession method startRunning, or the session's preset will override the selected active format on the capture device.
@@ -458,6 +581,12 @@ fromConnection:(AVCaptureConnection *)connection
         [m_session stopRunning];
         [m_session release];
 
+        while (m_queue.size() > 0) {
+                struct video_frame *frame = m_queue.front();
+                VIDEO_FRAME_DISPOSE(frame);
+                m_queue.pop();
+        }
+
         [super dealloc];
 }
 
@@ -485,6 +614,12 @@ fromConnection:(AVCaptureConnection *)connection
 	desc.fps = m_fps_req != 0 ? m_fps_req : 1.0 / CMTimeGetSeconds(dur);
 	desc.tile_count = 1;
 	desc.interlacing = PROGRESSIVE;
+
+        if (!video_desc_eq(m_saved_desc, desc)) {
+                MSG(NOTICE, "capturing video format: %s\n",
+                        video_desc_to_string(desc));
+                m_saved_desc = desc;
+        }
 
 	struct video_frame *ret = nullptr;
 
@@ -532,29 +667,18 @@ fromConnection:(AVCaptureConnection *)connection
         m_frame_ready.wait_for(lock, milliseconds(100), [&]{return m_queue.size() != 0;});
         if (m_queue.size() == 0) {
                 return NULL;
-        } else {
-                struct video_frame *ret;
-                ret = m_queue.front();
-                m_queue.pop();
-
-		m_frames++;
-
-		chrono::steady_clock::time_point now = chrono::steady_clock::now();
-		double seconds = chrono::duration_cast<chrono::microseconds>(now - m_t0).count() / 1000000.0;
-		if (seconds >= 5) {
-			cout << "[AVfoundation capture] " << m_frames << " frames in "
-				<< seconds << " seconds = " <<  m_frames / seconds << " FPS\n";
-			m_t0 = now;
-			m_frames = 0;
-		}
-
-                return ret;
         }
+
+        struct video_frame *ret;
+        ret = m_queue.front();
+        m_queue.pop();
+        return ret;
 }
 @end
 
 static void vidcap_avfoundation_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+@autoreleasepool {
         *deleter = free;
 
         struct device_info *cards = NULL;
@@ -603,11 +727,12 @@ static void vidcap_avfoundation_probe(struct device_info **available_cards, int 
         *available_cards = cards;
         *count = card_count;
 }
+}
 
 static NSMutableDictionary *
 parse_fmt(char *fmt)
 {
-        NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
+        NSMutableDictionary *init_params = [[[NSMutableDictionary alloc] init] autorelease];
         char                *item        = nullptr;
         char                *save_ptr    = nullptr;
         char                *cfg         = fmt;
@@ -642,8 +767,6 @@ parse_fmt(char *fmt)
                 NSString *key = [NSString stringWithCString:key_cstr
                         encoding:NSASCIIStringEncoding];
                 [init_params setObject:val forKey:key];
-                [key release];
-                [val release];
 
                 cfg = NULL;
         }
@@ -652,15 +775,9 @@ parse_fmt(char *fmt)
 
 static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
 {
-        if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
-                [vidcap_avfoundation_state usage: VERB_NORMAL];
-                return VIDCAP_INIT_NOERR;
-        } else if (strcasecmp(vidcap_params_get_fmt(params), "shorthelp") == 0) {
-                [vidcap_avfoundation_state usage: VERB_SHORT];
-                return VIDCAP_INIT_NOERR;
-        } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
-                [vidcap_avfoundation_state usage: VERB_FULL];
-                return VIDCAP_INIT_NOERR;
+@autoreleasepool {
+        if (avfoundation_usage(vidcap_params_get_fmt(params))) {
+                return VIDCAP_INIT_NOERR; // help shown
         }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
@@ -680,13 +797,12 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
                 cerr << [[e reason] UTF8String] << "\n";
                 ret = nullptr;
         }
-        [init_params release];
-        if (ret) {
-                *state = ret;
-                return VIDCAP_INIT_OK;
-        } else {
+        if (!ret) {
                 return VIDCAP_INIT_FAIL;
         }
+        *state = ret;
+        return VIDCAP_INIT_OK;
+}
 }
 
 static void vidcap_avfoundation_done(void *state)
@@ -700,12 +816,12 @@ static struct video_frame *vidcap_avfoundation_grab(void *state, struct audio_fr
         return [(vidcap_avfoundation_state *) state grab];
 }
 
-static const struct video_capture_info vidcap_avfoundation_info = {
+extern const struct video_capture_info vidcap_avfoundation_info = {
         vidcap_avfoundation_probe,
         vidcap_avfoundation_init,
         vidcap_avfoundation_done,
         vidcap_avfoundation_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(avfoundation, &vidcap_avfoundation_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

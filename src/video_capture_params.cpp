@@ -5,7 +5,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -278,6 +278,13 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
         ret->next = NULL; // there is high probability that the pointer will be invalid
 
         return ret;
+}
+
+void
+vidcap_params_replace_fmt(struct vidcap_params *params, const char *new_fmt)
+{
+        free(params->fmt);
+        params->fmt = strdup(new_fmt);
 }
 
 /**
