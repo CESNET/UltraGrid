@@ -79,12 +79,51 @@ vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
         }
 }
 
+/// @returns whether the config string contains device spec (d=/uid=/name=)
+static bool
+contains_dev_spec(const char *fmt)
+{
+        char *cpy     = strdup(fmt);
+        char *tmp     = cpy;
+        char *saveptr = nullptr;
+        char *item    = nullptr;
+        while ((item = strtok_r(tmp, ":", &saveptr)) != nullptr) {
+                tmp = nullptr;
+                char *delim = strchr(item, '=');
+                if (!delim) {
+                        continue;
+                }
+                *delim = '\0';
+                if (strstr(item, "device") == item ||
+                    strstr(item, "uid") == item ||
+                    strstr(item, "name") == item) {
+                        return true;
+                }
+        }
+        return false;
+}
+
 static int
 vidcap_screen_avf_init(struct vidcap_params *params, void **state)
 {
-        if (avfoundation_usage(vidcap_params_get_fmt(params), true)) {
+        const char *fmt = vidcap_params_get_fmt(params);
+
+        if (avfoundation_usage(fmt, true)) {
                 return VIDCAP_INIT_NOERR; // help shown
         }
+
+        if (contains_dev_spec(fmt)) {
+                return vidcap_avfoundation_info.init(params, state);
+        }
+
+        // add "d=100" to initialize first screen cap av foundation device
+        const size_t orig_len = strlen(fmt);
+        const size_t new_len  = orig_len + 50;
+        char        *new_fmt  = malloc(new_len);
+        (void) snprintf(new_fmt, new_len, "%s%sd=%u", fmt,
+                        orig_len == 0 ? "" : ":", AVF_SCR_CAP_OFF);
+        vidcap_params_replace_fmt(params, new_fmt);
+        free(new_fmt);
         return vidcap_avfoundation_info.init(params, state);
 }
 

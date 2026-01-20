@@ -10,7 +10,7 @@
  * individual devices' parameters (namely per-device capture filter).
  */
 /**
- * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,6 +81,8 @@ void                  vidcap_params_add_capture_filter(struct vidcap_params *par
 const char           *vidcap_params_get_capture_filter(const struct vidcap_params *params);
 void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
 void                  vidcap_params_add_flags(struct vidcap_params *params, unsigned int flags);
+void                  vidcap_params_replace_fmt(struct vidcap_params *params,
+                                                const char           *new_fmt);
 /// @}
 
 #ifdef __cplusplus
