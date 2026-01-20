@@ -105,8 +105,8 @@ case "$RUNNER_OS" in
 --enable-syphon \
 "
                 macos_major=$(sw_vers -productVersion | cut -d. -f1)
-                if [ "$macos_major" -ge 15 ]; then
-                        FEATURES="$FEATURES --disable-screen"
+                if [ "$macos_major" -lt 15 ]; then
+                        FEATURES="$FEATURES --enable-screen=cg"
                 fi
                 ;;
         Windows)
