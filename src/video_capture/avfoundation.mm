@@ -267,7 +267,12 @@ avfoundation_usage(const char *fmt, bool for_screen = false)
             }
         }
 
-        col() << "device marked with an asterisk ('*') is default\n";
+        if (i == 0 && num_screens == 0) {
+                MSG(WARNING, "No devices found!\n");
+        } else {
+                color_printf("device marked with an asterisk ('*') is default\n");
+        }
+
         if (!for_screen && verbose == VERB_NORMAL) {
                 col() << "(type '-t avfoundation:fullhelp' to see available framerates)\n";
                 col() << "(type '-t avfoundation:shorthelp' to hide modes)\n";
