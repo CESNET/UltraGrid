@@ -49,6 +49,7 @@
 #include "debug.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"        // for snprintf_ch
 #include "video_frame.h"         // for get_interlacing_suffix
 
 #if !defined VHD_MIN_6_19

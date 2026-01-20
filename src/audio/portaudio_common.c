@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2025 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 #include "portaudio_common.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"     // for snprintf_ch
 
 #define MOD_NAME "[PortAudio] "
 

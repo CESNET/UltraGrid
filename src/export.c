@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2024 CESNET
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právnickych osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/fs.h" // MAX_PATH_SIZE
+#include "utils/macros.h"     // for STR_LEN
 #include "utils/misc.h"
 #include "video_export.h"
 

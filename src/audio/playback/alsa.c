@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,7 @@
 #include "tv.h"
 #include "types.h"                 // for device_info
 #include "utils/color_out.h"
+#include "utils/macros.h"          // for STR_LEN, snprintf_ch
 
 #define BUF_LEN_DEFAULT_MS      60
 #define BUF_LEN_DEFAULT_SYNC_MS 200 // default buffer len for sync API

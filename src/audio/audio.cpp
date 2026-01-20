@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -90,6 +90,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
+#include "utils/macros.h"               // for STR_LEN, snprintf_ch
 #include "utils/misc.h"                 // for get_stat_color
 #include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"

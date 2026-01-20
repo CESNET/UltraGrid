@@ -66,6 +66,7 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
+#include "utils/macros.h"        // for STR_LEN, snprintf_ch, IS_FCC
 #include "utils/string.h"        // for DELDEL
 #include "utils/windows.h"
 #include "utils/worker.h"
