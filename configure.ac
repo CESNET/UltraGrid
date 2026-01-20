@@ -2220,6 +2220,10 @@ AS_HELP_STRING([--enable-screen@<:@=x11,pipewire,cg@:>@],
     [screen_cap_req=$build_default]
     )
 
+if test "${system?}" = Linux && test "${screen_cap_req?}" = yes; then
+        screen_cap_req=pipewire,x11
+fi
+
 if test "${system?}" = Windows && test "${screen_cap_req?}" != no; then
         SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
         DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
@@ -2312,9 +2316,12 @@ fi
 
 ENSURE_FEATURE_PRESENT([$screen_cap_req], [$screen_cap], [Screen capture not found])
 
-if { test ${screen_cap_req?} = x11 && test ${screen_cap_x11} = no; } ||
-   { test ${screen_cap_req?} = pipewire && test ${screen_cap_pw} = no; }; then
-        AC_MSG_ERROR([Desired screen capture implementation not found!])
+if { expr "x${screen_cap_req?}" : "x.*x11" >/dev/null &&
+        test "${screen_cap_x11?}" = no; } ||
+   { expr "x${screen_cap_req?}" : "x.*pipewire" >/dev/null &&
+        test "${screen_cap_pw?}" = no; }; then
+        AC_MSG_ERROR([Desired screen capture implementation not found!]
+ [Wanted: ${screen_cap_req?}])
 fi
 
 if test -n "$screen_modules"; then
