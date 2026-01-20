@@ -3255,7 +3255,8 @@ ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found
 # ------------------------------------------------------------------------------
 ndi=no
 AC_ARG_ENABLE(ndi,
-      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto)]),
+      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto).]
+[Set ver to 5 if using NDI 5.]),
     [ndi_req=$enableval],
     [ndi_req=$build_default]
     )
