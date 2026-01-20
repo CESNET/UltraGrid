@@ -193,7 +193,7 @@ avfoundation_usage(const char *fmt, bool for_screen = false)
                 TBOLD("Low") ", " TBOLD("Medium") ", " TBOLD("High") ", "
                 TBOLD("Photo") ", "  TBOLD("1280x720") ", " TBOLD("1920x1080")
                 ", " TBOLD("320x240") ", "  TBOLD("352x288") ", "
-                TBOLD("3840x160") ", " TBOLD("3840x2160") ", " TBOLD("640x480")
+                TBOLD("3840x2160") ", " TBOLD("3840x2160") ", " TBOLD("640x480")
                 " or " TBOLD("960x540") "\n");
         col() << "\n";
         col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
