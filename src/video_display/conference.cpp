@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024
+ * Copyright (c) 2014-2026, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "messaging.h"                  // for check_message...
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/string_view_utils.hpp"

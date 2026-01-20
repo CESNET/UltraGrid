@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "audio/types.h"
 #include "filter_chain.hpp"
+#include "messaging.h"               // for check_message...
 #include "utils/string_view_utils.hpp"
 
 Filter_chain::Filter_chain(struct module *parent) :

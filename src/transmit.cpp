@@ -17,7 +17,7 @@
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -76,6 +76,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"               // for check_message...
 #include "module.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"

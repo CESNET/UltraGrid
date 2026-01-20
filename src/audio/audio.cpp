@@ -77,6 +77,7 @@
 #include "config.h"                     // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
+#include "messaging.h"                  // for check_message...
 #include "module.h"
 #include "pdb.h"
 #include "rtp/audio_decoders.h"

@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include "audio/audio_filter.h"
 #include "audio/types.h"
 #include "lib_common.h"
+#include "messaging.h"                  // for free_message, new_response
 #include "utils/ring_buffer.h"
 #include "utils/misc.h"
 #include "utils/string_view_utils.hpp"
