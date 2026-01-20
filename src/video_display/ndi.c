@@ -53,13 +53,14 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/c23.h"       // for countof
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "ndi_common.h"
 #include "types.h"
 #include "utils/color_out.h"
-#include "utils/macros.h"     // for OPTIMIZED_FOR, countof
+#include "utils/macros.h"     // for OPTIMIZED_FOR
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"

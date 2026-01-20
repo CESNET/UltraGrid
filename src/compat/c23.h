@@ -2,8 +2,8 @@
  * @file   compat/c23.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * fallback implementation of some C23 features like nullptr or built-in
- * bool/true/false
+ * fallback implementation of some C23 and C2Y features like nullptr, countof
+ * or built-in bool/true/false
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -49,6 +49,10 @@
 #endif
 
 #include <stdbool.h>               // for true, bool
+
+#ifndef countof // defined in C2Y stdcountof.h
+#define countof(arr) (sizeof (arr) / sizeof (arr)[0])
+#endif
 
 // IWYU pragma: end_exports
 

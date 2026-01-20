@@ -46,6 +46,7 @@
 #include <string.h>         // for strlen, strchr, memcpy, strdup, strncat
 #include <time.h>           // for clock_gettime
 
+#include "compat/c23.h"     // for countof
 #include "compat/strings.h" // for strcasecmp
 #include "debug.h"
 #include "messaging.h"      // for check_message, free_message, ...

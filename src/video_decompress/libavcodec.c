@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "compat/c23.h"                     // for countof
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -58,7 +59,7 @@
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "utils/debug.h"          // for debug_file_dump
-#include "utils/macros.h"         // for countof
+#include "utils/macros.h"                   // for SWAP_PTR
 #include "video.h"
 #include "video_codec.h"
 #include "video_decompress.h"

@@ -55,6 +55,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <iterator>                         // for size
 #include <memory>
 #include <random>
 #include <utility>
@@ -66,7 +67,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/bitmap_font.h"         // for FONT_H
 #include "utils/color_out.h"
-#include "utils/macros.h"              // for countof
+#include "utils/macros.h"                   // for IS_KEY_PREFIX, MAX, STR_LEN
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "video.h"
@@ -129,7 +130,7 @@ get_color_by_name(const char *col)
                 color_printf("Leading zeros can be omitted, eg. "
                              "`0xFF` produces a red pattern.\n");
                 color_printf("\nfollowing symbolic names can be also used:\n");
-                for (unsigned i = 0; i < countof(colors); ++i) {
+                for (unsigned i = 0; i < std::size(colors); ++i) {
                         color_printf("\t- " TBOLD("%s") "\n", colors[i].name);
                 }
                 color_printf("\n");
@@ -141,7 +142,7 @@ get_color_by_name(const char *col)
         if (errno == 0 && endptr[0] == '\0') {
                 return (uint32_t) val;
         }
-        for (unsigned i = 0; i < countof(colors); ++i) {
+        for (unsigned i = 0; i < std::size(colors); ++i) {
                 if (strcasecmp(col, colors[i].name) == 0) {
                         return 0xFFU << 24 | colors[i].val;
                 }
@@ -555,7 +556,7 @@ struct image_pattern_strips : public image_pattern
                                                     : type == ROWS ? i
                                                                    : j;
                                 *ptr++ = pattern[(col_idx / fill_w) %
-                                                     countof(pattern)];
+                                                     std::size(pattern)];
                         }
                 }
                 return generator_depth::bits8;

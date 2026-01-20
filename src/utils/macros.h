@@ -61,10 +61,6 @@
 #define SWAP(a, b) do { b ^= a; a ^= b; b ^= a; } while (0)
 #define SWAP_PTR(a, b) do { void *tmp = (a); (a) = (b); (b) = tmp; } while(0)
 
-#ifndef countof // defined in C2Y stdcountof.h
-#define countof(arr) (sizeof (arr) / sizeof (arr)[0])
-#endif
-
 #undef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #undef MAX

@@ -58,9 +58,10 @@ ADD_TO_PARAM(PARAM_NAME, PARAM_HELP);
 #include <stdio.h>
 #include <string.h>
 
+#include "compat/c23.h"        // for countof
 #include "compat/strings.h"    // for strcasecmp
 #include "debug.h"             // for MSG
-#include "utils/macros.h"      // for SHORT_STR, countof
+#include "utils/macros.h"      // for SHORT_STR
 #include "utils/color_out.h"   // for TBOLD
 
 #define CHECK_OPENCL(cmd, errmsg, erraction) \

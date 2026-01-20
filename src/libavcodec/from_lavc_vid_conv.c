@@ -58,6 +58,7 @@
 #include <stdint.h>
 
 #include "color_space.h"
+#include "compat/c23.h"   // for countof
 #include "compat/qsort_s.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"       // for HWACC_VDPAU
@@ -72,7 +73,7 @@
 #include "pixfmt_conv.h"
 #include "types.h"
 #include "utils/debug.h"  // for DEBUG_TIMER_*
-#include "utils/macros.h" // for OPTIMIZED_FOR, countof
+#include "utils/macros.h" // for OPTIMIZED_FOR
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel
 #include "video.h"

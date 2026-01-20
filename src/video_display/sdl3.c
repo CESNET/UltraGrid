@@ -64,6 +64,7 @@
 #include <string.h>   // for NULL, strlen, strcmp, strstr, strchr
 #include <time.h>     // for timespec_get, TIME_UTC, timespec
 
+#include "compat/c23.h"       // for countof
 #include "compat/endian.h"    // for be32toh, htole32
 #include "debug.h"            // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_W...
 #include "host.h"             // for get_commandline_param, exit_uv, ADD_T...
@@ -77,7 +78,7 @@
 #include "utils/color_out.h"  // for color_printf, TBOLD, TRED
 #include "utils/dictionary.h" // for dictionary
 #include "utils/list.h"       // for simple_linked_list_append, simple_lin...
-#include "utils/macros.h"     // for STR_LEN, countof
+#include "utils/macros.h"     // for STR_LEN
 #include "video.h"            // for get_video_desc_from_string
 #include "video_codec.h"      // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"    // for display_property, get_splashscreen
