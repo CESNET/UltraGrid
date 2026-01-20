@@ -4,7 +4,7 @@
  * @ingroup module
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,14 +58,14 @@
 #ifndef MODULE_H_
 #define MODULE_H_
 
-#include "messaging.h"
-#include "utils/macros.h"
-
 #include <pthread.h>
 
 #ifdef __cplusplus
+#include <cstddef>    // for size_t
 #include <cstdint>
 #else
+#include <stdbool.h>
+#include <stddef.h>   // for size_t
 #include <stdint.h>
 #endif
 
@@ -93,8 +93,6 @@ enum module_class {
 };
 
 struct module;
-struct module_priv_state;
-struct simple_linked_list;
 
 typedef void (*notify_t)(struct module *);
 

@@ -623,9 +623,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         case NDIlib_frame_type_status_change:
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Status changed!\n";
                 break;
+#if USE_NDI_VERSION >= 6
         case NDIlib_frame_type_source_change:
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Source changed!\n";
                 break;
+#endif
         case NDIlib_frame_type_max:
                 assert(0 && "NDIlib_frame_type_max is invalid!");
         }

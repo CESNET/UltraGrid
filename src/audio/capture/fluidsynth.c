@@ -47,6 +47,7 @@
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
 #include "audio/utils.h"          // for mux_channel
+#include "compat/c23.h"           // for countof
 #include "compat/usleep.h"        // for usleep
 #include "debug.h"                // for LOG_LEVEL_ERROR, MSG, log_msg, LOG_...
 #include "host.h"                 // for audio_capture_sample_rate, INIT_NOERR
@@ -56,7 +57,7 @@
 #include "types.h"                // for device_info
 #include "utils/color_out.h"      // for color_printf, TBOLD, TRED
 #include "utils/fs.h"             // for get_install_root, get_temp_file
-#include "utils/macros.h"         // for IS_KEY_PREFIX, countof
+#include "utils/macros.h"         // for IS_KEY_PREFIX
 
 struct module;
 

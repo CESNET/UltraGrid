@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 
 #include "host.h"
 #include "module.h"
+#include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
 
 #define VIDEO_RXTX_ABI_VERSION 3
 

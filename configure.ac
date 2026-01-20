@@ -155,8 +155,9 @@ fi
 
 if test $system = MacOSX; then
         MACOS_LEGACY=no
-        os_version_major=`uname -r |cut -d . -f 1`
-        if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
+        macos_major=$(sw_vers -productVersion | cut -d. -f1)
+        macos_minor=$(sw_vers -productVersion | cut -d. -f2)
+        if test ${macos_major?} -eq 10 && test ${macos_minor?} -lt 15; then
                 MACOS_LEGACY=yes
         fi
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
@@ -447,7 +448,8 @@ AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
 AC_ARG_VAR([CUDA_FLAGS], [Flags to be passed to CUDA compiler, eg. -arch=native; alterntatively CUDAFLAGS])
-AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
+AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.]dnl
+ [Alternative: CUDACXX (path to nvcc executable)])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([GENICAM_GENTL64_PATH], [XIMEA SDK library path])
@@ -520,7 +522,7 @@ if test $cuda_req != no; then
         # nvcc is intentional here
         AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
                 [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
-        if -z "$NVCC" && -e "$CUDACXX"; then
+        if test -z "$NVCC" && test -x "$CUDACXX"; then
                 NVCC=$CUDACXX
         fi
 fi
@@ -2210,23 +2212,43 @@ sc_details=
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
-[  --enable-screen@<:@=x11,pipewire@:>@  @<:@Linux only@:>@ choose implementation (can be both)]
-[                          Requires: none (OSX) x11 or pipewire (Linux) dshow (Win)],
+AS_HELP_STRING([--enable-screen@<:@=x11,pipewire,cg@:>@],
+[choose implementation (Linux: can be both x11 and pipewire; macOS: cg]
+[ - use Core Graphics implementation instead of AV Foundation).]
+[Requires: macOS<15 (cg), AVF (macOS otherwise); X11 or PipeWire (Linux); DShow (Win)]),
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
     )
 
-case "$system" in
-	MacOSX)
-                if test "$os_version_major" -lt 24; then # Darwin 24.0.0 is macOS 15
-                        screen_cap=yes
+if test "${system?}" = Linux && test "${screen_cap_req?}" = yes; then
+        screen_cap_req=pipewire,x11
+fi
+
+if test "${system?}" = Windows && test "${screen_cap_req?}" != no; then
+        SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
+        DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
+        screen_cap=$dshow
+fi
+
+if test "${system?}" = MacOSX && test "${screen_cap_req?}" != no; then
+        if test "${avfoundation?}" = no || test "${screen_cap_req?}" = cg; then
+                if test "${macos_major?}" -ge 15; then
+                        AC_MSG_WARN([Core Graphics screen capture]dnl
+ [unsupported since macOS 15!])
+                else
+                        SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
                         SCREEN_CAP_LIB="-framework CoreFoundation"
+                        screen_modules="Core Graphics"
+                        screen_cap=yes
                 fi
-	;;
-        Windows)
-                screen_cap=$dshow
-        ;;
-esac
+        else
+                if test "${avfoundation?}" = yes; then
+                        SCREEN_CAP_OBJ="src/video_capture/screen_avf.o"
+                        screen_modules="AV Foundation"
+                        screen_cap=yes
+                fi
+        fi
+fi
 
 # X11
 screen_cap_x11=no
@@ -2260,7 +2282,8 @@ fi
 # PipeWire
 found_screen_screen_pw_deps=no
 screen_cap_pw=no
-if test $screen_cap_req != no && test $screen_cap_req != x11; then
+if test ${system?} = Linux && test ${screen_cap_req?} != no &&
+                test ${screen_cap_req} != x11; then
         PKG_CHECK_MODULES([SCREEN_PW_DEPS], [glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
 fi
 
@@ -2283,23 +2306,22 @@ fi
 
 if test $screen_cap_req != no && test $screen_cap = yes
 then
-        if test $system = MacOSX; then
-                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
-        elif test $system = Linux; then
+        if test $system = Linux; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_linux.o"
-        else
-                SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
-                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
         fi
         add_module vidcap_screen "$SCREEN_CAP_OBJ" "$SCREEN_CAP_LIB"
 else
         screen_cap=no
 fi
 
-if { test $screen_cap_req = yes && { test $screen_cap = no || { test $system = Linux && { test $screen_cap_x11 = no || test $screen_cap_pw = no; }; }; }; } \
-        || { test $screen_cap_req = x11 && test $screen_cap_x11 = no; } || { test $screen_cap_req = pipewire && test $screen_cap_pw = no; }
-then
-        AC_MSG_ERROR([Screen capture not found]);
+ENSURE_FEATURE_PRESENT([$screen_cap_req], [$screen_cap], [Screen capture not found])
+
+if { expr "x${screen_cap_req?}" : "x.*x11" >/dev/null &&
+        test "${screen_cap_x11?}" = no; } ||
+   { expr "x${screen_cap_req?}" : "x.*pipewire" >/dev/null &&
+        test "${screen_cap_pw?}" = no; }; then
+        AC_MSG_ERROR([Desired screen capture implementation not found!]
+ [Wanted: ${screen_cap_req?}])
 fi
 
 if test -n "$screen_modules"; then
@@ -3255,7 +3277,8 @@ ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found
 # ------------------------------------------------------------------------------
 ndi=no
 AC_ARG_ENABLE(ndi,
-      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto)]),
+      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto).]
+[Set ver to 5 if using NDI 5.]),
     [ndi_req=$enableval],
     [ndi_req=$build_default]
     )

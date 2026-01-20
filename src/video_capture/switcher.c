@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2024 CESNET z.s.p.o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "messaging.h"        // for check_message, free_response
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"

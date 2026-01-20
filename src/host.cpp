@@ -100,6 +100,7 @@
 #include "types.h"                      // for device_info, device_option
 #include "utils/color_out.h"
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
+#include "utils/macros.h"               // for STR_LEN
 #include "utils/misc.h" // ug_strerror
 #include "utils/random.h"
 #include "utils/string.h"

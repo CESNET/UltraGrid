@@ -59,6 +59,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <iterator>             // for std::size
 #include <mutex>
 #include <queue>
 #include <string>
@@ -82,7 +83,7 @@ extern "C" {
 #include "utils/dictionary.h"
 }
 #include "utils/debug.h"         // for DEBUG_TIMER_*
-#include "utils/macros.h"        // for OPTIMIZED_FOR, countof
+#include "utils/macros.h"        // for OPTIMIZED_FOR
 #include "video.h"
 #include "video_display.h"
 
@@ -357,7 +358,7 @@ const static struct pixfmt_config {
 static struct pixfmt_config const*
 get_pixfmt_config(codec_t codec)
 {
-        for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
+        for (unsigned i = 0; i < std::size(pixfmt_configs); ++i) {
                 if (pixfmt_configs[i].codec == codec) {
                         return &pixfmt_configs[i];
                 }
@@ -533,7 +534,7 @@ static void
 gl_print_platforms()
 {
         printf("available platforms:\n");
-        for (unsigned i = 0; i < countof(platform_map); ++i) {
+        for (unsigned i = 0; i < std::size(platform_map); ++i) {
                 if (glfwPlatformSupported(platform_map[i].platform_id)) {
                         color_printf("\t- " TBOLD("%s") "\n", platform_map[i].name);
                 }
@@ -546,7 +547,7 @@ gl_print_current_platform()
 {
         const int platform = glfwGetPlatform();
         const char *name = "UNKNOWN/ERROR";
-        for (unsigned i = 0; i < countof(platform_map); ++i) {
+        for (unsigned i = 0; i < std::size(platform_map); ++i) {
                 if (platform_map[i].platform_id == platform) {
                         name = platform_map[i].name;
                         break;
@@ -639,7 +640,7 @@ static void gl_show_help(bool full, bool last) {
         }
 
         printf("\nkeyboard shortcuts:\n");
-        for (unsigned i = 0; i < countof(keybindings); i++) {
+        for (unsigned i = 0; i < std::size(keybindings); i++) {
                 char keyname[50];
                 get_keycode_name(keybindings[i].key, keyname, sizeof keyname);
                 color_printf("\t" TBOLD("%s") "\t\t%s\n", keyname,
@@ -731,7 +732,7 @@ static const struct {
 static int
 get_hint_from_string(const char *string)
 {
-        for (unsigned i = 0; i < countof(hint_map); i++) {
+        for (unsigned i = 0; i < std::size(hint_map); i++) {
                 if (strcmp(hint_map[i].name, string) == 0) {
                         return hint_map[i].val;
                 }
@@ -775,7 +776,7 @@ static bool
 set_platform(const char *platform)
 {
 #ifdef GLFW_PLATFORM
-        for (unsigned i = 0; i < countof(platform_map); ++i) {
+        for (unsigned i = 0; i < std::size(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
                         glfwInitHint(GLFW_PLATFORM, platform_map[i].platform_id);
                         return true;
@@ -808,7 +809,7 @@ list_hints()
                      "glfw3.h>).\n\n");
 
         color_printf("Some of hints keys and values:\n");
-        for (unsigned i = 0; i < countof(hint_map); i++) {
+        for (unsigned i = 0; i < std::size(hint_map); i++) {
                 color_printf("\t" TBOLD("%s") " - %#x\n", hint_map[i].name,
                              hint_map[i].val);
         }
@@ -953,7 +954,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", state_gl::deint_to_string(s->deinterlace));
 
-        for (unsigned i = 0; i < countof(keybindings); i++) {
+        for (unsigned i = 0; i < std::size(keybindings); i++) {
                 if (keybindings[i].key == 'q') {
                         continue; // don't report 'q' to avoid accidental close,
                                   // user can use Ctrl-c there
@@ -1844,7 +1845,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        for (unsigned i = 0; i < countof(pixfmt_configs); i++) {
+        for (unsigned i = 0; i < std::size(pixfmt_configs); i++) {
                 if (pixfmt_configs[i].prog_name == nullptr) {
                         continue;
                 }
@@ -2168,9 +2169,9 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
 
         switch (property) {
         case DISPLAY_PROPERTY_CODECS: {
-                UG_ASSERT(*len >= countof(pixfmt_configs) * sizeof(codec_t));
+                UG_ASSERT(*len >= std::size(pixfmt_configs) * sizeof(codec_t));
                 *len = 0;
-                for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
+                for (unsigned i = 0; i < std::size(pixfmt_configs); ++i) {
                         codec_t c = pixfmt_configs[i].codec;
                         if (get_bits_per_component(c) > DEPTH8 &&
                             commandline_params.find(

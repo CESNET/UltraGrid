@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@
 #include <stdbool.h>
 #endif
 
-#include "utils/macros.h"  // for STRINGIFY
+#define COLOR_OUT_STRINGIFY(A) #A
 
 #define TERM_RESET      "\033[0m"
 #define TERM_BOLD       "\033[1m"
@@ -63,7 +63,7 @@
 #define T_SADDLE_BROWN  130 // (3,1,0)
 #define T_ARCTIC_LIME   190 // (4,5,0)
 #define T_TOMATO        209 // (5,2,1)
-#define T256_FG_SYM(col) "\033[38;5;" STRINGIFY(col) "m"
+#define T256_FG_SYM(col) "\033[38;5;" COLOR_OUT_STRINGIFY(col) "m"
 #define T256_FG(col, x) T256_FG_SYM(col) x TERM_FG_RESET
 #define S256_FG(col, x) T256_FG(col, << x <<)
 

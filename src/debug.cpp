@@ -8,7 +8,7 @@
  *          Jerry Isdale
  *
  * Copyright (c) 1995-2000 University College London
- * Copyright (c) 2005-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,6 +58,7 @@
 #include "host.h"
 #include "utils/color_out.h"
 #include "utils/string_view_utils.hpp"
+#include "utils/macros.h"               // for STR_LEN, snprintf_ch
 #include "utils/misc.h" // ug_strerror
 
 using std::atomic;
