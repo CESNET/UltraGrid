@@ -41,20 +41,30 @@
 #ifndef COMPAT_C23_H_B55FDBEB_BED9_4D10_85D8_BE8CE8C21997
 #define COMPAT_C23_H_B55FDBEB_BED9_4D10_85D8_BE8CE8C21997
 
+#if !defined __cplusplus
+
 // IWYU pragma: begin_exports
 
-#if !defined __cplusplus && __STDC_VERSION__ <= 202311L
-#include <stddef.h>
-#define nullptr NULL
+// bool, true, false
+#if __STDC_VERSION__ < 202311L
+        #include <stdbool.h>
 #endif
 
-#include <stdbool.h>               // for true, bool
+// nullptr
+#if __STDC_VERSION__ < 202311L
+        #include <stddef.h>
+        #define nullptr NULL
+#endif
 
-#ifndef countof // defined in C2Y stdcountof.h
-#define countof(arr) (sizeof (arr) / sizeof (arr)[0])
+// countof
+#if __STDC_VERSION__ >= 202311L && __has_include(<stdcountof.h>)
+        #include <stdcountof.h>
+#elif !defined countof
+        #define countof(arr) (sizeof(arr) / sizeof(arr)[0])
 #endif
 
 // IWYU pragma: end_exports
 
+#endif // ! defined __cplusplus
 #endif // ! defined COMPAT_C23_H_B55FDBEB_BED9_4D10_85D8_BE8CE8C21997
 
