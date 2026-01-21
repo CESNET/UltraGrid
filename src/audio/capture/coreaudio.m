@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -394,6 +394,8 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         } while(0);
 
         if (!failed) {
+                color_printf("🔴 " MOD_NAME TBOLD(TYELLOW("This application is capturing"
+                     " computer audio.")) "\n");
                 return s;
         }
 

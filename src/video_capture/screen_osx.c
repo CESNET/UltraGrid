@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2025 CESNET
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,7 @@
 #include "pixfmt_conv.h"
 #include "tv.h"
 #include "types.h"
+#include "utils/color_out.h"
 #include "utils/video_frame_pool.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
@@ -226,6 +227,9 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
                 vidcap_screen_osx_done(s);
                 return VIDCAP_INIT_FAIL;
         }
+
+        color_printf("🔴 " MOD_NAME TBOLD(TYELLOW("This application is capturing"
+             " computer screen.")) "\n");
 
         *state = s;
         return VIDCAP_INIT_OK;
