@@ -522,7 +522,7 @@ avfoundation_get_screen_count(void) {
                 }
                 if ([req_preset isEqualToString:@"HD"]) {
                         MSG(WARNING, "preset HD deprecated - use 1280x720\n");
-                        req_preset = @"640x480";
+                        req_preset = @"1280x720";
                 }
                 // for compat make first letter Upper - the preset opt used to
                 // be "low" so make it "Low"
