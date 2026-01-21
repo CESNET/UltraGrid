@@ -72,9 +72,9 @@ vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
         *available_cards = calloc(*count, sizeof(struct device_info));
 
         for (int i = 0; i < *count; ++i) {
-                snprintf_ch((*available_cards)[i].name, ":%u",
+                snprintf_ch((*available_cards)[i].dev, ":d=%u",
                             AVF_SCR_CAP_OFF + i);
-                snprintf_ch((*available_cards)[i].dev, "%s%d",
+                snprintf_ch((*available_cards)[i].name, "%s%d",
                             AFV_SCR_CAP_NAME_PREF, i);
         }
 }
