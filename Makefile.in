@@ -650,13 +650,6 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 			| dylibbundler -of -cd -b -d $(GUI_BUNDLE)/Contents/libs \
 				-x $(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework/QtDBus;\
 	fi
-	# TODO TOREMOVE: also libbrotlidec.1.dylib seem to be copied with macdeployqt
-	# but without dependencies handled. However, the v1.2 (1.dylib is a symlink) is
-	# bundled/fixed by uv so use that.
-	if [ -f $(GUI_BUNDLE)/Contents/libs/libbrotlidec.1.dylib ]; then \
-		cd $(GUI_BUNDLE)/Contents/libs/; rm libbrotlidec.1.dylib; \
-		ln -s libbrotlidec*.dylib libbrotlidec.1.dylib; \
-        fi
 
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription \
 		'Allow camera for video capture'
