@@ -1916,7 +1916,7 @@ static void process_rtcp_sr(struct rtp *session, rtcp_t * packet)
 {
         uint32_t ssrc;
         rtp_event event;
-        rtcp_sr * _Atomic sr;
+        rtcp_sr * _Atomic sr = NULL;
         source *s;
 
         ssrc = ntohl(packet->r.sr.sr.ssrc);
