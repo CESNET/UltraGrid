@@ -3610,7 +3610,6 @@ end_section() {
 ## @param $1 <feature>
 ## @param $2 yes|no
 add_column() {
-        PAD_DOTS=31
         if test "${cur_column?}" = left; then
                 RESULT="${RESULT?}
   "
@@ -3620,8 +3619,13 @@ add_column() {
                 cur_column=left
         fi
         RESULT="${RESULT?}${1?} "
-        for n in `seq ${#1} $PAD_DOTS`; do RESULT="${RESULT?}."; done
-        RESULT="${RESULT?} $(printf %-3s ${2?})"
+
+        PAD_DOTS=$(( 32 - ${#1} ))
+        if test "$PAD_DOTS" -gt 0; then
+                RESULT="${RESULT?}$(printf "%${PAD_DOTS?}s" ' ' | tr ' ' .)"
+        fi
+
+        RESULT="${RESULT?} $(printf %-3s "${2?}")"
 }
 
 RESULT="Target: $target
