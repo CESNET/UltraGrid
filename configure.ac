@@ -3596,125 +3596,129 @@ AC_SUBST(TOREMOVE)
 # -------------------------------------------------------------------------------------------------
 
 start_section() {
-        printf "$1\n$2:"
-        true # set $? to zero -> causes add_column to start on new line
+        RESULT="${RESULT?}
+${1?}:"
+
+        cur_column=left
 }
 
 end_section() {
-        printf "$1
-        "
+        RESULT="${RESULT?}
+"
 }
 
-# params: <result> <feature> <bool> 0|1
-# 0 - print left column; 1 - print right column
+## @param $1 <feature>
+## @param $2 yes|no
 add_column() {
         PAD_DOTS=31
-        # left column
-        if test "${4?}" -eq 0; then
-                printf "$1\n  $2 $(for n in `seq ${#2} $PAD_DOTS`; do printf .; done) $(printf %-3s $3)"
-                return 1
-        else
-                # right column
-                printf "$1   $2 $(for n in `seq ${#2} $PAD_DOTS`; do printf .; done) $(printf %-3s $3)\n"
-                return 0
+        if test "${cur_column?}" = left; then
+                RESULT="${RESULT?}
+  "
+                cur_column=right
+        else  # right
+                RESULT="${RESULT?}   "
+                cur_column=left
         fi
+        RESULT="${RESULT?}${1?} "
+        for n in `seq ${#1} $PAD_DOTS`; do RESULT="${RESULT?}."; done
+        RESULT="${RESULT?} $(printf %-3s ${2?})"
 }
 
-RESULT="Target: $target\n"
+RESULT="Target: $target
+"
 
 # features
-RESULT=`start_section "$RESULT" "Features"`
-RESULT=`add_column "$RESULT" "Crypto$crypto_impl" $crypto $?`
-RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
-RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
-RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
-RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
-RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
-RESULT=`add_column "$RESULT" "Libbacktrace" $libbacktrace $?`
-RESULT=`add_column "$RESULT" "Manual pages" $man $?`
-RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
-RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
-RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
-RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
-RESULT=`add_column "$RESULT" "Soxr" $soxr $?`
-RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
-RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
-RESULT=`add_column "$RESULT" "zfec" $zfec $?`
-RESULT=`end_section "$RESULT"`
+start_section "Features"
+add_column "Crypto$crypto_impl" $crypto
+add_column "CUDA support$HOST_CC_REPORT" $FOUND_CUDA
+add_column "Debug output" $debug_output
+add_column "iHDTV support" $ihdtv
+add_column "IPv6 support" $ipv6
+add_column "Library live555" $livemedia
+add_column "Libbacktrace" $libbacktrace
+add_column "Manual pages" $man
+add_column "OpenCV" $opencv
+add_column "Profiling support" $profile
+add_column "Qt GUI" $qt_gui
+add_column "RT priority" $use_rt
+add_column "Soxr" $soxr
+add_column "SpeexDSP" $speexdsp
+add_column "Standalone modules" $build_libraries
+add_column "zfec" $zfec
+end_section
 
 # audio
-RESULT=`start_section "$RESULT" "Audio"`
-RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
-RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
-RESULT=`add_column "$RESULT" "FluidSynth" $fluidsynth $?`
-RESULT=`add_column "$RESULT" "JACK" $jack $?`
-RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
-RESULT=`add_column "$RESULT" "Pipewire" $pipewire_audio $?`
-RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
-RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
-RESULT=`end_section "$RESULT"`
+start_section "Audio"
+add_column "ALSA" $alsa
+add_column "CoreAudio" $coreaudio
+add_column "FluidSynth" $fluidsynth
+add_column "JACK" $jack
+add_column "JACK transport" $jack_trans
+add_column "Pipewire" $pipewire_audio
+add_column "Portaudio" $portaudio
+add_column "WASAPI" $wasapi
+end_section
 
 # video
-RESULT=`start_section "$RESULT" "Video"`
-RESULT=`add_column "$RESULT" "AJA" $aja $?`
-RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
-RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
-RESULT=`add_column "$RESULT" "Bluefish444" $bluefish444 $?`
-RESULT=`add_column "$RESULT" "caca" $caca $?`
-RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
-RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
-RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
-RESULT=`add_column "$RESULT" "DRM" $drm_disp $?`
-RESULT=`add_column "$RESULT" "DVS" $dvs $?`
-RESULT=`add_column "$RESULT" "File" $file $?`
-RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
-RESULT=`add_column "$RESULT" "NDI" $ndi $?`
-RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
-RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
-RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
-RESULT=`add_column "$RESULT" "Pipewire" $pipewire_video $?`
-RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
-RESULT=`add_column "$RESULT" "SAGE" $sage $?`
-RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
-RESULT=`add_column "$RESULT" "SDL$sdl_version_str" $sdl $?`
-RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
-RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
-RESULT=`add_column "$RESULT" "Vulkan$vulkan_sdl_ver" $vulkan $?`
-RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
-RESULT=`end_section "$RESULT"`
+start_section "Video"
+add_column "AJA" $aja
+add_column "AV Foundation" $avfoundation
+add_column "BitFlow" $bitflow
+add_column "Bluefish444" $bluefish444
+add_column "caca" $caca
+add_column "DeckLink" $decklink
+add_column "DELTACAST" $deltacast
+add_column "DirectShow" $dshow
+add_column "DRM" $drm_disp
+add_column "DVS" $dvs
+add_column "File" $file
+add_column "Gpustitch" $gpustitch
+add_column "NDI" $ndi
+add_column "OpenGL" $gl_display
+add_column "OpenXR VR Display" $xrgl_disp
+add_column "Panorama Gl Display" $panogl_disp
+add_column "Pipewire" $pipewire_video
+add_column "RTSP capture client" $rtsp
+add_column "SAGE" $sage
+add_column "Screen capture$screen_modules" $screen_cap
+add_column "SDL$sdl_version_str" $sdl
+add_column "SW video mix" $swmix
+add_column "V4L2" $v4l2
+add_column "Vulkan$vulkan_sdl_ver" $vulkan
+add_column "XIMEA" $ximea
+end_section
 
 # compressions
-RESULT=`start_section "$RESULT" "Compressions"`
-RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
-RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
-RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
-RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
-RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
-RESULT=`add_column "$RESULT" "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
-RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
-RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
-RESULT=`end_section "$RESULT"`
+start_section "Compressions"
+add_column "Cineform" $cineform
+add_column "Comprimato J2K" $cmpto_j2k
+add_column "CUDA DXT" $cuda_dxt
+add_column "GPUJPEG" $gpujpeg
+add_column "GPUJPEG transcode to DXT" $gpujpeg_to_dxt
+add_column "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec
+add_column "Realtime DXT" $rtdxt
+add_column "UYVY dummy compression" $uyvy
+end_section
 
 # other
-RESULT=`start_section "$RESULT" "Others"`
-RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
-RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
-RESULT=`add_column "$RESULT" "Hole punching" $libjuice $?`
-RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
-RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
-RESULT=`add_column "$RESULT" "NAT-PMP traversal" $natpmp $?`
-RESULT=`add_column "$RESULT" "PCP NAT traversal" $pcp $?`
-RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
-RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`
-RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
-RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
-RESULT=`add_column "$RESULT" "Spout" $spout $?`
-RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
-RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
-RESULT=`add_column "$RESULT" "Testcard2 (TTF: $FOUND_SDL_TTF)" \
-$testcard2 $?`
-RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
-RESULT=`end_section "$RESULT"`
+start_section "Others"
+add_column "Blank capture filter" $blank
+add_column "GPU accelerated LDGM" $ldgm_gpu
+add_column "Hole punching" $libjuice
+add_column "iHDTV support" $ihdtv
+add_column "MCU-like video mixer" $video_mix
+add_column "NAT-PMP traversal" $natpmp
+add_column "PCP NAT traversal" $pcp
+add_column "Resize capture filter" $resize
+add_column "RTSP server" $rtsp_server
+add_column "Scale postprocessor" $scale
+add_column "SDP over HTTP" $sdp_http
+add_column "Spout" $spout
+add_column "Swscale support" $libswscale
+add_column "Syphon" $syphon
+add_column "Testcard2 (TTF: $FOUND_SDL_TTF)" $testcard2
+add_column "Text postprocess and filter" $text
+end_section
 
 AC_MSG_RESULT(
 [
