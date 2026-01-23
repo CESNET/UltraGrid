@@ -2208,6 +2208,7 @@ SCREEN_CAP_OBJ=
 SCREEN_CAP_LIB=
 screen_cap=no
 screen_cap_x11=no
+screen_modules=
 sc_details=
 
 AC_ARG_ENABLE(screen,
@@ -3628,100 +3629,100 @@ add_column() {
         RESULT="${RESULT?} $(printf %-3s "${2?}")"
 }
 
-RESULT="Target: $target
+RESULT="Target: ${target?}
 "
 
 # features
 start_section "Features"
-add_column "Crypto$crypto_impl" $crypto
-add_column "CUDA support$HOST_CC_REPORT" $FOUND_CUDA
-add_column "Debug output" $debug_output
-add_column "iHDTV support" $ihdtv
-add_column "IPv6 support" $ipv6
-add_column "Library live555" $livemedia
-add_column "Libbacktrace" $libbacktrace
-add_column "Manual pages" $man
-add_column "OpenCV" $opencv
-add_column "Profiling support" $profile
-add_column "Qt GUI" $qt_gui
-add_column "RT priority" $use_rt
-add_column "Soxr" $soxr
-add_column "SpeexDSP" $speexdsp
-add_column "Standalone modules" $build_libraries
-add_column "zfec" $zfec
+add_column "Crypto${crypto_impl?}" "${crypto?}"
+add_column "CUDA support${HOST_CC_REPORT?}" "${FOUND_CUDA?}"
+add_column "Debug output" "${debug_output?}"
+add_column "iHDTV support" "${ihdtv?}"
+add_column "IPv6 support" "${ipv6?}"
+add_column "Library live555" "${livemedia?}"
+add_column "Libbacktrace" "${libbacktrace?}"
+add_column "Manual pages" "${man?}"
+add_column "OpenCV" "${opencv?}"
+add_column "Profiling support" "${profile?}"
+add_column "Qt GUI" "${qt_gui?}"
+add_column "RT priority" "${use_rt?}"
+add_column "Soxr" "${soxr?}"
+add_column "SpeexDSP" "${speexdsp?}"
+add_column "Standalone modules" "${build_libraries?}"
+add_column "zfec" "${zfec?}"
 end_section
 
 # audio
 start_section "Audio"
-add_column "ALSA" $alsa
-add_column "CoreAudio" $coreaudio
-add_column "FluidSynth" $fluidsynth
-add_column "JACK" $jack
-add_column "JACK transport" $jack_trans
-add_column "Pipewire" $pipewire_audio
-add_column "Portaudio" $portaudio
-add_column "WASAPI" $wasapi
+add_column "ALSA" "${alsa?}"
+add_column "CoreAudio" "${coreaudio?}"
+add_column "FluidSynth" "${fluidsynth?}"
+add_column "JACK" "${jack?}"
+add_column "JACK transport" "${jack_trans?}"
+add_column "Pipewire" "${pipewire_audio?}"
+add_column "Portaudio" "${portaudio?}"
+add_column "WASAPI" "${wasapi?}"
 end_section
 
 # video
 start_section "Video"
-add_column "AJA" $aja
-add_column "AV Foundation" $avfoundation
-add_column "BitFlow" $bitflow
-add_column "Bluefish444" $bluefish444
-add_column "caca" $caca
-add_column "DeckLink" $decklink
-add_column "DELTACAST" $deltacast
-add_column "DirectShow" $dshow
-add_column "DRM" $drm_disp
-add_column "DVS" $dvs
-add_column "File" $file
-add_column "Gpustitch" $gpustitch
-add_column "NDI" $ndi
-add_column "OpenGL" $gl_display
-add_column "OpenXR VR Display" $xrgl_disp
-add_column "Panorama Gl Display" $panogl_disp
-add_column "Pipewire" $pipewire_video
-add_column "RTSP capture client" $rtsp
-add_column "SAGE" $sage
-add_column "Screen capture$screen_modules" $screen_cap
-add_column "SDL$sdl_version_str" $sdl
-add_column "SW video mix" $swmix
-add_column "V4L2" $v4l2
-add_column "Vulkan$vulkan_sdl_ver" $vulkan
-add_column "XIMEA" $ximea
+add_column "AJA" "${aja?}"
+add_column "AV Foundation" "${avfoundation?}"
+add_column "BitFlow" "${bitflow?}"
+add_column "Bluefish444" "${bluefish444?}"
+add_column "caca" "${caca?}"
+add_column "DeckLink" "${decklink?}"
+add_column "DELTACAST" "${deltacast?}"
+add_column "DirectShow" "${dshow?}"
+add_column "DRM" "${drm_disp?}"
+add_column "DVS" "${dvs?}"
+add_column "File" "${file?}"
+add_column "Gpustitch" "${gpustitch?}"
+add_column "NDI" "${ndi?}"
+add_column "OpenGL" "${gl_display?}"
+add_column "OpenXR VR Display" "${xrgl_disp?}"
+add_column "Panorama Gl Display" "${panogl_disp?}"
+add_column "Pipewire" "${pipewire_video?}"
+add_column "RTSP capture client" "${rtsp?}"
+add_column "SAGE" "${sage?}"
+add_column "Screen capture${screen_modules?}" "${screen_cap?}"
+add_column "SDL${sdl_version_str?}" "${sdl?}"
+add_column "SW video mix" "${swmix?}"
+add_column "V4L2" "${v4l2?}"
+add_column "Vulkan${vulkan_sdl_ver?}" "${vulkan?}"
+add_column "XIMEA" "${ximea?}"
 end_section
 
 # compressions
 start_section "Compressions"
-add_column "Cineform" $cineform
-add_column "Comprimato J2K" $cmpto_j2k
-add_column "CUDA DXT" $cuda_dxt
-add_column "GPUJPEG" $gpujpeg
-add_column "GPUJPEG transcode to DXT" $gpujpeg_to_dxt
-add_column "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec
-add_column "Realtime DXT" $rtdxt
-add_column "UYVY dummy compression" $uyvy
+add_column "Cineform" "${cineform?}"
+add_column "Comprimato J2K" "${cmpto_j2k?}"
+add_column "CUDA DXT" "${cuda_dxt?}"
+add_column "GPUJPEG" "${gpujpeg?}"
+add_column "GPUJPEG transcode to DXT" "${gpujpeg_to_dxt?}"
+add_column "Lavc (VDP ${lavc_hwacc_vdpau?}, VA ${lavc_hwacc_vaapi?})" "${libavcodec?}"
+add_column "Realtime DXT" "${rtdxt?}"
+add_column "UYVY dummy compression" "${uyvy?}"
 end_section
 
 # other
 start_section "Others"
-add_column "Blank capture filter" $blank
-add_column "GPU accelerated LDGM" $ldgm_gpu
-add_column "Hole punching" $libjuice
-add_column "iHDTV support" $ihdtv
-add_column "MCU-like video mixer" $video_mix
-add_column "NAT-PMP traversal" $natpmp
-add_column "PCP NAT traversal" $pcp
-add_column "Resize capture filter" $resize
-add_column "RTSP server" $rtsp_server
-add_column "Scale postprocessor" $scale
-add_column "SDP over HTTP" $sdp_http
-add_column "Spout" $spout
-add_column "Swscale support" $libswscale
-add_column "Syphon" $syphon
-add_column "Testcard2 (TTF: $FOUND_SDL_TTF)" $testcard2
-add_column "Text postprocess and filter" $text
+add_column "Blank capture filter" "${blank?}"
+add_column "GPU accelerated LDGM" "${ldgm_gpu?}"
+add_column "Hole punching" "${libjuice?}"
+add_column "iHDTV support" "${ihdtv?}"
+add_column "MCU-like video mixer" "${video_mix?}"
+add_column "NAT-PMP traversal" "${natpmp?}"
+add_column "PCP NAT traversal" "${pcp?}"
+add_column "Resize capture filter" "${resize?}"
+add_column "RTSP server" "${rtsp_server?}"
+add_column "Scale postprocessor" "${scale?}"
+add_column "SDP over HTTP" "${sdp_http?}"
+add_column "Spout" "${spout?}"
+add_column "Swscale support" "${libswscale?}"
+add_column "Syphon" "${syphon?}"
+add_column "Testcard2 (TTF: ${FOUND_SDL_TTF?})" "${testcard2?}"
+add_column "Text postprocess and filter" "${text?}"
 end_section
 
 AC_MSG_RESULT(
