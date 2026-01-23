@@ -1,8 +1,8 @@
 /**
  * @file   video_capture/screen_avf.c
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * screen capture using AVFoundation
+ * screen capture using vcap/avfoundation (proxy)
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -81,14 +81,12 @@ vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
 
 /// @returns whether the config string contains device spec (d=/uid=/name=)
 static bool
-contains_dev_spec(const char *fmt)
+contains_dev_spec(char *fmt)
 {
-        char *cpy     = strdup(fmt);
-        char *tmp     = cpy;
         char *saveptr = nullptr;
         char *item    = nullptr;
-        while ((item = strtok_r(tmp, ":", &saveptr)) != nullptr) {
-                tmp = nullptr;
+        while ((item = strtok_r(fmt, ":", &saveptr)) != nullptr) {
+                fmt = nullptr;
                 char *delim = strchr(item, '=');
                 if (!delim) {
                         continue;
@@ -112,7 +110,10 @@ vidcap_screen_avf_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR; // help shown
         }
 
-        if (contains_dev_spec(fmt)) {
+        char *cpy = strdup(fmt);
+        const bool dev_specified = contains_dev_spec(cpy);
+        free(cpy);
+        if (dev_specified) {
                 return vidcap_avfoundation_info.init(params, state);
         }
 
