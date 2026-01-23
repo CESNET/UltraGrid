@@ -2,7 +2,7 @@
  * @file   video_capture/screen_avf.c
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * screen capture using vcap/avfoundation (proxy)
+ * this screen capture is a wrapper/proxy around vcap/avfoundation
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -118,11 +118,9 @@ vidcap_screen_avf_init(struct vidcap_params *params, void **state)
         }
 
         // add "d=100" to initialize first screen cap av foundation device
-        const size_t orig_len = strlen(fmt);
-        const size_t new_len  = orig_len + 50;
-        char        *new_fmt  = malloc(new_len);
-        (void) snprintf(new_fmt, new_len, "%s%sd=%u", fmt,
-                        orig_len == 0 ? "" : ":", AVF_SCR_CAP_OFF);
+        char *new_fmt = nullptr;
+        asprintf(&new_fmt, "%s%sd=%u", fmt, strlen(fmt) == 0 ? "" : ":",
+                 AVF_SCR_CAP_OFF);
         vidcap_params_replace_fmt(params, new_fmt);
         free(new_fmt);
         return vidcap_avfoundation_info.init(params, state);
