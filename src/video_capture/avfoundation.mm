@@ -522,7 +522,7 @@ avfoundation_get_screen_count(void) {
                 }
                 if ([req_preset isEqualToString:@"HD"]) {
                         MSG(WARNING, "preset HD deprecated - use 1280x720\n");
-                        req_preset = @"640x480";
+                        req_preset = @"1280x720";
                 }
                 // for compat make first letter Upper - the preset opt used to
                 // be "low" so make it "Low"
@@ -800,6 +800,8 @@ static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
         if (!ret) {
                 return VIDCAP_INIT_FAIL;
         }
+        color_printf("🔴 " MOD_NAME TBOLD(TYELLOW("This application is capturing"
+                     " computer video.")) "\n");
         *state = ret;
         return VIDCAP_INIT_OK;
 }

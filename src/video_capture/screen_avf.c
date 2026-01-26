@@ -1,8 +1,8 @@
 /**
  * @file   video_capture/screen_avf.c
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  *
- * screen capture using AVFoundation
+ * this screen capture is a wrapper/proxy around vcap/avfoundation
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -72,23 +72,21 @@ vidcap_screen_avf_probe(struct device_info **available_cards, int *count,
         *available_cards = calloc(*count, sizeof(struct device_info));
 
         for (int i = 0; i < *count; ++i) {
-                snprintf_ch((*available_cards)[i].name, ":%u",
+                snprintf_ch((*available_cards)[i].dev, ":d=%u",
                             AVF_SCR_CAP_OFF + i);
-                snprintf_ch((*available_cards)[i].dev, "%s%d",
+                snprintf_ch((*available_cards)[i].name, "%s%d",
                             AFV_SCR_CAP_NAME_PREF, i);
         }
 }
 
 /// @returns whether the config string contains device spec (d=/uid=/name=)
 static bool
-contains_dev_spec(const char *fmt)
+contains_dev_spec(char *fmt)
 {
-        char *cpy     = strdup(fmt);
-        char *tmp     = cpy;
         char *saveptr = nullptr;
         char *item    = nullptr;
-        while ((item = strtok_r(tmp, ":", &saveptr)) != nullptr) {
-                tmp = nullptr;
+        while ((item = strtok_r(fmt, ":", &saveptr)) != nullptr) {
+                fmt = nullptr;
                 char *delim = strchr(item, '=');
                 if (!delim) {
                         continue;
@@ -112,16 +110,17 @@ vidcap_screen_avf_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR; // help shown
         }
 
-        if (contains_dev_spec(fmt)) {
+        char *cpy = strdup(fmt);
+        const bool dev_specified = contains_dev_spec(cpy);
+        free(cpy);
+        if (dev_specified) {
                 return vidcap_avfoundation_info.init(params, state);
         }
 
         // add "d=100" to initialize first screen cap av foundation device
-        const size_t orig_len = strlen(fmt);
-        const size_t new_len  = orig_len + 50;
-        char        *new_fmt  = malloc(new_len);
-        (void) snprintf(new_fmt, new_len, "%s%sd=%u", fmt,
-                        orig_len == 0 ? "" : ":", AVF_SCR_CAP_OFF);
+        char *new_fmt = nullptr;
+        asprintf(&new_fmt, "%s%sd=%u", fmt, strlen(fmt) == 0 ? "" : ":",
+                 AVF_SCR_CAP_OFF);
         vidcap_params_replace_fmt(params, new_fmt);
         free(new_fmt);
         return vidcap_avfoundation_info.init(params, state);

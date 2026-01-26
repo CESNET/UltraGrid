@@ -57,6 +57,7 @@ HEADERS += window/ultragrid_window.hpp \
 	widget/recv_loss.hpp \
 	widget/bandwidth_widget.hpp \
 	window/settings_window.hpp \
+	widget/live_widget.hpp \
 	option/widget_ui.hpp \
 	option/checkable_ui.hpp \
 	option/checkbox_ui.hpp \
@@ -91,6 +92,7 @@ SOURCES += window/ultragrid_window.cpp \
 	widget/recv_report.cpp \
 	widget/recv_loss.cpp \
 	widget/bandwidth_widget.cpp \
+	widget/live_widget.cpp \
 	window/settings_window.cpp \
 	option/widget_ui.cpp \
 	option/checkable_ui.cpp \

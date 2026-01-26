@@ -353,6 +353,7 @@ void UltragridWindow::start(){
 				ui.startButton->setEnabled(true);
 				processStatus.setText("UG: Running");
 				ui.actionRefresh->setEnabled(false);
+				ui.liveIndicator->setLive(true);
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
@@ -365,6 +366,7 @@ void UltragridWindow::start(){
 				clearFmtLabels();
 				rtcpRr.resetRecvReports();
 				ui.send_bandwidth->reset();
+				ui.liveIndicator->setLive(false);
 
 				if(!requested && (es == QProcess::ExitStatus::CrashExit || ec != 0)){
 					processStatus.setText("UG: Crashed");

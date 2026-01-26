@@ -58,6 +58,8 @@ install_svt() {
                 cmake --build . --parallel && sudo cmake --install . || exit 1 )
         # libsvtav1 in FFmpeg upstream, for SVT-HEVC now our custom patch in ffmpeg-patches
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
+        git am -3 SVT-AV1/.gitlab/workflows/linux/\
+0001-avcodec-libsvtav1-rename-aq_mode-for-v4.0.0.patch
         git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
         # TOD TOREMOVE when not needed
         sed 's/\* avctx->ticks_per_frame//' libavcodec/libsvt_vp9.c >fix

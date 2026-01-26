@@ -77,7 +77,7 @@
             <item>
              <widget class="QLabel" name="previewLabel">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+               <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -91,9 +91,19 @@
              </widget>
             </item>
             <item>
+             <widget class="LiveWidget" name="liveIndicator" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="BandwidthWidget" name="send_bandwidth">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+               <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -853,6 +863,12 @@
    <class>BandwidthWidget</class>
    <extends>QLabel</extends>
    <header>bandwidth_widget.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>LiveWidget</class>
+   <extends>QWidget</extends>
+   <header>live_widget.hpp</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
