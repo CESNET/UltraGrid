@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-appimage:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest # github are starting deprecation of 20.04
     steps:
       - name: Checkout patched repository
         uses: actions/checkout@v4
