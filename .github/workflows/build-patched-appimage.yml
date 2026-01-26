@@ -1,90 +1,133 @@
-name: Build Patched UltraGrid AppImage
+name: C/C++ CI
+
+# This is cut down from the UG ccpp.yml file, as we don't need to run builds for anything other than Linux.
+
 on:
+  pull_request:
   push:
-    branches: [master]
-  schedule:
-    - cron: '0 8 * * *'  # Daily after potential rebase
+    branches:
+      - master
+    tags:
+      - v[0-9]+.*
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/ccpp.yml'
+      - '**.c'
+      - '**.cpp'
+      - '**.cu'
+      - '**.h'
+      - '**.hpp'
+      - '**.m'
+      - '**.mm'
+      - 'autogen.sh'
+      - 'configure.ac'
+      - 'data/**'
+      - 'Makefile.in'
   workflow_dispatch:
 
 jobs:
-  build-appimage:
-    runs-on: ubuntu-latest # github are starting deprecation of 20.04
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout patched repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        id: checkout
         with:
-          fetch-depth: 0
-          
-      - name: Show patches included
+          persist-credentials: true
+      - name: Init environment variables
+        run: . .github/scripts/environment.sh
+      - name: Retag continuous
+        if: github.repository == 'armelvil/UltraGrid' && github.ref == 'refs/heads/master'
         run: |
-          echo "🔧 Building UltraGrid AppImage with patches:"
-          git log --oneline -15 | head -15
-          
-      - name: Install AppImage build dependencies
+          git fetch --prune --unshallow --tags
+          git tag -f $TAG
+          git push -f origin refs/tags/$TAG:refs/tags/$TAG
+      - name: Create continuous release # ensure continuous release is present for AppImage zsync
+        if: startsWith(github.ref, 'refs/tags/')
+        run: .github/scripts/create_continuous_release.sh
+
+  Ubuntu:
+    name: run Ubuntu
+    needs: prepare
+    runs-on: ubuntu-22.04
+    env:
+      appimage_key: ${{ secrets.appimage_key }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SDK_URL: ${{ secrets.SDK_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch SDKs ETags
+        id: etags
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential cmake pkg-config git \
-            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
-            libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev \
-            libcurl4-openssl-dev libssl-dev qtbase5-dev libqt5opengl5-dev \
-            libasound2-dev libpulse-dev libjack-jackd2-dev \
-            desktop-file-utils wget fuse
-            
-      - name: Build UltraGrid AppImage
-        run: |
-          # Make the build script executable
-          chmod +x data/scripts/Linux-AppImage/create-appimage.sh
-          
-          # Run the AppImage build (this uses their existing process)
-          ./data/scripts/Linux-AppImage/create-appimage.sh
-          
-      - name: Rename AppImage for compatibility
-        run: |
-          # Find the generated AppImage
-          APPIMAGE_FILE=$(find . -name "*.AppImage" -type f | head -1)
-          
-          if [ -f "$APPIMAGE_FILE" ]; then
-            # Create both expected filenames
-            cp "$APPIMAGE_FILE" "UltraGrid-continuous-x86_64.AppImage"
-            cp "$APPIMAGE_FILE" "UltraGrid-patched-x86_64.AppImage"
-            
-            echo "✅ Created AppImages:"
-            ls -la *.AppImage
-          else
-            echo "❌ No AppImage found!"
-            exit 1
-          fi
-          
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+          $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+           https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+          Install_NDI_SDK_v6_Linux.tar.gz >> $GITHUB_OUTPUT
+      - name: Run actions/cache for NDI
+        id: cache-ndi
+        uses: actions/cache@main
         with:
-          name: ultragrid-patched-appimage
-          path: "*.AppImage"
-          retention-days: 30
-          
-      - name: Create/Update Continuous Release
-        uses: softprops/action-gh-release@v1
+          path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
+          key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
+      - name: Download NDI
+        if: steps.cache-ndi.outputs.cache-hit != 'true'
+        run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
+       Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
+      - name: Cache FFmpeg
+        uses: actions/cache@main
         with:
-          tag_name: "continuous"
-          name: "UltraGrid Patched - Continuous Build"
-          body: |
-            ## 🚀 UltraGrid with Enhanced Control Port API
-            
-            This is an automatically built version of UltraGrid with patches for enhanced control port functionality.
-            
-            **Latest patches included:**
-            ```
-            $(git log --oneline -10)
-            ```
-            
-            **Download:** Use `UltraGrid-continuous-x86_64.AppImage` as a drop-in replacement.
-            
-            Built from commit: `$(git rev-parse --short HEAD)`
-            Build date: `$(date -u)`
-            
-          files: |
-            UltraGrid-continuous-x86_64.AppImage
-            UltraGrid-patched-x86_64.AppImage
-          draft: false
-          prerelease: true
+          path: '/var/tmp/ffmpeg'
+          key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_ffmpeg.sh', '.github/scripts/Linux/install_other.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
+      - name: Cache SDL
+        uses: actions/cache@main
+        with:
+          path: '/var/tmp/sdl'
+          key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_sdl.sh' ) }}
+      - name: Cache GLFW
+        uses: actions/cache@main
+        with:
+          path: '/var/tmp/glfw'
+          key: cache-glfw-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/install_glfw.sh' ) }}
+      - name: bootstrap
+        run: |
+          . .github/scripts/environment.sh
+          .github/scripts/Linux/prepare.sh
+      - name: configure
+        run: "./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
+      - name: make
+        run: make -j4
+      - name: make check
+        run: make check
+      - name: make distcheck
+        run: make distcheck
+      - name: check libc/libstdc++ ABI
+        run: .github/scripts/Linux/check_abi.sh 2.35 3.4.30 1.3.13 bin/* lib/ultragrid/*
+      - name: Create AppImage
+        run: data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync
+      - name: Check AppImage
+        run: |
+          .github/scripts/Linux/docker_appimage_tests.sh
+          curl -LSf -O https://raw.githubusercontent.com/AppImage/pkg2appimage/\
+          master/appdir-lint.sh -O https://raw.githubusercontent.com/probonopd/\
+          AppImages/master/excludelist
+          sudo apt install desktop-file-utils libfile-mimeinfo-perl # desktop-file-validate, mimetype
+          bash appdir-lint.sh squashfs-root
+      - name: Compute checksum
+        run: sha256sum UltraGrid-$VERSION-x86_64.AppImage
+      - name: Upload Release Asset
+        id: upload-release
+        if: (github.repository == 'armelvil/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
+        run: |
+          sudo apt install jq zsync
+          zsyncmake -C -u https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage -o UltraGrid-$CHANNEL-x86_64.AppImage.zsync UltraGrid-$VERSION-x86_64.AppImage
+          .github/scripts/replace-asset.sh continuous UltraGrid-$CHANNEL-x86_64.AppImage.zsync application/x-zsync AppImage%20${CHANNEL}%20zsync
+          .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
+      - name: Upload Build
+        if: steps.upload-release.conclusion == 'skipped'
+        uses: actions/upload-artifact@main
+        with:
+          name: UltraGrid-Linux
+          path: UltraGrid-${{ env.VERSION }}-x86_64.AppImage
+
+# vi: set expandtab sw=2:

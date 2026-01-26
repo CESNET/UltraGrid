@@ -50,5 +50,5 @@ jobs:
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/build-appimage.yml/dispatches" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/build--patched-appimage.yml/dispatches" \
             -d '{"ref":"master"}'
