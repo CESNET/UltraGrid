@@ -1,0 +1,90 @@
+name: Build Patched UltraGrid AppImage
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '0 8 * * *'  # Daily after potential rebase
+  workflow_dispatch:
+
+jobs:
+  build-appimage:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout patched repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Show patches included
+        run: |
+          echo "🔧 Building UltraGrid AppImage with patches:"
+          git log --oneline -15 | head -15
+          
+      - name: Install AppImage build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake pkg-config git \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libjpeg-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev \
+            libcurl4-openssl-dev libssl-dev qtbase5-dev libqt5opengl5-dev \
+            libasound2-dev libpulse-dev libjack-jackd2-dev \
+            desktop-file-utils wget fuse
+            
+      - name: Build UltraGrid AppImage
+        run: |
+          # Make the build script executable
+          chmod +x data/scripts/Linux-AppImage/create-appimage.sh
+          
+          # Run the AppImage build (this uses their existing process)
+          ./data/scripts/Linux-AppImage/create-appimage.sh
+          
+      - name: Rename AppImage for compatibility
+        run: |
+          # Find the generated AppImage
+          APPIMAGE_FILE=$(find . -name "*.AppImage" -type f | head -1)
+          
+          if [ -f "$APPIMAGE_FILE" ]; then
+            # Create both expected filenames
+            cp "$APPIMAGE_FILE" "UltraGrid-continuous-x86_64.AppImage"
+            cp "$APPIMAGE_FILE" "UltraGrid-patched-x86_64.AppImage"
+            
+            echo "✅ Created AppImages:"
+            ls -la *.AppImage
+          else
+            echo "❌ No AppImage found!"
+            exit 1
+          fi
+          
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultragrid-patched-appimage
+          path: "*.AppImage"
+          retention-days: 30
+          
+      - name: Create/Update Continuous Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "continuous"
+          name: "UltraGrid Patched - Continuous Build"
+          body: |
+            ## 🚀 UltraGrid with Enhanced Control Port API
+            
+            This is an automatically built version of UltraGrid with patches for enhanced control port functionality.
+            
+            **Latest patches included:**
+            ```
+            $(git log --oneline -10)
+            ```
+            
+            **Download:** Use `UltraGrid-continuous-x86_64.AppImage` as a drop-in replacement.
+            
+            Built from commit: `$(git rev-parse --short HEAD)`
+            Build date: `$(date -u)`
+            
+          files: |
+            UltraGrid-continuous-x86_64.AppImage
+            UltraGrid-patched-x86_64.AppImage
+          draft: false
+          prerelease: true

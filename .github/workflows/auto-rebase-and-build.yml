@@ -1,0 +1,54 @@
+name: Auto Rebase and Build
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 6 AM daily
+  workflow_dispatch:
+
+jobs:
+  rebase-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Rebase on upstream
+        id: rebase
+        run: |
+          git config user.name "Auto Rebase Bot"
+          git config user.email "noreply@github.com"
+          git remote add upstream https://github.com/CESNET/UltraGrid.git
+          git fetch upstream
+          
+          BEHIND=$(git rev-list --count HEAD..upstream/master)
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "rebase_needed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Create backup and rebase
+          git checkout -b backup-$(date +%Y%m%d)
+          git push origin backup-$(date +%Y%m%d)
+          git checkout master
+          
+          if git rebase upstream/master; then
+            git push --force-with-lease origin master
+            echo "rebase_needed=true" >> $GITHUB_OUTPUT
+            echo "rebase_success=true" >> $GITHUB_OUTPUT
+          else
+            git rebase --abort
+            echo "rebase_needed=true" >> $GITHUB_OUTPUT
+            echo "rebase_success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+      - name: Trigger AppImage build
+        if: steps.rebase.outputs.rebase_success == 'true'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/build-appimage.yml/dispatches" \
+            -d '{"ref":"master"}'
