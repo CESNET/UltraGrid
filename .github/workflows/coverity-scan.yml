@@ -25,6 +25,7 @@ jobs:
     - name: Get Coverity tool name # the file name contains version and is used as the cache key
       id: tool
       run: |
+        set -u
         FILENAME=$(curl -LIf "https://scan.coverity.com/download/linux64\
         ?token=$coverity_token&project=UltraGrid" |
         sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
