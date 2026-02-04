@@ -9,7 +9,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -204,6 +204,7 @@ struct vidcap_decklink_state {
                 { bmdDeckLinkConfigCapturePassThroughMode, bmd_option((int64_t) bmdDeckLinkCapturePassthroughModeDisabled, false) },
         };
         bool                    detect_format = false;
+        bool                    autodetect_once = true;
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i = false;
 
@@ -379,6 +380,10 @@ public:
                 CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
                 deckLinkInput->FlushStreams();
                 deckLinkInput->StartStreams();
+
+                if (s->autodetect_once) {
+                        s->enable_flags ^= bmdVideoInputEnableFormatDetection;
+                }
 
                 return S_OK;
 	}
@@ -610,6 +615,9 @@ decklink_help(bool full, const char *query_prop_fcc = nullptr)
                          "autodetect, eg. \"-t "
                          "decklink:connection=HDMI:detect-format\".\n";
 
+                col() << "\t" SBOLD("autodetect-once")
+                      << "  autodetect the format just once (eg. to prevent flipping P/PsF)\n";
+
                 col() << "\t" SBOLD("profile=<FourCC>") << " - use desired device profile:\n";
                 print_bmd_device_profiles("\t\t");
                 col() << "\t" SBOLD("sync_timecode") << "  try to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
@@ -764,6 +772,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->profile.parse(strchr(opt, '=') + 1);
         } else if (strcasecmp(opt, "detect-format") == 0) {
                 s->detect_format = true;
+        } else if (strcasecmp(opt, "autodetect-once") == 0) {
+                s->autodetect_once = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
