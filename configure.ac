@@ -1369,6 +1369,7 @@ ENSURE_FEATURE_PRESENT([$sdl_req], [$sdl], [SDL requested but not found])
 # Vulkan
 # ------------------------------------------------------------------------------
 vulkan=no
+vulkan_sdl_ver=
 
 AC_ARG_ENABLE(vulkan,
 [  --disable-vulkan            disable sdl2_vulkan display (default is auto)]
