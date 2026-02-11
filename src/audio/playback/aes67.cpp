@@ -56,6 +56,7 @@
 #include "utils/color_out.h"
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
+#include "utils/ptp.hpp"
 
 #define MOD_NAME "[aes67 aplay] "
 
@@ -132,6 +133,10 @@ struct state_aes67_play{
 
         ring_buffer_uniq ring_buf;
         unsigned buf_len_ms = 100;
+
+        int32_t testoffset = 0;
+
+        Ptp_clock ptpclk;
 };
 
 static std::vector<unsigned char> get_sap_pkt(Sap_session& sess){
@@ -233,11 +238,18 @@ static void rtp_worker(state_aes67_play *s){
         rtp_pkt.resize(hdr_size + payload_size);
 
         uint16_t seq = 0;
-        uint32_t timestamp = 0;
+        uint32_t timestamp = (s->ptpclk.get_time() * 3) / 62500 + s->testoffset; //TODO
+        //timestamp = 0;
         auto next_pkt_time = clk::now();
+        auto next_pkt_ptp_time = s->ptpclk.get_time();
         do{
                 std::this_thread::sleep_until(next_pkt_time);
-                next_pkt_time += std::chrono::milliseconds(1);
+                auto now_ptp_ts = s->ptpclk.get_time();
+                next_pkt_ptp_time += 1000000;
+
+                if(next_pkt_ptp_time > now_ptp_ts){
+                        next_pkt_time += std::chrono::nanoseconds(next_pkt_ptp_time - now_ptp_ts);
+                }
 
                 rtp_pkt[2] = seq >> 8;
                 rtp_pkt[3] = seq;
@@ -307,6 +319,11 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
                                 return {};
                         }
+                } else if (key == "testoffset"){
+                        if(!parse_num(val, s->testoffset)){
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse value for option %s\n", std::string(key).c_str());
+                                return {};
+                        }
                 } else if(key == "help"){
                         audio_play_aes67_help();
                         return INIT_NOERR;
@@ -314,6 +331,10 @@ static void * audio_play_aes67_init(const struct audio_playback_opts *opts){
         }
 
         s->sdp_sock.reset(udp_init_if(s->sap_address.c_str(), s->network_interface_name.c_str(), s->sap_port, 0, 255, 4, false));
+
+        s->ptpclk.start(s->network_interface_name);
+
+        std::this_thread::sleep_for(std::chrono::seconds(5));
 
         return s.release();
 }
@@ -391,6 +412,7 @@ static bool audio_play_aes67_reconfigure(void *state, struct audio_desc desc){
 static void audio_play_aes67_done(void *state){
         auto s = static_cast<state_aes67_play *>(state);
 
+        s->ptpclk.stop();
         stop_session(s);
 
         delete s;
