@@ -15,7 +15,9 @@ struct state_decompress_jpegxs {
                 if (frame_pool) {
                         svt_jpeg_xs_frame_pool_free(frame_pool);
                 }
-                svt_jpeg_xs_decoder_close(&decoder);
+                if (configured) {
+                        svt_jpeg_xs_decoder_close(&decoder);
+                }
         }
         svt_jpeg_xs_decoder_api_t decoder;
         svt_jpeg_xs_image_config_t image_config;
@@ -39,7 +41,7 @@ static void *jpegxs_decompress_init(void) {
 
 static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size)
 {
-        s->decoder.verbose = VERBOSE_SYSTEM_INFO;
+        s->decoder.verbose = VERBOSE_NONE;
         s->decoder.threads_num = 10;
         s->decoder.use_cpu_flags = CPU_FLAGS_ALL;
         s->decoder.proxy_mode = proxy_mode_full;
