@@ -465,11 +465,11 @@ static void audio_cap_aes67_probe(struct device_info **available_devices,
 static void audio_cap_aes67_help(state_aes67_cap *s){
         color_printf("AES67 audio capture.\n");
         color_printf("Usage\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-s aes67" TERM_FG_RESET ":if=<network_interfce>[:sess=<hash>][:stream=<index>][:sap_address=<IP>][:sap_port=<port>]\n" TERM_RESET);
+        color_printf(TERM_BOLD TERM_FG_RED "\t-s aes67" TERM_FG_RESET ":if=<network_interfce>[:sess=<hash>][:stream=<index>][:sap_ip=<IP>][:sap_port=<port>]\n" TERM_RESET);
         color_printf(TERM_BOLD "\t\tif=<interface>" TERM_RESET " network interface to listen on\n");
         color_printf(TERM_BOLD "\t\tsess=<hash>" TERM_RESET " hash of the session to receive. If not specified first seen session is received\n");
         color_printf(TERM_BOLD "\t\tstream=<index>" TERM_RESET " index of stream in a session to receive. If not specified stream 0 is received\n");
-        color_printf(TERM_BOLD "\t\tsap_address=<IP>" TERM_RESET " multicast IP for SAP (default 239.255.255.255)\n");
+        color_printf(TERM_BOLD "\t\tsap_ip=<IP>" TERM_RESET " multicast IP for SAP (default 239.255.255.255)\n");
         color_printf(TERM_BOLD "\t\tsap_port=<port>" TERM_RESET " port for SAP (default 9875)\n");
         color_printf("\n");
 
