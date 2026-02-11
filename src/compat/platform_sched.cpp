@@ -22,7 +22,7 @@ bool set_realtime_sched_this_thread(){
         return ret >= 0;
 }
 
-#elifdef _WIN32
+#elif defined(_WIN32)
 
 #include <windows.h>
 
