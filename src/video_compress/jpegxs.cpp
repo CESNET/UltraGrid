@@ -43,10 +43,7 @@ struct state_video_compress_jpegxs {
                 if (worker_get.joinable()) {
                         worker_get.join();
                 }
-                if (frame_pool) {
-                        svt_jpeg_xs_frame_pool_free(frame_pool);
-                }
-                svt_jpeg_xs_encoder_close(&encoder);
+                cleanup();
         }
 
         svt_jpeg_xs_encoder_api_t encoder;
@@ -55,12 +52,16 @@ struct state_video_compress_jpegxs {
         int pool_size = DEFAULT_POOL_SIZE;
 
         bool configured = 0;
+        bool reconfiguring = 0;
         bool stop = 0;
+
+        video_desc saved_desc;
 
         video_frame_pool pool;
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst);
         
+        void cleanup();
         bool parse_fmt(char *fmt);
 
         synchronized_queue<shared_ptr<struct video_frame>, -1> in_queue;
@@ -71,6 +72,8 @@ struct state_video_compress_jpegxs {
 
         mutex mtx;
         condition_variable cv_configured;
+        condition_variable cv_drained;
+        condition_variable cv_reconfiguring;
 
         atomic<uint64_t> frames_sent{0};
         atomic<uint64_t> frames_received{0};
@@ -90,6 +93,7 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
         }
 
         encoder.bpp_numerator = 3;
+        encoder.verbose = VERBOSE_NONE;
 
         if(opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
@@ -123,6 +127,27 @@ while (true) {
                 if (!configure_with(s, desc)) {
                         break;
                 }
+        }
+
+        if(!video_desc_eq_excl_param(video_desc_from_frame(frame.get()), s->saved_desc, PARAM_INTERLACING)){
+        {
+                unique_lock<mutex> lock(s->mtx);
+                s->reconfiguring = true;
+                s->cv_drained.wait(lock, [&]{
+                        return s->frames_received == s->frames_sent;
+                });
+        }
+                s->cleanup();
+                if (!configure_with(s, video_desc_from_frame(frame.get()))) {
+                        break;
+                }
+        {
+                unique_lock<mutex> lock(s->mtx);
+                s->reconfiguring = false;
+                s->frames_sent = 0;
+                s->frames_received = 0;
+                s->cv_reconfiguring.notify_one();
+        }
         }
 
         svt_jpeg_xs_frame_t enc_input;
@@ -159,11 +184,19 @@ static void jpegxs_worker_get(state_video_compress_jpegxs *s) {
 while (true) {
 {
         unique_lock<mutex> lock(s->mtx);
-        if (s->stop && s->frames_received == s->frames_sent) {
-                return;
+        if (s->frames_received == s->frames_sent) {
+                if (s->stop) {
+                        return;
+                }
+                if (s->reconfiguring) {
+                        s->cv_drained.notify_one();
+                        s->cv_reconfiguring.wait(lock, [&]{
+                                return !s->reconfiguring;
+                        });
+                        continue;
+                }
         }
 }
-
         svt_jpeg_xs_frame_t enc_output;
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
@@ -211,7 +244,6 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         }
         s->convert_to_planar = conv->convert;
 
-        s->encoder.verbose = VERBOSE_SYSTEM_INFO;
         s->encoder.source_width = desc.width;
         s->encoder.source_height = desc.height;
         s->encoder.input_bit_depth = get_bits_per_component(desc.color_spec);
@@ -238,6 +270,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 return false;
         }
 
+        s->saved_desc = desc;
         struct video_desc compressed_desc;
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
@@ -249,6 +282,15 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         s->cv_configured.notify_one();
 
         return true;
+}
+
+void state_video_compress_jpegxs::cleanup() {
+        if (frame_pool) {
+                svt_jpeg_xs_frame_pool_free(frame_pool);
+        }
+        if (configured) {
+                svt_jpeg_xs_encoder_close(&encoder);
+        }
 }
 
 bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
@@ -313,6 +355,13 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                                 encoder.threads_num = threads;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid number of threads '%s' (must be between 0 and %d). Using default 0, which means lowest possible number of threads is created.\n", tok, max_threads);
+                        }
+                } else if (IS_KEY_PREFIX(tok, "verbose")) {
+                        const int vb = atoi(strchr(tok, '=') + 1);
+                        if (0 <= vb && vb <= 6) {
+                                encoder.verbose = vb;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Invalid verbose messages mode '%s' (must be between 0 and 6). Using default 0 (no messages).\n", tok);
                         }
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
@@ -379,6 +428,13 @@ static const struct {
                 "\t\tThe default is 5.\n",
                 ":pool_size=", false, "5"
         },
+        {"Encoder verbose", "verbose", "verbose",
+                "\t\tSets the verbosity level of the SVT-JPEG-XS encoder.\n"
+                "\t\t0 = none, 1 = errors, 2 = system info, 3 = extended system info,\n"
+                "\t\t4 = warnings, 5 = multithreading info, 6 = full verbose output.\n"
+                "\t\tThe default is 0.\n",
+                ":verbose=", false, "0"
+        },
 };
 
 static void *jpegxs_compress_init(struct module *parent, const char *opts) {
@@ -389,7 +445,7 @@ static void *jpegxs_compress_init(struct module *parent, const char *opts) {
                 color_printf("\t" TBOLD(
                         TRED("-c jpegxs") "[:bpp=<ratio>][:decomp_v=<0-2>][:decomp_h=<1-5>]"
                                           "[:quantization=<0-1>][:slice_height=<n>][:rc=<mode>]"
-                                          "[:threads=<num_threads>][:pool_size=<n>]") "\n");
+                                          "[:threads=<num_threads>][:pool_size=<n>][:verbose=<n>]") "\n");
                 color_printf("\t" TBOLD(TRED("-c jpegxs") ":help") "\n");
 
                 color_printf("\nwhere:\n");
