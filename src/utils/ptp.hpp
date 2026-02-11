@@ -82,6 +82,21 @@ namespace detail{
         };
 }
 
+/**
+ * A pure software implementation of PTP time synchronization. Not as accurate as a proper HW based implementation, but
+ * on a properly configured system accuracy of ~100us can be achieved. Only a very basic subset of PTP is implemented,
+ * currently there is no network propagation delay compensation.
+ *
+ * The clock is monotonic, synchronization is done by applying a correction coefficient to the local
+ * std::chrono::steady_clock to make it faster/slower as needed.
+ *
+ * The get_time() function can be safely called from any thread, is lockless and avoids syscalls if possible
+ * (steady_clock on Linux is implemented via VDSO).
+ *
+ * After starting the clock, it is necessary to wait until it achieves synchronization either by periodically checking
+ * the return value of is_locked() or using the wait_for_lock() blocking function.
+ *
+ */
 class Ptp_clock{
 public:
         void start(std::string_view interface_name);
@@ -115,10 +130,16 @@ private:
         uint64_t clock_identity = 0;
         bool locked = false;
 
+        /**
+         * The clock state is passed lockessly through these atomic variables. To ensure that we can update the whole
+         * state atomically they need to be accessed only with memory_order_seq_cst and update_count needs to be
+         * **before and after** modifying them. When reading check that the state is valid by comparing the value of
+         * update_count before and after reading.
+         */
         std::atomic<uint32_t> update_count = 0;
-        std::atomic<uint64_t> local_snapshot = 0;
-        std::atomic<uint64_t> ptp_snapshot = 0;
-        std::atomic<double> corr_snapshot = 1.0;
+        std::atomic<uint64_t> local_snapshot = 0; ///< The timestamp of local std::steady_clock at time of snapshot
+        std::atomic<uint64_t> ptp_snapshot = 0; ///< The computed timestamp of the remote PTP clock at time of snapshot
+        std::atomic<double> corr_snapshot = 1.0; ///< Estimated ratio of PTP/local clock speeds
 
 
         void ptp_worker_general();
