@@ -277,9 +277,9 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
 }
 
 void Ptp_clock::wait_for_lock(){
-	std::unique_lock<std::mutex> l(mut);
+        std::unique_lock<std::mutex> l(mut);
 
-	cv.wait(l, [&]{ return locked; });
+        cv.wait(l, [&]{ return locked; });
 }
 
 uint64_t Ptp_clock::get_time(){
@@ -346,7 +346,7 @@ void Ptp_clock::ptp_worker_general(){
         spa_dll_init(&dll);
         spa_dll_set_bw(&dll, 0.05, 250'000'000, 1'000'000'000); //TODO
 
-		auto last_report = std::chrono::steady_clock::now();
+        auto last_report = std::chrono::steady_clock::now();
 
         while(should_run){
                 int buflen = 0;
@@ -367,12 +367,12 @@ void Ptp_clock::ptp_worker_general(){
 
                 processPtpPkt(buffer, buflen, 0);
 
-				if(std::chrono::steady_clock::now() - last_report > std::chrono::seconds(5)){
-					last_report = std::chrono::steady_clock::now();
+                if(std::chrono::steady_clock::now() - last_report > std::chrono::seconds(5)){
+                        last_report = std::chrono::steady_clock::now();
 
-					double avg_err_us = avg.get() / 1000;
-					log_msg(LOG_LEVEL_INFO, MOD_NAME "Average absoulute err %.3f usec\n", avg_err_us);
-				}
+                        double avg_err_us = avg.get() / 1000;
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Average absoulute err %.3f usec\n", avg_err_us);
+                }
         }
 }
 
