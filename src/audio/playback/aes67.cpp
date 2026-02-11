@@ -407,7 +407,13 @@ static void audio_play_aes67_probe(struct device_info **available_devices, int *
 static void audio_play_aes67_help(){
         color_printf("AES67 audio output.\n");
         color_printf("Usage\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-r aes67" TERM_FG_RESET "[TODO]\n" TERM_RESET);
+        color_printf(TERM_BOLD TERM_FG_RED "\t-r aes67" TERM_FG_RESET ":if=<network_interfce>[:sap_ip=<IP>][:sap_port=<port>][:sess_name=<name>][:sess_desc=<desc>]\n" TERM_RESET);
+        color_printf(TERM_BOLD "\t\tif=<interface>" TERM_RESET " network interface to listen on\n");
+        color_printf(TERM_BOLD "\t\tsap_ip=<IP>" TERM_RESET " multicast IP for SAP (default 239.255.255.255)\n");
+        color_printf(TERM_BOLD "\t\tsap_port=<port>" TERM_RESET " port for SAP (default 9875)\n");
+        color_printf(TERM_BOLD "\t\tsess_name=<name>" TERM_RESET " name of the session\n");
+        color_printf(TERM_BOLD "\t\tsess_desc=<name>" TERM_RESET " description of the session\n");
+        color_printf("\n");
         color_printf("\n");
 }
 
