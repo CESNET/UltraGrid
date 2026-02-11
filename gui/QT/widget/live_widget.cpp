@@ -20,7 +20,7 @@ void LiveWidget::setLive(bool live){
 	update();
 }
 
-void LiveWidget::paintEvent(QPaintEvent *event){
+void LiveWidget::paintEvent(QPaintEvent * /*event*/){
 	QPainter painter(this);
 
 
