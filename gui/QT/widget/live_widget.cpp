@@ -33,6 +33,6 @@ void LiveWidget::paintEvent(QPaintEvent *event){
 		font.setStrikeOut(true);
 		painter.setFont(font);
 	}
-	painter.drawEllipse(0, boundingRect.height() / 4, boundingRect.height() / 2, boundingRect.height() / 2);
+	painter.drawEllipse(QPointF(boundingRect.height() / 2.f, boundingRect.height() / 2.f), boundingRect.height() / 4.f, boundingRect.height() / 4.f);
 	painter.drawText(QRect(0, 0, boundingRect.width(), boundingRect.height()), Qt::AlignRight, liveText);
 }
