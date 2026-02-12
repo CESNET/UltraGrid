@@ -9,6 +9,7 @@ on:
 
 jobs:
   Coverity:
+    # run by cron only in CESNET/UltraGrid, on push to coverity_scan anywhere
     if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
     runs-on: ubuntu-latest
     env:

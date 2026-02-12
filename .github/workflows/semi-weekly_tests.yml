@@ -1,0 +1,27 @@
+name: Continuous build semi-weekly tests
+
+on:
+  push:
+    branches:
+      - run_tests
+  schedule:
+   - cron:  '00 13 * * 1,5' # Mo,Fr at 13:00 UTC
+
+jobs:
+  run_tests:
+    # run by cron only in CESNET/UltraGrid, on push to run_tests anywhere
+    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-latest' && 'C:\shells\msys2bash.cmd {0}' || 'bash {0}' }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run
+      shell: bash
+      run: .github/scripts/run_scheduled_tests.sh
