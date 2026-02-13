@@ -75,6 +75,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/aligned_malloc.h"
 #include "host.h"
 #include "lib_common.h"
 #include "utils/video_frame_pool.h"
