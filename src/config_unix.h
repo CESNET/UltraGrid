@@ -133,7 +133,6 @@
 
 typedef int     fd_t;
 
-#define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
 
 #endif /* _CONFIG_UNIX_H */
