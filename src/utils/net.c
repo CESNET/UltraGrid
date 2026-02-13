@@ -41,22 +41,16 @@
 
 #include "utils/net.h"
 
+#include "compat/net.h"
 #ifdef _WIN32
-#include <winsock2.h>
 #include <iphlpapi.h>
 #include <tchar.h>
 #include <ws2tcpip.h>
-typedef SOCKET fd_t;
 #else
-#include <arpa/inet.h>
 #include <ifaddrs.h>
-#include <netdb.h>
 #include <netinet/ip.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define INVALID_SOCKET (-1)
-typedef int fd_t;
 #endif
 
 #include <assert.h>
