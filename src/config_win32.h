@@ -90,7 +90,6 @@
 
 #include <amstream.h>
 
-typedef int		ttl_t;
 typedef unsigned char	byte;
 typedef SOCKET          fd_t;
 

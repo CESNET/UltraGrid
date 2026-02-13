@@ -131,7 +131,6 @@
 
 #endif /* HAVE_IPv6 */
 
-typedef u_char  ttl_t;
 typedef int     fd_t;
 
 #include "compat/aligned_malloc.h"
