@@ -63,6 +63,7 @@
 #include "compat/platform_pipe.h"
 #include "compat/strings.h"       // for strerror_s
 #include "compat/vsnprintf.h"
+#include "compat/net.h"
 #include "net_udp.h"
 #include "rtp.h"
 #include "utils/list.h"
