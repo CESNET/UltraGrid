@@ -694,7 +694,8 @@ void destroy_root_module(struct module *root_mod) {
  */
 void exit_uv(int status) {
         if (!state_root_static) {
-                log_msg(LOG_LEVEL_WARNING, "%s called without state registered.\n", __func__);
+                MSG(ERROR, "%s called without state registered.\n", __func__);
+                abort();
         }
         state_root_static->exit_status = status;
         state_root_static->broadcast_should_exit();
