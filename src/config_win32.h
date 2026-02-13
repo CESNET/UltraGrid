@@ -184,9 +184,6 @@ void ShowMessage(int level, char *msg);
 
 #define M_PI		3.14159265358979323846
 
-#define aligned_malloc _aligned_malloc
-#define aligned_free _aligned_free
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif

@@ -133,8 +133,6 @@
 
 typedef int     fd_t;
 
-#include "compat/aligned_malloc.h"
-
 #define INVALID_SOCKET (-1)
 #define CLOSESOCKET close
 
