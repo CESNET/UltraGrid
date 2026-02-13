@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,7 +105,12 @@ rs::rs(const char *c_cfg, bool is_audio)
         if (item != NULL) {
                 m_k = atoi(item);
                 item = strtok_r(NULL, ":", &save_ptr);
-                assert(item != NULL);
+                if (item == nullptr) {
+                        MSG(ERROR,
+                            "Wrong options: %s; see '-f rs:help' for usage\n",
+                                c_cfg);
+                        throw 1;
+                }
                 m_n = atoi(item);
         } else {
                 m_k = is_audio ? DEFAULT_K_AUDIO : DEFAULT_K_VIDEO;
