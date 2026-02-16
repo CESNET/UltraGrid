@@ -154,6 +154,10 @@ while (true) {
         {
                 unique_lock<mutex> lock(s->mtx);
                 s->stop = true;
+                svt_jpeg_xs_frame_t enc_input;
+                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+                s->frames_sent++;
         }
                 s->cv_configured.notify_one();
                 break;
