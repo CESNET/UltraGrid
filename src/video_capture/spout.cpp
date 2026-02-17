@@ -81,6 +81,26 @@ struct state_vidcap_spout {
         int frames;
 };
 
+/**
+ * @param probe  do not abort if unable to create Spout instance
+ * @returns      shared_ptr with valid Spout instance, unless probe=true
+ *               in which case empty shared_ptr may be returned if error
+ */
+static shared_ptr<SPOUTLIBRARY>
+get_spout(bool probe)
+{
+        SPOUTLIBRARY *receiver = GetSpout();
+        if (receiver == nullptr) {
+                int ll = probe ? LOG_LEVEL_VERBOSE : LOG_LEVEL_ERROR;
+                log_msg(ll, MOD_NAME "Error creating Spout state!\n");
+                if (probe) {
+                        return {};
+                }
+                abort();
+        }
+        return shared_ptr<SPOUTLIBRARY>(receiver, [](auto s) { s->Release(); });
+}
+
 static void usage()
 {
         col() << "Usage:\n";
@@ -110,6 +130,23 @@ static void usage()
         }
 }
 
+static void
+check_lib()
+{
+        static shared_ptr<SPOUTLIBRARY> spout  = get_spout(false);
+        constexpr char                  name[] = "test_sender";
+        spout->SetSenderName(name);
+        if (strcmp(spout->GetSenderName(), name) != 0) {
+                // in case of the GH-487 problem, it actually doesn't reach
+                // here but segfaults on the returned name from the library
+                // because (const char *) 0x1 is returned
+                fprintf(stderr, "Unexpected sender name: %s (exp: %s)\n",
+                        spout->GetSenderName(), name);
+                abort();
+        }
+        printf("SpoutLibrary vtable doesn't seem to be corrupted.\n");
+}
+
 static int vidcap_spout_init(struct vidcap_params *params, void **state)
 {
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
@@ -129,6 +166,10 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         while (item) {
                 if (strcmp(item, "help") == 0) {
                         usage();
+                        ret = VIDCAP_INIT_NOERR;
+                        break;
+                } else if (strcmp(item, "check_lib") == 0) {
+                        check_lib();
                         ret = VIDCAP_INIT_NOERR;
                         break;
                 } else if (strstr(item, "name=") == item) {
