@@ -43,6 +43,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>                        // for strcmp, strlen, strstr, strchr
+#include <libavutil/rational.h>           // for av_inv_q
 #include <list>
 #include <map>
 #include <regex>
@@ -953,9 +954,9 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->width = desc.width;
         s->codec_ctx->height = desc.height;
         /* frames per second */
-        s->codec_ctx->time_base = (AVRational){1,(int) desc.fps};
-        s->codec_ctx->framerate    = (AVRational) { get_framerate_n(desc.fps),
-                                                    get_framerate_d(desc.fps) };
+        s->codec_ctx->time_base = (AVRational) { get_framerate_d(desc.fps),
+                                                 get_framerate_n(desc.fps) };
+        s->codec_ctx->framerate = av_inv_q(s->codec_ctx->time_base);
         s->codec_ctx->gop_size = s->requested_gop;
         s->codec_ctx->max_b_frames = 0;
 
