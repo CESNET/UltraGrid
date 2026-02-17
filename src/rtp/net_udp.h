@@ -46,6 +46,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/net.h" //for fd_t
+
 #ifndef __cplusplus
 #include <stdbool.h>
 #endif
