@@ -65,6 +65,12 @@ prepare
 ##  - should_timeout - the command is expected to keep running
 ##                     (will be terminated by timeout)
 ##  - run_reflector - instead of uv, pass the args to hd-rum-transcode
+##  - Linux_only    - run just in Linux   runner
+##  - Windows_only  - "   "    "  Windows "
+##  - macOS_only    - "   "    "  macOS   "
+##
+## More platforms with "_only" suffix can be specified, however, eg.
+## Linux_only,macOS_only.
 add_test() {
         eval "test_${test_count}_args=\${1?}"
         eval "test_${test_count}_opts=\${2-}"
@@ -85,6 +91,12 @@ while [ $i -lt $test_count ]; do
         if expr -- "$opts" : '.*run_reflector' >/dev/null; then
                 tool=reflector
                 exec=$run_reflector
+        fi
+        # skip one-platform only tests if we are not the target
+        if expr -- "$opts" : '.*_only' >/dev/null; then
+                if ! expr -- "$opts" : ".*$RUNNER_OS" >/dev/null; then
+                        continue
+                fi
         fi
 
         timeout=5
