@@ -3,12 +3,12 @@ FROM archlinux
 RUN pacman --noconfirm -Sy archlinux-keyring
 RUN pacman-key --init
 RUN pacman-key --populate
-RUN pacman --noconfirm -Sy \
+RUN pacman --noconfirm -Syu \
     fontconfig \
     freetype2 \
     harfbuzz \
     jack2\
     libglvnd \
     libx11 \
-    xorg-server-xvfb \
+    xorg-server-xvfb
 
