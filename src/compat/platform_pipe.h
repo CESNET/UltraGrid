@@ -41,6 +41,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include "compat/net.h" //for fd_t
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
