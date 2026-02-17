@@ -91,7 +91,6 @@
 #include <amstream.h>
 
 typedef unsigned char	byte;
-typedef SOCKET          fd_t;
 
 
 /*
