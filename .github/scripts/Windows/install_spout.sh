@@ -6,6 +6,12 @@ build() {(
         rm -rf Spout2
         git clone --depth 1 https://github.com/leadedge/Spout2.git
         cd Spout2
+
+        # do not cherry-pick - we have shallow clones
+        git fetch --depth 2 https://github.com/MartinPulec/Spout2
+        git format-patch -1 FETCH_HEAD --stdout > patch.diff
+        git am < patch.diff
+
         /c/Program\ Files/CMake/bin/cmake.exe -Bbuild2 . # ./BUILD already exists
         /c/Program\ Files/CMake/bin/cmake.exe --build build2 --config Release \
          -j "$(nproc)"
