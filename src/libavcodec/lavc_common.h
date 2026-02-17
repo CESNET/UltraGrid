@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,6 +81,9 @@ enum {
 #endif
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(62, 3, 100)
 #define AV_CODEC_ID_APV AV_CODEC_ID_NONE
+#endif
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(62, 22, 101)
+#define AV_CODEC_ID_JPEGXS AV_CODEC_ID_NONE
 #endif
 
 #define Y210_PRESENT LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 42, 100) // FFMPEG commit 1c37cad0

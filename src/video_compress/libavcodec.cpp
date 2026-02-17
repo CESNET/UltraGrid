@@ -70,7 +70,7 @@
 #include "utils/color_out.h"
 #include "utils/debug.h"                  // for debug_file_dump
 #include "utils/macros.h"
-#include "utils/misc.h"
+#include "utils/misc.h"                   // for get_framerate_[dn]
 #include "utils/string.h" // replace_all
 #include "utils/text.h"
 #include "video.h"
@@ -185,6 +185,8 @@ static void libavcodec_compress_done(void *state);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265_av1(AVCodecContext *, struct setparam_param *);
 static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
+static void setparam_jxs(AVCodecContext        *codec_ctx,
+                         struct setparam_param *param);
 static void setparam_oapv(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
@@ -235,6 +237,8 @@ get_codec_params(codec_t ug_codec)
         };
         case APV:
                 return { nullptr, 0, setparam_oapv, gui_dfl_prio };
+        case JPEG_XS:
+                return { nullptr, 1, setparam_jxs, gui_dfl_prio };
         default:
                 break;
         }
@@ -950,6 +954,8 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->height = desc.height;
         /* frames per second */
         s->codec_ctx->time_base = (AVRational){1,(int) desc.fps};
+        s->codec_ctx->framerate    = (AVRational) { get_framerate_n(desc.fps),
+                                                    get_framerate_d(desc.fps) };
         s->codec_ctx->gop_size = s->requested_gop;
         s->codec_ctx->max_b_frames = 0;
 
@@ -962,6 +968,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
             params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1
                                ? 16
                                : DEFAULT_SLICE_COUNT);
+        MSG(VERBOSE, "Setting slices to %d\n", s->codec_ctx->slices);
         s->header_inserter = params.header_inserter_req == 1;
 
         // set user supplied parameters
@@ -1804,6 +1811,41 @@ setparam_oapv(AVCodecContext */*codec_ctx*/, struct setparam_param *param)
                                "profile=%s", profile);
         assert(neeeded < (int) sizeof oapv_params);
         param->lavc_opts["oapv-params"] = oapv_params;
+}
+
+static void
+setparam_jxs(AVCodecContext * /* codec_ctx */, struct setparam_param *param)
+{
+        unsigned decomp_v = 0;
+        if (param->lavc_opts.find("decomp_v") == param->lavc_opts.end()) {
+                unsigned height = param->desc.height;
+                while (height % 2 == 0 && decomp_v < 2) {
+                        decomp_v += 1;
+                        height /= 2;
+                }
+                char num[2];
+                snprintf_ch(num, "%u", decomp_v);
+                param->lavc_opts["decomp_v"] = num;
+        } else {
+                decomp_v = stoi(param->lavc_opts.at("decomp_v"));
+        }
+
+        if (param->slices == -1) {
+                int slice_height = 1 << decomp_v;
+                param->slices = param->desc.height / slice_height;
+        }
+
+        if (param->lavc_opts.find("decomp_h") == param->lavc_opts.end()) {
+                unsigned decomp_h = 0;
+                unsigned width    = param->desc.width;
+                while (width % 2 == 0 && decomp_h < 5) {
+                        decomp_h += 1;
+                        width /= 2;
+                }
+                char num[2];
+                snprintf_ch(num, "%u", decomp_h);
+                param->lavc_opts["decomp_h"] = num;
+        }
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {

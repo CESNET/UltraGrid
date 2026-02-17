@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,7 @@
 #include "host.h"
 #include "libavcodec/lavc_common.h"
 #include <libavutil/channel_layout.h>
+#include "types.h"
 #include "utils/macros.h"
 #include "video.h"
 
@@ -81,6 +82,7 @@ static const struct {
         { AV_CODEC_ID_PRORES,   PRORES_422_PROXY },
         { AV_CODEC_ID_PRORES,   PRORES_422_LT    },
         { AV_CODEC_ID_APV,      APV              },
+        { AV_CODEC_ID_JPEGXS,   JPEG_XS          },
 };
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
