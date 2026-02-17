@@ -103,9 +103,6 @@
 #include <arpa/inet.h>
 #include <sys/mman.h>
 
-
-typedef int     fd_t;
-
 #define CLOSESOCKET close
 
 #endif /* _CONFIG_UNIX_H */
