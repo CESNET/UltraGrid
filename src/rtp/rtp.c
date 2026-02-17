@@ -76,6 +76,10 @@
 #include "config_win32.h"
 #endif // defined HAVE_CONFIG_H
 
+#ifndef _WIN32
+#include <pwd.h>
+#endif
+
 #include <errno.h>
 #include <inttypes.h>
 #include <stdatomic.h>
