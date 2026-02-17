@@ -118,7 +118,7 @@ struct Ptp_hdr{
                 write_val<4>(&ret[8], correction_field);
                 write_val<4>(&ret[16], 0); //Reserved
                 write_val<8>(&ret[20], clock_identity);
-                write_val<8>(&ret[28], port_number);
+                write_val<2>(&ret[28], port_number);
                 write_val<2>(&ret[30], seq);
 
                 uint8_t control_field;
