@@ -205,7 +205,7 @@ const char *get_vp9_encoder(bool /* rgb */) {
 codec_params_t
 get_codec_params(codec_t ug_codec)
 {
-        int capabilities_priority = 500 + (int) ug_codec;
+        const int gui_dfl_prio = 500 + (int) ug_codec;
         switch (ug_codec) {
         case H264: return {
                 [](bool is_rgb) { return is_rgb ? "libx264rgb" : "libx264"; },
@@ -234,7 +234,7 @@ get_codec_params(codec_t ug_codec)
                 600
         };
         case APV:
-                return { nullptr, 0, setparam_oapv, capabilities_priority };
+                return { nullptr, 0, setparam_oapv, gui_dfl_prio };
         default:
                 break;
         }
@@ -242,12 +242,13 @@ get_codec_params(codec_t ug_codec)
         if (ug_codec == J2K) {
                 avg_bpp = 1;
         }
+        int gui_prio = gui_dfl_prio;
         if (ug_codec == PRORES) {
                 avg_bpp = 0.5;
-                capabilities_priority = 300; // perhaps to be before 5xx ?
+                gui_prio = 300;
         }
         return codec_params_t{ nullptr, avg_bpp, setparam_default,
-                               capabilities_priority };
+                               gui_prio };
 }
 
 struct aux_header {
