@@ -103,33 +103,6 @@
 #include <arpa/inet.h>
 #include <sys/mman.h>
 
-#ifdef HAVE_IPv6
-
-#ifdef HAVE_NETINET6_IN6_H
-/* Expect IPV6_{JOIN,LEAVE}_GROUP in in6.h, otherwise expect */
-/* IPV_{ADD,DROP}_MEMBERSHIP in in.h                         */
-#include <netinet6/in6.h>
-#else
-#include <netinet/in.h>
-#endif /* HAVE_NETINET_IN6_H */
-
-#ifndef IPV6_ADD_MEMBERSHIP
-#ifdef  IPV6_JOIN_GROUP
-#define IPV6_ADD_MEMBERSHIP IPV6_JOIN_GROUP
-#else
-#error  No definition of IPV6_ADD_MEMBERSHIP
-#endif /* IPV6_JOIN_GROUP     */
-#endif /* IPV6_ADD_MEMBERSHIP */
-
-#ifndef IPV6_DROP_MEMBERSHIP
-#ifdef  IPV6_LEAVE_GROUP
-#define IPV6_DROP_MEMBERSHIP IPV6_LEAVE_GROUP
-#else
-#error  No definition of IPV6_LEAVE_GROUP
-#endif  /* IPV6_LEAVE_GROUP     */
-#endif  /* IPV6_DROP_MEMBERSHIP */
-
-#endif /* HAVE_IPv6 */
 
 typedef int     fd_t;
 
