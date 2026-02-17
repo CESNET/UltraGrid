@@ -51,6 +51,8 @@
 #include "debug.h"
 #include "lib_common.h"
 
+#include "compat/net.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #include <winsock.h>
