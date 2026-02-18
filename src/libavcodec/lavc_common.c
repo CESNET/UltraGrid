@@ -82,6 +82,7 @@ static const struct {
         { AV_CODEC_ID_PRORES,   PRORES_422_PROXY },
         { AV_CODEC_ID_PRORES,   PRORES_422_LT    },
         { AV_CODEC_ID_APV,      APV              },
+        { AV_CODEC_ID_CFHD,     CFHD             },
         { AV_CODEC_ID_JPEGXS,   JPEG_XS          },
 };
 
