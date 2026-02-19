@@ -102,7 +102,7 @@ struct state_video_compress_jpegxs {
         bool parse_fmt(char *fmt);
 
         synchronized_queue<shared_ptr<struct video_frame>, DEFAULT_POOL_SIZE> in_queue;
-        synchronized_queue<shared_ptr<struct video_frame>, DEFAULT_POOL_SIZE> out_queue;
+        synchronized_queue<shared_ptr<struct video_frame>, -1> out_queue;
 
         thread worker_send;
         thread worker_get;
@@ -512,7 +512,13 @@ static shared_ptr<video_frame> jpegxs_compress_pop(void *state) {
 }
 
 static void jpegxs_compress_done(void *state) {
-        delete (struct state_video_compress_jpegxs *) state;
+        auto s = static_cast<state_video_compress_jpegxs *>(state);
+        {
+                std::scoped_lock l(s->mtx);
+                //s->stop = true;
+                //s->out_queue.pop(true);
+        }
+        delete s;
 }
 
 static compress_module_info get_jpegxs_module_info() {
