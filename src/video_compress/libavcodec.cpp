@@ -400,6 +400,7 @@ void usage(bool full) {
                                ":slices=<slices>][safe]\n\t\t[:<lavc_opt>=<val>]*")
               << "\n\t" << SBOLD(SRED("-c libavcodec") << ":[full]help") << "\n";
         col() << "\nwhere\n";
+        col() << "\t" << SBOLD("fullhelp") << " show all supported codecs and optiona\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
         col() << "\t" << SBOLD("<codec_name>") << " - codec name (default MJPEG) if encoder name is not specified\n";
         col() << "\t" << SBOLD("[disable_]intra_refresh") << ", "
@@ -432,6 +433,9 @@ void usage(bool full) {
                 auto           ug_codec = (codec_t) i;
                 enum AVCodecID avID     = get_ug_to_av_codec(ug_codec);
                 if (avID == AV_CODEC_ID_NONE) { // unhandled or old FFMPEG -> codec id is flushed to 0 in compat
+                        continue;
+                }
+                if (!full && ug_codec == CFHD) {
                         continue;
                 }
                 char avail[1024];
