@@ -1821,6 +1821,14 @@ setparam_oapv(AVCodecContext */*codec_ctx*/, struct setparam_param *param)
 static void
 setparam_jxs(AVCodecContext * /* codec_ctx */, struct setparam_param *param)
 {
+        const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(param->av_pix_fmt);
+        if (pd->log2_chroma_w == 0 && pd->log2_chroma_h == 0 &&
+            (pd->flags & AV_PIX_FMT_FLAG_RGB) == 0) {
+                MSG(ERROR,
+                    "JPEG XS is going to to encode YUV 444 is discouraged "
+                    "- use jpegxs encoder directly!\n");
+        }
+
         unsigned decomp_v = 0;
         if (param->lavc_opts.find("decomp_v") == param->lavc_opts.end()) {
                 unsigned height = param->desc.height;
