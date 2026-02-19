@@ -12,7 +12,7 @@
  *
  * To measure performance of conversions, use `tools/convert benchmark`.
  */
-/* Copyright (c) 2005-2025 CESNET
+/* Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -49,6 +49,7 @@
  *
  */
 
+#include "types.h"
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #include "pixfmt_conv.h"
@@ -59,6 +60,7 @@
 #include <string.h>          // for memcpy
 
 #include "color_space.h"
+#include "compat/endian.h"   // BYTE_ORDER, BIG_ENDIAN
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, CLAMP
@@ -71,13 +73,19 @@
 #include "tmmintrin.h"
 #endif
 
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define MOD_NAME "[pixfmt_conv] "
+
+#if BYTE_ORDER == BIG_ENDIAN
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x
 #endif
 
-#define MOD_NAME "[pixfmt_conv] "
+#if defined __GNUC__ && (__GNUC__ >= 10 || __clang_major__ >= 9)
+#define ALWAYS_INLINE [[gnu::always_inline]]
+#else
+#define ALWAYS_INLINE
+#endif
 
 /**
  * @brief Converts v210 to UYVY
@@ -3471,6 +3479,111 @@ uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
                         *v++  = (*in1++ + *in2++ + 1) / 2;
                 }
         }
+}
+
+/// @note out_depth needs to be at least 12
+ALWAYS_INLINE static inline void
+r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
+                 const int *__restrict out_linesize,
+                 const unsigned char *__restrict in_data, int width, int height,
+                 unsigned int out_depth)
+{
+        assert(out_depth >= 12);
+        assert((uintptr_t) out_linesize[0] % 2 == 0);
+        assert((uintptr_t) out_linesize[1] % 2 == 0);
+        assert((uintptr_t) out_linesize[2] % 2 == 0);
+
+#define S(x) ((x) << (out_depth - 12U))
+
+        int src_linesize = vc_get_linesize(width, R12L);
+        for (int y = 0; y < height; ++y) {
+                const unsigned char *src = in_data + y * src_linesize;
+                uint16_t *dst_g = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (out_data[1] + out_linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *)(void *) (out_data[2] + out_linesize[2] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+                        uint16_t tmp = src[BYTE_SWAP(0)];
+                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        *dst_r++ = S(tmp); // r0
+                        *dst_g++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // g0
+                        tmp = src[BYTE_SWAP(3)];
+                        src += 4;
+                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        *dst_b++ = S(tmp); // b0
+                        *dst_r++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // r1
+                        tmp = src[BYTE_SWAP(2)];
+                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_g++ = S(tmp); // g1
+                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        src += 4;
+                        *dst_b++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // b1
+                        tmp = src[BYTE_SWAP(1)];
+                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_r++ = S(tmp); // r2
+                        *dst_g++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // g2
+                        src += 4;
+                        tmp = src[BYTE_SWAP(0)];
+                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        *dst_b++ = S(tmp); // b2
+                        *dst_r++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // r3
+                        tmp = src[BYTE_SWAP(3)];
+                        src += 4;
+                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        *dst_g++ = S(tmp); // g3
+                        *dst_b++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // b3
+                        tmp = src[BYTE_SWAP(2)];
+                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_r++ = S(tmp); // r4
+                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        src += 4;
+                        *dst_g++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // g4
+                        tmp = src[BYTE_SWAP(1)];
+                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_b++ = S(tmp); // b4
+                        *dst_r++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // r5
+                        src += 4;
+                        tmp = src[BYTE_SWAP(0)];
+                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        *dst_g++ = S(tmp); // g5
+                        *dst_b++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // b5
+                        tmp = src[BYTE_SWAP(3)];
+                        src += 4;
+                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        *dst_r++ = S(tmp); // r6
+                        *dst_g++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // g6
+                        tmp = src[BYTE_SWAP(2)];
+                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_b++ = S(tmp); // b6
+                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        src += 4;
+                        *dst_r++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // r7
+                        tmp = src[BYTE_SWAP(1)];
+                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_g++ = S(tmp); // g7
+                        *dst_b++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // b7
+                        src += 4;
+                }
+        }
+#undef S
+}
+
+void
+r12l_to_gbrp12le(unsigned char *__restrict *__restrict out_data,
+                 const int *__restrict out_linesize,
+                 const unsigned char *__restrict in_data, int width, int height)
+{
+        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
+                         DEPTH12);
+}
+
+void
+r12l_to_gbrp16le(unsigned char *__restrict *__restrict out_data,
+                 const int *__restrict out_linesize,
+                 const unsigned char *__restrict in_data, int width, int height)
+{
+        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
+                         DEPTH16);
 }
 
 /* vim: set expandtab sw=8: */

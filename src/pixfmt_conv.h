@@ -14,7 +14,7 @@
  * @sa from_lavc_vid_conv.h to_lavc_vid_conv.h
  * @sa utils/parallel_conv.h
  */
-/* Copyright (c) 2005-2023 CESNET z.s.p.o.
+/* Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -106,7 +106,7 @@ decoder_func_t vc_copylineUYVYtoGrayscale;
 /// dummy conversion - ptr to it returned if no conversion needed
 decoder_func_t vc_memcpy;
 
-
+/// functions to decode whole buffer of packed data to planar or packed
 typedef void
 decode_buffer_func_t(unsigned char *__restrict *__restrict out_data,
                      const int *__restrict out_linesize,
@@ -118,6 +118,8 @@ decode_buffer_func_t uyvy_to_nv12;
 decode_buffer_func_t rgba_to_bgra;
 // other packed->planar convs are histaorically in video_codec.[ch]
 decode_buffer_func_t uyvy_to_i420;
+decode_buffer_func_t r12l_to_gbrp16le;
+decode_buffer_func_t r12l_to_gbrp12le;
 
 #ifdef __cplusplus
 }
