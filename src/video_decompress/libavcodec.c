@@ -58,6 +58,7 @@
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
+#include "types.h"                          // for video_desc, codec_t, hw_a..
 #include "utils/debug.h"          // for debug_file_dump
 #include "utils/macros.h"                   // for SWAP_PTR
 #include "video.h"
@@ -1198,6 +1199,11 @@ static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt
                     "Codec %s supported by lavd but "
                     "not compiled in FFmpeg build.\n",
                     get_codec_name(compression));
+                return VDEC_PRIO_NA;
+        }
+        if (compression == JPEG_XS && internal.subsampling == SUBS_444) {
+                MSG(VERBOSE, "Decoding 444 JPEG XS disabled because FFmpeg "
+                             "assumes YUV.\n");
                 return VDEC_PRIO_NA;
         }
 
