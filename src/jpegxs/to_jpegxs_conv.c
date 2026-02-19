@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <inttypes.h>               // for uint8_t, uint16_t
 #include <svt-jpegxs/SvtJpegxs.h>
 #include <string.h>
 #include <stdio.h>
@@ -169,20 +170,16 @@ static void r10k_to_rgbp10le(const uint8_t *src, int width, int height, svt_jpeg
         }       
 }
 
-static void r12l_to_rgbp12le(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
-
-        for (int y = 0; y < height; ++y) {
-                const uint16_t *src_row = (const uint16_t *)(src + y * vc_get_linesize(width, R12L));
-                uint16_t *dst_r = (uint16_t *) dst->data_yuv[0] + y * dst->stride[0];
-                uint16_t *dst_g = (uint16_t *) dst->data_yuv[1] + y * dst->stride[1];
-                uint16_t *dst_b = (uint16_t *) dst->data_yuv[2] + y * dst->stride[2];
-
-                for (int x = 0; x < width; ++x) {
-                        *dst_b++ = *src_row++ & 0x0FFF;
-                        *dst_r++ = *src_row++ & 0x0FFF;
-                        *dst_g++ = *src_row++ & 0x0FFF;
-                }
-        }       
+static void
+jxs_r12l_to_rgbp12le(const uint8_t *src, int width, int height,
+                     svt_jpeg_xs_image_buffer_t *dst)
+{
+        unsigned char *data[3] = { dst->data_yuv[0], dst->data_yuv[1],
+                                   dst->data_yuv[2] };
+        const int linesize[3]  = { (int) (dst->stride[0] * sizeof(uint16_t)),
+                                   (int) (dst->stride[1] * sizeof(uint16_t)),
+                                   (int) (dst->stride[2] * sizeof(uint16_t)) };
+        r12l_to_rgbp12le(data, linesize, src, width, height);
 }
 
 static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {
@@ -193,7 +190,7 @@ static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {
         { RGBA, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, rgba_to_rgbp },
         { v210, COLOUR_FORMAT_PLANAR_YUV422, v210_to_yuv422p10le},
         { R10k, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, r10k_to_rgbp10le },
-        { R12L, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, r12l_to_rgbp12le },
+        { R12L, COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, jxs_r12l_to_rgbp12le },
         { VIDEO_CODEC_NONE, COLOUR_FORMAT_INVALID, NULL }
 };
 

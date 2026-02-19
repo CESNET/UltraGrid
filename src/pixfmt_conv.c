@@ -3486,7 +3486,7 @@ ALWAYS_INLINE static inline void
 r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
                  const int *__restrict out_linesize,
                  const unsigned char *__restrict in_data, int width, int height,
-                 unsigned int out_depth)
+                 unsigned int out_depth, int rind, int gind, int bind)
 {
         assert(out_depth >= 12);
         assert((uintptr_t) out_linesize[0] % 2 == 0);
@@ -3498,9 +3498,9 @@ r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
         int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
                 const unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_g = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * y);
-                uint16_t *dst_b = (uint16_t *)(void *) (out_data[1] + out_linesize[1] * y);
-                uint16_t *dst_r = (uint16_t *)(void *) (out_data[2] + out_linesize[2] * y);
+                uint16_t *dst_r = (uint16_t *)(void *) (out_data[rind] + out_linesize[rind] * y);
+                uint16_t *dst_g = (uint16_t *)(void *) (out_data[gind] + out_linesize[gind] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (out_data[bind] + out_linesize[bind] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
                         uint16_t tmp = src[BYTE_SWAP(0)];
@@ -3574,7 +3574,7 @@ r12l_to_gbrp12le(unsigned char *__restrict *__restrict out_data,
                  const unsigned char *__restrict in_data, int width, int height)
 {
         r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
-                         DEPTH12);
+                         DEPTH12, 2, 0, 1);
 }
 
 void
@@ -3583,7 +3583,16 @@ r12l_to_gbrp16le(unsigned char *__restrict *__restrict out_data,
                  const unsigned char *__restrict in_data, int width, int height)
 {
         r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
-                         DEPTH16);
+                         DEPTH16, 2, 0, 1);
+}
+
+void
+r12l_to_rgbp12le(unsigned char *__restrict *__restrict out_data,
+                 const int *__restrict out_linesize,
+                 const unsigned char *__restrict in_data, int width, int height)
+{
+        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
+                         DEPTH12, 0, 1, 2);
 }
 
 /* vim: set expandtab sw=8: */
