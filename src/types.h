@@ -8,7 +8,7 @@
  * not implementation files.
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -90,7 +90,7 @@ typedef enum {
         HFYU,     ///< HuffYUV
         FFV1,     ///< FFV1
         CFHD,     ///< Cineform
-        RG48,     ///< 16-bit RGB little-endian (RlRhGl...)
+        RG48,     ///< 16-bit RGB little-endian (Rl Rh Gl Gh Bl Bh Rl...)
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
         Y216,     ///< YCbCr 422 16-bit little-endian - Y0 Cb Y1 Cr
