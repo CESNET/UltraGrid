@@ -45,13 +45,17 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // defined HAVE_CONFIG_H
-#include "config_unix.h"
-#include "config_win32.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include <array>
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <cstdarg>
+#include <cassert>
 #include <string_view>
 #include <unordered_map>
 
