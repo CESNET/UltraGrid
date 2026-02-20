@@ -439,6 +439,11 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
+ *
+ * irregular widht (width % 8 != 0) can be tested with:
+ * @code{,sh}
+ * uv -t testcard:c=R12L:size=127x512 --param decoder-use-codec=RGBA -d gl
+ * @endcode
  */
 static void
 vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
@@ -448,7 +453,13 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
         uint32_t *d = (uint32_t *)(void *) dst;
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
-        OPTIMIZED_FOR (int x = 0; x <= dstlen - 32; x += 32) {
+        OPTIMIZED_FOR (int x = 0; x < dstlen; x += 32) {
+                unsigned char tmpbuf[32];
+                uint32_t *orig_d = 0;
+                if (x + 32 >= dstlen) {
+                        orig_d = d;
+                        d = (uint32_t *) tmpbuf;
+                }
                 uint8_t tmp;
                 uint8_t r, g, b;
                 tmp = src[BYTE_SWAP(0)] >> 4;
@@ -516,6 +527,9 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 b = src[BYTE_SWAP(3)]; // b7
                 src += 4;
                 *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
+                if (x + 32 >= dstlen) {
+                        memcpy(orig_d, tmpbuf, dstlen - x);
+                }
         }
 }
 
