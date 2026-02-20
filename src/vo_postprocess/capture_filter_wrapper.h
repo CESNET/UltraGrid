@@ -118,6 +118,7 @@ static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name)(void *state, struct vide
 }\
 static void CF_WRAPPER_MERGE(vo_pp_done_, name)(void *state) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
+        assert(s->magic == CFW_MAGIC);\
         done(s->state);\
         vf_free(s->f);\
         free(s);\
