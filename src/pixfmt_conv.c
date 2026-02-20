@@ -3629,6 +3629,16 @@ gbrpXXle_to_r12l(unsigned char *const restrict out_data, const int out_pitch,
                     (unsigned char *) out_data + (y * out_pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+                        uint16_t tmpbuf[3][8];
+                        if (x + 8 >= width) {
+                                size_t remains = sizeof(uint16_t) * (width - x);
+                                memcpy(tmpbuf[0], src_r, remains);
+                                memcpy(tmpbuf[1], src_g, remains);
+                                memcpy(tmpbuf[2], src_b, remains);
+                                src_r = tmpbuf[0];
+                                src_g = tmpbuf[1];
+                                src_b = tmpbuf[2];
+                        }
                         dst[BYTE_SWAP(0)] = S(*src_r) & 0xff;
                         dst[BYTE_SWAP(1)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
                         dst[BYTE_SWAP(2)] = S(*src_g++) >> 4;
@@ -3672,6 +3682,14 @@ gbrpXXle_to_r12l(unsigned char *const restrict out_data, const int out_pitch,
 #undef S
 }
 
+/**
+ * test with:
+ * @code{.sh}
+ * uv -t testcard:c=R12L -c lavc:e=libx265 -p change_pixfmt:RGBA -d gl
+ * uv -t testcard:s=511x512c=R12L -c lavc:e=libx265 -p change_pixfmt:RGBA -d gl # irregular sz
+ * # optionally also `--param decoder-use-codec=R12L` to ensure decoded codec
+ * @endcode
+ */
 void
 gbrp12le_to_r12l(unsigned char *out_data, int out_pitch,
                  const unsigned char *const *in_data, const int *in_linesize,
