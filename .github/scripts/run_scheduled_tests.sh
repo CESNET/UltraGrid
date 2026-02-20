@@ -86,6 +86,8 @@ while [ $i -lt $test_count ]; do
         eval "args=\$test_${i}_args"
         eval "opts=\$test_${i}_opts"
 
+        i=$((i + 1))
+
         exec=$run_uv
         tool=uv
         if expr -- "$opts" : '.*run_reflector' >/dev/null; then
@@ -125,7 +127,5 @@ while [ $i -lt $test_count ]; do
                 fi
 
         fi
-
-        i=$((i + 1))
 done
 
