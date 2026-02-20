@@ -8,7 +8,7 @@
  * output buffer to decode to.
  */
 /*
- * Copyright (c) 2020-2025 CESNET
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -116,7 +116,7 @@ static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name)(void *state, struct vide
 \
         UNUSED(in_tile_mode);\
 }\
-static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, done)(void *state) {\
+static void CF_WRAPPER_MERGE(vo_pp_done_, name)(void *state) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
         done(s->state);\
         vf_free(s->f);\
@@ -130,7 +130,7 @@ static const struct vo_postprocess_info CF_WRAPPER_MERGE(vo_pp_, name) = {\
         CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name),\
         CF_WRAPPER_MERGE(vo_pp_get_property_, name),\
         CF_WRAPPER_MERGE(vo_pp_postprocess_, name),\
-        CF_WRAPPER_MERGE(vo_pp_get_out_desc_, done)\
+        CF_WRAPPER_MERGE(vo_pp_done_, name)\
 };\
 REGISTER_MODULE(name, &CF_WRAPPER_MERGE(vo_pp_, name), LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 
