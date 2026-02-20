@@ -1,8 +1,3 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#endif
-
 #include "debug.h"
 #include "utils/color_out.h"
 
