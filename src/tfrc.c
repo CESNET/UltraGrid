@@ -45,10 +45,11 @@
  */
 
 #include <stdbool.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
 
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #include "debug.h"
 #include "rtp/rtp.h"
 #include "tv.h"
