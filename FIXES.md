@@ -1,3 +1,11 @@
+#### 1.10.3
+
+* screen_avf: fix swapped name/dev in probe (for GUI)
+* compliance with Apple Dev Program (explicit recording notice
+if screen capture or Core Audio device is used)
+* reenable CFHD decoding fallback with lavd
+* fixed some small lavd regression when some decoders unavail
+
 #### 1.10.2
 
 * fix Vulkan display crashing on keypresses in console
