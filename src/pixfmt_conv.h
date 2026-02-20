@@ -122,6 +122,14 @@ decode_buffer_func_t r12l_to_gbrp12le;
 decode_buffer_func_t r12l_to_gbrp16le;
 decode_buffer_func_t r12l_to_rgbp12le;
 
+/// functions to decode whole buffer of packed data to planar or packed
+typedef void decode_planar_func_t(unsigned char *out_data, int out_pitch,
+                                  const unsigned char *const *in_data,
+                                  const int *in_linesize, int width,
+                                  int height);
+decode_planar_func_t gbrp12le_to_r12l;
+decode_planar_func_t gbrp16le_to_r12l;
+
 #ifdef __cplusplus
 }
 #endif

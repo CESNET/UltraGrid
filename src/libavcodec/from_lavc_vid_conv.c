@@ -540,73 +540,6 @@ yuv444p16le_to_rg48(struct av_conv_data d)
 }
 
 #if defined __GNUC__
-static inline void gbrpXXle_to_r12l(struct av_conv_data d, unsigned int in_depth)
-        __attribute__((always_inline));
-#endif
-static inline void
-gbrpXXle_to_r12l(struct av_conv_data d, unsigned int in_depth)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *frame = d.in_frame;
-
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
-
-#undef S
-#define S(x) ((x) >> (in_depth - 12))
-
-        for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst =
-                    (unsigned char *) d.dst_buffer + y * d.pitch;
-
-                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
-                        dst[BYTE_SWAP(0)] = S(*src_r) & 0xff;
-                        dst[BYTE_SWAP(1)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[BYTE_SWAP(2)] = S(*src_g++) >> 4;
-                        dst[BYTE_SWAP(3)] = S(*src_b) & 0xff;
-                        dst[4 + BYTE_SWAP(0)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[4 + BYTE_SWAP(1)] = S(*src_r++) >> 4;
-                        dst[4 + BYTE_SWAP(2)] = S(*src_g) & 0xff;
-                        dst[4 + BYTE_SWAP(3)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[8 + BYTE_SWAP(0)] = S(*src_b++) >> 4;
-                        dst[8 + BYTE_SWAP(1)] = S(*src_r) & 0xff;
-                        dst[8 + BYTE_SWAP(2)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[8 + BYTE_SWAP(3)] = S(*src_g++) >> 4;
-                        dst[12 + BYTE_SWAP(0)] = S(*src_b) & 0xff;
-                        dst[12 + BYTE_SWAP(1)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[12 + BYTE_SWAP(2)] = S(*src_r++) >> 4;
-                        dst[12 + BYTE_SWAP(3)] = S(*src_g) & 0xff;
-                        dst[16 + BYTE_SWAP(0)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[16 + BYTE_SWAP(1)] = S(*src_b++) >> 4;
-                        dst[16 + BYTE_SWAP(2)] = S(*src_r) & 0xff;
-                        dst[16 + BYTE_SWAP(3)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[20 + BYTE_SWAP(0)] = S(*src_g++) >> 4;
-                        dst[20 + BYTE_SWAP(1)] = S(*src_b) & 0xff;
-                        dst[20 + BYTE_SWAP(2)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[20 + BYTE_SWAP(3)] = S(*src_r++) >> 4;;
-                        dst[24 + BYTE_SWAP(0)] = S(*src_g) & 0xff;
-                        dst[24 + BYTE_SWAP(1)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[24 + BYTE_SWAP(2)] = S(*src_b++) >> 4;
-                        dst[24 + BYTE_SWAP(3)] = S(*src_r) & 0xff;
-                        dst[28 + BYTE_SWAP(0)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[28 + BYTE_SWAP(1)] = S(*src_g++) >> 4;
-                        dst[28 + BYTE_SWAP(2)] = S(*src_b) & 0xff;
-                        dst[28 + BYTE_SWAP(3)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[32 + BYTE_SWAP(0)] = S(*src_r++) >> 4;
-                        dst[32 + BYTE_SWAP(1)] = S(*src_g) & 0xff;
-                        dst[32 + BYTE_SWAP(2)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[32 + BYTE_SWAP(3)] = S(*src_b++) >> 4;
-                        dst += 36;
-                }
-        }
-}
-
-#if defined __GNUC__
 static inline void gbrpXXle_to_rgb(struct av_conv_data d, unsigned int in_depth)
         __attribute__((always_inline));
 #endif
@@ -685,9 +618,21 @@ gbrp10le_to_rgba(struct av_conv_data d)
 }
 
 static void
-gbrp12le_to_r12l(struct av_conv_data d)
+av_gbrp12le_to_r12l(struct av_conv_data d)
 {
-        gbrpXXle_to_r12l(d, DEPTH12);
+        gbrp12le_to_r12l((unsigned char *) d.dst_buffer, (int) d.pitch,
+                         (const unsigned char *const *) d.in_frame->data,
+                         d.in_frame->linesize, d.in_frame->width,
+                         d.in_frame->height);
+}
+
+static void
+av_gbrp16le_to_r12l(struct av_conv_data d)
+{
+        gbrp16le_to_r12l((unsigned char *) d.dst_buffer, (int) d.pitch,
+                         (const unsigned char *const *) d.in_frame->data,
+                         d.in_frame->linesize, d.in_frame->width,
+                         d.in_frame->height);
 }
 
 static void
@@ -706,12 +651,6 @@ static void
 gbrp12le_to_rgba(struct av_conv_data d)
 {
         gbrpXXle_to_rgba(d, DEPTH12);
-}
-
-static void
-gbrp16le_to_r12l(struct av_conv_data d)
-{
-        gbrpXXle_to_r12l(d, DEPTH16);
 }
 
 static void
@@ -2629,12 +2568,12 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba},
         {AV_PIX_FMT_GBRP10LE, RG48, gbrp10le_to_rg48},
-        {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l},
+        {AV_PIX_FMT_GBRP12LE, R12L, av_gbrp12le_to_r12l},
         {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba},
         {AV_PIX_FMT_GBRP12LE, RG48, gbrp12le_to_rg48},
-        {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l},
+        {AV_PIX_FMT_GBRP16LE, R12L, av_gbrp16le_to_r12l},
         {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k},
         {AV_PIX_FMT_GBRP16LE, RG48, gbrp16le_to_rg48},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb},
