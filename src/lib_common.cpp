@@ -37,8 +37,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
 #ifdef BUILD_LIBRARIES
@@ -49,6 +47,9 @@
 
 #include <iostream>
 #include <map>
+#include <cstring>
+#include <cassert>
+#include <cstdlib>
 
 #include "debug.h"
 #include "host.h"
