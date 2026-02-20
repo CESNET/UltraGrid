@@ -4,7 +4,7 @@
 #include <time.h>
 
 #include "../src/libavcodec/from_lavc_vid_conv.c"
-#include "color.h"
+#include "color_space.h"
 #undef MOD_NAME
 #include "../src/libavcodec/to_lavc_vid_conv.c"
 #include "debug.h"
