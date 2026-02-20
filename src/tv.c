@@ -44,14 +44,12 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #include "debug.h"
 #include "tv.h"
 #include "utils/random.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 pthread_once_t once_control = PTHREAD_ONCE_INIT;
