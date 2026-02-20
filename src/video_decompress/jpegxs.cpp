@@ -122,6 +122,13 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->desc = desc;
 
+        if (desc.height % 8 != 0) {
+                MSG(ERROR,
+                    "SVT-JPEG-XS seems to freeze when the height isn't "
+                    "divisible by 8 (or such internal value)! Please report if "
+                    "you're seeing this message and decode correctly.");
+        }
+
         if (s->out_codec != VIDEO_CODEC_NONE) {
                 const struct jpegxs_to_uv_conversion *conv = get_jpegxs_to_uv_conversion(s->out_codec);
                 if (!conv || !conv->convert) {
