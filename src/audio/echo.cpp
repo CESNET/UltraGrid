@@ -43,7 +43,7 @@
 
 #include <speex/speex_echo.h>
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <mutex>
 #include <memory>
 #include <algorithm>
@@ -63,11 +63,11 @@ using duration = steady_clock::duration;
 
 namespace {
         struct Echo_state_deleter{
-                void operator()(SpeexEchoState* echo) { speex_echo_state_destroy(echo); }
+                void operator()(SpeexEchoState* echo) const{ speex_echo_state_destroy(echo); }
         };
 
         struct Export_state_deleter{
-                void operator()(struct audio_export* e) { audio_export_destroy(e); }
+                void operator()(struct audio_export* e) const{ audio_export_destroy(e); }
         };
 }
 
@@ -126,7 +126,7 @@ ADD_TO_PARAM("echo-cancel-delay", "* echo-cancel-delay=<samples>\n"
 
 struct echo_cancellation * echo_cancellation_init(void)
 {
-        struct echo_cancellation *s = new echo_cancellation();
+        auto *s = new echo_cancellation();
 
         int filter_length = DEFAULT_FILTER_LENGTH;
         if(const char *param = get_commandline_param("echo-cancel-filter-length"); param != nullptr){
@@ -145,10 +145,10 @@ struct echo_cancellation * echo_cancellation_init(void)
 
         s->echo_state.reset(speex_echo_state_init(SAMPLES_PER_FRAME, filter_length));
 
-        s->frame.data = NULL;
+        s->frame.data = nullptr;
         s->frame.sample_rate = s->frame.bps = 0;
 
-        const int ringbuf_sample_count = 2 << 15; //should be divisible by SAMPLES_PER_FRAME
+        constexpr int ringbuf_sample_count = 2 << 15; //should be divisible by SAMPLES_PER_FRAME
         constexpr int bps = 2; //TODO: assuming bps to be 2
 
         s->far_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
@@ -198,8 +198,8 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 }
         }
 
-        size_t samples = frame->data_len / frame->bps;
-        size_t ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf.get()) / 2;
+        int samples = frame->data_len / frame->bps;
+        int ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf.get()) / 2;
 
         if(samples > ringbuf_free_samples){
                 samples = ringbuf_free_samples;
@@ -229,8 +229,6 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 
 struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame *frame)
 {
-        struct audio_frame *res;
-
         std::lock_guard lk(s->lock);
 
         if(frame->ch_count != 1) {
@@ -248,9 +246,9 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         }
 
 
-        size_t in_frame_samples = frame->data_len / frame->bps;
+        int in_frame_samples = frame->data_len / frame->bps;
 
-        size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf.get()) / 2;
+        int ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf.get()) / 2;
         if(in_frame_samples > ringbuf_free_samples){
                 in_frame_samples = ringbuf_free_samples;
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
@@ -306,13 +304,13 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
         size_t frames_to_process = near_end_samples / SAMPLES_PER_FRAME;
         if(!frames_to_process){
-                return NULL;
+                return nullptr;
         }
 
         size_t out_size = frames_to_process * SAMPLES_PER_FRAME * 2;
         assert(static_cast<size_t>(s->frame.max_size) >= out_size);
         s->frame.data_len = out_size;
-        res = &s->frame;
+        audio_frame *res = &s->frame;
 
         spx_int16_t *out_ptr = (spx_int16_t *)(void *) s->frame.data;
         for(size_t i = 0; i < frames_to_process; i++){
