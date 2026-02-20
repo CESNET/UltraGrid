@@ -3599,7 +3599,7 @@ ALWAYS_INLINE static inline void
 gbrpXXle_to_r12l(unsigned char *const restrict out_data, const int out_pitch,
                  const unsigned char *const restrict *const restrict in_data,
                  const int *const restrict in_linesize, const int width,
-                 const int height, const int in_depth)
+                 const int height, const int in_depth, int rind, int gind, int bind)
 {
         assert((uintptr_t) in_linesize[0] % 2 == 0);
         assert((uintptr_t) in_linesize[1] % 2 == 0);
@@ -3608,9 +3608,9 @@ gbrpXXle_to_r12l(unsigned char *const restrict out_data, const int out_pitch,
 #define S(x) ((x) >> (in_depth - 12))
         // clang-format off
         for (size_t y = 0; y < (size_t) height; ++y) {
-                const uint16_t *src_g = (const void *) (in_data[0] + (in_linesize[0] * y));
-                const uint16_t *src_b = (const void *) (in_data[1] + (in_linesize[1] * y));
-                const uint16_t *src_r = (const void *) (in_data[2] + (in_linesize[2] * y));
+                const uint16_t *src_r = (const void *) (in_data[rind] + (in_linesize[rind] * y));
+                const uint16_t *src_g = (const void *) (in_data[gind] + (in_linesize[gind] * y));
+                const uint16_t *src_b = (const void *) (in_data[bind] + (in_linesize[bind] * y));
                 unsigned char *dst =
                     (unsigned char *) out_data + (y * out_pitch);
 
@@ -3664,7 +3664,7 @@ gbrp12le_to_r12l(unsigned char *out_data, int out_pitch,
                  int width, int height)
 {
         gbrpXXle_to_r12l(out_data, out_pitch, in_data, in_linesize, width,
-                         height, DEPTH12);
+                         height, DEPTH12, 2, 0, 1);
 }
 
 void
@@ -3673,7 +3673,16 @@ gbrp16le_to_r12l(unsigned char *out_data, int out_pitch,
                  int width, int height)
 {
         gbrpXXle_to_r12l(out_data, out_pitch, in_data, in_linesize, width,
-                         height, DEPTH16);
+                         height, DEPTH16, 2, 0, 1);
+}
+
+void
+rgbp12le_to_r12l(unsigned char *out_data, int out_pitch,
+                 const unsigned char *const *in_data, const int *in_linesize,
+                 int width, int height)
+{
+        gbrpXXle_to_r12l(out_data, out_pitch, in_data, in_linesize, width,
+                         height, DEPTH12, 0, 1, 2);
 }
 
 /* vim: set expandtab sw=8: */
