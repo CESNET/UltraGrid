@@ -3584,6 +3584,15 @@ if test "$build_default" != no || test "$req_files" = all; then
         "
 fi
 
+AC_ARG_WITH(object-remove,
+        AS_HELP_STRING([--with-object-remove], [remove and object (delimit more with '|')]),
+        [removed_files=$withval],
+        [removed_files=])
+
+if test -n "$removed_files"; then
+        ULTRAGRID_OBJS=$(echo "$ULTRAGRID_OBJS" | grep -Ev "$removed_files")
+fi
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
