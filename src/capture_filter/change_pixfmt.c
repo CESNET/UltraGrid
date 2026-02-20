@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2024 CESNET
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,11 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 printf("Performs pixel format change transformation.\n\n"
                        "usage:\n");
-                color_printf(TERM_FG_RED "\t--capture-filter change_pixfmt:<name>\n" TERM_FG_RESET);
+                color_printf(TRED("\t--capture-filter/--vo-postprocess "
+                                  "change_pixfmt:<pixfmt>") "\n");
+                printf("\nargument:\n");
+                printf("\t<pixfmt> - pixel format name to convert to\n");
+                printf("\n");
                 return 1;
         }
 
