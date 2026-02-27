@@ -190,6 +190,12 @@ if test $system = Windows; then
         fi
 fi
 
+clang_ver_major=$($CC --version | sed -n \
+ '/clang version/ s/.*version \(@<:@0-9@:>@*\).*/\1/p')
+if test "${clang_ver_major:-17}" -lt 17; then
+        CFLAGS="${CFLAGS:+$CFLAGS }-std=gnu2x"
+fi
+
 LINKER=$CXX
 
 AC_SUBST(LINKER)

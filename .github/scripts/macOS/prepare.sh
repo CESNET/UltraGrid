@@ -31,12 +31,6 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-# TODO TOREMOVE allow gnu::always_inline - remove when no macOS <= 14 runner
-macos_major=$(sw_vers -productVersion | cut -d. -f1)
-if [ "$macos_major" -le 14 ]; then
-        echo "CFLAGS=-std=gnu2x" >> "$GITHUB_ENV"
-fi
-
 set -- \
         asciidoctor \
         autoconf \
