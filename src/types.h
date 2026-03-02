@@ -128,7 +128,10 @@ enum depth {
         DEPTH16 = 16,
 };
 
-/// @anchor enum_subsampling
+/*
+ * the value is in JabA format
+ * @anchor enum_subsampling
+ */
 enum subsampling {
         SUBS_420  = 4200,
         SUBS_422  = 4220,
@@ -138,7 +141,7 @@ enum subsampling {
 
 struct pixfmt_desc {
         int depth;       ///< bit depth; 0 means that whole struct is undefined
-        int subsampling; ///< in 'JabA' format, eg. '4444'
+        enum subsampling subsampling;
         bool rgb;
         enum hw_accel_type accel_type;
 };

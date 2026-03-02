@@ -233,15 +233,15 @@ static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpe
         internal_prop->depth = s->image_config.bit_depth;
         switch (s->image_config.format) {
         case COLOUR_FORMAT_PLANAR_YUV420:
-                internal_prop->subsampling = 4200;
+                internal_prop->subsampling = SUBS_420;
                 internal_prop->rgb = false;
                 break;
         case COLOUR_FORMAT_PLANAR_YUV422:
-                internal_prop->subsampling = 4220;
+                internal_prop->subsampling = SUBS_422;
                 internal_prop->rgb = false;
                 break;
         case COLOUR_FORMAT_PLANAR_YUV444_OR_RGB:
-                internal_prop->subsampling = 4440;
+                internal_prop->subsampling = SUBS_444;
                 internal_prop->rgb = true;
                 break;
         default:
