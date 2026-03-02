@@ -156,6 +156,8 @@ static void *jpegxs_decompress_init(void) {
 
 static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size)
 {
+        assert(s->out_codec != VC_NONE);
+
         s->decoder.verbose = VERBOSE_NONE;
         s->decoder.threads_num = get_cpu_core_count();
         s->decoder.use_cpu_flags = CPU_FLAGS_ALL;
@@ -172,12 +174,10 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
                 return false;
         }
-        if (s->out_codec != VIDEO_CODEC_NONE) {
-                s->convert_from_planar = get_jpegxs_to_uv_conversion(s->out_codec, get_jxs_subsampling_to_ug(s->image_config.format));
-                if (!s->convert_from_planar) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(s->out_codec));
-                        return false;
-                }
+        s->convert_from_planar = get_jpegxs_to_uv_conversion(s->out_codec, get_jxs_subsampling_to_ug(s->image_config.format));
+        if (!s->convert_from_planar) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n", get_codec_name(s->out_codec));
+                return false;
         }
 
         s->configured = true;
