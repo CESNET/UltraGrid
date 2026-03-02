@@ -95,7 +95,7 @@ static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
 static enum subsampling get_jxs_subsampling_to_ug(ColourFormat_t jxs_ss);
 
 static const struct jpegxs_to_uv_conversion *
-get_jpegxs_to_uv_conversion(codec_t codec, int ug_ss)
+get_jpegxs_to_uv_conversion(codec_t codec, enum subsampling ug_ss)
 {
         bool found_any = true;
         const struct jpegxs_to_uv_conversion *conv = jpegxs_to_uv_conversions;
@@ -109,11 +109,11 @@ get_jpegxs_to_uv_conversion(codec_t codec, int ug_ss)
                 }
         }
 
-        if (found_any && ug_ss != 0) {
+        if (found_any) {
                 MSG(WARNING,
-                    "Some found but incompatible subsampling (have %d and "
-                    "pixfmt %s)\n",
-                    ug_ss , get_codec_name(codec));
+                    "Some conversion found but incompatible subsampling (converting  "
+                    "%d to pixfmt %s)\n",
+                    ug_ss, get_codec_name(codec));
         }
         return nullptr;
 }
@@ -346,8 +346,6 @@ get_jxs_subsampling_to_ug(ColourFormat_t jxs_ss)
 
 static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc)
 {
-        UNUSED(internal);
-
         if (compression != JPEG_XS) {
                 return VDEC_PRIO_NA;
         }
