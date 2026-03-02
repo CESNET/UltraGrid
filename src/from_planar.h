@@ -65,9 +65,18 @@ struct from_planar_data {
 
 /// functions to decode whole buffer of packed data to planar or packed
 typedef void         decode_planar_func_t(struct from_planar_data d);
-void                 decode_planar_parallel(decode_planar_func_t   *dec,
-                                            struct from_planar_data d, int num_threads);
+/**
+ * run the @ref decode_planar_func_t in parallel
+ * @param dec         fn to run, must be to packed format (or set num_threads=1
+ *                    if the conversion is to a planar format)
+ * @param num_threads number of threads (0 = auto - use the number of logical
+ *                    cores)
+ */
+void decode_planar_parallel(decode_planar_func_t   *dec,
+                            struct from_planar_data d, int num_threads);
 
+// XX in the conversion names below indicates that in_depth must be set.
+// If =8, byte per input sample is used, if >8, 16 bits.
 decode_planar_func_t gbrap_to_rgb;
 decode_planar_func_t gbrap_to_rgba;
 decode_planar_func_t gbrp10le_to_rgb;
