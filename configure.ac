@@ -3589,7 +3589,8 @@ if test "$build_default" != no || test "$req_files" = all; then
 fi
 
 AC_ARG_WITH(object-remove,
-        AS_HELP_STRING([--with-object-remove], [remove an obj file from build (delimit more with '|')]),
+        AS_HELP_STRING([--with-object-remove=src/.../name.o],
+        [remove an object from build (delimit more with '|')]),
         [removed_files=$withval],
         [removed_files=])
 
