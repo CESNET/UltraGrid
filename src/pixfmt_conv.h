@@ -106,22 +106,6 @@ decoder_func_t vc_copylineUYVYtoGrayscale;
 /// dummy conversion - ptr to it returned if no conversion needed
 decoder_func_t vc_memcpy;
 
-/// functions to decode whole buffer of packed data to planar or packed
-typedef void
-decode_buffer_func_t(unsigned char *__restrict *__restrict out_data,
-                     const int *__restrict out_linesize,
-                     const unsigned char *__restrict in_data, int width,
-                     int height);
-decode_buffer_func_t v210_to_p010le;
-decode_buffer_func_t y216_to_p010le;
-decode_buffer_func_t uyvy_to_nv12;
-decode_buffer_func_t rgba_to_bgra;
-// other packed->planar convs are histaorically in video_codec.[ch]
-decode_buffer_func_t uyvy_to_i420;
-decode_buffer_func_t r12l_to_gbrp12le;
-decode_buffer_func_t r12l_to_gbrp16le;
-decode_buffer_func_t r12l_to_rgbp12le;
-
 #ifdef __cplusplus
 }
 #endif

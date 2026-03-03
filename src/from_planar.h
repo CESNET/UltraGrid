@@ -1,6 +1,9 @@
 /**
  * @file   from_planar.h
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * This file contains various conversions from planar pixel formats as used
+ * by libavcodec or jpegxs to packed pixel formats.
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob

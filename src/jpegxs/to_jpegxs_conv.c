@@ -41,6 +41,7 @@
 #include <stdio.h>
 
 #include "jpegxs_conv.h"
+#include "to_planar.h"             // for r12l_to_rgbp12le
 #include "types.h"
 #include "video_codec.h"
 

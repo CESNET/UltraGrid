@@ -64,6 +64,7 @@
 #include "libavcodec/to_lavc_vid_conv_cuda.h"
 #include "libavcodec/utils.h"                  // for uv_to_av_pixfmt, get_u...
 #include "pixfmt_conv.h"                       // for get_decoder_from_to
+#include "to_planar.h"                         // for r12l_to_gbrp12le, r12l...
 #include "tv.h"                                // for get_time_in_ns, time_ns_t
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/parallel_conv.h"

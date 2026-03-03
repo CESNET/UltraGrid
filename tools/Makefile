@@ -53,7 +53,7 @@ benchmark_ff_convs.o: benchmark_ff_convs.c ../src/libavcodec/from_lavc_vid_conv.
 benchmark_ff_convs: benchmark_ff_convs.o $(COMMON_OBJS) \
 	src/libavcodec/utils.o src/libavcodec/lavc_common.o \
 	src/utils/parallel_conv.o src/utils/worker.o src/utils/thread.o \
-	src/from_planar.o
+	src/from_planar.o src/to_planar.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LAVC_LIBS) -lavutil -pthread
 
 convert: convert.o $(COMMON_OBJS)

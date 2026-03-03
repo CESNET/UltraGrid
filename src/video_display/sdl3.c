@@ -72,7 +72,7 @@
 #include "lib_common.h"       // for REGISTER_MODULE, library_class
 #include "messaging.h"        // for new_response, msg_universal, RESPONSE...
 #include "module.h"           // for module, get_root_module, module_done
-#include "pixfmt_conv.h"      // for v210_to_p010le
+#include "to_planar.h"        // for rgba_to_bgra, uyvy_to_i420, uyvy_to_nv12
 #include "tv.h"               // for ts_add_nsec
 #include "types.h"            // for video_desc, tile, video_frame, device...
 #include "utils/color_out.h"  // for color_printf, TBOLD, TRED

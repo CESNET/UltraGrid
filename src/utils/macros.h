@@ -143,6 +143,12 @@
 #define OPTIMIZED_FOR for
 #endif
 
+#if defined __GNUC__ && (__GNUC__ >= 10 || __clang_major__ >= 9)
+#define ALWAYS_INLINE [[gnu::always_inline]]
+#else
+#define ALWAYS_INLINE
+#endif
+
 /// the following limits are used mostly for static array allocations
 enum {
         MAX_CPU_CORES = 256,  ///< maximal expected CPU core count

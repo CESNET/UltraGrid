@@ -141,6 +141,7 @@ COMMON_OBJS     = \
 		src/lib_common.o \
 		src/module.o \
 		src/pixfmt_conv.o \
+		src/to_planar.o \
 		src/ug_runtime_error.o \
 		tools/ipc_frame_ug.o \
 		tools/ipc_frame_unix.o \
@@ -332,6 +333,11 @@ src/pixfmt_conv.o: src/pixfmt_conv.c
 src/from_plaanr.o: src/from_planar.c
 	$(MKDIR_P) $$(dirname $@)
 	$(CC_NO_SUFF) $(CFLAGS) $(OMAX) $(INC) -MD -c $(srcdir)/src/from_planar.c -o $@
+	$(POSTPROCESS_DEPS)
+
+src/to_planar.o: src/to_planar.c
+	$(MKDIR_P) $$(dirname $@)
+	$(CC_NO_SUFF) $(CFLAGS) $(OMAX) $(INC) -MD -c $(srcdir)/src/to_planar.c -o $@
 	$(POSTPROCESS_DEPS)
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)

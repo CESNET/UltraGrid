@@ -1,5 +1,5 @@
 /**
- * @file   from_planar.h
+ * @file   from_planar.c
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
@@ -49,7 +49,7 @@
 #include "compat/c23.h"    // for size_t, NULL, countof, nullptr, ptrdiff_t
 #include "compat/endian.h" // BYTE_ORDER, BIG_ENDIAN
 #include "types.h"         // for depth
-#include "utils/macros.h"  // for OPTIMIZED_FOR
+#include "utils/macros.h"  // for ALWAYS_INLINE, OPTIMIZED_FOR
 #include "utils/misc.h"    // for get_cpu_core_count
 #include "utils/worker.h"  // for task_run_parallel
 
@@ -57,12 +57,6 @@
 #define BYTE_SWAP(x) (3 - x)
 #else
 #define BYTE_SWAP(x) x
-#endif
-
-#if defined __GNUC__ && (__GNUC__ >= 10 || __clang_major__ >= 9)
-#define ALWAYS_INLINE [[gnu::always_inline]]
-#else
-#define ALWAYS_INLINE
 #endif
 
 // shortcuts

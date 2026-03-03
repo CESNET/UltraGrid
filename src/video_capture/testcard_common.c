@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2024 CESNET
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include "debug.h"            // for LOG_LEVEL_FATAL, MSG
 #include "pixfmt_conv.h"
 #include "utils/color_out.h"
+#include "to_planar.h"        // for uyvy_to_i420
 #include "video_codec.h"      // for get_codec_name, vc_get_size, get_bits_p...
 
 #define MOD_NAME "[testcard_common] "
