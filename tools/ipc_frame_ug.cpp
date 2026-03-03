@@ -1,11 +1,6 @@
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "debug.h"
-#endif
 
-#include <array>
+#include <cassert>
+#include <cstring>
 #include <cmath>
 #include <vector>
 
@@ -14,6 +9,7 @@
 #include "pixfmt_conv.h"
 #include "types.h"
 #include "video_codec.h"
+#include "debug.h"
 
 namespace {
 void scale_frame(char *dst, char *src,
