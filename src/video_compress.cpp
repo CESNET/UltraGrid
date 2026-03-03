@@ -6,7 +6,7 @@
  * @brief Video compress functions.
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,9 @@ constexpr uint32_t MAGIC = to_fourcc('v','c','m','p');
 using namespace std;
 
 struct compress_state;
+
+static video_frame pop_retry_frame{};
+shared_ptr<video_frame> vcomp_pop_retry(&pop_retry_frame, [](video_frame *){});
 
 namespace {
 /**
@@ -541,6 +544,10 @@ void compress_state_real::async_tile_consumer(struct compress_state *s)
                                 return;
                         }
 
+                        if (ret == vcomp_pop_retry) {
+                                fail = true;
+                        }
+
                         if(ret->seq > expected_seq){
                                 log_msg(LOG_LEVEL_ERROR,
                                                 "Expected sequence number %u but got %u!\n",
@@ -577,13 +584,15 @@ void compress_state_real::async_consumer(struct compress_state *s)
         set_thread_name(__func__);
         while (true) {
                 auto frame = funcs->compress_frame_async_pop_func(state[0]);
+                if (frame == vcomp_pop_retry) {
+                        continue;
+                }
                 if (!discard_frames) {
                         s->queue.push(frame);
 
                 }
                 if (!frame) {
                         return;
-
                 }
 
         }

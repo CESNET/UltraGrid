@@ -43,7 +43,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <vector>
 #include <svt-jpegxs/SvtJpegxs.h>                  // for SvtJxsErrorType
 #include <svt-jpegxs/SvtJpegxsEnc.h>
 #include <svt-jpegxs/SvtJpegxsImageBufferTools.h>
@@ -67,9 +66,6 @@ using std::condition_variable;
 using std::mutex;
 using std::thread;
 using std::unique_lock;
-using std::unique_ptr;
-using std::vector;
-using std::queue;
 using std::atomic;
 
 namespace {
@@ -84,9 +80,6 @@ struct state_video_compress_jpegxs {
         ~state_video_compress_jpegxs() {
                 if (worker_send.joinable()) {
                         worker_send.join();
-                }
-                if (worker_get.joinable()) {
-                        worker_get.join();
                 }
                 cleanup();
         }
@@ -112,10 +105,8 @@ struct state_video_compress_jpegxs {
         bool parse_fmt(char *fmt);
 
         synchronized_queue<shared_ptr<struct video_frame>, DEFAULT_POOL_SIZE> in_queue;
-        synchronized_queue<shared_ptr<struct video_frame>, 1> out_queue;
 
         thread worker_send;
-        thread worker_get;
 
         mutex mtx;
         condition_variable cv_configured;
@@ -128,7 +119,6 @@ struct state_video_compress_jpegxs {
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc);
 static void jpegxs_worker_send(state_video_compress_jpegxs *s);
-static void jpegxs_worker_get(state_video_compress_jpegxs *s);
 
 state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, const char *opts) {
         (void) parent;
@@ -153,7 +143,6 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
         }
 
         worker_send = thread(jpegxs_worker_send, this);
-        worker_get = thread(jpegxs_worker_get, this); 
 }
 
 static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
@@ -224,63 +213,6 @@ while (true) {
         }
 
         s->frames_sent++;
-}
-}
-
-static void jpegxs_worker_get(state_video_compress_jpegxs *s) {
-{
-        unique_lock<mutex> lock(s->mtx);
-        s->cv_configured.wait(lock, [&]{
-                return s->configured || s->stop;
-        });
-
-        if (s->stop) {
-                s->out_queue.push({});
-                return;
-        }
-}
-while (true) {
-{
-        unique_lock<mutex> lock(s->mtx);
-        if (s->frames_received == s->frames_sent) {
-                if (s->reconfiguring) {
-                        s->cv_drained.notify_one();
-                        s->cv_reconfiguring.wait(lock, [&]{
-                                return !s->reconfiguring;
-                        });
-                        continue;
-                }
-        }
-}
-        svt_jpeg_xs_frame_t enc_output;
-        SvtJxsErrorType_t err = svt_jpeg_xs_encoder_get_packet(&s->encoder, &enc_output, /*blocking*/ 1);
-        if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
-                continue;
-        }
-        if (enc_output.user_prv_ctx_ptr == JXS_POISON_PILL) {
-                s->out_queue.push({});
-                break;
-        }
-        s->frames_received++;
-
-        shared_ptr<video_frame> out_frame = s->pool.get_frame();
-
-        vf_restore_metadata(out_frame.get(), enc_output.user_prv_ctx_ptr);
-        free(enc_output.user_prv_ctx_ptr);
-
-        struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
-        size_t enc_size = enc_output.bitstream.used_size;
-        if (enc_size > out_tile->data_len) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Encoded frame too big (%zu > %u)\n", enc_size, out_tile->data_len);
-                continue;
-        }
-        
-        out_tile->data_len = enc_size;
-        memcpy(out_tile->data, enc_output.bitstream.buffer, enc_size);
-
-        s->out_queue.push(out_frame);
-        svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
 }
 }
 
@@ -561,8 +493,55 @@ static void jpegxs_compress_push(void *state, shared_ptr<video_frame> frame) {
         static_cast<struct state_video_compress_jpegxs *>(state)->in_queue.push(std::move(frame));
 }
 
-static shared_ptr<video_frame> jpegxs_compress_pop(void *state) {
-        return static_cast<struct state_video_compress_jpegxs *>(state)->out_queue.pop();
+static shared_ptr<video_frame>
+jpegxs_compress_pop(void *state)
+{
+        auto *s = static_cast<struct state_video_compress_jpegxs *>(state);
+        {
+                unique_lock<mutex> lock(s->mtx);
+                s->cv_configured.wait(lock,
+                                      [&] { return s->configured || s->stop; });
+
+                if (s->stop) {
+                        return {};
+                }
+                if (s->reconfiguring && s->frames_received == s->frames_sent) {
+                        s->cv_drained.notify_one();
+                        s->cv_reconfiguring.wait(
+                            lock, [&] { return !s->reconfiguring; });
+                }
+        }
+        svt_jpeg_xs_frame_t enc_output;
+        SvtJxsErrorType_t   err = svt_jpeg_xs_encoder_get_packet(
+            &s->encoder, &enc_output, /*blocking*/ 1);
+        if (err != SvtJxsErrorNone) {
+                MSG(ERROR, "Failed to get encoded packet, error code: %x\n",
+                    err);
+                return vcomp_pop_retry;
+        }
+        if (enc_output.user_prv_ctx_ptr == JXS_POISON_PILL) {
+                return {};
+        }
+        s->frames_received++;
+
+        shared_ptr<video_frame> out_frame = s->pool.get_frame();
+
+        vf_restore_metadata(out_frame.get(), enc_output.user_prv_ctx_ptr);
+        free(enc_output.user_prv_ctx_ptr);
+
+        struct tile *out_tile = vf_get_tile(out_frame.get(), 0);
+        size_t       enc_size = enc_output.bitstream.used_size;
+        if (enc_size > out_tile->data_len) {
+                MSG(WARNING, "Encoded frame too big (%zu > %u)\n", enc_size,
+                    out_tile->data_len);
+                return vcomp_pop_retry;
+        }
+
+        out_tile->data_len = enc_size;
+        memcpy(out_tile->data, enc_output.bitstream.buffer, enc_size);
+
+        svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
+        return out_frame;
 }
 
 static void jpegxs_compress_done(void *state) {

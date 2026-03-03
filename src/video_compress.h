@@ -8,7 +8,7 @@
  * @brief external vcompress API + internal one for video compress drivers
  */
 /*
- * Copyright (c) 2009-2025 CESNET
+ * Copyright (c) 2009-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 13
+#define VIDEO_COMPRESS_ABI_VERSION 14
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +101,9 @@ std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 #include <list>
 #include <string>
 #include <vector>
+
+/// _pop callbacks can return to indicate recoverable error
+extern std::shared_ptr<video_frame> vcomp_pop_retry;
 
 /**
  * @brief Initializes video compression
@@ -149,8 +152,8 @@ typedef void (*compress_frame_async_push_t)(void  *state, std::shared_ptr<video_
  * @brief Fetches compressed frame passed with compress_frame_async_push()
  *
  * @param[in]     state         driver internal state
- * @return                      compressed frame, empty shared_ptr corresponding with poisoned
- *                              pill can be also returned
+ * @return                      compressed frame, empty shared_ptr for poisoned pill, pop_retry
+ *                              in case of (recoverable) error
  */
 typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(void *state);
 
@@ -168,8 +171,8 @@ typedef void (*compress_tile_async_push_t)(void *state, std::shared_ptr<video_fr
  * @brief Fetches compressed tile passed with compress_tile_async_push()
  *
  * @param[in]     state         driver internal state
- * @return                      compressed frame, empty shared_ptr corresponding with poisoned
- *                              pill can be also returned
+ * @return                      compressed frame, empty shared_ptr for poisoned pill, pop_retry
+ *                              in case of (recoverable) error
  */
 typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(void *state);
 
