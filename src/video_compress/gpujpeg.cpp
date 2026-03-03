@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -414,7 +414,7 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 #endif
                                 m_compress_alpha = true;
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
+                                MSG(ERROR, "Unknown configuration parameter or a missing value: %s\n", tok);
                         }
                 }
                 fmt = nullptr;

@@ -445,7 +445,7 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                         }
                         encoder.verbose = num;
                 } else {
-                        MSG(ERROR, "ERROR: Trailing configuration parameter: %s\n", tok);
+                        MSG(ERROR, "Unknown configuration parameter or a missing value: %s\n", tok);
                         return false;
                 }
                 fmt = nullptr;
