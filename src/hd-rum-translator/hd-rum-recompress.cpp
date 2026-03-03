@@ -62,7 +62,7 @@
 
 namespace {
 struct compress_state_deleter{
-        void operator()(struct compress_state *s){ compress_done(s); }
+        void operator()(struct compress_state *s) const{ compress_done(s); }
 };
 }
 
@@ -127,7 +127,7 @@ recompress_output_port::recompress_output_port(
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;
-        params["display_device"].ptr = NULL;
+        params["display_device"].ptr = nullptr;
 
         auto rxtx = video_rxtx::create("ultragrid_rtp", params);
         if (this->host.find(':') != std::string::npos) {
@@ -324,7 +324,7 @@ struct state_recompress *recompress_init(struct module *parent) {
         return state;
 }
 
-void recompress_process_async(state_recompress *s, std::shared_ptr<video_frame> frame){
+void recompress_process_async(state_recompress *s, const std::shared_ptr<video_frame>& frame){
         PROFILE_FUNC;
         std::lock_guard<std::mutex> lock(s->mut);
         for(const auto& worker : s->workers){
