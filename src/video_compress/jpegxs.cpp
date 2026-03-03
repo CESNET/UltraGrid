@@ -578,10 +578,10 @@ const struct video_compress_info jpegxs_info = {
         jpegxs_compress_done,
         NULL,
         NULL,
+        NULL,
+        NULL,
         jpegxs_compress_push,
         jpegxs_compress_pop,
-        NULL,
-        NULL,
         get_jpegxs_module_info,
 };
 
