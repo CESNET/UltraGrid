@@ -574,18 +574,9 @@ struct custom_data {
         char metadata[VF_METADATA_SIZE];
 };
 
-/**
- * @fn j2k_compress_pop
- * @note
- * Do not return empty frame in case of error - that would be interpreted
- * as a poison pill (see below) and would stop the further processing
- * pipeline. Because of that goto + start label is used.
- */
-#define HANDLE_ERROR_COMPRESS_POP do { cmpto_j2k_enc_img_destroy(img); goto start; } while (0)
 static std::shared_ptr<video_frame> j2k_compress_pop(void *state)
 {
         auto *s = (struct state_video_compress_j2k *) state;
-start:
         {
                 unique_lock<mutex> lk(s->lock);
                 s->configure_cv.wait(lk, [s] { return s->configured ||
@@ -600,10 +591,10 @@ start:
         CHECK_OK(cmpto_j2k_enc_ctx_get_encoded_img(
                      s->context, 1, &img /* Set to NULL if encoder stopped */,
                      &status),
-                 "Encode image pop", HANDLE_ERROR_COMPRESS_POP);
+                 "Encode image pop", return vcomp_pop_retry);
         if (img == nullptr) {
                 // this happens when cmpto_j2k_enc_ctx_stop() is called
-                goto start; // reconfiguration or exit
+                return vcomp_pop_retry; // reconfiguration or exit
         } else {
                 unique_lock<mutex> lk(s->lock);
                 s->in_frames--;
@@ -614,16 +605,16 @@ start:
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
                                 encoding_error = "(failed)");
                 log_msg(LOG_LEVEL_ERROR, "Image encoding failed: %s\n", encoding_error);
-                goto start;
+                return vcomp_pop_retry;
         }
         struct custom_data *udata = nullptr;
         size_t len;
         CHECK_OK(cmpto_j2k_enc_img_get_custom_data(img, (void **) &udata, &len),
-                        "get custom data", HANDLE_ERROR_COMPRESS_POP);
+                        "get custom data", return vcomp_pop_retry);
         size_t size;
         void * ptr;
         CHECK_OK(cmpto_j2k_enc_img_get_cstream(img, &ptr, &size),
-                        "get cstream", HANDLE_ERROR_COMPRESS_POP);
+                        "get cstream", return vcomp_pop_retry);
 
         struct video_frame *out = vf_alloc_desc(udata->desc);
         vf_restore_metadata(out, udata->metadata);
