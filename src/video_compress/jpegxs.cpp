@@ -100,6 +100,7 @@ struct state_video_compress_jpegxs {
 
         bool configured = 0;
         bool reconfiguring = 0;
+        bool stop = false;
 
         video_desc saved_desc;
 
@@ -160,15 +161,18 @@ while (true) {
         auto frame = s->in_queue.pop();
 
         if (!frame) {
-        {
                 unique_lock<mutex> lock(s->mtx);
-                svt_jpeg_xs_frame_t enc_input;
-                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
-                enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
-                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
-                s->frames_sent++;
-        }
-                s->cv_configured.notify_one();
+                if (s->configured) {
+                        svt_jpeg_xs_frame_t enc_input;
+                        svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                        enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
+                        svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+                        s->frames_sent++;
+                } else {
+                        s->stop = true;
+                        lock.unlock();
+                        s->cv_configured.notify_one();
+                }
                 break;
         }
 
@@ -227,10 +231,11 @@ static void jpegxs_worker_get(state_video_compress_jpegxs *s) {
 {
         unique_lock<mutex> lock(s->mtx);
         s->cv_configured.wait(lock, [&]{
-                return s->configured;
+                return s->configured || s->stop;
         });
 
-        if (!s->configured) {
+        if (s->stop) {
+                s->out_queue.push({});
                 return;
         }
 }
