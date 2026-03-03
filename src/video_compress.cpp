@@ -80,7 +80,7 @@ struct compress_state_real {
 private:
         compress_state_real(struct module *parent, const char *config_string);
         void          start(struct compress_state *proxy);
-        void          async_consumer(struct compress_state *s);
+        void          async_frame_consumer(struct compress_state *s);
         void          async_tile_consumer(struct compress_state *s);
         thread        asynch_consumer_thread;
 public:
@@ -284,7 +284,7 @@ compress_state_real::compress_state_real(struct module *parent, const char *conf
 void compress_state_real::start(struct compress_state *proxy)
 {
         if (funcs->compress_frame_async_push_func) {
-                asynch_consumer_thread = thread(&compress_state_real::async_consumer, this, proxy);
+                asynch_consumer_thread = thread(&compress_state_real::async_frame_consumer, this, proxy);
         } else if (funcs->compress_tile_async_push_func){
                 asynch_consumer_thread = thread(&compress_state_real::async_tile_consumer, this, proxy);
         }
@@ -579,7 +579,7 @@ void compress_state_real::async_tile_consumer(struct compress_state *s)
         }
 }
 
-void compress_state_real::async_consumer(struct compress_state *s)
+void compress_state_real::async_frame_consumer(struct compress_state *s)
 {
         set_thread_name(__func__);
         while (true) {
