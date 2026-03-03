@@ -65,6 +65,7 @@
 #include <utility>                                // for swap, move
 #include <vector>
 
+#include "compat/alarm.h"
 #include "control_socket.h"
 #include "debug.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
