@@ -67,14 +67,14 @@ gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gi
 
 #define S(x) ((x) >> (in_depth - 12))
         // clang-format off
-        for (size_t y = 0; y < d.height; ++y) {
+        for (size_t y = 0; y < (size_t) d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + (d.in_linesize[rind] * y));
                 const uint16_t *src_g = (const void *) (d.in_data[gind] + (d.in_linesize[gind] * y));
                 const uint16_t *src_b = (const void *) (d.in_data[bind] + (d.in_linesize[bind] * y));
                 unsigned char *dst =
                     (unsigned char *) d.out_data + (y * d.out_pitch);
 
-                for (unsigned x = 0; x < d.width; x += 8) {
+                for (int x = 0; x < d.width; x += 8) {
                         uint16_t tmpbuf[3][8];
                         if (x + 8 >= d.width) {
                                 size_t remains = sizeof(uint16_t) * (d.width - x);
@@ -168,7 +168,7 @@ rgbpXXle_to_rg48_int(struct from_planar_data d, const int in_depth, int rind, in
                 const uint16_t *src_b = (const void *) (d.in_data[bind] + (d.in_linesize[bind] * y));
                 uint16_t *dst = (void *) (d.out_data + (y * d.out_pitch));
 
-                for (unsigned x = 0; x < d.width; ++x) {
+                for (int x = 0; x < d.width; ++x) {
                         *dst++ = *src_r++ << (16U - in_depth);
                         *dst++ = *src_g++ << (16U - in_depth);
                         *dst++ = *src_b++ << (16U - in_depth);
@@ -209,7 +209,7 @@ gbrpXXle_to_r10k(struct from_planar_data d, const unsigned int in_depth,
         assert((uintptr_t) d.in_linesize[1] % 2 == 0);
         assert((uintptr_t) d.in_linesize[2] % 2 == 0);
 
-        for (size_t y = 0; y < d.height; ++y) {
+        for (size_t y = 0; y < (size_t) d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + (d.in_linesize[rind] * y));
                 const uint16_t *src_g = (const void *) (d.in_data[gind] + (d.in_linesize[gind] * y));
                 const uint16_t *src_b = (const void *) (d.in_data[bind] + (d.in_linesize[bind] * y));
@@ -375,7 +375,7 @@ yuv420_to_i420(const struct from_planar_data d)
         unsigned char *dst_y = d.out_data;
         unsigned char *dst_u = dst_y + ((size_t) dst_y_linesize * d.height);
         unsigned char *dst_v = dst_u + ((size_t) dst_uv_linesize * (d.height / 2));
-        for (size_t y = 0; y < d.height / 2; y += 1) {
+        for (size_t y = 0; y < (size_t) d.height / 2; y += 1) {
                 memcpy(dst_y, d.in_data[0] + (2 * y * d.in_linesize[0]), dst_y_linesize);
                 dst_y += dst_y_linesize;
                 memcpy(dst_y, d.in_data[0] + ((2 * y + 1) * d.in_linesize[0]), dst_y_linesize);
@@ -392,7 +392,7 @@ static void
 yuv422p_to_uyvy_yuyv(const struct from_planar_data d, bool yuyv)
 {
         (void) yuyv;
-        for (size_t y = 0; y < d.height; ++y) {
+        for (size_t y = 0; y < (size_t) d.height; ++y) {
                 const unsigned char *src_y =  d.in_data[0] + (d.in_linesize[0] * y);
                 const unsigned char *src_cb = d.in_data[1] + (d.in_linesize[1] * y);
                 const unsigned char *src_cr = d.in_data[2] + (d.in_linesize[2] * y);
@@ -423,14 +423,14 @@ yuv422p_to_uyvy(const struct from_planar_data d)
 
 static void yuv422pXXle_to_uyvy_int(const struct from_planar_data d, int in_depth)
 {
-        for(unsigned y = 0; y < d.height; ++y) {
+        for(int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y =  (const void *)(d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_cb = (const void *)(d.in_data[1] + d.in_linesize[1] * y);
                 const uint16_t *src_cr = (const void *)(d.in_data[2] + d.in_linesize[2] * y);
                 uint8_t *dst =
                     (uint8_t *) (void *) (d.out_data + y * d.out_pitch);
 
-                for(unsigned x = 0; x < d.width / 2; ++x) {
+                for(int x = 0; x < d.width / 2; ++x) {
                         *dst++ = *src_cb++ >> (in_depth - 8);
                         *dst++ = *src_y++  >> (in_depth - 8);
                         *dst++ = *src_cr++ >> (in_depth - 8);
@@ -468,7 +468,7 @@ gbrpXXle_to_rgb(const struct from_planar_data d, unsigned int in_depth, int rind
         assert((uintptr_t) d.in_linesize[1] % 2 == 0);
         assert((uintptr_t) d.in_linesize[2] % 2 == 0);
 
-        for (unsigned y = 0; y < d.height; ++y) {
+        for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + ((d.in_linesize[rind] * y)));
                 const uint16_t *src_g = (const void *) (d.in_data[gind] + ((d.in_linesize[gind] * y)));
                 const uint16_t *src_b = (const void *) (d.in_data[bind] + ((d.in_linesize[bind] * y)));
@@ -498,14 +498,14 @@ gbrpXXle_to_rgba(const struct from_planar_data d, unsigned int in_depth)
                                     (0xFFU << d.rgb_shift[G]) ^
                                     (0xFFU << d.rgb_shift[B]);
 
-        for (unsigned y = 0; y < d.height; ++y) {
+        for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_g = (const void *) (d.in_data[0] + (d.in_linesize[0] * y));
                 const uint16_t *src_b = (const void *) (d.in_data[1] + (d.in_linesize[1] * y));
                 const uint16_t *src_r = (const void *) (d.in_data[2] + (d.in_linesize[2] * y));
                 uint32_t *dst = (void *) (d.out_data+ (y * d.out_pitch));
 
-                const unsigned width = d.width;
-                OPTIMIZED_FOR (unsigned x = 0; x < width; ++x) {
+                const int width = d.width;
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst++ =
                             alpha_mask |
                             (*src_r++ >> (in_depth - 8U)) << d.rgb_shift[0] |
@@ -565,8 +565,8 @@ void
 yuv420p_to_uyvy(const struct from_planar_data d)
 {
         const unsigned width = d.width;
-        for(unsigned y = 0; y < (d.height + 1) / 2; ++y) {
-                unsigned scnd_row = y * 2 + 1;
+        for(int y = 0; y < (d.height + 1) / 2; ++y) {
+                int  scnd_row = y * 2 + 1;
                 if (scnd_row == d.height) {
                         scnd_row = d.height - 1;
                 }

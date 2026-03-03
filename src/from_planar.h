@@ -53,8 +53,8 @@ extern "C" {
 #define DEFAULT_B_SHIFT 16
 
 struct from_planar_data {
-        unsigned width;
-        unsigned height;
+        int width;
+        int height;
         unsigned char *__restrict out_data;
         unsigned out_pitch;
         const unsigned char *__restrict in_data[FROM_PLANAR_MAX_COMP];
