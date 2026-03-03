@@ -39,7 +39,6 @@
 #include "to_planar.h"
 
 #include <assert.h>        // for assert
-#include <endian.h>        // for BIG_ENDIAN, BYTE_ORDER
 #include <stdint.h>        // for uint16_t, uint32_t, uintptr_t, uint8_t
 #include <stdlib.h>        // for size_t, free, malloc, NULL
 #include <string.h>        // for memcpy
@@ -52,12 +51,6 @@
 #include "types.h"         // for depth, v210, R12L, RGBA, UYVY, Y216
 #include "utils/macros.h"  // for OPTIMIZED_FOR, ALWAYS_INLINE
 #include "video_codec.h"   // for vc_get_linesize
-
-#if BYTE_ORDER == BIG_ENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
 
 /**
  * converts v210 to P010 - 2-plane 10-bit YCbCr 4:2;0 with U/V combined (samples are
@@ -394,65 +387,65 @@ r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
                 uint16_t *dst_b = (uint16_t *)(void *) (out_data[bind] + out_linesize[bind] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
-                        uint16_t tmp = src[BYTE_SWAP(0)];
-                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        uint16_t tmp = src[0];
+                        tmp |= (src[1] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r0
-                        *dst_g++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // g0
-                        tmp = src[BYTE_SWAP(3)];
+                        *dst_g++ = S(src[2] << 4U | src[1] >> 4U); // g0
+                        tmp = src[3];
                         src += 4;
-                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        tmp |= (src[0] & 0xFU) << 8U;
                         *dst_b++ = S(tmp); // b0
-                        *dst_r++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // r1
-                        tmp = src[BYTE_SWAP(2)];
-                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_r++ = S(src[1] << 4U | src[0] >> 4U); // r1
+                        tmp = src[2];
+                        tmp |= (src[3] & 0xFU) << 8U;
                         *dst_g++ = S(tmp); // g1
-                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        tmp = src[3] >> 4U;
                         src += 4;
-                        *dst_b++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // b1
-                        tmp = src[BYTE_SWAP(1)];
-                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_b++ = S(src[0] << 4U | tmp); // b1
+                        tmp = src[1];
+                        tmp |= (src[2] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r2
-                        *dst_g++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // g2
+                        *dst_g++ = S(src[3] << 4U | src[2] >> 4U); // g2
                         src += 4;
-                        tmp = src[BYTE_SWAP(0)];
-                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        tmp = src[0];
+                        tmp |= (src[1] & 0xFU) << 8U;
                         *dst_b++ = S(tmp); // b2
-                        *dst_r++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // r3
-                        tmp = src[BYTE_SWAP(3)];
+                        *dst_r++ = S(src[2] << 4U | src[1] >> 4U); // r3
+                        tmp = src[3];
                         src += 4;
-                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        tmp |= (src[0] & 0xFU) << 8U;
                         *dst_g++ = S(tmp); // g3
-                        *dst_b++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // b3
-                        tmp = src[BYTE_SWAP(2)];
-                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_b++ = S(src[1] << 4U | src[0] >> 4U); // b3
+                        tmp = src[2];
+                        tmp |= (src[3] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r4
-                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        tmp = src[3] >> 4U;
                         src += 4;
-                        *dst_g++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // g4
-                        tmp = src[BYTE_SWAP(1)];
-                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_g++ = S(src[0] << 4U | tmp); // g4
+                        tmp = src[1];
+                        tmp |= (src[2] & 0xFU) << 8U;
                         *dst_b++ = S(tmp); // b4
-                        *dst_r++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // r5
+                        *dst_r++ = S(src[3] << 4U | src[2] >> 4U); // r5
                         src += 4;
-                        tmp = src[BYTE_SWAP(0)];
-                        tmp |= (src[BYTE_SWAP(1)] & 0xFU) << 8U;
+                        tmp = src[0];
+                        tmp |= (src[1] & 0xFU) << 8U;
                         *dst_g++ = S(tmp); // g5
-                        *dst_b++ = S(src[BYTE_SWAP(2)] << 4U | src[BYTE_SWAP(1)] >> 4U); // b5
-                        tmp = src[BYTE_SWAP(3)];
+                        *dst_b++ = S(src[2] << 4U | src[1] >> 4U); // b5
+                        tmp = src[3];
                         src += 4;
-                        tmp |= (src[BYTE_SWAP(0)] & 0xFU) << 8U;
+                        tmp |= (src[0] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r6
-                        *dst_g++ = S(src[BYTE_SWAP(1)] << 4U | src[BYTE_SWAP(0)] >> 4U); // g6
-                        tmp = src[BYTE_SWAP(2)];
-                        tmp |= (src[BYTE_SWAP(3)] & 0xFU) << 8U;
+                        *dst_g++ = S(src[1] << 4U | src[0] >> 4U); // g6
+                        tmp = src[2];
+                        tmp |= (src[3] & 0xFU) << 8U;
                         *dst_b++ = S(tmp); // b6
-                        tmp = src[BYTE_SWAP(3)] >> 4U;
+                        tmp = src[3] >> 4U;
                         src += 4;
-                        *dst_r++ = S(src[BYTE_SWAP(0)] << 4U | tmp); // r7
-                        tmp = src[BYTE_SWAP(1)];
-                        tmp |= (src[BYTE_SWAP(2)] & 0xFU) << 8U;
+                        *dst_r++ = S(src[0] << 4U | tmp); // r7
+                        tmp = src[1];
+                        tmp |= (src[2] & 0xFU) << 8U;
                         *dst_g++ = S(tmp); // g7
-                        *dst_b++ = S(src[BYTE_SWAP(3)] << 4U | src[BYTE_SWAP(2)] >> 4U); // b7
+                        *dst_b++ = S(src[3] << 4U | src[2] >> 4U); // b7
                         src += 4;
                 }
         }

@@ -87,12 +87,6 @@
 
 #define MOD_NAME "[from_lavc_vid_conv] "
 
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
-
 // shortcuts
 #define R R_SHIFT_IDX
 #define G G_SHIFT_IDX
@@ -373,42 +367,42 @@ yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
                                 b[j] = CLAMP_FULL(bb, 12);
                         }
 
-                        dst[BYTE_SWAP(0)] = r[0] & 0xff;
-                        dst[BYTE_SWAP(1)] = (g[0] & 0xf) << 4 | r[0] >> 8;
-                        dst[BYTE_SWAP(2)] = g[0] >> 4;
-                        dst[BYTE_SWAP(3)] = b[0] & 0xff;
-                        dst[4 + BYTE_SWAP(0)] = (r[1] & 0xf) << 4 | b[0] >> 8;
-                        dst[4 + BYTE_SWAP(1)] = r[1] >> 4;
-                        dst[4 + BYTE_SWAP(2)] = g[1] & 0xff;
-                        dst[4 + BYTE_SWAP(3)] = (b[1] & 0xf) << 4 | g[1] >> 8;
-                        dst[8 + BYTE_SWAP(0)] = b[1] >> 4;
-                        dst[8 + BYTE_SWAP(1)] = r[2] & 0xff;
-                        dst[8 + BYTE_SWAP(2)] = (g[2] & 0xf) << 4 | r[2] >> 8;
-                        dst[8 + BYTE_SWAP(3)] = g[2] >> 4;
-                        dst[12 + BYTE_SWAP(0)] = b[2] & 0xff;
-                        dst[12 + BYTE_SWAP(1)] = (r[3] & 0xf) << 4 | b[2] >> 8;
-                        dst[12 + BYTE_SWAP(2)] = r[3] >> 4;
-                        dst[12 + BYTE_SWAP(3)] = g[3] & 0xff;
-                        dst[16 + BYTE_SWAP(0)] = (b[3] & 0xf) << 4 | g[3] >> 8;
-                        dst[16 + BYTE_SWAP(1)] = b[3] >> 4;
-                        dst[16 + BYTE_SWAP(2)] = r[4] & 0xff;
-                        dst[16 + BYTE_SWAP(3)] = (g[4] & 0xf) << 4 | r[4] >> 8;
-                        dst[20 + BYTE_SWAP(0)] = g[4] >> 4;
-                        dst[20 + BYTE_SWAP(1)] = b[4] & 0xff;
-                        dst[20 + BYTE_SWAP(2)] = (r[5] & 0xf) << 4 | b[4] >> 8;
-                        dst[20 + BYTE_SWAP(3)] = r[5] >> 4;;
-                        dst[24 + BYTE_SWAP(0)] = g[5] & 0xff;
-                        dst[24 + BYTE_SWAP(1)] = (b[5] & 0xf) << 4 | g[5] >> 8;
-                        dst[24 + BYTE_SWAP(2)] = b[5] >> 4;
-                        dst[24 + BYTE_SWAP(3)] = r[6] & 0xff;
-                        dst[28 + BYTE_SWAP(0)] = (g[6] & 0xf) << 4 | r[6] >> 8;
-                        dst[28 + BYTE_SWAP(1)] = g[6] >> 4;
-                        dst[28 + BYTE_SWAP(2)] = b[6] & 0xff;
-                        dst[28 + BYTE_SWAP(3)] = (r[7] & 0xf) << 4 | b[6] >> 8;
-                        dst[32 + BYTE_SWAP(0)] = r[7] >> 4;
-                        dst[32 + BYTE_SWAP(1)] = g[7] & 0xff;
-                        dst[32 + BYTE_SWAP(2)] = (b[7] & 0xf) << 4 | g[7] >> 8;
-                        dst[32 + BYTE_SWAP(3)] = b[7] >> 4;
+                        dst[0] = r[0] & 0xff;
+                        dst[1] = (g[0] & 0xf) << 4 | r[0] >> 8;
+                        dst[2] = g[0] >> 4;
+                        dst[3] = b[0] & 0xff;
+                        dst[4 + 0] = (r[1] & 0xf) << 4 | b[0] >> 8;
+                        dst[4 + 1] = r[1] >> 4;
+                        dst[4 + 2] = g[1] & 0xff;
+                        dst[4 + 3] = (b[1] & 0xf) << 4 | g[1] >> 8;
+                        dst[8 + 0] = b[1] >> 4;
+                        dst[8 + 1] = r[2] & 0xff;
+                        dst[8 + 2] = (g[2] & 0xf) << 4 | r[2] >> 8;
+                        dst[8 + 3] = g[2] >> 4;
+                        dst[12 + 0] = b[2] & 0xff;
+                        dst[12 + 1] = (r[3] & 0xf) << 4 | b[2] >> 8;
+                        dst[12 + 2] = r[3] >> 4;
+                        dst[12 + 3] = g[3] & 0xff;
+                        dst[16 + 0] = (b[3] & 0xf) << 4 | g[3] >> 8;
+                        dst[16 + 1] = b[3] >> 4;
+                        dst[16 + 2] = r[4] & 0xff;
+                        dst[16 + 3] = (g[4] & 0xf) << 4 | r[4] >> 8;
+                        dst[20 + 0] = g[4] >> 4;
+                        dst[20 + 1] = b[4] & 0xff;
+                        dst[20 + 2] = (r[5] & 0xf) << 4 | b[4] >> 8;
+                        dst[20 + 3] = r[5] >> 4;;
+                        dst[24 + 0] = g[5] & 0xff;
+                        dst[24 + 1] = (b[5] & 0xf) << 4 | g[5] >> 8;
+                        dst[24 + 2] = b[5] >> 4;
+                        dst[24 + 3] = r[6] & 0xff;
+                        dst[28 + 0] = (g[6] & 0xf) << 4 | r[6] >> 8;
+                        dst[28 + 1] = g[6] >> 4;
+                        dst[28 + 2] = b[6] & 0xff;
+                        dst[28 + 3] = (r[7] & 0xf) << 4 | b[6] >> 8;
+                        dst[32 + 0] = r[7] >> 4;
+                        dst[32 + 1] = g[7] & 0xff;
+                        dst[32 + 2] = (b[7] & 0xf) << 4 | g[7] >> 8;
+                        dst[32 + 3] = b[7] >> 4;
                         dst += 36;
                 }
         }

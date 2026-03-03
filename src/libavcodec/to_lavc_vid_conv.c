@@ -78,12 +78,6 @@
 
 #define MOD_NAME "[to_lavc_vid_conv] "
 
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
@@ -674,68 +668,68 @@ static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, AVFrame * __rest
                         comp_type_t res_cb = 0;
                         comp_type_t res_cr = 0;
 
-			r = src[BYTE_SWAP(0)];
-			r |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-			g = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // g0
-			b = src[BYTE_SWAP(3)];
+			r = src[0];
+			r |= (src[1] & 0xF) << 8;
+			g = src[2] << 4 | src[1] >> 4; // g0
+			b = src[3];
 			src += 4;
 
-			b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+			b |= (src[0] & 0xF) << 8;
                         WRITE_RES(0)
-			r = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // r1
-			g = src[BYTE_SWAP(2)];
-			g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-			b = src[BYTE_SWAP(3)] >> 4;
+			r = src[1] << 4 | src[0] >> 4; // r1
+			g = src[2];
+			g |= (src[3] & 0xF) << 8;
+			b = src[3] >> 4;
 			src += 4;
 
-			b |= src[BYTE_SWAP(0)] << 4; // b1
+			b |= src[0] << 4; // b1
                         WRITE_RES(1)
-			r = src[BYTE_SWAP(1)];
-			r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-			g = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // g2
+			r = src[1];
+			r |= (src[2] & 0xF) << 8;
+			g = src[3] << 4 | src[2] >> 4; // g2
 			src += 4;
 
-			b = src[BYTE_SWAP(0)];
-			b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+			b = src[0];
+			b |= (src[1] & 0xF) << 8;
                         WRITE_RES(2)
-			r = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // r3
-			g = src[BYTE_SWAP(3)];
+			r = src[2] << 4 | src[1] >> 4; // r3
+			g = src[3];
 			src += 4;
 
-			g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-			b = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // b3
+			g |= (src[0] & 0xF) << 8;
+			b = src[1] << 4 | src[0] >> 4; // b3
                         WRITE_RES(3)
-			r = src[BYTE_SWAP(2)];
-			r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-			g = src[BYTE_SWAP(3)] >> 4;
+			r = src[2];
+			r |= (src[3] & 0xF) << 8;
+			g = src[3] >> 4;
 			src += 4;
 
-			g |= src[BYTE_SWAP(0)] << 4; // g4
-			b = src[BYTE_SWAP(1)];
-			b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			g |= src[0] << 4; // g4
+			b = src[1];
+			b |= (src[2] & 0xF) << 8;
 			WRITE_RES(4)
-			r = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // r5
+			r = src[3] << 4 | src[2] >> 4; // r5
 			src += 4;
 
-			g = src[BYTE_SWAP(0)];
-			g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-			b = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // b5
+			g = src[0];
+			g |= (src[1] & 0xF) << 8;
+			b = src[2] << 4 | src[1] >> 4; // b5
                         WRITE_RES(5)
-			r = src[BYTE_SWAP(3)];
+			r = src[3];
 			src += 4;
 
-			r |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-			g = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // g6
-			b = src[BYTE_SWAP(2)];
-			b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+			r |= (src[0] & 0xF) << 8;
+			g = src[1] << 4 | src[0] >> 4; // g6
+			b = src[2];
+			b |= (src[3] & 0xF) << 8;
                         WRITE_RES(6)
-			r = src[BYTE_SWAP(3)] >> 4;
+			r = src[3] >> 4;
 			src += 4;
 
-			r |= src[BYTE_SWAP(0)] << 4; // r7
-			g = src[BYTE_SWAP(1)];
-			g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-			b = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // b7
+			r |= src[0] << 4; // r7
+			g = src[1];
+			g |= (src[2] & 0xF) << 8;
+			b = src[3] << 4 | src[2] >> 4; // b7
                         WRITE_RES(7)
 			src += 4;
                 }
@@ -815,77 +809,77 @@ r12l_to_p210le(AVFrame *__restrict out_frame,
                         comp_type_t res_cb = 0;
                         comp_type_t res_cr = 0;
 
-                        r = src[BYTE_SWAP(0)];
-                        r |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // g0
-                        b = src[BYTE_SWAP(3)];
+                        r = src[0];
+                        r |= (src[1] & 0xF) << 8;
+                        g = src[2] << 4 |
+                            src[1] >> 4; // g0
+                        b = src[3];
                         src += 4;
 
-                        b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+                        b |= (src[0] & 0xF) << 8;
                         WRITE_RES(0)
-                        r = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // r1
-                        g = src[BYTE_SWAP(2)];
-                        g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(3)] >> 4;
+                        r = src[1] << 4 |
+                            src[0] >> 4; // r1
+                        g = src[2];
+                        g |= (src[3] & 0xF) << 8;
+                        b = src[3] >> 4;
                         src += 4;
 
-                        b |= src[BYTE_SWAP(0)] << 4; // b1
+                        b |= src[0] << 4; // b1
                         WRITE_RES(1)
-                        r = src[BYTE_SWAP(1)];
-                        r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // g2
+                        r = src[1];
+                        r |= (src[2] & 0xF) << 8;
+                        g = src[3] << 4 |
+                            src[2] >> 4; // g2
                         src += 4;
 
-                        b = src[BYTE_SWAP(0)];
-                        b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+                        b = src[0];
+                        b |= (src[1] & 0xF) << 8;
                         WRITE_RES(2)
-                        r = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // r3
-                        g = src[BYTE_SWAP(3)];
+                        r = src[2] << 4 |
+                            src[1] >> 4; // r3
+                        g = src[3];
                         src += 4;
 
-                        g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // b3
+                        g |= (src[0] & 0xF) << 8;
+                        b = src[1] << 4 |
+                            src[0] >> 4; // b3
                         WRITE_RES(3)
-                        r = src[BYTE_SWAP(2)];
-                        r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(3)] >> 4;
+                        r = src[2];
+                        r |= (src[3] & 0xF) << 8;
+                        g = src[3] >> 4;
                         src += 4;
 
-                        g |= src[BYTE_SWAP(0)] << 4; // g4
-                        b = src[BYTE_SWAP(1)];
-                        b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+                        g |= src[0] << 4; // g4
+                        b = src[1];
+                        b |= (src[2] & 0xF) << 8;
                         WRITE_RES(4)
-                        r = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // r5
+                        r = src[3] << 4 |
+                            src[2] >> 4; // r5
                         src += 4;
 
-                        g = src[BYTE_SWAP(0)];
-                        g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // b5
+                        g = src[0];
+                        g |= (src[1] & 0xF) << 8;
+                        b = src[2] << 4 |
+                            src[1] >> 4; // b5
                         WRITE_RES(5)
-                        r = src[BYTE_SWAP(3)];
+                        r = src[3];
                         src += 4;
 
-                        r |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // g6
-                        b = src[BYTE_SWAP(2)];
-                        b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+                        r |= (src[0] & 0xF) << 8;
+                        g = src[1] << 4 |
+                            src[0] >> 4; // g6
+                        b = src[2];
+                        b |= (src[3] & 0xF) << 8;
                         WRITE_RES(6)
-                        r = src[BYTE_SWAP(3)] >> 4;
+                        r = src[3] >> 4;
                         src += 4;
 
-                        r |= src[BYTE_SWAP(0)] << 4; // r7
-                        g = src[BYTE_SWAP(1)];
-                        g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // b7
+                        r |= src[0] << 4; // r7
+                        g = src[1];
+                        g |= (src[2] & 0xF) << 8;
+                        b = src[3] << 4 |
+                            src[2] >> 4; // b7
                         WRITE_RES(7)
                         src += 4;
                 }
@@ -929,77 +923,77 @@ r12l_to_ayuv64le(AVFrame *__restrict out_frame,
                         comp_type_t res_cb = 0;
                         comp_type_t res_cr = 0;
 
-                        r = src[BYTE_SWAP(0)];
-                        r |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // g0
-                        b = src[BYTE_SWAP(3)];
+                        r = src[0];
+                        r |= (src[1] & 0xF) << 8;
+                        g = src[2] << 4 |
+                            src[1] >> 4; // g0
+                        b = src[3];
                         src += 4;
 
-                        b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+                        b |= (src[0] & 0xF) << 8;
                         WRITE_RES(0)
-                        r = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // r1
-                        g = src[BYTE_SWAP(2)];
-                        g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(3)] >> 4;
+                        r = src[1] << 4 |
+                            src[0] >> 4; // r1
+                        g = src[2];
+                        g |= (src[3] & 0xF) << 8;
+                        b = src[3] >> 4;
                         src += 4;
 
-                        b |= src[BYTE_SWAP(0)] << 4; // b1
+                        b |= src[0] << 4; // b1
                         WRITE_RES(1)
-                        r = src[BYTE_SWAP(1)];
-                        r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // g2
+                        r = src[1];
+                        r |= (src[2] & 0xF) << 8;
+                        g = src[3] << 4 |
+                            src[2] >> 4; // g2
                         src += 4;
 
-                        b = src[BYTE_SWAP(0)];
-                        b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+                        b = src[0];
+                        b |= (src[1] & 0xF) << 8;
                         WRITE_RES(2)
-                        r = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // r3
-                        g = src[BYTE_SWAP(3)];
+                        r = src[2] << 4 |
+                            src[1] >> 4; // r3
+                        g = src[3];
                         src += 4;
 
-                        g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // b3
+                        g |= (src[0] & 0xF) << 8;
+                        b = src[1] << 4 |
+                            src[0] >> 4; // b3
                         WRITE_RES(3)
-                        r = src[BYTE_SWAP(2)];
-                        r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(3)] >> 4;
+                        r = src[2];
+                        r |= (src[3] & 0xF) << 8;
+                        g = src[3] >> 4;
                         src += 4;
 
-                        g |= src[BYTE_SWAP(0)] << 4; // g4
-                        b = src[BYTE_SWAP(1)];
-                        b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+                        g |= src[0] << 4; // g4
+                        b = src[1];
+                        b |= (src[2] & 0xF) << 8;
                         WRITE_RES(4)
-                        r = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // r5
+                        r = src[3] << 4 |
+                            src[2] >> 4; // r5
                         src += 4;
 
-                        g = src[BYTE_SWAP(0)];
-                        g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(2)] << 4 |
-                            src[BYTE_SWAP(1)] >> 4; // b5
+                        g = src[0];
+                        g |= (src[1] & 0xF) << 8;
+                        b = src[2] << 4 |
+                            src[1] >> 4; // b5
                         WRITE_RES(5)
-                        r = src[BYTE_SWAP(3)];
+                        r = src[3];
                         src += 4;
 
-                        r |= (src[BYTE_SWAP(0)] & 0xF) << 8;
-                        g = src[BYTE_SWAP(1)] << 4 |
-                            src[BYTE_SWAP(0)] >> 4; // g6
-                        b = src[BYTE_SWAP(2)];
-                        b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+                        r |= (src[0] & 0xF) << 8;
+                        g = src[1] << 4 |
+                            src[0] >> 4; // g6
+                        b = src[2];
+                        b |= (src[3] & 0xF) << 8;
                         WRITE_RES(6)
-                        r = src[BYTE_SWAP(3)] >> 4;
+                        r = src[3] >> 4;
                         src += 4;
 
-                        r |= src[BYTE_SWAP(0)] << 4; // r7
-                        g = src[BYTE_SWAP(1)];
-                        g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
-                        b = src[BYTE_SWAP(3)] << 4 |
-                            src[BYTE_SWAP(2)] >> 4; // b7
+                        r |= src[0] << 4; // r7
+                        g = src[1];
+                        g |= (src[2] & 0xF) << 8;
+                        b = src[3] << 4 |
+                            src[2] >> 4; // b7
                         WRITE_RES(7)
                         src += 4;
                 }

@@ -39,25 +39,19 @@
 
 #include "from_planar.h"
 
-#include <assert.h>          // for assert
+#include <assert.h>        // for assert
 #ifdef __SSE3__
+#include <emmintrin.h>     // for __m128i, _mm_or_si128, _mm_unpacklo_epi8
 #include <pmmintrin.h>
 #endif
-#include <stdint.h>          // for uint32_t, uintptr_t, uint16_t, uint64_t
-#include <string.h>          // for memcpy
+#include <stdint.h>        // for uint32_t, uintptr_t, uint16_t, uint64_t
+#include <string.h>        // for memcpy
 
 #include "compat/c23.h"    // for size_t, NULL, countof, nullptr, ptrdiff_t
-#include "compat/endian.h" // BYTE_ORDER, BIG_ENDIAN
 #include "types.h"         // for depth
 #include "utils/macros.h"  // for ALWAYS_INLINE, OPTIMIZED_FOR
 #include "utils/misc.h"    // for get_cpu_core_count
 #include "utils/worker.h"  // for task_run_parallel
-
-#if BYTE_ORDER == BIG_ENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
 
 // shortcuts
 #define R R_SHIFT_IDX
@@ -91,42 +85,42 @@ gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gi
                                 src_g = tmpbuf[1];
                                 src_b = tmpbuf[2];
                         }
-                        dst[BYTE_SWAP(0)] = S(*src_r) & 0xff;
-                        dst[BYTE_SWAP(1)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[BYTE_SWAP(2)] = S(*src_g++) >> 4;
-                        dst[BYTE_SWAP(3)] = S(*src_b) & 0xff;
-                        dst[4 + BYTE_SWAP(0)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[4 + BYTE_SWAP(1)] = S(*src_r++) >> 4;
-                        dst[4 + BYTE_SWAP(2)] = S(*src_g) & 0xff;
-                        dst[4 + BYTE_SWAP(3)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[8 + BYTE_SWAP(0)] = S(*src_b++) >> 4;
-                        dst[8 + BYTE_SWAP(1)] = S(*src_r) & 0xff;
-                        dst[8 + BYTE_SWAP(2)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[8 + BYTE_SWAP(3)] = S(*src_g++) >> 4;
-                        dst[12 + BYTE_SWAP(0)] = S(*src_b) & 0xff;
-                        dst[12 + BYTE_SWAP(1)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[12 + BYTE_SWAP(2)] = S(*src_r++) >> 4;
-                        dst[12 + BYTE_SWAP(3)] = S(*src_g) & 0xff;
-                        dst[16 + BYTE_SWAP(0)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[16 + BYTE_SWAP(1)] = S(*src_b++) >> 4;
-                        dst[16 + BYTE_SWAP(2)] = S(*src_r) & 0xff;
-                        dst[16 + BYTE_SWAP(3)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[20 + BYTE_SWAP(0)] = S(*src_g++) >> 4;
-                        dst[20 + BYTE_SWAP(1)] = S(*src_b) & 0xff;
-                        dst[20 + BYTE_SWAP(2)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[20 + BYTE_SWAP(3)] = S(*src_r++) >> 4;;
-                        dst[24 + BYTE_SWAP(0)] = S(*src_g) & 0xff;
-                        dst[24 + BYTE_SWAP(1)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[24 + BYTE_SWAP(2)] = S(*src_b++) >> 4;
-                        dst[24 + BYTE_SWAP(3)] = S(*src_r) & 0xff;
-                        dst[28 + BYTE_SWAP(0)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
-                        dst[28 + BYTE_SWAP(1)] = S(*src_g++) >> 4;
-                        dst[28 + BYTE_SWAP(2)] = S(*src_b) & 0xff;
-                        dst[28 + BYTE_SWAP(3)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[32 + BYTE_SWAP(0)] = S(*src_r++) >> 4;
-                        dst[32 + BYTE_SWAP(1)] = S(*src_g) & 0xff;
-                        dst[32 + BYTE_SWAP(2)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
-                        dst[32 + BYTE_SWAP(3)] = S(*src_b++) >> 4;
+                        dst[0] = S(*src_r) & 0xff;
+                        dst[1] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[2] = S(*src_g++) >> 4;
+                        dst[3] = S(*src_b) & 0xff;
+                        dst[4 + 0] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[4 + 1] = S(*src_r++) >> 4;
+                        dst[4 + 2] = S(*src_g) & 0xff;
+                        dst[4 + 3] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[8 + 0] = S(*src_b++) >> 4;
+                        dst[8 + 1] = S(*src_r) & 0xff;
+                        dst[8 + 2] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[8 + 3] = S(*src_g++) >> 4;
+                        dst[12 + 0] = S(*src_b) & 0xff;
+                        dst[12 + 1] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[12 + 2] = S(*src_r++) >> 4;
+                        dst[12 + 3] = S(*src_g) & 0xff;
+                        dst[16 + 0] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[16 + 1] = S(*src_b++) >> 4;
+                        dst[16 + 2] = S(*src_r) & 0xff;
+                        dst[16 + 3] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[20 + 0] = S(*src_g++) >> 4;
+                        dst[20 + 1] = S(*src_b) & 0xff;
+                        dst[20 + 2] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[20 + 3] = S(*src_r++) >> 4;;
+                        dst[24 + 0] = S(*src_g) & 0xff;
+                        dst[24 + 1] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[24 + 2] = S(*src_b++) >> 4;
+                        dst[24 + 3] = S(*src_r) & 0xff;
+                        dst[28 + 0] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[28 + 1] = S(*src_g++) >> 4;
+                        dst[28 + 2] = S(*src_b) & 0xff;
+                        dst[28 + 3] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[32 + 0] = S(*src_r++) >> 4;
+                        dst[32 + 1] = S(*src_g) & 0xff;
+                        dst[32 + 2] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[32 + 3] = S(*src_b++) >> 4;
                         dst += 36;
                 }
         }

@@ -3518,7 +3518,7 @@ AC_SUBST(REFLECTOR_TARGET)
 
 # ------------------------------------------------------------------------------
 # Non-essential objs - these should be the objects that no other object depend
-# on, otherwise should be placed directly to Makefile.in objects
+# on, otherwise should be placed directly to Makefile.in COMMON_OBJS
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE(object,
         AS_HELP_STRING([--enable-object], [enable specific object(s) ]
