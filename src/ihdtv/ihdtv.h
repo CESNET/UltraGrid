@@ -54,6 +54,7 @@
 #include <ctype.h>
 #include <stdint.h>
 
+#include "compat/net.h" //for sockaaddr_in, in_addr
 #include "types.h"
 
 #ifdef __cplusplus
