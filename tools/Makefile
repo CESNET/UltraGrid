@@ -7,8 +7,8 @@ MKDIR_P = mkdir -p
 vpath %.c $(SRCDIR) $(SRCDIR)/tools
 vpath %.cpp $(SRCDIR) $(SRCDIR)/tools
 
-CFLAGS   ::= $(CFLAGS) -std=gnu2x
-CXXFLAGS ::= $(CXXFLAGS) -std=gnu++17
+CFLAGS   := $(CFLAGS) -std=gnu2x
+CXXFLAGS := $(CXXFLAGS) -std=gnu++17
 
 ARCH := $(shell uname -m)
 ifeq ($(ARCH), x86_64)
