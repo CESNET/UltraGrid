@@ -202,7 +202,7 @@ while (true) {
 
         enc_input.user_prv_ctx_ptr = malloc(VF_METADATA_SIZE);
         vf_store_metadata(frame.get(), enc_input.user_prv_ctx_ptr);
-
+        
         struct tile *in_tile = vf_get_tile(frame.get(), 0);
         s->convert_to_planar((const uint8_t *) in_tile->data, in_tile->width, in_tile->height, &enc_input.image);
 
@@ -517,9 +517,12 @@ jpegxs_compress_pop(void *state)
         if (err != SvtJxsErrorNone) {
                 MSG(ERROR, "Failed to get encoded packet, error code: %x\n",
                     err);
+                free(enc_output.user_prv_ctx_ptr);
+                svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
                 return vcomp_pop_retry;
         }
         if (enc_output.user_prv_ctx_ptr == JXS_POISON_PILL) {
+                svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
                 return {};
         }
         s->frames_received++;
@@ -534,6 +537,7 @@ jpegxs_compress_pop(void *state)
         if (enc_size > out_tile->data_len) {
                 MSG(WARNING, "Encoded frame too big (%zu > %u)\n", enc_size,
                     out_tile->data_len);
+                svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
                 return vcomp_pop_retry;
         }
 
