@@ -375,8 +375,12 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
         char *tok, *save_ptr = NULL;
 
         while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
-                const char *const val = strchr(tok, '=') + 1;
-                const int num = val != nullptr ? atoi(val) : -1;
+                const char *val = strchr(tok, '=');
+                int num = -1;
+                if (val != nullptr) {
+                        val += 1;
+                        num = atoi(val);
+                }
                 if (IS_KEY_PREFIX(tok, "bitrate")) {
                         req_bitrate = unit_evaluate(val, nullptr);
                         if (req_bitrate == LLONG_MIN) {
