@@ -134,7 +134,7 @@ using namespace hd_rum_decompress;
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
-        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+        auto *s = static_cast<state_transcoder_decompress *>(state);
 
         return rtp_send_raw_rtp_data(s->video_rxtx->m_network_device,
                         (char *) buf, count);
@@ -156,7 +156,7 @@ void state_transcoder_decompress::worker()
                 if(!frame){
                         should_exit = true;
                 } else {
-                        recompress_process_async(recompress, std::move(frame));
+                        recompress_process_async(recompress, frame);
                 }
 
                 // we are removing from queue now because special messages are "accepted" when queue is empty
@@ -177,30 +177,27 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                 return nullptr;
         }
 
-        struct state_transcoder_decompress *s;
-        int force_ip_version = 0;
-
-        s = new state_transcoder_decompress();
+        auto *s = new state_transcoder_decompress();
 
         s->recompress = recompress;
-        s->common.force_ip_version = force_ip_version;
+        s->common.force_ip_version = 0;
         s->common.start_time = get_time_in_ns();
 
         char cfg[128] = "";
-        int ret;
+        int ret = -1;
 
         switch(conf.mode){
         case NORMAL:
                 snprintf(cfg, sizeof cfg, "%p", s);
-                ret = initialize_video_display(parent, "pipe", cfg, 0, NULL, &s->display);
+                ret = initialize_video_display(parent, "pipe", cfg, 0, nullptr, &s->display);
                 break;
         case BLEND:
                 snprintf(cfg, sizeof cfg, "pipe:%p", s);
-                ret = initialize_video_display(parent, "blend", cfg, 0, NULL, &s->display);
+                ret = initialize_video_display(parent, "blend", cfg, 0, nullptr, &s->display);
                 break;
         case CONFERENCE:
                 snprintf(cfg, sizeof cfg, "pipe:%p#%s", s, conf.arg);
-                ret = initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display);
+                ret = initialize_video_display(parent, "conference", cfg, 0, nullptr, &s->display);
                 break;
         }
 
@@ -210,7 +207,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
 
         // common
         s->common.parent = parent;
-        params["exporter"].ptr = NULL;
+        params["exporter"].ptr = nullptr;
         params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
 
@@ -222,7 +219,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["common"].ptr = &s->common;
         params["fec"].str = "none";
         params["bitrate"].ll = 0;
-        params["video_delay"].vptr = 0;
+        params["video_delay"].vptr = nullptr;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;
@@ -240,16 +237,16 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                         log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter!\n");
                         return nullptr;
                 }
-        } catch (string const &s) {
-                LOG(LOG_LEVEL_ERROR) << s << "\n";
+        } catch (const std::string& error_msg) {
+                LOG(LOG_LEVEL_ERROR) << error_msg << "\n";
                 return nullptr;
         }
 
-        return (void *) s;
+        return s;
 }
 
 void hd_rum_decompress_done(void *state) {
-        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+        auto *s = static_cast<state_transcoder_decompress *>(state);
 
         s->receiver_thread.join();
 
@@ -262,7 +259,7 @@ void hd_rum_decompress_done(void *state) {
 
         s->worker_thread.join();
 
-        display_put_frame(s->display, NULL, 0);
+        display_put_frame(s->display, nullptr, 0);
         s->video_rxtx->join();
 
         delete s->video_rxtx;
