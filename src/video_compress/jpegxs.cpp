@@ -111,7 +111,7 @@ struct state_video_compress_jpegxs {
         bool parse_fmt(char *fmt);
 
         synchronized_queue<shared_ptr<struct video_frame>, DEFAULT_POOL_SIZE> in_queue;
-        synchronized_queue<shared_ptr<struct video_frame>, -1> out_queue;
+        synchronized_queue<shared_ptr<struct video_frame>, 1> out_queue;
 
         thread worker_send;
         thread worker_get;
@@ -160,7 +160,6 @@ while (true) {
         auto frame = s->in_queue.pop();
 
         if (!frame) {
-                s->out_queue.push(frame);
         {
                 unique_lock<mutex> lock(s->mtx);
                 svt_jpeg_xs_frame_t enc_input;
@@ -255,6 +254,7 @@ while (true) {
                 continue;
         }
         if (enc_output.user_prv_ctx_ptr == JXS_POISON_PILL) {
+                s->out_queue.push({});
                 break;
         }
         s->frames_received++;
