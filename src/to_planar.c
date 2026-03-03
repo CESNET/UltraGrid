@@ -204,6 +204,7 @@ y216_to_p010le(struct to_planar_data d)
 void
 uyvy_to_nv12(struct to_planar_data d)
 {
+        const int width = d.width;
         for (size_t y = 0; y < (size_t) d.height; y += 2) {
                 /*  every even row */
                 const unsigned char *src = d.in_data + (y * ((size_t) d.width * 2));
@@ -236,7 +237,7 @@ uyvy_to_nv12(struct to_planar_data d)
                 __m128i dsty2;
                 __m128i dstuv;
 
-                for (; x < (d.width - 15); x += 16){
+                for (; x < (width - 15); x += 16){
                         yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
                         yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
                         src += 16;
@@ -279,7 +280,7 @@ uyvy_to_nv12(struct to_planar_data d)
                 }
 #endif
 
-                OPTIMIZED_FOR (; x < d.width - 1; x += 2) {
+                OPTIMIZED_FOR (; x < width - 1; x += 2) {
                         *dst_cbcr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
@@ -357,7 +358,7 @@ uyvy_to_i420(struct to_planar_data d)
 }
 
 /// @note out_depth needs to be at least 12
-ALWAYS_INLINE static inline void
+static void
 r12l_to_gbrpXXle(struct to_planar_data d, unsigned int out_depth, int rind,
                  int gind, int bind)
 {
@@ -375,7 +376,7 @@ r12l_to_gbrpXXle(struct to_planar_data d, unsigned int out_depth, int rind,
                 uint16_t *dst_g = (uint16_t *)(void *) (d.out_data[gind] + d.out_linesize[gind] * y);
                 uint16_t *dst_b = (uint16_t *)(void *) (d.out_data[bind] + d.out_linesize[bind] * y);
 
-                OPTIMIZED_FOR (int x = 0; x < d.width; x += 8) {
+                for (int x = 0; x < d.width; x += 8) {
                         uint16_t tmp = src[0];
                         tmp |= (src[1] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r0
