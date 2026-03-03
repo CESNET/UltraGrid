@@ -79,14 +79,20 @@ toI420(unsigned char *out, const unsigned char *input, int width, int height)
 {
         const size_t y_h = height;
         const size_t chr_h = (y_h + 1) / 2;
-        int          out_linesize[3] = { width,
-                                         (width + 1) / 2,
-                                         (width + 1) / 2 };
-        unsigned char *out_data[3] = { out,
-                                       out + (y_h * out_linesize[0]),
-                                       out + (y_h * out_linesize[0]) +
-                                           (chr_h * out_linesize[1]) };
-        uyvy_to_i420(out_data, out_linesize, input, width, height);
+        const int chr_linesize = (width + 1) / 2;
+        struct to_planar_data d = {
+                .width           = width,
+                .height          = height,
+                .out_data[0]     = out,
+                .out_data[1]     = out + (y_h * width),
+                .out_data[2]     = out + (y_h * width) +
+                                           (chr_h * chr_linesize),
+                .out_linesize[0] = width,
+                .out_linesize[1] = chr_linesize,
+                .out_linesize[2] = chr_linesize,
+                .in_data         = input,
+        };
+        uyvy_to_i420(d);
 }
 
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)

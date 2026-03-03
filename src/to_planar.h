@@ -45,12 +45,20 @@
 extern "C" {
 #endif
 
+#define TO_PLANAR_MAX_COMP 4
+
+struct to_planar_data {
+        int width;
+        int height;
+        unsigned char *__restrict out_data[TO_PLANAR_MAX_COMP];
+        unsigned out_linesize[TO_PLANAR_MAX_COMP];
+        const unsigned char *__restrict in_data;
+};
+
 /// functions to decode whole buffer of packed data to planar or packed
 typedef void
-decode_buffer_func_t(unsigned char *__restrict *__restrict out_data,
-                     const int *__restrict out_linesize,
-                     const unsigned char *__restrict in_data, int width,
-                     int height);
+decode_buffer_func_t(struct to_planar_data d);
+
 decode_buffer_func_t v210_to_p010le;
 decode_buffer_func_t y216_to_p010le;
 decode_buffer_func_t uyvy_to_nv12;

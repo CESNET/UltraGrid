@@ -59,34 +59,33 @@
  * neither input nor output need to be padded
  */
 void
-v210_to_p010le(unsigned char *__restrict *__restrict out_data,
-               const int *__restrict out_linesize,
-               const unsigned char *__restrict in_data, int width, int height)
+v210_to_p010le(struct to_planar_data d)
 {
-        assert((uintptr_t) in_data % 4 == 0);
-        assert(out_linesize[0] % 2 == 0);
-        assert(out_linesize[1] % 2 == 0);
+        assert((uintptr_t) d.in_data % 4 == 0);
+        assert(d.out_linesize[0] % 2 == 0);
+        assert(d.out_linesize[1] % 2 == 0);
 
         void *garbage = NULL;
 
-        for(int y = 0; y < height; y += 2) {
+        for(int y = 0; y < d.height; y += 2) {
                 /*  every even row */
-                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (d.in_data + y * vc_get_linesize(d.width, v210));
                 /*  every odd row */
-                const uint32_t *src2 = (const uint32_t *)(const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * y);
-                uint16_t *dst_y2 = (uint16_t *)(void *) (out_data[0] + out_linesize[0] * (y + 1));
-                uint16_t *dst_cbcr = (uint16_t *)(void *) (out_data[1] + out_linesize[1] * y / 2);
+                const uint32_t *src2 = (const uint32_t *)(const void *) (d.in_data + (y + 1) * vc_get_linesize(d.width, v210));
+
+                uint16_t *dst_y = (uint16_t *)(void *) (d.out_data[0] + d.out_linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *)(void *) (d.out_data[0] + d.out_linesize[0] * (y + 1));
+                uint16_t *dst_cbcr = (uint16_t *)(void *) (d.out_data[1] + d.out_linesize[1] * y / 2);
 
                 // handle height % 2 == 1 (last line)
-                if (height - y == 1) {
-                        dst_y2 = garbage = malloc(out_linesize[0]);
+                if (d.height - y == 1) {
+                        dst_y2 = garbage = malloc(d.out_linesize[0]);
                         src2 = src;
                 }
                 // handle margin of width % 6 != 0
-                int w = (width + 5) / 6 * 6;
-                if (height - y == 1 || height - y == 2) {
-                        w = width;
+                int w = (d.width + 5) / 6 * 6;
+                if (d.height - y == 1 || d.height - y == 2) {
+                        w = d.width;
                 }
 
                 OPTIMIZED_FOR (int x = 0; x < w / 6; ++x) {
@@ -138,14 +137,14 @@ v210_to_p010le(unsigned char *__restrict *__restrict out_data,
 
                 // handle margin of width % 6 != 0 - just copy last at most 5
                 // pix from above for simplicity (1 or 2 lines)
-                if ((height - y == 1 || height - y == 2) && width % 6 != 0) {
-                        const size_t pix_cnt = width % 6;
-                        memcpy(dst_y, dst_y - out_linesize[0], pix_cnt * 2);
-                        if (height - y == 2) {
-                                memcpy(dst_y2, dst_y - out_linesize[0],
+                if ((d.height - y == 1 || d.height - y == 2) && d.width % 6 != 0) {
+                        const size_t pix_cnt = d.width % 6;
+                        memcpy(dst_y, dst_y - d.out_linesize[0], pix_cnt * 2);
+                        if (d.height - y == 2) {
+                                memcpy(dst_y2, dst_y - d.out_linesize[0],
                                        pix_cnt * 2);
                         }
-                        memcpy(dst_cbcr, dst_cbcr - out_linesize[1], pix_cnt * 2);
+                        memcpy(dst_cbcr, dst_cbcr - d.out_linesize[1], pix_cnt * 2);
                 }
         }
 
@@ -160,39 +159,37 @@ v210_to_p010le(unsigned char *__restrict *__restrict out_data,
  * currently the choma from every second line is taken (not averaged)
  */
 void
-y216_to_p010le(unsigned char *__restrict *__restrict out_data,
-               const int *__restrict out_linesize,
-               const unsigned char *__restrict in_data, int width, int height)
+y216_to_p010le(struct to_planar_data d)
 {
-        const size_t src_linesize = vc_get_linesize(width, Y216);
-        for (int i = 0; i < (height + 1) / 2; ++i) {
+        const size_t src_linesize = vc_get_linesize(d.width, Y216);
+        for (int i = 0; i < (d.height + 1) / 2; ++i) {
                 const uint16_t *in =
-                    (const void *) (in_data + ((size_t) 2 * i * src_linesize));
+                    (const void *) (d.in_data + ((size_t) 2 * i * src_linesize));
                 uint16_t *out_y =
-                    (void *) (out_data[0] + ((size_t) 2 * i * out_linesize[0]));
+                    (void *) (d.out_data[0] + ((size_t) 2 * i * d.out_linesize[0]));
                 uint16_t *out_chr =
-                    (void *) (out_data[1] + ((size_t) i * out_linesize[1]));
+                    (void *) (d.out_data[1] + ((size_t) i * d.out_linesize[1]));
                 int j = 0;
-                for ( ; j < width / 2; ++j) {
+                for ( ; j < d.width / 2; ++j) {
                         *out_y++   = *in++; // Y1
                         *out_chr++ = *in++; // Cb
                         *out_y++   = *in++; // Y2
                         *out_chr++ = *in++; // Cr
                 }
-                if (width % 2 == 1) {
+                if (d.width % 2 == 1) {
                         *out_y++   = *in++; // Y1
                         *out_chr++ = *in++; // Cb
                         in++; // drop Y2
                         *out_chr++ = *in++; // Cr
                 }
-                if (2 * i + 1 < height) {
-                        for (j = 0; j < width / 2; ++j) {
+                if (2 * i + 1 < d.height) {
+                        for (j = 0; j < d.width / 2; ++j) {
                                 *out_y++ = *in++; // Y1
                                 in++;             // Cb
                                 *out_y++ = *in++; // Y2
                                 in++;             // Cr
                         }
-                        if (width % 2 == 1) {
+                        if (d.width % 2 == 1) {
                                 *out_y++   = *in++; // Y1
                         }
                 }
@@ -205,21 +202,19 @@ y216_to_p010le(unsigned char *__restrict *__restrict out_data,
  * uyvy_to_i420 that is testec)
  */
 void
-uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
-             const int *__restrict out_linesize,
-             const unsigned char *__restrict in_data, int width, int height)
+uyvy_to_nv12(struct to_planar_data d)
 {
-        for (size_t y = 0; y < (size_t) height; y += 2) {
+        for (size_t y = 0; y < (size_t) d.height; y += 2) {
                 /*  every even row */
-                const unsigned char *src = in_data + (y * ((size_t) width * 2));
+                const unsigned char *src = d.in_data + (y * ((size_t) d.width * 2));
                 /*  every odd row */
-                const unsigned char *src2 = src + ((size_t) width * 2);
-                unsigned char *dst_y      = out_data[0] + (out_linesize[0] * y);
-                unsigned char *dst_y2     = dst_y + out_linesize[0];
+                const unsigned char *src2 = src + ((size_t) d.width * 2);
+                unsigned char *dst_y      = d.out_data[0] + (d.out_linesize[0] * y);
+                unsigned char *dst_y2     = dst_y + d.out_linesize[0];
                 unsigned char *dst_cbcr =
-                    out_data[1] + (out_linesize[1] * (y / 2));
+                    d.out_data[1] + (d.out_linesize[1] * (y / 2));
 
-                if ((int) y == height - 1) { // last line when height % 2 != 0
+                if ((int) y == d.height - 1) { // last line when height % 2 != 0
                         src2 = src;
                         dst_y2 = dst_y;
                 }
@@ -241,7 +236,7 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
                 __m128i dsty2;
                 __m128i dstuv;
 
-                for (; x < (width - 15); x += 16){
+                for (; x < (d.width - 15); x += 16){
                         yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
                         yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
                         src += 16;
@@ -284,7 +279,7 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
                 }
 #endif
 
-                OPTIMIZED_FOR (; x < width - 1; x += 2) {
+                OPTIMIZED_FOR (; x < d.width - 1; x += 2) {
                         *dst_cbcr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
@@ -293,7 +288,7 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
                         *dst_y2++ = *src2++;
                 }
 
-                if (width % 2 == 1) { // last row - do not process 2nd Y
+                if (d.width % 2 == 1) { // last row - do not process 2nd Y
                         *dst_cbcr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
@@ -303,15 +298,13 @@ uyvy_to_nv12(unsigned char *__restrict *__restrict out_data,
 }
 
 void
-rgba_to_bgra(unsigned char *__restrict *__restrict out_data,
-             const int *__restrict out_linesize,
-             const unsigned char *__restrict in_data, int width, int height)
+rgba_to_bgra(struct to_planar_data d)
 {
-        const size_t src_linesize = vc_get_linesize(width, RGBA);
-        for (size_t i = 0; i < (size_t) height; ++i) {
-                const uint8_t *in  = in_data + (i * src_linesize);
-                uint8_t       *out = out_data[0] + (i * out_linesize[0]);
-                for (int i = 0; i < width; ++i) {
+        const size_t src_linesize = vc_get_linesize(d.width, RGBA);
+        for (size_t i = 0; i < (size_t) d.height; ++i) {
+                const uint8_t *in  = d.in_data + (i * src_linesize);
+                uint8_t       *out = d.out_data[0] + (i * d.out_linesize[0]);
+                for (int i = 0; i < d.width; ++i) {
                         *out++ = in[2]; // B
                         *out++ = in[1]; // G
                         *out++ = in[0]; // R
@@ -327,28 +320,26 @@ rgba_to_bgra(unsigned char *__restrict *__restrict out_data,
  * @sa uyvy_to_i422
  */
 void
-uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
-             const int *__restrict out_linesize, const unsigned char *__restrict in_data,
-             int width, int height)
+uyvy_to_i420(struct to_planar_data d)
 {
-        size_t                     src_linesize = vc_get_linesize(width, UYVY);
-        for (size_t i = 0; i < (size_t) (height + 1) / 2; ++i) {
-                const unsigned char *in1 = in_data + (2 * i * src_linesize);
+        size_t                     src_linesize = vc_get_linesize(d.width, UYVY);
+        for (size_t i = 0; i < (size_t) (d.height + 1) / 2; ++i) {
+                const unsigned char *in1 = d.in_data + (2 * i * src_linesize);
                 const unsigned char *in2 = in1 + src_linesize;
                 unsigned char       *y1 =
-                    out_data[0] + ((2ULL * i) * out_linesize[0]);
-                unsigned char *y2 = y1 + out_linesize[0];
-                unsigned char *u  = out_data[1] + (i * out_linesize[1]);
-                unsigned char *v  = out_data[2] + (i * out_linesize[2]);
+                    d.out_data[0] + ((2ULL * i) * d.out_linesize[0]);
+                unsigned char *y2 = y1 + d.out_linesize[0];
+                unsigned char *u  = d.out_data[1] + (i * d.out_linesize[1]);
+                unsigned char *v  = d.out_data[2] + (i * d.out_linesize[2]);
 
                 // handle height % 2 == 1
-                if (2 * i + 1 == (size_t) height) {
+                if (2 * i + 1 == (size_t) d.height) {
                         y2  = y1;
                         in2 = in1;
                 }
 
                 int j = 0;
-                for (; j < width / 2; ++j) {
+                for (; j < d.width / 2; ++j) {
                         *u++  = (*in1++ + *in2++ + 1) / 2;
                         *y1++ = *in1++;
                         *y2++ = *in2++;
@@ -356,7 +347,7 @@ uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
                         *y1++ = *in1++;
                         *y2++ = *in2++;
                 }
-                if (width % 2 == 1) { // do not overwrite EOL
+                if (d.width % 2 == 1) { // do not overwrite EOL
                         *u++  = (*in1++ + *in2++ + 1) / 2;
                         *y1++ = *in1++;
                         *y2++ = *in2++;
@@ -367,26 +358,24 @@ uyvy_to_i420(unsigned char *__restrict *__restrict out_data,
 
 /// @note out_depth needs to be at least 12
 ALWAYS_INLINE static inline void
-r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
-                 const int *__restrict out_linesize,
-                 const unsigned char *__restrict in_data, int width, int height,
-                 unsigned int out_depth, int rind, int gind, int bind)
+r12l_to_gbrpXXle(struct to_planar_data d, unsigned int out_depth, int rind,
+                 int gind, int bind)
 {
         assert(out_depth >= 12);
-        assert((uintptr_t) out_linesize[0] % 2 == 0);
-        assert((uintptr_t) out_linesize[1] % 2 == 0);
-        assert((uintptr_t) out_linesize[2] % 2 == 0);
+        assert((uintptr_t) d.out_linesize[0] % 2 == 0);
+        assert((uintptr_t) d.out_linesize[1] % 2 == 0);
+        assert((uintptr_t) d.out_linesize[2] % 2 == 0);
 
 #define S(x) ((x) << (out_depth - 12U))
 
-        int src_linesize = vc_get_linesize(width, R12L);
-        for (int y = 0; y < height; ++y) {
-                const unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_r = (uint16_t *)(void *) (out_data[rind] + out_linesize[rind] * y);
-                uint16_t *dst_g = (uint16_t *)(void *) (out_data[gind] + out_linesize[gind] * y);
-                uint16_t *dst_b = (uint16_t *)(void *) (out_data[bind] + out_linesize[bind] * y);
+        int src_linesize = vc_get_linesize(d.width, R12L);
+        for (int y = 0; y < d.height; ++y) {
+                const unsigned char *src = d.in_data + y * src_linesize;
+                uint16_t *dst_r = (uint16_t *)(void *) (d.out_data[rind] + d.out_linesize[rind] * y);
+                uint16_t *dst_g = (uint16_t *)(void *) (d.out_data[gind] + d.out_linesize[gind] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (d.out_data[bind] + d.out_linesize[bind] * y);
 
-                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+                OPTIMIZED_FOR (int x = 0; x < d.width; x += 8) {
                         uint16_t tmp = src[0];
                         tmp |= (src[1] & 0xFU) << 8U;
                         *dst_r++ = S(tmp); // r0
@@ -453,28 +442,19 @@ r12l_to_gbrpXXle(unsigned char *__restrict *__restrict out_data,
 }
 
 void
-r12l_to_gbrp12le(unsigned char *__restrict *__restrict out_data,
-                 const int *__restrict out_linesize,
-                 const unsigned char *__restrict in_data, int width, int height)
+r12l_to_gbrp12le(struct to_planar_data d)
 {
-        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
-                         DEPTH12, 2, 0, 1);
+        r12l_to_gbrpXXle(d, DEPTH12, 2, 0, 1);
 }
 
 void
-r12l_to_gbrp16le(unsigned char *__restrict *__restrict out_data,
-                 const int *__restrict out_linesize,
-                 const unsigned char *__restrict in_data, int width, int height)
+r12l_to_gbrp16le(struct to_planar_data d)
 {
-        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
-                         DEPTH16, 2, 0, 1);
+        r12l_to_gbrpXXle(d, DEPTH16, 2, 0, 1);
 }
 
 void
-r12l_to_rgbp12le(unsigned char *__restrict *__restrict out_data,
-                 const int *__restrict out_linesize,
-                 const unsigned char *__restrict in_data, int width, int height)
+r12l_to_rgbp12le(struct to_planar_data d)
 {
-        r12l_to_gbrpXXle(out_data, out_linesize, in_data, width, height,
-                         DEPTH12, 0, 1, 2);
+        r12l_to_gbrpXXle(d, DEPTH12, 0, 1, 2);
 }

@@ -82,10 +82,25 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
 
+static struct to_planar_data
+to_planar_data_from_avfame(AVFrame *__restrict out_frame,
+                           const unsigned char *__restrict in_data, int width,
+                           int height)
+{
+        struct to_planar_data d = { 0 };
+        d.width                 = width;
+        d.height                = height;
+        for (int i = 0; i < TO_PLANAR_MAX_COMP; ++i) {
+                d.out_data[i]     = out_frame->data[i];
+                d.out_linesize[i] = out_frame->linesize[i];
+        }
+        d.in_data = in_data;
+        return d;
+}
+
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        uyvy_to_i420(out_frame->data, out_frame->linesize, in_data, width,
-                     height);
+        uyvy_to_i420(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
@@ -145,8 +160,7 @@ static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, const unsigned char 
 
 static void to_lavc_uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        uyvy_to_nv12(out_frame->data, out_frame->linesize, in_data, width,
-                     height);
+        uyvy_to_nv12(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -433,8 +447,7 @@ to_lavc_v210_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        v210_to_p010le(out_frame->data, out_frame->linesize, in_data, width,
-                       height);
+        v210_to_p010le(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 static void
@@ -442,8 +455,7 @@ to_lavc_y216_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        y216_to_p010le(out_frame->data, out_frame->linesize, in_data, width,
-                       height);
+        y216_to_p010le(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 #if P210_PRESENT
@@ -1235,8 +1247,7 @@ to_lavc_rgba_to_bgra(AVFrame *__restrict out_frame,
                      const unsigned char *__restrict in_data, int width,
                      int height)
 {
-        rgba_to_bgra(out_frame->data, out_frame->linesize, in_data, width,
-                     height);
+        rgba_to_bgra(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 #if defined __GNUC__
@@ -1283,8 +1294,7 @@ av_r12l_to_gbrp12le(AVFrame *__restrict out_frame,
                     const unsigned char *__restrict in_data, int width,
                     int height)
 {
-        r12l_to_gbrp12le(out_frame->data, out_frame->linesize, in_data, width,
-                         height);
+        r12l_to_gbrp12le(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 static void
@@ -1292,8 +1302,7 @@ av_r12l_to_gbrp16le(AVFrame *__restrict out_frame,
                     const unsigned char *__restrict in_data, int width,
                     int height)
 {
-        r12l_to_gbrp16le(out_frame->data, out_frame->linesize, in_data, width,
-                         height);
+        r12l_to_gbrp16le(to_planar_data_from_avfame(out_frame, in_data, width, height));
 }
 
 static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)

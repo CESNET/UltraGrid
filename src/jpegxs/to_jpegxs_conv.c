@@ -175,12 +175,18 @@ static void
 jxs_r12l_to_rgbp12le(const uint8_t *src, int width, int height,
                      svt_jpeg_xs_image_buffer_t *dst)
 {
-        unsigned char *data[3] = { dst->data_yuv[0], dst->data_yuv[1],
-                                   dst->data_yuv[2] };
-        const int linesize[3]  = { (int) (dst->stride[0] * sizeof(uint16_t)),
-                                   (int) (dst->stride[1] * sizeof(uint16_t)),
-                                   (int) (dst->stride[2] * sizeof(uint16_t)) };
-        r12l_to_rgbp12le(data, linesize, src, width, height);
+        struct to_planar_data d = {
+                .width           = width,
+                .height          = height,
+                .out_data[0]     = dst->data_yuv[0],
+                .out_data[1]     = dst->data_yuv[1],
+                .out_data[2]     = dst->data_yuv[2],
+                .out_linesize[0] = (int) (dst->stride[0] * sizeof(uint16_t)),
+                .out_linesize[1] = (int) (dst->stride[1] * sizeof(uint16_t)),
+                .out_linesize[2] = (int) (dst->stride[2] * sizeof(uint16_t)),
+                .in_data         = src,
+        };
+         r12l_to_rgbp12le(d);
 }
 
 static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {

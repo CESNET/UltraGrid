@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "pixfmt_conv.h"
+#include "to_planar.h"
 #include "unit_common.h"
 #include "video_codec.h"
 #include "video_capture/testcard_common.h"
@@ -131,16 +131,17 @@ codec_conversion_test_y216_to_p010le(void)
 
                 vector<uint16_t> p010_buf(vc_get_datalen(size_x, size_y, I420) * 2);
 
-                int            out_linesize[] = { (int) size_x * 2,
-                                                  (int) ((size_x + 1) & ~1) * 2 };
-                unsigned char *out_data[]     = {
-                        (unsigned char *) &p010_buf[0],
-                        (unsigned char *) &p010_buf[size_x * size_y]
-                };
-                y216_to_p010le(out_data, out_linesize,
-                               (unsigned char *) &y216_buf[0], size_x, size_y);
+                struct to_planar_data d = {};
+                d.width                 = (int) size_x;
+                d.height                = (int) size_y;
+                d.out_linesize[0]       = (int) size_x * 2;
+                d.out_linesize[1]       = (int) ((size_x + 1) & ~1) * 2;
+                d.out_data[0] = (unsigned char *) p010_buf.data();
+                d.out_data[1] = (unsigned char *)  &p010_buf[size_x * size_y];
+                d.in_data = (const unsigned char *) y216_buf.data();
+                y216_to_p010le(d);
 
-                auto *y_ptr = (uint16_t *) (void *) out_data[0];
+                auto *y_ptr = (uint16_t *) (void *) d.out_data[0];
                 for (size_t i = 0; i < size_y; ++i) {
                         for (size_t j = 0; j < size_x; ++j) {
                                 ostringstream oss;
@@ -154,7 +155,7 @@ codec_conversion_test_y216_to_p010le(void)
                 }
                 // UV combined
                 for (size_t i = 0; i < (size_y + 1) / 2; ++i) {
-                        auto *uv_ptr = ((uint16_t *) (void *) out_data[1]) +
+                        auto *uv_ptr = ((uint16_t *) (void *) d.out_data[1]) +
                                        i * ((size_x + 1) & ~1);
                         for (size_t j = 0; j < ((size_x + 1) & ~1); ++j) {
                                 ostringstream oss;
