@@ -97,31 +97,19 @@ typedef unsigned char	byte;
  * the definitions below are valid for 32-bit architectures and will have to
  * be adjusted for 16- or 64-bit architectures
  */
-typedef unsigned int	in_addr_t;
-
 #define NEED_INET_ATON
 
 #include <time.h>		/* For clock_t */
 #include "compat/alarm.h"
 #include "compat/usleep.h"
 
-typedef char	*caddr_t;
-
 #ifndef  _MSC_VER
+typedef char	*caddr_t;
 typedef struct iovec {
 	caddr_t	iov_base;
 	ssize_t	iov_len;
 } iovec_t;
 #endif
-
-struct msghdr {
-	caddr_t		msg_name;
-	int		msg_namelen;
-	struct iovec	*msg_iov;
-	int		msg_iovlen;
-	caddr_t		msg_accrights;
-	int		msg_accrightslen;
-};
 
 #define MAXHOSTNAMELEN	256
 
