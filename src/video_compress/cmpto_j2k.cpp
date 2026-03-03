@@ -595,11 +595,13 @@ static std::shared_ptr<video_frame> j2k_compress_pop(void *state)
         if (img == nullptr) {
                 // this happens when cmpto_j2k_enc_ctx_stop() is called
                 return vcomp_pop_retry; // reconfiguration or exit
-        } else {
-                unique_lock<mutex> lk(s->lock);
-                s->in_frames--;
-                s->frame_popped.notify_one();
         }
+
+        s->lock.lock();
+        s->in_frames--;
+        s->lock.unlock();
+        s->frame_popped.notify_one();
+
         if (status != CMPTO_J2K_ENC_IMG_OK) {
                 const char * encoding_error = "";
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
