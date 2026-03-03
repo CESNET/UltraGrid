@@ -77,12 +77,12 @@ struct recompress_output_port {
 
         std::unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
         std::string host;
-        int tx_port;
+        int tx_port = 0;
 
         std::chrono::steady_clock::time_point t0{std::chrono::steady_clock::now()};
-        int frames;
+        int frames = 0;
 
-        bool active;
+        bool active = false;
 };
 
 struct recompress_worker_ctx {
@@ -96,7 +96,7 @@ struct recompress_worker_ctx {
 };
 
 struct state_recompress {
-        struct module *parent;
+        struct module *parent = nullptr;
         std::mutex mut;
         std::map<std::string, recompress_worker_ctx> workers;
         std::vector<std::pair<std::string, int>> index_to_port;
