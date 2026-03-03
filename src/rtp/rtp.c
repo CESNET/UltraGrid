@@ -70,20 +70,17 @@
  * most of the time (but see bug in check_database()).
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // defined HAVE_CONFIG_H
-
 #ifndef _WIN32
 #include <pwd.h>
 #endif
 
+#include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "memory.h"
 #include "debug.h"
