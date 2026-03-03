@@ -51,11 +51,13 @@ typedef SOCKET fd_t;
 #define SHUT_RD SD_RECEIVE
 #define SHUT_WR SD_SEND
 #define SHUT_RDWR SD_BOTH
+#define MAXHOSTNAMELEN	256
 #else
 #include <arpa/inet.h>      // for htonl, ntohl
 #include <netdb.h>          // for getaddrinfo
 #include <netinet/in.h>     // for sockaddr_in[6]
 #include <sys/socket.h>     // for sockaddr, sockaddr_storage
+#include <sys/param.h>     // for MAXHOSTNAMELEN
 #include <unistd.h>         // for close
 typedef int fd_t;
 #define INVALID_SOCKET (-1)
