@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -622,9 +622,10 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
                                 comp_info[1].sampling_factor_x == comp_info[2].sampling_factor_x &&
                                 comp_info[1].sampling_factor_y == comp_info[2].sampling_factor_y) {
                         int a = 4 / comp_info[1].sampling_factor_x;
-                        internal_prop->subsampling = 4000 + a * 100;
+                        internal_prop->subsampling = (enum subsampling) (4000 + a * 100);
                         if (comp_info[1].sampling_factor_y == 1) {
-                                internal_prop->subsampling += a * 10;
+                                internal_prop->subsampling = (enum subsampling)(
+                                    internal_prop->subsampling + (a * 10));
                         }
                 }
         }
