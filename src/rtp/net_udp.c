@@ -45,12 +45,13 @@
 /* by those files.                                           */
 
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
+#include <assert.h>
 #include <pthread.h>
 #include <stdalign.h>
 #include <stdbool.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <stdint.h>       // for uint16_t, uintmax_t
 
 #ifndef _WIN32
