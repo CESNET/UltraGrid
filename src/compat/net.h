@@ -42,6 +42,9 @@
 #define COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
 
 // IWYU pragma: begin_exports
+#if HAVE_CONFIG_H
+#include "config.h" //for HAVE_IPv6
+#endif
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h> // for socklen_t
