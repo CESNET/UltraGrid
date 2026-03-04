@@ -1,4 +1,4 @@
-#!/bin/sh -eux
+#!/bin/sh -eu
 
 curdir=$(cd "$(dirname "$0")"; pwd)
 readonly curdir
@@ -159,6 +159,8 @@ if [ $# -eq 0 ]; then
         # shellcheck disable=SC2086 # intentional
         set -- $install_items
 fi
+
+set -x
 
 while [ $# -gt 0 ]; do
         install_"$1"
