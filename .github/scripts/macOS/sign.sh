@@ -62,7 +62,9 @@ set +x
 DEVELOPER_USERNAME=$(echo "$notarytool_credentials" | cut -d: -f1)
 DEVELOPER_PASSWORD=$(echo "$notarytool_credentials" | cut -d: -f2)
 DEVELOPER_TEAMID=$(echo "$notarytool_credentials" | cut -d: -f3)
-xcrun notarytool submit $ZIP_FILE --apple-id "$DEVELOPER_USERNAME" --team-id "$DEVELOPER_TEAMID" --password "$DEVELOPER_PASSWORD" --wait
+${notarytool:-xcrun notarytool} submit $ZIP_FILE \
+        --apple-id "$DEVELOPER_USERNAME" --team-id "$DEVELOPER_TEAMID" \
+        --password "$DEVELOPER_PASSWORD" --wait
 set -x
 # If everything is ok, staple the app
 xcrun stapler staple "$APP"
