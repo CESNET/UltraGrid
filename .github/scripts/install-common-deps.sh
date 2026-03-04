@@ -35,7 +35,7 @@ cineform-0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch
         sudo cmake --install build
 )}
 
-download_build_aja() {
+download_build_aja() {(
         aja_url=https://github.com/aja-video/libajantv2.git
         git clone -b release --depth 1 $aja_url
         # TODO TOREMOVE this workarounds when not needed
@@ -43,14 +43,13 @@ download_build_aja() {
                 mv ver-fix-no-NL$$.txt libajantv2/VERSION.txt
         sed -i -e '/MACOS_SDK_VERSION/d' libajantv2/cmake/CMakeOptions.cmake &&
                 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) && export SDKROOT
-        export MACOSX_DEPLOYMENT_TARGET=10.13 # needed for arm64 mac
 
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
                 -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=Release -Blibajantv2/build -Slibajantv2
         cmake --build libajantv2/build --config Release -j "$(nproc)"
-}
+)}
 
 install_aja() {(
         if [ "$(uname -s)" = Linux ]; then
