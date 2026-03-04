@@ -25,7 +25,7 @@ if is_win || [ "$(id -u)" -eq 0 ]; then
         alias sudo=
 fi
 
-download_install_cineform() {(
+install_cineform() {(
         git clone --depth 1 https://github.com/gopro/cineform-sdk
         cd cineform-sdk
         git apply "$curdir"/patches/\
@@ -141,13 +141,26 @@ install_zfec() {(
         sudo mv zfec/zfec /usr/local/src
 )}
 
+install_items="aja ews juice live555 pcp zfec"
 if ! is_arm && ! is_win; then
-        download_install_cineform
+        install_items="$install_items cineform"
 fi
-install_aja
-install_ews
-install_juice
-install_live555
-install_pcp
-install_zfec
 
+if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
+        printf "Usage:\n"
+        printf "\t%s [<features>] | [ -h | --help | help ]\n" "$0"
+        printf "\nInstall all aditional dependencies (without arguments) or \
+install one explicitly.\n"
+        printf "\nAvailable features: %s%s%s\n" "$(tput bold)" "$install_items" "$(tput sgr0)"
+        exit 0
+fi
+
+if [ $# -eq 0 ]; then
+        # shellcheck disable=SC2086 # intentional
+        set -- $install_items
+fi
+
+while [ $# -gt 0 ]; do
+        install_"$1"
+        shift
+done
