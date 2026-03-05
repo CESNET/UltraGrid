@@ -104,7 +104,7 @@ struct state_video_compress_jpegxs {
         void cleanup();
         bool parse_fmt(char *fmt);
 
-        synchronized_queue<shared_ptr<struct video_frame>, DEFAULT_POOL_SIZE> in_queue;
+        synchronized_queue<shared_ptr<struct video_frame>, 1> in_queue;
 
         thread worker_send;
 
