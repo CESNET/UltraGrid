@@ -38,13 +38,8 @@
 #ifndef BLUEFISH444_COMMON_H
 #define BLUEFISH444_COMMON_H
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include "debug.h"
+#include "types.h"
 
 #ifdef _WIN32
 #include <objbase.h>
