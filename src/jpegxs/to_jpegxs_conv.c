@@ -186,7 +186,9 @@ jxs_r12l_to_rgbp12le(const uint8_t *src, int width, int height,
                 .out_linesize[2] = (int) (dst->stride[2] * sizeof(uint16_t)),
                 .in_data         = src,
         };
-         r12l_to_rgbp12le(d);
+        decode_to_planar_parallel(r12l_to_rgbp12le, d,
+                                  vc_get_linesize(width, R12L),
+                                  TO_PLANAR_THREADS_AUTO);
 }
 
 static const struct uv_to_jpegxs_conversion uv_to_jpegxs_conversions[] = {
