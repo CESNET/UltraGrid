@@ -6,7 +6,7 @@
  * @brief Gpustitch 360 video stitcher
  */
 /*
- * Copyright (c) 2021-2023 CESNET z.s.p.o.
+ * Copyright (c) 2021-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,13 +68,6 @@
 
 const static char *log_str = "[gpustitch] ";
 
-/* prototypes of functions defined in this module */
-static void show_help();
-
-static double toRadian(double deg){
-        return (deg / 180) * 3.14159265;
-}
-
 static void show_help()
 {
         color_printf("Gpustitch video stitcher\n");
@@ -105,7 +98,7 @@ struct vidcap_gpustitch_state {
 
         std::string spec_path;
         double fps = 0.0;
-        codec_t out_fmt;
+        codec_t out_fmt = VIDEO_CODEC_NONE;
         bool tiled_capture = false;
         bool output_cuda_buf = false;
 
@@ -159,7 +152,6 @@ static void vidcap_gpustitch_probe(device_info **available_cards, int *count, vo
         *deleter = free;
         *available_cards = nullptr;
         *count = 0;
-        return;
 }
 
 static bool check_in_format(grab_worker_state *gs, video_frame *in, int i){
@@ -218,7 +210,7 @@ static bool upload_to_cuda_buf(grab_worker_state *gs, video_frame *in_frame,
         int roi_line_size = vc_get_linesize(w, in_frame->color_spec);
 
         size_t offset_bytes = y_offset * in_line_size
-                + vc_get_linesize(x_offset, in_frame->color_spec); 
+                + vc_get_linesize(x_offset, in_frame->color_spec);
 
         w = (w / get_pf_block_bytes(in_frame->color_spec)) * get_pf_block_bytes(in_frame->color_spec);
 
@@ -301,7 +293,7 @@ static void upload_tiles(grab_worker_state *gs, video_frame *frame){
                                 stream
                                 );
 
-                unsigned char *src = static_cast<unsigned char *>(gs->tmp_rgba_frame);
+                unsigned char *src = gs->tmp_rgba_frame;
                 src += (order[i] % 2) * tile_line_len;
                 src += (order[i] / 2) * src_pitch * tile_height;
 
@@ -315,8 +307,8 @@ static void upload_tiles(grab_worker_state *gs, video_frame *frame){
 
 static void grab_worker(grab_worker_state *gs, vidcap_params *param, int id){
         PROFILE_FUNC;
-        struct audio_frame *audio_frame = NULL;
-        struct video_frame *frame = NULL;
+        audio_frame *audio_frame = nullptr;
+        video_frame *frame = nullptr;
         std::unique_lock<std::mutex> stitch_lk(gs->s->stitched_mut, std::defer_lock);
         std::unique_lock<std::mutex> grab_lk(gs->grabbed_mut, std::defer_lock);
 
@@ -333,7 +325,7 @@ static void grab_worker(grab_worker_state *gs, vidcap_params *param, int id){
 
         vidcap *device = nullptr;
 
-        int ret = initialize_video_capture(NULL, param, &device);
+        int ret = initialize_video_capture(nullptr, param, &device);
         if(ret != 0) {
                 fprintf(stderr, "[gpustitch] Unable to initialize device %d (%s:%s).\n",
                                 id, vidcap_params_get_driver(param),
@@ -376,8 +368,7 @@ static void grab_worker(grab_worker_state *gs, vidcap_params *param, int id){
 
                 grab_lk.lock();
                 gs->grabbed_count += 1;
-                if(frame)
-                        gs->grabbed_fps = frame->fps;
+                gs->grabbed_fps = frame->fps;
                 grab_lk.unlock();
                 gs->grabbed_cv.notify_one();
         }
@@ -455,7 +446,7 @@ static void parse_fmt(vidcap_gpustitch_state *s, const char * const fmt){
 
         char *tmp = strdup(fmt);
         char *init_fmt = tmp;
-        char *save_ptr = NULL;
+        char *save_ptr = nullptr;
         char *item;
 #define FMT_CMP(param) (strncmp(item, (param), strlen((param))) == 0)
         while((item = strtok_r(init_fmt, ":", &save_ptr))) {
@@ -500,7 +491,7 @@ static void parse_fmt(vidcap_gpustitch_state *s, const char * const fmt){
                 } else if(FMT_CMP("cudabuf")){
                         s->output_cuda_buf = true;
                 }
-                init_fmt = NULL;
+                init_fmt = nullptr;
         }
         free(tmp);
 }
@@ -527,17 +518,13 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
         }
 
-        struct vidcap_gpustitch_state *s = new vidcap_gpustitch_state();
-        if(s == NULL) {
-                printf("Unable to allocate gpustitch capture state\n");
-                return VIDCAP_INIT_FAIL;
-        }
+        auto *s = new vidcap_gpustitch_state();
 
         s->frames = 0;
-        gettimeofday(&s->t0, NULL);
+        gettimeofday(&s->t0, nullptr);
 
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-               show_help(); 
+               show_help();
                delete s;
                return VIDCAP_INIT_NOERR;
         }
@@ -545,9 +532,9 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
         parse_fmt(s, vidcap_params_get_fmt(params));
 
         s->devices_cnt = 0;
-        struct vidcap_params *tmp = params;
+        vidcap_params *tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != NULL)
+                if (vidcap_params_get_driver(tmp) != nullptr)
                         s->devices_cnt++;
                 else
                         break;
@@ -571,11 +558,8 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
 
                 s->capture_workers[i].s = s;
                 s->capture_workers[i].tiled = s->tiled_capture;
-                s->capture_workers[i].thread = 
-                        std::thread(grab_worker, &s->capture_workers[i], tmp, i);
+                s->capture_workers[i].thread = std::thread(grab_worker, &s->capture_workers[i], tmp, i);
         }
-
-
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -586,10 +570,9 @@ error:
         return VIDCAP_INIT_FAIL;
 }
 
-static void
-vidcap_gpustitch_done(void *state)
+static void vidcap_gpustitch_done(void *state)
 {
-        struct vidcap_gpustitch_state *s = (struct vidcap_gpustitch_state *) state;
+        auto *s = static_cast<vidcap_gpustitch_state *>(state);
 
         if(!s) return;
 
@@ -620,8 +603,8 @@ static bool allocate_result_frame(vidcap_gpustitch_state *s, unsigned width, uns
         s->frame->tiles[0].data_len = vc_get_linesize(desc.width,
                         desc.color_spec) * desc.height;
 
-        s->frame->callbacks.data_deleter = NULL;
-        s->frame->callbacks.recycle = NULL;
+        s->frame->callbacks.data_deleter = nullptr;
+        s->frame->callbacks.recycle = nullptr;
 
         if(!s->output_cuda_buf){
                 if(cudaMallocHost(&s->frame->tiles[0].data, s->frame->tiles[0].data_len) != cudaSuccess){
@@ -692,14 +675,14 @@ static bool download_stitched(vidcap_gpustitch_state *s, cudaStream_t out_stream
 }
 
 static void report_stats(vidcap_gpustitch_state *s){
-        gettimeofday(&s->t, NULL);
-        double seconds = tv_diff(s->t, s->t0);    
+        gettimeofday(&s->t, nullptr);
+        double seconds = tv_diff(s->t, s->t0);
         if (seconds >= 5) {
                 float fps  = s->frames / seconds;
                 log_msg(LOG_LEVEL_INFO, "[gpustitch cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                 s->t0 = s->t;
                 s->frames = 0;
-        }  
+        }
 }
 
 static double wait_for_frames(struct vidcap_gpustitch_state *s){
@@ -715,20 +698,16 @@ static double wait_for_frames(struct vidcap_gpustitch_state *s){
         return fps;
 }
 
-static struct video_frame *stitch(struct vidcap_gpustitch_state *s){
+static video_frame *stitch(struct vidcap_gpustitch_state *s){
         PROFILE_FUNC;
         s->stitcher.stitch();
-        if(false){
-                std::cout << std::endl << "Failed to stitch." << std::endl;
-                return NULL;
-        }
 
         cudaStream_t out_stream;
         s->stitcher.get_output_stream(&out_stream);
 
         if(!out_stream){
                 std::cerr << log_str << "Failed to get output stream" << std::endl;
-                return NULL;
+                return nullptr;
         }
 
         std::unique_lock<std::mutex> stitch_lk(s->stitched_mut);
@@ -737,24 +716,23 @@ static struct video_frame *stitch(struct vidcap_gpustitch_state *s){
         s->stitched_cv.notify_all();
 
         if(!download_stitched(s, out_stream)){
-                return NULL;
+                return nullptr;
         }
 
         PROFILE_DETAIL("Synchronize 2");
         if (cudaStreamSynchronize(out_stream) != cudaSuccess)
         {
                 std::cerr << "Error synchronizing with the output CUDA stream" << std::endl;
-                return NULL;
+                return nullptr;
         }
 
         return s->frame;
 }
 
-static struct video_frame *
-vidcap_gpustitch_grab(void *state, struct audio_frame **audio [[maybe_unused]])
+static video_frame * vidcap_gpustitch_grab(void *state, struct audio_frame **audio [[maybe_unused]])
 {
         PROFILE_FUNC;
-        struct vidcap_gpustitch_state *s = (struct vidcap_gpustitch_state *) state;
+        auto *s = static_cast<struct vidcap_gpustitch_state *>(state);
 
         video_frame *f = nullptr;
         double fps = wait_for_frames(s);
