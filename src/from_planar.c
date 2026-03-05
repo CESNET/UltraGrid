@@ -267,8 +267,9 @@ void
 decode_planar_parallel(decode_planar_func_t         *dec,
                        const struct from_planar_data d, int num_threads)
 {
-        const unsigned cpu_count =
-            num_threads == 0 ? get_cpu_core_count() : num_threads;
+        const unsigned cpu_count = num_threads == FROM_PLANAR_THREADS_AUTO
+                                       ? get_cpu_core_count()
+                                       : num_threads;
 
         struct convert_task_data data[cpu_count];
         for (size_t i = 0; i < cpu_count; ++i) {

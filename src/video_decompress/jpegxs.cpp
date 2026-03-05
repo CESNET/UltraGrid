@@ -141,7 +141,7 @@ jpegxs_to_uv_convert(struct state_decompress_jpegxs *s,
         d.rgb_shift[0] = s->rshift;
         d.rgb_shift[1] = s->gshift;
         d.rgb_shift[2] = s->bshift;
-        int num_threads = 0;
+        int num_threads = FROM_PLANAR_THREADS_AUTO;
         if (conv->convert == yuv420_to_i420) {
                 num_threads = 1; // no proper support for parallel decode
         }
