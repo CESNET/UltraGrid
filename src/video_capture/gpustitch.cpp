@@ -93,19 +93,18 @@ static void show_help()
 struct grab_worker_state;
 
 struct vidcap_gpustitch_state {
-        unsigned            devices_cnt;
+        unsigned            devices_cnt{};
 
-        struct video_frame      **captured_frames;
-        struct video_frame       *frame; 
-        int frames;
-        struct       timeval t, t0;
+        video_frame *frame = nullptr;
+        int frames = 0;
+        timeval t{}, t0{};
 
         gpustitch::Stitcher stitcher;
-        gpustitch::Stitcher_params stitch_params;
+        gpustitch::Stitcher_params stitch_params{};
         std::vector<gpustitch::Cam_params> cam_properties;
 
         std::string spec_path;
-        double fps;
+        double fps = 0.0;
         codec_t out_fmt;
         bool tiled_capture = false;
         bool output_cuda_buf = false;
@@ -117,7 +116,7 @@ struct vidcap_gpustitch_state {
                 size_t srcPitch,
                 size_t width,
                 size_t height,
-                struct CUstream_st *stream);
+                CUstream_st *stream) = nullptr;
 
         std::mutex stitched_mut;
         unsigned stitched_count = 0;
@@ -134,25 +133,25 @@ struct grab_worker_state {
         double grabbed_fps = -1;
         std::condition_variable grabbed_cv;
 
-        vidcap_gpustitch_state *s;
+        vidcap_gpustitch_state *s = nullptr;
 
         bool tiled = false;
 
         unsigned width = 0;
         unsigned height = 0;
-        unsigned char *tmp_in_frame;
-        unsigned char *tmp_rgba_frame;
-        unsigned tmp_rgba_frame_pitch;
+        unsigned char *tmp_in_frame = nullptr;
+        unsigned char *tmp_rgba_frame = nullptr;
+        unsigned tmp_rgba_frame_pitch = 0;
         void (*conv_func)(unsigned char *dst,
                 size_t dstPitch,
                 unsigned char *src,
                 size_t srcPitch,
                 size_t width,
                 size_t height,
-                struct CUstream_st *stream);
+                struct CUstream_st *stream) = nullptr;
         codec_t in_codec = VIDEO_CODEC_NONE;
 
-        cudaStream_t tmp_in_frame_stream;
+        cudaStream_t tmp_in_frame_stream{};
 };
 
 static void vidcap_gpustitch_probe(device_info **available_cards, int *count, void (**deleter)(void *))
@@ -559,8 +558,6 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        s->captured_frames = (struct video_frame **) calloc(s->devices_cnt, sizeof(struct video_frame *));
-
         s->frame = nullptr;
 
         if(!init_stitcher(s)){
@@ -598,7 +595,6 @@ vidcap_gpustitch_done(void *state)
 
         stop_grab_workers(s);
 
-        free(s->captured_frames);
         vf_free(s->frame);
         cudaFree(s->conv_tmp_frame);
 
