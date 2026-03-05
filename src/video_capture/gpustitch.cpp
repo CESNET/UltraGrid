@@ -37,9 +37,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 
 #include "debug.h"
 #include "host.h"
@@ -51,8 +48,9 @@
 
 #include "audio/types.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <cmath>
 #include <limits>
@@ -71,7 +69,7 @@
 const static char *log_str = "[gpustitch] ";
 
 /* prototypes of functions defined in this module */
-static void show_help(void);
+static void show_help();
 
 static double toRadian(double deg){
         return (deg / 180) * 3.14159265;
