@@ -150,7 +150,6 @@ while (true) {
         auto frame = s->in_queue.pop();
 
         if (!frame) {
-                unique_lock<mutex> lock(s->mtx);
                 if (s->configured) {
                         svt_jpeg_xs_frame_t enc_input;
                         svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
@@ -158,6 +157,7 @@ while (true) {
                         svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
                         s->frames_sent++;
                 } else {
+                        unique_lock<mutex> lock(s->mtx);
                         s->stop = true;
                         lock.unlock();
                         s->cv_configured.notify_one();
@@ -550,11 +550,6 @@ jpegxs_compress_pop(void *state)
 
 static void jpegxs_compress_done(void *state) {
         auto s = static_cast<state_video_compress_jpegxs *>(state);
-        {
-                std::scoped_lock l(s->mtx);
-                //s->stop = true;
-                //s->out_queue.pop(true);
-        }
         delete s;
 }
 
