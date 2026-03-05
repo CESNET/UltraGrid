@@ -324,6 +324,27 @@ void state_video_compress_jpegxs::cleanup() {
         }
 }
 
+static bool
+parse_bpp(const char *val, svt_jpeg_xs_encoder_api_t *encoder)
+{
+        double num = 0;
+        int den = 1;
+        if (sscanf(val, "%lf/%d", &num, &den) < 1 || num <= 0 || den <= 0) {
+                MSG(ERROR,
+                    "Invalid bpp value '%s' (must be a positive number or a "
+                    "fraction, e.g., 2, 0.5 or 3/4).\n",
+                    val);
+                return false;
+        }
+        if (num != (int) num) { // decimal number in numerator
+                num *= 1000;
+                den *= 1000;
+        }
+        encoder->bpp_numerator   = (int) num;
+        encoder->bpp_denominator = den;
+        return true;
+}
+
 bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
         char *tok, *save_ptr = NULL;
 
@@ -341,13 +362,9 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                                  return false;
                         }
                 } else if (IS_KEY_PREFIX(tok, "bpp")) {
-                        int num = 0, den = 1;
-                        if (sscanf(val, "%d/%d", &num, &den) < 1 || num <= 0 || den <= 0) {
-                                MSG(ERROR, "Invalid bpp value '%s' (must be a positive integer or fraction, e.g., 2 or 3/4).\n", val);
+                        if (!parse_bpp(val, &encoder)) {
                                 return false;
                         }
-                        encoder.bpp_numerator   = num;
-                        encoder.bpp_denominator = den;
                 } else if (IS_KEY_PREFIX(tok, "pool_size")) {
                         if (num <= 0) {
                                 MSG(ERROR, "Invalid pool size value '%s' (must be a positive integer).\n", val);
@@ -425,8 +442,8 @@ static const struct {
                 "(eg. 50.5M)\n", ":bitrate=", false, "50.5M"
         },
         {"Bits per pixel", "bpp", "bpp",
-                "\t\tTarget bits-per-pixel ratio for the encoder. May be given as an\n"
-                "\t\tinteger (e.g., 2) or as a fraction (e.g., 3/4). Controls the\n"
+                "\t\tTarget bits-per-pixel ratio for the encoder. May be given as a\n"
+                "\t\tnumber (eg. 2 or 0.5) or as a fraction (e.g., 3/4). Controls the\n"
                 "\t\toutput bitrate indirectly. Must be a positive value.\n"
                 "\t\tThe default is 3.\n",
                 ":bpp=", false, "3"
