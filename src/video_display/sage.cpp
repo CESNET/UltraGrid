@@ -46,12 +46,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
