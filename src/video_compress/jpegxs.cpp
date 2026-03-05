@@ -478,16 +478,9 @@ static const struct {
                 ":rc=", false, "0"
         },
         {"Threads scaling parameter", "threads", "threads",
-                "\t\tNumber of encoder threads. Must be between 0 and the number of\n"
-                "\t\tavailable CPU cores. Value 0 means the lowest possible number\n"
-                "\t\tof threads is created by the encoder. The default is 0.\n",
+                "\t\tNumber of encoder threads. Must be a positive number. Value 0 means\n"
+                "\t\tthe lowest possible number of threads. Default: nr of logical cores\n",
                 ":threads=", false, "0"
-        },
-        {"JPEG XS pool size", "pool_size", "pool_size",
-                "\t\tThe size of the SVT-JPEG-XS frame pool. Increasing the pool size\n"
-                "\t\tenables more frames to be sent to the encoder's internal queue.\n"
-                "\t\tThe default is 5.\n",
-                ":pool_size=", false, "5"
         },
         {"Encoder verbose", "verbose", "verbose",
                 "\t\tSets the verbosity level of the SVT-JPEG-XS encoder.\n"
@@ -506,7 +499,7 @@ static void *jpegxs_compress_init(struct module *parent, const char *opts) {
                 color_printf("\t" TBOLD(
                         TRED("-c jpegxs") "[:bitrate=<br>|:bpp=<ratio>][:decomp_v=<0-2>][:decomp_h=<1-5>]"
                                           "[:quantization=<0-1>][:slice_height=<n>][:rc=<mode>]"
-                                          "[:threads=<num_threads>][:pool_size=<n>][:verbose=<n>]") "\n");
+                                          "[:threads=<num_threads>][:verbose=<n>]") "\n");
                 color_printf("\t" TBOLD(TRED("-c jpegxs") ":help") "\n");
 
                 color_printf("\nwhere:\n");
