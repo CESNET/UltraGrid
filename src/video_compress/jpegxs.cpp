@@ -89,7 +89,7 @@ struct state_video_compress_jpegxs {
         svt_jpeg_xs_frame_pool_t *frame_pool{};
         int pool_size = DEFAULT_POOL_SIZE;
 
-        long long req_bitrate = -1;
+        long long req_bitrate = -1; ///< if set to != -1, compute bpp from it
 
         bool configured = 0;
         bool reconfiguring = 0;
@@ -230,9 +230,26 @@ ColourFormat subsampling_to_jpegxs(int ug_subs) {
 }
 
 static void
+print_bitrate(long long bitrate, const svt_jpeg_xs_encoder_api_t *encoder)
+{
+        char buf[FORMAT_NUM_MAX_SZ];
+        MSG(INFO,
+            "using bitrate %s bps (%" PRIu32 "/%" PRIu32 " bits per pixel)\n",
+            format_number_with_delim(bitrate, buf, sizeof buf),
+            encoder->bpp_numerator, encoder->bpp_denominator);
+}
+
+static void
 set_bitrate(svt_jpeg_xs_encoder_api_t *encoder, long long req_bitrate,
             const struct video_desc *desc)
 {
+        if (req_bitrate == -1) { // bpp set, just print bitrate
+                auto bitrate = (long long) (encoder->bpp_numerator * desc->fps *
+                                            desc->width * desc->height /
+                                            encoder->bpp_denominator);
+                print_bitrate(bitrate, encoder);
+                return;
+        }
         long long numerator   = req_bitrate;
         long long denominator = desc->width * desc->height * desc->fps;
         // reduce numbers to fit uint32_t if num or den is larger
@@ -244,6 +261,7 @@ set_bitrate(svt_jpeg_xs_encoder_api_t *encoder, long long req_bitrate,
         assert(denominator > 0);
         encoder->bpp_numerator   = numerator;
         encoder->bpp_denominator = denominator;
+        print_bitrate(req_bitrate, encoder);
 }
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc)
@@ -275,9 +293,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 return false;
         }
 
-        if (s->req_bitrate != -1) {
-                set_bitrate(&s->encoder, s->req_bitrate, &desc);
-        }
+        set_bitrate(&s->encoder, s->req_bitrate, &desc);
 
         err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
