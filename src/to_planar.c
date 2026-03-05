@@ -48,8 +48,11 @@
 #include <pmmintrin.h>     // for _mm_lddqu_si128
 #endif
 
+#include "compat/c23.h"
 #include "types.h"         // for depth, v210, R12L, RGBA, UYVY, Y216
 #include "utils/macros.h"  // for OPTIMIZED_FOR, ALWAYS_INLINE
+#include "utils/misc.h"    // for get_cpu_core_count
+#include "utils/worker.h"  // for task_run_parallel
 #include "video_codec.h"   // for vc_get_linesize
 
 /**
@@ -458,4 +461,45 @@ void
 r12l_to_rgbp12le(struct to_planar_data d)
 {
         r12l_to_gbrpXXle(d, DEPTH12, 0, 1, 2);
+}
+
+struct convert_task_data {
+        decode_buffer_func_t *convert;
+        struct to_planar_data d;
+};
+
+static void *
+convert_task(void *arg)
+{
+        struct convert_task_data *d = arg;
+        d->convert(d->d);
+        return nullptr;
+}
+
+void
+decode_to_planar_parallel(decode_buffer_func_t *dec, struct to_planar_data d,
+                          int src_linesize, int num_threads)
+{
+        const unsigned cpu_count = num_threads == TO_PLANAR_THREADS_AUTO
+                                       ? get_cpu_core_count()
+                                       : num_threads;
+
+        struct convert_task_data data[cpu_count];
+        for (size_t i = 0; i < cpu_count; ++i) {
+                unsigned row_height = (d.height / cpu_count) & ~1; // needs to be even
+                data[i].convert     = dec;
+                data[i].d           = d;
+                data[i].d.in_data  = d.in_data + (i * row_height * src_linesize);
+
+                for (unsigned plane = 0; plane < countof(d.out_data); ++plane) {
+                        data[i].d.out_data[plane] =
+                            d.out_data[plane] +
+                            ((i * row_height * d.out_linesize[plane]));
+                }
+                if (i == cpu_count - 1) {
+                        row_height = d.height - (row_height * (cpu_count - 1));
+                }
+                data[i].d.height = row_height;
+        }
+        task_run_parallel(convert_task, (int) cpu_count, data, sizeof data[0], NULL);
 }

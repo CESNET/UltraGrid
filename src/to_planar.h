@@ -45,7 +45,10 @@
 extern "C" {
 #endif
 
-#define TO_PLANAR_MAX_COMP 4
+enum {
+        TO_PLANAR_THREADS_AUTO = 0,
+        TO_PLANAR_MAX_COMP     = 4,
+};
 
 struct to_planar_data {
         int width;
@@ -68,6 +71,19 @@ decode_buffer_func_t uyvy_to_i420;
 decode_buffer_func_t r12l_to_gbrp12le;
 decode_buffer_func_t r12l_to_gbrp16le;
 decode_buffer_func_t r12l_to_rgbp12le;
+
+/**
+ * run the @ref decode_buffer_func_t from packed format  in parallel
+ * @param dec         fn to run
+ * @param src_linesize source linesize (vc_get_linesize(width, in_pixfmt))
+ * @param num_threads number of threads or DECODE_TO_THREADS_AUTO to use the
+ *                    number of logical cores)
+ * @note no support for horizontal subsampling for now
+ * @sa decode_to_planar_parallel
+ */
+void decode_to_planar_parallel(decode_buffer_func_t *dec,
+                               struct to_planar_data d, int src_linesize,
+                               int num_threads);
 
 #ifdef __cplusplus
 }
