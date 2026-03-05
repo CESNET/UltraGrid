@@ -129,7 +129,8 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
                 throw 1;
         }
 
-        encoder.bpp_numerator = 3;
+        encoder.bpp_numerator = 7;
+        encoder.bpp_denominator = 10;
         encoder.verbose = VERBOSE_NONE;
         encoder.threads_num = get_cpu_core_count();
 
