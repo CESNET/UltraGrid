@@ -58,7 +58,7 @@
 #include "jpegxs/jpegxs_conv.h"
 #include "video_frame.h"                           // for video_desc_from_frame
 
-#define DEFAULT_POOL_SIZE 5
+#define DEFAULT_POOL_SIZE 2
 #define MOD_NAME "[JPEG XS enc.] "
 
 using std::shared_ptr;
