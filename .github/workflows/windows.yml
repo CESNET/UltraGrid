@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
+
+name: Windows build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  Windows:
+    name: run Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\shells\msys2bash.cmd {0}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MSYS2_PATH_TYPE: inherit
+      SDK_URL: ${{ secrets.SDK_URL }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set environment
+      run: .github/scripts/environment.sh
+    - name: Fetch SDKs ETags
+      id: etags
+      run: |
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+         https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe\
+         >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ximea\
+         "$XIMEA_DOWNLOAD_URL" >> $GITHUB_OUTPUT
+    - name: Find MSVC
+      run: .github/scripts/Windows/find_msvc.ps1
+      shell: pwsh -command ". '{0}'"
+    - name: Run actions/cache for NDI
+      id: cache-ndi
+      uses: actions/cache@main
+      with:
+        path: 'C:\ndi.exe'
+        key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
+    - name: Download NDI
+      if: steps.cache-ndi.outputs.cache-hit != 'true'
+      run: curl -f 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe'
+       -o 'C:\ndi.exe'
+    - name: Cache XIMEA
+      id: cache-macos-ximea
+      uses: actions/cache@main
+      with:
+        path: 'C:\XIMEA_API_Installer.exe'
+        key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
+    - name: Download XIMEA
+      if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
+      run: curl -f "$XIMEA_DOWNLOAD_URL" -o 'C:\XIMEA_API_Installer.exe'
+
+    - name: Run actions/cache for libajantv2 build
+      id: cache-aja
+      uses: actions/cache@main
+      with:
+        path: 'libajantv2'
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/install-common-deps.sh') }}
+    - name: Cache live555
+      id: cache-live555
+      uses: actions/cache@main
+      with:
+        path: 'live555'
+        key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/install-common-deps.sh') }}
+
+    - name: bootsrap
+      run: .github/scripts/Windows/prepare.ps1
+      shell: pwsh -command ". '{0}'"
+    - name: Run actions/cache for JACK
+      id: cache-jack
+      uses: actions/cache@main
+      with:
+        path: 'C:\Program Files\JACK2'
+        key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
+    - name: Install JACK
+      if: steps.cache-jack.outputs.cache-hit != 'true'
+      run: .github/scripts/Windows/install_jack.ps1
+      shell: pwsh -command ". '{0}'"
+    - name: bootsrap MSYS2
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
+
+    - name: Run actions/cache for Spout build
+      id: cache-spout
+      uses: actions/cache@main
+      with:
+        path: 'C:\Spout2'
+        key: cache-spout-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_spout.sh') }}
+    - name: Build Spout
+      if: steps.cache-spout.outputs.cache-hit != 'true'
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh build
+    - name: Install Spout
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
+
+    - name: Run actions/cache for CineForm build
+      id: cache-cineform
+      uses: actions/cache@main
+      with:
+        path: 'C:\cineform-sdk'
+        key: cache-cineform-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_cineform.sh') }}
+    - name: Build CineForm
+      if: steps.cache-cineform.outputs.cache-hit != 'true'
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_cineform.sh build
+    - name: Install CineForm
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_cineform.sh install
+
+    - name: configure
+      run: ./autogen.sh --prefix=/ --bindir=/ --docdir=/doc $FEATURES || { RC=$?; cat config.log; exit $RC; }
+    - name: make
+      run: make -j4
+    - name: make check
+      run: make check
+    - name: make bundle
+      run: |
+        export DESTDIR=build/UltraGrid-$VERSION-win64
+        make install
+        for exe in "$DESTDIR"/*.exe; do
+            data/scripts/get_dll_depends.sh "$exe" |
+                while read -r n; do cp "$n" "$DESTDIR"; done
+        done
+        if command -v windeployqt-qt6 >/dev/null; then
+            windeployqt-qt6 "$DESTDIR/uv-qt.exe"
+        else
+            windeployqt "$DESTDIR/uv-qt.exe"
+        fi
+        cp -r data/Windows/* "$DESTDIR"
+        data/scripts/get_dll_depends.sh\
+         "$DESTDIR/screen-capture-recorder-x64.dll" |
+            while read -r n; do cp "$n" "$DESTDIR"; done
+    - name: make dist-check
+      run: PATH= /usr/bin/make distcheck
+        TARGET=build/UltraGrid-$VERSION-win64/uv.exe
+        REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe
+        GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe
+    - name: Upload Release Asset
+      id: upload-release
+      if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
+        $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build
+    - name: Compute checksum
+      if: steps.upload-release.conclusion != 'skipped'
+      run: sha256sum build/UltraGrid-$VERSION-win64.zip
+    - name: Upload Build
+      if: steps.upload-release.conclusion == 'skipped'
+      uses: actions/upload-artifact@main
+      with:
+        name: UltraGrid-Windows
+        path: build

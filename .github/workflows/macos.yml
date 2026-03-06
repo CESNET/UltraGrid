@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
+
+name: macOS build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  macOS:
+    name: run macOS
+    strategy:
+      matrix:
+        os: [macos-15-intel, macos-14]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
+      notarytool_credentials: ${{ secrets.notarytool_credentials }}
+      apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
+      SDK_URL: ${{ secrets.SDK_URL }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set environment
+      run: . .github/scripts/environment.sh
+    - name: Fetch SDKs ETags
+      id: etags
+      run: |
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh nonfree\
+         "$SDK_URL/$DELTA_MAC_ARCHIVE" optional >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ndi\
+         https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v6_Apple.pkg\
+         >> $GITHUB_OUTPUT
+        $GITHUB_WORKSPACE/.github/scripts/get-etag.sh ximea\
+         "$XIMEA_DOWNLOAD_URL" >> $GITHUB_OUTPUT
+    - name: Run actions/cache for Non-Free SDKs
+      id: cache-macos-nonfree-sdks
+      uses: actions/cache@main
+      with:
+        path: ${{ env.SDK_NONFREE_PATH }}
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ steps.etags.outputs.nonfree }}
+    - name: Download Non-Free SDKs
+      if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
+      run: |
+        rm -rf ${{ env.SDK_NONFREE_PATH }}
+        mkdir -p ${{ env.SDK_NONFREE_PATH }}
+        cd ${{ env.SDK_NONFREE_PATH }}
+        curl -S -f "$SDK_URL/$DELTA_MAC_ARCHIVE" -o "$DELTA_MAC_ARCHIVE"
+    - name: Run actions/cache for XIMEA
+      id: cache-macos-ximea
+      uses: actions/cache@main
+      with:
+        path: /var/tmp/XIMEA_OSX_SP.dmg
+        key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
+    - name: Download XIMEA
+      if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
+      run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
+    - name: Run actions/cache for NDI
+      id: cache-ndi
+      uses: actions/cache@main
+      with:
+        path: /private/var/tmp/Install_NDI_SDK_Apple.pkg
+        key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
+    - name: Download NDI
+      if: steps.cache-ndi.outputs.cache-hit != 'true'
+      run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_\
+       NDI_SDK_v6_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg"
+    - name: bootstrap
+      run: .github/scripts/macOS/prepare.sh
+    - name: configure
+      run: "ARCH=$UG_ARCH ./autogen.sh $FEATURES || { RC=$?; cat config.log; exit $RC; }"
+    - name: make bundle
+      run: make -j4 gui-bundle
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: |
+        local_lib_list="/opt/homebrew /usr/local/lib /usr/local/opt \
+         $(xcrun --show-sdk-path)/System/Library/Frameworks"
+        for n in $local_lib_list; do if [ -d "$n" ]
+         then sudo mv -- "$n" "$n-"; fi; done # hide local libs
+        make distcheck TARGET=uv-qt.app/Contents/MacOS/uv REFLECTOR_TARGET=uv-qt.app/Contents/MacOS/hd-rum-transcode GUI_EXE=uv-qt.app/Contents/MacOS/uv-qt
+        for n in $local_lib_list; do if [ -d "$n-" ]
+         then sudo mv -- "$n-" "$n"; fi; done # return back
+    - name: sign+notarize
+      if: env.KEY_CHAIN != null
+      run: .github/scripts/macOS/sign.sh uv-qt.app
+    - name: make dmg
+      run: |
+        for n in `seq 5`; do # do more attempts
+          if make osx-gui-dmg; then break; fi
+          if [ $n -eq 5 ]; then false; fi
+          sleep $((n * 10))
+        done
+        mv UltraGrid.dmg UltraGrid-$VERSION.dmg
+    - name: Compute checksum
+      run: sha2 -256 UltraGrid-$VERSION.dmg || true
+    - name: Upload Release Asset
+      id: upload-release
+      if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
+      run: |
+        brew list jq >/dev/null 2>&1 || brew install jq
+        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20$(uname -m)%20build
+    - name: Upload Build
+      if: steps.upload-release.conclusion == 'skipped'
+      uses: actions/upload-artifact@main
+      with:
+        name: UltraGrid-${{ env.VERSION }}-macOS
+        path: UltraGrid-${{ env.VERSION }}.dmg
+
