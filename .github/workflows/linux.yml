@@ -6,6 +6,9 @@ name: Linux build
 on:
   workflow_call:
   workflow_dispatch:
+  push:
+    branches:
+      - linux-build
 
 jobs:
   Ubuntu:
