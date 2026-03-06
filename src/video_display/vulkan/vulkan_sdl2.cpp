@@ -44,11 +44,12 @@
    * * audio (would be perhaps better as an audio playback device)
    */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include <cctype>                                          // for toupper
+#include <cmath>                                           // for sqrt
+#include <cstdio>                                          // for sscanf
+#include <cstdlib>                                         // for calloc
+#include <cstring>                                         // for strchr, strcmp
+#include <map>                                             // for map
 
 #include "debug.h"
 #include "host.h"
