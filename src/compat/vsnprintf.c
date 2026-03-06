@@ -37,8 +37,10 @@
  *
  */
 
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include "config.h"
-#include "config_unix.h"
 #include "debug.h"
 #include "vsnprintf.h"
 
