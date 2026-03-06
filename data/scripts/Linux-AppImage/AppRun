@@ -1,4 +1,7 @@
 #!/bin/sh -eu
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
+#
 # shellcheck disable=SC2059 # use of $bold et al. in printf format str
 
 # defaults
@@ -162,6 +165,7 @@ handle_autoupdates() {(
                 fi
                 return
         fi
+        printf "${bold}${red}"
         printf "UltraGrid binary older than %d days, consider checking updates:\n" "$update_check_days"
         printf "\n"
         printf "%s -u\n" "$ARGV0"
@@ -173,6 +177,7 @@ handle_autoupdates() {(
         printf "\n"
         printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for daily automatic update or -1 to suppress the above message.\n"
         printf "\n"
+        printf "${reset}"
 )}
 
 debug_msg() {
