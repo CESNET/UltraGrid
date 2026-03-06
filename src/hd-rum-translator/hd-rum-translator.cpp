@@ -13,7 +13,7 @@
  *   compresses and sends frame to receiver
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,6 +103,8 @@ set_replica_mod_name(size_t buflen, char *buf, const char *addr,
         assert(len < buflen); // len >= buflen  means overflow
 }
 
+static void new_message_received(struct module *);
+
 struct replica {
     replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, int force_ip_version) {
         magic = REPLICA_MAGIC;
@@ -122,6 +124,7 @@ struct replica {
         mod.cls = MODULE_CLASS_PORT;
         set_replica_mod_name(sizeof mod.name, mod.name, addr, tx_port);
         mod.priv_data = this;
+        mod.new_message = new_message_received;
         module_register(&mod, parent);
         type = replica::type_t::NONE;
     }
@@ -535,6 +538,16 @@ static void *writer(void *arg)
     }
 
     return NULL;
+}
+
+static void
+new_message_received(struct module *m)
+{
+        auto *s = (struct hd_rum_translator_state *) m->priv_data;
+        pthread_mutex_lock(&s->qempty_mtx);
+        s->qempty = 0;
+        pthread_mutex_unlock(&s->qempty_mtx);
+        pthread_cond_signal(&s->qempty_cond);
 }
 
 static void usage(const char *progname) {
