@@ -147,74 +147,74 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
 }
 
 static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
-while (true) {
-        auto frame = s->in_queue.pop();
+        while (true) {
+                auto frame = s->in_queue.pop();
 
-        if (!frame) {
-                if (s->configured) {
-                        svt_jpeg_xs_frame_t enc_input;
-                        svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
-                        enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
-                        svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
-                        s->frames_sent++;
-                } else {
-                        unique_lock<mutex> lock(s->mtx);
-                        s->stop = true;
-                        lock.unlock();
-                        s->cv_configured.notify_one();
-                }
-                break;
-        }
-
-        if (!s->configured) {
-                struct video_desc desc = video_desc_from_frame(frame.get());
-                if (!configure_with(s, desc)) {
+                if (!frame) {
+                        if (s->configured) {
+                                svt_jpeg_xs_frame_t enc_input;
+                                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                                enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
+                                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+                                s->frames_sent++;
+                        } else {
+                                unique_lock<mutex> lock(s->mtx);
+                                s->stop = true;
+                                lock.unlock();
+                                s->cv_configured.notify_one();
+                        }
                         break;
                 }
-        }
 
-        if(!video_desc_eq_excl_param(video_desc_from_frame(frame.get()), s->saved_desc, PARAM_INTERLACING)){
-        {
-                unique_lock<mutex> lock(s->mtx);
-                s->reconfiguring = true;
-                s->cv_drained.wait(lock, [&]{
-                        return s->frames_received == s->frames_sent;
-                });
-        }
-                s->cleanup();
-                if (!configure_with(s, video_desc_from_frame(frame.get()))) {
-                        break;
+                if (!s->configured) {
+                        struct video_desc desc = video_desc_from_frame(frame.get());
+                        if (!configure_with(s, desc)) {
+                                break;
+                        }
                 }
-        {
-                unique_lock<mutex> lock(s->mtx);
-                s->reconfiguring = false;
-                s->frames_sent = 0;
-                s->frames_received = 0;
-                s->cv_reconfiguring.notify_one();
-        }
-        }
 
-        svt_jpeg_xs_frame_t enc_input;
-        SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
-        if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
-                continue;
-        }
+                if(!video_desc_eq_excl_param(video_desc_from_frame(frame.get()), s->saved_desc, PARAM_INTERLACING)){
+                        {
+                                unique_lock<mutex> lock(s->mtx);
+                                s->reconfiguring = true;
+                                s->cv_drained.wait(lock, [&]{
+                                        return s->frames_received == s->frames_sent;
+                                });
+                        }
+                        s->cleanup();
+                        if (!configure_with(s, video_desc_from_frame(frame.get()))) {
+                                break;
+                        }
+                        {
+                                unique_lock<mutex> lock(s->mtx);
+                                s->reconfiguring = false;
+                                s->frames_sent = 0;
+                                s->frames_received = 0;
+                                s->cv_reconfiguring.notify_one();
+                        }
+                }
 
-        enc_input.user_prv_ctx_ptr = malloc(VF_METADATA_SIZE);
-        vf_store_metadata(frame.get(), enc_input.user_prv_ctx_ptr);
+                svt_jpeg_xs_frame_t enc_input;
+                SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                if (err != SvtJxsErrorNone) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
+                        continue;
+                }
+
+                enc_input.user_prv_ctx_ptr = malloc(VF_METADATA_SIZE);
+                vf_store_metadata(frame.get(), enc_input.user_prv_ctx_ptr);
         
-        struct tile *in_tile = vf_get_tile(frame.get(), 0);
-        s->convert_to_planar((const uint8_t *) in_tile->data, in_tile->width, in_tile->height, &enc_input.image);
+                struct tile *in_tile = vf_get_tile(frame.get(), 0);
+                s->convert_to_planar((const uint8_t *) in_tile->data, in_tile->width, in_tile->height, &enc_input.image);
 
-        err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
-        if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder, error code: %x\n", err);
-                continue;
+                err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+                if (err != SvtJxsErrorNone) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder, error code: %x\n", err);
+                        continue;
+                }
+
+                s->frames_sent++;
         }
-
-        s->frames_sent++;
-}
 }
 
 ColourFormat subsampling_to_jpegxs(int ug_subs) {
@@ -307,10 +307,10 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
         s->pool.reconfigure(compressed_desc, bitstream_size); 
-{
-        unique_lock<mutex> lock(s->mtx);
-        s->configured = true;
-}
+        {
+                unique_lock<mutex> lock(s->mtx);
+                s->configured = true;
+        }
         s->cv_configured.notify_one();
 
         return true;
