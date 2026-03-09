@@ -95,8 +95,6 @@ struct state_video_compress_jpegxs {
         bool reconfiguring = 0;
         bool stop = false;
 
-        video_desc saved_desc;
-
         video_frame_pool pool;
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer *dst) = nullptr;
@@ -147,6 +145,8 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
 }
 
 static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
+        struct video_desc saved_desc{};
+
         while (true) {
                 auto frame = s->in_queue.pop();
 
@@ -165,16 +165,10 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                         }
                         break;
                 }
-
-                if (!s->configured) {
-                        struct video_desc desc = video_desc_from_frame(frame.get());
-                        if (!configure_with(s, desc)) {
-                                break;
-                        }
-                }
-
-                if(!video_desc_eq_excl_param(video_desc_from_frame(frame.get()), s->saved_desc, PARAM_INTERLACING)){
-                        {
+                
+                struct video_desc desc = video_desc_from_frame(frame.get());
+                if (!video_desc_eq_excl_param(desc, saved_desc, PARAM_INTERLACING)) {
+                        if (s->configured) {
                                 unique_lock<mutex> lock(s->mtx);
                                 s->reconfiguring = true;
                                 s->cv_drained.wait(lock, [&]{
@@ -182,16 +176,14 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                                 });
                         }
                         s->cleanup();
-                        if (!configure_with(s, video_desc_from_frame(frame.get()))) {
+                        if (!configure_with(s, desc)) {
                                 break;
                         }
-                        {
-                                unique_lock<mutex> lock(s->mtx);
-                                s->reconfiguring = false;
-                                s->frames_sent = 0;
-                                s->frames_received = 0;
-                                s->cv_reconfiguring.notify_one();
-                        }
+                        saved_desc = desc;
+                        unique_lock<mutex> lock(s->mtx);
+                        s->reconfiguring = false;
+                        lock.unlock();
+                        s->cv_reconfiguring.notify_one();
                 }
 
                 svt_jpeg_xs_frame_t enc_input;
@@ -304,7 +296,6 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 return false;
         }
 
-        s->saved_desc = desc;
         struct video_desc compressed_desc;
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
@@ -321,10 +312,14 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 void state_video_compress_jpegxs::cleanup() {
         if (frame_pool) {
                 svt_jpeg_xs_frame_pool_free(frame_pool);
+                frame_pool = nullptr;
         }
         if (configured) {
                 svt_jpeg_xs_encoder_close(&encoder);
+                configured = false;
         }
+        frames_sent = 0;
+        frames_received = 0;
 }
 
 static bool
