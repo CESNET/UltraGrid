@@ -66,13 +66,14 @@ using std::condition_variable;
 using std::mutex;
 using std::thread;
 using std::unique_lock;
-using std::atomic;
 
 namespace {
 struct state_video_compress_jpegxs;
 
 int jxs_poison_pill_obj = 0;
 #define JXS_POISON_PILL ((void *) &jxs_poison_pill_obj)
+int jxs_reconfigure_obj = 0;
+#define JXS_RECONFIGURE ((void *) &jxs_reconfigure_obj)
 
 struct state_video_compress_jpegxs {
         state_video_compress_jpegxs(struct module *parent, const char *opts);
@@ -91,9 +92,8 @@ struct state_video_compress_jpegxs {
 
         long long req_bitrate = -1; ///< if set to != -1, compute bpp from it
 
-        bool configured = 0;
-        bool reconfiguring = 0;
-        bool stop = false;
+        bool configured_consumer = false;
+        bool stop_consumer = false;
 
         video_frame_pool pool;
 
@@ -107,12 +107,8 @@ struct state_video_compress_jpegxs {
         thread worker_send;
 
         mutex mtx;
-        condition_variable cv_configured;
+        condition_variable cv_configured_consumer;
         condition_variable cv_drained;
-        condition_variable cv_reconfiguring;
-
-        atomic<uint64_t> frames_sent{0};
-        atomic<uint64_t> frames_received{0};
 };
 
 static bool configure_with(struct state_video_compress_jpegxs *s, struct video_desc desc);
@@ -151,28 +147,35 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                 auto frame = s->in_queue.pop();
 
                 if (!frame) {
-                        if (s->configured) {
+                        unique_lock<mutex> lock(s->mtx);
+                        if (s->configured_consumer) {
+                                lock.unlock();
                                 svt_jpeg_xs_frame_t enc_input;
                                 svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
                                 enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
                                 svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
-                                s->frames_sent++;
                         } else {
-                                unique_lock<mutex> lock(s->mtx);
-                                s->stop = true;
+                                s->stop_consumer = true;
                                 lock.unlock();
-                                s->cv_configured.notify_one();
+                                s->cv_configured_consumer.notify_one();
                         }
                         break;
                 }
                 
                 struct video_desc desc = video_desc_from_frame(frame.get());
                 if (!video_desc_eq_excl_param(desc, saved_desc, PARAM_INTERLACING)) {
-                        if (s->configured) {
+                        s->mtx.lock();
+                        bool configured_consumer = s->configured_consumer;
+                        s->mtx.unlock();
+                        if (configured_consumer) { // deconnfigure the consumer
+                                svt_jpeg_xs_frame_t enc_input;
+                                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                                enc_input.user_prv_ctx_ptr = JXS_RECONFIGURE;
+                                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+
                                 unique_lock<mutex> lock(s->mtx);
-                                s->reconfiguring = true;
                                 s->cv_drained.wait(lock, [&]{
-                                        return s->frames_received == s->frames_sent;
+                                        return !s->configured_consumer;
                                 });
                         }
                         s->cleanup();
@@ -181,9 +184,9 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                         }
                         saved_desc = desc;
                         unique_lock<mutex> lock(s->mtx);
-                        s->reconfiguring = false;
+                        s->configured_consumer = true;
                         lock.unlock();
-                        s->cv_reconfiguring.notify_one();
+                        s->cv_configured_consumer.notify_one();
                 }
 
                 svt_jpeg_xs_frame_t enc_input;
@@ -206,8 +209,6 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                         svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_input);
                         continue;
                 }
-
-                s->frames_sent++;
         }
 }
 
@@ -300,26 +301,15 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
         s->pool.reconfigure(compressed_desc, bitstream_size); 
-        {
-                unique_lock<mutex> lock(s->mtx);
-                s->configured = true;
-        }
-        s->cv_configured.notify_one();
-
+ 
         return true;
 }
 
 void state_video_compress_jpegxs::cleanup() {
-        if (frame_pool) {
-                svt_jpeg_xs_frame_pool_free(frame_pool);
-                frame_pool = nullptr;
-        }
-        if (configured) {
-                svt_jpeg_xs_encoder_close(&encoder);
-                configured = false;
-        }
-        frames_sent = 0;
-        frames_received = 0;
+        svt_jpeg_xs_frame_pool_free(frame_pool);
+        frame_pool = nullptr;
+        svt_jpeg_xs_encoder_close(&encoder);
+        encoder.private_ptr = nullptr;
 }
 
 static bool
@@ -525,16 +515,12 @@ jpegxs_compress_pop(void *state)
         auto *s = static_cast<struct state_video_compress_jpegxs *>(state);
         {
                 unique_lock<mutex> lock(s->mtx);
-                s->cv_configured.wait(lock,
-                                      [&] { return s->configured || s->stop; });
+                s->cv_configured_consumer.wait(lock, [&] {
+                        return s->configured_consumer || s->stop_consumer;
+                });
 
-                if (s->stop) {
+                if (s->stop_consumer) {
                         return {};
-                }
-                if (s->reconfiguring && s->frames_received == s->frames_sent) {
-                        s->cv_drained.notify_one();
-                        s->cv_reconfiguring.wait(
-                            lock, [&] { return !s->reconfiguring; });
                 }
         }
         svt_jpeg_xs_frame_t enc_output;
@@ -550,7 +536,14 @@ jpegxs_compress_pop(void *state)
                 svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
                 return {};
         }
-        s->frames_received++;
+        if (enc_output.user_prv_ctx_ptr == JXS_RECONFIGURE) {
+                svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
+                unique_lock<mutex> lock(s->mtx);
+                s->configured_consumer = false;
+                lock.unlock();
+                s->cv_drained.notify_one();
+                return vcomp_pop_retry;
+        }
 
         shared_ptr<video_frame> out_frame = s->pool.get_frame();
 
