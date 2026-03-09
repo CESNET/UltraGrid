@@ -146,25 +146,10 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
         while (true) {
                 auto frame = s->in_queue.pop();
 
-                if (!frame) { // poison pill received
-                        unique_lock<mutex> lock(s->mtx);
-                        if (s->configured_consumer) { // pass it further
-                                lock.unlock();
-                                svt_jpeg_xs_frame_t enc_input;
-                                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
-                                enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
-                                SvtJxsErrorType_t err = svt_jpeg_xs_encoder_send_picture(
-                                        &s->encoder, &enc_input,
-                                        /*blocking*/ 1);
-                                assert(err == SvtJxsErrorNone);
-                        } else { // the encoder has not bee configured yet
-                                s->stop_consumer = true;
-                                lock.unlock();
-                                s->cv_configured_consumer.notify_one();
-                        }
+                if (!frame) {  // poison pill received - process after the loop
                         break;
                 }
-                
+
                 struct video_desc desc = video_desc_from_frame(frame.get());
                 if (!video_desc_eq_excl_param(desc, saved_desc, PARAM_INTERLACING)) {
                         s->mtx.lock();
@@ -215,6 +200,23 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                         svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_input);
                         continue;
                 }
+        }
+
+        // process poison pill
+        unique_lock<mutex> lock(s->mtx);
+        if (s->configured_consumer) { // pass it further
+                lock.unlock();
+                svt_jpeg_xs_frame_t enc_input;
+                svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
+                enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
+                SvtJxsErrorType_t err = svt_jpeg_xs_encoder_send_picture(
+                        &s->encoder, &enc_input,
+                        /*blocking*/ 1);
+                assert(err == SvtJxsErrorNone);
+        } else { // the encoder has not bee configured yet
+                s->stop_consumer = true;
+                lock.unlock();
+                s->cv_configured_consumer.notify_one();
         }
 }
 
