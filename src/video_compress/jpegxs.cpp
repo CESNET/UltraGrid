@@ -281,7 +281,9 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 
         SvtJxsErrorType_t err = SvtJxsErrorNone;
         uint32_t bitstream_size = 0;
-        
+
+        set_bitrate(&s->encoder, s->req_bitrate, &desc);
+
         err = svt_jpeg_xs_encoder_get_image_config(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder, &s->image_config, &bitstream_size);
         if (err != SvtJxsErrorNone) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get image config from JPEG XS encoder parameters: %x\n", err);
@@ -293,8 +295,6 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
                 return false;
         }
-
-        set_bitrate(&s->encoder, s->req_bitrate, &desc);
 
         err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
