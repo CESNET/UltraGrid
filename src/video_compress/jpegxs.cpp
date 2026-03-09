@@ -125,7 +125,7 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
 
         SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &encoder);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to load JPEG XS default parameters, error code: %x\n", err);
+                print_svt_jxs_error(err, "Failed to load JPEG XS default parameters");
                 throw 1;
         }
 
@@ -197,7 +197,7 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                 svt_jpeg_xs_frame_t enc_input;
                 SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
                 if (err != SvtJxsErrorNone) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
+                        print_svt_jxs_error(err, "Failed to get frame from JPEG XS pool");
                         continue;
                 }
 
@@ -209,7 +209,7 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
 
                 err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
                 if (err != SvtJxsErrorNone) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to encoder, error code: %x\n", err);
+                        print_svt_jxs_error(err, "Failed to send frame to encoder");
                         continue;
                 }
 
@@ -286,7 +286,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 
         err = svt_jpeg_xs_encoder_get_image_config(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder, &s->image_config, &bitstream_size);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get image config from JPEG XS encoder parameters: %x\n", err);
+                print_svt_jxs_error(err, "Failed to get image config from JPEG XS encoder parameters");
                 return false;
         }
 
@@ -298,7 +298,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
 
         err = svt_jpeg_xs_encoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->encoder);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS encoder: %x\n", err);
+                print_svt_jxs_error(err, "Failed to initialize JPEG XS encoder");
                 return false;
         }
 
@@ -544,8 +544,7 @@ jpegxs_compress_pop(void *state)
         SvtJxsErrorType_t   err = svt_jpeg_xs_encoder_get_packet(
             &s->encoder, &enc_output, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
-                MSG(ERROR, "Failed to get encoded packet, error code: %x\n",
-                    err);
+                print_svt_jxs_error(err, "Failed to get encoded packet");
                 free(enc_output.user_prv_ctx_ptr);
                 svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_output);
                 return vcomp_pop_retry;

@@ -54,6 +54,8 @@ struct uv_to_jpegxs_conversion {
 
 const struct uv_to_jpegxs_conversion *get_uv_to_jpegxs_conversion(codec_t codec);
 
+void print_svt_jxs_error(SvtJxsErrorType_t err, const char *msg);
+
 #ifdef __cplusplus
 }
 #endif

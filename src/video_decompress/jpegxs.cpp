@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "from_planar.h"                           // for rgbp12le_to_r12l
+#include "jpegxs/jpegxs_conv.h"                    // for print_svt_jxs_error
 #include "types.h"
 #include "utils/debug.h"                           // for DEBUG_TIMER_*
 #include "utils/misc.h"                            // for get_cpu_core_count
@@ -165,13 +166,13 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
 
         SvtJxsErrorType_t err = svt_jpeg_xs_decoder_init(SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &s->decoder, bitstream_buffer, codestream_size, &s->image_config);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to initialize JPEG XS decoder\n");
+                print_svt_jxs_error(err, "Failed to initialize JPEG XS decoder");
                 return false;
         }
 
         s->frame_pool = svt_jpeg_xs_frame_pool_alloc(&s->image_config, 0, 1);
         if (!s->frame_pool) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate JPEG XS frame pool\n");
+                print_svt_jxs_error(err, "Failed to allocate JPEG XS frame pool");
                 return false;
         }
         s->convert_from_planar = get_jpegxs_to_uv_conversion(s->out_codec, get_jxs_subsampling_to_ug(s->image_config.format));
@@ -225,7 +226,7 @@ static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpe
         uint32_t size;
         SvtJxsErrorType_t err = svt_jpeg_xs_decoder_get_single_frame_size(buffer, buffer_size, &s->image_config, &size, 0);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get frame size from bitstream, error code: %x\n", err);
+                print_svt_jxs_error(err, "Failed to get frame size from bitstream");
                 return DECODER_NO_FRAME;
         }
         assert(buffer_size == size);
@@ -277,7 +278,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         svt_jpeg_xs_frame_t dec_input;
         SvtJxsErrorType_t err = svt_jpeg_xs_frame_pool_get(s->frame_pool, &dec_input, /*blocking*/ 1);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to get frame from JPEG XS pool, error code: %x\n", err);
+                print_svt_jxs_error(err, "Failed to get frame from JPEG XS pool");
                 return DECODER_NO_FRAME;
         }
         dec_input.bitstream = bitstream;
@@ -285,7 +286,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         DEBUG_TIMER_START(jpegxs_decompress);
         err = svt_jpeg_xs_decoder_send_frame(&s->decoder, &dec_input, 1 /*blocking*/);
         if (err != SvtJxsErrorNone) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to send frame to decoder, error code: %x\n", err);
+                print_svt_jxs_error(err, "Failed to send frame to decoder");
                 return DECODER_NO_FRAME;
         }
 
@@ -293,7 +294,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         err = svt_jpeg_xs_decoder_get_frame(&s->decoder, &dec_output, 1 /*blocking*/);
         if (err != SvtJxsErrorNone) {
                 svt_jpeg_xs_frame_pool_release(s->frame_pool, &dec_output);
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded packet, error code: %x\n", err);
+                print_svt_jxs_error(err, "Failed to get encoded packet");
                 return DECODER_NO_FRAME;
         }
         DEBUG_TIMER_STOP(jpegxs_decompress);

@@ -38,12 +38,14 @@
 #include <inttypes.h>               // for uint8_t, uint16_t
 #include <svt-jpegxs/SvtJpegxs.h>
 #include <string.h>
-#include <stdio.h>
 
+#include "debug.h"                 // for ERR_MSG
 #include "jpegxs_conv.h"
 #include "to_planar.h"             // for r12l_to_rgbp12le
 #include "types.h"
 #include "video_codec.h"
+
+#define MOD_NAME "[SVT-JPEG-XS] "
 
 static void uyvy_to_yuv422p(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
 
@@ -213,4 +215,41 @@ const struct uv_to_jpegxs_conversion *get_uv_to_jpegxs_conversion(codec_t codec)
         }
 
         return NULL;
+}
+
+/**
+ * @param msg message to be shown (without '\n')
+ */
+void
+print_svt_jxs_error(SvtJxsErrorType_t err, const char *msg)
+{
+        const char *err_msg = "(UNKNOWN SVT JXS error)";
+        switch (err) {
+#define case_err(x) case x: err_msg = #x; break
+        case_err(SvtJxsErrorNone);
+        case_err(SvtJxsErrorInvalidApiVersion);
+        case_err(SvtJxsErrorCorrupt_Frame);
+        case_err(SvtJxsErrorInsufficientResources);
+        case_err(SvtJxsErrorUndefined);
+        case_err(SvtJxsErrorInvalidComponent);
+        case_err(SvtJxsErrorBadParameter);
+        case_err(SvtJxsErrorDestroyThreadFailed);
+        case_err(SvtJxsErrorSemaphoreUnresponsive);
+        case_err(SvtJxsErrorDestroySemaphoreFailed);
+        case_err(SvtJxsErrorCreateMutexFailed);
+        case_err(SvtJxsErrorMutexUnresponsive);
+        case_err(SvtJxsErrorDestroyMutexFailed);
+        case_err(SvtJxsErrorNoErrorEmptyQueue);
+        case_err(SvtJxsErrorNoErrorFifoShutdown);
+        case_err(SvtJxsErrorEncodeFrameError);
+        case_err(SvtJxsErrorDecoderInvalidPointer);
+        case_err(SvtJxsErrorDecoderInvalidBitstream);
+        case_err(SvtJxsErrorDecoderInternal);
+        case_err(SvtJxsErrorDecoderBitstreamTooShort);
+        case_err(SvtJxsErrorDecoderConfigChange);
+        case_err(SvtJxsDecoderEndOfCodestream);
+        case_err(SvtJxsErrorMax);
+#undef case_err
+        }
+        MSG(ERROR, "%s: 0x%08x (%s)\n", msg, err, err_msg);
 }
