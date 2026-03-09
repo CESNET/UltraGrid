@@ -146,15 +146,18 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
         while (true) {
                 auto frame = s->in_queue.pop();
 
-                if (!frame) {
+                if (!frame) { // poison pill received
                         unique_lock<mutex> lock(s->mtx);
-                        if (s->configured_consumer) {
+                        if (s->configured_consumer) { // pass it further
                                 lock.unlock();
                                 svt_jpeg_xs_frame_t enc_input;
                                 svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
                                 enc_input.user_prv_ctx_ptr = JXS_POISON_PILL;
-                                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
-                        } else {
+                                SvtJxsErrorType_t err = svt_jpeg_xs_encoder_send_picture(
+                                        &s->encoder, &enc_input,
+                                        /*blocking*/ 1);
+                                assert(err == SvtJxsErrorNone);
+                        } else { // the encoder has not bee configured yet
                                 s->stop_consumer = true;
                                 lock.unlock();
                                 s->cv_configured_consumer.notify_one();
@@ -171,7 +174,10 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                                 svt_jpeg_xs_frame_t enc_input;
                                 svt_jpeg_xs_frame_pool_get(s->frame_pool, &enc_input, /*blocking*/ 1);
                                 enc_input.user_prv_ctx_ptr = JXS_RECONFIGURE;
-                                svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
+                                SvtJxsErrorType_t err = svt_jpeg_xs_encoder_send_picture(
+                                        &s->encoder, &enc_input,
+                                        /*blocking*/ 1);
+                                assert(err == SvtJxsErrorNone);
 
                                 unique_lock<mutex> lock(s->mtx);
                                 s->cv_drained.wait(lock, [&]{
@@ -180,7 +186,7 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                         }
                         s->cleanup();
                         if (!configure_with(s, desc)) {
-                                break;
+                                continue;
                         }
                         saved_desc = desc;
                         unique_lock<mutex> lock(s->mtx);
@@ -233,6 +239,14 @@ print_bitrate(long long bitrate, const svt_jpeg_xs_encoder_api_t *encoder)
             "using bitrate %s bps (%" PRIu32 "/%" PRIu32 " bits per pixel)\n",
             format_number_with_delim(bitrate, buf, sizeof buf),
             encoder->bpp_numerator, encoder->bpp_denominator);
+
+        if (bitrate < 7500 * 1000) {
+                MSG(WARNING,
+                    "Bitrate set to %s bps. Low bit rates (like below 7.5 "
+                    "Mbps) "
+                    "seem to cause problems to the encoder...\n",
+                    format_number_with_delim(bitrate, buf, sizeof buf));
+        }
 }
 
 static void
@@ -297,8 +311,7 @@ static bool configure_with(struct state_video_compress_jpegxs *s, struct video_d
                 return false;
         }
 
-        struct video_desc compressed_desc;
-        compressed_desc = desc;
+        struct video_desc compressed_desc = desc;
         compressed_desc.color_spec = JPEG_XS;
         s->pool.reconfigure(compressed_desc, bitstream_size); 
  
