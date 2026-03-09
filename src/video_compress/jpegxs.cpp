@@ -330,7 +330,8 @@ parse_bpp(const char *val, svt_jpeg_xs_encoder_api_t *encoder)
 {
         double num = 0;
         int den = 1;
-        if (sscanf(val, "%lf/%d", &num, &den) < 1 || num <= 0 || den <= 0) {
+        const int scan_count = sscanf(val, "%lf/%d", &num, &den);
+        if (strspn(val, "0123456789/") != strlen(val) || scan_count < 1 || num <= 0 || den <= 0) {
                 MSG(ERROR,
                     "Invalid bpp value '%s' (must be a positive number or a "
                     "fraction, e.g., 2, 0.5 or 3/4).\n",
@@ -356,9 +357,10 @@ bool state_video_compress_jpegxs::parse_fmt(char *fmt) {
                         val += 1;
                         num = atoi(val);
                 }
+                const char *endptr = nullptr;
                 if (IS_KEY_PREFIX(tok, "bitrate")) {
-                        req_bitrate = unit_evaluate(val, nullptr);
-                        if (req_bitrate == LLONG_MIN) {
+                        req_bitrate = unit_evaluate(val, &endptr);
+                        if (req_bitrate == LLONG_MIN || *endptr != '\0') {
                                 MSG(ERROR, "Invalid value for bitrate: %s\n", val);
                                  return false;
                         }
