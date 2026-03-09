@@ -210,6 +210,8 @@ static void jpegxs_worker_send(state_video_compress_jpegxs *s) {
                 err = svt_jpeg_xs_encoder_send_picture(&s->encoder, &enc_input, /*blocking*/ 1);
                 if (err != SvtJxsErrorNone) {
                         print_svt_jxs_error(err, "Failed to send frame to encoder");
+                        free(enc_input.user_prv_ctx_ptr);
+                        svt_jpeg_xs_frame_pool_release(s->frame_pool, &enc_input);
                         continue;
                 }
 
