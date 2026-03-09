@@ -129,8 +129,8 @@ state_video_compress_jpegxs::state_video_compress_jpegxs(struct module *parent, 
                 throw 1;
         }
 
-        encoder.bpp_numerator = 7;
-        encoder.bpp_denominator = 10;
+        encoder.bpp_numerator = 3;
+        encoder.bpp_denominator = 2;
         encoder.verbose = VERBOSE_NONE;
         encoder.threads_num = get_cpu_core_count();
 
@@ -333,7 +333,7 @@ parse_bpp(const char *val, svt_jpeg_xs_encoder_api_t *encoder)
         double num = 0;
         int den = 1;
         const int scan_count = sscanf(val, "%lf/%d", &num, &den);
-        if (strspn(val, "0123456789/") != strlen(val) || scan_count < 1 || num <= 0 || den <= 0) {
+        if (strspn(val, "0123456789/.") != strlen(val) || scan_count < 1 || num <= 0 || den <= 0) {
                 MSG(ERROR,
                     "Invalid bpp value '%s' (must be a positive number or a "
                     "fraction, e.g., 2, 0.5 or 3/4).\n",
