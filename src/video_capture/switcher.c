@@ -223,24 +223,27 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
-                if (vidcap_params_get_flags(tmp) == 0 && vidcap_params_get_flags(params) != 0) {
-                        vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
-                }
-
-                if (!s->excl_init || i == s->selected_device) {
-                        int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
-                        if(ret != 0) {
-                                MSG(ERROR,
-                                    "Unable to initialize device %d (%s:%s).\n",
-                                    i, vidcap_params_get_driver(tmp),
-                                    vidcap_params_get_fmt(tmp));
-                                goto error;
-                        }
-                }
                 snprintf(s->device_names[i], sizeof s->device_names[i],
                          "%s%s%s", vidcap_params_get_driver(tmp),
                          strlen(vidcap_params_get_fmt(tmp)) > 0 ? ":" : "",
                          vidcap_params_get_fmt(tmp));
+
+                if (s->excl_init && i != s->selected_device) {
+                        continue;
+                }
+
+                if (vidcap_params_get_flags(tmp) == 0 && vidcap_params_get_flags(params) != 0) {
+                        vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
+                }
+
+                int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
+                if(ret != 0) {
+                        MSG(ERROR,
+                            "Unable to initialize device %d (%s:%s).\n",
+                            i, vidcap_params_get_driver(tmp),
+                            vidcap_params_get_fmt(tmp));
+                        goto error;
+                }
         }
 
         s->params = params;
