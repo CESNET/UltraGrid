@@ -270,7 +270,7 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
                 }
         }
 
-        svt_jpeg_xs_bitstream_buffer_t bitstream;
+        svt_jpeg_xs_bitstream_buffer_t bitstream{};
         bitstream.buffer = buffer;
         bitstream.used_size = src_len;
         bitstream.allocation_size = src_len;
