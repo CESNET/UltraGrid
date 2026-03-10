@@ -129,10 +129,5 @@ private:
         std::atomic<codec_t> m_input_codec{};
 };
 
-class video_rxtx_loader {
-public:
-        video_rxtx_loader();
-};
-
 #endif // VIDEO_RXTX_H_
 
