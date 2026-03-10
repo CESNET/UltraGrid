@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,6 @@
 #include "module.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/splashscreen.h"
 
 #include "opengl_utils.hpp"
 #include "opengl_panorama.hpp"
@@ -65,11 +64,11 @@ struct state_vr{
         bool running = false;
         bool fs = false;
 
-        unsigned sdl_frame_event;
-        unsigned sdl_redraw_event;
+        unsigned sdl_frame_event{};
+        unsigned sdl_redraw_event{};
 
-        video_desc current_desc;
-        int buffered_frames_count;
+        video_desc current_desc{};
+        int buffered_frames_count{};
 
         PanoramaScene scene;
 
@@ -85,11 +84,8 @@ struct state_vr{
         std::queue<video_frame *> free_frame_queue;
 };
 
-static void * display_panogl_init(struct module *parent, const char *fmt, unsigned int flags) {
-        UNUSED(parent);
-        UNUSED(fmt);
-        UNUSED(flags);
-        state_vr *s = new state_vr();
+static void * display_panogl_init(module */*parent*/, const char */*fmt*/, unsigned int /*flags*/) {
+        auto *s = new state_vr();
         s->sdl_frame_event = SDL_RegisterEvents(1);
         s->sdl_redraw_event = SDL_RegisterEvents(1);
 
@@ -182,7 +178,7 @@ static void handle_user_event(state_vr *s, SDL_Event *event){
                 lk.unlock();
                 s->frame_consumed_cv.notify_one();
 
-                video_frame *frame = static_cast<video_frame *>(event->user.data1);
+                auto *frame = static_cast<video_frame *>(event->user.data1);
 
                 if(frame){
                         s->scene.put_frame(frame);
@@ -209,7 +205,7 @@ static void handle_user_event(state_vr *s, SDL_Event *event){
 }
 
 static void display_panogl_run(void *state) {
-        state_vr *s = static_cast<state_vr *>(state);
+        auto *s = static_cast<state_vr *>(state);
 
         draw(s);
 
@@ -251,18 +247,18 @@ static void display_panogl_run(void *state) {
 }
 
 static void display_panogl_done(void *state) {
-        state_vr *s = static_cast<state_vr *>(state);
+        auto *s = static_cast<state_vr *>(state);
 
         delete s;
 }
 
 static struct video_frame * display_panogl_getf(void *state) {
-        struct state_vr *s = static_cast<state_vr *>(state);
+        auto *s = static_cast<state_vr *>(state);
 
         std::lock_guard<std::mutex> lock(s->lock);
 
-        while (s->free_frame_queue.size() > 0) {
-                struct video_frame *buffer = s->free_frame_queue.front();
+        while (!s->free_frame_queue.empty()) {
+                video_frame *buffer = s->free_frame_queue.front();
                 s->free_frame_queue.pop();
                 if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
                         return buffer;
@@ -276,7 +272,7 @@ static struct video_frame * display_panogl_getf(void *state) {
 
 static bool display_panogl_putf(void *state, struct video_frame *frame, long long nonblock) {
         PROFILE_FUNC;
-        struct state_vr *s = static_cast<state_vr *>(state);
+        auto *s = static_cast<state_vr *>(state);
 
         if (nonblock == PUTF_DISCARD) {
                 vf_free(frame);
@@ -285,7 +281,7 @@ static bool display_panogl_putf(void *state, struct video_frame *frame, long lon
 
         std::unique_lock<std::mutex> lk(s->lock);
         if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock != PUTF_BLOCKING
-                        && frame != NULL) {
+                        && frame != nullptr) {
                 vf_free(frame);
                 printf("1 frame(s) dropped!\n");
                 return false;
@@ -303,15 +299,15 @@ static bool display_panogl_putf(void *state, struct video_frame *frame, long lon
 }
 
 static bool display_panogl_reconfigure(void *state, struct video_desc desc) {
-        state_vr *s = static_cast<state_vr *>(state);
+        auto *s = static_cast<state_vr *>(state);
 
         s->current_desc = desc;
         return true;
 }
 
 static bool display_panogl_get_property(void *state, int property, void *val, size_t *len) {
-        struct state_vr *s = static_cast<state_vr *>(state);
-        enum interlacing_t supported_il_modes[] = {PROGRESSIVE};
+        auto *s = static_cast<state_vr *>(state);
+        interlacing_t supported_il_modes[] = {PROGRESSIVE};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
@@ -355,7 +351,7 @@ static bool display_panogl_get_property(void *state, int property, void *val, si
 static void display_panogl_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
         *count = 1;
-        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        *available_cards = static_cast<device_info *>(calloc(1, sizeof(device_info)));
         strcpy((*available_cards)[0].dev, "");
         strcpy((*available_cards)[0].name, "Panorama Gl SW display");
         (*available_cards)[0].repeatable = true;
@@ -370,8 +366,8 @@ static const struct video_display_info display_panogl_info = {
         display_panogl_putf,
         display_panogl_reconfigure,
         display_panogl_get_property,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
         MOD_NAME,
 };
 
