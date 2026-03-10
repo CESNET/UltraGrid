@@ -197,7 +197,7 @@ static void cleanup(struct state_video_compress_libav *s);
 
 const char *get_vp9_encoder(bool /* rgb */) {
 #ifdef __x86_64__
-        return __builtin_cpu_supports("avx2") ? nullptr : "libaom-av1";
+        return __builtin_cpu_supports("avx2") ? nullptr : "libvpx-vp9";
 #else
         return nullptr;
 #endif

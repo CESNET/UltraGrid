@@ -1,3 +1,8 @@
+#### 1.10.4
+
+* fix default VP9 on x86-64 pre v3 (wo AVX2). But the libvpx-vp9
+  seem to be better encoder than libsvt_vp9 in any case.
+
 #### 1.10.3
 
 * screen_avf: fix swapped name/dev in probe (for GUI)
