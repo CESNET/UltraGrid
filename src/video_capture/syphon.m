@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -442,7 +442,7 @@ static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **ou
         return VIDCAP_INIT_OK;
 }
 
-static int vidcap_syphon_init(struct vidcap_params *params, void **state)
+static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
 {
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;

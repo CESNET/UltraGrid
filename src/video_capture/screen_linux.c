@@ -5,7 +5,7 @@
  * X11/PipeWire screen capture abstraction
  */
 /*
- * Copyright (c) 2023-2025 CESNET
+ * Copyright (c) 2023-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@ static void vidcap_screen_linux_probe(struct device_info **cards, int *count, vo
 }
 
 static int
-vidcap_screen_linux_init(struct vidcap_params *params, void **state)
+vidcap_screen_linux_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap *device = NULL;
 

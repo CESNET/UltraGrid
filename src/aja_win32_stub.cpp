@@ -6,7 +6,7 @@
  * would be otherwise referenced directly (audio_capture_channels).
  */
 /*
- * Copyright (c) 2017-2023 CESNET z.s.p.o.
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,14 +43,14 @@
 #include "video_display.h"
 
 extern "C" {
-__declspec(dllimport) int vidcap_aja_init(struct vidcap_params *params, void **state);
+__declspec(dllimport) int vidcap_aja_init(const struct vidcap_params *params, void **state);
 __declspec(dllimport) void vidcap_aja_done(void *state);
 __declspec(dllimport) struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
 __declspec(dllimport) void vidcap_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *));
 __declspec(dllimport) unsigned int *aja_audio_capture_channels;
 }
 
-static int vidcap_aja_init_proxy(struct vidcap_params *params, void **state) {
+static int vidcap_aja_init_proxy(const struct vidcap_params *params, void **state) {
         aja_audio_capture_channels = &audio_capture_channels;
         return vidcap_aja_init(params, state);
 }

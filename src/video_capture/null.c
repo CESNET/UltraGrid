@@ -6,7 +6,7 @@
  * hardware or do not wish to transmit. This fits the interface of the other
  * capture devices, but never produces any video.
  *
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právických osob
  * Copyright (c) 2004 University of Glasgow
  * Copyright (c) 2003 University of Southern California
  *
@@ -62,7 +62,7 @@ struct vidcap_params;
 
 static int capture_state = 0;
 
-static int vidcap_null_init(struct vidcap_params *params, void **state)
+static int vidcap_null_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;

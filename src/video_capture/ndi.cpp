@@ -177,7 +177,7 @@ static void show_help(struct vidcap_state_ndi *s) {
         s->NDIlib->find_destroy(pNDI_find);
 }
 
-static int vidcap_ndi_init(struct vidcap_params *params, void **state)
+static int vidcap_ndi_init(const struct vidcap_params *params, void **state)
 {
         NDI_PRINT_COPYRIGHT(void);
         using namespace std::string_literals;

@@ -178,7 +178,7 @@ parse_fmt(struct vidcap_switcher_state *s, char *cfg)
 }
 
 static int
-vidcap_switcher_init(struct vidcap_params *params, void **state)
+vidcap_switcher_init(const struct vidcap_params *params, void **state)
 {
         verbose_msg("vidcap_switcher_init\n");
 
@@ -203,7 +203,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, vidcap_params_get_parent(params));
         s->devices_cnt = 0;
-        struct vidcap_params *tmp = params;
+        const struct vidcap_params *tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
                 if (vidcap_params_get_driver(tmp) == NULL) {
                         break;
@@ -232,11 +232,13 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                         continue;
                 }
 
-                if (vidcap_params_get_flags(tmp) == 0 && vidcap_params_get_flags(params) != 0) {
-                        vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
+                struct vidcap_params *copy = vidcap_params_copy(tmp);
+                if (vidcap_params_get_flags(copy) == 0 && vidcap_params_get_flags(params) != 0) {
+                        vidcap_params_set_flags(copy, vidcap_params_get_flags(params));
                 }
 
-                int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
+                int ret = initialize_video_capture(&s->mod, copy, &s->devices[i]);
+                vidcap_params_free_struct(copy);
                 if(ret != 0) {
                         MSG(ERROR,
                             "Unable to initialize device %d (%s:%s).\n",
@@ -246,7 +248,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        s->params = params;
+        s->params = vidcap_params_copy(tmp);
 
         vidcap_switcher_register_keyboard_ctl(s);
 
@@ -276,6 +278,7 @@ vidcap_switcher_done(void *state)
         module_done(&s->mod);
         free(s->devices);
         free(s->device_names);
+        vidcap_params_free_struct(s->params);
         free(s);
 }
 

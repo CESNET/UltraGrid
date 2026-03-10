@@ -12,7 +12,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  * Copyright (c) 2002 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -106,7 +106,7 @@
 #include "types.h"
 #include "video_capture_params.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 13
+#define VIDEO_CAPTURE_ABI_VERSION 14
 
 #ifdef __cplusplus
 extern "C" {
@@ -136,7 +136,7 @@ struct video_capture_info {
          * @param[out] state  returned capture state
          * @returns           one of @ref vidcap_retval
          */
-        int                    (*init) (struct vidcap_params *param, void **state);
+        int                    (*init) (const struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
         const char             *generic_fps_indicator_prefix; ///< display name, eg. "[gl] ",

@@ -773,7 +773,7 @@ parse_fmt(char *fmt)
         return init_params;
 }
 
-static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
+static int vidcap_avfoundation_init(const struct vidcap_params *params, void **state)
 {
 @autoreleasepool {
         if (avfoundation_usage(vidcap_params_get_fmt(params))) {

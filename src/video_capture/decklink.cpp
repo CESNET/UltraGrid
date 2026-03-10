@@ -1457,7 +1457,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 }
 
 static int
-vidcap_decklink_init(struct vidcap_params *params, void **state)
+vidcap_decklink_init(const struct vidcap_params *params, void **state)
 {
         const char *fmt = vidcap_params_get_fmt(params);
 

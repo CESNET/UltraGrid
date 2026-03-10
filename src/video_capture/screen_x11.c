@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -323,7 +323,7 @@ static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {
         return 1;
 }
 
-static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
+static int vidcap_screen_x11_init(const struct vidcap_params *params, void **state)
 {
         printf("vidcap_screen_init\n");
 

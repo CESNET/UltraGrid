@@ -510,7 +510,7 @@ static void stop_grab_workers(vidcap_gpustitch_state *s){
 }
 
 static int
-vidcap_gpustitch_init(struct vidcap_params *params, void **state)
+vidcap_gpustitch_init(const struct vidcap_params *params, void **state)
 {
         printf("vidcap_gpustitch_init\n");
 

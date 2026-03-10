@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -764,7 +764,7 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
 }
 
 static int
-vidcap_bluefish444_init(struct vidcap_params *params, void **state)
+vidcap_bluefish444_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_bluefish444_state *s;
         ULONG InputChannels[4] = {

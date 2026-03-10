@@ -10,7 +10,7 @@
  *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2023 CESNET z.s.p.o.
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -230,7 +230,7 @@ static void show_help(void)
 
 /* External API ***********************************************************************************/
 
-static int vidcap_dvs_init(struct vidcap_params *params, void **state)
+static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap_dvs_state *s;
         int i;

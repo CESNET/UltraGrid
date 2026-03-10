@@ -5,7 +5,7 @@
  * Libavformat demuxer and decompress
  */
 /*
- * Copyright (c) 2019-2025 CESNET
+ * Copyright (c) 2019-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -771,7 +771,7 @@ static int get_ach_count(int file_channels) {
 }
 
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
-static int vidcap_file_init(struct vidcap_params *params, void **state) {
+static int vidcap_file_init(const struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
         int rc = 0;
         char errbuf[1024] = "";

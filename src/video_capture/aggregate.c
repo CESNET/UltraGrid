@@ -5,7 +5,7 @@
  * @brief Aggregate video capture driver
  */
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,7 +88,7 @@ static void vidcap_aggregate_probe(struct device_info **cards, int *count, void 
 }
 
 static int
-vidcap_aggregate_init(struct vidcap_params *params, void **state)
+vidcap_aggregate_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_aggregate_state *s;
 
@@ -113,7 +113,7 @@ vidcap_aggregate_init(struct vidcap_params *params, void **state)
 
 
         s->devices_cnt = 0;
-        struct vidcap_params *tmp = params;
+        const struct vidcap_params *tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
                 if (vidcap_params_get_driver(tmp) != NULL)
                         s->devices_cnt++;
@@ -125,12 +125,16 @@ vidcap_aggregate_init(struct vidcap_params *params, void **state)
         tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
+                struct vidcap_params *copy = vidcap_params_copy(tmp);
 
                 if (vidcap_params_get_flags(tmp) == 0 && vidcap_params_get_flags(params) != 0) {
-                        vidcap_params_set_flags(tmp, vidcap_params_get_flags(params));
+                        vidcap_params_set_flags(copy, vidcap_params_get_flags(params));
                 }
 
-                int ret = initialize_video_capture(vidcap_params_get_parent(params), (struct vidcap_params *) tmp, &s->devices[i]);
+                const int ret = initialize_video_capture(
+                    vidcap_params_get_parent(params),
+                    (struct vidcap_params *) copy, &s->devices[i]);
+                vidcap_params_free_struct(copy);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
                                         i, vidcap_params_get_driver(tmp),

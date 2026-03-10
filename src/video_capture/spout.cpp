@@ -148,7 +148,7 @@ check_lib()
         printf("SpoutLibrary vtable doesn't seem to be corrupted.\n");
 }
 
-static int vidcap_spout_init(struct vidcap_params *params, void **state)
+static int vidcap_spout_init(const struct vidcap_params *params, void **state)
 {
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0U) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;

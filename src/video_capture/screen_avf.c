@@ -102,7 +102,7 @@ contains_dev_spec(char *fmt)
 }
 
 static int
-vidcap_screen_avf_init(struct vidcap_params *params, void **state)
+vidcap_screen_avf_init(const struct vidcap_params *params, void **state)
 {
         const char *fmt = vidcap_params_get_fmt(params);
 

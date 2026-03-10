@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -138,7 +138,7 @@ parse_fmt(char *fmt, uint16_t *port, codec_t *decode_to)
         return true;
 }
 
-static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
+static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **state)
 {
         uint16_t port = 5004;
         codec_t  decode_to = VIDEO_CODEC_NONE;

@@ -4,7 +4,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2023 CESNET z.s.p.o.
+ * Copyright (c) 2023-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -499,7 +499,7 @@ static void show_generic_help(){
 }
 
 
-static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
+static int parse_params(const struct vidcap_params *params, vcap_pw_state *s) {
         if(const char *fmt = vidcap_params_get_fmt(params)) {        
                 std::istringstream params_stream(fmt);
                 
@@ -543,7 +543,7 @@ static int parse_params(struct vidcap_params *params, vcap_pw_state *s) {
 }
 
 #ifdef HAVE_DBUS_SCREENCAST
-static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
+static int vidcap_screen_pw_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
@@ -585,7 +585,7 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
 }
 #endif
 
-static int vidcap_pw_init(struct vidcap_params *params, void **state)
+static int vidcap_pw_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;

@@ -9,7 +9,7 @@
  * - load the dll even if working directory is not the dir with the DLL
  */
 /*
- * Copyright (c) 2019-2025 CESNET
+ * Copyright (c) 2019-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -461,7 +461,7 @@ static int run_child_process() {
         return ret;
 }
 
-static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
+static int vidcap_screen_win_init(const struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
         bool child = false; // to prevent fork bombs if error

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -507,7 +507,7 @@ static bool initialize_import(struct vidcap_import_state *s, char *tmp, FILE **i
 }
 
 static int
-vidcap_import_init(struct vidcap_params *params, void **state)
+vidcap_import_init(const struct vidcap_params *params, void **state)
 {
         char *tmp = strdup(vidcap_params_get_fmt(params));
         if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {

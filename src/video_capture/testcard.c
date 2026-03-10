@@ -12,7 +12,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -505,7 +505,7 @@ validate_settings(struct testcard_state *s, struct video_desc desc)
         return true;
 }
 
-static int vidcap_testcard_init(struct vidcap_params *params, void **state)
+static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = NULL;
         char *filename = NULL;

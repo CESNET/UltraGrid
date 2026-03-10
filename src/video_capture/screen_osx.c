@@ -143,7 +143,7 @@ static void vidcap_screen_osx_probe(struct device_info **available_cards, int *c
         }
 }
 
-static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
+static int vidcap_screen_osx_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap_screen_osx_state *s;
 

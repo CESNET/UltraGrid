@@ -824,7 +824,7 @@ static void vidcap_dshow_should_exit(void *state) {
 	WakeConditionVariable(&s->grabWaitCV);
 }
 
-static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
+static int vidcap_dshow_init(const struct vidcap_params *params, void **state) {
 #define HANDLE_ERR(msg, ...) \
         HANDLE_ERR_ACTION(res, goto error, \
                           "vidcap_dshow_init: " msg __VA_OPT__(, ) __VA_ARGS__)

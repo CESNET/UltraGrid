@@ -5,7 +5,7 @@
  * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
- * Copyright (c) 2015-2024 CESNET
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1090,7 +1090,7 @@ static void show_help() {
         col() << "\n";
 }
 
-LINK_SPEC int vidcap_aja_init(struct vidcap_params *params, void **state)
+LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));

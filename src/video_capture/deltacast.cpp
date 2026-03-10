@@ -8,7 +8,7 @@
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -428,7 +428,7 @@ static bool parse_fmt(struct vidcap_deltacast_state *s, char *init_fmt,
 }
 
 static int
-vidcap_deltacast_init(struct vidcap_params *params, void **state)
+vidcap_deltacast_init(const struct vidcap_params *params, void **state)
 {
 #define HANDLE_ERROR vidcap_deltacast_done(s); return VIDCAP_INIT_FAIL;
 	struct vidcap_deltacast_state *s = nullptr;

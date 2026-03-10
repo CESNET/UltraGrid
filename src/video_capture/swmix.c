@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1083,7 +1083,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 }
 
 static int
-vidcap_swmix_init(struct vidcap_params *params, void **state)
+vidcap_swmix_init(const struct vidcap_params *params, void **state)
 {
         GLenum format;
 

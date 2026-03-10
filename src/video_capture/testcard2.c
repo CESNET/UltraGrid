@@ -6,7 +6,7 @@
  * Merge to mainline testcard.
  */
 /*
- * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -314,7 +314,7 @@ get_sdl_render_font()
 }
 #endif
 
-static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
+static int vidcap_testcard2_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 usage();

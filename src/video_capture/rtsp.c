@@ -3,7 +3,7 @@
  *           Martin German <martin.german@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2025 CESNET
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -588,7 +588,7 @@ check_uri(size_t uri_len, char *uri)
                     return VIDCAP_INIT_FAIL;
 
 static int
-vidcap_rtsp_init(struct vidcap_params *params, void **state) {
+vidcap_rtsp_init(const struct vidcap_params *params, void **state) {
     char fmt[STR_LEN];
     snprintf(fmt, sizeof fmt,  "%s", vidcap_params_get_fmt(params));
     if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {

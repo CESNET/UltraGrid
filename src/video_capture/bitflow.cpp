@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2025 CESNET
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -135,7 +135,7 @@ static float get_fps(struct vidcap_state_bitflow *s) {
         return 0;
 }
 
-static int vidcap_bitflow_init(struct vidcap_params *params, void **state)
+static int vidcap_bitflow_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
