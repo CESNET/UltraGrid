@@ -53,6 +53,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/types.h>
+#include <sys/mman.h>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -222,8 +223,19 @@ static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_v
         auto linesize = vc_get_linesize(width, dst->color_spec);
         auto skip = vc_get_linesize(start_x, dst->color_spec);
         bool swap_red_blue = fmt == SPA_VIDEO_FORMAT_BGRA || fmt == SPA_VIDEO_FORMAT_BGRx; //TODO
+        void *data_ptr = src->datas[0].data;
+        void *mmap_ptr = nullptr;
+        if(!SPA_FLAG_IS_SET(src->datas[0].flags, SPA_DATA_FLAG_READABLE)
+#ifdef SPA_DATA_FLAG_MAPPABLE
+        && SPA_FLAG_IS_SET(src->datas[0].flags, SPA_DATA_FLAG_MAPPABLE)
+#endif
+        ){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Buffer marked as not readable, but trying to map it as readable anyways!\n");
+                mmap_ptr = mmap(nullptr, linesize * height, PROT_READ, MAP_SHARED, src->datas[0].fd, 0);
+                data_ptr = mmap_ptr;
+        }
         for(unsigned i = 0; i < height; i++){
-                auto src_p = static_cast<unsigned char *>(src->datas[0].data) + offset + skip + stride * (i + start_y);
+                auto src_p = static_cast<unsigned char *>(data_ptr) + offset + skip + stride * (i + start_y);
                 auto dst_p = reinterpret_cast<unsigned char *>(dst->tiles[0].data) + linesize * i;
                 /* It would probably be better to have separate functions for
                  * pipweire to uv frame conversions like lavd has. For now,
@@ -233,6 +245,9 @@ static void pw_frame_to_uv_frame_memcpy(video_frame *dst, spa_buffer *src, spa_v
                         vc_copylineRGBA(dst_p, src_p, linesize, 16, 8, 0);
                 else
                         memcpy(dst_p, src_p, linesize);
+        }
+        if(mmap_ptr){
+                munmap(mmap_ptr, linesize * height);
         }
 
         dst->tiles[0].width = width;
