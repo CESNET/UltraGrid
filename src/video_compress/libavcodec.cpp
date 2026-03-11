@@ -198,13 +198,6 @@ static void print_codec_supp_pix_fmts(const enum AVPixelFormat *codec_pix_fmts);
 void usage(bool full);
 static void cleanup(struct state_video_compress_libav *s);
 
-const char *get_vp9_encoder(bool /* rgb */) {
-#ifdef __x86_64__
-        return __builtin_cpu_supports("avx2") ? nullptr : "libvpx-vp9";
-#else
-        return nullptr;
-#endif
-}
 codec_params_t
 get_codec_params(codec_t ug_codec)
 {
@@ -229,7 +222,8 @@ get_codec_params(codec_t ug_codec)
         case VP8:
                 return { nullptr, 0.4, setparam_vp8_vp9, 103 };
         case VP9:
-                return { get_vp9_encoder, 0.4, setparam_vp8_vp9, 104 };
+                return { [](bool) { return "libvpx-vp9"; }, 0.4,
+                         setparam_vp8_vp9, 104 };
         case AV1: return {
                 [](bool) { return is_arm_mac() ? "libaom-av1" : "libsvtav1"; },
                 0.1,
