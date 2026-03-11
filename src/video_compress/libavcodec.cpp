@@ -2308,7 +2308,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 }
 
 string
-get_opt_default_value(const AVOption *opt)
+get_opt_to_string(const AVOption *opt)
 {
         switch (opt->type) {
         case AV_OPT_TYPE_FLOAT:
@@ -2342,7 +2342,7 @@ static void print_codec_opts(const std::string& name, bool encoder, const AVCode
                 string help_str =  opt->help != nullptr  ? opt->help : "";
                 const char *indent = "\t\t* "; // for value
                 if (opt->offset != 0) { // is key
-                        string default_val = get_opt_default_value(opt);
+                        string default_val = get_opt_to_string(opt);
                         if (!default_val.empty() &&
                             help_str.find("default") != 0) {
                                 if (!help_str.empty()) {
@@ -2351,6 +2351,12 @@ static void print_codec_opts(const std::string& name, bool encoder, const AVCode
                                 help_str += "default " + default_val;
                         }
                         indent = "\t- ";
+                } else { // is a value
+                        string val_numeric  = get_opt_to_string(opt);
+                        if (!help_str.empty()) {
+                                help_str += ", ";
+                        }
+                        help_str += "value: " + val_numeric;
                 }
                 if (!help_str.empty()) {
                         help_str = " - "s + help_str;
