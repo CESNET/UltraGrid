@@ -596,8 +596,10 @@ hd-rum-multi/hd-rum:
 
 $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) @MANPAGES@ hd-rum-multi/hd-rum
 	rm -rf $(BUNDLE)
-	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/libs
+	$(MKDIR_P) $(BUNDLE)/Contents/MacOS $(BUNDLE)/Contents/Resources \
+		$(BUNDLE)/Contents/libs
 	$(CP) $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS/
+	$(CP) $(srcdir)/COPYRIGHT $(BUNDLE)/Contents/Resources/LICENSE
 	$(CP) -r bin/*.dSYM $(BUNDLE)/Contents/MacOS/
 	$(CP) -r data/template/macOS-bundle/* $(BUNDLE)/
 	$(CP) hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
