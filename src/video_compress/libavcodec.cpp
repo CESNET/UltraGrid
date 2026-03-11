@@ -2339,30 +2339,23 @@ static void print_codec_opts(const std::string& name, bool encoder, const AVCode
                 return;
         }
         while (opt->name != nullptr) {
-                string default_val;
-                const char *indent = "\t\t* ";
-                if (opt->offset != 0) {
-                        default_val = get_opt_default_value(opt);
-                        if (!default_val.empty()) {
-                                default_val = "default " + default_val;
+                string help_str =  opt->help != nullptr  ? opt->help : "";
+                const char *indent = "\t\t* "; // for value
+                if (opt->offset != 0) { // is key
+                        string default_val = get_opt_default_value(opt);
+                        if (!default_val.empty() &&
+                            help_str.find("default") != 0) {
+                                if (!help_str.empty()) {
+                                        help_str += ", ";
+                                }
+                                help_str += "default " + default_val;
                         }
                         indent = "\t- ";
                 }
-                string help_str;
-                if (opt->help != nullptr && strlen(opt->help) > 0) {
-                        help_str = opt->help;
-                }
-                if (!default_val.empty()) {
-                        if (help_str.find("default") == 0) {
-                                default_val = "";
-                        } else if (!help_str.empty()) {
-                                help_str += ", ";
-                        }
-                }
-                if (!help_str.empty() || !default_val.empty()) {
+                if (!help_str.empty()) {
                         help_str = " - "s + help_str;
                 }
-                col() << indent << SBOLD(opt->name) <<  help_str << default_val << "\n";
+                col() << indent << SBOLD(opt->name) <<  help_str  << "\n";
                 opt++;
         }
 }
