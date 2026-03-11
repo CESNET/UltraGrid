@@ -34,7 +34,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
       id: checkout
       with:
         persist-credentials: true

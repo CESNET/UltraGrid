@@ -21,7 +21,7 @@ jobs:
         shell: ${{ matrix.os == 'windows-latest' && 'C:\shells\msys2bash.cmd {0}' || 'bash {0}' }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
     - name: Run
       shell: bash
       run: .github/scripts/run_scheduled_tests.sh

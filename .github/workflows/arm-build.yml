@@ -28,7 +28,7 @@ jobs:
             deb_release: bookworm
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
     - name: Init environment variables
       run: . .github/scripts/environment.sh
     - name: Prepare

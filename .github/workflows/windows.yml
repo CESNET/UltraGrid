@@ -23,7 +23,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
     - name: Set environment
       run: .github/scripts/environment.sh
     - name: Fetch SDKs ETags

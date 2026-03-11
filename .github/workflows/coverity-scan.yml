@@ -46,7 +46,7 @@ jobs:
         tar xaf ~/coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
 
     - name: Fetch SDKs ETags
       id: etags
