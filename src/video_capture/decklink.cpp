@@ -230,6 +230,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 static void cleanup_common(struct vidcap_decklink_state *s);
 static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deckLink);
 static void print_input_modes (IDeckLink* deckLink);
+static string display_mode_get_name(IDeckLinkDisplayMode *displayMode);
 
 class VideoDelegate : public IDeckLinkInputCallback {
 private:
@@ -1331,8 +1332,10 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 
                         mnum++;
                         break;
-                } else { // manually given FourCC
-                        if (displayMode->GetDisplayMode() == bmd_read_fourcc(s->mode.c_str())) {
+                } else { // manually given FourCC or name
+                        if (displayMode->GetDisplayMode() ==
+                                bmd_read_fourcc(s->mode.c_str()) ||
+                            display_mode_get_name(displayMode) == s->mode) {
                                 break;
                         }
                         displayMode->Release();
