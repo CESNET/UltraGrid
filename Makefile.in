@@ -51,9 +51,7 @@ MACOS_LEGACY  = @MACOS_LEGACY@
 
 GUI_EXE      ?= @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
-QT_PATH       = $(shell [ -n "$(QMAKE)" ] && python3 -c "import os; print(\
-os.path.realpath(os.path.dirname(os.path.realpath(\"$$(command -v \
-$(QMAKE))\")) + \"/..\"))")# realpath cmd is present in macOS 13
+QT_PATH       = @MAC_QT_PATH@
 REFLECTOR_TARGET ?= @REFLECTOR_TARGET@
 # append $(EXEEXT) if $(REFLECTOR_TARGET) not empty
 REFLECTOR_TARGET != sh -c 'RT=$(REFLECTOR_TARGET); echo $${RT:+$${RT}$(EXEEXT)}'
