@@ -284,6 +284,8 @@ void print_decklink_version()
         BMD_STR current_version = NULL;
         IDeckLinkAPIInformation *APIInformation = NULL;
         HRESULT result;
+        char *currentVersionCString = nullptr;
+        const char *compat_status = TGREEN("compatible");
 
 #ifdef _WIN32
         bool com_initialized = false;
@@ -306,13 +308,19 @@ void print_decklink_version()
         if (result != S_OK) {
                 fprintf(stderr, "Cannot get API version string!\n");
                 goto cleanup;
-        } else {
-                fprintf(stderr, "This UltraGrid version was compiled against DeckLink SDK %s. ", BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                const char *currentVersionCString = get_cstr_from_bmd_api_str(current_version);
-                fprintf(stderr, "System version is %s.\n", currentVersionCString);
-                release_bmd_api_str(current_version);
-                free(const_cast<char *>(currentVersionCString));
         }
+        currentVersionCString = get_cstr_from_bmd_api_str(current_version);
+        if (BMDDeckLinkAPIVersion <= BMD_LAST_INCOMPATIBLE_ABI) {
+                compat_status = TRED("INCOMPATIBLE");
+        } else if (BMDDeckLinkAPIVersion < BLACKMAGIC_DECKLINK_API_VERSION) {
+                compat_status = "probably compatible";
+        }
+        color_printf("This UltraGrid version was compiled against DeckLink "
+                     "SDK %s (system version %s is " TBOLD("%s") ").\n",
+                     BLACKMAGIC_DECKLINK_API_VERSION_STRING,
+                     currentVersionCString, compat_status);
+        release_bmd_api_str(current_version);
+        free(currentVersionCString);
 
 cleanup:
         if (APIInformation) {
