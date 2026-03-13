@@ -255,6 +255,10 @@ void vidcap_params_set_parent(struct vidcap_params *params, struct module *mod){
 
 /**
  * Creates deep copy of @ref vidcap_params structure.
+ *
+ * @note
+ * Just one vidcap_params are copied, so if part of the chain, next vidcap param
+ * will not be copied.
  */
 struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
 {
@@ -280,6 +284,19 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
         return ret;
 }
 
+struct vidcap_params *vidcap_params_copy_all(const struct vidcap_params *params) {
+        struct vidcap_params *out_head = vidcap_params_copy(params);
+        struct vidcap_params *out_tail = out_head;
+
+        struct vidcap_params *in_tail = vidcap_params_get_next(params);
+        while (in_tail != nullptr) {
+                out_tail->next = vidcap_params_copy(in_tail);
+                out_tail = out_tail->next;
+                in_tail = in_tail->next;
+        }
+        return out_head;
+}
+
 void
 vidcap_params_replace_fmt(struct vidcap_params *params, const char *new_fmt)
 {
@@ -292,16 +309,32 @@ vidcap_params_replace_fmt(struct vidcap_params *params, const char *new_fmt)
  *
  * @param[in] buf structure to be feed
  */
-void vidcap_params_free_struct(struct vidcap_params *buf)
+static void
+vidcap_params_free_one(struct vidcap_params *params)
 {
-        if (!buf)
+        if (params == nullptr) {
                 return;
+        }
 
-        free(buf->driver);
-        free(buf->fmt);
-        free(buf->requested_capture_filter);
-        free(buf->name);
+        free(params->driver);
+        free(params->fmt);
+        free(params->requested_capture_filter);
+        free(params->name);
 
-        free(buf);
+        free(params);
 }
 
+/**
+ * Frees all data associated with params.
+ *
+ * @param[in] buf structure to be freed
+ */
+void
+vidcap_params_free(struct vidcap_params *params)
+{
+        while (params != nullptr) {
+                struct vidcap_params *next = vidcap_params_get_next(params);
+                vidcap_params_free_one(params);
+                params = next;
+        }
+}

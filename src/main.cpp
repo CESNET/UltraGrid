@@ -541,11 +541,7 @@ struct ug_options {
                 common.mtu = 0;
         }
         ~ug_options() {
-                while  (vidcap_params_head != nullptr) {
-                        struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
-                        vidcap_params_free_struct(vidcap_params_head);
-                        vidcap_params_head = next;
-                }
+                vidcap_params_free(vidcap_params_head);
         }
         struct common_opts common = { COMMON_OPTS_INIT };
 

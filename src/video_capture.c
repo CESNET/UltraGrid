@@ -13,7 +13,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  * Copyright (c) 2001-2004 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -94,13 +94,14 @@ void list_video_capture_devices(bool full)
  * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
  */
 int initialize_video_capture(struct module *parent,
-                struct vidcap_params *param,
+                const struct vidcap_params *param,
                 struct vidcap **state)
 {
+        struct vidcap_params *param_n = vidcap_params_copy_all(param);
         /// check appropriate cmdline parameters order (--capture-filter then -t)
         /// only if one capture device specified, allow setting -F after -t
-        struct vidcap_params *tlast = param;
-        struct vidcap_params *tprev = param;
+        struct vidcap_params *tlast = param_n;
+        struct vidcap_params *tprev = param_n;
         while ((vidcap_params_get_next(tlast))) {
                 tprev = tlast;
                 tlast = vidcap_params_get_next(tlast);
@@ -109,9 +110,10 @@ int initialize_video_capture(struct module *parent,
         // preceed, unless only one vcap used
         if (vidcap_params_get_driver(tlast) == NULL &&
             vidcap_params_get_capture_filter(tlast) != NULL) {
-                if (tprev != param) { // more than one -t
+                if (tprev != param_n) { // more than one -t
                         log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
                                 "specified before capture (-t)\n");
+                        vidcap_params_free(param_n);
                         return -1;
                 }
                 vidcap_params_add_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
@@ -119,24 +121,27 @@ int initialize_video_capture(struct module *parent,
         // similarly for audio connection
         if (vidcap_params_get_driver(tlast) == NULL
                         && vidcap_params_get_flags(tlast) != 0) {
-                if (tprev != param) { // more than one -t
+                if (tprev != param_n) { // more than one -t
                         log_msg(LOG_LEVEL_ERROR, "Audio connection (-s) needs to be "
                                 "specified before capture (-t)\n");
+                        vidcap_params_free(param_n);
                         return -1;
                 }
                 if (vidcap_params_get_flags(tprev) != 0) { // one -t but -s specified both before and after it
                         log_msg(LOG_LEVEL_ERROR, "Multiple audio connection specification.\n");
+                        vidcap_params_free(param_n);
                         return -1;
                 }
                 vidcap_params_set_flags(tprev, vidcap_params_get_flags(tlast));
         }
 
         const struct video_capture_info *vci = (const struct video_capture_info *)
-                load_library(vidcap_params_get_driver(param), LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+                load_library(vidcap_params_get_driver(param_n), LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
         if (vci == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "WARNING: Selected '%s' capture card "
-                        "was not found.\n", vidcap_params_get_driver(param));
+                        "was not found.\n", vidcap_params_get_driver(param_n));
+                        vidcap_params_free(param_n);
                 return -1;
         }
 
@@ -149,8 +154,8 @@ int initialize_video_capture(struct module *parent,
         d->mod.cls = MODULE_CLASS_CAPTURE;
         module_register(&d->mod, parent);
 
-        vidcap_params_set_parent(param, &d->mod);
-        int ret = vci->init(param, &d->state);
+        vidcap_params_set_parent(param_n, &d->mod);
+        int ret = vci->init(param_n, &d->state);
 
         switch (ret) {
         case VIDCAP_INIT_OK:
@@ -160,7 +165,7 @@ int initialize_video_capture(struct module *parent,
         case VIDCAP_INIT_FAIL:
                 log_msg(LOG_LEVEL_ERROR,
                                 "Unable to start video capture device %s\n",
-                                vidcap_params_get_driver(param));
+                                vidcap_params_get_driver(param_n));
                 break;
         case VIDCAP_INIT_AUDIO_NOT_SUPPORTED:
                 log_msg(LOG_LEVEL_ERROR,
@@ -173,13 +178,14 @@ int initialize_video_capture(struct module *parent,
                 return ret;
         }
 
-        ret = capture_filter_init(&d->mod, vidcap_params_get_capture_filter(param),
+        ret = capture_filter_init(&d->mod, vidcap_params_get_capture_filter(param_n),
                 &d->capture_filter);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter: %s.\n",
-                        vidcap_params_get_capture_filter(param));
+                        vidcap_params_get_capture_filter(param_n));
         }
 
+        vidcap_params_free(param_n);
         if (ret != 0) {
                 module_done(&d->mod);
                 free(d);

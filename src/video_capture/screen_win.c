@@ -525,7 +525,7 @@ static int vidcap_screen_win_init(const struct vidcap_params *params, void **sta
                 cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
-        vidcap_params_free_struct(params_dshow);
+        vidcap_params_free(params_dshow);
 
         print_winreg_values();
 

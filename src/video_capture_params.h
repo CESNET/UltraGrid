@@ -65,7 +65,8 @@ extern "C" {
 struct vidcap_params *vidcap_params_allocate(void);
 struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
-void                  vidcap_params_free_struct(struct vidcap_params *params);
+struct vidcap_params *vidcap_params_copy_all(const struct vidcap_params *params);
+void                  vidcap_params_free(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
 struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *params, int index);
 const char           *vidcap_params_get_driver(const struct vidcap_params *params);

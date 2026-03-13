@@ -82,7 +82,7 @@ static void show_help()
         color_printf(TERM_BOLD"\t\ttiled" TERM_RESET " - Use if input is a tiled image from one capture device\n");
 
 }
-struct vidcap_params_deleter{ void operator()(vidcap_params *p) const{ vidcap_params_free_struct(p); }};
+struct vidcap_params_deleter{ void operator()(vidcap_params *p) const{ vidcap_params_free(p); }};
 
 struct grab_worker_state;
 

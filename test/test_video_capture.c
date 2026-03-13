@@ -5,6 +5,7 @@
  * Test video hardware probing routines
  *
  * Copyright (c) 2003-2004 University of Southern California
+ * Copyright (c) 2019-2026 CESNET, zájmové sdruženní právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +59,7 @@ int test_video_capture(void)
                 return -1;
         }
         printf("Ok\n");
-        vidcap_params_free_struct(params);
+        vidcap_params_free(params);
 
         list_video_capture_devices(false);
 

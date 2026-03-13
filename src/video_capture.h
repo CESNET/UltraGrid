@@ -148,7 +148,7 @@ struct vidcap;
 
 void                     list_video_capture_devices(bool);
 int initialize_video_capture(struct module *parent,
-                struct vidcap_params *params,
+                const struct vidcap_params *params,
                 struct vidcap **state);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);

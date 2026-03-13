@@ -47,7 +47,7 @@
 #include "utils/color_out.h"
 #include "utils/text.h"
 #include "video_capture.h"
-#include "video_capture_params.h"  // for vidcap_params_free_struct, vidcap_...
+#include "video_capture_params.h"  // for vidcap_params_free, vidcap_...
 
 struct audio_frame;
 struct device_info;
@@ -88,7 +88,7 @@ vidcap_screen_linux_init(const struct vidcap_params *params, void **state)
                 if (ret < 0) {
                         error_msg("screen_pw initialization failed\n");
                 } else {
-                        vidcap_params_free_struct(params_new);
+                        vidcap_params_free(params_new);
                         *state = device;
                         return ret;
                 }
@@ -99,7 +99,7 @@ vidcap_screen_linux_init(const struct vidcap_params *params, void **state)
         }
         vidcap_params_set_driver(params_new, "screen_x11");
         int ret = initialize_video_capture(NULL, params_new, &device);
-        vidcap_params_free_struct(params_new);
+        vidcap_params_free(params_new);
 
         *state = device;
         return ret;

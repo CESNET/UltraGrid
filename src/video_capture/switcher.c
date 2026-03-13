@@ -238,7 +238,7 @@ vidcap_switcher_init(const struct vidcap_params *params, void **state)
                 }
 
                 int ret = initialize_video_capture(&s->mod, copy, &s->devices[i]);
-                vidcap_params_free_struct(copy);
+                vidcap_params_free(copy);
                 if(ret != 0) {
                         MSG(ERROR,
                             "Unable to initialize device %d (%s:%s).\n",
@@ -248,7 +248,7 @@ vidcap_switcher_init(const struct vidcap_params *params, void **state)
                 }
         }
 
-        s->params = vidcap_params_copy(tmp);
+        s->params = vidcap_params_copy_all(tmp);
 
         vidcap_switcher_register_keyboard_ctl(s);
 
@@ -278,7 +278,7 @@ vidcap_switcher_done(void *state)
         module_done(&s->mod);
         free(s->devices);
         free(s->device_names);
-        vidcap_params_free_struct(s->params);
+        vidcap_params_free(s->params);
         free(s);
 }
 
