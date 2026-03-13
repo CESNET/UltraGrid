@@ -82,6 +82,7 @@ static void show_help()
         color_printf(TERM_BOLD"\t\ttiled" TERM_RESET " - Use if input is a tiled image from one capture device\n");
 
 }
+struct vidcap_params_deleter{ void operator()(vidcap_params *p) const{ vidcap_params_free_struct(p); }};
 
 struct grab_worker_state;
 
@@ -127,6 +128,7 @@ struct grab_worker_state {
         std::condition_variable grabbed_cv;
 
         vidcap_gpustitch_state *s = nullptr;
+        std::unique_ptr<vidcap_params, vidcap_params_deleter> cap_params;
 
         bool tiled = false;
 
@@ -305,7 +307,7 @@ static void upload_tiles(grab_worker_state *gs, video_frame *frame){
         }
 }
 
-static void grab_worker(grab_worker_state *gs, vidcap_params *param, int id){
+static void grab_worker(grab_worker_state *gs, int id){
         PROFILE_FUNC;
         audio_frame *audio_frame = nullptr;
         video_frame *frame = nullptr;
@@ -325,11 +327,11 @@ static void grab_worker(grab_worker_state *gs, vidcap_params *param, int id){
 
         vidcap *device = nullptr;
 
-        int ret = initialize_video_capture(nullptr, param, &device);
+        int ret = initialize_video_capture(nullptr, gs->cap_params.get(), &device);
         if(ret != 0) {
                 fprintf(stderr, "[gpustitch] Unable to initialize device %d (%s:%s).\n",
-                                id, vidcap_params_get_driver(param),
-                                vidcap_params_get_fmt(param));
+                                id, vidcap_params_get_driver(gs->cap_params.get()),
+                                vidcap_params_get_fmt(gs->cap_params.get()));
                 return;
         }
 
@@ -510,7 +512,7 @@ static void stop_grab_workers(vidcap_gpustitch_state *s){
 }
 
 static int
-vidcap_gpustitch_init(const struct vidcap_params *params, void **state)
+vidcap_gpustitch_init(const vidcap_params *params, void **state)
 {
         printf("vidcap_gpustitch_init\n");
 
@@ -532,7 +534,7 @@ vidcap_gpustitch_init(const struct vidcap_params *params, void **state)
         parse_fmt(s, vidcap_params_get_fmt(params));
 
         s->devices_cnt = 0;
-        vidcap_params *tmp = params;
+        auto tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
                 if (vidcap_params_get_driver(tmp) != nullptr)
                         s->devices_cnt++;
@@ -558,7 +560,8 @@ vidcap_gpustitch_init(const struct vidcap_params *params, void **state)
 
                 s->capture_workers[i].s = s;
                 s->capture_workers[i].tiled = s->tiled_capture;
-                s->capture_workers[i].thread = std::thread(grab_worker, &s->capture_workers[i], tmp, i);
+                s->capture_workers[i].cap_params.reset(vidcap_params_copy(tmp));
+                s->capture_workers[i].thread = std::thread(grab_worker, &s->capture_workers[i], i);
         }
 
         *state = s;
