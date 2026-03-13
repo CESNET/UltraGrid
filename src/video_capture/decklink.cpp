@@ -1814,6 +1814,19 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         return s->frame;
 }
 
+static string
+display_mode_get_name(IDeckLinkDisplayMode *displayMode)
+{
+        BMD_STR displayModeString = nullptr;
+        HRESULT result = displayMode->GetName(&displayModeString);
+        if (result != S_OK) {
+                return "(ERROR)";
+        }
+        string name = get_str_from_bmd_api_str(displayModeString);
+        release_bmd_api_str(displayModeString);
+        return name;
+}
+
 /* function from DeckLink SDK sample DeviceList */
 static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deckLink)
 {
@@ -1842,38 +1855,29 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 	// List all supported output display modes
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
-		BMD_STR displayModeString = NULL;
 
-		result = displayMode->GetName((BMD_STR *) &displayModeString);
+                BMDTimeValue frameRateDuration = 0;
+                BMDTimeScale frameRateScale = 0;
 
-		if (result == S_OK)
-		{
-			BMDTimeValue	frameRateDuration;
-			BMDTimeScale	frameRateScale;
+                // Obtain the display mode's properties
+                string flags_str  = bmd_get_flags_str(displayMode->GetFlags());
+                long modeWidth = displayMode->GetWidth();
+                long modeHeight = displayMode->GetHeight();
+                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+                uint32_t mode = ntohl(displayMode->GetDisplayMode());
+                uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
+                string fcc{(char *) &mode, 4};
+                char buf[1024];
+                snprintf_ch(buf,"%ld x %ld\t%2.2f FPS, flgs: %.4s, %s", modeWidth, modeHeight,
+                                (float) ((double)frameRateScale / (double)frameRateDuration),
+                                (char *) &field_dominance_n, flags_str.c_str());
+                string details{buf};
+                ret.emplace_back(displayModeNumber, fcc,
+                                 display_mode_get_name(displayMode), details);
 
-			// Obtain the display mode's properties
-                        string flags_str = bmd_get_flags_str(displayMode->GetFlags());
-                        int modeWidth = displayMode->GetWidth();
-                        int modeHeight = displayMode->GetHeight();
-			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                        uint32_t mode = ntohl(displayMode->GetDisplayMode());
-                        uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
-                        string fcc{(char *) &mode, 4};
-                        string name{get_str_from_bmd_api_str(displayModeString)};
-                        char buf[1024];
-                        snprintf(buf, sizeof buf, "%d x %d\t%2.2f FPS, flgs: %.4s, %s", modeWidth, modeHeight,
-                                        (float) ((double)frameRateScale / (double)frameRateDuration),
-                                        (char *) &field_dominance_n, flags_str.c_str());
-                        string details{buf};
-                        ret.emplace_back(displayModeNumber, fcc, name, details);
-
-                        release_bmd_api_str(displayModeString);
-		}
-
-		// Release the IDeckLinkDisplayMode object to prevent a leak
-		displayMode->Release();
-
-		displayModeNumber++;
+                // Release the IDeckLinkDisplayMode object to prevent a leak
+                displayMode->Release();
+                displayModeNumber++;
 	}
 
 bail:
