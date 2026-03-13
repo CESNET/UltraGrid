@@ -3794,6 +3794,10 @@ AC_MSG_RESULT([$RESULT])
 
 if test -n "$WARNINGS"; then
         printf "*** Following WARNINGS were issued:\n$WARNINGS\n"
+        if test "${TERM-dumb}" = dumb; then
+                echo "Triggered an error if TERM=dumb or unset."
+                exit 1
+        fi
 fi
 
 RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
