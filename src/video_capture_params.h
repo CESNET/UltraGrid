@@ -84,6 +84,7 @@ void                  vidcap_params_set_flags(struct vidcap_params *params, unsi
 void                  vidcap_params_add_flags(struct vidcap_params *params, unsigned int flags);
 void                  vidcap_params_replace_fmt(struct vidcap_params *params,
                                                 const char           *new_fmt);
+unsigned              vidcap_params_get_count(const struct vidcap_params *params);
 /// @}
 
 #ifdef __cplusplus

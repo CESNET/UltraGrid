@@ -1050,14 +1050,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 return false;
         }
 
-        s->devices_cnt = 0;
-        const struct vidcap_params *tmp = params;
-        while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != NULL)
-                        s->devices_cnt++;
-                else
-                        break;
-        }
+        s->devices_cnt = vidcap_params_get_count(params);
 
         if (s->grid_x != 0 && s->devices_cnt > s->grid_x * s->grid_y) {
                 log_msg(LOG_LEVEL_ERROR, "[swmix] Invalid layout! More devices given than layout size.\n");
@@ -1073,7 +1066,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 pthread_mutex_init(&(s->slaves[i].lock), NULL);
         }
 
-        tmp = params;
+        const struct vidcap_params *tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
                 s->slaves[i].device_params = vidcap_params_copy(tmp);

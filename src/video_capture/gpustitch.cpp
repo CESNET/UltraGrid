@@ -533,14 +533,8 @@ vidcap_gpustitch_init(const vidcap_params *params, void **state)
 
         parse_fmt(s, vidcap_params_get_fmt(params));
 
-        s->devices_cnt = 0;
+        s->devices_cnt = vidcap_params_get_count(params);
         auto tmp = params;
-        while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != nullptr)
-                        s->devices_cnt++;
-                else
-                        break;
-        }
 
         if(s->tiled_capture && s->devices_cnt != 1){
                 log_msg(LOG_LEVEL_ERROR, "Number of capture devices must be exactly 1 when using tiled capture!\n");

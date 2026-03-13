@@ -112,17 +112,10 @@ vidcap_aggregate_init(const struct vidcap_params *params, void **state)
         }
 
 
-        s->devices_cnt = 0;
-        const struct vidcap_params *tmp = params;
-        while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != NULL)
-                        s->devices_cnt++;
-                else
-                        break;
-        }
+        s->devices_cnt = (int) vidcap_params_get_count(params);
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        tmp = params;
+        const struct vidcap_params *tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
                 struct vidcap_params *copy = vidcap_params_copy(tmp);

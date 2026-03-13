@@ -338,3 +338,16 @@ vidcap_params_free(struct vidcap_params *params)
                 params = next;
         }
 }
+
+unsigned
+vidcap_params_get_count(const struct vidcap_params *params)
+{
+        unsigned count = 0;
+        while ((params = vidcap_params_get_next(params)) != nullptr) {
+                if (vidcap_params_get_driver(params) == nullptr) {
+                        return count;
+                }
+                count += 1;
+        }
+        return count;
+}

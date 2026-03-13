@@ -202,14 +202,7 @@ vidcap_switcher_init(const struct vidcap_params *params, void **state)
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, vidcap_params_get_parent(params));
-        s->devices_cnt = 0;
-        const struct vidcap_params *tmp = params;
-        while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) == NULL) {
-                        break;
-                }
-                s->devices_cnt++;
-        }
+        s->devices_cnt = vidcap_params_get_count(params);
 
         if (s->selected_device >= s->devices_cnt) {
                 MSG(ERROR, "Error: device #%d not available!\n",
@@ -219,7 +212,7 @@ vidcap_switcher_init(const struct vidcap_params *params, void **state)
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
         s->device_names = calloc(s->devices_cnt, sizeof s->device_names[0]);
-        tmp = params;
+        const struct vidcap_params *tmp = params;
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
