@@ -129,8 +129,10 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 {
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RTP_RXTX_VIDEO];
+
         const int rc = ::sdp_add_video(
-            rtp_is_ipv6(m_rtp_common->network_device), m_saved_tx_port, codec,
+            rtp_is_ipv6(video->network_device), m_saved_tx_port, codec,
             h264_sdp_video_rxtx::change_address_callback, this);
         if (rc == -2) {
                 throw ug_runtime_error("[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
@@ -149,6 +151,8 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 void
 h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RTP_RXTX_VIDEO];
+
         rtp_rxtx_sender_do_housekeeping(m_rtp_common);
         if (!is_codec_opaque(tx_frame->color_spec)) {
 		if (m_sent_compress_change) {
@@ -175,24 +179,22 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 
         if (m_sdp_configured_codec == H264) {
-                tx_send_h264(m_rtp_common->tx, tx_frame.get(),
-                             m_rtp_common->network_device);
+                tx_send_h264(video->tx, tx_frame.get(), video->network_device);
         } else {
-                tx_send_jpeg(m_rtp_common->tx, tx_frame.get(),
-                             m_rtp_common->network_device);
+                tx_send_jpeg(video->tx, tx_frame.get(), video->network_device);
         }
-        if (m_rtp_common->rxtx_mode & MODE_RECEIVER) {
+        if (video->rxtx_mode & MODE_RECEIVER) {
                 // send RTCP (receiver thread would otherwise do this)
                 uint32_t ts = get_std_video_local_mediatime();
                 time_ns_t curr_time = get_time_in_ns();
-                rtp_update(m_rtp_common->network_device, curr_time);
-                rtp_send_ctrl(m_rtp_common->network_device, ts, nullptr, curr_time);
+                rtp_update(video->network_device, curr_time);
+                rtp_send_ctrl(video->network_device, ts, nullptr, curr_time);
 
                 // receive RTCP
                 struct timeval timeout;
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 0;
-                rtp_recv_r(m_rtp_common->network_device, &timeout, ts);
+                rtp_recv_r(video->network_device, &timeout, ts);
         }
 }
 

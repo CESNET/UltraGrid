@@ -156,6 +156,8 @@ h264_rtp_video_rxtx::configure_rtsp_server_video()
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RTP_RXTX_VIDEO];
+
         rtp_rxtx_sender_do_housekeeping(m_rtp_common);
         // requestt compress reconfiguration if receivng raw data
         if (!is_codec_opaque(tx_frame->color_spec)) {
@@ -180,20 +182,19 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
                 return;
         }
 
-        tx_send_std(m_rtp_common->tx, tx_frame.get(),
-                    m_rtp_common->network_device);
+        tx_send_std(video->tx, tx_frame.get(), video->network_device);
 
-        if (m_rtp_common->rxtx_mode & MODE_RECEIVER) { // send RTCP (receiver thread would otherwise do this
+        if (video->rxtx_mode & MODE_RECEIVER) { // send RTCP (receiver thread would otherwise do this
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
-                rtp_update(m_rtp_common->network_device, curr_time);
-                rtp_send_ctrl(m_rtp_common->network_device, ts, nullptr, curr_time);
+                rtp_update(video->network_device, curr_time);
+                rtp_send_ctrl(video->network_device, ts, nullptr, curr_time);
 
                 // receive RTCP
                 struct timeval timeout;
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 0;
-                rtp_recv_r(m_rtp_common->network_device, &timeout, ts);
+                rtp_recv_r(video->network_device, &timeout, ts);
         }
 }
 

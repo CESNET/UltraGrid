@@ -50,13 +50,24 @@
 
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
-struct rtp_rxtx_common {
+
+enum {
+        RTP_RXTX_AUDIO,
+        RTP_RXTX_VIDEO,
+        NUM_RTP_RXTX,
+};
+
+struct rtp_rxtx_medium {
         struct rtp     *network_device;
-        pthread_mutex_t network_devices_lock;
         struct tx      *tx;
         struct pdb     *participants;
-        struct fec     *fec_state;
         int             rxtx_mode;
+        pthread_mutex_t lock;
+};
+
+struct rtp_rxtx_common {
+        struct rtp_rxtx_medium medium[NUM_RTP_RXTX];
+        struct fec     *fec_state;
         struct rtp_rxtx_common_priv_state *priv;
 };
 
@@ -65,7 +76,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *s);
-void rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_common *s, double delay);
+void rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_medium *s, double delay);
 
 #endif // VIDEO_RXTX_RTP_H_
 
