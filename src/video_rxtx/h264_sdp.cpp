@@ -105,9 +105,12 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
         sdp_set_properties(common->receiver, params->send_video, params->send_audio);
 
         if (int ret = sdp_set_options(opts)) {
-                throw ret == 1 ? 0 : 1;
+                throw ret == 1 ? -1 : -1;
         }
         m_rtp_common = rtp_rxtx_common_init(params, common);
+        if (m_rtp_common == nullptr) {
+                throw -1;
+        }
         m_saved_addr = common->receiver;
 }
 

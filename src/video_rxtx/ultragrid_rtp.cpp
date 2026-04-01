@@ -82,7 +82,6 @@ typedef SSIZE_T ssize_t;
 #include "video_display.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.hpp"  // for rtp_video_rxtx
-#include "ug_runtime_error.hpp"
 #include "utils/worker.h"
 
 constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'u', 'r');
@@ -163,9 +162,12 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
 
         if (get_commandline_param("decoder-use-codec") != nullptr && "help"s == get_commandline_param("decoder-use-codec")) {
                 destroy_video_decoder(new_video_decoder(m_display_device));
-                throw ug_no_error();
+                throw 1;
         }
         m_rtp_common = rtp_rxtx_common_init(params, common);
+        if (m_rtp_common == nullptr) {
+                throw -1;
+        }
 
 }
 

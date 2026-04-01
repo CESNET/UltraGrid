@@ -52,6 +52,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/video_decoders.h"
 #include "transmit.h"
+#include "types.h"
 #include "ug_runtime_error.hpp"
 #include "utils/lock_guard.h"    // for ultragrid::pthread_mutex_guard
 #include "utils/net.h" // IN6_BLACKHOLE_STR
@@ -63,12 +64,19 @@
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.hpp"
 
+#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
+
 #define MAGIC to_fourcc('V', 'X', 'r', ' ')
 #define MOD_NAME "[video_rxtx/rtp] "
 
 using std::ostringstream;
 using std::string;
 using ultragrid::pthread_mutex_guard;
+
+struct rtp_medium_priv {
+        int rx_port;
+        int tx_port;
+};
 
 struct rtp_rxtx_common_priv_state {
         uint32_t magic;
@@ -78,10 +86,9 @@ struct rtp_rxtx_common_priv_state {
         char *mcast_if;
         int   ttl;
         char *requested_receiver;
-        int   rx_port;
-        int   tx_port;
+        struct rtp_medium_priv media[NUM_TX_MEDIA];
 
-        struct rtp_rxtx_common info;
+        struct rtp_rxtx_common pub;
         /// This is child of vrxtx sender module to process specific messages.
         /// The receiver module is used directly (vrxtx doesn't process any
         /// message and also the send/receive handling is not entirely
@@ -94,28 +101,31 @@ struct rtp_rxtx_common_priv_state {
 static struct rtp *initialize_network(const char *addr, int recv_port,
                                       int send_port, struct pdb *participants,
                                       int         force_ip_version,
-                                      const char *mcast_if, int ttl);
+                                      const char *mcast_if, int ttl,
+                                      enum tx_media_type medium);
 static void        destroy_rtp_device(struct rtp *network_device);
 
 static struct response *
-rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
+rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_sender *msg)
 {
-        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
+        /// @todo audio
+        struct rtp_rxtx_medium *video = &s->pub.medium[TX_MEDIA_VIDEO];
+        struct rtp_medium_priv *video_priv = &s->media[TX_MEDIA_VIDEO];
         switch (msg->type) {
         case SENDER_MSG_CHANGE_RECEIVER: {
                 assert(video->rxtx_mode == MODE_SENDER); // sender only
                 pthread_mutex_guard lock(video->lock);
                 auto             *old_device   = video->network_device;
-                char *old_receiver = s->priv->requested_receiver;
-                s->priv->requested_receiver = strdup(msg->receiver);
-                video->network_device       = initialize_network(
-                    s->priv->requested_receiver, s->priv->rx_port,
-                    s->priv->tx_port, video->participants,
-                    s->priv->force_ip_version, s->priv->mcast_if, s->priv->ttl);
+                char *old_receiver = s->requested_receiver;
+                s->requested_receiver = strdup(msg->receiver);
+                video->network_device            = initialize_network(
+                    s->requested_receiver, video_priv->rx_port,
+                    video_priv->tx_port, video->participants,
+                    s->force_ip_version, s->mcast_if, s->ttl, TX_MEDIA_VIDEO);
                 if (video->network_device == nullptr) {
                         video->network_device = old_device;
-                        free(s->priv->requested_receiver);
-                        s->priv->requested_receiver = old_receiver;
+                        free(s->requested_receiver);
+                        s->requested_receiver = old_receiver;
                         MSG(ERROR, "Failed receiver to %s.\n", msg->receiver);
                         return new_response(RESPONSE_INT_SERV_ERR,
                                             "Changing receiver failed!");
@@ -128,21 +138,21 @@ rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
                 assert(video->rxtx_mode == MODE_SENDER); // sender only
                 pthread_mutex_guard lock(video->lock);
                 auto             *old_device = video->network_device;
-                auto              old_port   = s->priv->tx_port;
+                auto              old_port   = video_priv->tx_port;
 
-                s->priv->tx_port = msg->tx_port;
+                video_priv->tx_port = msg->tx_port;
                 if (msg->rx_port != 0) {
-                        s->priv->rx_port = msg->rx_port;
+                        video_priv->rx_port = msg->rx_port;
                 }
                 video->network_device = initialize_network(
-                    s->priv->requested_receiver, s->priv->rx_port,
-                    s->priv->tx_port, video->participants,
-                    s->priv->force_ip_version,
-                    s->priv->mcast_if, s->priv->ttl);
+                    s->requested_receiver, video_priv->rx_port,
+                    video_priv->tx_port, video->participants,
+                    s->force_ip_version,
+                    s->mcast_if, s->ttl, TX_MEDIA_VIDEO);
 
                 if (video->network_device == nullptr) {
                         video->network_device   = old_device;
-                        s->priv->tx_port = old_port;
+                        video_priv->tx_port = old_port;
                         MSG(ERROR, "Failed to Change TX port to %d.\n",
                             msg->tx_port);
                         return new_response(RESPONSE_INT_SERV_ERR,
@@ -153,14 +163,14 @@ rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
         } break;
         case SENDER_MSG_CHANGE_FEC: {
                 pthread_mutex_guard lock(video->lock);
-                auto             *old_fec_state = s->fec_state;
-                s->fec_state                     = nullptr;
+                auto               *old_fec_state = s->pub.fec_state;
+                s->pub.fec_state                  = nullptr;
                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                         delete old_fec_state;
                         break;
                 }
-                s->fec_state = fec::create_from_config(msg->fec_cfg, false);
-                if (s->fec_state == nullptr) {
+                s->pub.fec_state = fec::create_from_config(msg->fec_cfg, false);
+                if (s->pub.fec_state == nullptr) {
                         int rc = 0;
                         if (strstr(msg->fec_cfg, "help") == nullptr) {
                                 MSG(ERROR, "Unable to initialize FEC!\n");
@@ -169,11 +179,11 @@ rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
 
                         // Exit only if we failed because of command line
                         // params, not control port msg
-                        if (s->priv->used) {
+                        if (s->used) {
                                 exit_uv(rc);
                         }
 
-                        s->fec_state = old_fec_state;
+                        s->pub.fec_state = old_fec_state;
                         return new_response(RESPONSE_INT_SERV_ERR, nullptr);
                 }
                 delete old_fec_state;
@@ -193,12 +203,13 @@ rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
         return new_response(RESPONSE_OK, nullptr);
 }
 
-void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *s)
+void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub)
 {
-        s->priv->used = true;
+        struct rtp_rxtx_common_priv_state *s = pub->priv;
+        s->used = true;
 
         struct message *msg_external = nullptr;
-        while ((msg_external = check_message(&s->priv->m_rtp_sender_mod)) !=
+        while ((msg_external = check_message(&s->m_rtp_sender_mod)) !=
                nullptr) {
                 auto *msg = (struct msg_sender *) msg_external;
                 struct response *r = rtp_process_sender_message(s, msg);
@@ -206,49 +217,78 @@ void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *s)
         }
 }
 
+static void
+init_medium_state(struct rtp_rxtx_common_priv_state *s,
+                  const struct common_opts          *opts,
+                  const struct vrxtx_params *params, enum tx_media_type t)
+{
+        const struct rxtx_medium_params *params_medium = &params->medium[t];
+        struct rtp_medium_priv          *medium_priv   = &s->media[t];
+        struct rtp_rxtx_medium          *medium_pub    = &s->pub.medium[t];
+        const struct {
+                const char   *medium_str;
+                volatile int *medium_offset;
+                long long     bitrate_limit;
+
+        } medium_defaults[NUM_TX_MEDIA] = {
+                { "audio", &audio_offset, 0                     },
+                { "video", &video_offset, params->bitrate_limit },
+        };
+        const char   *medium_str    = medium_defaults[t].medium_str;
+        volatile int *medium_offset = medium_defaults[t].medium_offset;
+        long long     bitrate_limit = medium_defaults[t].bitrate_limit;
+
+        medium_priv->rx_port = params_medium->rx_port;
+        medium_priv->tx_port = params_medium->tx_port;
+
+        medium_pub->rxtx_mode      = params_medium->rxtx_mode;
+        medium_pub->participants   = pdb_init(medium_str, medium_offset);
+        medium_pub->network_device = initialize_network(
+            opts->receiver, medium_priv->rx_port, medium_priv->tx_port,
+            medium_pub->participants, opts->force_ip_version, opts->mcast_if,
+            opts->ttl, t);
+        if (medium_pub->network_device == nullptr) {
+                throw ug_runtime_error(string("Unable to open ") + medium_str +
+                                           " network",
+                                       EXIT_FAIL_NETWORK);
+        }
+        medium_pub->tx =
+            tx_init(&s->m_rtp_sender_mod, opts->mtu, TX_MEDIA_VIDEO,
+                    params_medium->fec, opts->encryption, bitrate_limit);
+        if (medium_pub->tx == nullptr) {
+                throw ug_runtime_error(string("Unable to initialize ") +
+                                           medium_str + " transmitter",
+                                       EXIT_FAIL_TRANSMIT);
+        }
+        pthread_mutex_init(&medium_pub->lock, nullptr);
+}
+
 struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
                        const struct common_opts  *common)
 {
         auto *priv = (struct rtp_rxtx_common_priv_state *) calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
-        struct rtp_rxtx_common *s = &priv->info;
-        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
-        const struct rxtx_medium_params *params_video =
-            &params->medium[TX_MEDIA_VIDEO];
+        struct rtp_rxtx_common *s = &priv->pub;
 
         s->priv = priv;
         s->priv->magic = MAGIC;
-        pthread_mutex_init(&video->lock, nullptr);
         s->priv->force_ip_version   = common->force_ip_version,
         s->priv->mcast_if           = strdup(common->mcast_if);
         s->priv->ttl                = common->ttl;
         s->priv->requested_receiver = strdup(common->receiver),
-        s->priv->rx_port            = params_video->rx_port,
-        s->priv->tx_port            = params_video->tx_port;
-        video->rxtx_mode            = params_video->rxtx_mode;
-
-        video->participants = pdb_init("video", &video_offset);
-
-        video->network_device = initialize_network(
-            s->priv->requested_receiver, s->priv->rx_port, s->priv->tx_port,
-            video->participants, common->force_ip_version, common->mcast_if,
-            common->ttl);
-        if (video->network_device == nullptr) {
-                rtp_rxtx_common_done(s);
-                throw ug_runtime_error("Unable to open network",
-                                       EXIT_FAIL_NETWORK);
-        }
 
         module_init_default(&priv->m_rtp_sender_mod);
         priv->m_rtp_sender_mod.cls = MODULE_CLASS_DATA;
         module_register(&priv->m_rtp_sender_mod, params->sender_mod);
 
-        video->tx = tx_init(&priv->m_rtp_sender_mod, common->mtu, TX_MEDIA_VIDEO,
-                       params_video->fec, common->encryption, params->bitrate_limit);
-        if (video->tx == nullptr) {
-                rtp_rxtx_common_done(s);
-                throw ug_runtime_error("Unable to initialize transmitter",
-                                       EXIT_FAIL_TRANSMIT);
+        for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
+                /// @todo no init if not needed
+                try {
+                        init_medium_state(priv, common, params, (enum tx_media_type) i);
+                } catch (...) {
+                        rtp_rxtx_common_done(s);
+                        throw;
+                }
         }
 
         // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
@@ -262,19 +302,22 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
 void
 rtp_rxtx_common_done(struct rtp_rxtx_common *s)
 {
-        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
         auto *priv = s->priv;
         assert(priv->magic == MAGIC);
-        if (video->tx != nullptr) {
-                tx_done(video->tx);
-        }
 
-        pthread_mutex_lock(&video->lock);
-        destroy_rtp_device(video->network_device);
-        pthread_mutex_unlock(&video->lock);
+        for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
+                struct rtp_rxtx_medium *medium = &s->medium[i];
+                if (medium->network_device != nullptr) {
+                        destroy_rtp_device(medium->network_device);
+                }
+                if (medium->participants != nullptr) {
+                        pdb_destroy(&medium->participants);
+                }
+                if (medium->tx != nullptr) {
+                        tx_done(medium->tx);
+                        CHK_PTHR(pthread_mutex_destroy(&medium->lock));
 
-        if (video->participants != nullptr) {
-                pdb_destroy(&video->participants);
+                }
         }
 
         delete s->fec_state;
@@ -282,15 +325,13 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *s)
         free(s->priv->requested_receiver);
         module_done(&priv->m_rtp_sender_mod);
 
-        CHK_PTHR(pthread_mutex_destroy(&s->network_devices_lock));
-
         free(priv);
 }
 
 static struct rtp *
 initialize_network(const char *addr, int recv_port, int send_port,
                    struct pdb *participants, int force_ip_version,
-                   const char *mcast_if, int ttl)
+                   const char *mcast_if, int ttl, enum tx_media_type medium)
 {
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
 
@@ -315,8 +356,13 @@ initialize_network(const char *addr, int recv_port, int send_port,
         rtp_set_sdes(device, rtp_my_ssrc(device),
                      RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
 
-        rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
-        rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
+        if (medium == TX_MEDIA_VIDEO) {
+                rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
+                rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
+        } else {
+                rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
+                rtp_set_recv_buf(device, DEFAULT_AUDIO_RECV_BUF_SIZE);
+        }
 
         pdb_add(participants, rtp_my_ssrc(device));
 

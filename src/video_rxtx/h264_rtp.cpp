@@ -108,13 +108,16 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
                                  (params->send_video ? rtsp_type_video : 0));
         if (avType == rtsp_type_none) {
                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
-                throw 1;
+                throw -1;
         }
         rtsp_params.avType = avType;;
 
         rtsp_params.rtp_port_video =
             params->medium[TX_MEDIA_VIDEO].rx_port; // server rtp port
         m_rtp_common = rtp_rxtx_common_init(params, common);
+        if (m_rtp_common == nullptr) {
+                throw -1;
+        }
 }
 
 /**

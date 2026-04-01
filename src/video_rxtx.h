@@ -93,10 +93,19 @@ struct vrxtx_params {
 }
 
 #ifdef __cplusplus
+/**
+ * @note
+ * function can throw but the actual exception type/value is not currently
+ * honored (return value from vrxtx_init() currently evaluates whether
+ * vrxtx_params.protocol_opts is "help"). If unsure, throw 1 on help and -1 on
+ * error.
+ */
+typedef void *rxtx_create_t(const struct vrxtx_params *params,
+                            const struct common_opts  *common);
+
 struct video_rxtx_info {
         const char *long_name;
-        void *(*create)(const struct vrxtx_params *params,
-                        const struct common_opts  *common);
+        rxtx_create_t *create;
         void (*done)(void *state);
         /// this may be set optional if we had some receive-only mod
         void (*send_frame)(void *state, std::shared_ptr<video_frame>);
