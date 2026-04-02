@@ -126,7 +126,7 @@ void init_send(omt_rxtx_state *s){
 
 void *omt_rxtx_create(const vrxtx_params *params, const common_opts *common){
         const struct rxtx_medium_params *params_video =
-            &params->medium[RXTX_VIDEO];
+            &params->medium[TX_MEDIA_VIDEO];
         auto s    = std::make_unique<omt_rxtx_state>();
         s->parent = common->parent;
 

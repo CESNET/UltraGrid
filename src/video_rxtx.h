@@ -49,12 +49,6 @@
 
 struct audio_desc;
 
-enum {
-        RXTX_AUDIO,
-        RXTX_VIDEO,
-        NUM_RXTX,
-};
-
 struct rxtx_medium_params  {
         enum rxtx_mode  rxtx_mode;      ///< sender, receiver or both
         int             rx_port;
@@ -63,7 +57,7 @@ struct rxtx_medium_params  {
 };
 
 struct vrxtx_params {
-        struct rxtx_medium_params medium[NUM_RXTX];
+        struct rxtx_medium_params medium[NUM_TX_MEDIA];
 
         const char     *compression; ///< nullptr selects proto dfl
         struct display *display_device; ///< only iHDTV, UG RTP

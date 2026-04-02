@@ -302,7 +302,7 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                    const struct common_opts *common) noexcept(false)
 {
         const struct rxtx_medium_params *params_video =
-            &params->medium[RXTX_VIDEO];
+            &params->medium[TX_MEDIA_VIDEO];
 
         auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
         if (!vri) {

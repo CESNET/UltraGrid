@@ -144,7 +144,7 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params,
     : m_parent(common->parent), m_tx_connection(), m_rx_connection()
 {
         const struct rxtx_medium_params *params_video =
-            &params->medium[RXTX_VIDEO];
+            &params->medium[TX_MEDIA_VIDEO];
         int    argc = uv_argc;
         char **argv = uv_argv;
         if ((argc != 0) && (argc != 1) && (argc != 2)) {

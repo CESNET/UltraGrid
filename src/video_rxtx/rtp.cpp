@@ -100,7 +100,7 @@ static void        destroy_rtp_device(struct rtp *network_device);
 static struct response *
 rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
 {
-        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
         switch (msg->type) {
         case SENDER_MSG_CHANGE_RECEIVER: {
                 assert(video->rxtx_mode == MODE_SENDER); // sender only
@@ -212,9 +212,9 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         auto *priv = (struct rtp_rxtx_common_priv_state *) calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
         struct rtp_rxtx_common *s = &priv->info;
-        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
         const struct rxtx_medium_params *params_video =
-            &params->medium[RXTX_VIDEO];
+            &params->medium[TX_MEDIA_VIDEO];
 
         s->priv = priv;
         s->priv->magic = MAGIC;
@@ -262,7 +262,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
 void
 rtp_rxtx_common_done(struct rtp_rxtx_common *s)
 {
-        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[TX_MEDIA_VIDEO];
         auto *priv = s->priv;
         assert(priv->magic == MAGIC);
         if (video->tx != nullptr) {

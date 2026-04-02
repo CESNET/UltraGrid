@@ -40,6 +40,7 @@
 
 #include <pthread.h>
 
+#include "types.h"
 #include "video_rxtx.h"
 
 #ifdef __APPLE__
@@ -60,7 +61,7 @@ struct rtp_rxtx_medium {
 };
 
 struct rtp_rxtx_common {
-        struct rtp_rxtx_medium medium[NUM_RXTX];
+        struct rtp_rxtx_medium medium[NUM_TX_MEDIA];
         struct fec     *fec_state;
         struct rtp_rxtx_common_priv_state *priv;
 };

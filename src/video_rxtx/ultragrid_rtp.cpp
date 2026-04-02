@@ -218,7 +218,7 @@ void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
 void
 ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame)
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
         pthread_mutex_guard lock(video->lock);
 
         tx_send(video->tx, tx_frame.get(), video->network_device);
@@ -250,7 +250,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                 switch (msg->type) {
                 case RECEIVER_MSG_VIDEO_PROP_CHANGED:
                         rtp_rxtx_set_pbuf_delay(
-                            &m_rtp_common->medium[RXTX_VIDEO],
+                            &m_rtp_common->medium[TX_MEDIA_VIDEO],
                             1.0 / msg->new_desc.fps);
                         free_message((struct message *) msg,
                                      new_response(RESPONSE_OK, nullptr));
@@ -268,7 +268,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
  * until new display assigned.
  */
 void ultragrid_rtp_video_rxtx::remove_display_from_decoders() {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
         if (video->participants != nullptr) {
                 pdb_iter_t it;
                 struct pdb_e *cp = pdb_iter_init(video->participants, &it);
@@ -363,7 +363,7 @@ display_buf_increase_warning(int size)
 void *ultragrid_rtp_video_rxtx::receiver_loop()
 {
         set_thread_name(__func__);
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
         struct pdb_e *cp;
         int fr;
         int last_buf_size = rtp_get_recv_buf(video->network_device);
@@ -514,7 +514,7 @@ uint32_t
 ultragrid_rtp_get_ssrc(void *state)
 {
         auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
-        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[TX_MEDIA_VIDEO];
         assert(s != nullptr);
         assert(s->magic == MAGIC);
         return rtp_my_ssrc(video->network_device);
@@ -522,7 +522,7 @@ ultragrid_rtp_get_ssrc(void *state)
 
 int ultragrid_rtp_send_raw_rtp_data(void *state, char *buf, int count) {
         auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
-        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[TX_MEDIA_VIDEO];
         assert(s != nullptr);
         assert(s->magic == MAGIC);
         return rtp_send_raw_rtp_data(video->network_device, buf, count);

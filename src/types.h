@@ -372,7 +372,8 @@ enum rxtx_mode {
 
 enum tx_media_type {
         TX_MEDIA_AUDIO,
-        TX_MEDIA_VIDEO
+        TX_MEDIA_VIDEO,
+        NUM_TX_MEDIA
 };
 
 struct device_option{

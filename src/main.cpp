@@ -608,7 +608,7 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
                 color_printf("see\n\n    " TBOLD("%s --fullhelp") "\n\nfor port specification usage\n", uv_argv[0]);
                 return false;
         }
-        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (char *tx_port_str = strtok_r(nullptr, ":", &save_ptr)) {
                 video->rx_port = stoi(first_val, nullptr, 0);
                 video->tx_port = stoi(tx_port_str, nullptr, 0);
@@ -860,14 +860,14 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 if(toupper(optarg[0]) == 'A') {
                                         opt->audio.fec_cfg = optarg + 2;
                                 } else {
-                                        opt->rxtx.medium[RXTX_VIDEO].fec = optarg + 2;
+                                        opt->rxtx.medium[TX_MEDIA_VIDEO].fec = optarg + 2;
                                 }
                         } else {
                                 // there should be setting for both audio and video
                                 // but we conservativelly expect that the user wants
                                 // only vieo and let audio default until explicitly
                                 // stated otherwise
-                                opt->rxtx.medium[RXTX_VIDEO].fec = optarg;
+                                opt->rxtx.medium[TX_MEDIA_VIDEO].fec = optarg;
                         }
                         break;
                 case 'h':
@@ -1066,7 +1066,7 @@ parse_options(int argc, char *argv[], struct ug_options *opt)
 static void
 adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
 {
-        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
 
         // use dyn ports if unset, sending only to ourselves or neither
         // sending nor receiving
@@ -1137,7 +1137,7 @@ adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
 static int
 adjust_params_holepunch(struct ug_options *opt)
 {
-        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
 #ifndef HAVE_LIBJUICE
         (void) video;
         log_msg(LOG_LEVEL_ERROR, "Ultragrid was compiled without holepunch support\n");
@@ -1199,7 +1199,7 @@ adjust_params_holepunch(struct ug_options *opt)
 static int
 adjust_params(struct ug_options *opt)
 {
-        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         unsigned int audio_rxtx_mode = 0;
         if (opt->is_server) {
                 commandline_params["udp-disable-multi-socket"] = string();
@@ -1308,7 +1308,7 @@ adjust_params(struct ug_options *opt)
 static void
 validate_params(struct ug_options *opt)
 {
-        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->vidcap_params_head == opt->vidcap_params_tail) {
                 if (opt->rxtx.compression != nullptr) {
                         MSG(WARNING,
@@ -1362,7 +1362,7 @@ int main(int argc, char *argv[])
         struct sched_param sp;
 #endif
         ug_options opt{};
-        struct rxtx_medium_params *video = &opt.rxtx.medium[RXTX_VIDEO];
+        struct rxtx_medium_params *video = &opt.rxtx.medium[TX_MEDIA_VIDEO];
 
         pthread_t capture_thread_id  = PTHREAD_NULL;
 

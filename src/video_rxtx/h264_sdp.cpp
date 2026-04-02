@@ -96,7 +96,8 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
                                          const struct common_opts  *common)
         : m_parent(common->parent)
 {
-        const struct rxtx_medium_params *video = &params->medium[RXTX_VIDEO];
+        const struct rxtx_medium_params *video =
+            &params->medium[TX_MEDIA_VIDEO];
         auto opts = params->protocol_opts;
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
         m_saved_tx_port = video->tx_port;
@@ -130,7 +131,7 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
 
         const int rc = ::sdp_add_video(
             rtp_is_ipv6(video->network_device), m_saved_tx_port, codec,
@@ -152,7 +153,7 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 void
 h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
 
         rtp_rxtx_sender_do_housekeeping(m_rtp_common);
         if (!is_codec_opaque(tx_frame->color_spec)) {

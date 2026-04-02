@@ -185,13 +185,13 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         // common
         struct common_opts common = COMMON_OPTS_INIT;
         common.parent = vidcap_params_get_parent(cap_params);
-        params.medium[RXTX_VIDEO].rxtx_mode = MODE_RECEIVER;
+        params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_RECEIVER;
 
         //RTP
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
         common.receiver = "localhost";
-        params.medium[RXTX_VIDEO].rx_port = port;
-        params.medium[RXTX_VIDEO].tx_port = 0;
+        params.medium[TX_MEDIA_VIDEO].rx_port = port;
+        params.medium[TX_MEDIA_VIDEO].tx_port = 0;
         // following 3 already set by VRTX_INIT
         // params["fec"].str = "none";
         // params["bitrate"].ll = 0;
