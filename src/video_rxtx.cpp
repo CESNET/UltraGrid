@@ -301,6 +301,9 @@ video_rxtx *
 video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                    const struct common_opts *common) noexcept(false)
 {
+        const struct rxtx_medium_params *params_video =
+            &params->medium[RXTX_VIDEO];
+
         auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
         if (!vri) {
                 if (proto != "help") {
@@ -329,7 +332,7 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                 throw -1;
         }
 
-        if ((params->rxtx_mode & MODE_RECEIVER) != 0U) {
+        if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
                 if (ret->m_impl_funcs->receiver_routine == nullptr) {
                         MSG(ERROR,
                             "Selected RX/TX mode doesn't support receiving.\n");

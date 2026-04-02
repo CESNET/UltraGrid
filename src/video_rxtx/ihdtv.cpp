@@ -143,7 +143,9 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params,
                                    const struct common_opts  *common)
     : m_parent(common->parent), m_tx_connection(), m_rx_connection()
 {
-        int argc = uv_argc;
+        const struct rxtx_medium_params *params_video =
+            &params->medium[RXTX_VIDEO];
+        int    argc = uv_argc;
         char **argv = uv_argv;
         if ((argc != 0) && (argc != 1) && (argc != 2)) {
                 throw string("Wrong number of parameters");
@@ -152,14 +154,14 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params,
         printf("Initializing ihdtv protocol\n");
 
         // we cannot act as both together, because parameter parsing would have to be revamped
-        if ((params->rxtx_mode == (MODE_SENDER | MODE_RECEIVER))) {
+        if (params_video->rxtx_mode == (MODE_SENDER | MODE_RECEIVER)) {
                throw string 
                         ("Error: cannot act as both sender and receiver together in ihdtv mode");
         }
 
         m_display_device = params->display_device;
 
-        if ((params->rxtx_mode & MODE_RECEIVER) != 0U) {
+        if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
                 assert(params->display_device != nullptr);
                 if (ihdtv_init_rx_session
                                 (&m_rx_connection, (argc == 0) ? NULL : argv[0],
@@ -170,7 +172,7 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params,
                 }
         }
 
-        if ((params->rxtx_mode & MODE_SENDER) != 0U) {
+        if ((params_video->rxtx_mode & MODE_SENDER) != 0U) {
                 assert(params->capture_device != nullptr);
                 if (argc == 0) {
                         throw string("Error: specify the destination address");

@@ -118,14 +118,14 @@ recompress_output_port::recompress_output_port(
 
         // common
         params.compression = "none";
-        params.rxtx_mode = MODE_SENDER;
+        params.medium[RXTX_VIDEO].rxtx_mode = MODE_SENDER;
 
         //RTP
         struct common_opts common_copy = *common;
         common_copy.receiver = this->host.c_str();
-        params.rx_port = rx_port;
-        params.tx_port = tx_port;
-        params.fec = fec;
+        params.medium[RXTX_VIDEO].rx_port = rx_port;
+        params.medium[RXTX_VIDEO].tx_port = tx_port;
+        params.medium[RXTX_VIDEO].fec = fec;
         params.bitrate_limit = bitrate;
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT

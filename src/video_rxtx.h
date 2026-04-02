@@ -49,14 +49,25 @@
 
 struct audio_desc;
 
-struct vrxtx_params {
-        const char     *compression; ///< nullptr selects proto dfl
+enum {
+        RXTX_AUDIO,
+        RXTX_VIDEO,
+        NUM_RXTX,
+};
+
+struct rxtx_medium_params  {
         enum rxtx_mode  rxtx_mode;      ///< sender, receiver or both
-        struct display *display_device; ///< only iHDTV, UG RTP
-        struct vidcap  *capture_device; ///< iHDTV only
         int             rx_port;
         int             tx_port;
         const char     *fec;
+};
+
+struct vrxtx_params {
+        struct rxtx_medium_params medium[NUM_RXTX];
+
+        const char     *compression; ///< nullptr selects proto dfl
+        struct display *display_device; ///< only iHDTV, UG RTP
+        struct vidcap  *capture_device; ///< iHDTV only
         long long       bitrate_limit; ///< rate limiter in bps or RATE_ constantts
         enum video_mode decoder_mode;
         const char     *protocol_opts;
@@ -68,13 +79,16 @@ struct vrxtx_params {
 
 #define VRXTX_INIT \
         { \
+                .medium         = { { }, \
+                                   { \
+                                        .rxtx_mode      = RXTX_MODE_NONE, \
+                                        .rx_port       = -1, \
+                                        .tx_port       = -1, \
+                                        .fec           = "none", \
+                                    } }, \
                 .compression    = nullptr, \
-                .rxtx_mode      = RXTX_MODE_NONE, \
                 .display_device = nullptr, \
                 .capture_device = nullptr, \
-                .rx_port        = -1, \
-                .tx_port        = -1, \
-                .fec            = "none", \
                 .bitrate_limit  = RATE_UNLIMITED, \
                 .decoder_mode   = VIDEO_NORMAL, \
                 .protocol_opts  = "", \
@@ -82,7 +96,7 @@ struct vrxtx_params {
                 .send_video     = false, \
                 .sender_mod     = nullptr, \
                 .receiver_mod   = nullptr, \
-        }
+}
 
 #ifdef __cplusplus
 struct video_rxtx_info {

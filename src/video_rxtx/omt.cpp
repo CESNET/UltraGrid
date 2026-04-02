@@ -125,7 +125,9 @@ void init_send(omt_rxtx_state *s){
 }
 
 void *omt_rxtx_create(const vrxtx_params *params, const common_opts *common){
-        auto s = std::make_unique<omt_rxtx_state>();
+        const struct rxtx_medium_params *params_video =
+            &params->medium[RXTX_VIDEO];
+        auto s    = std::make_unique<omt_rxtx_state>();
         s->parent = common->parent;
 
         if(!parse_params(s.get(), params->protocol_opts)){
@@ -134,10 +136,10 @@ void *omt_rxtx_create(const vrxtx_params *params, const common_opts *common){
 
         ug_register_omt_log_callback();
 
-        if(params->rxtx_mode & MODE_RECEIVER)
+        if(params_video->rxtx_mode & MODE_RECEIVER)
             init_recv(params, common, s.get());
 
-        if(params->rxtx_mode & MODE_SENDER)
+        if(params_video->rxtx_mode & MODE_SENDER)
             init_send(s.get());
 
         return s.release();

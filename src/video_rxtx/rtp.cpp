@@ -100,7 +100,7 @@ static void        destroy_rtp_device(struct rtp *network_device);
 static struct response *
 rtp_process_sender_message(struct rtp_rxtx_common *s, struct msg_sender *msg)
 {
-        struct rtp_rxtx_medium *video = &s->medium[RTP_RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
         switch (msg->type) {
         case SENDER_MSG_CHANGE_RECEIVER: {
                 assert(video->rxtx_mode == MODE_SENDER); // sender only
@@ -212,7 +212,9 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         auto *priv = (struct rtp_rxtx_common_priv_state *) calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
         struct rtp_rxtx_common *s = &priv->info;
-        struct rtp_rxtx_medium *video = &s->medium[RTP_RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
+        const struct rxtx_medium_params *params_video =
+            &params->medium[RXTX_VIDEO];
 
         s->priv = priv;
         s->priv->magic = MAGIC;
@@ -221,9 +223,9 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         s->priv->mcast_if           = strdup(common->mcast_if);
         s->priv->ttl                = common->ttl;
         s->priv->requested_receiver = strdup(common->receiver),
-        s->priv->rx_port            = params->rx_port,
-        s->priv->tx_port            = params->tx_port;
-        video->rxtx_mode            = params->rxtx_mode;
+        s->priv->rx_port            = params_video->rx_port,
+        s->priv->tx_port            = params_video->tx_port;
+        video->rxtx_mode            = params_video->rxtx_mode;
 
         video->participants = pdb_init("video", &video_offset);
 
@@ -242,7 +244,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         module_register(&priv->m_rtp_sender_mod, params->sender_mod);
 
         video->tx = tx_init(&priv->m_rtp_sender_mod, common->mtu, TX_MEDIA_VIDEO,
-                       params->fec, common->encryption, params->bitrate_limit);
+                       params_video->fec, common->encryption, params->bitrate_limit);
         if (video->tx == nullptr) {
                 rtp_rxtx_common_done(s);
                 throw ug_runtime_error("Unable to initialize transmitter",
@@ -260,7 +262,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
 void
 rtp_rxtx_common_done(struct rtp_rxtx_common *s)
 {
-        struct rtp_rxtx_medium *video = &s->medium[RTP_RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &s->medium[RXTX_VIDEO];
         auto *priv = s->priv;
         assert(priv->magic == MAGIC);
         if (video->tx != nullptr) {

@@ -112,7 +112,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
         }
         rtsp_params.avType = avType;;
 
-        rtsp_params.rtp_port_video = params->rx_port;  //server rtp port
+        rtsp_params.rtp_port_video = params->medium[RXTX_VIDEO].rx_port;  //server rtp port
         m_rtp_common = rtp_rxtx_common_init(params, common);
 }
 
@@ -156,7 +156,7 @@ h264_rtp_video_rxtx::configure_rtsp_server_video()
 void
 h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RTP_RXTX_VIDEO];
+        struct rtp_rxtx_medium *video = &m_rtp_common->medium[RXTX_VIDEO];
 
         rtp_rxtx_sender_do_housekeeping(m_rtp_common);
         // requestt compress reconfiguration if receivng raw data

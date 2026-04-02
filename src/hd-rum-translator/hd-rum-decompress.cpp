@@ -211,13 +211,13 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
 
         // common
         s->common.parent = parent;
-        params.rxtx_mode = MODE_RECEIVER;
+        params.medium[RXTX_VIDEO].rxtx_mode = MODE_RECEIVER;
 
         //RTP
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
         s->common.receiver = "localhost";
-        params.rx_port = 0;
-        params.tx_port = 0;
+        params.medium[RXTX_VIDEO].rx_port = 0;
+        params.medium[RXTX_VIDEO].tx_port = 0;
         // params["video_delay"].vptr = nullptr;
 
         // UltraGrid RTP

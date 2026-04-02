@@ -51,12 +51,6 @@
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
 
-enum {
-        RTP_RXTX_AUDIO,
-        RTP_RXTX_VIDEO,
-        NUM_RTP_RXTX,
-};
-
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
         struct tx      *tx;
@@ -66,7 +60,7 @@ struct rtp_rxtx_medium {
 };
 
 struct rtp_rxtx_common {
-        struct rtp_rxtx_medium medium[NUM_RTP_RXTX];
+        struct rtp_rxtx_medium medium[NUM_RXTX];
         struct fec     *fec_state;
         struct rtp_rxtx_common_priv_state *priv;
 };

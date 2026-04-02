@@ -550,7 +550,7 @@ struct ug_options {
                 vidcap_params_free(vidcap_params_head);
         }
         struct common_opts common = COMMON_OPTS_INIT;
-        struct vrxtx_params video = VRXTX_INIT;
+        struct vrxtx_params rxtx = VRXTX_INIT;
         struct audio_options audio = AUDIO_OPTIONS_INIT;
         std::string audio_filter_cfg;
         // NULL terminated array of capture devices
@@ -608,9 +608,10 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
                 color_printf("see\n\n    " TBOLD("%s --fullhelp") "\n\nfor port specification usage\n", uv_argv[0]);
                 return false;
         }
+        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
         if (char *tx_port_str = strtok_r(nullptr, ":", &save_ptr)) {
-                opt->video.rx_port = stoi(first_val, nullptr, 0);
-                opt->video.tx_port = stoi(tx_port_str, nullptr, 0);
+                video->rx_port = stoi(first_val, nullptr, 0);
+                video->tx_port = stoi(tx_port_str, nullptr, 0);
                 char *tok = nullptr;
                 if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
                         opt->audio.recv_port = stoi(tok, nullptr, 0);
@@ -625,12 +626,12 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
                 opt->port_base = stoi(first_val, nullptr, 0);
         }
         if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 ||
-            opt->video.rx_port < -1 || opt->video.tx_port < -1 ||
+            video->rx_port < -1 || video->tx_port < -1 ||
             opt->port_base < -1 ||
             opt->audio.recv_port > UINT16_MAX ||
             opt->audio.send_port > UINT16_MAX ||
-            opt->video.rx_port > UINT16_MAX ||
-            opt->video.tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
+            video->rx_port > UINT16_MAX ||
+            video->tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid port value, allowed range 1-65535\n";
                 return false;
         }
@@ -685,7 +686,7 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
         }
         if (set_video) {
                 opt->video_protocol = proto;
-                opt->video.protocol_opts = cfg;
+                opt->rxtx.protocol_opts = cfg;
 
         }
         return true;
@@ -809,8 +810,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'M':
-                        opt->video.decoder_mode = get_video_mode_from_str(optarg);
-                        if (opt->video.decoder_mode == VIDEO_UNKNOWN) {
+                        opt->rxtx.decoder_mode = get_video_mode_from_str(optarg);
+                        if (opt->rxtx.decoder_mode == VIDEO_UNKNOWN) {
                                 return strcasecmp(optarg, "help") == 0 ? 1 : -EXIT_FAIL_USAGE;
                         }
                         break;
@@ -821,14 +822,14 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         print_configuration();
                         return 1;
                 case 'c':
-                        opt->video.compression = optarg;
+                        opt->rxtx.compression = optarg;
                         break;
                 case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"-x rtsp[:args]\"instead.\n");
                         opt->video_protocol = "rtsp";
-                        opt->video.protocol_opts = optarg ? optarg : "";
+                        opt->rxtx.protocol_opts = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_PROTOCOL:
                 case OPT_VIDEO_PROTOCOL:
@@ -859,14 +860,14 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 if(toupper(optarg[0]) == 'A') {
                                         opt->audio.fec_cfg = optarg + 2;
                                 } else {
-                                        opt->video.fec = optarg + 2;
+                                        opt->rxtx.medium[RXTX_VIDEO].fec = optarg + 2;
                                 }
                         } else {
                                 // there should be setting for both audio and video
                                 // but we conservativelly expect that the user wants
                                 // only vieo and let audio default until explicitly
                                 // stated otherwise
-                                opt->video.fec = optarg;
+                                opt->rxtx.medium[RXTX_VIDEO].fec = optarg;
                         }
                         break;
                 case 'h':
@@ -878,10 +879,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'l':
-                        if (!parse_bitrate(optarg, &opt->video.bitrate_limit)) {
+                        if (!parse_bitrate(optarg, &opt->rxtx.bitrate_limit)) {
                                 return -EXIT_FAILURE;
                         }
-                        if (opt->video.bitrate_limit == RATE_DEFAULT) {
+                        if (opt->rxtx.bitrate_limit == RATE_DEFAULT) {
                                 return 1; // help written
                         }
                         break;
@@ -1065,19 +1066,21 @@ parse_options(int argc, char *argv[], struct ug_options *opt)
 static void
 adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
 {
+        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
+
         // use dyn ports if unset, sending only to ourselves or neither
         // sending nor receiving
         if (is_host_loopback(opt->common.receiver)) {
                 const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
                 const bool     v_send_and_rcv =
-                    (opt->video.rxtx_mode & mode_both) == mode_both;
+                    (video->rxtx_mode & mode_both) == mode_both;
                 const bool v_no_send_or_recv =
-                    (opt->video.rxtx_mode & mode_both) == 0;
-                const bool v_ports_unset = opt->video.rx_port == -1 &&
-                                           opt->video.tx_port == -1 &&
+                    (video->rxtx_mode & mode_both) == 0;
+                const bool v_ports_unset = video->rx_port == -1 &&
+                                           video->tx_port == -1 &&
                                            opt->port_base == -1;
                 if ((v_send_and_rcv || v_no_send_or_recv) && v_ports_unset) {
-                        opt->video.rx_port = opt->video.tx_port = 0;
+                        video->rx_port = video->tx_port = 0;
                 }
                 const bool a_send_and_recv =
                     (audio_rxtx_mode & mode_both) == mode_both;
@@ -1094,21 +1097,21 @@ adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
                 opt->port_base = PORT_BASE;
         };
 
-        if (opt->video.rx_port == -1) {
-                if ((opt->video.rxtx_mode & MODE_RECEIVER) == 0U) {
+        if (video->rx_port == -1) {
+                if ((video->rxtx_mode & MODE_RECEIVER) == 0U) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
                         // our receiver, because RTCP ports are changed as well)
-                        opt->video.rx_port = 0;
+                        video->rx_port = 0;
                 } else {
-                        opt->video.rx_port = opt->port_base;
+                        video->rx_port = opt->port_base;
                 }
         }
 
-        if (opt->video.tx_port == -1) {
-                if ((opt->video.rxtx_mode & MODE_SENDER) == 0U) {
-                        opt->video.tx_port = 0; // does not matter, we are receiver
+        if (video->tx_port == -1) {
+                if ((video->rxtx_mode & MODE_SENDER) == 0U) {
+                        video->tx_port = 0; // does not matter, we are receiver
                 } else {
-                        opt->video.tx_port = opt->port_base;
+                        video->tx_port = opt->port_base;
                 }
         }
 
@@ -1118,7 +1121,7 @@ adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
                         // our receiver, because RTCP ports are changed as well)
                         opt->audio.recv_port = 0;
                 } else {
-                        opt->audio.recv_port = opt->video.rx_port ? opt->video.rx_port + 2 : opt->port_base + 2;
+                        opt->audio.recv_port = video->rx_port ? video->rx_port + 2 : opt->port_base + 2;
                 }
         }
 
@@ -1126,7 +1129,7 @@ adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
                 if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
                         opt->audio.send_port = 0;
                 } else {
-                        opt->audio.send_port = opt->video.tx_port ? opt->video.tx_port + 2 : opt->port_base + 2;
+                        opt->audio.send_port = video->tx_port ? video->tx_port + 2 : opt->port_base + 2;
                 }
         }
 }
@@ -1134,8 +1137,9 @@ adjust_ports(struct ug_options *opt, unsigned audio_rxtx_mode)
 static int
 adjust_params_holepunch(struct ug_options *opt)
 {
+        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
 #ifndef HAVE_LIBJUICE
-        (void) opt;
+        (void) video;
         log_msg(LOG_LEVEL_ERROR, "Ultragrid was compiled without holepunch support\n");
         return EXIT_FAILURE;
 #else
@@ -1162,8 +1166,8 @@ adjust_params_holepunch(struct ug_options *opt)
                 opt->audio.send_cfg = "testcard:frames=1";
         }
 
-        punch_c.video_rx_port = &opt->video.rx_port;
-        punch_c.video_tx_port = &opt->video.tx_port;
+        punch_c.video_rx_port = &video->rx_port;
+        punch_c.video_tx_port = &video->tx_port;
         punch_c.audio_rx_port = &opt->audio.recv_port;
         punch_c.audio_tx_port = &opt->audio.send_port;
 
@@ -1185,18 +1189,17 @@ adjust_params_holepunch(struct ug_options *opt)
         }
 
         log_msg(LOG_LEVEL_INFO, "[holepunch] remote: %s\n rx: %d\n tx: %d\n",
-                        punched_host, opt->video.rx_port, opt->video.tx_port);
+                        punched_host, video->rx_port, video->tx_port);
         opt->common.receiver = punched_host;
         return 0;
 #endif //HAVE_LIBJUICE
 }
 
-
-
 /// @returns 0 - OK; 1 - also ok but exit (help printed); -RC - exit with RC
 static int
 adjust_params(struct ug_options *opt)
 {
+        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
         unsigned int audio_rxtx_mode = 0;
         if (opt->is_server) {
                 commandline_params["udp-disable-multi-socket"] = string();
@@ -1267,12 +1270,12 @@ adjust_params(struct ug_options *opt)
         }
 
         if (strcmp("none", opt->requested_display) != 0) {
-                opt->video.rxtx_mode =
-                    (enum rxtx_mode)(opt->video.rxtx_mode | MODE_RECEIVER);
+                video->rxtx_mode =
+                    (enum rxtx_mode)(video->rxtx_mode | MODE_RECEIVER);
         }
         if (strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) != 0) {
-                opt->video.rxtx_mode =
-                    (enum rxtx_mode)(opt->video.rxtx_mode | MODE_SENDER);
+                video->rxtx_mode =
+                    (enum rxtx_mode)(video->rxtx_mode | MODE_SENDER);
         }
 
         adjust_ports(opt, audio_rxtx_mode);
@@ -1280,21 +1283,22 @@ adjust_params(struct ug_options *opt)
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possible that we are sending
         // to a reflector, that is why we require equal ports (we are a receiver as well).
-        if (is_host_loopback(opt->common.receiver)
-                        && (opt->video.rx_port == opt->video.tx_port || opt->video.tx_port == 0)
-                        && (opt->audio.recv_port == opt->audio.send_port || opt->audio.send_port == 0)) {
+        if (is_host_loopback(opt->common.receiver) &&
+            (video->rx_port == video->tx_port || video->tx_port == 0) &&
+            (opt->audio.recv_port == opt->audio.send_port ||
+             opt->audio.send_port == 0)) {
                 opt->common.mtu = opt->common.mtu == 0 ? min(RTP_MAX_MTU, 65535)
                                                        : opt->common.mtu;
-                opt->video.bitrate_limit =
-                    opt->video.bitrate_limit == RATE_DEFAULT
+                opt->rxtx.bitrate_limit =
+                    opt->rxtx.bitrate_limit == RATE_DEFAULT
                         ? RATE_UNLIMITED
-                        : opt->video.bitrate_limit;
+                        : opt->rxtx.bitrate_limit;
         } else {
                 opt->common.mtu = opt->common.mtu == 0 ? 1500 : opt->common.mtu;
-                opt->video.bitrate_limit =
-                    opt->video.bitrate_limit == RATE_DEFAULT
+                opt->rxtx.bitrate_limit =
+                    opt->rxtx.bitrate_limit == RATE_DEFAULT
                         ? RATE_DYNAMIC
-                        : opt->video.bitrate_limit;
+                        : opt->rxtx.bitrate_limit;
         }
 
         return 0;
@@ -1304,15 +1308,16 @@ adjust_params(struct ug_options *opt)
 static void
 validate_params(struct ug_options *opt)
 {
+        struct rxtx_medium_params *video = &opt->rxtx.medium[RXTX_VIDEO];
         if (opt->vidcap_params_head == opt->vidcap_params_tail) {
-                if (opt->video.compression != nullptr) {
+                if (opt->rxtx.compression != nullptr) {
                         MSG(WARNING,
                             "Video compression set but no vidcap given!\n");
                 }
                 if (vidcap_params_get_capture_filter(opt->vidcap_params_tail) != nullptr) {
                         MSG(WARNING, "Video capture filter specified but not capturing!\n");
                 }
-                if (strcmp(opt->video.fec, "none") != 0) {
+                if (strcmp(video->fec, "none") != 0) {
                         MSG(WARNING, "Video FEC specified but not capturing!\n");
                 }
         }
@@ -1357,6 +1362,7 @@ int main(int argc, char *argv[])
         struct sched_param sp;
 #endif
         ug_options opt{};
+        struct rxtx_medium_params *video = &opt.rxtx.medium[RXTX_VIDEO];
 
         pthread_t capture_thread_id  = PTHREAD_NULL;
 
@@ -1409,14 +1415,14 @@ int main(int argc, char *argv[])
                 col() << TBOLD("MTU              : ") << opt.common.mtu << " B\n";
                 col() << TBOLD("Video compression: ")
                       << vrxtx_get_compression(opt.video_protocol,
-                                               opt.video.compression)
+                                               opt.rxtx.compression)
                       << "\n";
                 col() << TBOLD("Audio codec      : ")
                       << get_name_to_audio_codec(ac_params.codec) << "\n";
                 col() << TBOLD("Network protocol : ")
                       << vrxtx_get_proto_long_name(opt.video_protocol) << "\n";
                 col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
-                col() << TBOLD("Video FEC        : ") << opt.video.fec << "\n";
+                col() << TBOLD("Video FEC        : ") << video->fec << "\n";
                 col() << "\n";
         }
 
@@ -1436,7 +1442,7 @@ int main(int argc, char *argv[])
 
         if(!opt.nat_traverse_config
                         || strncmp(opt.nat_traverse_config, "holepunch", strlen("holepunch")) != 0){
-                nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.common.receiver, opt.video.rx_port, opt.audio.recv_port);
+                nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.common.receiver, video->rx_port, opt.audio.recv_port);
                 if(!nat_traverse){
                         exit_uv(1);
                         goto cleanup;
@@ -1490,15 +1496,15 @@ int main(int argc, char *argv[])
 #endif /* HAVE_SCHED_SETSCHEDULER */
 #endif /* USE_RT */
 
-        opt.video.capture_device = uv.capture_device; // iHDTV
-        opt.video.display_device = uv.display_device; // UltraGrid RTP, iHDTV
+        opt.rxtx.capture_device = uv.capture_device; // iHDTV
+        opt.rxtx.display_device = uv.display_device; // UltraGrid RTP, iHDTV
         // RTSP + SDP
-        opt.video.send_audio = strcmp("none", opt.audio.send_cfg) != 0;
-        opt.video.send_video =
+        opt.rxtx.send_audio = strcmp("none", opt.audio.send_cfg) != 0;
+        opt.rxtx.send_video =
             strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) !=
             0;
 
-        ret = vrxtx_init(opt.video_protocol, &opt.video, &opt.common,
+        ret = vrxtx_init(opt.video_protocol, &opt.rxtx, &opt.common,
                         &uv.state_video_rxtx);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -1513,7 +1519,7 @@ int main(int argc, char *argv[])
                 goto cleanup;
         }
 
-        if ((opt.video.rxtx_mode & MODE_SENDER) != 0U) {
+        if (video->rxtx_mode & MODE_SENDER) {
                 if (pthread_create(&capture_thread_id, NULL, capture_thread,
                                    (void *) &uv) != 0) {
                         perror("Unable to create capture thread!\n");
