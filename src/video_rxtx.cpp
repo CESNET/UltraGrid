@@ -53,7 +53,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "utils/macros.h"    // for snprintf_ch
+#include "utils/macros.h"    // for snprintf_ch, to_fourcc
 #include "utils/pthread.h"   // for CHK_PTHR, PTHREAD_NULL
 #include "utils/thread.h"
 #include "video.h"
@@ -65,6 +65,7 @@
 constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
 
 #define MOD_NAME "[vrxtx] "
+#define MAGIC to_fourcc('R', 'X', 'T', 'X')
 
 using std::map;
 using std::shared_ptr;
@@ -73,6 +74,7 @@ using std::string;
 
 struct video_rxtx {
 public:
+        const uint32_t magic = MAGIC;
         virtual ~video_rxtx() noexcept;
         void               send(std::shared_ptr<struct video_frame>) noexcept;
         static const char *get_long_name(std::string const &short_name) noexcept;
@@ -422,14 +424,18 @@ void vrxtx_set_audio_spec(struct video_rxtx       *state,
         state->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
 }
 
-void *
-vrxtx_get_impl_state(struct video_rxtx *state)
-{
-        return state->m_impl_state;
-}
-
 void
 vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame> f)
 {
         state->send(std::move(f));
+}
+
+bool rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
+                              void *val, size_t *len) {
+        assert(state->magic == MAGIC);
+        if (state->m_impl_funcs->ctl_property == nullptr) {
+                return false;
+        }
+        return state->m_impl_funcs->ctl_property(state->m_impl_state, p, val,
+                                                 len);
 }

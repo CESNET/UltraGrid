@@ -1191,6 +1191,14 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         return session;
 }
 
+/**
+ * creates new RTP session using existing socket
+ *
+ * The purpose of this function is to create multiple RTP sessions sharing the
+ * commmon socket - such RTP sessions should be used only for TX .
+ *
+ * @param l  socket state obtained with rtp_get_udp_local_socket()
+ */
 rtp_t
 rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
                          rtp_callback callback)
@@ -4059,6 +4067,9 @@ void rtp_async_wait(struct rtp *session)
        udp_async_wait(session->rtp_socket);
 }
 
+/**
+ * @returns the socket state to be passed to rtp_init_with_udp_socket()
+ */
 struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session)
 {
         return udp_get_local(session->rtp_socket);

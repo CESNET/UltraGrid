@@ -276,6 +276,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         auto *s = (struct rtp_rxtx_common_priv_state *) calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
         struct rtp_rxtx_common *pub = &s->pub;
+        pub->magic = RTP_COMMON_MAGIC;
 
         pub->priv = s;
         s->magic = MAGIC;

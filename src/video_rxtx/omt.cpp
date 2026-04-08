@@ -208,7 +208,8 @@ constexpr video_rxtx_info omt_video_rxtx_info = {
         omt_rxtx_send_frame,
         nullptr,
         nullptr,
-        omt_rxtx_recv_worker
+        omt_rxtx_recv_worker,
+        nullptr,
 };
 
 

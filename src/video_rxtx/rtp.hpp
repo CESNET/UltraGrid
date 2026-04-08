@@ -38,10 +38,12 @@
 #ifndef VIDEO_RXTX_RTP_H_
 #define VIDEO_RXTX_RTP_H_
 
+#include <cstdint>           // for uint32_t
 #include <pthread.h>
 
 #include "types.h"
 #include "video_rxtx.h"
+#include "utils/macros.h"    // for to_fourcc
 
 #ifdef __APPLE__
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -51,6 +53,7 @@
 
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
+#define RTP_COMMON_MAGIC to_fourcc('V', 'R', 'r', 'c')
 
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
@@ -61,6 +64,7 @@ struct rtp_rxtx_medium {
 };
 
 struct rtp_rxtx_common {
+        uint32_t magic;
         struct rtp_rxtx_medium medium[NUM_TX_MEDIA];
         struct fec     *fec_state;
         struct rtp_rxtx_common_priv_state *priv;

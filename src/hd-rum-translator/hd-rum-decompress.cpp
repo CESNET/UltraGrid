@@ -59,7 +59,7 @@
 #include "video_display.h"
 #include "video_display/pipe.h"                   // for pipe_frame_recv_del...
 #include "video_rxtx.h"                           // for video_rxtx, vrxtx_pa...
-#include "video_rxtx/ultragrid_rtp.hpp"
+#include "video_rxtx/rtp.hpp"                     // for rtp_rxtx_medium
 
 #include "utils/profile_timer.hpp"
 
@@ -77,6 +77,7 @@ using std::unique_lock;
 namespace hd_rum_decompress {
 struct state_transcoder_decompress final {
         struct video_rxtx *video_rxtx = nullptr;
+        struct rtp_rxtx_common *rtp_common_state = nullptr;
 
         struct state_recompress *recompress = nullptr;
 
@@ -129,7 +130,7 @@ void state_transcoder_decompress::frame_arrived(void *state, struct video_frame 
         l.unlock();
         s->have_frame_cv.notify_one();
 }
-} // end of hd-rum-decompress namespace
+} // namespace hd_rum_decompress
 
 using namespace hd_rum_decompress;
 
@@ -137,8 +138,9 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
         auto *s = static_cast<state_transcoder_decompress *>(state);
 
-        return ultragrid_rtp_send_raw_rtp_data(
-            vrxtx_get_impl_state(s->video_rxtx), (char *) buf, count);
+        struct rtp_rxtx_medium *video = &s->rtp_common_state->medium[TX_MEDIA_VIDEO];
+        return rtp_send_raw_rtp_data(video->network_device, (char *) buf,
+                                     (int) count);
 }
 
 void state_transcoder_decompress::worker()
@@ -227,6 +229,10 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         ret =
             vrxtx_init("ultragrid_rtp", &params, &s->common, &s->video_rxtx);
         assert(ret == 0 && MOD_NAME "Unable to initialize RXTX");
+        size_t len = sizeof s->rtp_common_state; // NOLINT(bugprone-sizeof-expression)
+        bool ctl_rc = rxtx_ctl_property(s->video_rxtx, GET_RTP_COMMON_STATE,
+                                        (void *) &s->rtp_common_state, &len);
+        assert(ctl_rc && MOD_NAME "Cannot get RTP state from RXTX!");
 
         s->worker_thread = thread(&state_transcoder_decompress::worker, s);
         display_run_new_thread(s->display);

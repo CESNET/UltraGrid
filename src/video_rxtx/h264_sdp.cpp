@@ -253,13 +253,14 @@ set_audio_spec(void *state, const struct audio_desc *desc, int audio_rx_port,
 }
 
 static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
-        .long_name              = "RTP standard (SDP version)",
-        .create                 = create_video_rxtx_h264_sdp,
-        .done                   = done,
-        .send_frame             = send_frame,
-        .join_sender            = nullptr,
-        .set_sender_audio_spec  = set_audio_spec,
-        .receiver_routine       = nullptr,
+        .long_name             = "RTP standard (SDP version)",
+        .create                = create_video_rxtx_h264_sdp,
+        .done                  = done,
+        .send_frame            = send_frame,
+        .join_sender           = nullptr,
+        .set_sender_audio_spec = set_audio_spec,
+        .receiver_routine      = nullptr,
+        .ctl_property          = nullptr,
 };
 
 REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

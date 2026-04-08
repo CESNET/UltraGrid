@@ -117,7 +117,7 @@
 #include "video_capture_params.h"       // for vidcap_params_get_driver, vid...
 #include "video_display.h"
 #include "video_rxtx.h"
-#include "video_rxtx/ultragrid_rtp.hpp" // for ultragrid_rtp_server_mode_help
+#include "video_rxtx/ultragrid_rtp.h"   // for ultragrid_rtp_server_mode_help
 
 struct video_rxtx;
 

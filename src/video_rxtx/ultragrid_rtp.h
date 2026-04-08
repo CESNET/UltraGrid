@@ -1,6 +1,6 @@
 /**
- * @file   video_rxtx/ultragrid_rtp.hpp
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @file   video_rxtx/ultragrid_rtp.h
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
@@ -35,14 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_
-#define VIDEO_RXTX_ULTRAGRID_RTP_H_
+#ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_F763B734_3310_4759_B611_48E485F7B374
+#define VIDEO_RXTX_ULTRAGRID_RTP_H_F763B734_3310_4759_B611_48E485F7B374
 
-#include <cstdint>             // for uint32_t
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-uint32_t ultragrid_rtp_get_ssrc(void *state);
-int ultragrid_rtp_send_raw_rtp_data(void *state, char *buf, int count);
 void ultragrid_rtp_server_mode_help();
 
-#endif // VIDEO_RXTX_ULTRAGRID_RTP_H_
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // VIDEO_RXTX_ULTRAGRID_RTP_H_F763B734_3310_4759_B611_48E485F7B374
 

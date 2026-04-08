@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "video_rxtx/ultragrid_rtp.hpp"
+#include "video_rxtx/ultragrid_rtp.h"
 
 #include <cassert>             // for assert
 #include <condition_variable>  // for condition_variable
@@ -85,12 +85,12 @@ typedef SSIZE_T ssize_t;
 #include "utils/worker.h"
 
 constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'u', 'r');
+#define MOD_NAME "[rxtx/ultragrid_rtp] "
 
 using namespace std;
 using ultragrid::pthread_mutex_guard;
 
-class ultragrid_rtp_video_rxtx {
-public:
+struct ultragrid_rtp_video_rxtx {
         const uint32_t magic;
         ultragrid_rtp_video_rxtx(const struct vrxtx_params *params,
                                  const struct common_opts  *common);
@@ -99,9 +99,6 @@ public:
         void join();
         static void *receiver_thread(void *arg);
 
-        // transcoder functions
-        friend ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
-private:
         struct rtp_rxtx_common *m_rtp_common;
         void *receiver_loop();
         static void *send_frame_async_callback(void *arg);
@@ -141,10 +138,6 @@ private:
 
         bool m_should_exit = false;
         static void should_exit(void *state);
-
-        friend uint32_t ultragrid_rtp_get_ssrc(void *state);
-        friend int      ultragrid_rtp_send_raw_rtp_data(void *state, char *buf,
-                                                        int count);
 };
 
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
@@ -512,24 +505,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         return 0;
 }
 
-uint32_t
-ultragrid_rtp_get_ssrc(void *state)
-{
-        auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
-        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[TX_MEDIA_VIDEO];
-        assert(s != nullptr);
-        assert(s->magic == MAGIC);
-        return rtp_my_ssrc(video->network_device);
-}
-
-int ultragrid_rtp_send_raw_rtp_data(void *state, char *buf, int count) {
-        auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
-        struct rtp_rxtx_medium *video = &s->m_rtp_common->medium[TX_MEDIA_VIDEO];
-        assert(s != nullptr);
-        assert(s->magic == MAGIC);
-        return rtp_send_raw_rtp_data(video->network_device, buf, count);
-}
-
 static void usage() {
         color_printf("Transport " TBOLD("ultragrid_rtp")
                      " doesn't take any options.\n\n");
@@ -587,14 +562,35 @@ static void join(void *state) {
         s->join();
 }
 
+static bool
+ultragrid_rtp_ctl_property(void *state, enum rxtx_property p,
+                           void *val, size_t *len)
+{
+        auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
+        assert(s->magic == MAGIC);
+        switch (p) {
+        case GET_RTP_COMMON_STATE: {
+                // NOLINTBEGIN(bugprone-sizeof-expression)
+                assert(*len >= sizeof s->m_rtp_common);
+                *len = sizeof s->m_rtp_common;
+                // NOLINTEND(bugprone-sizeof-expression)
+                memcpy(val, (void *) &s->m_rtp_common, *len);
+                return true;
+        }
+        }
+        MSG(WARNING, "Unexpected property %d queiried!\n", (int) p);
+        return false;
+}
+
 static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
-        .long_name              = "UltraGrid RTP",
-        .create                 = create_video_rxtx_ultragrid_rtp,
-        .done                   = done,
-        .send_frame             = send_frame,
-        .join_sender            = join,
-        .set_sender_audio_spec  = nullptr,
-        .receiver_routine       = ultragrid_rtp_video_rxtx::receiver_thread,
+        .long_name             = "UltraGrid RTP",
+        .create                = create_video_rxtx_ultragrid_rtp,
+        .done                  = done,
+        .send_frame            = send_frame,
+        .join_sender           = join,
+        .set_sender_audio_spec = nullptr,
+        .receiver_routine      = ultragrid_rtp_video_rxtx::receiver_thread,
+        .ctl_property          = ultragrid_rtp_ctl_property,
 };
 
 REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

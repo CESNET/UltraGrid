@@ -39,7 +39,10 @@
 #define VIDEO_RXTX_H_
 
 #ifdef __cplusplus
+#include <cstddef>    // for size_t
 #include <memory>     // for std::shared_ptr
+#else
+#include <stddef.h>   // for size_t
 #endif
 
 #include "host.h"
@@ -92,6 +95,10 @@ struct vrxtx_params {
                 .receiver_mod   = nullptr, \
 }
 
+enum rxtx_property {
+        GET_RTP_COMMON_STATE, ///< RTP state - pointer to struct rtp_rxtx_common
+};
+
 #ifdef __cplusplus
 /**
  * @note
@@ -102,6 +109,8 @@ struct vrxtx_params {
  */
 typedef void *rxtx_create_t(const struct vrxtx_params *params,
                             const struct common_opts  *common);
+typedef bool rxtx_ctl_property_t(void *state, enum rxtx_property p, void *val,
+                               size_t *len);
 
 struct video_rxtx_info {
         const char *long_name;
@@ -117,6 +126,7 @@ struct video_rxtx_info {
                                       int audio_rx_port, int audio_tx_port,
                                       bool ipv6);
         void *(*receiver_routine)(void *state);
+        rxtx_ctl_property_t *ctl_property;
 };
 #endif // defined __cplusplus
 
@@ -137,7 +147,8 @@ void        vrxtx_join(struct video_rxtx *state);
 void  vrxtx_set_audio_spec(struct video_rxtx       *state,
                            const struct audio_desc *desc, int audio_rx_port,
                            int audio_tx_port, bool ipv6);
-void *vrxtx_get_impl_state(struct video_rxtx *state);
+bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
+                              void *val, size_t *len);
 
 #ifdef __cplusplus
 } // extern "C"

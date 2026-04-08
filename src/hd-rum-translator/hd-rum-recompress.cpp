@@ -53,13 +53,16 @@
 
 #include "debug.h"
 #include "host.h"
+#include "rtp/rtp.h"
 #include "utils/misc.h"
 #include "tv.h"
 #include "video_compress.h"
 
 #include "utils/profile_timer.hpp"
 #include "video_rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
-#include "video_rxtx/ultragrid_rtp.hpp"  // for ultragrid_rtp_get_ssrc
+#include "video_rxtx/rtp.hpp"            // for rtp_rxtx_common
+
+#define MOD_NAME "hd-rum-recompress"
 
 namespace {
 struct compress_state_deleter{
@@ -79,6 +82,8 @@ struct recompress_output_port {
         std::unique_ptr<struct video_rxtx, decltype(&vrxtx_destroy)> video_rxtx{
                 nullptr, vrxtx_destroy
         };
+        struct rtp_rxtx_common *rtp_common_state = nullptr;
+        uint32_t ssrc = 0;
         std::string host;
         int tx_port = 0;
 
@@ -137,8 +142,19 @@ recompress_output_port::recompress_output_port(
         if (rc != 0) {
                 throw rc;
         }
-
         video_rxtx.reset(rxtx);
+
+        size_t len = sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
+        bool ctl_rc = rxtx_ctl_property(video_rxtx.get(), GET_RTP_COMMON_STATE,
+                                        (void *) &rtp_common_state, &len);
+        if (!ctl_rc) {
+                MSG(ERROR, "Cannot get RTP common state from RX/TX module!\n");
+                throw -1;
+        }
+        assert(rtp_common_state->magic == RTP_COMMON_MAGIC);
+        struct rtp_rxtx_medium *video =
+            &rtp_common_state->medium[TX_MEDIA_VIDEO];
+        ssrc = rtp_my_ssrc(video->network_device);
 }
 
 static void recompress_port_write(recompress_output_port& port, shared_ptr<video_frame> frame)
@@ -152,11 +168,10 @@ static void recompress_port_write(recompress_output_port& port, shared_ptr<video
         double seconds = chrono::duration_cast<chrono::duration<double>>(now - port.t0).count();
         if(seconds > 5) {
                 double fps = port.frames / seconds;
-                void *impl = vrxtx_get_impl_state(port.video_rxtx.get());
                 log_msg(LOG_LEVEL_INFO, "[0x%08" PRIx32 "->%s:%d:0x%08" PRIx32 "] %d frames in %g seconds = %g FPS\n",
                                 frame->ssrc,
                                 port.host.c_str(), port.tx_port,
-                                ultragrid_rtp_get_ssrc(impl),
+                                port.ssrc,
                                 port.frames, seconds, fps);
                 port.t0 = now;
                 port.frames = 0;
@@ -264,9 +279,7 @@ uint32_t recompress_get_port_ssrc(struct state_recompress *s, int idx){
         auto [compress_cfg, i] = s->index_to_port[idx];
 
         std::lock_guard<std::mutex> work_lock(s->workers[compress_cfg].ports_mut);
-        void *impl = vrxtx_get_impl_state(
-            s->workers[compress_cfg].ports[i].video_rxtx.get());
-        return ultragrid_rtp_get_ssrc(impl);
+        return s->workers[compress_cfg].ports[i].ssrc;
 }
 
 void recompress_port_set_active(struct state_recompress *s,

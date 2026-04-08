@@ -170,13 +170,14 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
 }
 
 static const struct video_rxtx_info loopback_video_rxtx_info = {
-        .long_name              = "loopback dummy transport",
-        .create                 = create_video_rxtx_loopback,
-        .done                   = done,
-        .send_frame             = send_frame,
-        .join_sender            = nullptr,
-        .set_sender_audio_spec  = nullptr,
-        .receiver_routine       = loopback_video_rxtx::receiver_thread,
+        .long_name             = "loopback dummy transport",
+        .create                = create_video_rxtx_loopback,
+        .done                  = done,
+        .send_frame            = send_frame,
+        .join_sender           = nullptr,
+        .set_sender_audio_spec = nullptr,
+        .receiver_routine      = loopback_video_rxtx::receiver_thread,
+        .ctl_property          = nullptr,
 };
 
 REGISTER_MODULE(loopback, &loopback_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
