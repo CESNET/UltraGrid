@@ -69,6 +69,12 @@
 #define MAGIC to_fourcc('V', 'X', 'r', ' ')
 #define MOD_NAME "[video_rxtx/rtp] "
 
+#if !defined _WIN32
+constexpr bool VIDEO_MT = true;
+#else
+constexpr bool VIDEO_MT = false;
+#endif
+
 using std::ostringstream;
 using std::string;
 using ultragrid::pthread_mutex_guard;
@@ -341,13 +347,13 @@ initialize_network(const char *addr, int recv_port, int send_port,
                    struct pdb *participants, int force_ip_version,
                    const char *mcast_if, int ttl, enum tx_media_type medium)
 {
-        double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
-
-#if !defined _WIN32
-        const bool multithreaded = true;
-#else
-        const bool multithreaded = false;
-#endif
+        // FIXME:  something about 5% for rtcp is said in rfc
+        const double rtcp_bw =
+            medium == TX_MEDIA_VIDEO ? 5 * 1024 * 1024 : 1024 * 512;
+        const bool multithreaded = medium == TX_MEDIA_VIDEO ? VIDEO_MT : false;
+        const int  buf_size      = medium == TX_MEDIA_VIDEO
+                                       ? INITIAL_VIDEO_RECV_BUFFER_SIZE
+                                       : DEFAULT_AUDIO_RECV_BUF_SIZE;
 
         if (strlen(mcast_if) == 0) {
                 mcast_if = nullptr;
@@ -365,12 +371,9 @@ initialize_network(const char *addr, int recv_port, int send_port,
                      RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
 
         if (medium == TX_MEDIA_VIDEO) {
-                rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
                 rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
-        } else {
-                rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
-                rtp_set_recv_buf(device, DEFAULT_AUDIO_RECV_BUF_SIZE);
         }
+        rtp_set_recv_buf(device, buf_size);
 
         pdb_add(participants, rtp_my_ssrc(device));
 
