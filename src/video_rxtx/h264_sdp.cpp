@@ -39,6 +39,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cassert>               // for assert
 #include <cstdint>               // for uint32_t
 #include <cstdlib>               // for abort
 #include <exception>             // for exception
@@ -67,15 +68,17 @@
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPG:safe"
 #define MOD_NAME "[vrxtx/sdp] "
 
-class h264_sdp_video_rxtx {
-public:
+constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'h', 's');
+
+struct h264_sdp_video_rxtx {
+        uint32_t magic = MAGIC;
         h264_sdp_video_rxtx(const struct vrxtx_params *params,
                             const struct common_opts  *common);
         ~h264_sdp_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
                             int audio_tx_port, bool ipv6);
-private:
+
         struct rtp_rxtx_common *m_rtp_common;
         static void change_address_callback(void *udata, const char *address);
         void sdp_add_video(codec_t codec);
@@ -252,6 +255,26 @@ set_audio_spec(void *state, const struct audio_desc *desc, int audio_rx_port,
         s->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
 }
 
+static bool
+h264_sdp_ctl_property(void *state, enum rxtx_property p,
+                           void *val, size_t *len)
+{
+        auto *s = static_cast<h264_sdp_video_rxtx *>(state);
+        assert(s->magic == MAGIC);
+        switch (p) {
+        case GET_RTP_COMMON_STATE: {
+                // NOLINTBEGIN(bugprone-sizeof-expression)
+                assert(*len >= sizeof s->m_rtp_common);
+                *len = sizeof s->m_rtp_common;
+                // NOLINTEND(bugprone-sizeof-expression)
+                memcpy(val, (void *) &s->m_rtp_common, *len);
+                return true;
+        }
+        }
+        MSG(WARNING, "Unexpected property %d queiried!\n", (int) p);
+        return false;
+}
+
 static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
         .long_name             = "RTP standard (SDP version)",
         .create                = create_video_rxtx_h264_sdp,
@@ -260,7 +283,7 @@ static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
         .join_sender           = nullptr,
         .set_sender_audio_spec = set_audio_spec,
         .receiver_routine      = nullptr,
-        .ctl_property          = nullptr,
+        .ctl_property          = h264_sdp_ctl_property,
 };
 
 REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

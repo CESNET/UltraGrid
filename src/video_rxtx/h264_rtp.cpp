@@ -68,11 +68,12 @@
 
 constexpr char DEFAULT_RTSP_COMPRESSION[] = "lavc:enc=libx264:safe";
 #define MOD_NAME "[vrxtx/h264_rtp] "
+constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'h', 'r');
 
 using std::shared_ptr;
 
-class h264_rtp_video_rxtx {
-public:
+struct h264_rtp_video_rxtx {
+        uint32_t magic = MAGIC;
         h264_rtp_video_rxtx(const struct vrxtx_params *params,
                             const struct common_opts  *common, int rtsp_port);
         ~h264_rtp_video_rxtx();
@@ -81,7 +82,6 @@ public:
                             int audio_tx_port, bool ipv6);
         void send_frame(std::shared_ptr<video_frame>) noexcept;
 
-private:
         struct rtp_rxtx_common *m_rtp_common;
         void                          configure_rtsp_server_video();
         struct rtsp_server_parameters rtsp_params{};
@@ -305,6 +305,26 @@ set_audio_spec(void *state, const struct audio_desc *desc, int audio_rx_port,
         s->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
 }
 
+static bool
+h264_rtp_ctl_property(void *state, enum rxtx_property p,
+                           void *val, size_t *len)
+{
+        auto *s = static_cast<h264_rtp_video_rxtx *>(state);
+        assert(s->magic == MAGIC);
+        switch (p) {
+        case GET_RTP_COMMON_STATE: {
+                // NOLINTBEGIN(bugprone-sizeof-expression)
+                assert(*len >= sizeof s->m_rtp_common);
+                *len = sizeof s->m_rtp_common;
+                // NOLINTEND(bugprone-sizeof-expression)
+                memcpy(val, (void *) &s->m_rtp_common, *len);
+                return true;
+        }
+        }
+        MSG(WARNING, "Unexpected property %d queiried!\n", (int) p);
+        return false;
+}
+
 static const struct video_rxtx_info h264_video_rxtx_info = {
         .long_name             = "RTP standard (using RTSP)",
         .create                = create_video_rxtx_h264_std,
@@ -313,7 +333,7 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         .join_sender           = join,
         .set_sender_audio_spec = set_audio_spec,
         .receiver_routine      = nullptr,
-        .ctl_property          = nullptr,
+        .ctl_property          = h264_rtp_ctl_property,
 };
 
 REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
