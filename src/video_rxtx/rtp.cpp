@@ -76,6 +76,7 @@ using ultragrid::pthread_mutex_guard;
 struct rtp_medium_priv {
         int rx_port;
         int tx_port;
+        bool mutex_init;
 };
 
 struct rtp_rxtx_common_priv_state {
@@ -238,6 +239,9 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         volatile int *medium_offset = medium_defaults[t].medium_offset;
         long long     bitrate_limit = medium_defaults[t].bitrate_limit;
 
+        if (params_medium->rxtx_mode == 0) { // no RX or TX for medium
+                return;
+        }
         medium_priv->rx_port = params_medium->rx_port;
         medium_priv->tx_port = params_medium->tx_port;
 
@@ -252,15 +256,18 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                                            " network",
                                        EXIT_FAIL_NETWORK);
         }
-        medium_pub->tx =
-            tx_init(&s->m_rtp_sender_mod, opts->mtu, TX_MEDIA_VIDEO,
-                    params_medium->fec, opts->encryption, bitrate_limit);
-        if (medium_pub->tx == nullptr) {
-                throw ug_runtime_error(string("Unable to initialize ") +
-                                           medium_str + " transmitter",
-                                       EXIT_FAIL_TRANSMIT);
+        if (params_medium->rxtx_mode & MODE_SENDER) {
+                medium_pub->tx = tx_init(&s->m_rtp_sender_mod, opts->mtu,
+                                         TX_MEDIA_VIDEO, params_medium->fec,
+                                         opts->encryption, bitrate_limit);
+                if (medium_pub->tx == nullptr) {
+                        throw ug_runtime_error(string("Unable to initialize ") +
+                                                   medium_str + " transmitter",
+                                               EXIT_FAIL_TRANSMIT);
+                }
         }
         pthread_mutex_init(&medium_pub->lock, nullptr);
+        medium_priv->mutex_init = true;
 }
 
 struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
@@ -282,7 +289,6 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         module_register(&s->m_rtp_sender_mod, params->sender_mod);
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
-                /// @todo no init if not needed
                 try {
                         init_medium_state(s, common, params, (enum tx_media_type) i);
                 } catch (...) {
@@ -315,8 +321,9 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
                 }
                 if (medium->tx != nullptr) {
                         tx_done(medium->tx);
+                }
+                if (s->medium[i].mutex_init) {
                         CHK_PTHR(pthread_mutex_destroy(&medium->lock));
-
                 }
         }
 
