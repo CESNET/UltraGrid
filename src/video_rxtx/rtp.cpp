@@ -86,7 +86,7 @@ struct rtp_rxtx_common_priv_state {
         char *mcast_if;
         int   ttl;
         char *requested_receiver;
-        struct rtp_medium_priv media[NUM_TX_MEDIA];
+        struct rtp_medium_priv medium[NUM_TX_MEDIA];
 
         struct rtp_rxtx_common pub;
         /// This is child of vrxtx sender module to process specific messages.
@@ -110,7 +110,7 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_send
 {
         /// @todo audio
         struct rtp_rxtx_medium *video = &s->pub.medium[TX_MEDIA_VIDEO];
-        struct rtp_medium_priv *video_priv = &s->media[TX_MEDIA_VIDEO];
+        struct rtp_medium_priv *video_priv = &s->medium[TX_MEDIA_VIDEO];
         switch (msg->type) {
         case SENDER_MSG_CHANGE_RECEIVER: {
                 assert(video->rxtx_mode == MODE_SENDER); // sender only
@@ -223,7 +223,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                   const struct vrxtx_params *params, enum tx_media_type t)
 {
         const struct rxtx_medium_params *params_medium = &params->medium[t];
-        struct rtp_medium_priv          *medium_priv   = &s->media[t];
+        struct rtp_medium_priv          *medium_priv   = &s->medium[t];
         struct rtp_rxtx_medium          *medium_pub    = &s->pub.medium[t];
         const struct {
                 const char   *medium_str;
@@ -266,27 +266,27 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
 struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
                        const struct common_opts  *common)
 {
-        auto *priv = (struct rtp_rxtx_common_priv_state *) calloc(
+        auto *s = (struct rtp_rxtx_common_priv_state *) calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
-        struct rtp_rxtx_common *s = &priv->pub;
+        struct rtp_rxtx_common *pub = &s->pub;
 
-        s->priv = priv;
-        s->priv->magic = MAGIC;
-        s->priv->force_ip_version   = common->force_ip_version,
-        s->priv->mcast_if           = strdup(common->mcast_if);
-        s->priv->ttl                = common->ttl;
-        s->priv->requested_receiver = strdup(common->receiver),
+        pub->priv = s;
+        s->magic = MAGIC;
+        s->force_ip_version   = common->force_ip_version,
+        s->mcast_if           = strdup(common->mcast_if);
+        s->ttl                = common->ttl;
+        s->requested_receiver = strdup(common->receiver),
 
-        module_init_default(&priv->m_rtp_sender_mod);
-        priv->m_rtp_sender_mod.cls = MODULE_CLASS_DATA;
-        module_register(&priv->m_rtp_sender_mod, params->sender_mod);
+        module_init_default(&s->m_rtp_sender_mod);
+        s->m_rtp_sender_mod.cls = MODULE_CLASS_DATA;
+        module_register(&s->m_rtp_sender_mod, params->sender_mod);
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
                 /// @todo no init if not needed
                 try {
-                        init_medium_state(priv, common, params, (enum tx_media_type) i);
+                        init_medium_state(s, common, params, (enum tx_media_type) i);
                 } catch (...) {
-                        rtp_rxtx_common_done(s);
+                        rtp_rxtx_common_done(pub);
                         throw;
                 }
         }
@@ -294,19 +294,19 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
         // immediately. The encoder is actually created by a message.
         // Also for `-x sdp:help` the message will get discarded and the warning that message quie
-        rtp_rxtx_sender_do_housekeeping(s);
+        rtp_rxtx_sender_do_housekeeping(pub);
 
-        return s;
+        return pub;
 }
 
 void
-rtp_rxtx_common_done(struct rtp_rxtx_common *s)
+rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
 {
-        auto *priv = s->priv;
-        assert(priv->magic == MAGIC);
+        auto *s = pub->priv;
+        assert(s->magic == MAGIC);
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
-                struct rtp_rxtx_medium *medium = &s->medium[i];
+                struct rtp_rxtx_medium *medium = &pub->medium[i];
                 if (medium->network_device != nullptr) {
                         destroy_rtp_device(medium->network_device);
                 }
@@ -320,12 +320,12 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *s)
                 }
         }
 
-        delete s->fec_state;
-        free(s->priv->mcast_if);
-        free(s->priv->requested_receiver);
-        module_done(&priv->m_rtp_sender_mod);
+        delete pub->fec_state;
+        free(pub->priv->mcast_if);
+        free(pub->priv->requested_receiver);
+        module_done(&s->m_rtp_sender_mod);
 
-        free(priv);
+        free(s);
 }
 
 static struct rtp *
