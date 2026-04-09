@@ -59,11 +59,9 @@
 #include <cstring>              // for strcasecmp
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <iterator>             // for std::size
 #include <mutex>
 #include <queue>
-#include <string>
 
 #include "color_space.h"
 #ifdef HAVE_CONFIG_H
@@ -100,11 +98,9 @@ extern "C" {
 #include "gl_vdpau.hpp"
 
 using std::condition_variable;
-using std::cout;
 using std::lock_guard;
 using std::mutex;
 using std::queue;
-using std::string;
 using std::swap;
 using std::unique_lock;
 using std::chrono::duration;
@@ -461,7 +457,7 @@ struct state_gl {
         volatile bool   paused = false;
         enum show_cursor show_cursor = SC_AUTOHIDE;
         time_ns_t cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
-        string          syphon_spout_srv_name;
+        char            syphon_spout_srv_name[128];
 
         double          window_size_factor = 1.0;
 
@@ -512,9 +508,9 @@ static void gl_print_monitors(bool fullhelp) {
 #if GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3)
                 int xpos, ypos, width, height;
                 glfwGetMonitorWorkarea(mon[i], &xpos, &ypos, &width, &height);
-                cout << " - " << width << "x" << height << "+" << xpos << "+" << ypos << "\n";
+                printf(" - %dx%d+%d+%d\n", width, height, xpos, ypos);
 #else
-                cout << "\n";
+                printf("\n");
 #endif
                 if (!fullhelp) {
                         continue;
@@ -522,14 +518,14 @@ static void gl_print_monitors(bool fullhelp) {
                 int mod_count = 0;
                 const GLFWvidmode *modes = glfwGetVideoModes(mon[i], &mod_count);
                 for (int mod = 0; mod < mod_count; ++mod) {
-                        cout << "\t\t- " << modes[mod].width << "x" << modes[mod].height << "@" << modes[mod].refreshRate << ", bits: " <<
-                                modes[mod].redBits << ", " <<
-                                modes[mod].greenBits << ", " <<
-                                modes[mod].blueBits << "\n";
+                        printf("\t\t- %dx%d@%d, bits: %d, %d, %d\n",
+                               modes[mod].width, modes[mod].height,
+                               modes[mod].refreshRate, modes[mod].redBits,
+                               modes[mod].greenBits, modes[mod].blueBits);
                 }
         }
         if (!fullhelp) {
-                cout << "(use \"fullhelp\" to see modes)\n";
+                printf("(use \"fullhelp\" to see modes)\n");
         }
         printf("\n");
 }
@@ -880,9 +876,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
 #if defined HAVE_SYPHON || defined HAVE_SPOUT
                         if (strchr(tok, '=')) {
-                                s->syphon_spout_srv_name = strchr(tok, '=') + 1;
-                        } else {
-                                s->syphon_spout_srv_name = "UltraGrid";
+                                snprintf_ch(s->syphon_spout_srv_name, "%s", strchr(tok, '=') + 1);
                         }
 #else
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
@@ -937,6 +931,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         s->window_hints = dictionary_init();
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
+        snprintf_ch(s->syphon_spout_srv_name, "UltraGrid");
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
