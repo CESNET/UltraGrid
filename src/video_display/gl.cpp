@@ -53,15 +53,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>               // for ETIMEDOUT
 #include <climits>
 #include <cmath>
-#include <condition_variable>
-#include <cstring>              // for strcasecmp
 #include <cstdint>
 #include <fstream>
 #include <iterator>             // for std::size
-#include <mutex>
+#include <pthread.h>
 #include <queue>
+#include <strings.h>            // for strcasecmp
 
 #include "color_space.h"
 #ifdef HAVE_CONFIG_H
@@ -97,13 +97,8 @@ extern "C" {
 
 #include "gl_vdpau.hpp"
 
-using std::condition_variable;
-using std::lock_guard;
-using std::mutex;
 using std::queue;
 using std::swap;
-using std::unique_lock;
-using std::chrono::duration;
 using namespace std::chrono_literals;
 
 static const char * deinterlace_fp = R"raw(
@@ -442,9 +437,9 @@ struct state_gl {
         queue<struct video_frame *> free_frame_queue;
         struct video_desc current_desc = {};
         struct video_desc current_display_desc {};
-        mutex           lock;
-        condition_variable new_frame_ready_cv;
-        condition_variable frame_consumed_cv;
+        pthread_mutex_t lock;
+        pthread_cond_t  new_frame_ready_cv;
+        pthread_cond_t  frame_consumed_cv;
 
         double          aspect = 0.0;
         double          video_aspect = 0.0;
@@ -932,6 +927,9 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
         snprintf_ch(s->syphon_spout_srv_name, "UltraGrid");
+        pthread_mutex_init(&s->lock, nullptr);
+        pthread_cond_init(&s->new_frame_ready_cv, nullptr);
+        pthread_cond_init(&s->frame_consumed_cv, nullptr);
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
@@ -1275,6 +1273,21 @@ static void gl_render(struct state_gl *s, char *data)
         gl_check_error();
 }
 
+static int
+cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock, time_ns_t timeout_ns)
+{
+        struct timespec abstime;
+        clock_gettime(CLOCK_REALTIME, &abstime);
+        unsigned long long nsec = abstime.tv_nsec + timeout_ns;
+        abstime.tv_sec += nsec / NS_IN_SEC;
+        abstime.tv_nsec = nsec % NS_IN_SEC;
+        int ret =  pthread_cond_timedwait(cv, lock, &abstime);
+        if (ret != 0 && ret != ETIMEDOUT) {
+                perror("cond_timedwait");
+        }
+        return ret;
+}
+
 /// draw pause symbol (2 vertical bars) to the lefttop part of the frame
 static void
 draw_pause()
@@ -1355,17 +1368,21 @@ static void gl_process_frames(struct state_gl *s)
         }
 
         {
-                unique_lock<mutex> lk(s->lock);
-                double timeout = MIN(2.0 / s->current_display_desc.fps, 0.1);
-                s->new_frame_ready_cv.wait_for(lk, duration<double>(timeout), [s] {
-                                return s->frame_queue.size() > 0;});
-                if (s->frame_queue.size() == 0) {
-                        return;
+                pthread_mutex_lock(&s->lock);
+                time_ns_t timeout_ns =
+                    MIN(2.0 / s->current_display_desc.fps, 0.1) * NS_IN_SEC;
+                while (s->frame_queue.size() == 0) {
+                        int rc = cond_timedwait(&s->new_frame_ready_cv,
+                                                        &s->lock, timeout_ns);
+                        if (rc == ETIMEDOUT) {
+                                pthread_mutex_unlock(&s->lock);
+                                return;
+                        }
                 }
                 frame = s->frame_queue.front();
                 s->frame_queue.pop();
-                lk.unlock();
-                s->frame_consumed_cv.notify_one();
+                pthread_mutex_unlock(&s->lock);
+                pthread_cond_signal(&s->frame_consumed_cv);
 
                 if (!frame) {
                         return;
@@ -1381,6 +1398,7 @@ static void gl_process_frames(struct state_gl *s)
                         s->free_frame_queue.push(s->current_frame);
                 }
                 s->current_frame = frame;
+                pthread_mutex_unlock(&s->lock);
         }
 
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
@@ -1576,10 +1594,10 @@ display_gl_print_depth(GLFWmonitor *monitor)
 
 static void display_gl_render_last(GLFWwindow *win) {
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
-        unique_lock<mutex> lk(s->lock);
+        pthread_mutex_lock(&s->lock);
         auto *f = s->current_frame;
         s->current_frame = nullptr;
-        lk.unlock();
+        pthread_mutex_unlock(&s->lock);
         if (!f) {
                 return;
         }
@@ -2241,6 +2259,10 @@ static void display_gl_done(void *state)
         module_done(&s->mod);
         vdp_destroy(s->vdp);
 
+        pthread_cond_destroy(&s->new_frame_ready_cv);
+        pthread_cond_destroy(&s->frame_consumed_cv);
+        pthread_mutex_destroy(&s->lock);
+
         delete s;
 }
 
@@ -2249,16 +2271,17 @@ static struct video_frame * display_gl_getf(void *state)
         struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
 
-        lock_guard<mutex> lock(s->lock);
-
+        pthread_mutex_lock(&s->lock);
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
                 s->free_frame_queue.pop();
                 if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
+                        pthread_mutex_unlock(&s->lock);
                         return buffer;
                 }
                 vf_free(buffer);
         }
+        pthread_mutex_unlock(&s->lock);
 
         struct video_frame *buffer = vf_alloc_desc_data(s->current_desc);
         vf_clear(buffer);
@@ -2271,39 +2294,50 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
 
         assert(s->magic == MAGIC_GL);
 
-        unique_lock<mutex> lk(s->lock);
-
         if(!frame) {
                 glfwSetWindowShouldClose(s->window, GLFW_TRUE);
+                pthread_mutex_lock(&s->lock);
                 s->frame_queue.push(frame);
-                lk.unlock();
-                s->new_frame_ready_cv.notify_one();
+                pthread_mutex_unlock(&s->lock);
+                pthread_cond_signal(&s->new_frame_ready_cv);
                 return true;
         }
 
+        pthread_mutex_lock(&s->lock);
         switch (timeout_ns) {
                 case PUTF_DISCARD:
                         vf_recycle(frame);
                         s->free_frame_queue.push(frame);
+                        pthread_mutex_unlock(&s->lock);
                         return 0;
                 case PUTF_BLOCKING:
-                        s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
+                        while (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
+                                pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
+                        }
                         break;
                 case PUTF_NONBLOCK:
                         break;
-                default:
-                        s->frame_consumed_cv.wait_for(lk, timeout_ns * 1ns, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
+                default: {
+                        while (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
+                                int rc = cond_timedwait(
+                                    &s->frame_consumed_cv, &s->lock, timeout_ns);
+                                if (rc == ETIMEDOUT) {
+                                        break;
+                                }
+                        }
                         break;
+                }
         }
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
                 vf_recycle(frame);
                 s->free_frame_queue.push(frame);
+                pthread_mutex_unlock(&s->lock);
                 return false;
         }
         s->frame_queue.push(frame);
 
-        lk.unlock();
-        s->new_frame_ready_cv.notify_one();
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->new_frame_ready_cv);
 
         return !s->paused;
 }
