@@ -83,6 +83,7 @@ enum module_class {
         MODULE_CLASS_RECEIVER,
         MODULE_CLASS_TX,
         MODULE_CLASS_AUDIO,
+        MODULE_CLASS_VIDEO,
         MODULE_CLASS_CONTROL,
         MODULE_CLASS_CAPTURE,
         MODULE_CLASS_FILTER,

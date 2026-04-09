@@ -292,7 +292,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         s->requested_receiver = strdup(common->receiver),
 
         module_init_default(&s->m_rtp_sender_mod);
-        s->m_rtp_sender_mod.cls = MODULE_CLASS_DATA;
+        s->m_rtp_sender_mod.cls = MODULE_CLASS_VIDEO;
         module_register(&s->m_rtp_sender_mod, params->sender_mod);
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {

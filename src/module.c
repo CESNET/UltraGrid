@@ -217,6 +217,8 @@ module_class_name(enum module_class cls)
                 return "transmit";
         case MODULE_CLASS_AUDIO:
                 return "audio";
+        case MODULE_CLASS_VIDEO:
+                return "video";
         case MODULE_CLASS_CONTROL:
                 return "control";
         case MODULE_CLASS_CAPTURE:

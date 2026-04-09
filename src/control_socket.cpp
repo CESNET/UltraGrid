@@ -410,7 +410,7 @@ handle_removed_feature(char *message)
 }
 
 constexpr enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
-                                                    MODULE_CLASS_DATA,
+                                                    MODULE_CLASS_VIDEO,
                                                     MODULE_CLASS_NONE };
 constexpr enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO,
                                                     MODULE_CLASS_SENDER,
