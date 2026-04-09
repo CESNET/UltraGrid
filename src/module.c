@@ -47,11 +47,11 @@
 #include <time.h>           // for clock_gettime
 #include <unistd.h>         // for _POSIX_TIMEOUTS
 
-#include "compat/c23.h"     // for countof
+#include "compat/c23.h"     // IWYU pragma: keep
 #include "debug.h"
 #include "messaging.h"      // for check_message, free_message, ...
 #include "utils/list.h"
-#include "utils/macros.h"   // for countof, to_fourcc
+#include "utils/macros.h"   // for to_fourcc
 #include "utils/pthread.h"  // for CHK_PTHR
 
 #define MOD_NAME "[module] "
@@ -194,35 +194,46 @@ module_done(struct module *module_data)
         module_data->module_priv = NULL; // to avoid multiple deinit
 }
 
-static const char *const module_class_name_pairs[] = {
-        [MODULE_CLASS_ROOT] = "root",
-        [MODULE_CLASS_PORT] = "port",
-        [MODULE_CLASS_COMPRESS] = "compress",
-        [MODULE_CLASS_DATA] = "data",
-        [MODULE_CLASS_SENDER] = "sender",
-        [MODULE_CLASS_RECEIVER] = "receiver",
-        [MODULE_CLASS_TX] = "transmit",
-        [MODULE_CLASS_AUDIO] = "audio",
-        [MODULE_CLASS_CONTROL] = "control",
-        [MODULE_CLASS_CAPTURE] = "capture",
-        [MODULE_CLASS_FILTER] = "filter",
-        [MODULE_CLASS_DISPLAY] = "display",
-        [MODULE_CLASS_DECODER] = "decoder",
-        [MODULE_CLASS_EXPORTER] = "exporter",
-        [MODULE_CLASS_KEYCONTROL] = "keycontrol",
-};
-
-const char *module_class_name(enum module_class cls)
+const char *
+module_class_name(enum module_class cls)
 {
-        if ((unsigned int) cls >= countof(module_class_name_pairs)) {
-                MSG(ERROR, "No name for module class %d!\n", (int) cls);
-                return NULL;
+        switch (cls) {
+        case MODULE_CLASS_NONE:
+                MSG(ERROR, "%s: NONE passed!", __func__);
+                abort();
+        case MODULE_CLASS_ROOT:
+                return "root";
+        case MODULE_CLASS_PORT:
+                return "port";
+        case MODULE_CLASS_COMPRESS:
+                return "compress";
+        case MODULE_CLASS_DATA:
+                return "data";
+        case MODULE_CLASS_SENDER:
+                return "sender";
+        case MODULE_CLASS_RECEIVER:
+                return "receiver";
+        case MODULE_CLASS_TX:
+                return "transmit";
+        case MODULE_CLASS_AUDIO:
+                return "audio";
+        case MODULE_CLASS_CONTROL:
+                return "control";
+        case MODULE_CLASS_CAPTURE:
+                return "capture";
+        case MODULE_CLASS_FILTER:
+                return "filter";
+        case MODULE_CLASS_DISPLAY:
+                return "display";
+        case MODULE_CLASS_DECODER:
+                return "decoder";
+        case MODULE_CLASS_EXPORTER:
+                return "exporter";
+        case MODULE_CLASS_KEYCONTROL:
+                return "keycontrol";
         }
-        const char *name = module_class_name_pairs[cls];
-        if (name == NULL) { // eg. for MODULE_CLASS_NONE
-                MSG(ERROR, "Undefined name for module class %d!\n", (int) cls);
-        }
-        return name;
+        MSG(ERROR, "No name for module class %d!\n", (int) cls);
+        abort();
 }
 
 void
