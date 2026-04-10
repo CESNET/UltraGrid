@@ -69,10 +69,14 @@ static int create_filter(struct capture_filter *s, char *cfg)
                 options = strchr(filter_name, ':') + 1;
                 *strchr(filter_name, ':') = '\0';
         }
-        const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        for (auto && item : capture_filters) {
-                auto capture_filter_info = static_cast<const struct capture_filter_info*>(item.second);
-                if(strcasecmp(item.first.c_str(), filter_name) == 0) {
+        struct class_modules capture_filters = get_libraries_for_class(
+            LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        for (unsigned i = 0; i< capture_filters.count; i++) {
+                auto capture_filter_info =
+                    static_cast<const struct capture_filter_info *>(
+                        capture_filters.item[i].info);
+                if (strcasecmp(capture_filters.item[i].name, filter_name) ==
+                    0) {
                         struct capture_filter_instance *instance = (struct capture_filter_instance *)
                                 malloc(sizeof(struct capture_filter_instance));
                         instance->functions = capture_filter_info;

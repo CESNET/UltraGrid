@@ -41,12 +41,13 @@
 #include <cstdio>                // for printf
 #include <cstring>               // for strcmp
 
-#include <thread>
 #include <atomic>
 #include <chrono>
-#include <string_view>
-#include <mutex>
 #include <condition_variable>
+#include <map>
+#include <mutex>
+#include <string_view>
+#include <thread>
 
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame

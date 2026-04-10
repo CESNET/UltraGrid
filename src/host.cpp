@@ -707,7 +707,7 @@ int get_exit_status(struct module *root_mod) {
         return static_cast<state_root *>(root_mod->priv_data)->exit_status;
 }
 
-using module_info_map = std::map<std::string, const void *>;
+using module_info_map = struct class_modules;
 
 static void print_device(std::string purpose, std::string const & mod, const device_info& device){
         cout << "[capability][device] {"
@@ -852,10 +852,12 @@ const static struct {
 static void probe_all(std::map<enum library_class, module_info_map>& class_mod_map)
 {
         for(const auto& mod_class : mod_classes){
-                for(const auto& mod : class_mod_map[mod_class.cls]){
-                        if(!mod_class.probe_print)
+                for (unsigned i = 0; i < class_mod_map[mod_class.cls].count;
+                     ++i) {
+                        const auto& mod = class_mod_map[mod_class.cls].item[i];
+                        if (!mod_class.probe_print)
                                 continue;
-                        mod_class.probe_print(mod.first, mod.second);
+                        mod_class.probe_print(mod.name, mod.info);
                 }
         }
 }
@@ -864,8 +866,10 @@ static void print_modules(std::map<enum library_class, module_info_map>& class_m
 {
         for(const auto& mod_class : mod_classes){
                 std::cout << "[cap] " << mod_class.desc << ":\n";
-                for(const auto& mod : class_mod_map[mod_class.cls]){
-                        cout << "[cap][" << mod_class.cap_str <<"] " << mod.first << "\n";
+                for (unsigned i = 0; i < class_mod_map[mod_class.cls].count;
+                     ++i) {
+                        const auto& mod = class_mod_map[mod_class.cls].item[i];
+                        cout << "[cap][" << mod_class.cap_str <<"] " << mod.name << "\n";
                 }
         }
 }
@@ -878,12 +882,15 @@ void print_capabilities(const char *cfg)
 
         std::map<enum library_class, module_info_map> class_mod_map;
         for(const auto& mod_class: mod_classes){
-                class_mod_map.emplace(mod_class.cls,
-                                get_libraries_for_class(mod_class.cls, mod_class.abi_ver));
+                class_mod_map.emplace(
+                    mod_class.cls,
+                    get_libraries_for_class(mod_class.cls, mod_class.abi_ver));
         }
         auto codecs = get_audio_codec_list();
         for(const auto& codec : codecs){
-                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(get<0>(codec).name, nullptr);
+                strcpy_ch(class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS]
+                    .item[class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].count++]
+                    .name, get<0>(codec).name);
         }
 
         if(conf == "noprobe"){
@@ -910,15 +917,20 @@ void print_capabilities(const char *cfg)
                 }
 
                 auto& modmap = class_mod_map[cls];
+                const void *modinfo = nullptr;
 
-                auto modinfo = modmap.find(std::string(mod_sv));
-                if(modinfo == modmap.end()){
+                for (unsigned i = 0; i < modmap.count; ++i) {
+                        if (strcmp(modmap.item[i].name, std::string(mod_sv).c_str()) == 0) {
+                                modinfo = modmap.item[i].info;
+                        }
+                }
+                if (modinfo == nullptr) {
                         log_msg(LOG_LEVEL_FATAL, "Module not found\n");
                         return;
                 }
 
                 if(probe_print)
-                        probe_print(std::string(mod_sv), modinfo->second);
+                        probe_print(std::string(mod_sv), modinfo);
 
         }
 

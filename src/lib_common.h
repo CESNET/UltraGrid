@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,9 +89,6 @@ void register_library(const char *name, const void *info, enum library_class,
                       int abi_version, unsigned visibility_flag);
 void list_modules(enum library_class, int abi_version, bool full);
 bool list_all_modules();
-#ifdef __cplusplus
-}
-#endif
 
 enum module_flag {
         MODULE_SHOW_VISIBLE_ONLY = 0,      ///< display only modules w/o flag
@@ -102,12 +99,18 @@ enum module_flag {
             MODULE_FLAG_HIDDEN | MODULE_FLAG_ALIAS, ///< display all modules
 };
 
+struct class_modules {
+        struct {
+                char        name[50];
+                const void *info;
+        } item[50];
+        unsigned count;
+};
+
+struct class_modules get_libraries_for_class(enum library_class cls,
+                                             int                abi_version);
 #ifdef __cplusplus
-#include <map>
-#include <string>
-std::map<std::string, const void *>
-get_libraries_for_class(enum library_class cls, int abi_version,
-                        unsigned include_flags = MODULE_FLAG_HIDDEN);
+}
 #endif
 
 /**

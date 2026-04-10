@@ -36,7 +36,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "config.h"          // for BUILD_LIBRARIES
 #endif // HAVE_CONFIG_H
 
 #ifdef BUILD_LIBRARIES
@@ -45,16 +45,20 @@
 #include <libgen.h>
 #endif
 
-#include <iostream>
-#include <map>
-#include <cstring>
-#include <cassert>
-#include <cstdlib>
+#include <algorithm>          // for lexicographical_compare
+#include <cassert>            // for assert
+#include <cctype>             // for tolower
+#include <cstring>            // for strlen
+#include <iostream>           // for basic_ostream, char_traits, operator<<
+#include <iterator>           // for size
+#include <map>                // for map, operator!=, operator==
+#include <string>             // for basic_string, string, operator<<, opera...
+#include <utility>            // for pair
 
 #include "debug.h"
-#include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"     // for strcpy_ch
 
 #define MOD_NAME "[lib] "
 
@@ -80,6 +84,10 @@ const map<enum library_class, library_class_info_t> library_class_info = {
 };
 
 static map<string, string> lib_errors;
+
+static struct class_modules
+get_libraries_for_class_internal(enum library_class cls, int abi_version,
+                                 enum module_flag include_flags);
 
 #ifdef BUILD_LIBRARIES
 static void push_basename_entry(char ***binarynames, const char *bnc, size_t * templates) {
@@ -306,11 +314,11 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
  * @param full  include hidden modules and aliases
  */
 void list_modules(enum library_class cls, int abi_version, bool full) {
-        const auto &class_set = get_libraries_for_class(
+        const auto &class_set = get_libraries_for_class_internal(
             cls, abi_version,
             full ? MODULE_SHOW_ALL : MODULE_SHOW_VISIBLE_ONLY);
-        for (auto && item : class_set) {
-                col() << "\t" << SBOLD(item.first.c_str()) << "\n";
+        for (unsigned i = 0; i < class_set.count; ++i) {
+                col() << "\t" << SBOLD(class_set.item[i].name) << "\n";
         }
 }
 
@@ -345,17 +353,19 @@ bool list_all_modules() {
         return ret;
 }
 
-map<string, const void *>
-get_libraries_for_class(enum library_class cls, int abi_version,
-                        unsigned include_flags)
+static struct class_modules
+get_libraries_for_class_internal(enum library_class cls, int abi_version,
+                                 enum module_flag include_flags)
 {
-        map<string, const void *> ret;
+        struct class_modules ret;
+        ret.count = 0;
         auto& libraries = get_libmap();
         auto it = libraries.find(cls);
         if (it == libraries.end()) { // no library of given class
                 return ret;
         }
         for (auto &&item : it->second) {
+                assert(ret.count < std::size(ret.item));
                 if (abi_version != item.second.abi_version) {
                         MSG(WARNING,
                             "Module %s ABI version mismatch (required %d, have "
@@ -364,11 +374,21 @@ get_libraries_for_class(enum library_class cls, int abi_version,
                             item.second.abi_version);
                         continue;
                 }
-                if (item.second.visibility_flag == 0 ||
-                    (include_flags & item.second.visibility_flag) != 0U) {
-                        ret[item.first] = item.second.data;
+                if (item.second.visibility_flag != 0 &&
+                    (include_flags & item.second.visibility_flag) == 0U) {
+                        continue;
                 }
+                strcpy_ch(ret.item[ret.count].name, item.first.c_str());
+                ret.item[ret.count].info = item.second.data;
+                ret.count += 1;
         }
 
         return ret;
+}
+
+struct class_modules
+get_libraries_for_class(enum library_class cls, int abi_version)
+{
+        return get_libraries_for_class_internal(cls, abi_version,
+                                                MODULE_FLAG_HIDDEN);
 }

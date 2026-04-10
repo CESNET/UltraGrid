@@ -180,10 +180,12 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         void *state = NULL;
         const struct audio_compress_info *aci = nullptr;
 
-        auto audio_compressions = get_libraries_for_class(LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
+        auto audio_compressions = get_libraries_for_class(
+            LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
 
-        for (auto const &it : audio_compressions) {
-                aci = static_cast<const struct audio_compress_info *>(it.second);
+        for (unsigned i = 0; i < audio_compressions.count; i++) {
+                aci = static_cast<const struct audio_compress_info *>(
+                    audio_compressions.item[i].info);
                 for (unsigned int j = 0; aci->supported_codecs[j] != AC_NONE; ++j) {
                         if (aci->supported_codecs[j] == params.codec) {
                                 state = aci->init(params.codec, direction,

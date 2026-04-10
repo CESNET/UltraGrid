@@ -48,11 +48,12 @@ af_result_code audio_filter_init(struct module *parent, const char *name, const 
                 struct audio_filter *filter)
 {
         const auto filters = get_libraries_for_class(LIBRARY_CLASS_AUDIO_FILTER,
-                        AUDIO_FILTER_ABI_VERSION);
+                                                     AUDIO_FILTER_ABI_VERSION);
 
-        for(const auto& i : filters){
-                auto funcs = static_cast<const audio_filter_info *>(i.second);
-                if(strcasecmp(i.first.c_str(), name) == 0){
+        for(unsigned i = 0; i < filters.count; ++i){
+                auto funcs = static_cast<const audio_filter_info *>(
+                    filters.item[i].info);
+                if (strcasecmp(filters.item[i].name, name) == 0) {
                         filter->info = funcs;
 
                         af_result_code ret = funcs->init(parent, cfg, &filter->state);

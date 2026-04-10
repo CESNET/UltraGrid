@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,10 +74,14 @@ ADD_TO_PARAM("decompress", "* decompress=<name>[:<codec>]\n"
  * @retval -1       if no found
  * @retval priority best decoder's priority
  */
-static int find_best_decompress(codec_t compression, struct pixfmt_desc internal_prop, codec_t out_pixfmt,
-                int prio_min, int prio_max, const struct video_decompress_info **vdi, string & name) {
-        auto decomps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
-
+static int
+find_best_decompress(codec_t compression, struct pixfmt_desc internal_prop,
+                     codec_t out_pixfmt, int prio_min, int prio_max,
+                     const struct video_decompress_info **vdi,
+                     size_t decompress_name_len, char *decompress_name)
+{
+        const struct class_modules decomps = get_libraries_for_class(
+            LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
         int best_priority = prio_max + 1;
         string force_module;
 
@@ -95,20 +99,26 @@ static int find_best_decompress(codec_t compression, struct pixfmt_desc internal
                 free(tmp);
         }
 
-        for (const auto & d : decomps) {
+        for (unsigned i = 0; i < decomps.count; i++) {
                 // if user has explicitly requested decoder, skip all others
-                if (!force_module.empty() && d.first != force_module) {
+                const char *name = decomps.item[i].name;
+                const void *info = decomps.item[i].info;
+                if (!force_module.empty() &&
+                    strcmp(force_module.c_str(), name) != 0) {
                         continue;
                 }
                 // first pass - find the one with best priority (least)
-                int priority = static_cast<const video_decompress_info *>(d.second)->get_decompress_priority(compression, internal_prop, out_pixfmt);
-                if (priority < 0) { // decoder not valid for given properties combination
+                int priority = static_cast<const video_decompress_info *>(info)
+                                   ->get_decompress_priority(
+                                       compression, internal_prop, out_pixfmt);
+                if (priority <
+                    0) { // decoder not valid for given properties combination
                         continue;
                 }
                 if (priority <= prio_max && priority >= prio_min && priority < best_priority) {
                         best_priority = priority;
-                        *vdi = static_cast<const video_decompress_info *>(d.second);
-                        name = d.first;
+                        *vdi = static_cast<const video_decompress_info *>(info);
+                        strlcpy(decompress_name, name, decompress_name_len);
                 }
         }
 
@@ -188,9 +198,10 @@ bool decompress_init_multi(codec_t compression, struct pixfmt_desc internal_prop
         const video_decompress_info *vdi = nullptr;
 
         while(1) {
-                string name;
-                prio_cur = find_best_decompress(compression, internal_prop, out_codec,
-                                prio_min, prio_max, &vdi, name);
+                char name[STR_LEN];
+                prio_cur = find_best_decompress(compression, internal_prop,
+                                                out_codec, prio_min, prio_max,
+                                                &vdi, sizeof name, name);
                 // if found, init decoder
                 if(prio_cur != -1) {
                         if (try_initialize_decompress(vdi, out, count)) {
