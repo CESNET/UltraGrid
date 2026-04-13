@@ -60,7 +60,7 @@
 
 #include "utils/profile_timer.hpp"
 #include "video_rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
-#include "video_rxtx/rtp.hpp"            // for rtp_rxtx_common
+#include "video_rxtx/rtp_common.h"       // for rtp_rxtx_common
 
 #define MOD_NAME "hd-rum-recompress"
 

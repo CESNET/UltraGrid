@@ -78,6 +78,8 @@ extern "C" {
 #include <stddef.h>
 #endif
 
+struct fec *fec_create_from_config(const char *str, bool is_audio);
+void fec_destroy(struct fec *s);
 int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted);
 const char *get_fec_desc(struct fec_desc desc, size_t buflen, char *buf);
 #ifdef __cplusplus

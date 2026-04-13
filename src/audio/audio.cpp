@@ -98,6 +98,7 @@
 #include "utils/thread.h"
 #include "utils/worker.h"
 #include "video_rxtx.h"                 // for video_rxtx
+#include "video_rxtx/rtp_common.h"
 
 using std::array;
 using std::fixed;

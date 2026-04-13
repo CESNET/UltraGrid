@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/rtp.hpp
+ * @file   video_rxtx/rtp_common.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,15 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_RXTX_RTP_H_
-#define VIDEO_RXTX_RTP_H_
+#ifndef VIDEO_RXTX_RTP_COMMON_H_227CB2D9_DA5A_4A09_AE77_CC92F81C8D5A
+#define VIDEO_RXTX_RTP_COMMON_H_227CB2D9_DA5A_4A09_AE77_CC92F81C8D5A
 
-#include <cstdint>           // for uint32_t
 #include <pthread.h>
+#ifdef __cplusplus
+#include <cstdint>           // for uint32_t
+#else
+#include <stdint.h>          // for uint32_t
+#endif
 
 #include "types.h"
-#include "video_rxtx.h"
 #include "utils/macros.h"    // for to_fourcc
+
+#ifdef __cplusplus
+extern "C" {
+#endif // defined __cplusplus
 
 #ifdef __APPLE__
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -70,6 +77,9 @@ struct rtp_rxtx_common {
         struct rtp_rxtx_common_priv_state *priv;
 };
 
+struct common_opts;
+struct vrxtx_params;
+
 struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
                        const struct common_opts  *common);
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
@@ -77,5 +87,9 @@ void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *s);
 void rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_medium *s, double delay);
 
-#endif // VIDEO_RXTX_RTP_H_
+#ifdef __cplusplus
+}
+#endif // defined __cplusplus
+
+#endif // VIDEO_RXTX_RTP_COMMON_H_227CB2D9_DA5A_4A09_AE77_CC92F81C8D5A
 

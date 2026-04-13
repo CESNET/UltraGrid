@@ -5,7 +5,7 @@
  * Common ancesor of FEC modules.
  */
 /*
- * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osbo
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -227,3 +227,14 @@ int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, 
         return fec::pt_from_fec_type(media_type, fec_type, encrypted);
 }
 
+struct fec *
+fec_create_from_config(const char *str, bool is_audio)
+{
+        return fec::create_from_config(str, is_audio);
+}
+
+void
+fec_destroy(struct fec *s)
+{
+        delete s;
+}

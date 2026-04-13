@@ -64,7 +64,7 @@
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video_codec.h"      // for get_codec_name
 #include "video_rxtx.h"
-#include "video_rxtx/rtp.hpp"
+#include "video_rxtx/rtp_common.h"
 
 constexpr char DEFAULT_RTSP_COMPRESSION[] = "lavc:enc=libx264:safe";
 #define MOD_NAME "[vrxtx/h264_rtp] "

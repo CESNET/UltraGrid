@@ -63,7 +63,7 @@
 #include "utils/sdp.h"
 #include "video_codec.h"         // for is_codec_opaque
 #include "video_rxtx.h"
-#include "video_rxtx/rtp.hpp"
+#include "video_rxtx/rtp_common.h"
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPG:safe"
 #define MOD_NAME "[vrxtx/sdp] "

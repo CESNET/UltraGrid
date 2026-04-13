@@ -81,7 +81,7 @@ typedef SSIZE_T ssize_t;
 #include "utils/thread.h"
 #include "video_display.h"
 #include "video_rxtx.h"
-#include "video_rxtx/rtp.hpp"  // for rtp_video_rxtx
+#include "video_rxtx/rtp_common.h"  // for rtp_video_rxtx
 #include "utils/worker.h"
 
 constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'u', 'r');
