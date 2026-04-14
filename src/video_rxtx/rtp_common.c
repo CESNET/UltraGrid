@@ -71,6 +71,9 @@
 const enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
                                                 MODULE_CLASS_VIDEO,
                                                 MODULE_CLASS_NONE };
+const enum module_class path_sender_audio[] = { MODULE_CLASS_SENDER,
+                                                MODULE_CLASS_AUDIO,
+                                                MODULE_CLASS_NONE };
 
 struct pdb;
 struct rtp;
@@ -193,14 +196,8 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_send
                         fec_destroy(old_fec_state);
                         MSG(NOTICE, "Fec changed successfully\n");
                 }
-        } break;
-        case SENDER_MSG_GET_STATUS:
-        case SENDER_MSG_MUTE:
-        case SENDER_MSG_UNMUTE:
-        case SENDER_MSG_MUTE_TOGGLE:
-                MSG(ERROR, "Unexpected audio message ID %d!\n", msg->type);
-                r = new_response(RESPONSE_INT_SERV_ERR, nullptr);
                 break;
+        }
         default:
                 MSG(ERROR, "Unsupported message ID %d!\n", msg->type);
                 r = new_response(RESPONSE_INT_SERV_ERR, nullptr);
@@ -374,6 +371,8 @@ initialize_network(const char *addr, int recv_port, int send_port,
 
         if (medium == TX_MEDIA_VIDEO) {
                 rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
+        } else {
+                rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
         }
         rtp_set_recv_buf(device, buf_size);
 

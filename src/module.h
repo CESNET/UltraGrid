@@ -94,7 +94,8 @@ enum module_class {
 };
 
 // common paths declaration
-extern const enum module_class path_sender_audio[]; // defined in audio.cpp
+extern const enum module_class path_audio_send_module[]; // defined in audio.cpp
+extern const enum module_class path_sender_audio[]; // defined in rtp_comomn.c
 extern const enum module_class path_sender_video[]; // defined in rtp_comomn.c
 
 struct module;
@@ -139,6 +140,8 @@ void module_init_default(struct module *module_data);
 void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
+void        set_message_path(char *buf, int buflen,
+                             const enum module_class *modules);
 void        append_message_path(char *buf, int buflen,
                                 const enum module_class *modules);
 bool module_get_path_str(struct module *mod, char *buf, size_t buflen);

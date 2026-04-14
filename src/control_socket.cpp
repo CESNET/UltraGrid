@@ -336,7 +336,8 @@ void control_start(struct control_state *s)
 static struct response *
 process_audio_message(struct module *root_module, const char *cmd)
 {
-        char path[STR_LEN] = "";
+        char path[STR_LEN];
+
         if (strcmp(cmd, "mute") == 0 || strstr(cmd, "-receiver") != nullptr) {
                 strncpy(path, "audio.receiver", sizeof path);
                 auto *msg = (struct msg_receiver *) new_message(
@@ -355,13 +356,13 @@ process_audio_message(struct module *root_module, const char *cmd)
                 return send_message(root_module, path, (struct message *) msg);
         }
         if (strstr(cmd, "-sender") != nullptr) {
-                strncpy(path, "audio.sender", sizeof path);
-                auto *msg = (struct msg_sender *) new_message(
-                    sizeof(struct msg_sender));
+                set_message_path(path, sizeof path, path_audio_send_module);
+                auto *msg = (struct msg_audio_sender *) new_message(
+                    sizeof(struct msg_audio_sender));
                 if (prefix_matches(cmd, "mute-")) {
-                        msg->type = SENDER_MSG_MUTE;
+                        msg->type = AUDIO_SENDER_MSG_MUTE;
                 } else if (prefix_matches(cmd, "unmute-")) {
-                        msg->type = SENDER_MSG_UNMUTE;
+                        msg->type = AUDIO_SENDER_MSG_UNMUTE;
                 } else {
                         free_message((struct message *) msg, nullptr);
                         return new_response(RESPONSE_BAD_REQUEST,

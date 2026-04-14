@@ -50,6 +50,7 @@
 
 #include "audio/audio.h"
 #include "audio/types.h"         // for audio_desc
+#include "audio/utils.h"         // for audio_desc_to_cstring
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -83,11 +84,14 @@ struct h264_sdp_video_rxtx {
         static void change_address_callback(void *udata, const char *address);
         void sdp_add_video(codec_t codec);
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
-        int m_saved_tx_port;
+        int m_audio_tx_port = -1;
+        int m_video_tx_port = -1;
         bool m_sent_compress_change = false;
 
         std::string m_saved_addr; ///< for dynamic address reconfiguration, @see m_autorun
         struct module *m_parent;
+
+        bool audio_params_set = false;
 };
 
 
@@ -99,13 +103,22 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
                                          const struct common_opts  *common)
         : m_parent(common->parent)
 {
+        const struct rxtx_medium_params *audio =
+            &params->medium[TX_MEDIA_AUDIO];
         const struct rxtx_medium_params *video =
             &params->medium[TX_MEDIA_VIDEO];
         auto opts = params->protocol_opts;
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
-        m_saved_tx_port = video->tx_port;
+        if (audio->rxtx_mode & MODE_SENDER) {
+                m_audio_tx_port = audio->tx_port;
+        }
+        if (video->rxtx_mode & MODE_SENDER) {
+                m_video_tx_port = video->tx_port;
+        }
 
-        sdp_set_properties(common->receiver, params->send_video, params->send_audio);
+        sdp_set_properties(common->receiver, params->send_video,
+                           params->send_audio,
+                           h264_sdp_video_rxtx::change_address_callback, this);
 
         if (int ret = sdp_set_options(opts)) {
                 throw ret == 1 ? -1 : -1;
@@ -121,6 +134,34 @@ h264_sdp_video_rxtx::~h264_sdp_video_rxtx() {
         rtp_rxtx_common_done(m_rtp_common);
 }
 
+void
+sdp_send_change_address_message(struct module           *root,
+                                const enum module_class *path,
+                                const char              *address)
+{
+        char pathV[1024];
+
+        set_message_path(pathV, sizeof pathV, path);
+
+        // CHANGE DST ADDRESS
+        auto *msgV2 = reinterpret_cast<struct msg_sender *>(
+            new_message(sizeof(struct msg_sender)));
+        strncpy(static_cast<char *>(msgV2->receiver), address,
+                sizeof(msgV2->receiver) - 1);
+        msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
+
+        auto *resp = send_message(root, pathV, (struct message *) msgV2);
+        if (response_get_status(resp) == RESPONSE_OK) {
+                LOG(LOG_LEVEL_NOTICE)
+                    << "[SDP] Changing address to " << address << "\n";
+        } else {
+                LOG(LOG_LEVEL_WARNING)
+                    << "[SDP] Unable to change address to " << address << " ("
+                    << response_get_status(resp) << ")\n";
+        }
+        free_response(resp);
+}
+
 void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *address)
 {
         auto *s = static_cast<h264_sdp_video_rxtx *>(udata);
@@ -129,10 +170,14 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
         }
         s->m_saved_addr = address;
 
-        constexpr enum module_class path_sender[] = { MODULE_CLASS_SENDER,
-                                                      MODULE_CLASS_NONE };
-        sdp_send_change_address_message(get_root_module(s->m_parent),
-                                        path_sender, address);
+        if (s->m_video_tx_port != -1) {
+                sdp_send_change_address_message(get_root_module(s->m_parent),
+                                                path_sender_video, address);
+        }
+        if (s->m_audio_tx_port != -1) {
+                sdp_send_change_address_message(get_root_module(s->m_parent),
+                                                path_sender_audio, address);
+        }
 }
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
@@ -140,8 +185,7 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
         struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
 
         const int rc = ::sdp_add_video(
-            rtp_is_ipv6(video->network_device), m_saved_tx_port, codec,
-            h264_sdp_video_rxtx::change_address_callback, this);
+            rtp_is_ipv6(video->network_device), m_video_tx_port, codec);
         if (rc == -2) {
                 throw ug_runtime_error("[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
         }
@@ -206,28 +250,6 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 }
 
-static void
-sdp_change_address_callback(void *udata, const char *address)
-{
-        const enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
-                                                  MODULE_CLASS_SENDER,
-                                                  MODULE_CLASS_NONE };
-        sdp_send_change_address_message((module *) udata, path_sender, address);
-}
-
-void
-h264_sdp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
-                                    int /* audio_rx_port */, int audio_tx_port, bool ipv6)
-{
-        if (sdp_add_audio(ipv6, audio_tx_port,
-                          desc->sample_rate,
-                          desc->ch_count, desc->codec,
-                          sdp_change_address_callback,
-                          get_root_module(m_parent)) != 0) {
-                MSG(ERROR, "Cannot add audio to SDP!\n");
-        }
-}
-
 static void *
 create_video_rxtx_h264_sdp(const struct vrxtx_params *params,
                            const struct common_opts  *common)
@@ -248,12 +270,36 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
 }
 
 static void
-set_audio_spec(void *state, const struct audio_desc *desc, int audio_rx_port,
-               int audio_tx_port, bool ipv6)
+configure_audio(struct h264_sdp_video_rxtx *s, const struct audio_frame2 *frame)
 {
-        auto *s = static_cast<h264_sdp_video_rxtx*>(state);
-        s->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
+        const struct audio_desc desc =  frame->get_desc();
+        MSG(VERBOSE, "Setting audio desc %s to SDP.\n",
+            audio_desc_to_cstring(desc));
+
+        s->audio_params_set = true;
+
+        struct rtp_rxtx_medium *audio = &s->m_rtp_common->medium[TX_MEDIA_AUDIO];
+
+        if (sdp_add_audio(rtp_is_ipv6(audio->network_device), s->m_audio_tx_port,
+                          desc.sample_rate,
+                          desc.ch_count, desc.codec) != 0) {
+                MSG(ERROR, "Cannot add audio to SDP!\n");
+        }
 }
+
+static void
+h264_sdp_send_audio_frame(void *state, const struct audio_frame2 *frame)
+{
+        auto *s = static_cast<h264_sdp_video_rxtx *>(state);
+
+        if (!s->audio_params_set) {
+                configure_audio(s, frame);
+        }
+        audio_tx_send_standard(
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].tx,
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
+}
+
 
 static bool
 h264_sdp_ctl_property(void *state, enum rxtx_property p,
@@ -276,14 +322,14 @@ h264_sdp_ctl_property(void *state, enum rxtx_property p,
 }
 
 static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
-        .long_name             = "RTP standard (SDP version)",
-        .create                = create_video_rxtx_h264_sdp,
-        .done                  = done,
-        .send_frame            = send_frame,
-        .join_sender           = nullptr,
-        .set_sender_audio_spec = set_audio_spec,
-        .receiver_routine      = nullptr,
-        .ctl_property          = h264_sdp_ctl_property,
+        .long_name        = "RTP standard (SDP version)",
+        .create           = create_video_rxtx_h264_sdp,
+        .done             = done,
+        .send_frame       = send_frame,
+        .join_sender      = nullptr,
+        .send_audio_frame = h264_sdp_send_audio_frame,
+        .receiver_routine = nullptr,
+        .ctl_property     = h264_sdp_ctl_property,
 };
 
 REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

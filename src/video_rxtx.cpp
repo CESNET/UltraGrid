@@ -362,19 +362,6 @@ video_rxtx::list(bool full) noexcept
         list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, full);
 }
 
-void
-video_rxtx::set_audio_spec(const struct audio_desc * desc,
-                           int audio_rx_port, int audio_tx_port,
-                           bool ipv6) noexcept
-{
-        if (m_impl_funcs->set_sender_audio_spec != nullptr) {
-                m_impl_funcs->set_sender_audio_spec(m_impl_state, desc, audio_rx_port,
-                                             audio_tx_port, ipv6);
-        } else {
-                MSG(INFO, "video RXTX not h264_rtp, not setting audio...\n");
-        }
-}
-
 /**
  * @retunrs -1 error; 0 OK; 1 help shown (as usual)
  */
@@ -418,12 +405,6 @@ vrxtx_destroy(struct video_rxtx *state)
         delete state;
 }
 
-void vrxtx_set_audio_spec(struct video_rxtx       *state,
-                          const struct audio_desc *desc, int audio_rx_port,
-                          int audio_tx_port, bool ipv6) {
-        state->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
-}
-
 void
 vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame> f)
 {
@@ -438,4 +419,10 @@ bool rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
         }
         return state->m_impl_funcs->ctl_property(state->m_impl_state, p, val,
                                                  len);
+}
+
+void
+rxtx_send_audio(struct video_rxtx *s, const struct audio_frame2 *frame)
+{
+        s->m_impl_funcs->send_audio_frame(s->m_impl_state, frame);
 }

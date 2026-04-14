@@ -50,6 +50,7 @@
 #include <utility>                       // for move
 
 #include "audio/types.h"                 // for audio_desc
+#include "audio/utils.h"                 // for audio_desc_to_cstring
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -78,8 +79,6 @@ struct h264_rtp_video_rxtx {
                             const struct common_opts  *common, int rtsp_port);
         ~h264_rtp_video_rxtx();
         void join();
-        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
-                            int audio_tx_port, bool ipv6);
         void send_frame(std::shared_ptr<video_frame>) noexcept;
 
         struct rtp_rxtx_common *m_rtp_common;
@@ -112,9 +111,9 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
         }
         rtsp_params.avType = avType;;
 
-        rtsp_params.rtp_video_src_port =
-            params->medium[TX_MEDIA_VIDEO].rx_port; // server rtp port
-        m_rtp_common = rtp_rxtx_common_init(params, common);
+        rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
+        rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
+        m_rtp_common                   = rtp_rxtx_common_init(params, common);
         if (m_rtp_common == nullptr) {
                 throw -1;
         }
@@ -213,20 +212,6 @@ void h264_rtp_video_rxtx::join()
         c_stop_server(m_rtsp_server);
 }
 
-void
-h264_rtp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
-                                    int  audio_rx_port, int /* audio_tx_port */,
-                                    bool /* ipv6 */)
-{
-        rtsp_params.adesc = *desc;
-        rtsp_params.rtp_audio_src_port = audio_rx_port;
-        audio_params_set = true;
-
-        if ((rtsp_params.avType & rtsp_type_video) == 0U) {
-                m_rtsp_server = c_start_server(rtsp_params);
-        }
-}
-
 static void rtps_server_usage(){
         printf("\n[RTSP SERVER] usage:\n");
         color_printf("\t" TBOLD("-x rtsp[:port=number]") "\n");
@@ -298,11 +283,30 @@ static void join(void *state) {
 }
 
 static void
-set_audio_spec(void *state, const struct audio_desc *desc, int audio_rx_port,
-               int audio_tx_port, bool ipv6)
+configure_audio(struct h264_rtp_video_rxtx *s, const struct audio_frame2 *frame)
+{
+        s->rtsp_params.adesc =  frame->get_desc();
+        MSG(VERBOSE, "Setting audio desc %s to RTSP.\n",
+            audio_desc_to_cstring(s->rtsp_params.adesc));
+
+        s->audio_params_set = true;
+
+        if ((s->rtsp_params.avType & rtsp_type_video) == 0U) {
+                s->m_rtsp_server = c_start_server(s->rtsp_params);
+        }
+}
+
+static void
+h264_rtp_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
         auto *s = static_cast<h264_rtp_video_rxtx *>(state);
-        s->set_audio_spec(desc, audio_rx_port, audio_tx_port, ipv6);
+
+        if (!s->audio_params_set) {
+                configure_audio(s, frame);
+        }
+        audio_tx_send_standard(
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].tx,
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
 }
 
 static bool
@@ -326,14 +330,14 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
-        .long_name             = "RTP standard (using RTSP)",
-        .create                = create_video_rxtx_h264_std,
-        .done                  = done,
-        .send_frame            = send_frame,
-        .join_sender           = join,
-        .set_sender_audio_spec = set_audio_spec,
-        .receiver_routine      = nullptr,
-        .ctl_property          = h264_rtp_ctl_property,
+        .long_name        = "RTP standard (using RTSP)",
+        .create           = create_video_rxtx_h264_std,
+        .done             = done,
+        .send_frame       = send_frame,
+        .join_sender      = join,
+        .send_audio_frame = h264_rtp_send_audio_frame,
+        .receiver_routine = nullptr,
+        .ctl_property     = h264_rtp_ctl_property,
 };
 
 REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

@@ -62,8 +62,6 @@
 struct state_audio;
 
 struct audio_options {
-        int                recv_port;
-        int                send_port;
         const char        *recv_cfg;
         const char        *send_cfg;
         const char        *proto;
@@ -80,8 +78,6 @@ struct audio_options {
 
 #define AUDIO_OPTIONS_INIT \
         { \
-                .recv_port         = 0, \
-                .send_port         = 0, \
                 .recv_cfg          = "none", \
                 .send_cfg          = "none", \
                 .proto             = "ultragrid_rtp", \

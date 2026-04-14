@@ -578,6 +578,7 @@ void keyboard_control::impl::run()
         int64_t c;
 
         while ((c = get_next_key())) {
+                char path[1024];
                 if (c == -1) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME
                             "EOF detected! Exiting keyboard control.\n";
@@ -629,11 +630,12 @@ void keyboard_control::impl::run()
                 }
                 case 'M':
                 {
-                        char path[] = "audio.sender";
-                        auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                        m->type = SENDER_MSG_MUTE_TOGGLE;
+                        auto *m      = (struct msg_audio_sender *) new_message(
+                            sizeof(struct msg_audio_sender));
+                        m->type = AUDIO_SENDER_MSG_MUTE_TOGGLE;
 
-                        auto resp = send_message(m_root, path, (struct message *) m);
+                        set_message_path(path, sizeof path, path_audio_send_module);
+                        auto *resp = send_message(m_root, path, (struct message *) m);
                         free_response(resp);
                         break;
                 }
@@ -758,10 +760,13 @@ void keyboard_control::impl::info()
         {
                 int muted_sender = -1;
                 int muted_receiver = -1;
-                const char *path = "audio.receiver";
+                const char *path_recv = "audio.receiver";
                 auto *m_recv = reinterpret_cast<struct msg_receiver *>(new_message(sizeof(struct msg_receiver)));
                 m_recv->type = RECEIVER_MSG_GET_AUDIO_STATUS;
-                auto *resp = send_message_sync(m_root, path, reinterpret_cast<struct message *>(m_recv), 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                auto *resp = send_message_sync(
+                    m_root, path_recv,
+                    reinterpret_cast<struct message *>(m_recv), 100,
+                    SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
                         double vol = 0;
                         sscanf(response_get_text(resp), "%lf,%d", &vol, &muted_receiver);
@@ -769,10 +774,14 @@ void keyboard_control::impl::info()
                         color_printf(TBOLD("Playback volume: ") "%.2f%% (%s%.2f dB)\n", vol * 100.0, (db >= 0.0 ? "+" : ""), db);
                 }
                 free_response(resp);
-                path = "audio.sender";
-                auto *m_send = reinterpret_cast<struct msg_sender *>(new_message(sizeof(struct msg_sender)));
-                m_send->type = SENDER_MSG_GET_STATUS;
-                resp = send_message_sync(m_root, path, reinterpret_cast<struct message *>(m_send), 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                char path_receiver[1024];
+                set_message_path(path_receiver, sizeof path_receiver, path_audio_send_module);
+                auto *m_send = (struct msg_audio_sender *) new_message(
+                    sizeof(struct msg_audio_sender));
+                m_send->type = AUDIO_SENDER_MSG_GET_STATUS;
+                resp         = send_message_sync(
+                    m_root, path_receiver, (struct message *) m_send, 100,
+                    SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
                         sscanf(response_get_text(resp), "%d", &muted_sender);
                 }

@@ -188,7 +188,8 @@ module_done(struct module *module_data)
         }
         struct module_priv_state *module_priv = module_data->module_priv;
         if (!module_del_ref(module_priv)) {
-                printf(MOD_NAME "Warning: Child database not empty! Remaining:\n");
+                printf(MOD_NAME "Warning: Child database not empty! Remaining "
+                                "(excluding parents):\n");
                 dump_tree(&module_priv->wrapper, 0);
         }
         module_data->module_priv = NULL; // to avoid multiple deinit
@@ -253,6 +254,13 @@ append_message_path(char *buf, int buflen, const enum module_class *modules)
                 strncat(buf, node_name, buflen - strlen(buf) - 1);
                 mod += 1;
         }
+}
+
+void
+set_message_path(char *buf, int buflen, const enum module_class *modules)
+{
+        buf[0] = '\0';
+        append_message_path(buf, buflen, modules);
 }
 
 struct module *get_root_module(struct module *mod)
@@ -399,7 +407,8 @@ void dump_tree(struct module *root_node, int indent) {
         for(int i = 0; i < indent; ++i)
                 putchar(' ');
 
-        printf("%s\n", module_class_name(root_node->cls));
+        printf("%s (num refs: %d)\n", module_class_name(root_node->cls),
+               root_node->module_priv->ref);
 
         module_mutex_lock(&root_node->module_priv->lock);
         for (void *it =

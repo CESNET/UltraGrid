@@ -86,10 +86,6 @@ struct message {
 enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
-        SENDER_MSG_GET_STATUS,
-        SENDER_MSG_MUTE,
-        SENDER_MSG_UNMUTE,
-        SENDER_MSG_MUTE_TOGGLE,
         SENDER_MSG_CHANGE_FEC,
         SENDER_MSG_QUERY_VIDEO_MODE,
 };
@@ -107,6 +103,17 @@ struct msg_sender {
         };
 };
 
+enum msg_audio_sender_type {
+        AUDIO_SENDER_MSG_GET_STATUS,
+        AUDIO_SENDER_MSG_MUTE,
+        AUDIO_SENDER_MSG_UNMUTE,
+        AUDIO_SENDER_MSG_MUTE_TOGGLE,
+};
+
+struct msg_audio_sender {
+        struct message m;
+        enum msg_audio_sender_type type;
+};
 enum msg_receiver_type {
         RECEIVER_MSG_VIDEO_PROP_CHANGED,
         RECEIVER_MSG_GET_AUDIO_STATUS,

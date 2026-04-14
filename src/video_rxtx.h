@@ -76,12 +76,16 @@ struct vrxtx_params {
 
 #define VRXTX_INIT \
         { \
-                .medium         = { { }, \
-                                   { \
-                                        .rxtx_mode      = RXTX_MODE_NONE, \
-                                        .rx_port       = -1, \
-                                        .tx_port       = -1, \
-                                        .fec           = "none", \
+                .medium         = { { \
+                                        .rxtx_mode = RXTX_MODE_NONE, \
+                                        .rx_port   = -1, \
+                                        .tx_port   = -1, \
+                                        .fec       = "none", \
+                                    }, { \
+                                        .rxtx_mode = RXTX_MODE_NONE, \
+                                        .rx_port   = -1, \
+                                        .tx_port   = -1, \
+                                        .fec       = "none", \
                                     } }, \
                 .compression    = nullptr, \
                 .display_device = nullptr, \
@@ -121,10 +125,7 @@ struct video_rxtx_info {
 
         // following callbacks are optional
         void (*join_sender)(void *state);
-        void (*set_sender_audio_spec)(void                    *state,
-                                      const struct audio_desc *desc,
-                                      int audio_rx_port, int audio_tx_port,
-                                      bool ipv6);
+        void (*send_audio_frame)(void *state, const struct audio_frame2 *frame);
         void *(*receiver_routine)(void *state);
         rxtx_ctl_property_t *ctl_property;
 };
@@ -134,6 +135,7 @@ struct video_rxtx_info {
 extern "C" {
 #endif
 
+struct audio_frame2;;
 struct video_rxtx;
 
 int  vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
@@ -144,11 +146,10 @@ const char *vrxtx_get_proto_long_name(const char *short_name);
 const char *vrxtx_get_compression(const char *video_protocol,
                                   const char *req_compression);
 void        vrxtx_join(struct video_rxtx *state);
-void  vrxtx_set_audio_spec(struct video_rxtx       *state,
-                           const struct audio_desc *desc, int audio_rx_port,
-                           int audio_tx_port, bool ipv6);
 bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
                               void *val, size_t *len);
+void        rxtx_send_audio(struct video_rxtx         *state,
+                            const struct audio_frame2 *frame);
 
 #ifdef __cplusplus
 } // extern "C"

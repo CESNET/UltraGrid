@@ -93,7 +93,6 @@
 #include "utils/macros.h"               // for STR_LEN, snprintf_ch
 #include "utils/misc.h"                 // for get_stat_color
 #include "utils/pthread.h"              // for PTHREAD_NULL
-#include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/worker.h"
@@ -109,9 +108,9 @@ using std::to_string;
 using std::unique_ptr;
 using namespace std::string_literals;
 
-const enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO,
-                                                MODULE_CLASS_SENDER,
-                                                MODULE_CLASS_NONE };
+const enum module_class path_audio_send_module[] = { MODULE_CLASS_AUDIO,
+                                                     MODULE_CLASS_SENDER,
+                                                     MODULE_CLASS_NONE };
 
 enum audio_transport_device {
         NET_NATIVE,
@@ -121,16 +120,6 @@ enum audio_transport_device {
 
 #define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
 #define MOD_NAME "[audio] "
-
-struct audio_network_parameters {
-        char *addr = nullptr;
-        int recv_port = 0;
-        int send_port = 0;
-        struct pdb *participants = 0;
-        int force_ip_version = 0;
-        const char *mcast_if;
-        int ttl = -1;
-};
 
 struct state_audio {
         state_audio(struct module *parent, time_ns_t st) :
@@ -159,7 +148,6 @@ struct state_audio {
 
         struct audio_codec_state *audio_encoder = nullptr;
         
-        struct audio_network_parameters audio_network_parameters{};
         struct rtp *audio_network_device = nullptr;
         struct pdb *audio_participants = nullptr;
         std::string proto_cfg; // audio network protocol options
@@ -206,9 +194,10 @@ typedef void (*audio_device_help_t)(void);
 
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
-static struct rtp *initialize_audio_network(struct audio_network_parameters *params);
 static struct response *audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg);
-static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg);
+static struct response *
+audio_sender_process_message(struct state_audio      *s,
+                             struct msg_audio_sender *msg);
 
 static void audio_channel_map_usage(void);
 static void audio_scale_usage(void);
@@ -243,35 +232,6 @@ static void audio_scale_usage(void)
 static void should_exit_audio(void *state) {
         auto *s = (struct state_audio *) state;
         s->should_exit = true;
-}
-
-void
-sdp_send_change_address_message(struct module           *root,
-                                const enum module_class *path,
-                                const char              *address)
-{
-        array<char, 1024> pathV{};
-
-        append_message_path(pathV.data(), pathV.size(), path);
-
-        // CHANGE DST ADDRESS
-        auto *msgV2 = reinterpret_cast<struct msg_sender *>(
-            new_message(sizeof(struct msg_sender)));
-        strncpy(static_cast<char *>(msgV2->receiver), address,
-                sizeof(msgV2->receiver) - 1);
-        msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
-
-        auto *resp = send_message(root, pathV.data(),
-                                  reinterpret_cast<struct message *>(msgV2));
-        if (response_get_status(resp) == RESPONSE_OK) {
-                LOG(LOG_LEVEL_NOTICE)
-                    << "[SDP] Changing address to " << address << "\n";
-        } else {
-                LOG(LOG_LEVEL_WARNING)
-                    << "[SDP] Unable to change address to " << address << " ("
-                    << response_get_status(resp) << ")\n";
-        }
-        free_response(resp);
 }
 
 static int
@@ -326,18 +286,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
 
         s->opts = *common;
         
-        assert(common->receiver != nullptr);
-        s->audio_participants = pdb_init("audio", &audio_offset);
-
-        s->audio_network_parameters.addr = strdup(common->receiver);
-        s->audio_network_parameters.recv_port = opt->recv_port;
-        s->audio_network_parameters.send_port = opt->send_port;
-        s->audio_network_parameters.participants = s->audio_participants;
-        s->audio_network_parameters.force_ip_version = common->force_ip_version;
-        s->audio_network_parameters.mcast_if =
-            strlen(s->opts.mcast_if) > 0 ? s->opts.mcast_if : nullptr;
-        s->audio_network_parameters.ttl = s->opts.ttl;
-
         if (strcmp(opt->send_cfg, "none") != 0) {
                 const char *cfg = "";
                 char *device = strdup(opt->send_cfg);
@@ -351,13 +299,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 free(device);
                 if (ret != 0) {
                         return ret;
-                }
-                s->tx_session = tx_init(
-                    s->audio_sender_module.get(), common->mtu, TX_MEDIA_AUDIO,
-                    opt->fec_cfg, common->encryption, 0 /* unused */);
-                if(!s->tx_session) {
-                        fprintf(stderr, "Unable to initialize audio transmit.\n");
-                        return -1;
                 }
 
                 s->audio_tx_mode |= MODE_SENDER;
@@ -392,21 +333,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 sdi_register_display(sdi_playback, opt->display);
         }
 
-        if (s->audio_tx_mode != 0) {
-                if ((s->audio_network_device = initialize_audio_network(
-                                                &s->audio_network_parameters))
-                                == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open audio network\n";
-                        return -1;
-                }
-        }
-        if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
-                size_t len = sizeof(struct rtp *);
-                audio_playback_ctl(s->audio_playback_device,
-                                   AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
-                                   &s->audio_network_device, &len);
-        }
-
         if ((s->audio_tx_mode & MODE_SENDER) != 0U || "help"s == opt->codec_cfg) {
                 if ((s->audio_encoder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER)) == nullptr) {
                         return -1;
@@ -415,17 +341,23 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
 
         s->proto_cfg = opt->proto_cfg;
 
-        if (strcasecmp(opt->proto, "ultragrid_rtp") == 0) {
-                s->sender = NET_NATIVE;
-                s->receiver = NET_NATIVE;
-        } else if (strcasecmp(opt->proto, "rtsp") == 0 || strcasecmp(opt->proto, "sdp") == 0) {
-                s->receiver = NET_STANDARD;
-                s->sender = NET_STANDARD;
-                if (strcasecmp(opt->proto, "sdp") == 0) {
-                        if (sdp_set_options(opt->proto_cfg) != 0) {
-                                return -1;
-                        }
-                }
+        if (strcasecmp(opt->proto, "ultragrid_rtp") == 0 ||
+            strcasecmp(opt->proto, "rtsp") == 0 ||
+            strcasecmp(opt->proto, "sdp") == 0) {
+                s->sender = s->receiver =
+                    strcasecmp(opt->proto, "ultragrid_rtp") == 0 ? NET_NATIVE
+                                                                 : NET_STANDARD;
+                struct rtp_rxtx_common *rtp_common_state = nullptr;
+                size_t                  len =
+                    sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
+                bool ctl_rc =
+                    rxtx_ctl_property(s->vrxtx, GET_RTP_COMMON_STATE,
+                                      (void *) &rtp_common_state, &len);
+                assert(ctl_rc && MOD_NAME "Cannot get RTP state from RXTX!");
+                struct rtp_rxtx_medium *audio = &rtp_common_state->medium[TX_MEDIA_AUDIO];
+                s->audio_network_device = audio->network_device;
+                s->audio_participants = audio->participants;
+                s->tx_session = audio->tx;
         } else if (strcasecmp(opt->proto, "JACK") == 0) {
 #ifndef HAVE_JACK_TRANS
                 fprintf(stderr, "[Audio] JACK transport requested, "
@@ -438,6 +370,13 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
         } else if (s->audio_tx_mode != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unknown audio protocol: %s\n", opt->proto);
                 return -1;
+        }
+
+        if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
+                size_t len = sizeof(struct rtp *);
+                audio_playback_ctl(s->audio_playback_device,
+                                   AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
+                                   &s->audio_network_device, &len);
         }
 
         return 0;
@@ -501,6 +440,10 @@ void audio_start(struct state_audio *s) {
         }
 }
 
+/**
+ * called to ensure that connected modules (rxtx) will not be called and thus
+ * can be safely deleted
+ */
 void audio_join(struct state_audio *s) {
         if (!s) {
                 return;
@@ -511,8 +454,14 @@ void audio_join(struct state_audio *s) {
         if (!pthread_equal(s->audio_sender_thread_id, PTHREAD_NULL)) {
                 pthread_join(s->audio_sender_thread_id, NULL);
         }
+        // Aplay/mixer uses thread that uses rxtx/ultragrid_rtp so destroy it to
+        // join that thread as well.
+        audio_playback_done(s->audio_playback_device);
+        // avoids 2nd done in audio_done (it should be there as well - if
+        // something happens and audio_join() is not run before audio_done())
+        s->audio_playback_device = nullptr;
 }
-        
+
 void audio_done(struct state_audio *s)
 {
         if (!s) {
@@ -527,20 +476,10 @@ void audio_done(struct state_audio *s)
                 free_message(msg, r);
         }
         while ((msg = check_message(s->audio_sender_module.get()))) {
-                struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
+                struct response *r = audio_sender_process_message(
+                    s, (struct msg_audio_sender *) msg);
                 free_message(msg, r);
         }
-
-        if (s->tx_session) {
-                tx_done(s->tx_session);
-        }
-        if(s->audio_network_device)
-                rtp_done(s->audio_network_device);
-        if(s->audio_participants) {
-                pdb_destroy(&s->audio_participants);
-        }
-
-        free(s->audio_network_parameters.addr);
 
         audio_codec_done(s->audio_encoder);
 
@@ -548,29 +487,6 @@ void audio_done(struct state_audio *s)
                                         should_exit_audio, s);
 
         delete s;
-}
-
-static struct rtp *initialize_audio_network(struct audio_network_parameters *params)
-{
-        struct rtp *r;
-        double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
-
-        r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
-                        params->send_port, params->ttl, rtcp_bw,
-                        false, rtp_recv_callback,
-                        (uint8_t *) params->participants,
-                        params->force_ip_version, false);
-        if (r != NULL) {
-                pdb_add(params->participants, rtp_my_ssrc(r));
-                rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, true);
-                rtp_set_option(r, RTP_OPT_PROMISC, true);
-                rtp_set_option(r, RTP_OPT_RECORD_SOURCE, true);
-                rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
-                             PACKAGE_STRING, strlen(PACKAGE_VERSION));
-                rtp_set_recv_buf(r, DEFAULT_AUDIO_RECV_BUF_SIZE);
-        }
-
-        return r;
 }
 
 struct audio_decoder {
@@ -859,97 +775,32 @@ static void *audio_receiver_thread(void *arg)
         return NULL;
 }
 
-static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
+static struct response *
+audio_sender_process_message(struct state_audio      *s,
+                             struct msg_audio_sender *msg)
 {
         switch (msg->type) {
-        case SENDER_MSG_CHANGE_FEC: {
-                auto *old_fec_state = s->fec_state;
-                s->fec_state       = nullptr;
-                if (strcmp(msg->fec_cfg, "flush") == 0) {
-                        delete old_fec_state;
-                        break;
-                }
-                s->fec_state = fec::create_from_config(msg->fec_cfg, true);
-                if (s->fec_state == nullptr) {
-                        s->fec_state = old_fec_state;
-                        if (strstr(msg->fec_cfg, "help") !=
-                            nullptr) { // -f LDGM:help or so + init
-                                exit_uv(0);
-                        } else {
-                                LOG(LOG_LEVEL_ERROR)
-                                    << "[control] Unable to initialize FEC!\n";
-                        }
-                        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
-                }
-                delete old_fec_state;
-                log_msg(LOG_LEVEL_NOTICE,
-                        "[control] Fec changed successfully\n");
-        } break;
-        case SENDER_MSG_CHANGE_RECEIVER: {
-                assert(s->audio_tx_mode == MODE_SENDER);
-                auto *old_device   = s->audio_network_device;
-                auto *old_receiver = s->audio_network_parameters.addr;
-
-                s->audio_network_parameters.addr = strdup(msg->receiver);
-                s->audio_network_device =
-                    initialize_audio_network(&s->audio_network_parameters);
-                if (s->audio_network_device == nullptr) {
-                        s->audio_network_device = old_device;
-                        free(s->audio_network_parameters.addr);
-                        s->audio_network_parameters.addr = old_receiver;
-                        return new_response(RESPONSE_INT_SERV_ERR,
-                                            "Changing receiver failed!");
-                }
-                free(old_receiver);
-                rtp_done(old_device);
-                MSG(NOTICE, "Changed receiver to %s\n", msg->receiver);
-                break;
-        }
-        case SENDER_MSG_CHANGE_PORT: {
-                assert(s->audio_tx_mode == MODE_SENDER);
-                auto *old_device = s->audio_network_device;
-                auto old_port   = s->audio_network_parameters.send_port;
-
-                s->audio_network_parameters.send_port = msg->tx_port;
-                if (msg->rx_port != 0) {
-                        s->audio_network_parameters.recv_port = msg->rx_port;
-                }
-                s->audio_network_device =
-                    initialize_audio_network(&s->audio_network_parameters);
-                if (s->audio_network_device == nullptr) {
-                        s->audio_network_device               = old_device;
-                        s->audio_network_parameters.send_port = old_port;
-                        return new_response(RESPONSE_INT_SERV_ERR,
-                                            "Changing receiver failed!");
-                }
-                rtp_done(old_device);
-                MSG(NOTICE, "Changed TX port to %d\n", msg->tx_port);
-                break;
-        }
-        case SENDER_MSG_GET_STATUS: {
+        case AUDIO_SENDER_MSG_GET_STATUS: {
                 char status[128] = "";
                 snprintf(status, sizeof status, "%d", (int) s->muted_sender);
                 return new_response(RESPONSE_OK, status);
-                break;
         }
-        case SENDER_MSG_MUTE:
-        case SENDER_MSG_UNMUTE:
-        case SENDER_MSG_MUTE_TOGGLE: {
-                s->muted_sender = msg->type == SENDER_MSG_MUTE_TOGGLE
+        case AUDIO_SENDER_MSG_MUTE:
+        case AUDIO_SENDER_MSG_UNMUTE:
+        case AUDIO_SENDER_MSG_MUTE_TOGGLE:
+                s->muted_sender = msg->type == AUDIO_SENDER_MSG_MUTE_TOGGLE
                                       ? !s->muted_sender
-                                      : msg->type == SENDER_MSG_MUTE;
+                                      : msg->type == AUDIO_SENDER_MSG_MUTE;
                 const char *act = nullptr;
                 const char *color = nullptr;
                 GET_MUTED(s->muted_sender, act, color)
                 color_printf("%sAudio " TBOLD("sender")
                              " %s. " TERM_FG_RESET "\n",
                              color, act);
-                break;
+                return new_response(RESPONSE_OK, nullptr);
         }
-        case SENDER_MSG_QUERY_VIDEO_MODE:
-                return new_response(RESPONSE_BAD_REQUEST, nullptr);
-        }
-        return new_response(RESPONSE_OK, nullptr);
+        MSG(ERROR, "Wrong audio sender type %d!\n", msg->type);
+        return new_response(RESPONSE_INT_SERV_ERR, nullptr);
 }
 
 struct asend_stats_processing_data {
@@ -1038,31 +889,10 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
         return rate_hi > 0 ? rate_hi : rate_lo;
 }
 
-static void
-set_audio_spec_to_vrxtx(struct video_rxtx *vrxtx, audio_frame2 *compressed_frm,
-                        struct rtp *netdev, int tx_port, bool *audio_spec_to_vrxtx_set)
-{
-        if (*audio_spec_to_vrxtx_set) {
-                return;
-        }
-
-        *audio_spec_to_vrxtx_set = true;
-
-        const struct audio_desc desc    = compressed_frm->get_desc();
-        const int               rx_port = rtp_get_udp_rx_port(netdev);
-
-        MSG(VERBOSE, "Setting audio desc %s, rx port=%d to RXTX.\n",
-            audio_desc_to_cstring(desc), rx_port);
-
-        assert(vrxtx != nullptr);
-        vrxtx_set_audio_spec(vrxtx, &desc, rx_port, tx_port, rtp_is_ipv6(netdev));
-}
-
 static void *audio_sender_thread(void *arg)
 {
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
-        bool audio_spec_to_vrxtx_set = false;
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
                 resampler_state = unique_ptr<audio_frame2_resampler>(new audio_frame2_resampler);
@@ -1077,7 +907,8 @@ static void *audio_sender_thread(void *arg)
         while (!s->should_exit) {
                 struct message *msg;
                 while((msg = check_message(s->audio_sender_module.get()))) {
-                        struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
+                        struct response *r = audio_sender_process_message(
+                            s, (struct msg_audio_sender *) msg);
                         free_message(msg, r);
                 }
 
@@ -1149,14 +980,8 @@ static void *audio_sender_thread(void *arg)
                         }else if(s->sender == NET_STANDARD){
                             audio_frame2 *uncompressed = &bf_n;
                             while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                    //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
-                                    audio_tx_send_standard(s->tx_session, s->audio_network_device, &compressed);
+                                    rxtx_send_audio (s->vrxtx, &compressed);
                                     uncompressed = NULL;
-                                    set_audio_spec_to_vrxtx(
-                                        s->vrxtx, &compressed,
-                                        s->audio_network_device,
-                                        s->audio_network_parameters.send_port,
-                                        &audio_spec_to_vrxtx_set);
                             }
                         }
 #ifdef HAVE_JACK_TRANS

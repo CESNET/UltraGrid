@@ -4,7 +4,7 @@
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2026 CESNET, zájmové sduržení právnických osbo
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -53,16 +53,16 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
-int sdp_set_options(const char *options);
-void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio);
-
 typedef void (*address_callback_t)(void *udata, const char *address);
+
+int sdp_set_options(const char *options);
+void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio, address_callback_t addr_callback, void *addr_callback_udata);
 
 int get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
                             char rtpmapLine[STR_LEN]);
 int get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN]);
-int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec, address_callback_t addr_callback, void *addr_callback_udata);
-int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata);
+int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec);
+int sdp_add_video(bool ipv6, int port, codec_t codec);
 
 codec_t get_video_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name);
 

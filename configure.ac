@@ -1660,7 +1660,7 @@ if test "$rtsp_req" != no; then
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
                 RTSP_OBJ="src/utils/h264_stream.o src/utils/hevc_stream.o \
-src/video_capture/rtsp.o \
+src/utils/sdp.o src/video_capture/rtsp.o \
 src/rtp/rtpdec_h264.o src/rtp/rtpdec_jpeg.o src/utils/jpeg_writer.o"
                 add_module vidcap_rtsp "$RTSP_OBJ" "$RTSP_LIBS"
                 rtsp=yes
@@ -1712,7 +1712,9 @@ if test $rtsp_server_req != no; then
                 CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
                 CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-                RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
+                RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o\
+ src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o\
+ src/utils/sdp.o src/video_rxtx/h264_rtp.o"
                 add_module video_rxtx_h264 "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
                 rtsp_server=yes
                 livemedia=yes
@@ -3712,6 +3714,9 @@ assert_present src/video_display/unix_sock.cpp
 src_video_display_unix_sock_o_dep="tools/ipc_frame.o
                                      tools/ipc_frame_ug.o
                                      tools/ipc_frame_unix.o"
+
+assert_present src/video_rxtx/h264_sdp.cpp
+src_video_rxtx_h264_sdp_o_dep=src/utils/sdp.o
 
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
