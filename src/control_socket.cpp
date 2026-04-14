@@ -409,13 +409,6 @@ handle_removed_feature(char *message)
         return resp;
 }
 
-constexpr enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
-                                                    MODULE_CLASS_VIDEO,
-                                                    MODULE_CLASS_NONE };
-constexpr enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO,
-                                                    MODULE_CLASS_SENDER,
-                                                    MODULE_CLASS_NONE };
-
 /**
   * @retval -1 exit thread
   * @retval -2 close handle

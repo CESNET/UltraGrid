@@ -93,6 +93,10 @@ enum module_class {
         MODULE_CLASS_KEYCONTROL,
 };
 
+// common paths declaration
+extern const enum module_class path_sender_audio[]; // defined in audio.cpp
+extern const enum module_class path_sender_video[]; // defined in rtp_comomn.c
+
 struct module;
 
 typedef void (*notify_t)(struct module *);

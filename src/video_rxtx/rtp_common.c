@@ -68,6 +68,10 @@
 #define VIDEO_MT false
 #endif
 
+const enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
+                                                MODULE_CLASS_VIDEO,
+                                                MODULE_CLASS_NONE };
+
 struct pdb;
 struct rtp;
 

@@ -109,6 +109,10 @@ using std::to_string;
 using std::unique_ptr;
 using namespace std::string_literals;
 
+const enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO,
+                                                MODULE_CLASS_SENDER,
+                                                MODULE_CLASS_NONE };
+
 enum audio_transport_device {
         NET_NATIVE,
         NET_JACK,

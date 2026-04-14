@@ -69,13 +69,6 @@ BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
                                            rtpPort, params);
 }
 
-constexpr enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO,
-                                                    MODULE_CLASS_SENDER,
-                                                    MODULE_CLASS_NONE };
-constexpr enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
-                                                    MODULE_CLASS_VIDEO,
-                                                    MODULE_CLASS_NONE };
-
 BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 		Boolean reuseFirstSource, rtsp_types_t avType, int rtpPort,
 		struct rtsp_server_parameters params) :
