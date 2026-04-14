@@ -4,7 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2014-2025 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -53,29 +53,29 @@
 #include "types.h"
 
 
-#ifdef __cplusplus
-#define EXTERNC extern "C"
-#else
-#define EXTERNC
-#endif
-
 struct rtsp_server_parameters {
         unsigned int   rtsp_port;
         struct module *parent;
         rtsp_types_t   avType;
         struct audio_desc adesc;
-        int            rtp_port_video;  //server rtp port
-        int            rtp_port_audio;
+        int            rtp_video_src_port;
+        int            rtp_audio_src_port;
         codec_t        video_codec;
 };
 
 struct rtsp_serv;
 typedef struct rtsp_serv rtsp_serv_t;
 
-EXTERNC rtsp_serv_t *c_start_server(struct rtsp_server_parameters params);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-EXTERNC void c_stop_server(rtsp_serv_t* server);
+rtsp_serv_t *c_start_server(struct rtsp_server_parameters params);
+void c_stop_server(rtsp_serv_t* server);
 
-#undef EXTERNC
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 
 #endif // defined C_BASIC_RTSP_ONLY_SERVER_H

@@ -4,7 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2014-2025 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -119,11 +119,11 @@ BasicRTSPOnlyServer::init_server()
 
     if ((params.avType & rtsp_type_audio) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, rtsp_type_audio, params.rtp_port_audio, params));
+            *env, True, rtsp_type_audio, params.rtp_audio_src_port, params));
     }
     if ((params.avType & rtsp_type_video) != 0) {
         sms->addSubsession(BasicRTSPOnlySubsession ::createNew(
-            *env, True, rtsp_type_video, params.rtp_port_video, params));
+            *env, True, rtsp_type_video, params.rtp_video_src_port, params));
     }
 
                rtspServer->addServerMediaSession(sms);

@@ -112,7 +112,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
         }
         rtsp_params.avType = avType;;
 
-        rtsp_params.rtp_port_video =
+        rtsp_params.rtp_video_src_port =
             params->medium[TX_MEDIA_VIDEO].rx_port; // server rtp port
         m_rtp_common = rtp_rxtx_common_init(params, common);
         if (m_rtp_common == nullptr) {
@@ -219,7 +219,7 @@ h264_rtp_video_rxtx::set_audio_spec(const struct audio_desc *desc,
                                     bool /* ipv6 */)
 {
         rtsp_params.adesc = *desc;
-        rtsp_params.rtp_port_audio = audio_rx_port;
+        rtsp_params.rtp_audio_src_port = audio_rx_port;
         audio_params_set = true;
 
         if ((rtsp_params.avType & rtsp_type_video) == 0U) {

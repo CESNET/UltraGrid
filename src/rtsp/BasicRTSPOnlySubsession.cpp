@@ -183,8 +183,8 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */
 		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& /* streamToken */) {
         delete destination;
-        serverRTPPort  = avType == rtsp_type_video ? rtsp_params.rtp_port_video
-                                                   : rtsp_params.rtp_port_audio;
+        serverRTPPort  = avType == rtsp_type_video ? rtsp_params.rtp_video_src_port
+                                                   : rtsp_params.rtp_audio_src_port;
         serverRTCPPort = serverRTPPort.num() + 1;
         destination =
             new Destinations(clientAddress, clientRTPPort, clientRTCPPort);
@@ -240,7 +240,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
         // CHANGE DST PORT
         auto *msg1 =
             (struct msg_sender *) new_message(sizeof(struct msg_sender));
-        msg1->tx_port = rtsp_params.rtp_port_video;
+        msg1->tx_port = rtsp_params.rtp_video_src_port;
         msg1->type    = SENDER_MSG_CHANGE_PORT;
         struct response *resp =
             send_message(rtsp_params.parent, path, (struct message *) msg1);
