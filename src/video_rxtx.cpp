@@ -36,6 +36,7 @@
  */
 
 
+#include "types.h"
 #include <atomic>
 #include <cassert>           // for assert
 #include <cstdio>            // for printf
@@ -425,4 +426,20 @@ void
 rxtx_send_audio(struct video_rxtx *s, const struct audio_frame2 *frame)
 {
         s->m_impl_funcs->send_audio_frame(s->m_impl_state, frame);
+}
+
+const char *
+get_tx_name(enum tx_media_type t)
+{
+        switch (t) {
+        case TX_MEDIA_AUDIO:
+                return "audio";
+        case TX_MEDIA_VIDEO:
+                return "video";
+        case NUM_TX_MEDIA:
+                MSG(ERROR, "NUM_TX_MEDIA passed to %s!\n", __func__);
+                abort();
+        }
+        MSG(ERROR, "wrong medium type %d passed to %s!\n", t, __func__);
+        abort();
 }

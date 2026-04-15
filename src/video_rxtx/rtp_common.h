@@ -84,7 +84,8 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
                        const struct common_opts  *common);
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
-void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *s);
+void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
+                                     enum tx_media_type      t);
 void rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_medium *s, double delay);
 
 #ifdef __cplusplus

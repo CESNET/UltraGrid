@@ -151,6 +151,9 @@ bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
 void        rxtx_send_audio(struct video_rxtx         *state,
                             const struct audio_frame2 *frame);
 
+// utils
+const char *get_tx_name(enum tx_media_type);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

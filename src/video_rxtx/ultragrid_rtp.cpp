@@ -187,7 +187,7 @@ void *ultragrid_rtp_video_rxtx::receiver_thread(void *arg) {
 void
 ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
-        rtp_rxtx_sender_do_housekeeping(m_rtp_common);
+        rtp_rxtx_sender_do_housekeeping(m_rtp_common, TX_MEDIA_VIDEO);
         if (m_rtp_common->fec_state != nullptr) {
                 tx_frame = m_rtp_common->fec_state->encode(tx_frame);
         }

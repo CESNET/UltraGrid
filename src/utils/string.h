@@ -69,6 +69,12 @@ void write_all(int fd, size_t len, const char *msg);
 const char *pretty_print_fourcc(const void *fcc);
 NODISCARD char *sprintf_append(char *str, const char *format, ...);
 
+const char *strprintf_buf(char *buf, size_t size, const char *fmt, ...);
+#ifndef __cplusplus
+// stack-based arg allocation idea taken from FFmpeg's av_err2str()
+#define strprintf(...) strprintf_buf((char[1024]){0}, 1024, __VA_ARGS__)
+#endif
+
 #undef NODISCARD
 
 #ifdef __cplusplus

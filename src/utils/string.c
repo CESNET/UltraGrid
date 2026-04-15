@@ -315,3 +315,18 @@ strlcpy(char *dst, const char *src, size_t size)
         return src_len;
 }
 #endif
+
+/**
+ * snprintf-compatible implementation but returning the string buffer
+ (to be used in expressions, namely when called by strprintf())
+ */
+const char *
+strprintf_buf(char *buf, size_t size, const char *fmt, ...)
+{
+        va_list ap;
+        va_start(ap, fmt);
+        int ret = vsnprintf(buf, size, fmt, ap);
+        assert(ret < (int)size);
+        va_end(ap);
+        return buf;
+}

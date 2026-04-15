@@ -205,7 +205,7 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
 
-        rtp_rxtx_sender_do_housekeeping(m_rtp_common);
+        rtp_rxtx_sender_do_housekeeping(m_rtp_common, TX_MEDIA_VIDEO);
         if (!is_codec_opaque(tx_frame->color_spec)) {
 		if (m_sent_compress_change) {
 			return;
@@ -291,6 +291,8 @@ static void
 h264_sdp_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
         auto *s = static_cast<h264_sdp_video_rxtx *>(state);
+
+        rtp_rxtx_sender_do_housekeeping(s->m_rtp_common, TX_MEDIA_AUDIO);
 
         if (!s->audio_params_set) {
                 configure_audio(s, frame);

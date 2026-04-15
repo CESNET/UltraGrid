@@ -35,6 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "video_rxtx/rtp_common.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>            // for strdup, strcmp, strlen, strstr
@@ -54,8 +56,8 @@
 #include "types.h"
 #include "utils/net.h" // IN6_BLACKHOLE_STR
 #include "utils/pthread.h" // for CHK_PTHR
+#include "utils/string.h"      // for strprintf
 #include "video_rxtx.h"
-#include "video_rxtx/rtp_common.h"
 
 #define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
 
@@ -112,63 +114,70 @@ static struct rtp *initialize_network(const char *addr, int recv_port,
 static void        destroy_rtp_device(struct rtp *network_device);
 
 static struct response *
-rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_sender *msg)
+rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
+                           struct msg_sender *msg, enum tx_media_type t)
 {
-        /// @todo audio
-        struct rtp_rxtx_medium *video = &s->pub.medium[TX_MEDIA_VIDEO];
-        struct rtp_medium_priv *video_priv = &s->medium[TX_MEDIA_VIDEO];
-        struct response *r = nullptr;
-        pthread_mutex_lock(&video->lock);
+        struct rtp_rxtx_medium *medium_pub  = &s->pub.medium[t];
+        struct rtp_medium_priv *medium_priv = &s->medium[t];
+        const char             *medium_name = get_tx_name(t);
+        struct response        *r           = nullptr;
+        pthread_mutex_lock(&medium_pub->lock);
         switch (msg->type) {
         case SENDER_MSG_CHANGE_RECEIVER: {
-                assert(video->rxtx_mode == MODE_SENDER); // sender only
-                struct rtp *old_device         = video->network_device;
-                char       *old_receiver       = video_priv->requested_receiver;
-                video_priv->requested_receiver = strdup(msg->receiver);
-                video->network_device            = initialize_network(
-                    video_priv->requested_receiver, video_priv->rx_port,
-                    video_priv->tx_port, video->participants,
-                    s->force_ip_version, s->mcast_if, s->ttl, TX_MEDIA_VIDEO);
-                if (video->network_device == nullptr) {
-                        video->network_device = old_device;
-                        free(video_priv->requested_receiver);
-                        video_priv->requested_receiver = old_receiver;
-                        MSG(ERROR, "Failed receiver to %s.\n", msg->receiver);
-                        r = new_response(RESPONSE_INT_SERV_ERR,
-                                            "Changing receiver failed!");
+                assert(medium_pub->rxtx_mode == MODE_SENDER); // sender only
+                struct rtp *old_device   = medium_pub->network_device;
+                char       *old_receiver = medium_priv->requested_receiver;
+                medium_priv->requested_receiver = strdup(msg->receiver);
+                medium_pub->network_device      = initialize_network(
+                    medium_priv->requested_receiver, medium_priv->rx_port,
+                    medium_priv->tx_port, medium_pub->participants,
+                    s->force_ip_version, s->mcast_if, s->ttl, t);
+                if (medium_pub->network_device == nullptr) {
+                        medium_pub->network_device = old_device;
+                        const char *err=
+                            strprintf("Failed to set %s receiver to %s!",
+                                      medium_name, msg->receiver);
+                        free(medium_priv->requested_receiver);
+                        medium_priv->requested_receiver = old_receiver;
+                        MSG(ERROR, "%s\n", err);
+                        r = new_response(RESPONSE_INT_SERV_ERR, err);
                 } else {
-                        MSG(NOTICE, "Changed receiver to %s.\n", msg->receiver);
+                        MSG(NOTICE, "Changed %s receiver to %s.\n", medium_name,
+                            msg->receiver);
                         destroy_rtp_device(old_device);
                         free(old_receiver);
                 }
-        } break;
+                break;
+        }
         case SENDER_MSG_CHANGE_PORT: {
-                assert(video->rxtx_mode == MODE_SENDER); // sender only
-                struct rtp *old_device = video->network_device;
-                int         old_port   = video_priv->tx_port;
+                assert(medium_pub->rxtx_mode == MODE_SENDER); // sender only
+                struct rtp *old_device = medium_pub->network_device;
+                int         old_port   = medium_priv->tx_port;
 
-                video_priv->tx_port = msg->tx_port;
+                medium_priv->tx_port = msg->tx_port;
                 if (msg->rx_port != 0) {
-                        video_priv->rx_port = msg->rx_port;
+                        medium_priv->rx_port = msg->rx_port;
                 }
-                video->network_device = initialize_network(
-                    video_priv->requested_receiver, video_priv->rx_port,
-                    video_priv->tx_port, video->participants,
-                    s->force_ip_version,
-                    s->mcast_if, s->ttl, TX_MEDIA_VIDEO);
+                medium_pub->network_device = initialize_network(
+                    medium_priv->requested_receiver, medium_priv->rx_port,
+                    medium_priv->tx_port, medium_pub->participants,
+                    s->force_ip_version, s->mcast_if, s->ttl, t);
 
-                if (video->network_device == nullptr) {
-                        video->network_device   = old_device;
-                        video_priv->tx_port = old_port;
-                        MSG(ERROR, "Failed to Change TX port to %d.\n",
-                            msg->tx_port);
-                        r = new_response(RESPONSE_INT_SERV_ERR,
-                                            "Changing TX port failed!");
+                if (medium_pub->network_device == nullptr) {
+                        medium_pub->network_device = old_device;
+                        medium_priv->tx_port       = old_port;
+                        const char *err=
+                            strprintf("Failed to change %s TX port port to %d!",
+                                      medium_name, msg->tx_port);
+                        MSG(ERROR, "%s.\n", err);
+                        r = new_response(RESPONSE_INT_SERV_ERR, err);
                 } else {
-                        MSG(NOTICE, "Changed TX port to %d.\n", msg->tx_port);
+                        MSG(NOTICE, "Changed %s TX port to %d.\n", medium_name,
+                            msg->tx_port);
                         destroy_rtp_device(old_device);
                 }
-        } break;
+                break;
+        }
         case SENDER_MSG_CHANGE_FEC: {
                 struct fec *old_fec_state = s->pub.fec_state;
                 s->pub.fec_state          = nullptr;
@@ -180,7 +189,8 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_send
                 if (s->pub.fec_state == nullptr) {
                         int rc = 0;
                         if (strstr(msg->fec_cfg, "help") == nullptr) {
-                                MSG(ERROR, "Unable to initialize FEC!\n");
+                                MSG(ERROR, "Unable to initialize %s FEC!\n",
+                                    medium_name);
                                 rc = 1;
                         }
 
@@ -194,7 +204,8 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_send
                         r = new_response(RESPONSE_INT_SERV_ERR, nullptr);
                 } else {
                         fec_destroy(old_fec_state);
-                        MSG(NOTICE, "Fec changed successfully\n");
+                        MSG(NOTICE, "%s FEC changed successfully\n",
+                            medium_name);
                 }
                 break;
         }
@@ -203,14 +214,16 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s, struct msg_send
                 r = new_response(RESPONSE_INT_SERV_ERR, nullptr);
         }
 
-        pthread_mutex_unlock(&video->lock);
+        pthread_mutex_unlock(&medium_pub->lock);
         if (r == nullptr) { // implicitly success
                 r = new_response(RESPONSE_OK, nullptr);
         }
         return r;
 }
 
-void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub)
+void
+rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
+                                enum tx_media_type      t)
 {
         struct rtp_rxtx_common_priv_state *s = pub->priv;
         s->used = true;
@@ -219,7 +232,7 @@ void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub)
         while ((msg_external = check_message(&s->m_rtp_sender_mod)) !=
                nullptr) {
                 struct msg_sender *msg = (struct msg_sender *) msg_external;
-                struct response *r = rtp_process_sender_message(s, msg);
+                struct response *r = rtp_process_sender_message(s, msg, t);
                 free_message(msg_external, r);
         }
 }
@@ -233,15 +246,14 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         struct rtp_medium_priv          *medium_priv   = &s->medium[t];
         struct rtp_rxtx_medium          *medium_pub    = &s->pub.medium[t];
         const struct {
-                const char   *medium_str;
                 volatile int *medium_offset;
                 long long     bitrate_limit;
 
         } medium_defaults[NUM_TX_MEDIA] = {
-                { "audio", &audio_offset, 0                     },
-                { "video", &video_offset, params->bitrate_limit },
+                { &audio_offset, 0                     },
+                { &video_offset, params->bitrate_limit },
         };
-        const char   *medium_str    = medium_defaults[t].medium_str;
+        const char   *medium_str    = get_tx_name(t);
         volatile int *medium_offset = medium_defaults[t].medium_offset;
         long long     bitrate_limit = medium_defaults[t].bitrate_limit;
 
@@ -305,7 +317,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
         // immediately. The encoder is actually created by a message.
         // Also for `-x sdp:help` the message will get discarded and the warning that message quie
-        rtp_rxtx_sender_do_housekeeping(pub);
+        rtp_rxtx_sender_do_housekeeping(pub, TX_MEDIA_VIDEO);
 
         return pub;
 }
