@@ -7,12 +7,42 @@ using std::shared_ptr;
 namespace {
 
 struct state_video_compress_oapv {
+
+        state_video_compress_oapv(module *parent, const char *opts);
+
+        oapve_t id;             // OAPV encoder id
+        oapvm_t mid;            // OAPV metadata id
+        oapve_cdesc_t   cdsc;   // description for encoder creation
+        oapv_bitb_t     bitb;   // bitstream buffer (output)
+        oapve_stat_t    stat;   // encoding status (output)
+
+        oapv_frms_t input_frms;      // frames for input
+        int num_frames;         // number of frames in an access unit
+        int preset_id;          // preset of apv (fastest, fast, medium, slow, placebo)
+        int qp;                 // quantization parameter
 };
 
-static void* openapv_compress_init(module *parent, const char *)
+state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
+{
+        (void) parent;
+
+        int ret = oapve_param_default(cdsc.param);
+        if (OAPV_FAILED(ret)) {
+                printf("Failed to get default parameters for OAPV encoder: %d\n", ret);
+                throw 1;
+        }
+}
+
+static void* openapv_compress_init(module *parent, const char *opts)
 {
         state_video_compress_oapv *s;
-        s = new state_video_compress_oapv();
+
+        if (opts && strcmp(opts, "help") == 0) {
+                printf("help for openapv encoder\n");
+                return INIT_NOERR;
+        }
+
+        s = new state_video_compress_oapv(parent, opts);
         return s;
 }
 
