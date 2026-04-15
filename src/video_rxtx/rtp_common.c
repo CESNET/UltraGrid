@@ -85,6 +85,12 @@ struct rtp_medium_priv {
         int   tx_port;
         bool  mutex_initialized;
         char *requested_receiver;
+
+        /// This is child of vrxtx sender module to process specific messages.
+        /// The receiver module is used directly (vrxtx doesn't process any
+        /// message and also the send/receive handling is not entirely
+        /// symetric).
+        struct module sender_mod;
 };
 
 struct rtp_rxtx_common_priv_state {
@@ -98,11 +104,6 @@ struct rtp_rxtx_common_priv_state {
         struct rtp_medium_priv medium[NUM_TX_MEDIA];
 
         struct rtp_rxtx_common pub;
-        /// This is child of vrxtx sender module to process specific messages.
-        /// The receiver module is used directly (vrxtx doesn't process any
-        /// message and also the send/receive handling is not entirely
-        /// symetric).
-        struct module m_rtp_sender_mod;
 
         bool used;
 };
@@ -226,12 +227,13 @@ void
 rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                                 enum tx_media_type      t)
 {
-        struct rtp_rxtx_common_priv_state *s = pub->priv;
-        struct rtp_rxtx_medium *medium_pub = &s->pub.medium[TX_MEDIA_AUDIO];
-        s->used = true;
+        struct rtp_rxtx_common_priv_state *s           = pub->priv;
+        struct rtp_rxtx_medium            *medium_pub  = &s->pub.medium[t];
+        struct rtp_medium_priv            *medium_priv = &s->medium[t];
+        s->used                                        = true;
 
         struct message *msg_external = nullptr;
-        while ((msg_external = check_message(&s->m_rtp_sender_mod)) !=
+        while ((msg_external = check_message(&medium_priv->sender_mod)) !=
                nullptr) {
                 struct msg_sender *msg = (struct msg_sender *) msg_external;
                 struct response *r = rtp_process_sender_message(s, msg, t);
@@ -267,14 +269,16 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         const struct {
                 volatile int *medium_offset;
                 long long     bitrate_limit;
+                enum module_class mod_cls;
 
         } medium_defaults[NUM_TX_MEDIA] = {
-                { &audio_offset, 0                     },
-                { &video_offset, params->bitrate_limit },
+                { &audio_offset, 0,                     MODULE_CLASS_AUDIO },
+                { &video_offset, params->bitrate_limit, MODULE_CLASS_VIDEO },
         };
-        const char   *medium_str    = get_tx_name(t);
-        volatile int *medium_offset = medium_defaults[t].medium_offset;
-        long long     bitrate_limit = medium_defaults[t].bitrate_limit;
+        const char       *medium_str    = get_tx_name(t);
+        volatile int     *medium_offset = medium_defaults[t].medium_offset;
+        long long         bitrate_limit = medium_defaults[t].bitrate_limit;
+        enum module_class mod_cls       = medium_defaults[t].mod_cls;
 
         if (params_medium->rxtx_mode == 0) { // no RX or TX for medium
                 return true;
@@ -282,6 +286,10 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         medium_priv->rx_port = params_medium->rx_port;
         medium_priv->tx_port = params_medium->tx_port;
         medium_priv->requested_receiver = strdup(opts->receiver),
+
+        module_init_default(&medium_priv->sender_mod);
+        medium_priv->sender_mod.cls = mod_cls;
+        module_register(&medium_priv->sender_mod, params->sender_mod);
 
         medium_pub->rxtx_mode      = params_medium->rxtx_mode;
         medium_pub->participants   = pdb_init(medium_str, medium_offset);
@@ -294,14 +302,15 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                 return false;
         }
         if (params_medium->rxtx_mode & MODE_SENDER) {
-                medium_pub->tx = tx_init(&s->m_rtp_sender_mod, opts->mtu,
-                                         TX_MEDIA_VIDEO, params_medium->fec,
-                                         opts->encryption, bitrate_limit);
+                medium_pub->tx = tx_init(&medium_priv->sender_mod, opts->mtu, t,
+                                         params_medium->fec, opts->encryption,
+                                         bitrate_limit);
                 if (medium_pub->tx == nullptr) {
                         MSG(ERROR, "Unable to open %s transmitter!\n",  medium_str);
                         return false;
                 }
         }
+
         pthread_mutex_init(&medium_pub->lock, nullptr);
         medium_priv->mutex_initialized = true;
         return true;
@@ -321,10 +330,6 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         s->mcast_if           = strdup(common->mcast_if);
         s->ttl                = common->ttl;
         s->start_time         = common->start_time;
-
-        module_init_default(&s->m_rtp_sender_mod);
-        s->m_rtp_sender_mod.cls = MODULE_CLASS_VIDEO;
-        module_register(&s->m_rtp_sender_mod, params->sender_mod);
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
                 bool rc = init_medium_state(s, common, params, i);
@@ -364,11 +369,11 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
                         CHK_PTHR(pthread_mutex_destroy(&medium_pub->lock));
                 }
                 free(medium_priv->requested_receiver);
+                module_done(&medium_priv->sender_mod);
         }
 
         fec_destroy(pub->fec_state);
         free(pub->priv->mcast_if);
-        module_done(&s->m_rtp_sender_mod);
 
         free(s);
 }
