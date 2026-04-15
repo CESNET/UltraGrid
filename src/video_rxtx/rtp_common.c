@@ -90,6 +90,7 @@ struct rtp_medium_priv {
 struct rtp_rxtx_common_priv_state {
         uint32_t magic;
 
+        time_ns_t start_time;
         // stored for reconfiguration
         int   force_ip_version;
         char *mcast_if;
@@ -226,6 +227,7 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                                 enum tx_media_type      t)
 {
         struct rtp_rxtx_common_priv_state *s = pub->priv;
+        struct rtp_rxtx_medium *medium_pub = &s->pub.medium[TX_MEDIA_AUDIO];
         s->used = true;
 
         struct message *msg_external = nullptr;
@@ -234,6 +236,23 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                 struct msg_sender *msg = (struct msg_sender *) msg_external;
                 struct response *r = rtp_process_sender_message(s, msg, t);
                 free_message(msg_external, r);
+        }
+
+        // do the house keeping if no receiver thread, otherwise it does
+        // the stuff...
+        if (t == TX_MEDIA_AUDIO &&
+            (medium_pub->rxtx_mode & MODE_RECEIVER) == 0) {
+                time_ns_t curr_time = get_time_in_ns();
+                uint32_t  ts = (curr_time - s->start_time) / (100 * 1000) *
+                               9; // at 90000 Hz
+                rtp_update(medium_pub->network_device, curr_time);
+                rtp_send_ctrl(medium_pub->network_device, ts, 0, curr_time);
+
+                // receive RTCP
+                struct timeval timeout;
+                timeout.tv_sec  = 0;
+                timeout.tv_usec = 0;
+                rtcp_recv_r(medium_pub->network_device, &timeout, ts);
         }
 }
 
@@ -301,6 +320,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         s->force_ip_version   = common->force_ip_version,
         s->mcast_if           = strdup(common->mcast_if);
         s->ttl                = common->ttl;
+        s->start_time         = common->start_time;
 
         module_init_default(&s->m_rtp_sender_mod);
         s->m_rtp_sender_mod.cls = MODULE_CLASS_VIDEO;

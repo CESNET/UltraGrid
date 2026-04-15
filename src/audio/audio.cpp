@@ -912,7 +912,10 @@ static void *audio_sender_thread(void *arg)
                         free_message(msg, r);
                 }
 
-                if ((s->audio_tx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
+                // do the house keeping if no receiver thread, otherwise it does
+                // the stuff...
+                if (s->sender == NET_NATIVE &&
+                    (s->audio_tx_mode & MODE_RECEIVER) == 0) {
                         time_ns_t curr_time = get_time_in_ns();
                         uint32_t ts = (curr_time - s->start_time) / 10'0000 * 9; // at 90000 Hz
                         rtp_update(s->audio_network_device, curr_time);
