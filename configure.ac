@@ -2509,16 +2509,23 @@ ENSURE_FEATURE_PRESENT([${jpegxs_req?}], [${jpegxs?}], [SVT-JPEG-XS not found])
 openapv=no
 
 AC_ARG_ENABLE(openapv,
-[  --disable-openapv       disable OPEN APV compression (default is auto)],
+[  --disable-openapv       disable OPEN APV compression (auto)],
+[                         Requires: oapv],
 	[openapv_req=$enableval],
-        [openapv_req=$build_default])
+        [openapv_req=$build_default]
+)
 
-if test "$openapv_req" != no; then
-	OPENAPV_COMPRESS_OBJ="src/video_compress/openapv.o"
-	add_module vcompress_openapv "$OPENAPV_COMPRESS_OBJ" ""
-	openapv=yes
+PKG_CHECK_MODULES([OPENAPV], [oapv >= 0.2.1.1],
+    [FOUND_OPENAPV_DEP=yes],
+    [FOUND_OPENAPV_DEP=no]
+)
+
+if test "$openapv_req" != no -a "$FOUND_OPENAPV_DEP" = yes; then
+        OPENAPV_COMPRESS_OBJ="src/video_compress/openapv.o"
+        add_module vcompress_openapv "$OPENAPV_COMPRESS_OBJ" "$OPENAPV_LIBS"
+        openapv=yes
 else
-	openapv=no
+        openapv=no
 fi
 
 # -------------------------------------------------------------------------------------------------
