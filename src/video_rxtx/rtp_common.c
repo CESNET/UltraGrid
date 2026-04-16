@@ -230,6 +230,11 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
         struct rtp_rxtx_common_priv_state *s           = pub->priv;
         struct rtp_rxtx_medium            *medium_pub  = &s->pub.medium[t];
         struct rtp_medium_priv            *medium_priv = &s->medium[t];
+
+        if (medium_priv->requested_receiver == nullptr) { // medium not used
+                return;
+        }
+
         s->used                                        = true;
 
         struct message *msg_external = nullptr;
@@ -343,6 +348,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         // immediately. The encoder is actually created by a message.
         // Also for `-x sdp:help` the message will get discarded and the warning that message quie
         rtp_rxtx_sender_do_housekeeping(pub, TX_MEDIA_VIDEO);
+        rtp_rxtx_sender_do_housekeeping(pub, TX_MEDIA_AUDIO);
 
         return pub;
 }
