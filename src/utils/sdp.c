@@ -45,6 +45,8 @@
  * * consider using serverStop() to stop the thread - likely doesn't work now
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
+ * @todo
+ * the server part (all except the utils) can be merged rather to rxtx
  */
 
 #include "utils/sdp.h"
@@ -65,6 +67,7 @@
 #endif
 
 #include "audio/types.h"
+#include "compat/c23.h"           // IWYU pragma: keep
 #include "compat/net.h"           // for htons, htonl
 #include "compat/strings.h"       // for strlcpy
 #include "config.h"               // for SDP_HTTP
@@ -89,8 +92,6 @@ enum {
     DEFAULT_SDP_HTTP_PORT = 8554,
     MAX_STREAMS = 2,
 };
-
-static struct sdp *sdp_state = NULL;
 
 struct stream_info {
     char media_info[STR_LEN];
@@ -124,10 +125,10 @@ struct sdp {
     bool want_sdp_video;
     char sdp_receiver[1024];
     char sdp_filename[MAX_PATH_SIZE];
-
+    bool server_started;
 };
 
-static bool gen_sdp(void);
+static bool gen_sdp(struct sdp *sdp_state);
 static struct sdp *new_sdp(bool ipv6, const char *receiver);
 #ifdef SDP_HTTP
 static bool sdp_run_http_server(struct sdp *sdp);
@@ -191,20 +192,26 @@ static int new_stream(struct sdp *sdp){
     return -1;
 }
 
-static void cleanup() {
+void
+sdp_done(struct sdp *sdp_state)
+{
+    if (sdp_state == nullptr) {
+        return;
+    }
 #ifdef SDP_HTTP
     sdp_stop_http_server(sdp_state);
 #endif // defined SDP_HTTP
     clean_sdp(sdp_state);
 }
 
-static void start() {
+static void
+start(struct sdp *sdp_state) {
     // either SDP properties not set or not all streams already configured
     if (!sdp_state || sdp_state->want_sdp_audio != sdp_state->audio_set ||
         sdp_state->want_sdp_video != sdp_state->video_set) {
             return;
     }
-    if (!gen_sdp()) {
+    if (!gen_sdp(sdp_state)) {
         log_msg(LOG_LEVEL_ERROR, "[SDP] File creation failed\n");
         return;
     }
@@ -212,11 +219,10 @@ static void start() {
     if (!sdp_run_http_server(sdp_state)) {
         log_msg(LOG_LEVEL_ERROR, "[SDP] Server run failed!\n");
     }
+    sdp_state->server_started = true;
 #else
     log_msg(LOG_LEVEL_WARNING, "[SDP] HTTP support not enabled - skipping server creation!\n");
 #endif
-
-    atexit(cleanup);
 }
 
 /**
@@ -275,7 +281,8 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
  * @retval -2 unsupported codec
  */
 int
-sdp_add_audio(int port, int sample_rate, int channels, audio_codec_t codec)
+sdp_add_audio(struct sdp *sdp_state, int port, int sample_rate, int channels,
+              audio_codec_t codec)
 {
     assert(sdp_state != nullptr);
     int index = new_stream(sdp_state);
@@ -289,7 +296,7 @@ sdp_add_audio(int port, int sample_rate, int channels, audio_codec_t codec)
              sizeof sdp_state->stream[index].media_info,
              "m=audio %d RTP/AVP %d\r\n", port, pt);
     sdp_state->audio_set = true;
-    start();
+    start(sdp_state);
 
     return 0;
 }
@@ -327,7 +334,7 @@ get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
  * @retval -2 unsupported codec
  */
 int
-sdp_add_video(int port, codec_t codec)
+sdp_add_video(struct sdp *sdp_state, int port, codec_t codec)
 {
     assert(sdp_state != nullptr);
     char rtpmap[STR_LEN];
@@ -346,7 +353,7 @@ sdp_add_video(int port, codec_t codec)
     snprintf_ch(sdp_state->stream[index].rtpmap, "%s", rtpmap);
 
     sdp_state->video_set = true;
-    start();
+    start(sdp_state);
     return 0;
 }
 
@@ -359,7 +366,8 @@ static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
     strncat(*dst, src, *dst_alloc_len - strlen(*dst) - 1);
 }
 
-static bool gen_sdp() {
+static bool
+gen_sdp(struct sdp *sdp_state) {
     size_t len = 1;
     char *buf = calloc(1, 1);
     strappend(&buf, &len, sdp_state->version);
@@ -471,20 +479,20 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
  * the SDP (using static packet type)
  */
 static void
-print_std_rtp_urls(struct sdp *sdp) {
-    const char *const bind_addr = sdp->ip_version == 6 ? "[::]" : "0.0.0.0";
+print_std_rtp_urls(struct sdp *sdp_state) {
+    const char *const bind_addr = sdp_state->ip_version == 6 ? "[::]" : "0.0.0.0";
     int               port      = 0;
     int               pt        = 0;
-    if (sdp->audio_index >= 0) {
-        if (sscanf(sdp_state->stream[sdp->audio_index].media_info,
+    if (sdp_state->audio_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp_state->audio_index].media_info,
                    "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
             pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "audio can be played directly with rtp://%s:%d\n",
                 bind_addr, port);
         }
     }
-    if (sdp->video_index >= 0) {
-        if (sscanf(sdp_state->stream[sdp->video_index].media_info,
+    if (sdp_state->video_index >= 0) {
+        if (sscanf(sdp_state->stream[sdp_state->video_index].media_info,
                     "%*[^ ] %d RTP/AVP %d", &port, &pt) == 2 &&
             pt < PT_DynRTP_Type96) {
             MSG(NOTICE, "video can be played directly with rtp://%s:%d\n",
@@ -549,6 +557,9 @@ static bool sdp_run_http_server(struct sdp *sdp)
 
 void sdp_stop_http_server(struct sdp *sdp)
 {
+    if (!sdp->server_started) {
+        return;
+    }
     ///@todo use "serverStop(&sdp->http_server);" instead
     serverMutexLock(&sdp->http_server);
     sdp->http_server.shouldRun = false;
@@ -560,21 +571,22 @@ void sdp_stop_http_server(struct sdp *sdp)
 #endif // defined SDP_HTTP
 
 static void
-sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio,
+sdp_set_properties(struct sdp *sdp_state, const char *receiver,
+                   bool has_sdp_video, bool has_sdp_audio,
                    address_callback_t addr_callback, void *addr_callback_udata)
 {
-        strlcpy(sdp_state->sdp_receiver, receiver,
-                sizeof sdp_state->sdp_receiver);
-        sdp_state->want_sdp_audio         = has_sdp_audio;
-        sdp_state->want_sdp_video         = has_sdp_video;
-        sdp_state->address_callback       = addr_callback;
-        sdp_state->address_callback_udata = addr_callback_udata;
+    strlcpy(sdp_state->sdp_receiver, receiver,
+            sizeof sdp_state->sdp_receiver);
+    sdp_state->want_sdp_audio         = has_sdp_audio;
+    sdp_state->want_sdp_video         = has_sdp_video;
+    sdp_state->address_callback       = addr_callback;
+    sdp_state->address_callback_udata = addr_callback_udata;
 
-        start();
+    start(sdp_state);
 }
 
 static int
-sdp_set_options(const char *opts)
+sdp_set_options(struct sdp *sdp_state, const char *opts)
 {
     if (strcmp(opts, "help") == 0) {
         color_printf("Usage:\n");
@@ -607,16 +619,20 @@ sdp_set_options(const char *opts)
     return 0;
 }
 
-int
+struct sdp *
 sdp_init(const char *options, bool is_ipv6, const char *receiver,
          bool has_sdp_video, bool has_sdp_audio,
          address_callback_t addr_callback, void *addr_callback_udata)
 {
-
-        sdp_state = new_sdp(is_ipv6, receiver);
-        sdp_set_properties(receiver, has_sdp_video, has_sdp_audio,
+        struct sdp *sdp_state  = new_sdp(is_ipv6, receiver);
+        sdp_set_properties(sdp_state, receiver, has_sdp_video, has_sdp_audio,
                            addr_callback, addr_callback_udata);
-        return sdp_set_options(options);
+        int ret = sdp_set_options(sdp_state, options);
+        if (ret == 0) {
+            return sdp_state;
+        }
+        sdp_done(sdp_state);
+        return nullptr;
 }
 
 /**
