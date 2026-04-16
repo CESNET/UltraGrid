@@ -271,14 +271,10 @@ get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
  * @retval -1 too much streams
  * @retval -2 unsupported codec
  */
-int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec)
+int
+sdp_add_audio(int port, int sample_rate, int channels, audio_codec_t codec)
 {
-    if (!sdp_state) {
-        sdp_state = new_sdp(ipv6, sdp_receiver);
-        if (!sdp_state) {
-                assert(0 && "[SDP] SDP creation failed\n");
-        }
-    }
+    assert(sdp_state != nullptr);
     int index = new_stream(sdp_state);
     if (index < 0) {
         return -1;
@@ -327,18 +323,14 @@ get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN])
  * @retval -1 too much streams
  * @retval -2 unsupported codec
  */
-int sdp_add_video(bool ipv6, int port, codec_t codec)
+int
+sdp_add_video(int port, codec_t codec)
 {
+    assert(sdp_state != nullptr);
     char rtpmap[STR_LEN];
     const int pt = get_video_rtp_pt_rtpmap(codec, rtpmap);
     if (pt < 0) {
         return pt;
-    }
-    if (!sdp_state) {
-        sdp_state = new_sdp(ipv6, sdp_receiver);
-        if (!sdp_state) {
-                assert(0 && "[SDP] SDP creation failed\n");
-        }
     }
     int index = new_stream(sdp_state);
     if (index < 0) {
@@ -560,7 +552,7 @@ void sdp_stop_http_server(struct sdp *sdp)
 }
 #endif // defined SDP_HTTP
 
-void
+static void
 sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio,
                    address_callback_t addr_callback, void *addr_callback_udata)
 {
@@ -573,7 +565,9 @@ sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio,
         start();
 }
 
-int sdp_set_options(const char *opts) {
+static int
+sdp_set_options(const char *opts)
+{
     if (strcmp(opts, "help") == 0) {
         color_printf("Usage:\n");
         color_printf("\t" TBOLD("uv " TRED("--protocol sdp") "[:autorun][:file=<name>|no][:port=<http_port>]") "\n");
@@ -602,6 +596,18 @@ int sdp_set_options(const char *opts) {
         tmp = NULL;
     }
     return 0;
+}
+
+int
+sdp_init(const char *options, bool is_ipv6, const char *receiver,
+         bool has_sdp_video, bool has_sdp_audio,
+         address_callback_t addr_callback, void *addr_callback_udata)
+{
+
+        sdp_state = new_sdp(is_ipv6, receiver);
+        sdp_set_properties(receiver, has_sdp_video, has_sdp_audio,
+                           addr_callback, addr_callback_udata);
+        return sdp_set_options(options);
 }
 
 /**

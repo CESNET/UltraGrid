@@ -116,16 +116,18 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
                 m_video_tx_port = video->tx_port;
         }
 
-        sdp_set_properties(common->receiver, params->send_video,
-                           params->send_audio,
-                           h264_sdp_video_rxtx::change_address_callback, this);
-
-        if (int ret = sdp_set_options(opts)) {
-                throw ret == 1 ? -1 : -1;
-        }
         m_rtp_common = rtp_rxtx_common_init(params, common);
         if (m_rtp_common == nullptr) {
                 throw -1;
+        }
+
+        bool is_ipv6 = rtp_rxtx_common_is_ipv6(m_rtp_common);
+        int ret = sdp_init(opts, is_ipv6, common->receiver, params->send_video,
+                           params->send_audio,
+                           h264_sdp_video_rxtx::change_address_callback, this);
+        if (ret != 0) {
+                this->~h264_sdp_video_rxtx();
+                throw ret == 1 ? -1 : -1;
         }
         m_saved_addr = common->receiver;
 }
@@ -182,10 +184,7 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
-
-        const int rc = ::sdp_add_video(
-            rtp_is_ipv6(video->network_device), m_video_tx_port, codec);
+        const int rc = ::sdp_add_video(m_video_tx_port, codec);
         if (rc == -2) {
                 throw ug_runtime_error("[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
         }
@@ -278,11 +277,10 @@ configure_audio(struct h264_sdp_video_rxtx *s, const struct audio_frame2 *frame)
 
         s->audio_params_set = true;
 
-        struct rtp_rxtx_medium *audio = &s->m_rtp_common->medium[TX_MEDIA_AUDIO];
-
-        if (sdp_add_audio(rtp_is_ipv6(audio->network_device), s->m_audio_tx_port,
+        int ret = sdp_add_audio(s->m_audio_tx_port,
                           desc.sample_rate,
-                          desc.ch_count, desc.codec) != 0) {
+                          desc.ch_count, desc.codec);
+        if (ret != 0) {
                 MSG(ERROR, "Cannot add audio to SDP!\n");
         }
 }

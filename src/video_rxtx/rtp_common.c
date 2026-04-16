@@ -442,3 +442,24 @@ rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_medium *s, double delay)
         }
         pthread_mutex_unlock(&s->lock);
 }
+
+bool
+rtp_rxtx_common_is_ipv6(struct rtp_rxtx_common *pub)
+{
+        struct rtp *a_net_dev = pub->medium[TX_MEDIA_AUDIO].network_device;
+        struct rtp *v_net_dev = pub->medium[TX_MEDIA_VIDEO].network_device;
+
+        if (a_net_dev != nullptr) {
+                const bool a_is_ipv6 = rtp_is_ipv6(a_net_dev);
+                if (v_net_dev != nullptr &&
+                    rtp_is_ipv6(v_net_dev) != a_is_ipv6) {
+                        MSG(ERROR, "IP protocol version mismatch for A/V! This "
+                                   "should not happen!\n");
+                }
+                return a_is_ipv6;
+        }
+        if (v_net_dev != nullptr) {
+                return rtp_is_ipv6(v_net_dev);
+        }
+        return false;
+}

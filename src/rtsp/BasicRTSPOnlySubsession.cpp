@@ -55,7 +55,7 @@
 #include "module.h"               // for module_class, append_message...
 #include "utils/macros.h"
 #include "utils/net.h"
-#include "utils/sdp.h"
+#include "utils/sdp.h"            // for get_audio_rtp_pt_rtpmap, get...
 #include "video_codec.h"          // for get_codec_name
 
 #define MOD_NAME "[RTSP] "

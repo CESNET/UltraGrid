@@ -55,14 +55,15 @@ extern "C" {
 
 typedef void (*address_callback_t)(void *udata, const char *address);
 
-int sdp_set_options(const char *options);
-void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio, address_callback_t addr_callback, void *addr_callback_udata);
+int sdp_init(const char *options, bool is_ipv6, const char *receiver,
+             bool has_sdp_video, bool has_sdp_audio,
+             address_callback_t addr_callback, void *addr_callback_udata);
 
 int get_audio_rtp_pt_rtpmap(audio_codec_t codec, int sample_rate, int channels,
                             char rtpmapLine[STR_LEN]);
 int get_video_rtp_pt_rtpmap(codec_t codec, char rtpmapLine[STR_LEN]);
-int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec);
-int sdp_add_video(bool ipv6, int port, codec_t codec);
+int sdp_add_audio(int port, int sample_rate, int channels, audio_codec_t codec);
+int sdp_add_video(int port, codec_t codec);
 
 codec_t get_video_codec_from_pt_rtpmap(int pt, const char *rtpmap_codec_name);
 
