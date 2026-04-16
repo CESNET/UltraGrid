@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2024 CESNET
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,7 +61,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
                 const char *encryption, audio_playback_ctl_t c, void *ap_state,
                 struct module *parent);
 void audio_decoder_destroy(void *state);
-void audio_decoder_set_volume(void *state, double val);
 
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
 

@@ -5,7 +5,7 @@
  */
 /*
  * Copyright (c) 2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2012-2026 CESNET. zájmové sdružení právnických osob
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,12 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @file
+ * @todo
+ * unnecessarily complex - move mixing/scaling to audio receiver thread (if not
+ * even remove), similarly the fec, decompress etc...
  */
 
 #include "rtp/audio_decoders.h"
@@ -878,14 +884,5 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
     }
 
     return true;
-}
-
-void audio_decoder_set_volume(void *state, double val)
-{
-    auto s = (struct state_audio_decoder *) state;
-    for (auto & i : s->scale) {
-            i.scale = val;
-    }
-    s->muted = val == 0.0;
 }
 

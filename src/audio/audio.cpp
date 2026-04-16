@@ -546,18 +546,6 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                             "\n",
                             new_volume * 100.0, db);
                 }
-                pdb_iter_t    it{};
-                struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
-                while (cp != nullptr) {
-                        auto *dec_state =
-                            (struct audio_decoder *) cp->decoder_state;
-                        if (dec_state != nullptr) {
-                                audio_decoder_set_volume(
-                                    dec_state->pbuf_data.decoder, new_volume);
-                        }
-                        cp = pdb_iter_next(&it);
-                }
-                pdb_iter_done(&it);
                 break;
         }
         case RECEIVER_MSG_VIDEO_PROP_CHANGED:
@@ -580,7 +568,6 @@ static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
                 free(dec_state);
                 return NULL;
         }
-        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
         return dec_state;
 }
 
@@ -603,6 +590,17 @@ static void audio_update_recv_buf(struct state_audio *s, size_t curr_frame_len)
                 LOG(LOG_LEVEL_DEBUG) << "[Audio receiver] Recv buffer adjusted to " << new_size << "\n";
                 rtp_set_recv_buf(s->audio_network_device, s->recv_buf_size);
         }
+}
+
+static void
+change_volume(bool mute, double scale, audio_frame *buffer)
+{
+        if (mute) {
+                memset(buffer->data, 0, buffer->data_len);
+                return;
+        }
+        rescale_audio_buffer(buffer->data, buffer->data_len, buffer->bps,
+                             (float) scale);
 }
 
 static void *audio_receiver_thread(void *arg)
@@ -742,6 +740,11 @@ static void *audio_receiver_thread(void *arg)
                                 continue;
                         }
                         audio_update_recv_buf(s, current_pbuf->frame_size);
+
+                        if (s->muted_receiver|| s->volume != 1) {
+                                change_volume(s->muted_receiver, s->volume,
+                                              &current_pbuf->buffer);
+                        }
 
                         if(s->echo_state) {
 #ifdef HAVE_SPEEXDSP

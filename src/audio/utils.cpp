@@ -409,6 +409,24 @@ void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_
         }
 }
 
+void
+rescale_audio_buffer(char *buf, int len, int bps, float scale)
+{
+        int samples = len / bps;
+
+        assert(bps <= 4);
+
+        for (int i = 0; i < samples; ++i) {
+                int32_t value = format_from_in_bps(buf, bps);
+
+                value *= scale;
+
+                format_to_out_bps(buf, bps, value);
+
+                buf += bps;
+        }
+}
+
 void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int i;
