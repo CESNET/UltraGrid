@@ -66,6 +66,7 @@
 
 #include "audio/types.h"
 #include "compat/net.h"           // for htons, htonl
+#include "compat/strings.h"       // for strlcpy
 #include "config.h"               // for SDP_HTTP
 #include "debug.h"
 #include "rtp/rtp_types.h"
@@ -88,13 +89,6 @@ enum {
     DEFAULT_SDP_HTTP_PORT = 8554,
     MAX_STREAMS = 2,
 };
-
-bool autorun;
-int requested_http_port = DEFAULT_SDP_HTTP_PORT;
-static bool want_sdp_audio = false;
-static bool want_sdp_video = false;
-static char sdp_receiver[1024];
-static char sdp_filename[MAX_PATH_SIZE];
 
 static struct sdp *sdp_state = NULL;
 
@@ -124,18 +118,26 @@ struct sdp {
     char *sdp_dump;
     void (*address_callback)(void *udata, const char *address);
     void *address_callback_udata;
+    bool autorun;
+    int requested_http_port;
+    bool want_sdp_audio;
+    bool want_sdp_video;
+    char sdp_receiver[1024];
+    char sdp_filename[MAX_PATH_SIZE];
+
 };
 
 static bool gen_sdp(void);
 static struct sdp *new_sdp(bool ipv6, const char *receiver);
 #ifdef SDP_HTTP
-static bool sdp_run_http_server(struct sdp *sdp, int port);
+static bool sdp_run_http_server(struct sdp *sdp);
 static void sdp_stop_http_server(struct sdp *sdp);
 #endif // defined SDP_HTTP
 static void clean_sdp(struct sdp *sdp);
 
 static struct sdp *new_sdp(bool ipv6, const char *receiver) {
     struct sdp *sdp = calloc(1, sizeof(*sdp));
+    sdp->requested_http_port = DEFAULT_SDP_HTTP_PORT;
     assert(sdp != NULL);
     sdp->audio_index = -1;
     sdp->video_index = -1;
@@ -198,15 +200,16 @@ static void cleanup() {
 
 static void start() {
     // either SDP properties not set or not all streams already configured
-    if (!sdp_state || want_sdp_audio != sdp_state->audio_set || want_sdp_video != sdp_state->video_set) {
-        return;
+    if (!sdp_state || sdp_state->want_sdp_audio != sdp_state->audio_set ||
+        sdp_state->want_sdp_video != sdp_state->video_set) {
+            return;
     }
     if (!gen_sdp()) {
         log_msg(LOG_LEVEL_ERROR, "[SDP] File creation failed\n");
         return;
     }
 #ifdef SDP_HTTP
-    if (!sdp_run_http_server(sdp_state, requested_http_port)) {
+    if (!sdp_run_http_server(sdp_state)) {
         log_msg(LOG_LEVEL_ERROR, "[SDP] Server run failed!\n");
     }
 #else
@@ -373,22 +376,24 @@ static bool gen_sdp() {
     printf("Printed version:\n%s", buf);
 
     sdp_state->sdp_dump = buf;
-    if (strcmp(sdp_filename, "no") == 0) {
+    if (strcmp(sdp_state->sdp_filename, "no") == 0) {
         return true;
     }
 
-    if (strlen(sdp_filename) == 0) {
-        strncpy(sdp_filename, get_temp_dir(), sizeof sdp_filename - 1);
-        strncat(sdp_filename, SDP_FILE, sizeof sdp_filename - strlen(sdp_filename) - 1);
+    if (strlen(sdp_state->sdp_filename) == 0) {
+        snprintf_ch(sdp_state->sdp_filename, "%s%s", get_temp_dir(),
+                    SDP_FILE);
     }
-    FILE *fOut = fopen(sdp_filename, "wb");
+    FILE *fOut = fopen(sdp_state->sdp_filename, "wb");
+    // clang-format off
     if (fOut == NULL) {
-        log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file %s: %s\n", sdp_filename, ug_strerror(errno));
+        log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file %s: %s\n",
+                sdp_state->sdp_filename, ug_strerror(errno));
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
         } else {
-            printf("[SDP] File %s created.\n", sdp_filename);
+            printf("[SDP] File %s created.\n", sdp_state->sdp_filename);
         }
         fclose(fOut);
     }
@@ -419,7 +424,7 @@ void clean_sdp(struct sdp *sdp){
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     struct sdp *sdp = connection->server->tag;
 
-    if (autorun) {
+    if (sdp->autorun) {
         sdp->address_callback(sdp->address_callback_udata, connection->remoteHost);
     }
 
@@ -509,10 +514,11 @@ static void print_http_path(struct sdp *sdp) {
                 getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
 
                 char recv_str[STR_LEN];
-                if (autorun) {
+                if (sdp->autorun) {
                     snprintf(recv_str, sizeof recv_str, "ANY receiver");
                 } else {
-                    snprintf(recv_str, sizeof recv_str, "Receiver \"%s\"", sdp_receiver);
+                    snprintf_ch(recv_str, "Receiver \"%s\"",
+                                sdp->sdp_receiver);
                 }
                 MSG(NOTICE,
                     "%s can play SDP with URL "
@@ -522,13 +528,14 @@ static void print_http_path(struct sdp *sdp) {
             }
         }
     }
-    if (!autorun) {
+    if (!sdp->autorun) {
         print_std_rtp_urls(sdp);
     }
 }
 
-static bool sdp_run_http_server(struct sdp *sdp, int port)
+static bool sdp_run_http_server(struct sdp *sdp)
 {
+    int port = sdp->requested_http_port;
     assert(port >= 0 && port < 65536);
     assert(sdp->sdp_dump != NULL);
 
@@ -556,9 +563,10 @@ static void
 sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio,
                    address_callback_t addr_callback, void *addr_callback_udata)
 {
-        strncpy(sdp_receiver, receiver, sizeof sdp_receiver - 1);
-        want_sdp_audio = has_sdp_audio;
-        want_sdp_video = has_sdp_video;
+        strlcpy(sdp_state->sdp_receiver, receiver,
+                sizeof sdp_state->sdp_receiver);
+        sdp_state->want_sdp_audio         = has_sdp_audio;
+        sdp_state->want_sdp_video         = has_sdp_video;
         sdp_state->address_callback       = addr_callback;
         sdp_state->address_callback_udata = addr_callback_udata;
 
@@ -584,11 +592,12 @@ sdp_set_options(const char *opts)
     char *item, *save_ptr;
     while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
         if (strstr(item, "port=") == item) {
-            requested_http_port = atoi(strchr(item, '=') + 1);
+            sdp_state->requested_http_port = atoi(strchr(item, '=') + 1);
         } else if (strstr(item, "file=") == item) {
-            strncpy(sdp_filename, strchr(item, '=') + 1, sizeof sdp_filename - 1);
+            strlcpy(sdp_state->sdp_filename, strchr(item, '=') + 1,
+                    sizeof sdp_state->sdp_filename);
         } else if (strstr(item, "autorun") == item) {
-            autorun = true;
+            sdp_state->autorun = true;
         } else {
             log_msg(LOG_LEVEL_ERROR, "[SDP] Wrong option: %s\n", item);
             return -1;
