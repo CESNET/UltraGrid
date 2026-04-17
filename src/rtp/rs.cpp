@@ -140,16 +140,18 @@ rs::~rs()
 #endif
 }
 
-shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
+struct video_frame *
+rs::encode_video_frame(const struct video_frame *in)
 {
 #ifdef HAVE_ZFEC
         assert(state != nullptr);
 
         video_payload_hdr_t hdr;
-        format_video_header(in.get(), 0, 0, hdr);
+        format_video_header(in, 0, 0, hdr);
         const size_t hdr_len = sizeof(hdr);
 
-        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in.get()));
+        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in));
+        out->callbacks.dispose = vf_free;
 
         for (unsigned i = 0; i < in->tile_count; ++i) {
                 size_t len = in->tiles[i].data_len;
@@ -194,13 +196,7 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
                 out->fec_params = fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss);
         }
 
-        static auto deleter = [](video_frame *frame) {
-                for (unsigned i = 0; i < frame->tile_count; ++i) {
-                        free(frame->tiles[i].data);
-                }
-                vf_free(frame);
-        };
-        return {out, deleter};
+        return out;
 #else
         (void) in;
         return {};

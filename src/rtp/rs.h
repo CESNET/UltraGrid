@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,10 @@ struct rs : public fec {
         rs(unsigned int k, unsigned int n);
         rs(const char *cfg, bool is_audio);
         virtual ~rs();
-        std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame) override;
+
+        struct video_frame *
+        encode_video_frame(const struct video_frame *video_frame) override;
+
         virtual audio_frame2 encode(audio_frame2 const &) override;
         bool decode(char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &) override;

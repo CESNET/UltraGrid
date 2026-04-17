@@ -57,9 +57,12 @@ struct ldgm : public fec{
         ldgm(int packet_size, int frame_size, double max_expected_loss);
         ldgm(const char *cfg);
         void set_params(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
-        std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>);
+
+        struct video_frame *
+        encode_video_frame(const struct video_frame *video_frame) override;
+
         bool decode(char *in, int in_len, char **out, int *len,
-                const std::map<int, int> &);
+                const std::map<int, int> &packets) override;
 
 private:
         void init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed = DEFAULT_LDGM_SEED);

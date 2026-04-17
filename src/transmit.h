@@ -77,8 +77,8 @@ struct video_frame;
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long bitrate);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
-void             format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx,
-                uint32_t *hdr);
+void format_video_header(const struct video_frame *frame, int tile_idx,
+                         int buffer_idx, uint32_t *hdr);
 void tx_done(struct tx *tx_session);
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);

@@ -425,23 +425,29 @@ check_packet_size(size_t len, int k)
             packet_size, SHMEM_SIZE);
 }
 
-shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
+struct video_frame *
+ldgm::encode_video_frame(const struct video_frame *tx_frame)
 {
         // We need to have copy of coding session shared pointer in order to exit
         // gracefully even when destructed LDGM state first with some frame still
         // existing.
-        std::shared_ptr<LDGM_session> coding_session = this->m_coding_session;
-        shared_ptr<video_frame> out(vf_alloc_desc(video_desc_from_frame(tx_frame.get())),
-                        [coding_session = std::move(coding_session)](struct video_frame *frame) {
-                                for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                                        coding_session->free_out_buf(frame->tiles[i].data);
-                                }
-                                vf_free(frame);
-                        });
+        /// @todo this should not be needed - fec is destroyed just after sender thread
+        //. is joined
+        auto *coding_session =  new std::shared_ptr<LDGM_session>(this->m_coding_session);
+        video_frame *out = vf_alloc_desc(video_desc_from_frame(tx_frame));
+        out->callbacks.dispose_udata = coding_session;
+        out->callbacks.dispose       = [](struct video_frame *frame) {
+                auto *coding_session = (std::shared_ptr<LDGM_session> *) frame->callbacks.dispose_udata;
+                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        (*coding_session)->free_out_buf(frame->tiles[i].data);
+                }
+                delete coding_session;
+        };
+
 
         for (unsigned int i = 0; i < tx_frame->tile_count; ++i) {
                 video_payload_hdr_t video_hdr;
-                format_video_header(tx_frame.get(), i, 0, video_hdr);
+                format_video_header(tx_frame, i, 0, video_hdr);
 
                 check_packet_size(tx_frame->tiles[i].data_len, m_k);
 

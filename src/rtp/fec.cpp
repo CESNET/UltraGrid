@@ -238,3 +238,13 @@ fec_destroy(struct fec *s)
 {
         delete s;
 }
+
+/**
+ * @returns newly allocated video frame with FEC - when done, call frame
+ dispose callback
+ */
+struct video_frame *
+fec_encode_video_frame(struct fec *fec, const struct video_frame *f)
+{
+        return fec->encode_video_frame(f);
+}

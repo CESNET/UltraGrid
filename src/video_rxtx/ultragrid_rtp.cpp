@@ -184,15 +184,21 @@ void *ultragrid_rtp_video_rxtx::receiver_thread(void *arg) {
         return s->receiver_loop();
 }
 
+using async_data = pair<ultragrid_rtp_video_rxtx *, shared_ptr<video_frame>>;
+
 void
 ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         rtp_rxtx_sender_do_housekeeping(m_rtp_common, TX_MEDIA_VIDEO);
+
         if (m_rtp_common->fec_state != nullptr) {
-                tx_frame = m_rtp_common->fec_state->encode(tx_frame);
+                struct video_frame *f = fec_encode_video_frame(
+                    m_rtp_common->fec_state, tx_frame.get());
+                tx_frame =
+                    std::shared_ptr<video_frame>(f, f->callbacks.dispose);
         }
 
-        auto data = new pair<ultragrid_rtp_video_rxtx *, shared_ptr<video_frame>>(this, tx_frame);
+        auto *data = new async_data(this, tx_frame);
 
         unique_lock<mutex> lk(m_async_sending_lock);
         m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
@@ -202,7 +208,7 @@ ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 }
 
 void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
-        auto data = (pair<ultragrid_rtp_video_rxtx *, shared_ptr<video_frame>> *) arg;
+        auto *data = (async_data *) arg;
 
         data->first->send_frame_async(data->second);
         delete data;

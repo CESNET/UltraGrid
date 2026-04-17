@@ -49,7 +49,9 @@
 struct video_frame;
 
 struct fec {
-        virtual std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>) = 0;
+        virtual struct video_frame *
+        encode_video_frame(const struct video_frame *video_frame) = 0;
+
         virtual audio_frame2 encode(audio_frame2 const &) {
                 throw std::logic_error("Selected FEC not implemented for audio!");
         }
@@ -79,9 +81,12 @@ extern "C" {
 #endif
 
 struct fec *fec_create_from_config(const char *str, bool is_audio);
+struct video_frame *fec_encode_video_frame(struct fec               *s,
+                                           const struct video_frame *f);
 void fec_destroy(struct fec *s);
 int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted);
 const char *get_fec_desc(struct fec_desc desc, size_t buflen, char *buf);
+
 #ifdef __cplusplus
 }
 #endif
