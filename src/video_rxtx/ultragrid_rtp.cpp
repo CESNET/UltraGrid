@@ -189,11 +189,14 @@ using async_data = pair<ultragrid_rtp_video_rxtx *, shared_ptr<video_frame>>;
 void
 ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
+        struct rtp_rxtx_medium *video =
+            &m_rtp_common->medium[TX_MEDIA_VIDEO];
+
         rtp_rxtx_sender_do_housekeeping(m_rtp_common, TX_MEDIA_VIDEO);
 
-        if (m_rtp_common->fec_state != nullptr) {
+        if (video->fec_state != nullptr) {
                 struct video_frame *f = fec_encode_video_frame(
-                    m_rtp_common->fec_state, tx_frame.get());
+                    video->fec_state, tx_frame.get());
                 tx_frame =
                     std::shared_ptr<video_frame>(f, f->callbacks.dispose);
         }
@@ -572,12 +575,21 @@ static void
 send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
         auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
+        struct rtp_rxtx_medium *audio =
+            &s->m_rtp_common->medium[TX_MEDIA_AUDIO];
 
         rtp_rxtx_sender_do_housekeeping(s->m_rtp_common, TX_MEDIA_AUDIO);
+
+        struct audio_frame2 *fec_frame = nullptr;
+        if (audio->fec_state != nullptr) {
+                frame = fec_frame =
+                    fec_encode_audio_frame(audio->fec_state, frame);
+        }
 
         audio_tx_send(
             s->m_rtp_common->medium[TX_MEDIA_AUDIO].tx,
             s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
+        delete fec_frame;
 }
 
 static bool

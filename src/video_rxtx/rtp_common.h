@@ -67,13 +67,13 @@ struct rtp_rxtx_medium {
         struct tx      *tx;
         struct pdb     *participants;
         int             rxtx_mode;
+        struct fec     *fec_state;
         pthread_mutex_t lock;
 };
 
 struct rtp_rxtx_common {
         uint32_t magic;
         struct rtp_rxtx_medium medium[NUM_TX_MEDIA];
-        struct fec     *fec_state;
         struct rtp_rxtx_common_priv_state *priv;
 };
 

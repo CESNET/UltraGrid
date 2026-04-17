@@ -79,7 +79,6 @@
 #include "module.h"
 #include "pdb.h"
 #include "rtp/audio_decoders.h"
-#include "rtp/fec.h"
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -131,9 +130,6 @@ struct state_audio {
                 t0(st)
         {
         }
-        ~state_audio() {
-                delete fec_state;
-        }
 
         bool should_exit = false;
 
@@ -159,8 +155,6 @@ struct state_audio {
         time_ns_t t0; // for statistics
 
         audio_frame2 captured;
-
-        fec       *fec_state = nullptr;
 
         pthread_t audio_sender_thread_id   = PTHREAD_NULL;
         pthread_t audio_receiver_thread_id = PTHREAD_NULL;
@@ -959,9 +953,6 @@ static void *audio_sender_thread(void *arg)
                         if (s->jack_connection == nullptr) {
                                 audio_frame2 *uncompressed = &bf_n;
                                 while (audio_frame2 to_send = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                        if (s->fec_state != nullptr) {
-                                                to_send = s->fec_state->encode(to_send);
-                                        }
                                         rxtx_send_audio(s->rxtx, &to_send);
                                         uncompressed = NULL;
                                 }

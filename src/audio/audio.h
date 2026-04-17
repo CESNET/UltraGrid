@@ -66,7 +66,6 @@ struct audio_options {
         const char        *send_cfg;
         const char        *proto;
         const char        *proto_cfg;
-        const char        *fec_cfg;
         char              *channel_map;
         const char        *scale;
         bool               echo_cancellation;
@@ -82,7 +81,6 @@ struct audio_options {
                 .send_cfg          = "none", \
                 .proto             = "ultragrid_rtp", \
                 .proto_cfg         = "", \
-                .fec_cfg           = DEFAULT_AUDIO_FEC, \
                 .channel_map       = nullptr, \
                 .scale             = DEFAULT_AUDIO_SCALE, \
                 .echo_cancellation = false, \

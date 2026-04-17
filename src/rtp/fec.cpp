@@ -248,3 +248,9 @@ fec_encode_video_frame(struct fec *fec, const struct video_frame *f)
 {
         return fec->encode_video_frame(f);
 }
+
+struct audio_frame2 *
+fec_encode_audio_frame(struct fec *s, const struct audio_frame2 *f)
+{
+        return new audio_frame2(s->encode(*f));
+}

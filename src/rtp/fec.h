@@ -47,6 +47,7 @@
 #include <stdexcept>
 
 struct video_frame;
+struct audio_frame2;
 
 struct fec {
         virtual struct video_frame *
@@ -81,8 +82,10 @@ extern "C" {
 #endif
 
 struct fec *fec_create_from_config(const char *str, bool is_audio);
-struct video_frame *fec_encode_video_frame(struct fec               *s,
-                                           const struct video_frame *f);
+struct audio_frame2 *fec_encode_audio_frame(struct fec                *s,
+                                            const struct audio_frame2 *f);
+struct video_frame  *fec_encode_video_frame(struct fec               *s,
+                                            const struct video_frame *f);
 void fec_destroy(struct fec *s);
 int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted);
 const char *get_fec_desc(struct fec_desc desc, size_t buflen, char *buf);

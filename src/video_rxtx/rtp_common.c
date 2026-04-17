@@ -181,14 +181,16 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
                 break;
         }
         case SENDER_MSG_CHANGE_FEC: {
-                struct fec *old_fec_state = s->pub.fec_state;
-                s->pub.fec_state          = nullptr;
+                struct fec *old_fec_state = medium_pub->fec_state;
+                medium_pub->fec_state     = nullptr;
+                puts(msg->fec_cfg);
                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                         fec_destroy(old_fec_state);
                         break;
                 }
-                s->pub.fec_state = fec_create_from_config(msg->fec_cfg, false);
-                if (s->pub.fec_state == nullptr) {
+                medium_pub->fec_state =
+                    fec_create_from_config(msg->fec_cfg, false);
+                if (medium_pub->fec_state == nullptr) {
                         int rc = 0;
                         if (strstr(msg->fec_cfg, "help") == nullptr) {
                                 MSG(ERROR, "Unable to initialize %s FEC!\n",
@@ -202,7 +204,7 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
                                 exit_uv(rc);
                         }
 
-                        s->pub.fec_state = old_fec_state;
+                        medium_pub->fec_state = old_fec_state;
                         r = new_response(RESPONSE_INT_SERV_ERR, nullptr);
                 } else {
                         fec_destroy(old_fec_state);
@@ -375,10 +377,10 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
                         CHK_PTHR(pthread_mutex_destroy(&medium_pub->lock));
                 }
                 free(medium_priv->requested_receiver);
+                fec_destroy(medium_pub->fec_state);
                 module_done(&medium_priv->sender_mod);
         }
 
-        fec_destroy(pub->fec_state);
         free(pub->priv->mcast_if);
 
         free(s);

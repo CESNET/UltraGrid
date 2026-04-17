@@ -857,7 +857,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         if(strlen(optarg) > 2 && optarg[1] == ':' &&
                                         (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
                                 if(toupper(optarg[0]) == 'A') {
-                                        opt->audio.fec_cfg = optarg + 2;
+                                        opt->rxtx.medium[TX_MEDIA_AUDIO].fec = optarg + 2;
                                 } else {
                                         opt->rxtx.medium[TX_MEDIA_VIDEO].fec = optarg + 2;
                                 }
@@ -1332,7 +1332,8 @@ validate_params(struct ug_options *opt)
         }
 
         if (strcmp(opt->audio.send_cfg, ug_options().audio.send_cfg) == 0) {
-                if (strcmp(opt->audio.fec_cfg, ug_options().audio.fec_cfg) != 0) {
+                if (strcmp(opt->rxtx.medium[TX_MEDIA_AUDIO].fec,
+                           ug_options().rxtx.medium[TX_MEDIA_AUDIO].fec) != 0) {
                         MSG(WARNING,
                             "Audio FEC specified but not capturing!\n");
                 }
@@ -1425,7 +1426,7 @@ int main(int argc, char *argv[])
                       << get_name_to_audio_codec(ac_params.codec) << "\n";
                 col() << TBOLD("Network protocol : ")
                       << vrxtx_get_proto_long_name(opt.video_protocol) << "\n";
-                col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
+                col() << TBOLD("Audio FEC        : ") << audio->fec << "\n";
                 col() << TBOLD("Video FEC        : ") << video->fec << "\n";
                 col() << "\n";
         }
