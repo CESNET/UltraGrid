@@ -568,6 +568,18 @@ static void join(void *state) {
         s->join();
 }
 
+static void
+send_audio_frame(void *state, const struct audio_frame2 *frame)
+{
+        auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
+
+        rtp_rxtx_sender_do_housekeeping(s->m_rtp_common, TX_MEDIA_AUDIO);
+
+        audio_tx_send(
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].tx,
+            s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
+}
+
 static bool
 ultragrid_rtp_ctl_property(void *state, enum rxtx_property p,
                            void *val, size_t *len)
@@ -594,7 +606,7 @@ static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
         .done             = done,
         .send_video_frame = send_frame,
         .join_sender      = join,
-        .send_audio_frame = nullptr,
+        .send_audio_frame = send_audio_frame,
         .receiver_routine = ultragrid_rtp_video_rxtx::receiver_thread,
         .ctl_property     = ultragrid_rtp_ctl_property,
 };

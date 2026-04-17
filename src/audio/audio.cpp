@@ -160,7 +160,6 @@ struct state_audio {
 
         audio_frame2 captured;
 
-        struct tx *tx_session = nullptr;
         fec       *fec_state = nullptr;
 
         pthread_t audio_sender_thread_id   = PTHREAD_NULL;
@@ -182,7 +181,7 @@ struct state_audio {
 
         size_t recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
 
-        struct video_rxtx *vrxtx = nullptr;
+        struct video_rxtx *rxtx = nullptr;
 };
 
 /** 
@@ -255,7 +254,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
-        s->vrxtx = opt->vrxtx;
+        s->rxtx = opt->vrxtx;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
         s->exporter = common->exporter;
@@ -351,13 +350,12 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 size_t                  len =
                     sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
                 bool ctl_rc =
-                    rxtx_ctl_property(s->vrxtx, GET_RTP_COMMON_STATE,
+                    rxtx_ctl_property(s->rxtx, GET_RTP_COMMON_STATE,
                                       (void *) &rtp_common_state, &len);
                 assert(ctl_rc && MOD_NAME "Cannot get RTP state from RXTX!");
                 struct rtp_rxtx_medium *audio = &rtp_common_state->medium[TX_MEDIA_AUDIO];
                 s->audio_network_device = audio->network_device;
                 s->audio_participants = audio->participants;
-                s->tx_session = audio->tx;
         } else if (strcasecmp(opt->proto, "JACK") == 0) {
 #ifndef HAVE_JACK_TRANS
                 fprintf(stderr, "[Audio] JACK transport requested, "
@@ -915,22 +913,6 @@ static void *audio_sender_thread(void *arg)
                         free_message(msg, r);
                 }
 
-                // do the house keeping if no receiver thread, otherwise it does
-                // the stuff...
-                if (s->sender == NET_NATIVE &&
-                    (s->audio_tx_mode & MODE_RECEIVER) == 0) {
-                        time_ns_t curr_time = get_time_in_ns();
-                        uint32_t ts = (curr_time - s->start_time) / 10'0000 * 9; // at 90000 Hz
-                        rtp_update(s->audio_network_device, curr_time);
-                        rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
-
-                        // receive RTCP
-                        struct timeval timeout;
-                        timeout.tv_sec = 0;
-                        timeout.tv_usec = 0;
-                        rtcp_recv_r(s->audio_network_device, &timeout, ts);
-                }
-
                 const struct audio_frame *buffer =
                     audio_capture_read(s->audio_capture_device);
                 if(buffer) {
@@ -974,21 +956,15 @@ static void *audio_sender_thread(void *arg)
                                 bf_n.resample(*resampler_state, resample_to);
                         }
                         // SEND
-                        if(s->sender == NET_NATIVE) {
+                        if (s->jack_connection == nullptr) {
                                 audio_frame2 *uncompressed = &bf_n;
                                 while (audio_frame2 to_send = audio_codec_compress(s->audio_encoder, uncompressed)) {
                                         if (s->fec_state != nullptr) {
                                                 to_send = s->fec_state->encode(to_send);
                                         }
-                                        audio_tx_send(s->tx_session, s->audio_network_device, &to_send);
+                                        rxtx_send_audio(s->rxtx, &to_send);
                                         uncompressed = NULL;
                                 }
-                        }else if(s->sender == NET_STANDARD){
-                            audio_frame2 *uncompressed = &bf_n;
-                            while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                    rxtx_send_audio (s->vrxtx, &compressed);
-                                    uncompressed = NULL;
-                            }
                         }
 #ifdef HAVE_JACK_TRANS
                         else
