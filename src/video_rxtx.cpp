@@ -287,7 +287,7 @@ void *video_rxtx::sender_loop() {
                 m_video_desc = video_desc_from_frame(tx_frame.get());
                 export_video(m_exporter, tx_frame.get());
 
-                m_impl_funcs->send_frame(m_impl_state, std::move(tx_frame));
+                m_impl_funcs->send_video_frame(m_impl_state, std::move(tx_frame));
                 m_frames_sent += 1;
         }
 
@@ -348,10 +348,19 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                 assert(rc == 0);
         }
 
-        int rc = pthread_create(&ret->m_sender_thread_id, nullptr, video_rxtx::sender_thread,
-                           (void *) ret);
-        assert(rc == 0);
-        ret->m_sender_joined = false;
+        if (params_video->rxtx_mode & MODE_SENDER) {
+                if (ret->m_impl_funcs->send_video_frame == nullptr) {
+                        MSG(ERROR,
+                            "Selected RX/TX mode doesn't support sending.\n");
+                        delete ret;
+                        throw -1;
+                }
+                int rc =
+                    pthread_create(&ret->m_sender_thread_id, nullptr,
+                                   video_rxtx::sender_thread, (void *) ret);
+                assert(rc == 0);
+                ret->m_sender_joined = false;
+        }
 
         return ret;
 }

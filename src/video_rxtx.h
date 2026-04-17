@@ -115,16 +115,18 @@ typedef void *rxtx_create_t(const struct vrxtx_params *params,
                             const struct common_opts  *common);
 typedef bool rxtx_ctl_property_t(void *state, enum rxtx_property p, void *val,
                                size_t *len);
+typedef void send_shr_ptr_video_frame_t(void *state,
+                                        std::shared_ptr<video_frame>);
 
 struct video_rxtx_info {
         const char *long_name;
         rxtx_create_t *create;
         void (*done)(void *state);
-        /// this may be set optional if we had some receive-only mod
-        void (*send_frame)(void *state, std::shared_ptr<video_frame>);
 
         // following callbacks are optional
+        send_shr_ptr_video_frame_t *send_video_frame;
         void (*join_sender)(void *state);
+
         void (*send_audio_frame)(void *state, const struct audio_frame2 *frame);
         void *(*receiver_routine)(void *state);
         rxtx_ctl_property_t *ctl_property;
