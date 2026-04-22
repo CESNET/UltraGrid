@@ -1,9 +1,11 @@
 #include <oapv/oapv.h>
+#include <iostream>
 
 #include "lib_common.h"
 #include "utils/misc.h"
 #include "video_compress.h"
 #include "video_frame.h"
+#include "video.h"
 
 #define MAX_BS_BUF   (128 * 1024 * 1024) // bitstream buffer size (128 MiB)
 #define MAX_NUM_FRMS (1) // support only primary frame
@@ -26,6 +28,8 @@ struct state_video_compress_oapv {
 
         oapv_frms_t input_frm{};    // frame for input
         oapv_imgb_t imgb{};         // planar pixel data of input frame
+
+        struct video_desc saved_desc{}; // last configured video description
 };
 
 state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
@@ -86,16 +90,16 @@ static bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb) {
         imgb->w[0] = cdsc->param[0].w;
         imgb->h[0] = cdsc->param[0].h;
 
-        imgb->w[1] = imgb->w[2] = ((int) cdsc->param[0].w  + 1) >> 1;
-        imgb->h[1] = imgb->h[2] = (int) cdsc->param[0].h;
+        imgb->w[1] = imgb->w[2] = cdsc->param[0].w / 2;
+        imgb->h[1] = imgb->h[2] = cdsc->param[0].h;
         imgb->np = 3;  // three colour components
-        imgb->cs = cdsc->param[0].profile_idc;
+        imgb->cs = OAPV_CS_YCBCR422_10LE;
 
         for (int i = 0; i < imgb->np; i++) {
                 imgb->aw[i] = imgb->w[i];
                 imgb->ah[i] = 1088;
 
-                imgb->s[i] = imgb->aw[i] * 2;
+                imgb->s[i] = imgb->aw[i] * OAPV_CS_GET_BYTE_DEPTH(imgb->cs);
                 imgb->e[i] = imgb->ah[i];
                 imgb->bsize[i] = imgb->s[i] * imgb->e[i];
 
@@ -108,11 +112,11 @@ static bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb) {
                 memset(imgb->baddr[i], 0, imgb->bsize[i]);
         }
 
+        return true;
 }
 
 static bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc) {
         int ret;
-        int cs = OAPV_CS_SET(OAPV_CF_YCBCR422, 10, 0);
 
         s->cdsc.param[0].w = desc.width;
         s->cdsc.param[0].h = desc.height;
@@ -122,7 +126,7 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
 
         s->cdsc.param[0].rc_type = OAPV_RC_ABR;
 
-        s->cdsc.param[0].profile_idc = cs;
+        s->cdsc.param[0].profile_idc = OAPV_PROFILE_422_10;
 
         s->id = oapve_create(&s->cdsc, &ret);
         if (OAPV_FAILED(ret)) {
@@ -144,7 +148,48 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
                 return false;
         }
 
+        s->saved_desc.width = desc.width;
+        s->saved_desc.height = desc.height;
+        s->saved_desc.fps = desc.fps;
+        s->saved_desc.interlacing = desc.interlacing;
+        s->saved_desc.color_spec = desc.color_spec;
+        s->saved_desc.tile_count  = 1;
+
         return true;
+}
+
+static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, oapv_imgb_t *in_buf) {
+        uint16_t *dst_y = (uint16_t *) in_buf->a[0];
+        uint16_t *dst_u = (uint16_t *) in_buf->a[1];
+        uint16_t *dst_v = (uint16_t *) in_buf->a[2];
+
+        const int y_stride_px = in_buf->s[0] / (int) sizeof(uint16_t);
+        const int u_stride_px = in_buf->s[1] / (int) sizeof(uint16_t);
+        const int v_stride_px = in_buf->s[2] / (int) sizeof(uint16_t);
+
+        for (int y = 0; y < height; ++y) {
+                const uint8_t *src_line = uyvy + (size_t) y * width * 2;
+                uint16_t *dst_y_line = dst_y + (size_t) y * y_stride_px;
+                uint16_t *dst_u_line = dst_u + (size_t) y * u_stride_px;
+                uint16_t *dst_v_line = dst_v + (size_t) y * v_stride_px;
+
+                for (int x = 0; x < width; x += 2) {
+                        int i = x * 2;
+                        uint16_t u = (uint16_t) src_line[i + 0] << 2;
+                        uint16_t y0 = (uint16_t) src_line[i + 1] << 2;
+                        uint16_t v = (uint16_t) src_line[i + 2] << 2;
+                        uint16_t y1 = (uint16_t) src_line[i + 3] << 2;
+
+                        dst_y_line[x + 0] = y0;
+                        if (x + 1 < width) {
+                                dst_y_line[x + 1] = y1;
+                        }
+
+                        int chroma_index = x / 2;
+                        dst_u_line[chroma_index] = u;
+                        dst_v_line[chroma_index] = v;
+                }
+        }
 }
 
 static void* openapv_compress_init(module *parent, const char *opts) {
@@ -160,7 +205,24 @@ static void* openapv_compress_init(module *parent, const char *opts) {
 }
 
 static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
-        configure_with((struct state_video_compress_oapv *) state, video_desc_from_frame(frame.get()));
+        state_video_compress_oapv *s = static_cast<state_video_compress_oapv *>(state);
+        const auto desc = video_desc_from_frame(frame.get());
+
+        if (!video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
+                if (!configure_with(s, desc)) {
+                        printf("Failed to configure OpenAPV encoder with new video description\n");
+                        return;
+                }
+        }
+        struct tile *in_tile = vf_get_tile(frame.get(), 0);
+        uyvy_to_yuv422p((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
+
+        int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
+        if (OAPV_FAILED(ret)) {
+                return;
+        }
+
+        std::cout << "Encoded frame: " << s->stat.write << " bytes\n";
 }
 
 static shared_ptr<video_frame> openapv_compress_pop(void *state) {
