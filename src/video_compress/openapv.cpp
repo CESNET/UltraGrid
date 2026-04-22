@@ -245,7 +245,8 @@ static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
 }
 
 static shared_ptr<video_frame> openapv_compress_pop(void *state) {
-    return {};
+        auto *s = (struct state_video_compress_oapv *) state;
+        return s->out_queue.pop();
 }
 
 static void openapv_compress_done(void  *state) {
