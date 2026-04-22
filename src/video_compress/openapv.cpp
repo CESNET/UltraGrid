@@ -3,6 +3,9 @@
 #include "video_compress.h"
 #include <oapv/oapv.h>
 
+#define MAX_BS_BUF   (128 * 1024 * 1024) // bitstream buffer size (128 MiB)
+#define MAX_NUM_FRMS (1) // support only primary frame
+
 using std::shared_ptr;
 
 namespace {
@@ -10,18 +13,17 @@ namespace {
 struct state_video_compress_oapv {
 
         state_video_compress_oapv(module *parent, const char *opts);
+        ~state_video_compress_oapv();
 
-        oapve_t id;             // OAPV encoder id
-        oapvm_t mid;            // OAPV metadata id
-        oapve_cdesc_t   cdsc;   // description for encoder creation
+        oapve_t id = nullptr;       // OAPV encoder handle
+        oapvm_t mid = nullptr;      // OAPV metadata handle
+        oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
         
-        oapv_bitb_t     bitb;   // bitstream buffer (output)
-        oapve_stat_t    stat;   // encoding status (output)
+        oapv_bitb_t bitb{};         // bitstream buffer (output)
+        oapve_stat_t stat{};        // encoding status (output)
 
-        oapv_frms_t input_frms; // frames for input
-        int num_frames;         // number of frames in an access unit
-        int preset_id;          // preset of apv (fastest, fast, medium, slow, placebo)
-        int qp;                 // quantization parameter
+        oapv_frms_t input_frm{};    // frame for input
+        oapv_imgb_t imgb{};         // planar pixel data of input frame
 };
 
 state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
@@ -33,10 +35,38 @@ state_video_compress_oapv::state_video_compress_oapv(module *parent, const char 
                 printf("Failed to get default parameters for OAPV encoder: %d\n", ret);
                 throw 1;
         }
+
+        // Parse opts
+        cdsc.max_bs_buf_size = MAX_BS_BUF;
+        cdsc.max_num_frms = MAX_NUM_FRMS;
+        cdsc.threads = OAPV_CDESC_THREADS_AUTO;
+
+        unsigned char *bs_buf = (unsigned char *) malloc(cdsc.max_bs_buf_size);
+        if (bs_buf == nullptr) {
+                printf("Failed to allocate bitstream buffer\n");
+                throw 1;
+        }
+        bitb.addr = bs_buf;
+        bitb.bsize = cdsc.max_bs_buf_size;
 }
 
-static bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc)
-{
+state_video_compress_oapv::~state_video_compress_oapv() {
+        for (int i = 0; i < OAPV_MAX_CC; i++) {
+                free(imgb.baddr[i]);
+        }
+
+        if (id) {
+                oapve_delete(id);
+        }
+        
+        if (mid) {
+                oapvm_delete(mid);
+        }
+
+        free(bitb.addr);
+}
+
+static bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc) {
         s->cdsc.param[0].w = desc.width;
         s->cdsc.param[0].h = desc.height;
 
@@ -46,15 +76,10 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         s->cdsc.param[0].fps_num = get_framerate_n(desc.fps);
         s->cdsc.param[0].fps_den = get_framerate_d(desc.fps);
 
-        s->cdsc.max_bs_buf_size = 128 * 1024 * 1024;
-        s->cdsc.max_num_frms = 1;
-        s->cdsc.threads = OAPV_CDESC_THREADS_AUTO;
-
         return true;
 }
 
-static void* openapv_compress_init(module *parent, const char *opts)
-{
+static void* openapv_compress_init(module *parent, const char *opts) {
         state_video_compress_oapv *s;
 
         if (opts && strcmp(opts, "help") == 0) {
@@ -74,8 +99,7 @@ static shared_ptr<video_frame> openapv_compress_pop(void *state) {
     return {};
 }
 
-static void openapv_compress_done(void  *state)
-{
+static void openapv_compress_done(void  *state) {
         auto *s = (struct state_video_compress_oapv *) state;
         delete s;
 }
