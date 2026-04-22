@@ -6,6 +6,8 @@
 #include "video_compress.h"
 #include "video_frame.h"
 #include "video.h"
+#include "utils/video_frame_pool.h"
+#include "utils/synchronized_queue.h"
 
 #define MAX_BS_BUF   (128 * 1024 * 1024) // bitstream buffer size (128 MiB)
 #define MAX_NUM_FRMS (1) // support only primary frame
@@ -30,6 +32,11 @@ struct state_video_compress_oapv {
         oapv_imgb_t imgb{};         // planar pixel data of input frame
 
         struct video_desc saved_desc{}; // last configured video description
+
+        video_frame_pool pool;
+        bool configured = false;
+
+        synchronized_queue<shared_ptr<struct video_frame>, 1> out_queue;
 };
 
 state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
@@ -155,6 +162,10 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         s->saved_desc.color_spec = desc.color_spec;
         s->saved_desc.tile_count  = 1;
 
+        s->pool.reconfigure(s->saved_desc, s->cdsc.max_bs_buf_size);
+
+        s->configured = true;
+
         return true;
 }
 
@@ -222,7 +233,15 @@ static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
                 return;
         }
 
-        std::cout << "Encoded frame: " << s->stat.write << " bytes\n";
+        shared_ptr<video_frame> out = s->pool.get_frame();
+        struct tile *out_tile = vf_get_tile(out.get(), 0);
+        memcpy(out_tile->data, s->bitb.addr, s->stat.write);
+        out_tile->data_len = s->stat.write;
+
+        vf_copy_metadata(out.get(), frame.get());
+        out->compress_end = get_time_in_ns();
+
+        s->out_queue.push(out);
 }
 
 static shared_ptr<video_frame> openapv_compress_pop(void *state) {
