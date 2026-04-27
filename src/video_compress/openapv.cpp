@@ -142,6 +142,16 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
                 return false;
         }
 
+        int au_bs_fmt = OAPV_CFG_VAL_AU_BS_FMT_NONE;
+        int au_bs_fmt_size = sizeof(au_bs_fmt);
+        ret = oapve_config(s->id, OAPV_CFG_SET_AU_BS_FMT, &au_bs_fmt, &au_bs_fmt_size);
+        if (OAPV_FAILED(ret)) {
+                printf("Failed to set OAPV AU bitstream format: %d\n", ret);
+                oapve_delete(s->id);
+                s->id = nullptr;
+                return false;
+        }
+
         s->mid = oapvm_create(&ret);
         if (OAPV_FAILED(ret)) {
                 printf("Failed to create OAPV metadata: %d\n", ret);
