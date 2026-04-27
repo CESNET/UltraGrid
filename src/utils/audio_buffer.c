@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2016-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -155,10 +155,16 @@ int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
                 int len_drop = (1<<buf->aggressivity) * buf->desc.bps * buf->desc.ch_count * 128;
                 len_drop = min(len_drop, remaining_bytes / 2);
 
+                int frame_size = buf->desc.bps * buf->desc.ch_count;
+                len_drop = len_drop / frame_size * frame_size;
+
                 char *tmp = alloca(len_drop);
                 ring_buffer_read(buf->ring, tmp, len_drop);
                 buf->last_overrun = 0;
-                log_msg(LOG_LEVEL_VERBOSE, "Dropped audio samples: req latency %d remaining %d dropped %d!\n", requested_latency_bytes, remaining_bytes, len_drop);
+                log_msg(LOG_LEVEL_VERBOSE,
+                        "Dropped audio bytes: req latency %d remaining %d "
+                        "dropped %d!\n",
+                        requested_latency_bytes, remaining_bytes, len_drop);
         } else {
                 buf->last_overrun += 1;
         }
