@@ -132,6 +132,7 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         s->cdsc.param[0].fps_den = get_framerate_d(desc.fps);
 
         s->cdsc.param[0].rc_type = OAPV_RC_ABR;
+        s->cdsc.param[0].qp      = OAPVE_PARAM_QP_AUTO;
 
         s->cdsc.param[0].profile_idc = OAPV_PROFILE_422_10;
 
@@ -155,16 +156,18 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
                 return false;
         }
 
-        s->saved_desc.width = desc.width;
-        s->saved_desc.height = desc.height;
-        s->saved_desc.fps = desc.fps;
-        s->saved_desc.interlacing = desc.interlacing;
-        s->saved_desc.color_spec = desc.color_spec;
-        s->saved_desc.tile_count  = 1;
+        struct video_desc compressed_desc{};
+        compressed_desc.width       = desc.width;
+        compressed_desc.height      = desc.height;
+        compressed_desc.color_spec  = APV;
+        compressed_desc.fps         = desc.fps;
+        compressed_desc.interlacing = desc.interlacing;
+        compressed_desc.tile_count  = 1;
 
-        s->pool.reconfigure(s->saved_desc, s->cdsc.max_bs_buf_size);
+        s->pool.reconfigure(compressed_desc, s->cdsc.max_bs_buf_size);
 
         s->configured = true;
+        s->saved_desc = desc;
 
         return true;
 }
@@ -219,7 +222,7 @@ static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
         state_video_compress_oapv *s = static_cast<state_video_compress_oapv *>(state);
         const auto desc = video_desc_from_frame(frame.get());
 
-        if (!video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
+        if (!s->configured || !video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
                 if (!configure_with(s, desc)) {
                         printf("Failed to configure OpenAPV encoder with new video description\n");
                         return;
@@ -228,6 +231,7 @@ static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
         struct tile *in_tile = vf_get_tile(frame.get(), 0);
         uyvy_to_yuv422p((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
 
+        s->bitb.ssize = 0;
         int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
         if (OAPV_FAILED(ret)) {
                 return;
