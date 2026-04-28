@@ -152,7 +152,7 @@ portaudio_print_help(enum portaudio_device_direction kind, bool full)
                 const char *highlight = TERM_BOLD;
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
                 // filter out (or differently highlight in verbose mode) unusable devices
-                if (has_channels(device_info, kind)) {
+                if (!has_channels(device_info, kind)) {
                         if (log_level < LOG_LEVEL_VERBOSE) {
                                 continue;
                         } else {
