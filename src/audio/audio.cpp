@@ -1064,7 +1064,6 @@ static void *audio_sender_thread(void *arg)
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         bool audio_spec_to_vrxtx_set = false;
-        struct audio_frame *buffer = NULL;
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
                 resampler_state = unique_ptr<audio_frame2_resampler>(new audio_frame2_resampler);
@@ -1096,7 +1095,8 @@ static void *audio_sender_thread(void *arg)
                         rtcp_recv_r(s->audio_network_device, &timeout, ts);
                 }
 
-                buffer = audio_capture_read(s->audio_capture_device);
+                const struct audio_frame *buffer =
+                    audio_capture_read(s->audio_capture_device);
                 if(buffer) {
                         if(s->echo_state) {
 #ifdef HAVE_SPEEXDSP

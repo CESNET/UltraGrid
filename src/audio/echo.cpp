@@ -227,7 +227,8 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
         }
 }
 
-struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame *frame)
+const struct audio_frame *
+echo_cancel(struct echo_cancellation *s, const struct audio_frame *frame)
 {
         std::lock_guard lk(s->lock);
 
@@ -341,4 +342,3 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
         return res;
 }
-

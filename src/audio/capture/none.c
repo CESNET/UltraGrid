@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -80,7 +80,8 @@ static void * audio_cap_none_init(struct module *parent, const char *cfg)
         return s;
 }
 
-static struct audio_frame *audio_cap_none_read(void *state)
+static const struct audio_frame *
+audio_cap_none_read(void *state)
 {
         UNUSED(state);
         return NULL;

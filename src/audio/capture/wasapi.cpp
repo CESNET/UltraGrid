@@ -3,7 +3,7 @@
  * @author Martin Pulec <martin.pulec@cesnet.cz>
  */
 /*
- *  Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ *  Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
  *  All rights reserved.
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -438,7 +438,8 @@ static void audio_cap_wasapi_done(void *state)
 }
 
 #define FAIL_IF_NOT(cmd) do {HRESULT hr = cmd; if (hr != S_OK) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; return nullptr;}} while(0)
-static struct audio_frame *audio_cap_wasapi_read(void *state)
+static const struct audio_frame *
+audio_cap_wasapi_read(void *state)
 {
         auto s = static_cast<state_acap_wasapi *>(state);
 

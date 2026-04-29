@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -62,7 +62,8 @@ struct echo_cancellation * echo_cancellation_init(void);
 void echo_cancellation_destroy(struct echo_cancellation *state);
 void echo_play(struct echo_cancellation *state, struct audio_frame *frame);
 
-struct audio_frame * echo_cancel(struct echo_cancellation *state, struct audio_frame *frame);
+const struct audio_frame *echo_cancel(struct echo_cancellation *state,
+                                      const struct audio_frame *frame);
 
 #ifdef __cplusplus
 }

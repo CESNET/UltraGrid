@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
 #include "audio/audio_capture.h"
 #include "audio/capture/sdi.h"
 #include "audio/types.h"
+#include "compat/c23.h"           // IWYU pragma: keep
 
 /* vidcap flags */
 #include "video_capture.h"
@@ -118,13 +119,13 @@ void audio_capture_done(struct state_audio_capture *s)
         }
 }
 
-struct audio_frame * audio_capture_read(struct state_audio_capture *s)
+const struct audio_frame *
+audio_capture_read(struct state_audio_capture *s)
 {
-        if(s) {
-                return s->funcs->read(s->state);
-        } else {
-                return NULL;
+        if (s == nullptr) {
+                return nullptr;
         }
+        return s->funcs->read(s->state);
 }
 
 /**

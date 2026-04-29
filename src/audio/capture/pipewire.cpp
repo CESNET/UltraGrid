@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2023 CESNET z.s.p.o.
+ * Copyright (c) 2023-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -289,7 +289,7 @@ static void *audio_cap_pipewire_init(module *parent, const char *cfg){
         return s.release();
 }
 
-static audio_frame *audio_cap_pipewire_read(void *state){
+static const audio_frame *audio_cap_pipewire_read(void *state){
         auto s = static_cast<state_pipewire_cap *>(state);
 
         s->frame.data_len = ring_buffer_read(s->ring_buf.get(), s->frame.data, s->frame.max_size);

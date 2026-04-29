@@ -301,7 +301,7 @@ error:
         return NULL;
 }
 
-static struct audio_frame *
+static const struct audio_frame *
 audio_cap_fluidsynth_read(void *state)
 {
         struct state_fluidsynth_capture *s = state;

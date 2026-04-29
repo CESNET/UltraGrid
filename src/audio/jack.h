@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ extern "C" {
 struct audio_frame;
 
 void * jack_start(const char *cfg);
-void jack_send(void *s, struct audio_frame *frame);
+void jack_send(void *s, const struct audio_frame *frame);
 bool jack_receive(void *state, void *data);
 
 int is_jack_sender(void *state);

@@ -405,7 +405,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         return NULL;
 }
 
-static struct audio_frame *audio_cap_ca_read(void *state)
+static const struct audio_frame *audio_cap_ca_read(void *state)
 {
         struct state_ca_capture *s = (struct state_ca_capture *) state;
         int ret = false;

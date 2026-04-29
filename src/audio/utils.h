@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,7 +52,7 @@
 
 #ifdef __cplusplus
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
-double calculate_rms(audio_frame *frame, int channel, double *peak);
+double calculate_rms(const audio_frame *frame, int channel, double *peak);
 void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
 #endif
 

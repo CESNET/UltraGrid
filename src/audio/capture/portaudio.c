@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -309,7 +309,8 @@ static int callback( const void *inputBuffer, void *outputBuffer,
 }
 
 // read from input device
-static struct audio_frame * audio_cap_portaudio_read(void *state)
+static const struct audio_frame *
+audio_cap_portaudio_read(void *state)
 {
         struct state_portaudio_capture *s = 
                         (struct state_portaudio_capture *) state;

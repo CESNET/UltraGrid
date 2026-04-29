@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@ public:
 
         af_result_code reconfigure(int bps, int ch_count, int sample_rate);
 
-        af_result_code filter(struct audio_frame **frame);
+        af_result_code filter(const struct audio_frame **frame);
 
         struct module *get_module() { return mod.get(); }
 private:

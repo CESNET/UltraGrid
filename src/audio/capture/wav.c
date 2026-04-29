@@ -111,7 +111,7 @@ audio_cap_wav_init(struct module * /*parent */, const char *cfg)
         return s;
 }
 
-static struct audio_frame *
+static const struct audio_frame *
 audio_cap_wav_read(void *state)
 {
         struct state_audio_capture_wav *s = state;

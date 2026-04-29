@@ -139,7 +139,7 @@ static void get_configured_out(void *state,
         if(sample_rate) *sample_rate = s->sample_rate;
 }
 
-static af_result_code filter(void *state, struct audio_frame **frame){
+static af_result_code filter(void *state, const struct audio_frame **frame){
         auto s = static_cast<state_channel_remap *>(state);
         auto f = *frame;
 

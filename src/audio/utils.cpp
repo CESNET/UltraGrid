@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,7 +166,8 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
         }
 }
 
-double calculate_rms(audio_frame *frame, int channel, double *peak)
+double
+calculate_rms(const audio_frame *frame, int channel, double *peak)
 {
         assert(channel < frame->ch_count);
         char *data = frame->data + channel * frame->bps;

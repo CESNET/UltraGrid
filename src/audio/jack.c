@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -354,7 +354,8 @@ error:
         return NULL;
 }
 
-void jack_send(void *state, struct audio_frame *frame)
+void
+jack_send(void *state, const struct audio_frame *frame)
 {
         //float *tmp = (char *) s->play_buffer + s->play_buffer_end;
         struct state_jack *s = (struct state_jack *) state;

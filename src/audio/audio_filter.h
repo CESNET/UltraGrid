@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,7 +91,7 @@ struct audio_filter_info{
         /// @param state         filter state
         /// @param f             frame to filter, can take ownership of passed
 		//                       frame and return a different one
-        enum af_result_code (*filter)(void *state, struct audio_frame **f);
+        enum af_result_code (*filter)(void *state, const struct audio_frame **f);
 };
 
 struct audio_filter{
@@ -113,7 +113,7 @@ void audio_filter_get_configured_out(struct audio_filter *state,
 void audio_filter_get_configured_in(struct audio_filter *state,
                 int *bps, int *ch_count, int *sample_rate);
 
-enum af_result_code audio_filter(struct audio_filter *state, struct audio_frame **frame);
+enum af_result_code audio_filter(struct audio_filter *state, const struct audio_frame **frame);
 
 //void register_audio_filter(struct audio_filter_info *filter);
 

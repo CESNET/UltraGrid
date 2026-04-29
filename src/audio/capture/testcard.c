@@ -449,7 +449,8 @@ static void *audio_cap_testcard_init(struct module *parent, const char *cfg)
         return s;
 }
 
-static struct audio_frame *audio_cap_testcard_read(void *state)
+static const struct audio_frame *
+audio_cap_testcard_read(void *state)
 {
         struct state_audio_capture_testcard *s;
         s = (struct state_audio_capture_testcard *) state;

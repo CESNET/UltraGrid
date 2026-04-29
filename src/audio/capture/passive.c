@@ -92,7 +92,7 @@ audio_cap_passive_init(struct module *parent, const char *cfg)
         return s;
 }
 
-static struct audio_frame *
+static const struct audio_frame *
 audio_cap_passive_read(void *state)
 {
         enum {
@@ -112,7 +112,7 @@ audio_cap_passive_read(void *state)
                 .sample_rate = kHz48,
                 .ch_count    = 1,
         };
-        return (struct audio_frame *) &f;
+        return &f;
 }
 
 static void

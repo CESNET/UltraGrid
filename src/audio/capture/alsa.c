@@ -327,7 +327,8 @@ error:
         return NULL;
 }
 
-static struct audio_frame *audio_cap_alsa_read(void *state)
+static const struct audio_frame *
+audio_cap_alsa_read(void *state)
 {
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
         int rc;

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,10 +48,12 @@ struct module;
 
 #define AUDIO_CAPTURE_ABI_VERSION 7
 
+typedef const struct audio_frame *audio_capture_read_fn(void *state);
+
 struct audio_capture_info {
         device_probe_func probe;
         void *(*init)(struct module *parent, const char *cfg); ///< @param cfg is not NULL
-        struct audio_frame *(*read)(void *state);
+        audio_capture_read_fn *read;
         void (*done)(void *state);
 };
 
@@ -67,7 +69,7 @@ void                        audio_capture_print_help(bool);
 int                         audio_capture_init(struct module *parent, const char *driver, const char *cfg,
                 struct state_audio_capture **);
 struct state_audio_capture *audio_capture_init_null_device(void);
-struct audio_frame         *audio_capture_read(struct state_audio_capture * state);
+const struct audio_frame   *audio_capture_read(struct state_audio_capture * state);
 void                        audio_capture_done(struct state_audio_capture * state);
 
 unsigned int                audio_capture_get_vidcap_flags(const char *device_name);

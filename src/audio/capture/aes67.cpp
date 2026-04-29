@@ -4,7 +4,7 @@
  *
  */
 /*
- * Copyright (c) 2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2025-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -533,7 +533,7 @@ static void *audio_cap_aes67_init(struct module *parent, const char *cfg) {
         return s.release();
 }
 
-static struct audio_frame *audio_cap_aes67_read(void *state){
+static const struct audio_frame *audio_cap_aes67_read(void *state){
         auto s = static_cast<state_aes67_cap*>(state);
 
         s->front_frame.data.clear();

@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET, z. s. p. o.
+ * Copyright (c) 2022-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,7 @@ static void get_configured(void *state,
         if(sample_rate) *sample_rate = s->sample_rate;
 }
 
-static af_result_code filter(void *state, struct audio_frame **frame){
+static af_result_code filter(void *state, const struct audio_frame **frame){
         auto s = static_cast<state_discard *>(state);
 
         auto f = *frame;

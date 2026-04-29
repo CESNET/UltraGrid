@@ -339,7 +339,8 @@ static void process_messages(struct exporter *s) {
         }
 }
 
-void export_audio(struct exporter *s, struct audio_frame *frame)
+void
+export_audio(struct exporter *s, const struct audio_frame *frame)
 {
         if(!s){
                 return;

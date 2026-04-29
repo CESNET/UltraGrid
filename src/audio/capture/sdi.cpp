@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -125,7 +125,8 @@ static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
         return new state_sdi_capture();
 }
 
-static struct audio_frame * audio_cap_sdi_read(void *state)
+static const struct audio_frame *
+audio_cap_sdi_read(void *state)
 {
         struct state_sdi_capture *s = (struct state_sdi_capture *) state;
 

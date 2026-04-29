@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017 CESNET z.s.p.o.
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,7 @@ struct video_frame;
 
 struct exporter *export_init(struct module *parent, const char *cfg, bool should_export);
 void export_destroy(struct exporter *state);
-void export_audio(struct exporter *state, struct audio_frame *frame);
+void export_audio(struct exporter *state, const struct audio_frame *frame);
 void export_video(struct exporter *state, struct video_frame *frame);
 
 #ifdef __cplusplus

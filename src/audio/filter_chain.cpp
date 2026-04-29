@@ -76,7 +76,7 @@ void Filter_chain::clear(){
         }
 }
 
-af_result_code Filter_chain::filter(struct audio_frame **frame){
+af_result_code Filter_chain::filter(const struct audio_frame **frame){
         struct message *msg;
         while ((msg = check_message(mod.get()))) {
                 std::string_view text = ((msg_universal *) msg)->text;

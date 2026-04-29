@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2024 CESNET z.s.p.o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -277,7 +277,8 @@ error:
         return NULL;
 }
 
-static struct audio_frame *audio_cap_jack_read(void *state)
+static const struct audio_frame *
+audio_cap_jack_read(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 

@@ -78,7 +78,7 @@ void audio_filter_destroy(struct audio_filter *state){
         state->state = {};
 }
 
-af_result_code audio_filter(struct audio_filter *state, struct audio_frame **frame){
+af_result_code audio_filter(struct audio_filter *state, const struct audio_frame **frame){
         return state->info->filter(state->state, frame);
 }
 

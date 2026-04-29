@@ -131,7 +131,7 @@ get_configured_desc(void *state, int *bps, int *ch_count, int *sample_rate)
 }
 
 static enum af_result_code
-filter(void *state, struct audio_frame **frame)
+filter(void *state, const struct audio_frame **frame)
 {
         struct state_silence *s = state;
 
