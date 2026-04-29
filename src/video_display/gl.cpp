@@ -1274,14 +1274,6 @@ static void gl_render(struct state_gl *s, char *data)
         gl_check_error();
 }
 
-/// @note lk will be unlocked!
-static void pop_frame(struct state_gl *s, unique_lock<mutex> &lk)
-{
-        s->frame_queue.pop();
-        lk.unlock();
-        s->frame_consumed_cv.notify_one();
-}
-
 /// draw pause symbol (2 vertical bars) to the lefttop part of the frame
 static void
 draw_pause()
@@ -1370,8 +1362,11 @@ static void gl_process_frames(struct state_gl *s)
                         return;
                 }
                 frame = s->frame_queue.front();
+                s->frame_queue.pop();
+                lk.unlock();
+                s->frame_consumed_cv.notify_one();
+
                 if (!frame) {
-                        pop_frame(s, lk);
                         return;
                 }
 
@@ -1418,10 +1413,6 @@ static void gl_process_frames(struct state_gl *s)
                 glfwSwapBuffers(s->window);
         }
         log_msg(LOG_LEVEL_DEBUG, "Render buffer %dx%d\n", frame->tiles[0].width, frame->tiles[0].height);
-        {
-                unique_lock<mutex> lk(s->lock);
-                pop_frame(s, lk);
-        }
 }
 
 static int64_t translate_glfw_to_ug(int key, int mods) {
