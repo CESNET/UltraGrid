@@ -628,18 +628,17 @@ struct state_root {
         static void should_exit_watcher(state_root *s) {
                 set_thread_name(__func__);
                 char q = 0;
-                bool should_exit_thread_notified = false;
                 while (q != QUIT_WATCHER_FLAG) {
                         while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &q,
                                                   1) != 1) {
                                 perror("PLATFORM_PIPE_READ");
                         }
-                        if (!should_exit_thread_notified) {
-                                unique_lock<mutex> lk(s->lock);
+                        unique_lock<mutex> lk(s->lock);
+                        if (!s->should_exit_thread_notified) {
                                 for (auto const &c : s->should_exit_callbacks) {
                                         get<0>(c)(get<1>(c));
                                 }
-                                should_exit_thread_notified = true;
+                                s->should_exit_thread_notified = true;
                         }
                 }
         }
@@ -652,6 +651,7 @@ struct state_root {
         }
 
         volatile int exit_status = EXIT_SUCCESS;
+        bool should_exit_thread_notified = false;
 private:
         static constexpr char QUIT_WATCHER_FLAG = 1;
         mutex lock;
@@ -1217,6 +1217,13 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
         auto              *s = (state_root *) get_root_module(mod)->priv_data;
         unique_lock<mutex> lk(s->lock);
         s->should_exit_callbacks.emplace_back(callback, udata);
+        // actually exit_uv has already been called - call the callback directly
+        // (it won't be otherwise), TODO: reconsider better solution - maybe
+        // delay the watcher thread later? (before cleanup/mainloop in main)
+        if (s->should_exit_thread_notified) {
+                lk.unlock();
+                callback(udata);
+        }
 }
 
 /**
@@ -1238,6 +1245,7 @@ unregister_should_exit_callback(struct module *mod, void (*callback)(void *),
                         return;
                 }
         }
+        MSG(ERROR, "Unregistered non-existent callback!\n");
         abort();
 }
 
