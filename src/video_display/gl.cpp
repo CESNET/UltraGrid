@@ -51,16 +51,13 @@
 #include "spout_sender.h"
 #include "syphon_server.h"
 
-#include <algorithm>
 #include <cassert>
 #include <cerrno>               // for ETIMEDOUT
 #include <climits>
 #include <cmath>
 #include <cstdint>
-#include <fstream>
 #include <iterator>             // for std::size
 #include <pthread.h>
-#include <queue>
 #include <strings.h>            // for strcasecmp
 
 #include "color_space.h"
@@ -81,6 +78,7 @@ extern "C" {
 #include "utils/dictionary.h"
 }
 #include "utils/debug.h"         // for DEBUG_TIMER_*
+#include "utils/list.h"          // for simple_linked_list
 #include "utils/macros.h"        // for OPTIMIZED_FOR
 #include "video.h"
 #include "video_display.h"
@@ -97,9 +95,7 @@ extern "C" {
 
 #include "gl_vdpau.hpp"
 
-using std::queue;
 using std::swap;
-using namespace std::chrono_literals;
 
 static const char * deinterlace_fp = R"raw(
 #version 110
@@ -433,8 +429,8 @@ struct state_gl {
 
         struct video_frame *current_frame = nullptr;
 
-        queue<struct video_frame *> frame_queue;
-        queue<struct video_frame *> free_frame_queue;
+        struct simple_linked_list *frame_queue;
+        struct simple_linked_list *free_frame_queue;
         struct video_desc current_desc = {};
         struct video_desc current_display_desc {};
         pthread_mutex_t lock;
@@ -495,12 +491,16 @@ static void gl_print_monitors(bool fullhelp) {
         int count = 0;
         GLFWmonitor **mon = glfwGetMonitors(&count);
         if (count <= 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No monitors found!\n";
+                MSG(ERROR, "No monitors found!\n");
         }
         GLFWmonitor *primary = glfwGetPrimaryMonitor();
         for (int i = 0; i < count; ++i) {
-                col() << "\t" << (mon[i] == primary ? "*" : " ") << TBOLD(<< i <<) << ") " << glfwGetMonitorName(mon[i]);
-#if GLFW_VERSION_MAJOR > 3 || (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3)
+                color_printf("\t%s" TBOLD("%d")
+                             ") %s",
+                             mon[i] == primary ? "*" : " ", i,
+                             glfwGetMonitorName(mon[i]));
+#if GLFW_VERSION_MAJOR > 3 || \
+    (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR >= 3)
                 int xpos, ypos, width, height;
                 glfwGetMonitorWorkarea(mon[i], &xpos, &ypos, &width, &height);
                 printf(" - %dx%d+%d+%d\n", width, height, xpos, ypos);
@@ -577,61 +577,81 @@ gl_print_current_platform()
 static void
 gl_show_help(bool full)
 {
-        col() << "usage:\n";
-        col() << SBOLD(SRED("\t-d gl[:<options>]")
-                       << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "]"
-                                : ""))
-              << "\n";
-        col() << SBOLD("\t-d gl[:platform=<p>]:[full]help") "\n\n";
-        col() << "options:\n";
-        col() << TBOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
-        col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
-        col() << TBOLD("\td[force]")    << "\tdeinterlace (optionally forcing deinterlace of progressive video)\n";
-        col() << TBOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
-        col() << TBOLD("\tgamma[=<val>]")
-              << "\tgamma value to be added _in addition_ to the hardware "
-                 "gamma correction\n";
-        col() << TBOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
-        col() << TBOLD("\tmodeset[=<fps>]")
-              << "\tset received video mode as display mode (in fullscreen)\n"
-                 "\t\t\t"
-              << SUNDERLINE("fps") " - override FPS; "
-              << SUNDERLINE("modeset=size") << " - set only size\n";
-        col() << TBOLD("\tnodecorate") << "\tdisable window decorations\n";
-        col() << TBOLD("\tnovsync")     << "\t\tdo not turn sync on VBlank\n";
-        col() << TBOLD("\t[no]pbo")     << "\t\tWhether or not use PBO (ignore if not sure)\n";
-        col() << TBOLD("\tsingle")      << "\t\tuse single buffer (instead of double-buffering)\n";
-        col() << TBOLD("\tsize=<ratio>%")
-              << "\tspecifies desired size of window relative\n"
-                 "\t\t\tto native resolution (in percents)\n";
-        col() << TBOLD("\tsize=<W>x<H>")
-              << "\twindow size in pixels, with optional position; full\n"
-              << "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
-              << (full ? " [1]" : "") << "\n";
+        color_printf("usage:\n");
+        color_printf(TBOLD(TRED("\t-d gl[:<options>]") "%s")
+                     "\n",
+                     full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "]"
+                          : "");
+        color_printf(TBOLD("\t-d gl[:platform=<p>]:[full]help") "\n\n");
+        color_printf("options:\n");
+        color_printf(TBOLD("\taspect=<w>/<h>") "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
+        color_printf(TBOLD("\tcursor")      "\t\tshow visible cursor\n");
+        color_printf(TBOLD("\td[force]")    "\tdeinterlace (optionally forcing deinterlace of progressive video)\n");
+        color_printf(TBOLD("\tfs[=<monitor>]") "\tfullscreen with optional display specification\n");
+        color_printf(
+            TBOLD("\tgamma[=<val>]")
+                     "\tgamma value to be added _in addition_ to the hardware "
+                     "gamma correction\n");
+        color_printf(
+            TBOLD("\thide-window")
+            "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n");
+        color_printf(
+            TBOLD("\tmodeset[=<fps>]")
+            "\tset received video mode as display mode (in fullscreen)\n"
+            "\t\t\t" TUNDERLINE("fps") " - override FPS; " TUNDERLINE(
+                "modeset=size") " - set only size\n");
+
+        color_printf(TBOLD("\tnodecorate")
+                     "\tdisable window decorations\n");
+        color_printf(TBOLD("\tnovsync")
+                     "\t\tdo not turn sync on VBlank\n");
+        color_printf(TBOLD("\t[no]pbo")
+                     "\t\tWhether or not use PBO (ignore if not sure)\n");
+        color_printf(
+            TBOLD("\tsingle")
+                     "\t\tuse single buffer (instead of double-buffering)\n");
+        color_printf(TBOLD("\tsize=<ratio>%%")
+                     "\tspecifies desired size of window relative\n"
+                     "\t\t\tto native resolution (in percents)\n");
+        color_printf(
+            TBOLD("\tsize=<W>x<H>")
+                     "\twindow size in pixels, with optional position; full\n"
+                     "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
+                     "%s\n",
+                     full ? " [1]" : "");
         if (full) {
-                col() << TBOLD("\tsize=<mode_name>")
-                      << " mode name (eg. VGA), use \"help\" to show\n";
+                color_printf(
+                    TBOLD("\tsize=<mode_name>")
+                             " mode name (eg. VGA), use \"help\" to show\n");
         }
-        col() << TBOLD("\tfixed_size") << "\tdo not resize window on new stream\n";
-        col() << TBOLD("\tnoresizable") << "\twindow won't be resizable (useful with size=)\n";
+        color_printf(TBOLD("\tfixed_size")
+                     "\tdo not resize window on new stream\n");
+        color_printf(TBOLD("\tnoresizable")
+                     "\twindow won't be resizable (useful with size=)\n");
 #ifdef SPOUT
-        col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
+        color_printf(TBOLD("\tspout")
+                     "\t\tuse Spout (optionally with name)\n");
 #endif
 #ifdef SYPHON
-        col() << TBOLD("\tsyphon")      << "\t\tuse Syphon (optionally with name)\n";
+        color_printf(TBOLD("\tsyphon")
+                     "\t\tuse Syphon (optionally with name)\n");
 #endif
-        col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
+        color_printf(TBOLD("\tvsync=<x>")
+                     "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive "
+                     "vsync; D - leaves system default\n");
         if (full) {
-                col() << TBOLD("\tinit_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
+                color_printf(TBOLD("\tinit_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "init hint key\n"
-                         "\t\t\t<k> to value <v> (" TBOLD("list_hints")" to enumerate)\n";
-                col() << TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
+                         "\t\t\t<k> to value <v> (" TBOLD("list_hints")" to enumerate)\n");
+                color_printf(TBOLD("\twindow_hint=<k>=<v>[,<k2>=<v2>]")" set GLFW "
                         "window hint key\n"
-                         "\t\t\t<k> to value <v>,  (" TBOLD("list_hints")" to enumerate)\n";
-                col() << TBOLD("\tplatform=<p>")   << "\tuse platform (usable only in Linux)\n";
-                col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
-                col() << "\n" TBOLD(
-                    "[1]") " position doesn't work in Wayland\n";
+                         "\t\t\t<k> to value <v>,  (" TBOLD("list_hints")" to enumerate)\n");
+                color_printf(TBOLD("\tplatform=<p>")
+                             "\tuse platform (usable only in Linux)\n");
+                color_printf(TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)
+                    "\tdo not set 10-bit framebuffer (performance issues)\n");
+                color_printf("\n" TBOLD("[1]")
+                             " position doesn't work in Wayland\n");
         } else {
                 color_printf(
                     "\t(use \"" TBOLD("fullhelp") "\" to see options)\n");
@@ -663,17 +683,20 @@ gl_show_help(bool full)
                 MSG(ERROR, "Cannot initialize GLFW!\n");
         }
 
-        col() << "Compiled " << SBOLD("features: ") << "SPOUT - "
-              << FEATURE_PRESENT(SPOUT) << ", Syphon - "
-              << FEATURE_PRESENT(SYPHON) << ", VDPAU - "
-              << FEATURE_PRESENT(HWACC_VDPAU) << "\n";
+        color_printf("Compiled " TBOLD("features: ")
+                     "SPOUT - %s"
+                     ", Syphon - %s"
+                     ", VDPAU - %s\n",
+                     FEATURE_PRESENT(SPOUT), FEATURE_PRESENT(SYPHON),
+                     FEATURE_PRESENT(HWACC_VDPAU));
+
 }
 
 static void gl_load_splashscreen(struct state_gl *s)
 {
         struct video_frame *frame = get_splashscreen();
         display_gl_reconfigure(s, video_desc_from_frame(frame));
-        s->frame_queue.push(frame);
+        simple_linked_list_append(s->frame_queue, frame);
 }
 
 static bool set_size(struct state_gl *s, const char *tok)
@@ -858,7 +881,9 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if(!strcasecmp(tok, "novsync")) {
                         s->vsync = 0;
                 } else if(!strcasecmp(tok, "single")) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Single-buffering is not recommended and may not work, also GLFW discourages its use.\n";
+                        MSG(WARNING,
+                            "Single-buffering is not recommended and may not "
+                            "work, also GLFW discourages its use.\n");
                         s->vsync = SINGLE_BUF;
                 } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
                         if (toupper((tok + strlen("vsync="))[0]) == 'D') {
@@ -930,15 +955,12 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         pthread_mutex_init(&s->lock, nullptr);
         pthread_cond_init(&s->new_frame_ready_cv, nullptr);
         pthread_cond_init(&s->frame_consumed_cv, nullptr);
+        s->frame_queue = simple_linked_list_init();
+        s->free_frame_queue = simple_linked_list_init();
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
-                bool ret = false;
-                try {
-                        ret = display_gl_parse_fmt(s, tmp);
-                } catch (std::invalid_argument &e) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid numeric value for an option!\n";
-                }
+                bool ret = display_gl_parse_fmt(s, tmp);
                 free(tmp);
                 if (!ret) {
                         display_gl_done(s);
@@ -1028,7 +1050,9 @@ display_gl_reconfigure(void *state, struct video_desc desc)
                     s->mode_depth);
         }
         if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == DEINT_OFF) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
+                MSG(WARNING, "Receiving interlaced video but deinterlacing is "
+                             "off - suggesting toggling it on (press 'd' or "
+                             "pass cmdline option)\n");
         }
 
         s->current_desc = desc;
@@ -1041,7 +1065,8 @@ static void glfw_print_video_mode(struct state_gl *s) {
                 return;
         }
         const GLFWvidmode* mode = glfwGetVideoMode(s->monitor);
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Display mode set to: " << mode->width << "x" << mode->height << "@" << mode->refreshRate << "\n";
+        MSG(NOTICE, "Display mode set to: %dx%d@%d\n", mode->width,
+            mode->height, mode->refreshRate);
 }
 
 static int get_refresh_rate(enum modeset modeset, GLFWmonitor *mon, double video_refresh_rate) {
@@ -1371,7 +1396,7 @@ static void gl_process_frames(struct state_gl *s)
                 pthread_mutex_lock(&s->lock);
                 time_ns_t timeout_ns =
                     MIN(2.0 / s->current_display_desc.fps, 0.1) * NS_IN_SEC;
-                while (s->frame_queue.size() == 0) {
+                while (simple_linked_list_size(s->frame_queue) == 0) {
                         int rc = cond_timedwait(&s->new_frame_ready_cv,
                                                         &s->lock, timeout_ns);
                         if (rc == ETIMEDOUT) {
@@ -1379,8 +1404,7 @@ static void gl_process_frames(struct state_gl *s)
                                 return;
                         }
                 }
-                frame = s->frame_queue.front();
-                s->frame_queue.pop();
+                frame = (struct video_frame *) simple_linked_list_pop(s->frame_queue);
                 pthread_mutex_unlock(&s->lock);
                 pthread_cond_signal(&s->frame_consumed_cv);
 
@@ -1395,7 +1419,8 @@ static void gl_process_frames(struct state_gl *s)
                                 swap(frame, s->current_frame);
                         }
                         vf_recycle(s->current_frame);
-                        s->free_frame_queue.push(s->current_frame);
+                        simple_linked_list_append(s->free_frame_queue,
+                                                  s->current_frame);
                 }
                 s->current_frame = frame;
                 pthread_mutex_unlock(&s->lock);
@@ -1479,7 +1504,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                 }
                                 int refresh_rate = get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
                                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
-                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Setting fullscreen: " << (s->fs ? "ON" : "OFF") << "\n";
+                                MSG(NOTICE, "Setting fullscreen: %s\n", s->fs ? "ON" : "OFF");
                                 set_gamma(s);
                                 glfw_print_video_mode(s);
                                 break;
@@ -1503,7 +1528,9 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         break;
                 case K_ALT('m'):
                         s->show_cursor = (enum show_cursor) (((int) s->show_cursor + 1) % 3);
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
+                        MSG(NOTICE,
+                            "Show cursor (0 - on, 1 - off, 2 - autohide): %d\n",
+                            s->show_cursor);
                         glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == SC_TRUE ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
                         break;
                 case K_CTRL_UP:
@@ -1664,7 +1691,7 @@ static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprog
                 if (color <= 3) {
                         index = color;
                 } else {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
+                        MSG(WARNING, "Wrong chromicities index %u\n", color);
                 }
         }
         if (get_commandline_param("color-601") != nullptr) {
@@ -1712,7 +1739,7 @@ display_gl_set_window_hints(struct state_gl *s)
 static void print_gamma_ramp(GLFWmonitor *monitor) {
         const struct GLFWgammaramp *ramp = glfwGetGammaRamp(monitor);
         if (ramp == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot get gamma ramp!\n";
+                MSG(ERROR, "Cannot get gamma ramp!\n");
                 return;
         }
         MSG(VERBOSE, "Gamma ramp:\n");
@@ -1776,7 +1803,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->monitor == nullptr) {
                 s->monitor = glfwGetPrimaryMonitor();
                 if (s->monitor == nullptr) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No monitor found! Continuing but full-screen will be disabled.\n";
+                        MSG(WARNING, "No monitor found! Continuing but "
+                                     "full-screen will be disabled.\n");
                 }
         }
 
@@ -2066,16 +2094,16 @@ static bool check_rpi_pbo_quirks()
 #if ! defined __linux__
         return false;
 #else
-        std::ifstream cpuinfo("/proc/cpuinfo");
+        FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
         if (!cpuinfo)
                 return false;
 
         bool detected_rpi = false;
         bool detected_bcm2835 = false;
-        std::string line;
-        while (std::getline(cpuinfo, line) && !detected_rpi) {
-                detected_bcm2835 |= line.find("BCM2835") != std::string::npos;
-                detected_rpi |= line.find("Raspberry Pi") != std::string::npos;
+        char line[1024];
+        while (fgets(line, sizeof line, cpuinfo) && !detected_rpi) {
+                detected_bcm2835 |= strstr(line, "BCM2835") != nullptr;
+                detected_rpi |= strstr(line, "Raspberry Pi") != nullptr;
         }
 
         return detected_rpi || detected_bcm2835;
@@ -2238,15 +2266,15 @@ static void display_gl_done(void *state)
                 display_gl_cleanup_opengl(s);
         }
 
-        while (s->free_frame_queue.size() > 0) {
-                struct video_frame *buffer = s->free_frame_queue.front();
-                s->free_frame_queue.pop();
+        while (simple_linked_list_size(s->free_frame_queue) > 0) {
+                auto *buffer = (struct video_frame *) simple_linked_list_pop(
+                    s->free_frame_queue);
                 vf_free(buffer);
         }
 
-        while (s->frame_queue.size() > 0) {
-                struct video_frame *buffer = s->frame_queue.front();
-                s->frame_queue.pop();
+        while (simple_linked_list_size(s->frame_queue) > 0) {
+                auto *buffer = (struct video_frame *) simple_linked_list_pop(
+                    s->frame_queue);
                 vf_free(buffer);
         }
 
@@ -2258,6 +2286,9 @@ static void display_gl_done(void *state)
 
         module_done(&s->mod);
         vdp_destroy(s->vdp);
+
+        simple_linked_list_destroy(s->frame_queue);
+        simple_linked_list_destroy(s->free_frame_queue);
 
         pthread_cond_destroy(&s->new_frame_ready_cv);
         pthread_cond_destroy(&s->frame_consumed_cv);
@@ -2272,9 +2303,9 @@ static struct video_frame * display_gl_getf(void *state)
         assert(s->magic == MAGIC_GL);
 
         pthread_mutex_lock(&s->lock);
-        while (s->free_frame_queue.size() > 0) {
-                struct video_frame *buffer = s->free_frame_queue.front();
-                s->free_frame_queue.pop();
+        while (simple_linked_list_size(s->free_frame_queue) > 0) {
+                auto *buffer = (struct video_frame *) simple_linked_list_pop(
+                    s->free_frame_queue);
                 if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
                         pthread_mutex_unlock(&s->lock);
                         return buffer;
@@ -2297,7 +2328,7 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
         if(!frame) {
                 glfwSetWindowShouldClose(s->window, GLFW_TRUE);
                 pthread_mutex_lock(&s->lock);
-                s->frame_queue.push(frame);
+                simple_linked_list_append(s->frame_queue, frame);
                 pthread_mutex_unlock(&s->lock);
                 pthread_cond_signal(&s->new_frame_ready_cv);
                 return true;
@@ -2307,18 +2338,20 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
         switch (timeout_ns) {
                 case PUTF_DISCARD:
                         vf_recycle(frame);
-                        s->free_frame_queue.push(frame);
+                        simple_linked_list_append(s->free_frame_queue, frame);
                         pthread_mutex_unlock(&s->lock);
                         return 0;
                 case PUTF_BLOCKING:
-                        while (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
+                        while (simple_linked_list_size(s->frame_queue) >=
+                               MAX_BUFFER_SIZE) {
                                 pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
                         }
                         break;
                 case PUTF_NONBLOCK:
                         break;
                 default: {
-                        while (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
+                        while (simple_linked_list_size(s->frame_queue) >=
+                               MAX_BUFFER_SIZE) {
                                 int rc = cond_timedwait(
                                     &s->frame_consumed_cv, &s->lock, timeout_ns);
                                 if (rc == ETIMEDOUT) {
@@ -2328,13 +2361,13 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
                         break;
                 }
         }
-        if (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
+        while (simple_linked_list_size(s->frame_queue) >= MAX_BUFFER_SIZE) {
                 vf_recycle(frame);
-                s->free_frame_queue.push(frame);
+                simple_linked_list_append(s->free_frame_queue, frame);
                 pthread_mutex_unlock(&s->lock);
                 return false;
         }
-        s->frame_queue.push(frame);
+        simple_linked_list_append(s->frame_queue, frame);
 
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->new_frame_ready_cv);
