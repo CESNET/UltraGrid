@@ -1,5 +1,5 @@
 /**
- * @file   video_display/gl.cpp
+ * @file   video_display/gl.c
  * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  * @author Milos Liska      <xliska@fi.muni.cz>
  * @author Martin Piatka    <445597@mail.muni.cz>
@@ -51,16 +51,21 @@
 #include "spout_sender.h"
 #include "syphon_server.h"
 
-#include <cassert>
-#include <cerrno>               // for ETIMEDOUT
-#include <climits>
-#include <cmath>
-#include <cstdint>
-#include <iterator>             // for std::size
-#include <pthread.h>
-#include <strings.h>            // for strcasecmp
+#include <assert.h>   // for assert
+#include <ctype.h>    // for isalpha, tolower, toupper
+#include <errno.h>    // for ETIMEDOUT
+#include <inttypes.h> // for uint32_t, int64_t, uintptr_t, PRIx64
+#include <limits.h>   // for INT_MIN
+#include <math.h>     // for round
+#include <pthread.h>  // for pthread_mutex_unlock, pthread_mutex_lock
+#include <stdio.h>    // for printf, FILE, fgets, fopen, snprintf
+#include <stdlib.h>   // for atoi, free, atof, calloc, strtod, strtol
+#include <string.h>   // for strchr, strstr, strcmp, strlen, memcpy
+#include <strings.h>  // for strcasecmp
+#include <time.h>     // for timespec, CLOCK_MONOTONIC, clock_gettime
 
 #include "color_space.h"
+#include "compat/c23.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"    // for HAVE_SPOUT, HAVE_SYPHON
 #endif
@@ -74,12 +79,10 @@
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
-extern "C" {
 #include "utils/dictionary.h"
-}
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/list.h"          // for simple_linked_list
-#include "utils/macros.h"        // for OPTIMIZED_FOR
+#include "utils/macros.h"        // for OPTIMIZED_FOR, STRINGIFY
 #include "video.h"
 #include "video_display.h"
 
@@ -95,10 +98,8 @@ extern "C" {
 
 #include "gl_vdpau.hpp"
 
-using std::swap;
-
-static const char * deinterlace_fp = R"raw(
-#version 110
+static const char * deinterlace_fp = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 uniform float lineOff;
 void main()
@@ -109,10 +110,10 @@ void main()
         pix_down = texture2D(image, vec2(gl_TexCoord[0].x, gl_TexCoord[0].y + lineOff));
         gl_FragColor = (pix + pix_down) / 2.0;
 }
-)raw";
+);
 
-static const char * uyvy_to_rgb_fp = R"raw(
-#version 110
+static const char * uyvy_to_rgb_fp = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 uniform float imageWidth;
 void main()
@@ -131,10 +132,10 @@ void main()
         gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
         gl_FragColor.a = 1.0;
 }
-)raw";
+);
 
-static const char * yuva_to_rgb_fp = R"raw(
-#version 110
+static const char * yuva_to_rgb_fp = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 void main()
 {
@@ -148,10 +149,10 @@ void main()
         gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
         gl_FragColor.a = yuv.a;
 }
-)raw";
+);
 
-static const char * const vuya_to_rgb_fp = R"raw(
-#version 110
+static const char * const vuya_to_rgb_fp = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 void main()
 {
@@ -165,13 +166,13 @@ void main()
         gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
         gl_FragColor.a = yuv.a;
 }
-)raw";
+);
 
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
-static const char * v210_to_rgb_fp = R"raw(
-#version 110
-#extension GL_EXT_gpu_shader4 : enable
+static const char * v210_to_rgb_fp = STRINGIFY(
+\043version 110\n
+\043extension GL_EXT_gpu_shader4 : enable\n
 uniform sampler2D image;
 uniform float imageWidth;
 
@@ -267,11 +268,11 @@ void main(void) {
 
   gl_FragColor = vec4(outColor, 1.0);
 }
-)raw";
+);
 
 /* DXT YUV (FastDXT) related */
-static const char *fp_display_dxt1_yuv = R"raw(
-#version 110
+static const char *fp_display_dxt1_yuv = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 
 void main(void) {
@@ -287,18 +288,18 @@ void main(void) {
 
         gl_FragColor=vec4(R,G,B,1.0);
 }
-)raw";
+);
 
-static const char * vert = R"raw(
-#version 110
+static const char *vert = STRINGIFY(
+\043version 110\n
 void main() {
         gl_TexCoord[0] = gl_MultiTexCoord0;
         gl_Position = ftransform();
 }
-)raw";
+);
 
-static const char fp_display_dxt5ycocg[] = R"raw(
-#version 110
+static const char *fp_display_dxt5ycocg = STRINGIFY(
+\043version 110\n
 uniform sampler2D image;
 void main()
 {
@@ -314,35 +315,40 @@ void main()
         Y = color.w;
         gl_FragColor = vec4(Y + Co - Cg, Y + Cg, Y - Co - Cg, 1.0);
 } // main end
-)raw";
+);
 
-const static struct pixfmt_config {
+static const struct pixfmt_config {
+#define P(x) &(x), #x
         codec_t     codec;
         GLint       tex_disp_int_fmt;
         GLenum      tex_disp_fmt;
         GLenum      tex_disp_type;
-        const char *prog_name;
+        const char *const *program;
+        const char        *program_name;
 } pixfmt_configs[] = {
-        { DXT1,     0,           0,       0,                              nullptr              },
-        { DXT1_YUV, GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               fp_display_dxt1_yuv  },
-        { DXT5,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               fp_display_dxt5ycocg },
+        { DXT1, 0, 0, 0, nullptr, nullptr },
+        { DXT1_YUV, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+         P(fp_display_dxt1_yuv) },
+        { DXT5, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, P(fp_display_dxt5ycocg) },
 #ifdef HWACC_VDPAU
-        { HW_VDPAU, 0,           0,       0,                              nullptr              },
+        { HW_VDPAU, 0, 0, 0, nullptr, nullptr },
 #endif
-        { R10k,     GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, nullptr              },
-        { RG48,     GL_RGB,      GL_RGB,  GL_UNSIGNED_SHORT,              nullptr              },
-        { RGB,      GL_RGB,      GL_RGB,  GL_UNSIGNED_BYTE,               nullptr              },
-        { RGBA,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               nullptr              },
-        { UYVY,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               uyvy_to_rgb_fp       },
-        { VUYA,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_BYTE,               vuya_to_rgb_fp       },
-        { Y416,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_SHORT,              yuva_to_rgb_fp       },
-        { v210,     GL_RGBA,     GL_RGBA, GL_UNSIGNED_SHORT,              v210_to_rgb_fp       },
+        { R10k, GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, nullptr,
+         nullptr },
+        { RG48, GL_RGB, GL_RGB, GL_UNSIGNED_SHORT, nullptr, nullptr },
+        { RGB, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, nullptr, nullptr },
+        { RGBA, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, nullptr, nullptr },
+        { UYVY, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, P(uyvy_to_rgb_fp) },
+        { VUYA, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, P(vuya_to_rgb_fp) },
+        { Y416, GL_RGBA, GL_RGBA, GL_UNSIGNED_SHORT, P(yuva_to_rgb_fp) },
+        { v210, GL_RGBA, GL_RGBA, GL_UNSIGNED_SHORT, P(v210_to_rgb_fp) },
+#undef P
 };
 
 static struct pixfmt_config const*
 get_pixfmt_config(codec_t codec)
 {
-        for (unsigned i = 0; i < std::size(pixfmt_configs); ++i) {
+        for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
                 if (pixfmt_configs[i].codec == codec) {
                         return &pixfmt_configs[i];
                 }
@@ -366,7 +372,7 @@ static const struct
 };
 
 #ifdef GLFW_PLATFORM
-const static struct {
+static const struct {
         int platform_id;
         const char *name;
 } platform_map[] = {
@@ -378,6 +384,7 @@ const static struct {
 #endif // defined GLFW_PLATFORM
 
 /* Prototyping */
+struct state_gl;
 static bool check_print_display_gl_version(void);
 static void display_gl_done(void *state);
 static bool display_gl_init_opengl(struct state_gl *s);
@@ -407,68 +414,68 @@ enum deint { DEINT_OFF, DEINT_ON, DEINT_FORCE };
 enum modeset { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 };
 
 struct state_gl {
-        GLuint          PHandles[VC_COUNT] = {};
-        GLuint          PHandle_deint = 0;
-        GLuint          current_program = 0;
+        /* For debugging... */
+        uint32_t        magic;
+
+        GLuint          PHandles[VC_COUNT];
+        GLuint          PHandle_deint;
+        GLuint          current_program;
 
         // Framebuffer
-        GLuint fbo_id = 0;
-        GLuint texture_display = 0;
-        GLuint texture_raw = 0;
-        GLuint pbo_id = 0;
+        GLuint fbo_id;
+        GLuint texture_display;
+        GLuint texture_raw;
+        GLuint pbo_id;
 
-        /* For debugging... */
-        uint32_t        magic = MAGIC_GL;
+        GLFWmonitor    *monitor;
+        GLFWwindow     *window;
 
-        GLFWmonitor    *monitor = nullptr;
-        GLFWwindow     *window = nullptr;
+        bool            fs;
+        enum deint      deinterlace;
+        int             mode_depth;
 
-        bool            fs = false;
-        enum deint      deinterlace = DEINT_OFF;
-        int             mode_depth = 0;
-
-        struct video_frame *current_frame = nullptr;
+        struct video_frame *current_frame;
 
         struct simple_linked_list *frame_queue;
         struct simple_linked_list *free_frame_queue;
-        struct video_desc current_desc = {};
-        struct video_desc current_display_desc {};
+        struct video_desc current_desc;
+        struct video_desc current_display_desc;
         pthread_mutex_t lock;
         pthread_cond_t  new_frame_ready_cv;
         pthread_cond_t  frame_consumed_cv;
 
-        double          aspect = 0.0;
-        double          video_aspect = 0.0;
-        double          gamma = 0.0;
+        double          aspect;
+        double          video_aspect;
+        double          gamma;
 
-        int             dxt_height = 0;
+        int             dxt_height;
 
-        int             vsync = 1;
-        bool            noresizable = false;
-        volatile bool   paused = false;
-        enum show_cursor show_cursor = SC_AUTOHIDE;
-        time_ns_t cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
+        int             vsync;
+        bool            noresizable;
+        volatile bool   paused;
+        enum show_cursor show_cursor;
+        time_ns_t cursor_shown_from; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         char            syphon_spout_srv_name[128];
 
-        double          window_size_factor = 1.0;
+        double          window_size_factor;
 
         struct module   mod;
 
-        void *syphon_spout = nullptr;
+        void *syphon_spout;
 
-        bool fixed_size = false;
-        int fixed_w = 0;
-        int fixed_h = 0;
-        int pos_x = INT_MIN;
-        int pos_y = INT_MIN;
+        bool fixed_size;
+        int fixed_w;
+        int fixed_h;
+        int pos_x;
+        int pos_y;
 
-        enum modeset modeset = NOMODESET; ///< positive vals force framerate
+        enum modeset modeset; ///< positive vals force framerate
         struct dictionary *window_hints;
-        int use_pbo = -1;
-        int req_monitor_idx = -1;
-        struct state_vdpau *vdp{};
-        bool         vdp_interop = false;
-        void*        scratchpad{}; ///< scratchpad sized WxHx8
+        int use_pbo;
+        int req_monitor_idx;
+        struct state_vdpau *vdp;
+        bool         vdp_interop;
+        void*        scratchpad; ///< scratchpad sized WxHx8
 
 };
 
@@ -530,7 +537,7 @@ static void
 gl_print_platforms()
 {
         printf("available platforms:\n");
-        for (unsigned i = 0; i < std::size(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (glfwPlatformSupported(platform_map[i].platform_id)) {
                         color_printf("\t- " TBOLD("%s") "\n", platform_map[i].name);
                 }
@@ -543,7 +550,7 @@ gl_print_current_platform()
 {
         const int platform = glfwGetPlatform();
         const char *name = "UNKNOWN/ERROR";
-        for (unsigned i = 0; i < std::size(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (platform_map[i].platform_id == platform) {
                         name = platform_map[i].name;
                         break;
@@ -658,7 +665,7 @@ gl_show_help(bool full)
         }
 
         printf("\nkeyboard shortcuts:\n");
-        for (unsigned i = 0; i < std::size(keybindings); i++) {
+        for (unsigned i = 0; i < countof(keybindings); i++) {
                 char keyname[50];
                 get_keycode_name(keybindings[i].key, keyname, sizeof keyname);
                 color_printf("\t" TBOLD("%s") "\t\t%s\n", keyname,
@@ -749,7 +756,7 @@ static const struct {
 static int
 get_hint_from_string(const char *string)
 {
-        for (unsigned i = 0; i < std::size(hint_map); i++) {
+        for (unsigned i = 0; i < countof(hint_map); i++) {
                 if (strcmp(hint_map[i].name, string) == 0) {
                         return hint_map[i].val;
                 }
@@ -793,7 +800,7 @@ static bool
 set_platform(const char *platform)
 {
 #ifdef GLFW_PLATFORM
-        for (unsigned i = 0; i < std::size(platform_map); ++i) {
+        for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (strcasecmp(platform_map[i].name, platform) == 0) {
                         glfwInitHint(GLFW_PLATFORM, platform_map[i].platform_id);
                         return true;
@@ -826,7 +833,7 @@ list_hints()
                      "glfw3.h>).\n\n");
 
         color_printf("Some of hints keys and values:\n");
-        for (unsigned i = 0; i < std::size(hint_map); i++) {
+        for (unsigned i = 0; i < countof(hint_map); i++) {
                 color_printf("\t" TBOLD("%s") " - %#x\n", hint_map[i].name,
                              hint_map[i].val);
         }
@@ -865,7 +872,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                                 const char *val = strchr(tok, '=');
                                 if (val != nullptr) {
                                         val += 1;
-                                        s->modeset = strcmp(val, "size") == 0 ? MODESET_SIZE_ONLY : (enum modeset) atoi(val);
+                                        s->modeset = (enum modeset) (strcmp(val, "size") == 0 ? MODESET_SIZE_ONLY : atoi(val));
                                 } else {
                                         s->modeset = MODESET;
                                 }
@@ -939,12 +946,19 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
         return ret;
 }
 
-static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
-        UNUSED(flags);
-
+static void *
+display_gl_init(struct module *parent, const char *fmt,
+                unsigned int /* flags */)
+{
         glfwSetErrorCallback(glfw_print_error);
 
-        auto *s = new state_gl();
+        struct state_gl *s    = calloc(1, sizeof *s);
+        s->magic              = MAGIC_GL;
+        s->vsync              = 1;
+        s->window_size_factor = 1.0;
+        s->pos_x = s->pos_y = INT_MIN;
+        s->use_pbo          = -1;
+        s->req_monitor_idx  = -1;
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
@@ -955,7 +969,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         pthread_mutex_init(&s->lock, nullptr);
         pthread_cond_init(&s->new_frame_ready_cv, nullptr);
         pthread_cond_init(&s->frame_consumed_cv, nullptr);
-        s->frame_queue = simple_linked_list_init();
+        s->frame_queue      = simple_linked_list_init();
         s->free_frame_queue = simple_linked_list_init();
 
         if (fmt != NULL) {
@@ -979,7 +993,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", deint_to_string(s->deinterlace));
 
-        for (unsigned i = 0; i < std::size(keybindings); i++) {
+        for (unsigned i = 0; i < countof(keybindings); i++) {
                 if (keybindings[i].key == 'q') {
                         continue; // don't report 'q' to avoid accidental close,
                                   // user can use Ctrl-c there
@@ -1083,7 +1097,7 @@ static int get_refresh_rate(enum modeset modeset, GLFWmonitor *mon, double video
                         return mode->refreshRate;
                 }
                 default:
-                        return static_cast<int>(modeset);
+                        return (int) modeset;
         }
 }
 
@@ -1091,7 +1105,7 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
 {
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glfw - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
-        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        struct state_gl *s = glfwGetWindowUserPointer(win);
         if (fs && s->monitor != nullptr) {
                 int width = round(height * aspect);
                 GLFWmonitor *mon = s->monitor;
@@ -1157,7 +1171,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         s->aspect = s->video_aspect ? s->video_aspect : (double) desc.width / desc.height;
 
-        log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int) round(s->aspect * desc.height),
+        log_msg(LOG_LEVEL_INFO, "Setting GL size %gx%d (%dx%d).\n", round(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
 
         gl_check_error();
@@ -1233,10 +1247,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         if (s->current_program) {
                 glUseProgram(s->current_program);
-                if (GLint l = glGetUniformLocation(s->current_program, "image"); l != -1) {
+                GLint l = glGetUniformLocation(s->current_program, "image");
+                if (l != -1) {
                         glUniform1i(l, 2);
                 }
-                if (GLint l = glGetUniformLocation(s->current_program, "imageWidth"); l != -1) {
+                l = glGetUniformLocation(s->current_program, "imageWidth");
+                if (l != -1) {
                         glUniform1f(l, (GLfloat) desc.width);
                 }
                 glUseProgram(0);
@@ -1269,14 +1285,14 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         gl_check_error();
 
 #ifdef HAVE_SYPHON
-        if (!s->syphon_spout && !s->syphon_spout_srv_name.empty()) {
-                s->syphon_spout = syphon_server_register(CGLGetCurrentContext(), s->syphon_spout_srv_name.c_str());
+        if (!s->syphon_spout && strlen(s->syphon_spout_srv_name) > 0) {
+                s->syphon_spout = syphon_server_register(CGLGetCurrentContext(), s->syphon_spout_srv_name);
         }
 #endif
 #ifdef HAVE_SPOUT
-        if (!s->syphon_spout_srv_name.empty()) {
+        if (strlen(s->syphon_spout_srv_name) > 0) {
                 if (!s->syphon_spout) {
-                        s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name.c_str());
+                        s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name);
                 }
 	}
 #endif
@@ -1359,7 +1375,7 @@ static void gl_process_frames(struct state_gl *s)
 
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
-                auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                struct msg_universal *msg_univ = (void *) msg;
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg_univ->text);
                 struct response *r;
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win-title ")) == 0) {
@@ -1384,7 +1400,7 @@ static void gl_process_frames(struct state_gl *s)
 
         if (s->show_cursor == SC_AUTOHIDE) {
                 if (s->cursor_shown_from != 0) {
-                        const auto now = get_time_in_ns();
+                        const time_ns_t now = get_time_in_ns();
                         if (now - s->cursor_shown_from > SEC_TO_NS(2)) {
                                 glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
                                 s->cursor_shown_from = 0;
@@ -1416,7 +1432,7 @@ static void gl_process_frames(struct state_gl *s)
 
                 if (s->current_frame) {
                         if (s->paused) {
-                                swap(frame, s->current_frame);
+                                SWAP_PTR(frame, s->current_frame);
                         }
                         vf_recycle(s->current_frame);
                         simple_linked_list_append(s->free_frame_queue,
@@ -1553,7 +1569,7 @@ static void glfw_key_callback(GLFWwindow* win, int key, int /* scancode */, int 
         if (action != GLFW_PRESS) {
                 return;
         }
-        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        struct state_gl *s = glfwGetWindowUserPointer(win);
         char name[MAX_KEYCODE_NAME_LEN];
         int64_t ugk = translate_glfw_to_ug(key, mods);
         get_keycode_name(ugk, name, sizeof name);
@@ -1573,7 +1589,7 @@ static void glfw_key_callback(GLFWwindow* win, int key, int /* scancode */, int 
 
 static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 {
-        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        struct state_gl *s = glfwGetWindowUserPointer(win);
         if (s->show_cursor == SC_AUTOHIDE) {
                 if (s->cursor_shown_from == 0) {
                         glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -1585,12 +1601,12 @@ static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 static bool
 check_print_display_gl_version()
 {
-        auto version = (const char *) glGetString(GL_VERSION);
+        const GLubyte *version = glGetString(GL_VERSION);
         if (!version) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get OpenGL version!\n");
                 return false;
         }
-        if (atof(version) < 2.0) {
+        if (atof((const char*) version) < 2.0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
                 return false;
         }
@@ -1620,9 +1636,9 @@ display_gl_print_depth(GLFWmonitor *monitor)
 }
 
 static void display_gl_render_last(GLFWwindow *win) {
-        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        struct state_gl *s = glfwGetWindowUserPointer(win);
         pthread_mutex_lock(&s->lock);
-        auto *f = s->current_frame;
+        struct video_frame *f = s->current_frame;
         s->current_frame = nullptr;
         pthread_mutex_unlock(&s->lock);
         if (!f) {
@@ -1808,10 +1824,10 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 }
         }
 
-        if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
-                for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
-                        glfwWindowHint(bits, 10);
-                }
+        if (get_commandline_param(GL_DISABLE_10B_OPT_PARAM_NAME) == nullptr) {
+                glfwWindowHint(GLFW_RED_BITS, 10);
+                glfwWindowHint(GLFW_GREEN_BITS, 10);
+                glfwWindowHint(GLFW_BLUE_BITS, 10);
         }
 
         set_mac_color_space();
@@ -1857,7 +1873,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwSetWindowRefreshCallback(s->window, display_gl_render_last);
 
 #if defined GLEW_VERSION
-        if (GLenum err = glewInit()) {
+        GLenum err = glewInit();
+        if (err) {
                 printGlewError(err);
                 if (err != GLEW_ERROR_NO_GLX_DISPLAY) { // do not fail on error 4 (on Wayland), which can be suppressed
                         return false;
@@ -1888,13 +1905,16 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        for (unsigned i = 0; i < std::size(pixfmt_configs); i++) {
-                if (pixfmt_configs[i].prog_name == nullptr) {
+        for (unsigned i = 0; i < countof(pixfmt_configs); i++) {
+                if (pixfmt_configs[i].program == nullptr) {
                         continue;
                 }
-                GLuint prog = gl_substitute_compile_link(vert, pixfmt_configs[i].prog_name);
+                GLuint prog = gl_substitute_compile_link(
+                    vert, *pixfmt_configs[i].program);
                 if (prog == 0U) {
-                        MSG(ERROR, "Unable to link program for %s!\n", pixfmt_configs[i].prog_name);
+                        MSG(ERROR, "Unable to link program %s! Code:\n%s\n",
+                            pixfmt_configs[i].program_name,
+                            *pixfmt_configs[i].program);
                         handle_error(1);
                         continue;
                 }
@@ -1902,7 +1922,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         }
 
         if ((s->PHandle_deint = gl_substitute_compile_link(vert, deinterlace_fp)) == 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to compile deinterlace program!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to compile deinterlace_fp program!\n");
                 handle_error(1);
         }
 
@@ -1926,8 +1946,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
 static void display_gl_cleanup_opengl(struct state_gl *s){
         glfwMakeContextCurrent(s->window);
 
-        for (auto &it : s->PHandles) {
-                glDeleteProgram(it);
+        for (unsigned i = 0; i < countof(s->PHandles); i++) {
+                glDeleteProgram(s->PHandles[i]);
         }
         glDeleteTextures(1, &s->texture_display);
         glDeleteTextures(1, &s->texture_raw);
@@ -1980,7 +2000,7 @@ static void gl_change_aspect(struct state_gl *s, int width, int height)
 
 static void gl_resize(GLFWwindow *win, int width, int height)
 {
-        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        struct state_gl *s = glfwGetWindowUserPointer(win);
         debug_msg("Resized to: %dx%d\n", width, height);
 
         gl_change_aspect(s, width, height);
@@ -2019,12 +2039,35 @@ static void upload_compressed_texture(struct state_gl *s, char *data) {
                         abort();
         }
 }
+/// swaps bytes and removes 256B padding
+static void
+process_r10k(uint32_t *__restrict out, const void *__restrict in_v, long width,
+             long height)
+{
+        DEBUG_TIMER_START(process_r10k);
+        assert((uintptr_t) in_v % 4 == 0);
+        const uint32_t *in  = (const uint32_t *) in_v;
+        long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
+        for (long i = 0; i < height; i += 1) {
+                OPTIMIZED_FOR(long j = 0; j < width; j += 1)
+                {
+                        uint32_t x = *in++;
+                        *out++     = /* output is x2b8g8r8 little-endian */
+                            (x & 0xFFU) << 2U | (x & 0xC000U) >> 14U |    // R
+                            (x & 0x3F00U) << 6U | (x & 0xF00000) >> 10U | // G
+                            (x & 0x0F0000U) << 10U |
+                            (x & 0xFC000000U) >> 6U; // B
+                }
+                in += line_padding_b / sizeof(uint32_t);
+        }
+        DEBUG_TIMER_STOP(process_r10k);
+}
 
-static void upload_texture(struct state_gl *s, char *data)
+static void
+upload_texture(struct state_gl *s, char *data)
 {
         if (s->current_display_desc.color_spec == HW_VDPAU) {
-                vdp_load_frame(s->vdp,
-                               reinterpret_cast<struct hw_vdpau_frame *>(data));
+                vdp_load_frame(s->vdp, (struct hw_vdpau_frame *) data);
                 return;
         }
 
@@ -2043,32 +2086,17 @@ static void upload_texture(struct state_gl *s, char *data)
         if (s->current_display_desc.color_spec == UYVY || s->current_display_desc.color_spec == v210) {
                 width = vc_get_linesize(width, s->current_display_desc.color_spec) / 4;
         }
-        /// swaps bytes and removes 256B padding
-        auto process_r10k = [](uint32_t * __restrict out, const void *__restrict in_v, long width, long height) {
-                DEBUG_TIMER_START(process_r10k);
-                assert((uintptr_t) in_v % 4 == 0);
-                const uint32_t *in = (const uint32_t *) in_v;
-                long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
-                for (long i = 0; i < height; i += 1) {
-                        OPTIMIZED_FOR (long j = 0; j < width; j += 1) {
-                                uint32_t x = *in++;
-                                *out++ = /* output is x2b8g8r8 little-endian */
-                                        (x & 0xFFU) << 2U | (x & 0xC0'00U) >> 14U | // R
-                                        (x & 0x3F'00U) << 6U | (x & 0xF0'00'00) >> 10U | // G
-                                        (x & 0x0F'00'00U) << 10U | (x & 0xFC'00'00'00U) >> 6U; // B
-                        }
-                        in += line_padding_b / sizeof(uint32_t);
-                }
-                DEBUG_TIMER_STOP(process_r10k);
-        };
         int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
         if (s->use_pbo) {
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
                 glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
-                if (void *ptr = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB)) {
+                void *ptr = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                if (ptr) {
                         // update data directly on the mapped buffer
                         if (s->current_display_desc.color_spec == R10k) { // perform byte swap
-                                process_r10k(static_cast<uint32_t *>(ptr), reinterpret_cast<uint32_t *>(data), s->current_display_desc.width, s->current_display_desc.height);
+                                process_r10k(ptr, (const void *) data,
+                                             s->current_display_desc.width,
+                                             s->current_display_desc.height);
                         } else {
                                 memcpy(ptr, data, data_size);
                         }
@@ -2206,24 +2234,24 @@ static void glfw_close_callback(GLFWwindow *win)
 static bool
 display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
-        auto *s = (struct state_gl *) state;
+        struct state_gl *s = state;
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
         case DISPLAY_PROPERTY_CODECS: {
-                UG_ASSERT(*len >= std::size(pixfmt_configs) * sizeof(codec_t));
+                UG_ASSERT(*len >= countof(pixfmt_configs) * sizeof(codec_t));
                 *len = 0;
-                for (unsigned i = 0; i < std::size(pixfmt_configs); ++i) {
+                for (unsigned i = 0; i < countof(pixfmt_configs); ++i) {
                         codec_t c = pixfmt_configs[i].codec;
                         if (get_bits_per_component(c) > DEPTH8 &&
-                            commandline_params.find(
+                            get_commandline_param(
                                 GL_DISABLE_10B_OPT_PARAM_NAME) !=
-                                commandline_params.end()) { // option to disable
-                                                            // 10-bit processing
+                                nullptr) { // option to disable
+                                           // 10-bit processing
                                 continue;
                         }
-                        if (get_pixfmt_config(c)->prog_name != nullptr &&
+                        if (get_pixfmt_config(c)->program != nullptr &&
                             s->PHandles[c] == 0) { // GLSL shader needed but
                                                    // compilation failed
                                 continue;
@@ -2267,14 +2295,14 @@ static void display_gl_done(void *state)
         }
 
         while (simple_linked_list_size(s->free_frame_queue) > 0) {
-                auto *buffer = (struct video_frame *) simple_linked_list_pop(
-                    s->free_frame_queue);
+                struct video_frame *buffer =
+                    simple_linked_list_pop(s->free_frame_queue);
                 vf_free(buffer);
         }
 
         while (simple_linked_list_size(s->frame_queue) > 0) {
-                auto *buffer = (struct video_frame *) simple_linked_list_pop(
-                    s->frame_queue);
+                struct video_frame *buffer =
+                    simple_linked_list_pop(s->frame_queue);
                 vf_free(buffer);
         }
 
@@ -2294,7 +2322,7 @@ static void display_gl_done(void *state)
         pthread_cond_destroy(&s->frame_consumed_cv);
         pthread_mutex_destroy(&s->lock);
 
-        delete s;
+        free(s);
 }
 
 static struct video_frame * display_gl_getf(void *state)
@@ -2304,8 +2332,8 @@ static struct video_frame * display_gl_getf(void *state)
 
         pthread_mutex_lock(&s->lock);
         while (simple_linked_list_size(s->free_frame_queue) > 0) {
-                auto *buffer = (struct video_frame *) simple_linked_list_pop(
-                    s->free_frame_queue);
+                struct video_frame *buffer =
+                    simple_linked_list_pop(s->free_frame_queue);
                 if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
                         pthread_mutex_unlock(&s->lock);
                         return buffer;
@@ -2375,23 +2403,37 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
         return !s->paused;
 }
 
+static void
+display_gl_probe(struct device_info **available_cards, int *count,
+                 void (**deleter)(void *))
+{
+        UNUSED(deleter);
+        *count = 1;
+        *available_cards =
+            (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "OpenGL SW display");
+
+        dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace",
+                       "deinterlace", ":d", true);
+        dev_add_option(&(*available_cards)[0], "Fullscreen",
+                       "Launch as fullscreen", "fullscreen", ":fs", true);
+        dev_add_option(&(*available_cards)[0], "No decorate",
+                       "Disable window decorations", "nodecorate",
+                       ":nodecorate", true);
+        dev_add_option(&(*available_cards)[0], "Show cursor",
+                       "Show visible cursor", "cursor", ":cursor", true);
+        dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync",
+                       "novsync", ":novsync", true);
+        dev_add_option(&(*available_cards)[0], "Aspect",
+                       "Requested video aspect <w>/<h>", "aspect",
+                       ":aspect=", false);
+
+        (*available_cards)[0].repeatable = true;
+}
+
 static const struct video_display_info display_gl_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].dev, "");
-                strcpy((*available_cards)[0].name, "OpenGL SW display");
-
-                dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace", "deinterlace", ":d", true);
-                dev_add_option(&(*available_cards)[0], "Fullscreen", "Launch as fullscreen", "fullscreen", ":fs", true);
-                dev_add_option(&(*available_cards)[0], "No decorate", "Disable window decorations", "nodecorate", ":nodecorate", true);
-                dev_add_option(&(*available_cards)[0], "Show cursor", "Show visible cursor", "cursor", ":cursor", true);
-                dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync", "novsync", ":novsync", true);
-                dev_add_option(&(*available_cards)[0], "Aspect", "Requested video aspect <w>/<h>", "aspect", ":aspect=", false);
-
-                (*available_cards)[0].repeatable = true;
-        },
+        display_gl_probe,
         display_gl_init,
         display_gl_run,
         display_gl_done,
@@ -2410,19 +2452,24 @@ REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY
 #if defined HAVE_SPOUT && HAVE_SYPHON
 #error "Both SPOUT and Syphon defined, please fix!"
 #endif // defined HAVE_SPOUT && HAVE_SYPHON
-static const struct video_display_info display_spout_syphon_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                *deleter = free;
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+static void
+syphon_spout_probe(struct device_info **available_cards, int *count,
+                   void (**deleter)(void *))
+{
+        *deleter = free;
+        *count   = 1;
+        *available_cards =
+            (struct device_info *) calloc(1, sizeof(struct device_info));
 #ifdef HAVE_SPOUT
-                strcpy((*available_cards)[0].dev, "syphon");
-                strcpy((*available_cards)[0].name, "Syphon display");
+        strcpy((*available_cards)[0].dev, "syphon");
+        strcpy((*available_cards)[0].name, "Syphon display");
 #else
-                strcpy((*available_cards)[0].dev, "spout");
-                strcpy((*available_cards)[0].name, "SPOUT display");
+        strcpy((*available_cards)[0].dev, "spout");
+        strcpy((*available_cards)[0].name, "SPOUT display");
 #endif
-        },
+}
+static const struct video_display_info display_spout_syphon_info = {
+        syphon_spout_probe,
         display_spout_syphon_init,
         display_gl_run,
         display_gl_done,
