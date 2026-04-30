@@ -53,7 +53,6 @@
 
 #include <assert.h>   // for assert
 #include <ctype.h>    // for isalpha, tolower, toupper
-#include <errno.h>    // for ETIMEDOUT
 #include <inttypes.h> // for uint32_t, int64_t, uintptr_t, PRIx64
 #include <limits.h>   // for INT_MIN
 #include <math.h>     // for round
@@ -79,10 +78,11 @@
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
-#include "utils/dictionary.h"
 #include "utils/debug.h"         // for DEBUG_TIMER_*
+#include "utils/dictionary.h"
 #include "utils/list.h"          // for simple_linked_list
 #include "utils/macros.h"        // for OPTIMIZED_FOR, STRINGIFY
+#include "utils/pthread_cond.h"  // for ug_pthread_cond_[init,timedwait]
 #include "video.h"
 #include "video_display.h"
 
@@ -967,8 +967,8 @@ display_gl_init(struct module *parent, const char *fmt,
                           TOSTRING(GLFW_FALSE));
         snprintf_ch(s->syphon_spout_srv_name, "UltraGrid");
         pthread_mutex_init(&s->lock, nullptr);
-        pthread_cond_init(&s->new_frame_ready_cv, nullptr);
-        pthread_cond_init(&s->frame_consumed_cv, nullptr);
+        ug_pthread_cond_init(&s->new_frame_ready_cv);
+        ug_pthread_cond_init(&s->frame_consumed_cv);
         s->frame_queue      = simple_linked_list_init();
         s->free_frame_queue = simple_linked_list_init();
 
@@ -1314,21 +1314,6 @@ static void gl_render(struct state_gl *s, char *data)
         gl_check_error();
 }
 
-static int
-cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock, time_ns_t timeout_ns)
-{
-        struct timespec abstime;
-        clock_gettime(CLOCK_REALTIME, &abstime);
-        unsigned long long nsec = abstime.tv_nsec + timeout_ns;
-        abstime.tv_sec += nsec / NS_IN_SEC;
-        abstime.tv_nsec = nsec % NS_IN_SEC;
-        int ret =  pthread_cond_timedwait(cv, lock, &abstime);
-        if (ret != 0 && ret != ETIMEDOUT) {
-                perror("cond_timedwait");
-        }
-        return ret;
-}
-
 /// draw pause symbol (2 vertical bars) to the lefttop part of the frame
 static void
 draw_pause()
@@ -1413,9 +1398,9 @@ static void gl_process_frames(struct state_gl *s)
                 time_ns_t timeout_ns =
                     MIN(2.0 / s->current_display_desc.fps, 0.1) * NS_IN_SEC;
                 while (simple_linked_list_size(s->frame_queue) == 0) {
-                        int rc = cond_timedwait(&s->new_frame_ready_cv,
-                                                        &s->lock, timeout_ns);
-                        if (rc == ETIMEDOUT) {
+                        int rc = ug_pthread_cond_timedwait(&s->new_frame_ready_cv,
+                                                        &s->lock, &timeout_ns);
+                        if (rc != 0) {
                                 pthread_mutex_unlock(&s->lock);
                                 return;
                         }
@@ -2380,9 +2365,9 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
                 default: {
                         while (simple_linked_list_size(s->frame_queue) >=
                                MAX_BUFFER_SIZE) {
-                                int rc = cond_timedwait(
-                                    &s->frame_consumed_cv, &s->lock, timeout_ns);
-                                if (rc == ETIMEDOUT) {
+                                int rc = ug_pthread_cond_timedwait(
+                                    &s->frame_consumed_cv, &s->lock, &timeout_ns);
+                                if (rc != 0) {
                                         break;
                                 }
                         }

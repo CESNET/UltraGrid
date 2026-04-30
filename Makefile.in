@@ -156,6 +156,7 @@ COMMON_OBJS     = \
 		src/utils/packet_counter.o \
 		src/utils/pam.o \
 		src/utils/parallel_conv.o \
+		src/utils/pthread_cond.o \
 		src/utils/profile_timer.o \
 		src/utils/random.o \
 		src/utils/resource_manager.o \
