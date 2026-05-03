@@ -1,9 +1,15 @@
 #include <oapv/oapv.h>
-#include <iostream>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "openapv/openapv_conversions.h"
 
+#include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "video_compress.h"
 #include "video_frame.h"
@@ -11,18 +17,22 @@
 #include "utils/video_frame_pool.h"
 #include "utils/synchronized_queue.h"
 
-#define MAX_BS_BUF   (128 * 1024 * 1024)
-#define MAX_NUM_FRMS (1) // support only primary frame
-#define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
-
 using std::shared_ptr;
 
 namespace {
+
+#define MOD_NAME "[OpenAPV enc.] "
+
+#define MAX_BS_BUF   (128 * 1024 * 1024)
+#define MAX_NUM_FRMS (1) // support only primary frame
+#define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
 struct state_video_compress_oapv {
 
         state_video_compress_oapv(module *parent, const char *opts);
         ~state_video_compress_oapv();
+
+        bool parse_fmt(char *fmt);
 
         oapve_t id = nullptr;       // OAPV encoder handle
         oapvm_t mid = nullptr;      // OAPV metadata handle
@@ -54,7 +64,6 @@ state_video_compress_oapv::state_video_compress_oapv(module *parent, const char 
                 throw 1;
         }
 
-        // Parse opts
         cdsc.max_bs_buf_size = MAX_BS_BUF;
         cdsc.max_num_frms = MAX_NUM_FRMS;
         cdsc.threads = OAPV_CDESC_THREADS_AUTO;
@@ -80,6 +89,15 @@ state_video_compress_oapv::state_video_compress_oapv(module *parent, const char 
         input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
         input_frm.frm[FRM_INDEX].group_id  = 1;
         input_frm.frm[FRM_INDEX].imgb      = &imgb;
+
+        if (opts && opts[0] != '\0') {
+                char *fmt = strdup(opts);
+                if (!parse_fmt(fmt)) {
+                        free(fmt);
+                        throw 1;
+                }
+                free(fmt);
+        }
 }
 
 state_video_compress_oapv::~state_video_compress_oapv() {
@@ -174,6 +192,177 @@ static int map_color_spaces_to_profiles(int cs) {
         }
 }
 
+static const struct {
+        const char *label;
+        const char *key;
+        const char *help_name;
+        const char *description;
+        const char *opt_str;
+        bool is_boolean;
+        const char *placeholder;
+} usage_opts[] = {
+        {"Threads", "threads", "threads",
+                "\t\tNumber of encoder threads. 0 = auto (default).\n",
+                ":threads=", false, "0"
+        },
+        {"Rate control", "rc", "rc",
+                "\t\tRate control type:\n"
+                "\t\t 0 = CQP (constant quantization parameter, default)\n"
+                "\t\t 1 = ABR (average bitrate)\n",
+                ":rc=", false, "0"
+        },
+        {"Quantization parameter", "qp", "qp",
+                "\t\tQuantization parameter. Range: 0~63 (10-bit), 0~75 (12-bit).\n"
+                "\t\tUsed with CQP rate control. 255 = auto (default).\n",
+                ":qp=", false, "255"
+        },
+        {"Bit rate", "bitrate", "bitrate",
+                "\t\tTarget bitrate in kbps (e.g. 50000). Used with ABR rate control.\n"
+                "\t\tAlternatively a unit suffix can be used (e.g. 50M = 50000 kbps).\n",
+                ":bitrate=", false, "50000"
+        },
+        {"Preset", "preset", "preset",
+                "\t\tEncoder speed/quality trade-off preset:\n"
+                "\t\t 0 = fastest, 1 = fast, 2 = medium (default), 3 = slow, 4 = placebo\n",
+                ":preset=", false, "2"
+        },
+        {"Tile width", "tile_w", "tile_w",
+                "\t\tWidth of encoding tile in pixels. Must be a multiple of macroblock\n"
+                "\t\twidth (" TOSTRING(OAPV_MB_W) "). 0 = auto (default).\n",
+                ":tile_w=", false, "0"
+        },
+        {"Tile height", "tile_h", "tile_h",
+                "\t\tHeight of encoding tile in pixels. Must be a multiple of macroblock\n"
+                "\t\theight (" TOSTRING(OAPV_MB_H) "). 0 = auto (default).\n",
+                ":tile_h=", false, "0"
+        },
+        {"Use filler", "use_filler", "use_filler",
+                "\t\tInsert filler data to achieve tight constant bitrate (ABR only).\n"
+                "\t\t0 = disabled (default), 1 = enabled.\n",
+                ":use_filler=", false, "0"
+        },
+        {"Chroma QP offset 1", "qp_offset_c1", "qp_offset_c1",
+                "\t\tQP offset for first chroma channel (Cb). Range: -32~31. Default: 0.\n",
+                ":qp_offset_c1=", false, "0"
+        },
+        {"Chroma QP offset 2", "qp_offset_c2", "qp_offset_c2",
+                "\t\tQP offset for second chroma channel (Cr). Range: -32~31. Default: 0.\n",
+                ":qp_offset_c2=", false, "0"
+        },
+        {"Chroma QP offset 3", "qp_offset_c3", "qp_offset_c3",
+                "\t\tQP offset for third chroma channel (Cg/A). Range: -32~31. Default: 0.\n",
+                ":qp_offset_c3=", false, "0"
+        },
+};
+
+bool state_video_compress_oapv::parse_fmt(char *fmt)
+{
+        char *tok = nullptr;
+        char *save_ptr = nullptr;
+
+        while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
+                fmt = nullptr;
+                const char *val = strchr(tok, '=');
+                if (val == nullptr) {
+                        MSG(ERROR, "Missing value for option: %s\n", tok);
+                        return false;
+                }
+                val += 1;
+
+                if (IS_KEY_PREFIX(tok, "threads")) {
+                        const int threads = atoi(val);
+                        if (threads < 0) {
+                                MSG(ERROR, "Invalid number of threads '%s' (must be >= 0, 0 = auto).\n", val);
+                                return false;
+                        }
+                        cdsc.threads = threads;
+                } else if (IS_KEY_PREFIX(tok, "rc")) {
+                        const int rc = atoi(val);
+                        if (rc != OAPV_RC_CQP && rc != OAPV_RC_ABR) {
+                                MSG(ERROR, "Invalid rc type '%s' (0 = CQP, 1 = ABR).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].rc_type = rc;
+                } else if (IS_KEY_PREFIX(tok, "qp")) {
+                        const int qp = atoi(val);
+                        if ((qp < 0 || qp > 75) && qp != OAPVE_PARAM_QP_AUTO) {
+                                MSG(ERROR, "Invalid QP value '%s' (0~75 or 255 for auto).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].qp = (unsigned char) qp;
+                } else if (IS_KEY_PREFIX(tok, "bitrate")) {
+                        const char *endptr = nullptr;
+                        long long br = unit_evaluate(val, &endptr);
+                        if (br == LLONG_MIN || *endptr != '\0' || br <= 0) {
+                                MSG(ERROR, "Invalid bitrate value '%s'.\n", val);
+                                return false;
+                        }
+                        // unit_evaluate returns bytes/bits – the value is in kbps here
+                        // accept plain numbers as kbps, suffixed values convert from bps to kbps
+                        cdsc.param[FRM_INDEX].bitrate = (int)(br / 1000);
+                        if (cdsc.param[FRM_INDEX].bitrate == 0) {
+                                // plain small number was given, treat as kbps directly
+                                cdsc.param[FRM_INDEX].bitrate = (int) br;
+                        }
+                        cdsc.param[FRM_INDEX].rc_type = OAPV_RC_ABR;
+                } else if (IS_KEY_PREFIX(tok, "preset")) {
+                        const int preset = atoi(val);
+                        if (preset < OAPV_PRESET_FASTEST || preset > OAPV_PRESET_PLACEBO) {
+                                MSG(ERROR, "Invalid preset '%s' (0=fastest .. 4=placebo).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].preset = preset;
+                } else if (IS_KEY_PREFIX(tok, "tile_w")) {
+                        const int tw = atoi(val);
+                        if (tw < 0 || (tw > 0 && (tw % OAPV_MB_W) != 0)) {
+                                MSG(ERROR, "Invalid tile_w '%s' (must be 0 or a multiple of %d).\n", val, OAPV_MB_W);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].tile_w = tw;
+                } else if (IS_KEY_PREFIX(tok, "tile_h")) {
+                        const int th = atoi(val);
+                        if (th < 0 || (th > 0 && (th % OAPV_MB_H) != 0)) {
+                                MSG(ERROR, "Invalid tile_h '%s' (must be 0 or a multiple of %d).\n", val, OAPV_MB_H);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].tile_h = th;
+                } else if (IS_KEY_PREFIX(tok, "use_filler")) {
+                        const int uf = atoi(val);
+                        if (uf != 0 && uf != 1) {
+                                MSG(ERROR, "Invalid use_filler '%s' (0 or 1).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].use_filler = uf;
+                } else if (IS_KEY_PREFIX(tok, "qp_offset_c1")) {
+                        const int v = atoi(val);
+                        if (v < -32 || v > 31) {
+                                MSG(ERROR, "Invalid qp_offset_c1 '%s' (range: -32~31).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].qp_offset_c1 = (signed char) v;
+                } else if (IS_KEY_PREFIX(tok, "qp_offset_c2")) {
+                        const int v = atoi(val);
+                        if (v < -32 || v > 31) {
+                                MSG(ERROR, "Invalid qp_offset_c2 '%s' (range: -32~31).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].qp_offset_c2 = (signed char) v;
+                } else if (IS_KEY_PREFIX(tok, "qp_offset_c3")) {
+                        const int v = atoi(val);
+                        if (v < -32 || v > 31) {
+                                MSG(ERROR, "Invalid qp_offset_c3 '%s' (range: -32~31).\n", val);
+                                return false;
+                        }
+                        cdsc.param[FRM_INDEX].qp_offset_c3 = (signed char) v;
+                } else {
+                        MSG(ERROR, "Unknown option or missing value: %s\n", tok);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 static bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc) {
         int ret;
 
@@ -234,7 +423,17 @@ static void* openapv_compress_init(module *parent, const char *opts) {
         state_video_compress_oapv *s;
 
         if (opts && strcmp(opts, "help") == 0) {
-                printf("help for openapv encoder\n");
+                color_printf(TBOLD("OpenAPV") " compression usage:\n");
+                color_printf("\t" TBOLD(
+                        TRED("-c openapv") "[:threads=<n>][:rc=<0|1>][:qp=<n>][:bitrate=<br>]"
+                        "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
+                        "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
+                color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
+                color_printf("\nwhere:\n");
+                for (const auto &opt : usage_opts) {
+                        color_printf("\t" TBOLD("<%s>") "\n%s\n", opt.key, opt.description);
+                }
+                printf("\n");
                 return INIT_NOERR;
         }
 
@@ -294,6 +493,17 @@ static void openapv_compress_done(void  *state) {
 static compress_module_info get_openapv_module_info() {
         compress_module_info module_info;
         module_info.name = "openapv";
+
+        for (const auto &opt : usage_opts) {
+                module_info.opts.emplace_back(module_option{opt.label,
+                        opt.description, opt.placeholder, opt.key, opt.opt_str, opt.is_boolean});
+        }
+
+        codec codec_info;
+        codec_info.name = "APV";
+        codec_info.priority = 400;
+        codec_info.encoders.emplace_back(encoder{"default", ""});
+        module_info.codecs.emplace_back(std::move(codec_info));
 
         return module_info;
 }
