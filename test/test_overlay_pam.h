@@ -1,9 +1,9 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_overlay_pam.h
+ * @author Ben Roeder     <ben@sohonet.com>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,37 +34,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef TEST_OVERLAY_PAM_H_2A8E1F4B_5C9D_4F7E_B6A1_9D3C2E5F8A1B
+#define TEST_OVERLAY_PAM_H_2A8E1F4B_5C9D_4F7E_B6A1_9D3C2E5F8A1B
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+int overlay_pam_test_load_8bit_rgba(void);
+int overlay_pam_test_load_8bit_rgb_adds_alpha(void);
+int overlay_pam_test_load_16bit_rgba(void);
+int overlay_pam_test_rejects_missing_file(void);
+int overlay_pam_test_rejects_grayscale(void);
+int overlay_pam_test_rejects_intermediate_maxval(void);
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // defined WORKER_H
-

@@ -1,9 +1,9 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_overlay_soft_edge.h
+ * @author Ben Roeder     <ben@sohonet.com>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,37 +34,18 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef TEST_OVERLAY_SOFT_EDGE_H_8C2A1F6D_4B5E_4E3F_9A7C_3D8B5E1F2A4C
+#define TEST_OVERLAY_SOFT_EDGE_H_8C2A1F6D_4B5E_4E3F_9A7C_3D8B5E1F2A4C
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+int overlay_soft_edge_test_zero_width_is_noop(void);
+int overlay_soft_edge_test_edge_pixel_zeroed(void);
+int overlay_soft_edge_test_linear_ramp(void);
+int overlay_soft_edge_test_centre_untouched(void);
+int overlay_soft_edge_test_rgb_components_unchanged(void);
+int overlay_soft_edge_test_oversized_width_clamps(void);
+int overlay_soft_edge_test_non_square(void);
+int overlay_soft_edge_test_exact_half_dimension(void);
+int overlay_soft_edge_test_scales_existing_alpha(void);
+int overlay_soft_edge_test_degenerate_one_row(void);
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // defined WORKER_H
-

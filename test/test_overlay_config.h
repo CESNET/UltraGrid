@@ -1,9 +1,9 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_overlay_config.h
+ * @author Ben Roeder     <ben@sohonet.com>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,37 +34,25 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef TEST_OVERLAY_CONFIG_H_3B7E8C2A_5D9F_4A1E_8B6D_4C2F7A3E1D9B
+#define TEST_OVERLAY_CONFIG_H_3B7E8C2A_5D9F_4A1E_8B6D_4C2F7A3E1D9B
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+int overlay_config_test_minimal_file_only(void);
+int overlay_config_test_position_keywords(void);
+int overlay_config_test_custom_xy(void);
+int overlay_config_test_help(void);
+int overlay_config_test_rejects_missing_file(void);
+int overlay_config_test_rejects_unknown_key(void);
+int overlay_config_test_rejects_bad_position(void);
+int overlay_config_test_rejects_non_integer_xy(void);
+int overlay_config_test_rejects_null_and_empty_value(void);
+int overlay_config_test_rejects_oversize_options(void);
+int overlay_config_test_soft_edge(void);
+int overlay_config_test_scale(void);
+int overlay_config_test_scale_frame(void);
+int overlay_config_test_scale_frame_overrides_wxh(void);
+int overlay_config_test_perf(void);
+int overlay_config_test_scale_filter(void);
+int overlay_config_test_blend_threads(void);
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // defined WORKER_H
-

@@ -1,9 +1,9 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_overlay_watch.h
+ * @author Ben Roeder     <ben@sohonet.com>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,37 +34,17 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef TEST_OVERLAY_WATCH_H_2A9D8F1C_4B6E_4D7A_9F3B_5E8C2A1D7B4F
+#define TEST_OVERLAY_WATCH_H_2A9D8F1C_4B6E_4D7A_9F3B_5E8C2A1D7B4F
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+int overlay_watch_test_init_no_change(void);
+int overlay_watch_test_detects_size_change(void);
+int overlay_watch_test_detects_mtime_change(void);
+int overlay_watch_test_ack_on_missing_file_preserves_baseline(void);
+int overlay_watch_test_missing_file_no_change(void);
+int overlay_watch_test_file_appears_after_init(void);
+int overlay_watch_test_detects_atomic_rename(void);
+int overlay_watch_test_changed_does_not_consume_baseline(void);
+int overlay_watch_test_ack_commits_baseline(void);
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // defined WORKER_H
-

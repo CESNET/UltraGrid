@@ -54,6 +54,8 @@ test-driver
 src/dir-stamp
 test/run_tests
 unittest/run_tests
+# Bootstrapped by ext-deps/bootstrap_rapidcheck.sh; not part of the tree.
+/ext-deps/rapidcheck/
 .cache
 .clang-format
 .clang-tidy

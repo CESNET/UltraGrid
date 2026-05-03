@@ -1,9 +1,10 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_rapidcheck_main.cpp
+ * @author Ben Roeder     <ben@sohonet.com>
+ * @brief  Runner for the property-based test suites.
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,36 +36,36 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+#include <iostream>
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
-#endif
+extern bool test_alpha_blend_properties();
+extern bool test_overlay_layout_properties();
+extern bool test_soft_edge_properties();
+extern bool test_overlay_watch_properties();
 
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
+/* color_space.c calls get_commandline_param("color-601"); register_param
+ * runs at static-init time. Linking host.cpp into the test binary would
+ * drag in most of UltraGrid, so stub these two — the tests never set
+ * either flag, and a NULL return from get_commandline_param falls back
+ * to the codebase's BT.709 default. */
+extern "C" const char *get_commandline_param(const char *) { return nullptr; }
+extern "C" void register_param(const char *, const char *) {}
 
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
+int main()
+{
+        std::cout << "UltraGrid property-based tests (RapidCheck)\n";
 
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
+        bool ok = true;
+        std::cout << "\n=== Alpha blend ===\n";
+        ok &= test_alpha_blend_properties();
+        std::cout << "\n=== Overlay layout ===\n";
+        ok &= test_overlay_layout_properties();
+        std::cout << "\n=== Soft edges ===\n";
+        ok &= test_soft_edge_properties();
+        std::cout << "\n=== Overlay watch ===\n";
+        ok &= test_overlay_watch_properties();
 
-#ifdef __cplusplus
+        std::cout << (ok ? "\nAll properties passed.\n"
+                         : "\nFAILURES — see output above.\n");
+        return ok ? 0 : 1;
 }
-#endif
-
-#endif // defined WORKER_H
-
