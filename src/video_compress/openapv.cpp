@@ -182,6 +182,7 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
                 printf("unsupported codec");
                 return false;
         }
+        s->convert_to_planar = conv_struct->convert;
 
         s->cdsc.param[FRM_INDEX].w = desc.width;
         s->cdsc.param[FRM_INDEX].h = desc.height;
@@ -229,40 +230,6 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         return true;
 }
 
-static void uyvy_to_yuv422p(const uint8_t *uyvy, int width, int height, oapv_imgb_t *in_buf) {
-        uint16_t *dst_y = (uint16_t *) in_buf->a[0];
-        uint16_t *dst_u = (uint16_t *) in_buf->a[1];
-        uint16_t *dst_v = (uint16_t *) in_buf->a[2];
-
-        const int y_stride_px = in_buf->s[0] / (int) sizeof(uint16_t);
-        const int u_stride_px = in_buf->s[1] / (int) sizeof(uint16_t);
-        const int v_stride_px = in_buf->s[2] / (int) sizeof(uint16_t);
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *src_line = uyvy + (size_t) y * width * 2;
-                uint16_t *dst_y_line = dst_y + (size_t) y * y_stride_px;
-                uint16_t *dst_u_line = dst_u + (size_t) y * u_stride_px;
-                uint16_t *dst_v_line = dst_v + (size_t) y * v_stride_px;
-
-                for (int x = 0; x < width; x += 2) {
-                        int i = x * 2;
-                        uint16_t u = (uint16_t) src_line[i + 0] << 2;
-                        uint16_t y0 = (uint16_t) src_line[i + 1] << 2;
-                        uint16_t v = (uint16_t) src_line[i + 2] << 2;
-                        uint16_t y1 = (uint16_t) src_line[i + 3] << 2;
-
-                        dst_y_line[x + 0] = y0;
-                        if (x + 1 < width) {
-                                dst_y_line[x + 1] = y1;
-                        }
-
-                        int chroma_index = x / 2;
-                        dst_u_line[chroma_index] = u;
-                        dst_v_line[chroma_index] = v;
-                }
-        }
-}
-
 static void* openapv_compress_init(module *parent, const char *opts) {
         state_video_compress_oapv *s;
 
@@ -290,7 +257,7 @@ static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
                 }
         }
         struct tile *in_tile = vf_get_tile(frame.get(), 0);
-        uyvy_to_yuv422p((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
+        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
 
         s->bitb.ssize = 0;
         int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
