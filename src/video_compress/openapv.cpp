@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 
 #include "openapv/openapv_conversions.h"
 
@@ -49,10 +50,15 @@ struct state_video_compress_oapv {
         video_frame_pool pool;
         bool configured = false;
 
+        synchronized_queue<shared_ptr<struct video_frame>, 1> in_queue;
         synchronized_queue<shared_ptr<struct video_frame>, 1> out_queue;
+
+        std::thread worker;
 
         void (*convert_to_planar)(const uint8_t *src, int width, int height, oapv_imgb_t *dst) = nullptr;
 };
+
+static void openapv_worker(state_video_compress_oapv *s);
 
 state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
 {
@@ -98,9 +104,15 @@ state_video_compress_oapv::state_video_compress_oapv(module *parent, const char 
                 }
                 free(fmt);
         }
+
+        worker = std::thread(openapv_worker, this);
 }
 
 state_video_compress_oapv::~state_video_compress_oapv() {
+        if (worker.joinable()) {
+                worker.join();
+        }
+
         for (int i = 0; i < OAPV_MAX_CC; i++) {
                 free(imgb.baddr[i]);
         }
@@ -419,6 +431,43 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         return true;
 }
 
+static void openapv_worker(state_video_compress_oapv *s) {
+        while (true) {
+                auto frame = s->in_queue.pop();
+                if (!frame) {
+                        s->out_queue.push({});
+                        break;
+                }
+
+                const auto desc = video_desc_from_frame(frame.get());
+                if (!s->configured || !video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
+                        if (!configure_with(s, desc)) {
+                                MSG(ERROR, "Failed to configure OpenAPV encoder with new video description\n");
+                                continue;
+                        }
+                }
+
+                struct tile *in_tile = vf_get_tile(frame.get(), 0);
+                s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
+
+                s->bitb.ssize = 0;
+                int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
+                if (OAPV_FAILED(ret)) {
+                        continue;
+                }
+
+                shared_ptr<video_frame> out = s->pool.get_frame();
+                struct tile *out_tile = vf_get_tile(out.get(), 0);
+                memcpy(out_tile->data, s->bitb.addr, s->stat.write);
+                out_tile->data_len = s->stat.write;
+
+                vf_copy_metadata(out.get(), frame.get());
+                out->compress_end = get_time_in_ns();
+
+                s->out_queue.push(out);
+        }
+}
+
 static void* openapv_compress_init(module *parent, const char *opts) {
         state_video_compress_oapv *s;
 
@@ -442,37 +491,8 @@ static void* openapv_compress_init(module *parent, const char *opts) {
 }
 
 static void openapv_compress_push(void *state, shared_ptr<video_frame> frame) {
-        state_video_compress_oapv *s = static_cast<state_video_compress_oapv *>(state);
-        if (!frame) {
-                s->out_queue.push({});
-                return;
-        }
-        const auto desc = video_desc_from_frame(frame.get());
-
-        if (!s->configured || !video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
-                if (!configure_with(s, desc)) {
-                        printf("Failed to configure OpenAPV encoder with new video description\n");
-                        return;
-                }
-        }
-        struct tile *in_tile = vf_get_tile(frame.get(), 0);
-        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
-
-        s->bitb.ssize = 0;
-        int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
-        if (OAPV_FAILED(ret)) {
-                return;
-        }
-
-        shared_ptr<video_frame> out = s->pool.get_frame();
-        struct tile *out_tile = vf_get_tile(out.get(), 0);
-        memcpy(out_tile->data, s->bitb.addr, s->stat.write);
-        out_tile->data_len = s->stat.write;
-
-        vf_copy_metadata(out.get(), frame.get());
-        out->compress_end = get_time_in_ns();
-
-        s->out_queue.push(out);
+        auto *s = static_cast<state_video_compress_oapv *>(state);
+        s->in_queue.push(std::move(frame));
 }
 
 static shared_ptr<video_frame> openapv_compress_pop(void *state) {
