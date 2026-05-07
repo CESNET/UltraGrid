@@ -474,10 +474,8 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
                                 break;
                 }
         } else {
-                s->in->tiles[0].data = s->buffers[0]; // always write to first buffer
-                if (in) {
-                        memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
-                }
+                memcpy(out->tiles[0].data, s->in->tiles[0].data,
+                       s->in->tiles[0].data_len);
         }
 
         if (!s->nodelay) {
