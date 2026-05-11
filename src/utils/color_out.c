@@ -1,10 +1,10 @@
 /**
- * @file   utils/color_out.cpp
+ * @file   utils/color_out.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2025 CESNET
- * All rights reserved.
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
+ * All rigahts reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -39,25 +39,24 @@
 #include <windows.h>
 #endif
 
-#include <cstdarg>
-#include <cstdio>   // for vsnprintf, fileno, stdout
-#include <cstdlib>  // for getenv
-#include <cstring>  // for strcmp, strlen
-#include <iterator> // for back_insert_iterator, back_inserter
-#include <memory>   // for unique_ptr
+#include <stdarg.h>
+#include <stdio.h>   // for vsnprintf, fileno, stdout
+#include <stdlib.h>  // for getenv
+#include <string.h>  // for strcmp, strlen
 #include <unistd.h> // for isatty
 
+#include "compat/c23.h"       // IWYU pragma: keep
 #include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
 
 #define MOD_NAME "[color_out] "
 
-using std::string;
-
 static bool color_stdout;
 
 #ifdef _WIN32
+#include <wchar.h>
+
 /// Taken from [rang](https://github.com/agauniyal/rang)
 static bool setWinTermAnsiColors(DWORD stream) {
         HANDLE h = GetStdHandle(stream);
@@ -78,15 +77,17 @@ static bool setWinTermAnsiColors(DWORD stream) {
 /// Taken from [rang](https://github.com/agauniyal/rang)
 static bool isMsysPty(int fd) {
         // Dynamic load for binary compatibility with old Windows
-        const auto ptrGetFileInformationByHandleEx
-                = reinterpret_cast<decltype(&GetFileInformationByHandleEx)>(reinterpret_cast<void *>(
-                                        GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-                                                "GetFileInformationByHandleEx")));
+        BOOL (*ptrGetFileInformationByHandleEx)(
+            HANDLE hFile, FILE_INFO_BY_HANDLE_CLASS FileInformationClass,
+            LPVOID lpFileInformation, DWORD dwBufferSize) = nullptr;
+        ptrGetFileInformationByHandleEx = (void *)
+            GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
+                           "GetFileInformationByHandleEx");
         if (!ptrGetFileInformationByHandleEx) {
                 return false;
         }
 
-        HANDLE h = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+        HANDLE h = (HANDLE) (intptr_t) _get_osfhandle(fd);
         if (h == INVALID_HANDLE_VALUE) {
                 return false;
         }
@@ -103,22 +104,18 @@ static bool isMsysPty(int fd) {
                 WCHAR FileName[MAX_PATH];
         };
 
-        auto pNameInfo = std::unique_ptr<MY_FILE_NAME_INFO>(
-                        new (std::nothrow) MY_FILE_NAME_INFO());
-        if (!pNameInfo) {
-                return false;
-        }
+        struct MY_FILE_NAME_INFO pNameInfo = { 0 };
 
         // Check pipe name is template of
         // {"cygwin-","msys-"}XXXXXXXXXXXXXXX-ptyX-XX
-        if (!ptrGetFileInformationByHandleEx(h, FileNameInfo, pNameInfo.get(),
-                                sizeof(MY_FILE_NAME_INFO))) {
+        if (!ptrGetFileInformationByHandleEx(h, FileNameInfo, &pNameInfo,
+                                sizeof pNameInfo)) {
                 return false;
         }
-        std::wstring name(pNameInfo->FileName, pNameInfo->FileNameLength / sizeof(WCHAR));
-        if ((name.find(L"msys-") == std::wstring::npos
-                                && name.find(L"cygwin-") == std::wstring::npos)
-                        || name.find(L"-pty") == std::wstring::npos) {
+        // std::wstring name(pNameInfo.FileName, pNameInfo.FileNameLength / sizeof(WCHAR));
+        if ((wcsstr(pNameInfo.FileName, L"msys-") == nullptr &&
+             wcsstr(pNameInfo.FileName, L"cygwin-") == nullptr) ||
+            wcsstr(pNameInfo.FileName, L"-pty") == nullptr) {
                 return false;
         }
 
@@ -166,8 +163,11 @@ color_output_init()
         return color_stdout;
 }
 
-template<class OutputIt>
-static int prune_ansi_sequences(const char *in, OutputIt out) {
+int
+prune_ansi_sequences(char *str)
+{
+        const char *in = str;
+        char *out = str;
         char c = *in;
         bool in_control = false;
         int written = 0;
@@ -194,43 +194,19 @@ static int prune_ansi_sequences(const char *in, OutputIt out) {
         return written;
 }
 
-string prune_ansi_sequences_str(const char *in) {
-        string out;
-        prune_ansi_sequences(in, std::back_inserter(out));
-        return out;
-}
-
-void prune_ansi_sequences_inplace(std::string& str){
-        auto c_ptr = str.data();
-        auto len = prune_ansi_sequences(c_ptr, c_ptr);
-        str.resize(len);
-}
-
-/// @returns cstr
-char *prune_ansi_sequences_inplace_cstr(char *cstr) {
-        prune_ansi_sequences(cstr, cstr);
-        return cstr;
-}
-
 int color_printf(const char *format, ...) {
         va_list ap;
-        va_start(ap, format);
-        int size = vsnprintf(NULL, 0, format, ap);
-        va_end(ap);
 
         // format the string
-        auto buf = get_log_output().get_buffer();
-        buf.append(size + 1, '\0');
+        char buf[10001];
         va_start(ap, format);
-        vsnprintf(buf.data(), size + 1, format, ap);
+        vsnprintf(buf, sizeof buf, format, ap);
         va_end(ap);
 
         if (!color_stdout) {
-                int len = prune_ansi_sequences(buf.data(), buf.data());
-                buf.get().resize(len);
+                prune_ansi_sequences(buf);
         }
 
-        buf.submit_raw();
-        return size;
+        return log_puts(buf);
 }
 

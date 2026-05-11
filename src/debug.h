@@ -102,6 +102,8 @@ void debug_dump(const void*lp, int len);
 #endif
 
 void log_perror(int log_level, const char *msg);
+int log_puts(const char *msg);
+
 #define MSG(l, fmt, ...) \
         if (log_level >= LOG_LEVEL_##l) \
                 log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
@@ -313,7 +315,8 @@ public:
                                 msg += "\n";
                         }
                 } else {
-                        msg = prune_ansi_sequences_str(msg.c_str());
+                        int len = prune_ansi_sequences(msg.data());
+                        msg.resize(len);
                 }
 
                 auto buf = get_log_output().get_buffer();

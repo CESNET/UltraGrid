@@ -95,7 +95,7 @@ extern "C" {
 bool color_output_init(void);
 int color_printf(const char *format, ...) __attribute__((format (printf, 1, 2)));
 
-char *prune_ansi_sequences_inplace_cstr(char *cstr);
+int prune_ansi_sequences(char *cstr);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -104,9 +104,6 @@ char *prune_ansi_sequences_inplace_cstr(char *cstr);
 #ifdef __cplusplus
 #include <sstream>
 #include <string>
-
-std::string prune_ansi_sequences_str(const char *in);
-void prune_ansi_sequences_inplace(std::string& str);
 
 /**
  * Class wrapping color output to terminal. Sample usage:

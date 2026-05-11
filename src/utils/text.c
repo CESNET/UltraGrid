@@ -47,7 +47,7 @@
 
 #include "debug.h"
 #include "utils/bitmap_font.h"
-#include "utils/color_out.h" // prune_ansi_sequences_inplace_cstr
+#include "utils/color_out.h" // prune_ansi_sequences
 #include "utils/fs.h"
 #include "utils/macros.h"    // for snprintf_ch
 #include "utils/pam.h"
@@ -199,7 +199,7 @@ wrap_paragraph(char *text)
                 char str_in[len_raw + 1];
                 memcpy(str_in, pos, len_raw);
                 str_in[len_raw] = '\0';
-                int len_net = strlen(prune_ansi_sequences_inplace_cstr(str_in));
+                int len_net = prune_ansi_sequences(str_in);
                 if (line_len + len_net > 80) {
                         if (line_len == 0) { // |word|>80 starting a line
                                 *next = '\n';

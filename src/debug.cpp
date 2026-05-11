@@ -122,7 +122,7 @@ log_vprintf(int level, const char *format, va_list ap)
         str.resize(str.size() - 1); // drop '\0' written by vsnprintf
 
         if (!get_log_output().is_interactive()) {
-                prune_ansi_sequences_inplace(buf.get());
+                prune_ansi_sequences(buf.get().data());
         } else if (style.size() > 0) {
                 if (str.at(str.size() - 1) == '\n') { // put TERM_RESET before '\n'
                         str.erase(str.size() - 1);
@@ -404,6 +404,22 @@ bug_msg(int level, const char *format, ...)
         va_start(ap, format);
         log_vprintf(level, fmt_adj, ap);
         va_end(ap);
+}
+
+/**
+ * puts data directly to logger (without any processing)
+ *
+ * doesn't append '\n' (behaves like fputs(), not puts())
+ */
+int
+log_puts(const char *msg)
+{
+        int size = strlen(msg);
+        auto buf = get_log_output().get_buffer();
+        buf.get().resize(size);
+        memcpy(buf.data(), msg, size);
+        buf.submit_raw();
+        return size;
 }
 
 Log_output::Log_output(){
