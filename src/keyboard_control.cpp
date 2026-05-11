@@ -709,6 +709,17 @@ void keyboard_control::impl::run()
 }
 
 static void
+print_command_line()
+{
+        color_printf(TBOLD("Command line:"));
+        char **argv = uv_argv;
+        while (*argv != nullptr) {
+                printf(" %s", *argv++);
+        }
+        printf("\n");
+}
+
+static void
 print_start_elapsed_time(time_t start_time)
 {
         enum {
@@ -733,6 +744,7 @@ print_start_elapsed_time(time_t start_time)
 void keyboard_control::impl::info()
 {
         col() << TBOLD("UltraGrid version: ") << get_version_details() << "\n";
+        print_command_line();
         print_start_elapsed_time(m_start_time);
         col() << TBOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         col() << TBOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
