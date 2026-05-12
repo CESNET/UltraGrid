@@ -3515,6 +3515,9 @@ if test "${omt_req?}" != no && test "${FOUND_LIBOMT_H?}" && test "${FOUND_LIBOMT
 then
         omt=yes
         add_module rxtx_omt "src/omt_common.o src/video_rxtx/omt.o src/video_display/omt.o src/video_capture/omt.o" "-lomt"
+        if libvmx=$(command -v libvmx.dll); then
+                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${libvmx?}"
+        fi
 fi
 
 ENSURE_FEATURE_PRESENT([${omt_req?}], [${omt?}], [libomt not found])

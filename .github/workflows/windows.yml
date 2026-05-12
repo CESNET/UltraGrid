@@ -130,10 +130,6 @@ jobs:
             windeployqt "$DESTDIR/uv-qt.exe"
         fi
         cp -r data/Windows/* "$DESTDIR"
-
-        if [ -f "$DESTDIR"/libomt.dll ]; then
-            cp /usr/local/bin/libvmx.dll "$DESTDIR"
-        fi
     - name: make dist-check
       run: PATH= /usr/bin/make distcheck
         TARGET=build/UltraGrid-$VERSION-win64/uv.exe
