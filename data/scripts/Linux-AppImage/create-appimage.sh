@@ -206,7 +206,6 @@ if [ -f "$APPPREFIX/lib/libomt.so" ]; then
         LIBVMX_PATH=/usr/local/lib/libvmx.so
         if [ -n "$LIBVMX_PATH" ]; then
                 cp "$LIBVMX_PATH" $APPPREFIX/lib/
-                break
         fi
 fi
 

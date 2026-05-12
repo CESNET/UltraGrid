@@ -124,6 +124,47 @@ install_live555() (
         sudo make -C live555 install
 )
 
+install_omt() (
+        if [ "$(uname -s)" = Darwin ]; then
+                # brew install dotnet-sdk # already installed in CI
+                build=buildmacuniversal.sh
+                if is_arm; then omtdir=osx-arm64; else omtdir=osx-x64; fi
+                libext=dylib
+                printf "MACOS_BUNDLE_EXTRA_LIBS=%s /usr/local/lib/libvmx.dylib\n"\
+                        "${MACOS_BUNDLE_EXTRA_LIBS-}" >> "$GITHUB_ENV"
+        else
+                sudo apt install dotnet8
+                build=buildlinuxx64.sh
+                omtdir=linux-x64
+                libext=so
+        fi
+
+        mkdir omt_build
+        cd omt_build
+        git clone --depth 1 https://github.com/openmediatransport/libvmx.git
+        git clone --depth 1 https://github.com/openmediatransport/libomt.git
+        git clone --depth 1 https://github.com/openmediatransport/libomtnet.git
+
+        cd libvmx/build
+        chmod +x $build
+        ./$build
+        cd ../..
+
+        cd libomtnet/build
+        chmod +x buildall.sh
+        ./buildall.sh
+        cd ../..
+
+        cd libomt/build
+        chmod +x $build
+        ./$build
+        cd ../..
+
+        sudo cp libvmx/build/libvmx.$libext /usr/local/lib/
+        sudo cp libomt/bin/Release/net8.0/$omtdir/publish/libomt.h /usr/local/include/
+        sudo cp libomt/bin/Release/net8.0/$omtdir/publish/libomt.$libext /usr/local/lib/
+)
+
 install_pcp() {
         git clone https://github.com/libpcpnatpmp/libpcpnatpmp.git
         (
@@ -148,6 +189,9 @@ install_zfec() (
 install_items="aja ews juice live555 pcp zfec"
 if ! is_arm && ! is_win; then
         install_items="$install_items cineform"
+fi
+if ! is_win; then
+        install_items="$install_items omt"
 fi
 
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then

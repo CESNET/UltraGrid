@@ -101,11 +101,9 @@ https://github.com/CESNET/GPUJPEG/releases/download/continuous/"$fname"
 )
 
 install_omt() (
-        omt_ver="v1.0.0.14"
-        fname=OpenMediaTransport.Binaries.Release."$omt_ver".zip
-        wget --no-verbose \
-        https://github.com/openmediatransport/libomtnet/releases/download/"$omt_ver"/"$fname"
-        unzip "./$fname"
+        .github/scripts/download-gh-asset.sh openmediatransport/libomtnet \
+                'OpenMediaTransport[.]Binaries[.]Release.*[.]zip' omt.zip
+        unzip omt.zip
         cp Libraries/Winx64/*lib /usr/local/lib/
         cp Libraries/Winx64/*dll /usr/local/bin/
         cp Libraries/Winx64/*dll /usr/local/lib/

@@ -5,6 +5,7 @@ dylibbundler_flags=$2
 bundle=$3
 
 rpath=@executable_path/../libs/
+libdir=$bundle/Contents/libs/
 
 # check if first 2 bytes is shebang ('#' and '!')
 starts_with_shebang() {
@@ -22,7 +23,7 @@ for n in "$bundle"/Contents/MacOS/*; do
         # shellcheck disable=SC2086 # intentional, even $dylibbundler
         # can have flags like 'dylibbundler -f'; obvious for _flags
         echo quit | $dylibbundler $dylibbundler_flags -of -cd -b \
-                -d "$bundle/Contents/libs/" -p "$rpath" -x "$n"
+                -d "$libdir" -p "$rpath" -x "$n"
 done
 
 # Remove multiple LC_RPATH occurences of @executable_path/../libs/
@@ -35,6 +36,11 @@ done
 num_rel_lc_rpath() {
         otool -l "$1" | sed -n '/LC_RPATH/{N;N;p;}' | grep -c "$rpath" || true
 }
+
+if [ "${MACOS_BUNDLE_EXTRA_LIBS-}" ]; then
+        # shellcheck disable=SC2086 # intentional
+        cp $MACOS_BUNDLE_EXTRA_LIBS "$libdir"
+fi
 
 find "$bundle" -type f -print0 |
         while IFS= read -r -d '' n; do

@@ -62,42 +62,13 @@ install_vulkan() (
         sudo make install
 )
 
-install_omt() (
-        sudo apt install dotnet8
-
-        mkdir omt_build
-        cd omt_build
-        git clone --depth 1 https://github.com/openmediatransport/libvmx.git
-        git clone --depth 1 https://github.com/openmediatransport/libomt.git
-        git clone --depth 1 https://github.com/openmediatransport/libomtnet.git
-
-        cd libvmx/build
-        chmod +x buildlinuxx64.sh
-        ./buildlinuxx64.sh
-        cd ../..
-
-        cd libomtnet/build
-        chmod +x buildall.sh
-        ./buildall.sh
-        cd ../..
-
-        cd libomt/build
-        chmod +x buildlinuxx64.sh
-        ./buildlinuxx64.sh
-        cd ../..
-
-        sudo cp libvmx/build/libvmx.so /usr/local/lib/
-        sudo cp libomt/bin/Release/net8.0/linux-x64/publish/libomt.so /usr/local/lib/
-        sudo cp libomt/bin/Release/net8.0/linux-x64/publish/libomt.h /usr/local/include/
-)
-
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- gpujpeg ndi svt_jpegxs vulkan ximea omt
+        set -- gpujpeg ndi svt_jpegxs vulkan ximea
 fi
 
 if [ $show_help ]; then
