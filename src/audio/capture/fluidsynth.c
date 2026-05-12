@@ -52,7 +52,7 @@
 #include "debug.h"                // for LOG_LEVEL_ERROR, MSG, log_msg, LOG_...
 #include "host.h"                 // for audio_capture_sample_rate, INIT_NOERR
 #include "lib_common.h"           // for REGISTER_MODULE, library_class
-#include "song1.h"                // for song1
+#include "midi_songs.h"           // for songs
 #include "tv.h"                   // for get_time_in_ns, time_ns_t, NS_IN_SE...
 #include "types.h"                // for device_info
 #include "utils/color_out.h"      // for color_printf, TBOLD, TRED
@@ -75,6 +75,7 @@ struct state_fluidsynth_capture {
         unsigned char     *right;
 
         char       *req_filename;
+        int         req_song;
         int         req_iterations;
         const char *tmp_filename;
 
@@ -106,12 +107,20 @@ usage()
 {
         color_printf(TBOLD("fluidsynth")
                      " is a capture device capable playing a MIDI file.\n\n");
-        color_printf("If no input file is specified, a bundled song is used.\n\n");
+        color_printf("If no input file is specified, a bundled song 1 is used.\n\n");
         color_printf("Usage:\n");
-        color_printf(TBOLD(TRED("\t-s fluidsynth") "[:file=<filename>][:loop=<iter>]") "\n");
+        color_printf(TBOLD(TRED("\t-s fluidsynth") "[:file=<filename>|song=<idx>][:loop=<iter>]") "\n");
         color_printf("where\n");
         color_printf(TBOLD("\t<filename>") " - name of file to be used\n");
+        color_printf(TBOLD("\t<idx>") "      - song index to be used\n");
         color_printf(TBOLD("\t<iter>") "     - nr of iterations, -1 means infinite (default)\n");
+        color_printf("\n");
+        color_printf("avaiable bundled songs:\n");
+        for (unsigned i = 0; i < countof(songs); ++i) {
+                color_printf("\t%u. %s\n", i + 1, songs[i].desc);
+        }
+        color_printf("\n");
+        color_printf("(See source code for more info about above songs.)\n");
         color_printf("\n");
         color_printf(TBOLD(
             "FLUIDSYNTH_SF") "        - environment variable with path to "
@@ -136,6 +145,8 @@ parse_opts(struct state_fluidsynth_capture *s, char *cfg)
                 const char *val = strchr(item, '=') + 1;
                 if (IS_KEY_PREFIX(item, "file")) {
                         s->req_filename = strdup(val);
+                } else if (IS_KEY_PREFIX(item, "song")) {
+                        s->req_song = atoi(val);
                 } else if (IS_KEY_PREFIX(item, "loop")) {
                         s->req_iterations = atoi(val);
                 } else {
@@ -151,7 +162,7 @@ parse_opts(struct state_fluidsynth_capture *s, char *cfg)
 }
 
 static const char *
-load_song1()
+load_song_n(int index)
 {
         const char *filename = NULL;
         FILE       *f        = get_temp_file(&filename);
@@ -159,7 +170,12 @@ load_song1()
                 perror("fopen audio");
                 return NULL;
         }
-        size_t nwritten = fwrite(song1, sizeof song1, 1, f);
+        size_t nwritten = 0;
+        if ((unsigned) index < countof(songs)) {
+                nwritten = fwrite(songs[index].midi, songs[index].len, 1, f);
+        } else {
+                MSG(ERROR, "Wrong song index %d!\n", index + 1);
+        }
         fclose(f);
         if (nwritten != 1) {
                 unlink(filename);
@@ -223,6 +239,7 @@ audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
         (void) parent;
         struct state_fluidsynth_capture *s = calloc(1, sizeof *s);
         s->req_iterations                  = -1;
+        s->req_song                        = 1;
 
         char *ccfg = strdup(cfg);
         int   ret  = parse_opts(s, ccfg);
@@ -259,7 +276,7 @@ audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
 
         const char *filename = s->req_filename;
         if (!filename) {
-                filename = s->tmp_filename = load_song1();
+                filename = s->tmp_filename = load_song_n(s->req_song - 1);
                 if (!filename) {
                         goto error;
                 }
