@@ -12,7 +12,7 @@
  * usage and also SignalGenerator was used for scheduled playback.
  */
 /*
- * Copyright (c) 2010-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2010-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1781,16 +1781,15 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         const bool overflow = sampleFramesWritten != sampleFrameCount;
         if (overflow || log_level >= LOG_LEVEL_DEBUG) {
                 ostringstream details_oss;
+                unsigned dropped = sampleFrameCount - sampleFramesWritten;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        details_oss
-                            << " (" << sampleFramesWritten << " written, "
-                            << sampleFrameCount - sampleFramesWritten
-                            << " dropped, " << buffered << " buffer size)";
+                        details_oss << ", written: " << sampleFramesWritten
+                                    << ", buffer_size " << buffered;
                 }
                 int level = overflow ? LOG_LEVEL_WARNING : LOG_LEVEL_DEBUG;
-                LOG(level) << MOD_NAME << "audio buffer"
-                           << (overflow ? " overflow!" : "")
-                           << details_oss.str() << "\n";
+                log_msg(level, MOD_NAME "audio buffer%s (dropped: %u%s)\n",
+                        overflow ? " overflow!" : "", dropped,
+                        details_oss.str().c_str());
         }
         s->audio_drift_fixer.update(buffered, sampleFrameCount, sampleFramesWritten);
 }
