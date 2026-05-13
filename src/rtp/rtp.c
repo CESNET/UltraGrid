@@ -279,6 +279,8 @@ struct rtp {
         socklen_t rtcp_dest_len;
         bool send_rtcp_to_origin; /* whether send RTCP reports to rtcp_dest */
         bool server_mode;
+        /// true if server_mode==true and receiver not yet determined
+        bool server_mode_address_unset;
         uint32_t my_ssrc;
         int last_advertised_csrc;
         source *db[RTP_DB_SIZE];
@@ -655,6 +657,9 @@ static source *really_create_source(struct rtp *session, uint32_t ssrc,
                         session->callback(session, &event);
                 }
         }
+
+        // allow stream redirecting in server mode
+        session->server_mode_address_unset = session->server_mode;
 
         return s;
 }
@@ -1074,9 +1079,10 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->send_rtcp_to_origin =
             (tx_port == 0 && is_host_loopback(addr));
         if (strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0) {
-                session->server_mode         = true;
-                session->send_rtcp_to_origin = true;
-                session->opt->record_source  = true;
+                session->server_mode               = true;
+                session->server_mode_address_unset = true;
+                session->send_rtcp_to_origin       = true;
+                session->opt->record_source        = true;
         }
 
         if (rx_port == 0) {
@@ -1582,10 +1588,10 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                                          initVec);
         }
 
-        if (!rtp_has_receiver(session)) {
-                session->server_mode = false; // avoid multiple checks if already sending
+        if (session->server_mode_address_unset) {
+                session->server_mode_address_unset = false;
                 struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
-                MSG(NOTICE, "Redirecting stream to a client %s.\n",
+                MSG(WARNING, "Redirecting stream to a client %s.\n",
                     get_sockaddr_str(sa, sizeof(struct sockaddr_storage),
                                      (char[ADDR_STR_BUF_LEN]){ 0 },
                                      ADDR_STR_BUF_LEN));
@@ -4029,10 +4035,13 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
         return 0;
 }
 
+/**
+ * @returns  true if not in server mode or if in server mode and receiver has
+ *           been already estabilished
+ */
 bool rtp_has_receiver(struct rtp *session)
 {
-        return !session->server_mode ||
-               !udp_is_server_mode_blackhole(session->rtp_socket);
+        return !session->server_mode_address_unset;
 }
 
 bool rtp_is_ipv6(struct rtp *session)
