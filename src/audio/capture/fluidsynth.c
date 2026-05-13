@@ -35,10 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>               // for assert
 #include <fluidsynth.h>           // for fluid_player_play, fluid_synth_writ...
 #include <fluidsynth/types.h>     // for fluid_player_t, fluid_settings_t
-#include <stdbool.h>              // for bool
 #include <stdio.h>                // for NULL, fclose, size_t, FILE, fopen
 #include <stdlib.h>               // for free, getenv, malloc, calloc
 #include <string.h>               // for strdup, strlen, strncat, strcmp
@@ -75,7 +73,7 @@ struct state_fluidsynth_capture {
         unsigned char     *right;
 
         char       *req_filename;
-        int         req_song;
+        int         req_song_idx;
         int         req_iterations;
         const char *tmp_filename;
 
@@ -146,7 +144,15 @@ parse_opts(struct state_fluidsynth_capture *s, char *cfg)
                 if (IS_KEY_PREFIX(item, "file")) {
                         s->req_filename = strdup(val);
                 } else if (IS_KEY_PREFIX(item, "song")) {
-                        s->req_song = atoi(val);
+                        s->req_song_idx = atoi(val);
+                        if (s->req_song_idx < 1 ||
+                            s->req_song_idx > (int) countof(songs)) {
+                                MSG(ERROR,
+                                    "Wrong song index %d! Valid value range is "
+                                    "1-%zu...\n",
+                                    s->req_song_idx, countof(songs));
+                                return -1;
+                        }
                 } else if (IS_KEY_PREFIX(item, "loop")) {
                         s->req_iterations = atoi(val);
                 } else {
@@ -159,29 +165,6 @@ parse_opts(struct state_fluidsynth_capture *s, char *cfg)
                 }
         }
         return 0;
-}
-
-static const char *
-load_song_n(int index)
-{
-        const char *filename = NULL;
-        FILE       *f        = get_temp_file(&filename);
-        if (f == NULL) {
-                perror("fopen audio");
-                return NULL;
-        }
-        size_t nwritten = 0;
-        if ((unsigned) index < countof(songs)) {
-                nwritten = fwrite(songs[index].midi, songs[index].len, 1, f);
-        } else {
-                MSG(ERROR, "Wrong song index %d!\n", index + 1);
-        }
-        fclose(f);
-        if (nwritten != 1) {
-                unlink(filename);
-                return NULL;
-        }
-        return filename;
 }
 
 /**
@@ -234,12 +217,11 @@ get_soundfont()
 }
 
 static void *
-audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
+audio_cap_fluidsynth_init(struct module */* parent */, const char *cfg)
 {
-        (void) parent;
         struct state_fluidsynth_capture *s = calloc(1, sizeof *s);
         s->req_iterations                  = -1;
-        s->req_song                        = 1;
+        s->req_song_idx                    = 1;
 
         char *ccfg = strdup(cfg);
         int   ret  = parse_opts(s, ccfg);
@@ -274,14 +256,6 @@ audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
                                    ? audio_capture_sample_rate
                                    : DEFAULT_FLUIDSYNTH_SAMPLE_RATE;
 
-        const char *filename = s->req_filename;
-        if (!filename) {
-                filename = s->tmp_filename = load_song_n(s->req_song - 1);
-                if (!filename) {
-                        goto error;
-                }
-        }
-
         s->settings = new_fluid_settings();
         fluid_settings_setnum(s->settings, "synth.sample-rate",
                               s->audio.sample_rate);
@@ -292,9 +266,24 @@ audio_cap_fluidsynth_init(struct module *parent, const char *cfg)
                 goto error;
         }
         s->player = new_fluid_player(s->synth);
-        if (fluid_player_add(s->player, filename) != FLUID_OK) {
-                MSG(ERROR, "Failed to add MIDI: %s\n", s->req_filename);
-                goto error;
+        if (s->req_filename != nullptr) {
+                int rc = fluid_player_add(s->player, s->req_filename);
+                if (rc != FLUID_OK) {
+                        MSG(ERROR, "Failed to add MIDI: %s\n", s->req_filename);
+                        goto error;
+                }
+                MSG(NOTICE, "Playing MIDI file: %s\n", s->req_filename);
+        } else {
+                int rc = fluid_player_add_mem(s->player,
+                                          songs[s->req_song_idx - 1].midi,
+                                          songs[s->req_song_idx - 1].len);
+                if (rc != FLUID_OK) {
+                        MSG(ERROR, "Failed to play built-in song: %s\n",
+                            songs[s->req_song_idx - 1].desc);
+                        goto error;
+                }
+                MSG(NOTICE, "Playing built-in song: %s\n",
+                    songs[s->req_song_idx - 1].desc);
         }
         fluid_player_set_loop(s->player, s->req_iterations);
         fluid_player_play(s->player);
