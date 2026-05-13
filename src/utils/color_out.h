@@ -54,17 +54,23 @@
 #define TERM_FG_YELLOW  "\033[33m"
 #define TERM_FG_BLUE    "\033[34m"
 #define TERM_FG_MAGENTA "\033[35m"
+#define TERM_FG_CYAN    "\033[36m"
 #define TERM_FG_BRIGHT_BLACK "\033[90m"
 #define TERM_FG_BRIGHT_GREEN "\033[92m"
+#define TERM_FG_BRIGHT_YELLOW "\033[93m"
 #define TERM_FG_BRIGHT_BLUE "\033[94m"
 #define TERM_FG_DARK_YELLOW "\033[38;5;220m"
 #define TERM_FG_RESET   "\033[39m"
 #define TERM_BG_BLACK   "\033[40m"
 #define TERM_BG_RESET   "\033[49m"
+#define TFG(col, x) col x TERM_FG_RESET
 // 256 color palette
+#define T_YELLOW_GREEN  118 // (2,0,5) R should be 2.5
 #define T_SADDLE_BROWN  130 // (3,1,0)
 #define T_ARCTIC_LIME   190 // (4,5,0)
+#define T_ORANGE        208 // (5,0,2) B should be 2.5
 #define T_TOMATO        209 // (5,2,1)
+#define T_AMBER         220 // (5,4,0)
 #define T256_FG_SYM(col) "\033[38;5;" COLOR_OUT_STRINGIFY(col) "m"
 #define T256_FG(col, x) T256_FG_SYM(col) x TERM_FG_RESET
 #define S256_FG(col, x) T256_FG(col, << x <<)

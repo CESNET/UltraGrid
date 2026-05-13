@@ -332,9 +332,8 @@ print_fps(const char *prefix, steady_clock::time_point *t0, int *frames,
         const double fps      = *frames / seconds;
         const char *const fps_col  = get_stat_color(fps / nominal_fps);
         log_msg(LOG_LEVEL_INFO,
-                TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN
-                "%s" TERM_RESET " %d frames in %g seconds = " TERM_BOLD
-                "%s%g FPS" TERM_RESET "\n",
+                TBOLD(TMAGENTA("%s"))
+                " %d frames in %g seconds = " TBOLD("%s%g FPS") "\n",
                 prefix, *frames, seconds, fps_col, fps);
         *t0     = t1;
         *frames = 0;

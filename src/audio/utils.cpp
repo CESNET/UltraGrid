@@ -843,8 +843,17 @@ void channel_map::compute_contributors() {
  * @param rms                   volume RMS in range [0,1]
  * @param peak                  value of sample with maximal absolute value in
  *                              range [0,1]
- * @param[in,out] volume_start  string to be wwritten to, after function exit
- * will to point after just written data
+ * @param[in,out] volume_start  string to be written to, after function exit
+ *                              will to point after just written data
+ *
+ * @todo
+ * Instead of using pre-defined 3-bit colors like TERM_FG_BRIGHT_BLACK consider
+ * using 8-bit colors.
+ *
+ * The point is that  while the 8-bit colors 16-231 have more or less exactly
+ * specified RGB mapping, the 3 and 4 bit uses palette that vary among terminals
+ * (and user settings). On the other hand, the predefined ones will likely be
+ * readable on user terminal background (will not collide because of near tone).
  */
 void
 format_audio_channel_volume(int chan_idx, double rms, double peak, const char *format_color,
@@ -856,8 +865,22 @@ format_audio_channel_volume(int chan_idx, double rms, double peak, const char *f
         }
         const double rms_dbfs  = 20.0 * log(rms) / log(10.0);
         const double peak_dbfs = 20.0 * log(peak) / log(10.0);
+        const char *color = nullptr;
+        if (peak_dbfs < -60) {
+                color = TERM_FG_BRIGHT_BLACK;
+        } else if (peak_dbfs < -20) {
+                color = TERM_FG_GREEN;
+        } else if (peak_dbfs < -12) {
+                color = T256_FG_SYM(T_YELLOW_GREEN);
+        } else if (peak_dbfs < -6) {            // plain yellow is on some
+                color = TERM_FG_BRIGHT_YELLOW;  // palettes a bit faded
+        } else if (peak_dbfs < -3) {
+                color = T256_FG_SYM(T_ORANGE);
+        } else {
+                color = TERM_FG_RED;
+        }
         *volume_start +=
             snprintf(*volume_start, volume_end - *volume_start,
-                     "[%d] %s%.2f" TERM_RESET "/%s%.2f" TERM_RESET, chan_idx,
-                     format_color, rms_dbfs, format_color, peak_dbfs);
+                     TBOLD("%s[%d] %s%.2f/%.2f") TERM_FG_RESET, format_color, chan_idx,
+                     color, rms_dbfs, peak_dbfs);
 }

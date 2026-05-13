@@ -393,12 +393,11 @@ static void *adec_compute_and_print_stats(void *arg) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                format_audio_channel_volume(i, rms, peak,
-                                            TERM_BOLD TERM_FG_MAGENTA,
+                format_audio_channel_volume(i, rms, peak, TERM_FG_GREEN,
                                             &vol_start, volume + sizeof volume);
         }
 
-        MSG(INFO, "Volume: %s dBFS RMS/peak%s\n", volume,
+        log_msg(LOG_LEVEL_INFO, TBOLD(TGREEN(MOD_NAME)) "Volume: %s dBFS RMS/peak%s\n", volume,
             d->muted_receiver ? TBOLD(TRED(" (muted receiver)")) : "");
 
         delete d;

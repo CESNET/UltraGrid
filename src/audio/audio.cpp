@@ -622,8 +622,7 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                 } else {
                         log_msg(
                             LOG_LEVEL_INFO,
-                            TERM_FG_MAGENTA
-                            "Playback volume: %.2f%% (%+.2f dB)" TERM_FG_RESET
+                            TGREEN("Playback volume: %.2f%% (%+.2f dB)")
                             "\n",
                             new_volume * 100.0, db);
                 }
@@ -976,13 +975,15 @@ static void *asend_compute_and_print_stats(void *arg) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                format_audio_channel_volume(
-                    i, rms, peak, TERM_BOLD TERM_FG_GREEN, &vol_start,
-                    volume + sizeof volume);
+                format_audio_channel_volume(i, rms, peak, T256_FG_SYM(T_AMBER),
+                                            &vol_start, volume + sizeof volume);
         }
 
-        log_msg(LOG_LEVEL_INFO, "[Audio sender] Volume: %s dBFS RMS/peak%s\n",
-                volume, d->muted_sender ? TBOLD(TRED(" (muted sender)")) : "");
+        log_msg(
+            LOG_LEVEL_INFO,
+            TBOLD(T256_FG(T_AMBER,
+                          "[audio send] ")) "Volume: %s dBFS RMS/peak%s\n",
+            volume, d->muted_sender ? TBOLD(TRED(" (muted sender)")) : "");
 
         delete d;
 

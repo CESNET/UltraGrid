@@ -14,7 +14,7 @@
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -370,9 +370,8 @@ display_print_fps(const char *prefix, double seconds, int frames, int dropped,
         }
 
         log_msg(LOG_LEVEL_INFO,
-                TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET
-                                          "%d frames in %g seconds = " TERM_BOLD
-                                          "%s%g FPS%s" TERM_RESET "\n",
+                TBOLD(TFG(TERM_FG_CYAN, "%s")) "%d frames in %g seconds = "
+                TBOLD("%s%g FPS%s" TERM_RESET) "\n",
                 prefix, frames, seconds, fps_col, fps, drop_str);
 }
 
