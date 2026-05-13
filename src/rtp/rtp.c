@@ -2936,7 +2936,8 @@ rtp_send_data_hdr(struct rtp *session,
 
         rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len, d);
         if (rc == -1) {
-                log_msg(LOG_LEVEL_WARNING, "sending RTP packet: %s", ug_strerror(errno));
+                log_msg(LOG_LEVEL_WARNING, "sending RTP packet: %s\n",
+                        ug_strerror(errno));
         }
 
         /* Update the RTCP statistics... */
