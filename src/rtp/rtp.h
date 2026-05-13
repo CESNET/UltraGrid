@@ -3,7 +3,7 @@
  * AUTHOR: Colin Perkins <c.perkins@cs.ucl.ac.uk>
  *
  * Copyright (c) 1998-2000 University College London
- * Copyright (c) 2005-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2026 CESNET, zájmové sdužení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -230,8 +230,6 @@ typedef enum {
 	RTP_OPT_PEEK              = 5,
 	RTP_OPT_RECORD_SOURCE     = 6,  /* Record network source (sockaddr_storage) at the   */
                                         /* end of the packet                                 */
-	RTP_OPT_SEND_BACK         = 7,  // Send to a receiver that is sending to us. Sets also
-                                        // RTP_POT_RECORD_SOURCE
 } rtp_option;
 
 struct msghdr;

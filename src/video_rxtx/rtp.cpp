@@ -308,9 +308,6 @@ initialize_network(const char *addr, int recv_port, int send_port,
         rtp_set_option(device, RTP_OPT_PROMISC, true);
         rtp_set_sdes(device, rtp_my_ssrc(device),
                      RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
-        if (strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0) {
-                rtp_set_option(device, RTP_OPT_SEND_BACK, true);
-        }
 
         rtp_set_recv_buf(device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
         rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);

@@ -258,7 +258,6 @@ typedef struct {
         int filter_my_packets;
         int reuse_bufs;
         int record_source;
-        int send_back;
 } options;
 
 /*
@@ -279,6 +278,7 @@ struct rtp {
         struct sockaddr_storage rtcp_dest; /* location to send RTCP RR to if tx_port is 0 */
         socklen_t rtcp_dest_len;
         bool send_rtcp_to_origin; /* whether send RTCP reports to rtcp_dest */
+        bool server_mode;
         uint32_t my_ssrc;
         int last_advertised_csrc;
         source *db[RTP_DB_SIZE];
@@ -973,7 +973,6 @@ static void init_opt(struct rtp *session)
         rtp_set_option(session, RTP_OPT_FILTER_MY_PACKETS, false);
         rtp_set_option(session, RTP_OPT_REUSE_PACKET_BUFS, false);
         rtp_set_option(session, RTP_OPT_RECORD_SOURCE, false);
-        rtp_set_option(session, RTP_OPT_SEND_BACK, false);
 }
 
 /* See rtp_init_if(); calling rtp_init() is just like calling
@@ -1073,8 +1072,12 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->userdata = userdata;
         session->mt_recv = multithreaded;
         session->send_rtcp_to_origin =
-            (tx_port == 0 && is_host_loopback(addr)) ||
-            strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0;
+            (tx_port == 0 && is_host_loopback(addr));
+        if (strcmp(addr, IN6_BLACKHOLE_SERVER_MODE_STR) == 0) {
+                session->server_mode         = true;
+                session->send_rtcp_to_origin = true;
+                session->opt->record_source  = true;
+        }
 
         if (rx_port == 0) {
                 const unsigned random_off =
@@ -1338,12 +1341,6 @@ bool rtp_set_option(struct rtp *session, rtp_option optname, int optval)
         case RTP_OPT_RECORD_SOURCE:
                 session->opt->record_source = optval;
                 break;
-        case RTP_OPT_SEND_BACK:
-                session->opt->send_back = optval;
-                if (optval) {
-                        session->opt->record_source = true;
-                }
-                break;
         default:
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_set_option().\n",
@@ -1586,7 +1583,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
         }
 
         if (!rtp_has_receiver(session)) {
-                session->opt->send_back = false; // avoid multiple checks if already sending
+                session->server_mode = false; // avoid multiple checks if already sending
                 struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
                 MSG(NOTICE, "Redirecting stream to a client %s.\n",
                     get_sockaddr_str(sa, sizeof(struct sockaddr_storage),
@@ -4034,7 +4031,7 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
 
 bool rtp_has_receiver(struct rtp *session)
 {
-        return !session->opt->send_back ||
+        return !session->server_mode ||
                !udp_is_server_mode_blackhole(session->rtp_socket);
 }
 
