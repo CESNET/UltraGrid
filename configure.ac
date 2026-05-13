@@ -271,9 +271,8 @@ $TARGET: $2
 # C23 support
 #
 # c23 support checked and flags added if needed to support as much of c23
-# as possible - therefore 202000L (instead of 202311L) is intentional -
-# older compilers like Clang 15 use this placeholder for -std=c23 (or
-# gnu2x as tried below).
+# as possible. <= 201710L and not < 202311L is intentional - compiler may
+# use values in-between, like 202003L in case of Clang 15.
 #
 # TODO: TOREMOVE when not needed - autoconf since 2.73 checks c23 and adds
 # needed flags in AC_PROG_CC automatically:
@@ -286,7 +285,7 @@ m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.73]), [-1],
         AC_MSG_CHECKING([additional flags for C23])
 
         c23_program=$(cat<<-'EOF'
-		#if __STDC_VERSION__ < 202000L
+		#if __STDC_VERSION__ <= 201710L
 		#error "not c23"
 		#endif
 		EOF
@@ -298,11 +297,17 @@ m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.73]), [-1],
         if test "${c23_wo_flags?}"; then
                 AC_MSG_RESULT([none needed]);
         else
-                c23_fl=-std=gnu2x
-                CFLAGS="${CFLAGS:+$CFLAGS }$c23_fl"
-                AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-                                   [[ ${c23_program?} ]])],
-                c23_w_flags=yes, c23_w_flags=)
+                for c23_fl in -std=gnu23 -std=gnu2x; do
+                        CFLAGS_S=$CFLAGS
+                        CFLAGS="${CFLAGS:+$CFLAGS }$c23_fl"
+                        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                                           [[ ${c23_program?} ]])],
+                        c23_w_flags=yes, c23_w_flags=)
+                        if test "${c23_w_flags?}"; then
+                                break
+                        fi
+                        CFLAGS=$CFLAGS_S
+                done
                 if test "${c23_w_flags?}"; then
                         AC_MSG_RESULT([${c23_fl?}]);
                 else
