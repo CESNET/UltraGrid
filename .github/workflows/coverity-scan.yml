@@ -89,7 +89,10 @@ jobs:
            .github/scripts/Linux/prepare.sh
 
     - name: configure
-      run: ./autogen.sh $FEATURES
+      run: |
+        sudo apt install gcc-14 g++-14
+        CC=gcc-14 CXX=g++-14 \
+        ./autogen.sh ${FEATURES?}
     - name: Build with cov-build
       run: |
         /tmp/cov-analysis/bin/cov-build --dir cov-int make -j2
