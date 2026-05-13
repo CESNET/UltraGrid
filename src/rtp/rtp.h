@@ -252,7 +252,8 @@ rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    rtp_callback callback,
 			    uint8_t *userdata,
                             int force_ip_version, bool multithreaded);
-rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, unsigned len, rtp_callback callback);
+rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
+                               rtp_callback callback);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);

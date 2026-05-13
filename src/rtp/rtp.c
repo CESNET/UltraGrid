@@ -1187,7 +1187,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
 
 rtp_t
 rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
-                         unsigned len, rtp_callback callback)
+                         rtp_callback callback)
 {
         struct rtp *session;
         int i, j;
@@ -1206,7 +1206,7 @@ rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
         session->mt_recv = false;
         session->send_rtcp_to_origin = true;
 
-        session->rtp_socket = udp_init_with_local(l, sa, len);
+        session->rtp_socket = udp_init_with_local(l, sa);
         session->rtcp_socket = udp_init_if("localhost", NULL, 0, 0, ttl, 6, false);
 
         init_opt(session);
@@ -1589,7 +1589,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                     get_sockaddr_str(sa, sizeof(struct sockaddr_storage),
                                      (char[ADDR_STR_BUF_LEN]){ 0 },
                                      ADDR_STR_BUF_LEN));
-                udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+                udp_set_receiver(session->rtp_socket, sa);
         }
 
         /* figure out header length based on tfrc_on */

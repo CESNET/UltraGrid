@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2025 CESNET
+ * Copyright (c) 2016-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,11 +112,9 @@ struct am_participant {
                 assert(l != nullptr && ss != nullptr);
                 m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5);
                 assert(m_buffer != NULL);
-                struct sockaddr *sa = (struct sockaddr *) ss;
-                assert(ss->ss_family == AF_INET || ss->ss_family == AF_INET6);
-                socklen_t len = ss->ss_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
 
-                m_network_device = rtp_init_with_udp_socket(l, sa, len, mixer_dummy_rtp_callback);
+                m_network_device = rtp_init_with_udp_socket(
+                    l, (struct sockaddr *) ss, mixer_dummy_rtp_callback);
                 assert(m_network_device != NULL);
                 m_tx_session = tx_init(NULL, 1500, TX_MEDIA_AUDIO, NULL, NULL, RATE_UNLIMITED);
                 assert(m_tx_session != NULL);

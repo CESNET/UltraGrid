@@ -1157,12 +1157,14 @@ udp_is_server_mode_blackhole(socket_udp *s)
                       sizeof ipv6_blackhole_server_mode) == 0;
 }
 
-void udp_set_receiver(socket_udp *s, struct sockaddr *sa, socklen_t len) {
+void udp_set_receiver(socket_udp *s, struct sockaddr *sa) {
+        size_t len = sa->sa_family == AF_INET ? sizeof(struct sockaddr_in)
+                                              : sizeof(struct sockaddr_in6);
         memcpy(&s->sock, sa, len);
         s->sock_len = len;
 }
 
-socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len)
+socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa)
 {
         if ((sa->sa_family == AF_INET && l->mode != IPv4) ||
                         (sa->sa_family == AF_INET6 && l->mode != IPv6) ||
@@ -1175,7 +1177,7 @@ socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa,
         s->local = l;
         s->local_is_slave = true;
 
-        udp_set_receiver(s, sa, len);
+        udp_set_receiver(s, sa);
 
         return s;
 }
