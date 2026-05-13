@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdužení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -234,11 +234,11 @@ struct reported_statistics_cumul {
         void print() {
                 ostringstream fec;
                 if (fec_ok + fec_nok + fec_corrected > 0) {
-                        fec << " FEC noerr/OK/NOK: " << SBOLD(fec_ok) << "/" << SBOLD(fec_corrected) << "/" << SBOLD(fec_nok);
+                        fec << ", FEC noerr/OK/NOK: " << SBOLD(fec_ok) << "/" << SBOLD(fec_corrected) << "/" << SBOLD(fec_nok);
                 }
                 unsigned long total = displayed + dropped + missing;
-                LOG(LOG_LEVEL_INFO) << SUNDERLINE("Video dec stats") << " (cumulative): "
-                        << SBOLD(total) << " total / "
+                LOG(LOG_LEVEL_INFO) << SUNDERLINE("vdec stats") << " (cumul): "
+                        << SBOLD(total) << " total: "
                         << SBOLD(displayed) << " disp / "
                         << SBOLD(dropped) << " drop / "
                         << SBOLD(corrupted) << " corr / "
