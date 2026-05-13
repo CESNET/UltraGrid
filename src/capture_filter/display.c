@@ -191,7 +191,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 return nullptr;
         }
         struct capture_filter_display *s = state;
-        struct video_frame *f = in ? vf_get_copy(in) : NULL;
+        struct video_frame *f = vf_get_copy(in);
         pthread_mutex_lock(&s->lock);
         if (simple_linked_list_size(s->frame_queue) == MAX_QUEUE_LEN) {
                 pthread_mutex_unlock(&s->lock);
