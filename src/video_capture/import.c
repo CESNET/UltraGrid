@@ -147,7 +147,6 @@ struct audio_state {
         struct wav_metadata metadata;
         ring_buffer_t *data;
         int total_samples;
-        int samples_read;
         pthread_t thread_id;
 
         pthread_cond_t worker_cv;
@@ -234,7 +233,6 @@ static bool init_audio(struct vidcap_import_state *s, const char *audio_filename
         s->audio_frame.sample_rate = s->audio_state.metadata.sample_rate;
         s->audio_frame.bps = s->audio_state.metadata.bits_per_sample / 8;
         s->audio_state.total_samples = s->audio_state.metadata.data_size / s->audio_frame.bps / s->audio_frame.ch_count;
-        s->audio_state.samples_read = 0;
 
         s->audio_state.data = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate *
                         s->audio_frame.ch_count * 180);
@@ -770,6 +768,7 @@ struct client {
 static void * audio_reading_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
+	int samples_read = 0;
 
         //while(s->audio_state.samples_read < s->audio_state.total_samples && !s->finish_threads) {
         while(1) {
@@ -777,7 +776,7 @@ static void * audio_reading_thread(void *args)
                 {
                         pthread_mutex_lock(&s->audio_state.lock);
                         while((ring_get_current_size(s->audio_state.data) > ring_get_size(s->audio_state.data) * 2 / 3 ||
-                                                s->audio_state.samples_read >= s->audio_state.total_samples)
+                                                samples_read >= s->audio_state.total_samples)
                                         && s->audio_state.message_queue.len == 0) {
                                 pthread_cond_wait(&s->audio_state.worker_cv, &s->audio_state.lock);
                         }
@@ -803,9 +802,9 @@ static void * audio_reading_thread(void *args)
                                         }
                                         ring_buffer_flush(s->audio_state.data);
                                         s->audio_state.video_frames_played = MAX(0, s->audio_state.video_frames_played + data->offset);
-                                        s->audio_state.samples_read = bytes / (s->audio_frame.bps * s->audio_frame.ch_count);
-                                        s->audio_state.samples_read = MIN(s->audio_state.samples_read, s->audio_state.total_samples);
-                                        s->audio_state.played_samples = s->audio_state.samples_read;
+                                        samples_read = bytes / (s->audio_frame.bps * s->audio_frame.ch_count);
+                                        samples_read = MIN(samples_read, s->audio_state.total_samples);
+                                        s->audio_state.played_samples = samples_read;
                                         free(data);
                                 }
                         }
@@ -819,7 +818,7 @@ static void * audio_reading_thread(void *args)
                 char *buffer = (char *) malloc(max_read);
 
                 size_t samples = wav_read(buffer, max_read / s->audio_frame.ch_count / s->audio_frame.bps, s->audio_state.file, &s->audio_state.metadata);
-                s->audio_state.samples_read += samples;
+                samples_read += samples;
 
                 {
                         pthread_mutex_lock(&s->audio_state.lock);
@@ -1040,7 +1039,6 @@ static void reset_import(struct vidcap_import_state *s)
         /// This stuff is very ugly, rewrite it
         if (s->audio_state.has_audio) {
                 s->audio_state.played_samples = 0;
-                s->audio_state.samples_read = 0;
                 ring_buffer_flush(s->audio_state.data);
                 if (wav_seek(s->audio_state.file, 0L, SEEK_SET, &s->audio_state.metadata) != 0) {
                         perror("wav_seek");
