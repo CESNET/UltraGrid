@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2021 CESNET z.s.p.o.
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,12 +59,9 @@
 #define STATICLIB 1
 #include <natpmp.h>
 #endif // defined HAVE_NATPMP
+
 #ifdef HAVE_PCP
-        #ifdef HAVE_PCP_NEW
-                #include <pcpnatpmp-client/pcpnatpmp.h>
-        #else
-                #include <pcp-client/pcp.h>
-        #endif
+        #include <pcpnatpmp.h>
 #endif // defined HAVE_PCP
 
 #include "debug.h"

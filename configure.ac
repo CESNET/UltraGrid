@@ -3567,10 +3567,6 @@ AC_ARG_ENABLE(pcp,
 if test "$pcp_req" != no; then
         PKG_CHECK_MODULES([PCP], [libpcpnatpmp], [FOUND_PCP=new],
                 [FOUND_PCP=no])
-        if test "$FOUND_PCP" = no; then
-                PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=old],
-                        [FOUND_PCP=no])
-        fi
         if test "$FOUND_PCP" != no; then
                 LIBS="$PCP_LIBS $LIBS"
                 AC_DEFINE([HAVE_PCP], [1], [Build with PCP support])
