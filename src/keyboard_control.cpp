@@ -714,7 +714,12 @@ print_command_line()
         color_printf(TBOLD("Command line:"));
         char **argv = uv_argv;
         while (*argv != nullptr) {
-                printf(" %s", *argv++);
+                bool blank_in_arg = strcspn(*argv, "\t\n ") != strlen(*argv);
+                if (blank_in_arg) {
+                        printf(" '%s'", *argv++);
+                } else {
+                        printf(" %s", *argv++);
+                }
         }
         printf("\n");
 }
