@@ -54,6 +54,8 @@
 #include "ug_runtime_error.hpp"
 #include "utils/macros.h"
 
+#define MOD_NAME "[fec] "
+
 using std::exception;
 using std::stof;
 using std::stoi;
@@ -104,8 +106,40 @@ fec *fec::create_from_config(const char *c_str, bool is_audio) noexcept
         return nullptr;
 }
 
+static const char *
+get_fec_name(enum fec_type type)
+{
+        switch (type) {
+        case FEC_NONE:
+                return "(none)";
+        case FEC_MULT:
+                return "mult";
+        case FEC_LDGM:
+                return "LDGM";
+        case FEC_RS:
+                return "Reed-Solomon";
+        }
+        abort();
+}
+
+const char *get_fec_desc(struct fec_desc desc, size_t buflen, char *buf)
+{
+        if (desc.type == FEC_NONE) {
+                return "none or multiplication";
+        }
+        int ret =
+            snprintf(buf, buflen, "type=%s, k=%u, m=%u, c=%u, seed=%u, ss=%u",
+                     get_fec_name(desc.type), desc.k, desc.m, desc.c, desc.seed,
+                     desc.symbol_size);
+        assert(ret < (int) buflen);
+        return buf;
+}
+
 fec *fec::create_from_desc(struct fec_desc desc) noexcept
 {
+        char buf[STR_LEN];
+        MSG(INFO, "Receiving FEC - %s\n", get_fec_desc(desc, sizeof buf, buf));
+
         try {
                 switch (desc.type) {
                         case FEC_LDGM:

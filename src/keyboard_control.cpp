@@ -807,6 +807,18 @@ void keyboard_control::impl::info()
                               << response_get_text(r) << "\n";
                 }
                 free_response(r);
+
+                m = (struct msg_universal *) new_message(
+                    sizeof(struct msg_universal));
+                strcpy(m->text, "get_fec");
+                r = send_message_sync(
+                    m_root, "receiver.decoder", (struct message *) m, 100,
+                    SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) == RESPONSE_OK) {
+                        col() << TBOLD("Received video FEC: ")
+                              << response_get_text(r) << "\n";
+                }
+                free_response(r);
 	}
 
 	{

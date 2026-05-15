@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET z.s.p.o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,9 +72,14 @@ struct fec {
 #endif // __cplusplus
 
 #ifdef __cplusplus
+#include <cstddef>
 extern "C" {
+#else
+#include <stddef.h>
 #endif
+
 int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted);
+const char *get_fec_desc(struct fec_desc desc, size_t buflen, char *buf);
 #ifdef __cplusplus
 }
 #endif

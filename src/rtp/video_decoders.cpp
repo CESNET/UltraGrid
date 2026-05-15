@@ -353,6 +353,7 @@ struct state_video_decoder
         thread decompress_thread_id,
                   fec_thread_id;
         struct video_desc received_vid_desc = {}; ///< description of the network video
+        struct fec_desc   received_vid_fec = {};
         struct pixfmt_desc received_int_desc = {}; ///< compression int desc
         struct video_desc display_desc = {};      ///< description of the mode that display is currently configured to
 
@@ -448,6 +449,8 @@ static void *fec_thread(void *args) {
                                         exit_uv(1);
                                         goto cleanup;
                                 }
+                                unique_lock<mutex> lk(decoder->lock);
+                                decoder->received_vid_fec = desc;
                         }
                 }
 
@@ -1874,6 +1877,12 @@ static void decoder_process_message(struct module *m)
                         string video_desc = s->received_vid_desc;
                         s->lock.unlock();
                         r = new_response(RESPONSE_OK, video_desc.c_str());
+                } else if (strcmp(m_univ->text, "get_fec") == 0) {
+                        unique_lock<mutex> lk(s->lock);
+                        char               buf[STR_LEN];
+                        r = new_response(
+                            RESPONSE_OK,
+                            get_fec_desc(s->received_vid_fec, sizeof buf, buf));
                 } else {
                         r = new_response(RESPONSE_NOT_FOUND, NULL);
                 }
