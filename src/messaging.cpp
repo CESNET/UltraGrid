@@ -6,7 +6,7 @@
  * UltraGrid modules.
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,16 +55,19 @@
 #include "module.h"
 #include "utils/list.h"
 #include "utils/lock_guard.h"
-#include "utils/macros.h"        // for snprintf_ch
+#include "utils/macros.h"        // for snprintf_ch, to_fourcc
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
 #define MOD_NAME "[messaging] "
+#define MSG_MAGIC  to_fourcc('m', 'e', 's', 'g')
+#define RESP_MAGIC to_fourcc('r', 'e', 's', 'p')
 
 using namespace std;
 using namespace ultragrid;
 
 struct response {
+        uint32_t magic;
         int status;
         char text[];
 };
@@ -323,6 +326,7 @@ struct message *new_message(size_t len)
 
         struct message *ret = (struct message *)
                 calloc(1, len);
+        ret->magic = MSG_MAGIC;
 
         return ret;
 }
@@ -337,6 +341,8 @@ void free_message(struct message *msg, struct response *r)
         if (!msg) {
                 return;
         }
+
+        assert(msg->magic == MSG_MAGIC);
 
         if (r) {
                 if (msg->send_response) {
@@ -354,6 +360,7 @@ void free_message(struct message *msg, struct response *r)
                 delete (shared_ptr<struct responder> *) msg->priv_data;
         }
 
+        msg->magic = 0;
         free(msg);
 }
 
@@ -366,6 +373,7 @@ void free_message(struct message *msg, struct response *r)
 struct response *new_response(int status, const char *text)
 {
         struct response *resp = (struct response *) malloc(sizeof(struct response) + (text ? strlen(text) : 0) + 1);
+        resp->magic = RESP_MAGIC;
         resp->status = status;
         if (text) {
                 strcpy(resp->text, text);
@@ -376,6 +384,11 @@ struct response *new_response(int status, const char *text)
 }
 
 void free_response(struct response *r) {
+        if (r == nullptr) {
+                return;
+        }
+        assert(r->magic == RESP_MAGIC);
+        r->magic = 0;
         free(r);
 }
 
