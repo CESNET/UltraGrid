@@ -270,9 +270,11 @@ void ultragrid_rtp_video_rxtx::remove_display_from_decoders() {
                 pdb_iter_t it;
                 struct pdb_e *cp = pdb_iter_init(m_rtp_common->participants, &it);
                 while (cp != NULL) {
-                        if(cp->decoder_state)
-                                video_decoder_remove_display(
-                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
+                        if (cp->decoder_state) {
+                                video_decoder_deactivate(
+                                    ((struct vcodec_state *) cp->decoder_state)
+                                        ->decoder);
+                        }
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);

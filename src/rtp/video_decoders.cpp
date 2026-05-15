@@ -188,6 +188,8 @@ static void *fec_thread(void *args);
 static void *decompress_thread(void *args);
 static void cleanup(struct state_video_decoder *decoder);
 static void decoder_process_message(struct module *);
+static bool  video_decoder_register_display(struct state_video_decoder *decoder,
+                                            struct display             *display);
 
 static int sum_map(map<int, int> const & m) {
         int ret = 0;
@@ -861,7 +863,9 @@ ADD_TO_PARAM("decoder-use-codec",
  * @param display new display to be registered
  * @return        whether registration was successful
  */
-bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display)
+static bool
+video_decoder_register_display(struct state_video_decoder *decoder,
+                               struct display             *display)
 {
         assert(display != NULL);
         assert(decoder->display == NULL);
@@ -936,14 +940,18 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 }
 
 /**
- * @brief This removes display from current decoder.
+ * This removes display from current decoder and uninitializes module so that it
+ * won't respond on messages (newly created decoder should).
  *
  * From now on, no video frames will be decoded with current decoder.
- * @see decoder_register_display - the counterpart of this function
+ * video_decoder_register_display() used to re-enable decoder but it is not
+ * currently used and as this now also deactivates the module, this should be
+ * re-enabled as well.
  *
  * @param decoder decoder from which will the decoder be removed
  */
-void video_decoder_remove_display(struct state_video_decoder *decoder)
+void
+video_decoder_deactivate(struct state_video_decoder *decoder)
 {
         if (decoder->display) {
                 video_decoder_stop_threads(decoder);
@@ -953,6 +961,10 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
                 }
                 decoder->display = NULL;
                 memset(&decoder->display_desc, 0, sizeof(decoder->display_desc));
+        }
+        if (decoder->mod.cls) {
+                module_done(&decoder->mod);
+                decoder->mod.cls = MODULE_CLASS_NONE;
         }
 }
 
@@ -987,7 +999,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
                 decoder->dec_funcs->destroy(decoder->decrypt);
         }
 
-        video_decoder_remove_display(decoder);
+        video_decoder_deactivate(decoder);
 
         cleanup(decoder);
 

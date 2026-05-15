@@ -10,7 +10,7 @@
  */
 /*
  * Copyright (c) 2003 University of Southern California
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -71,8 +71,7 @@ int decode_video_frame(struct coded_data *received_data, void *decoder_data, str
 struct state_video_decoder *video_decoder_init(struct module *parent, enum video_mode,
                 struct display *display, const char *encryption);
 void video_decoder_destroy(struct state_video_decoder *decoder);
-bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display);
-void video_decoder_remove_display(struct state_video_decoder *decoder);
+void video_decoder_deactivate(struct state_video_decoder *decoder);
 bool parse_video_hdr(const uint32_t *hdr, struct video_desc *desc);
 
 /** @} */ // end of video_rtp_decoder
