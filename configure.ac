@@ -343,7 +343,7 @@ AC_SUBST(DYLIBBUNDLER)
 # ---------------------------------------------------------------------
 # AsciiDoc
 # ---------------------------------------------------------------------
-AC_PATH_PROGS(A2X, [asciidoctor a2x], [:])
+A2X=:
 AC_SUBST(A2X)
 AC_SUBST(MANPAGES)
 man=no
@@ -354,6 +354,7 @@ AC_ARG_ENABLE(man, AS_HELP_STRING([--enable-man], [build (default is auto)]
         [req_man=$build_default])
 
 if test "$req_man" != no; then
+        AC_PATH_PROGS(A2X, [asciidoctor a2x], [:])
         if test "$A2X" != :; then
                 man=yes
                 MANPAGES=uv.1
@@ -723,44 +724,48 @@ AC_ARG_ENABLE(gl,
     )
 OPENGL=no
 OPENGL_COMMON=no
+GL_COMMON_OBJ="src/gl_context.o"
 
 SAVED_LIBS=$LIBS
 SAVED_CFLAGS=$CFLAGS
 CFLAGS="$CFLAGS -DGLEW_NO_GLU"
-AC_CHECK_HEADER(GL/gl.h)
-AC_CHECK_HEADER(GL/glew.h)
-AC_CHECK_HEADER(GL/glx.h)
-AC_CHECK_LIB(GL, glBindTexture)
-AC_CHECK_LIB(GL, glXCreateNewContext)
-AC_CHECK_LIB(GLEW, glewInit)
-AC_CHECK_LIB(glew32, glewInit)
-AC_CHECK_LIB(X11, XCreateWindow)
-LIBS=$SAVED_LIBS
-CFLAGS=$SAVED_CFLAGS
-HAVE_GL=no
-HAVE_GLEW=no
 
-GL_COMMON_OBJ="src/gl_context.o"
-
-if test "${ac_cv_header_GL_gl_h?}" = yes && \
-        test "${ac_cv_lib_GL_glBindTexture?}" = yes
-then
-        HAVE_GL=yes
+if test "${system?}" = MacOSX && test "${gl_req?}" != no; then
+        OPENGL=yes
 fi
 
-if test "${ac_cv_header_GL_glew_h?}" = yes && \
-        { test "${ac_cv_lib_GLEW_glewInit?}" = yes || test "${ac_cv_lib_glew32_glewInit?}" = yes; }
-then
-        HAVE_GLEW=yes
+if test "${system?}" != MacOSX && test "${gl_req?}" != no; then
+        AC_CHECK_HEADER(GL/glew.h)
+        AC_CHECK_LIB(GLEW, glewInit)
+        AC_CHECK_LIB(glew32, glewInit)
+
+        if test "${ac_cv_header_GL_glew_h?}" = yes &&
+                { test "${ac_cv_lib_GLEW_glewInit?}" = yes ||
+                  test "${ac_cv_lib_glew32_glewInit?}" = yes; }
+        then
+                if test "${system?}" = Windows; then
+                        OPENGL=yes
+                else
+                        AC_CHECK_HEADER(GL/gl.h)
+                        AC_CHECK_LIB(GL, glBindTexture)
+                        if test "${ac_cv_header_GL_gl_h?}" = yes &&
+                           test "${ac_cv_lib_GL_glBindTexture?}" = yes
+                        then
+                                OPENGL=yes
+                        fi
+                fi
+        fi
 fi
 
 # Linux
 if { test "$system" = Linux || test "$system" = other; } &&  \
-        test "$HAVE_GL" = yes && \
-        test "$HAVE_GLEW" = yes
+        test "${OPENGL?}" = yes
 then
         OPENGL_LIB="-lGLEW -lGL"
         OPENGL=yes
+        AC_CHECK_HEADER(GL/glx.h)
+        AC_CHECK_LIB(X11, XCreateWindow)
+        AC_CHECK_LIB(GL, glXCreateNewContext)
         if  test "$ac_cv_header_GL_glx_h" = yes && \
                 test "$ac_cv_lib_GL_glXCreateNewContext" = yes && \
                 test "$ac_cv_lib_X11_XCreateWindow" = yes
@@ -772,9 +777,8 @@ then
 fi
 
 # Mac
-if test "$system" = MacOSX
+if test "$system" = MacOSX && test "${OPENGL?}" = yes
 then
-        OPENGL=yes
         OPENGL_COMMON=yes
         OPENGL_LIB="-framework Cocoa -framework OpenGL"
         COMMON_FLAGS="$COMMON_FLAGS -DGL_SILENCE_DEPRECATION"
@@ -782,19 +786,15 @@ then
 fi
 
 # Win32
-if test "${system?}" = Windows && test "${HAVE_GLEW?}" = yes
+if test "${system?}" = Windows && test "${OPENGL?}" = yes
 then
-        OPENGL=yes
         OPENGL_COMMON=yes
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/win32_gl_common.o"
         OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
 fi
 
-if test $gl_req = no; then
-        OPENGL=no
-        GL_COMMON_OBJ=
-        OPENGL_LIB=
-fi
+LIBS=$SAVED_LIBS
+CFLAGS=$SAVED_CFLAGS
 
 ENSURE_FEATURE_PRESENT([$gl_req], [$OPENGL], [OpenGL stuff requested but dependencies were not found.])
 
@@ -1262,7 +1262,7 @@ AC_ARG_ENABLE(ximea-runtime-linking,
               )
 ximea=no
 
-if test $system = MacOSX; then
+if test "${ximea_req?}" != no && test "${system?}" = MacOSX; then
         MY_CHECK_FRAMEWORK([m3api])
         if test $my_cv_framework_m3api = yes; then
                 if test $ximea_link_runtime = no; then
@@ -1274,7 +1274,7 @@ if test $system = MacOSX; then
                 GENICAM_GENTL64_PATH="/Library/Frameworks/m3api.framework"
         fi
         XI_LIB_NAME="m3api"
-else
+elif test "${ximea_req?}" != no; then
         if test $system = Linux; then
                 XIAPI_PATH=${GENICAM_GENTL64_PATH:-/opt/XIMEA/lib}
                 XI_LIB_EXT=".so"
@@ -2196,11 +2196,13 @@ AC_ARG_ENABLE(pipewire,
     [pipewire_common_req=$build_default]
     )
 
-PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30], [found_pw_common_deps=yes], [found_pw_common_deps=no])
+if test "${pipewire_common_req?}" != no; then
+        PKG_CHECK_MODULES([PIPEWIRE], [libpipewire-0.3 >= 0.3.30],
+        [pipewire_common=yes], [pipewire_common=no])
+fi
 
-if test "${pipewire_common_req?}" != no && test "${found_pw_common_deps?}" = yes
+if test "${pipewire_common?}" != no
 then
-        pipewire_common=yes
         PIPEWIRE_COMMON_LIBS="$($PKG_CONFIG --libs libpipewire-0.3)"
         # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
         PIPEWIRE_COMMON_INC="$($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g')"
@@ -2209,6 +2211,9 @@ then
         INC="$INC $PIPEWIRE_COMMON_INC"
         CXXFLAGS="$CXXFLAGS $PIPEWIRE_COMMON_INC"
 fi
+
+ENSURE_FEATURE_PRESENT([${pipewire_common_req?}], [${pipewire_common?}],
+        [Pipewire library not found])
 
 # -----------------------------------------------------------------------------
 # Pipewire audio
@@ -2473,20 +2478,22 @@ AC_ARG_ENABLE(jpegxs,
    [jpegxs_req=$build_default]
 )
 
-PKG_CHECK_MODULES([JPEGXS], [SvtJpegxs >= 0.9],
-    [FOUND_JPEGXS_DEP=yes],
-    [FOUND_JPEGXS_DEP=no]
-)
+if test "${jpegxs_req?}" != no; then
+        PKG_CHECK_MODULES([JPEGXS], [SvtJpegxs >= 0.9],
+            [FOUND_JPEGXS_DEP=yes],
+            [FOUND_JPEGXS_DEP=no]
+        )
+        if test "$FOUND_JPEGXS_DEP" = yes; then
+                jpegxs=yes
+        fi
+fi
 
-if test "$jpegxs_req" != no -a "$FOUND_JPEGXS_DEP" = yes; then
+if test "${jpegxs?}" = yes; then
         JPEGXS_VIDEO="src/jpegxs/to_jpegxs_conv.o"
         JPEGXS_COMPRESS_OBJ="$JPEGXS_VIDEO src/video_compress/jpegxs.o"
         JPEGXS_DECOMPRESS_OBJ="$JPEGXS_VIDEO src/video_decompress/jpegxs.o"
         add_module vcompress_jpegxs "$JPEGXS_COMPRESS_OBJ" "$JPEGXS_LIBS"
         add_module vdecompress_jpegxs "$JPEGXS_DECOMPRESS_OBJ" "$JPEGXS_LIBS"
-        jpegxs=yes
-else
-        jpegxs=no
 fi
 
 ENSURE_FEATURE_PRESENT([${jpegxs_req?}], [${jpegxs?}], [SVT-JPEG-XS not found])
