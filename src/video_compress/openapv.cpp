@@ -524,7 +524,7 @@ static compress_module_info get_openapv_module_info() {
 
         codec codec_info;
         codec_info.name = "APV";
-        codec_info.priority = 500;
+        codec_info.priority = 400;
         codec_info.encoders.emplace_back(encoder{"default", ""});
         module_info.codecs.emplace_back(std::move(codec_info));
 
