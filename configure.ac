@@ -2521,9 +2521,10 @@ PKG_CHECK_MODULES([OPENAPV], [oapv >= 0.2.1.1],
 )
 
 if test "$openapv_req" != no -a "$FOUND_OPENAPV_DEP" = yes; then
-        OPENAPV_VIDEO="src/openapv/to_openapv_conversions.o"
-        OPENAPV_COMPRESS_OBJ="$OPENAPV_VIDEO src/video_compress/openapv.o"
-        OPENAPV_DECOMPRESS_OBJ="$OPENAPV_VIDEO src/video_decompress/openapv.o"
+        OPENAPV_TO_CONV="src/openapv/to_openapv_conversions.o"
+        OPENAPV_FROM_CONV="src/openapv/from_openapv_conversions.o"
+        OPENAPV_COMPRESS_OBJ="$OPENAPV_TO_CONV src/video_compress/openapv.o"
+        OPENAPV_DECOMPRESS_OBJ="$OPENAPV_FROM_CONV src/video_decompress/openapv.o"
         add_module vcompress_openapv "$OPENAPV_COMPRESS_OBJ" "$OPENAPV_LIBS"
         add_module vdecompress_openapv "$OPENAPV_DECOMPRESS_OBJ" "$OPENAPV_LIBS"
         openapv=yes

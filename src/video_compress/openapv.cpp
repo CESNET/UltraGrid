@@ -5,7 +5,7 @@
 #include <cstring>
 #include <thread>
 
-#include "openapv/openapv_conversions.h"
+#include "openapv/to_openapv_conversions.h"
 
 #include "debug.h"
 #include "lib_common.h"
@@ -155,6 +155,7 @@ static bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb, int
                         imgb->np = 3;
                         break;
                 case OAPV_CS_YCBCR444_10LE:
+                case OAPV_CS_YCBCR444_12LE:
                         imgb->w[1] = imgb->w[2] = cdsc->param[0].w;
                         imgb->h[1] = imgb->h[2] = cdsc->param[0].h;
                         imgb->np = 3;
@@ -199,6 +200,8 @@ static int map_color_spaces_to_profiles(int cs) {
                         return OAPV_PROFILE_4444_12;
                 case OAPV_CS_YCBCR444_10LE:
                         return OAPV_PROFILE_444_10;
+                case OAPV_CS_YCBCR444_12LE:
+                        return OAPV_PROFILE_444_12;
                 default:
                         return -1;
         }
@@ -521,7 +524,7 @@ static compress_module_info get_openapv_module_info() {
 
         codec codec_info;
         codec_info.name = "APV";
-        codec_info.priority = 400;
+        codec_info.priority = 500;
         codec_info.encoders.emplace_back(encoder{"default", ""});
         module_info.codecs.emplace_back(std::move(codec_info));
 

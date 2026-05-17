@@ -7,7 +7,7 @@
 #include "video_codec.h"
 #include "video_decompress.h"
 #include "from_planar.h"
-#include "openapv/openapv_conversions.h"
+#include "openapv/from_openapv_conversions.h"
 
 namespace {
 
@@ -34,6 +34,7 @@ struct state_video_decompress_openapv {
         struct video_desc desc{};
         int pitch;
         codec_t out_codec = VIDEO_CODEC_NONE;
+        int rgb_shift[3] = { 0, 8, 16 };
 };
 
 state_video_decompress_openapv::state_video_decompress_openapv() {
@@ -79,28 +80,6 @@ state_video_decompress_openapv::~state_video_decompress_openapv() {
                         delete decoded_frames.frm[i].imgb;
                 }
         }
-}
-
-struct from_openapv_conversion {
-        codec_t         dst_codec;
-        int             required_src_cs;
-        decode_planar_func_t *convert;
-};
-
-static const from_openapv_conversion from_openapv_conversions[] = {
-        { UYVY, OAPV_CS_YCBCR422_10LE, yuv422pXX_to_uyvy},
-        { YUYV, OAPV_CS_YCBCR422_10LE, yuv422p_to_yuyv},
-        { v210, OAPV_CS_YCBCR422_10LE, yuv422p10le_to_v210},
-        { VIDEO_CODEC_NONE, OAPV_CS_UNKNOWN, nullptr},
-};
-
-static const from_openapv_conversion *get_from_openapv_conversion(codec_t dst_codec) {
-        for (const auto *c = from_openapv_conversions; c->dst_codec != VIDEO_CODEC_NONE; ++c) {
-                if (c->dst_codec == dst_codec) {
-                        return c;
-                }
-        }
-        return nullptr;
 }
 
 static bool output_buffer_setup(oapv_imgb_t *imgb, const oapv_frm_info_t *frm_info) {
@@ -181,9 +160,10 @@ static bool configure_with(struct state_video_decompress_openapv *s, unsigned ch
         s->decoded_frames.frm[FRM_INDEX].pbu_type = frm_info.pbu_type;
         s->decoded_frames.frm[FRM_INDEX].group_id = frm_info.group_id;
 
-        const from_openapv_conversion *conv = get_from_openapv_conversion(s->out_codec);
+        const from_openapv_conversion *conv = get_from_openapv_conversion(s->out_codec, frm_info.cs);
         if (conv == nullptr) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unsupported out_codec=%s.\n", get_codec_name(s->out_codec));
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unsupported out_codec=%s for stream cs=0x%x.\n",
+                        get_codec_name(s->out_codec), frm_info.cs);
                 return false;
         }
 
@@ -203,11 +183,16 @@ static void openapv_to_uv_convert(struct state_video_decompress_openapv *s,
         d.in_data[0] = (const unsigned char *) src->a[0];
         d.in_data[1] = (const unsigned char *) src->a[1];
         d.in_data[2] = (const unsigned char *) src->a[2];
+        d.in_data[3] = (const unsigned char *) src->a[3];
         d.in_linesize[0] = src->s[0];
         d.in_linesize[1] = src->s[1];
         d.in_linesize[2] = src->s[2];
+        d.in_linesize[3] = src->s[3];
         d.in_depth = OAPV_CS_GET_BIT_DEPTH(src->cs);
         d.log2_chroma_h = 0;
+        d.rgb_shift[0] = s->rgb_shift[0];
+        d.rgb_shift[1] = s->rgb_shift[1];
+        d.rgb_shift[2] = s->rgb_shift[2];
         decode_planar_parallel(s->convert_from_planar->convert, d, FROM_PLANAR_THREADS_AUTO);
 }
 
@@ -229,6 +214,9 @@ static int openapv_decompress_reconfigure(void *state, struct video_desc desc,
         s->desc = desc;
         s->pitch = pitch;
         s->out_codec = out_codec;
+        s->rgb_shift[0] = rshift;
+        s->rgb_shift[1] = gshift;
+        s->rgb_shift[2] = bshift;
         s->configured = false;
         s->convert_from_planar = nullptr;
 
@@ -254,7 +242,12 @@ static decompress_status openapv_decompress(void *state, unsigned char *dst, uns
                 }
                 *internal_prop = {};
                 internal_prop->depth = aui.frm_info[frm_idx].bit_depth;
-                internal_prop->subsampling = SUBS_422;
+                switch (OAPV_CS_GET_FORMAT(aui.frm_info[frm_idx].cs)) {
+                        case OAPV_CF_YCBCR444:  internal_prop->subsampling = SUBS_444;  break;
+                        case OAPV_CF_YCBCR4444: internal_prop->subsampling = SUBS_4444; break;
+                        case OAPV_CF_YCBCR422:
+                        default:                internal_prop->subsampling = SUBS_422;  break;
+                }
                 internal_prop->rgb = false;
                 return DECODER_GOT_CODEC;
         }
@@ -326,7 +319,22 @@ static int openapv_decompress_get_priority(codec_t compression, struct pixfmt_de
         if (ugc == VIDEO_CODEC_NONE) {
                 return VDEC_PRIO_PROBE_HI;
         }
-        return get_from_openapv_conversion(ugc) != nullptr ? VDEC_PRIO_PREFERRED : VDEC_PRIO_NA;
+
+        // Build the OAPV color space from the probed internal pixfmt so we
+        // can look up the dispatch table by (ugc, src_cs) — multiple entries
+        // can share the same ugc (e.g. Y416 from 444_10 / 4444_10 / 444_12).
+        int oapv_cf = 0;
+        switch (internal.subsampling) {
+                case SUBS_422:  oapv_cf = OAPV_CF_YCBCR422;  break;
+                case SUBS_444:  oapv_cf = OAPV_CF_YCBCR444;  break;
+                case SUBS_4444: oapv_cf = OAPV_CF_YCBCR4444; break;
+                default:        return VDEC_PRIO_NA;
+        }
+        const int src_cs = OAPV_CS_SET(oapv_cf, internal.depth, 0);
+
+        return get_from_openapv_conversion(ugc, src_cs) != nullptr
+                       ? VDEC_PRIO_PREFERRED
+                       : VDEC_PRIO_NA;
 }
 
 static const struct video_decompress_info openapv_info = {
