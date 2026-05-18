@@ -1,9 +1,5 @@
-/**
- * @file   vo_postprocess/interlace.c
- * @author Martin Pulec     <pulec@cesnet.cz>
- */
 /*
- * Copyright (c) 2012-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +30,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * postprocessor that converts progressive video (eg. 50p) to
+ * interlaced (in case of the 50p it is 50i)
+ */
 
 #include <assert.h>          // for assert
 #include <stdbool.h>         // for bool, false, true
@@ -43,6 +45,8 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h" // for TBOLD
+#include "utils/text.h"      // for color_printf_wrapped
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -61,13 +65,21 @@ struct state_interlace {
 
 static void usage()
 {
-        printf("-p interlace\n");
+        color_printf_wrapped("Video posprocess filter " TBOLD("interlace")
+                             " makes interlaced video from a progressive one "
+                             "by reducing vertical resolution of full frames "
+                             "to a half and combining as fields. Eg. for input "
+                             "50p, output 50i is produced.\n\n");
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD("-p interlace")
+                     "\n");
+        color_printf("\n");
 }
 
 static void * interlace_init(const char *config) {
         if (strcmp(config, "help") == 0) {
                 usage();
-                return NULL;
+                return INIT_NOERR;
         }
 
         struct state_interlace *s = (struct state_interlace *)
@@ -126,7 +138,7 @@ static bool interlace_postprocess(void *state, struct video_frame *in, struct vi
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
-        UNUSED(in); // we know which frame it is
+        assert(in == s->even || in == s->odd);
 
         if(s->last == ODD) {
                 return false;
