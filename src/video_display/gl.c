@@ -472,7 +472,7 @@ struct state_gl {
         enum modeset modeset; ///< positive vals force framerate
         struct dictionary *window_hints;
         int use_pbo;
-        int req_monitor_idx;
+        char req_monitor_id[STR_LEN];
         struct state_vdpau *vdp;
         bool         vdp_interop;
         void*        scratchpad; ///< scratchpad sized WxHx8
@@ -862,10 +862,9 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         s->deinterlace = !strcmp(tok, "d") ? DEINT_ON : DEINT_FORCE;
                 } else if(!strncmp(tok, "fs", 2)) {
                         s->fs = true;
-                        const char *val = strchr(tok, '=');
-                        if (val != nullptr) {
-                                s->req_monitor_idx =
-                                    (int) strtol(val + 1, nullptr, 0);
+                        const char *delim = strchr(tok, '=');
+                        if (delim != nullptr) {
+                                strcpy_ch(s->req_monitor_id, delim + 1);
                         }
                 } else if(strstr(tok, "modeset") != nullptr) {
                         if (strcmp(tok, "nomodeset") != 0) {
@@ -958,7 +957,6 @@ display_gl_init(struct module *parent, const char *fmt,
         s->window_size_factor = 1.0;
         s->pos_x = s->pos_y = INT_MIN;
         s->use_pbo          = -1;
-        s->req_monitor_idx  = -1;
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
@@ -1610,11 +1608,11 @@ display_gl_print_depth(GLFWmonitor *monitor)
         glGetIntegerv(GL_RED_BITS, &bits[0]);
         glGetIntegerv(GL_GREEN_BITS, &bits[1]);
         glGetIntegerv(GL_BLUE_BITS, &bits[2]);
-        MSG(VERBOSE, "Buffer depth - R: %d, G: %d, B: %d\n", bits[0], bits[1],
+        MSG(VERBOSE, "Buffer bit depth - R: %d, G: %d, B: %d\n", bits[0], bits[1],
             bits[2]);
 
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-        MSG(INFO, "mode %dx%d@%d; depth - R: %d, G: %d, B: %d\n", mode->width,
+        MSG(INFO, "mode %dx%d@%d; bit depth - R: %d, G: %d, B: %d\n", mode->width,
             mode->height, mode->refreshRate, mode->redBits, mode->greenBits,
             mode->blueBits);
         return mode->redBits;
@@ -1779,6 +1777,50 @@ vdp_interop_supported()
         return false;
 }
 
+static GLFWmonitor *
+get_monitor_real(const char *req_monitor_id)
+{
+        if (strlen(req_monitor_id) == 0) {
+                GLFWmonitor *ret = glfwGetPrimaryMonitor();
+                if (ret == nullptr) {
+                        MSG(WARNING, "No monitor found! Continuing but "
+                                     "full-screen will be disabled.\n");
+                }
+                return ret;
+        }
+        char *endptr          = nullptr;
+        int   req_monitor_idx = strtol(req_monitor_id, &endptr, 0);
+
+        int           count = 0;
+        GLFWmonitor **mon   = glfwGetMonitors(&count);
+        if (*endptr == '\0') { // by index
+                if (req_monitor_idx >= 0 || req_monitor_idx < count) {
+                        return mon[req_monitor_idx];
+                }
+                MSG(ERROR, "Wrong monitor index: %d (max %d)\n",
+                    req_monitor_idx, count - 1);
+                return nullptr;
+        }
+        // by name
+        for (int i = 0; i < count; ++i) {
+                const char *name = glfwGetMonitorName(mon[i]);
+                if (strstr(name, req_monitor_id) == name) {
+                        return mon[i];
+                }
+        }
+        MSG(ERROR, "Wrong monitor name prefix: %s\n", req_monitor_id);
+        return nullptr;
+}
+static GLFWmonitor *
+get_monitor(const char *req_monitor_id) {
+        GLFWmonitor *ret = get_monitor_real(req_monitor_id);
+        if (ret == nullptr) {
+                return nullptr;
+        }
+        MSG(INFO, "Using monitor: %s\n", glfwGetMonitorName(ret));
+        return ret;
+}
+
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
@@ -1790,23 +1832,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
 {
         gl_print_current_platform();
 
-        if (s->req_monitor_idx != -1) {
-                int           count = 0;
-                GLFWmonitor **mon   = glfwGetMonitors(&count);
-                if (s->req_monitor_idx < 0 || s->req_monitor_idx >= count) {
-                        MSG(ERROR, "Wrong monitor index: %d (max %d)\n",
-                            s->req_monitor_idx, count - 1);
-                        return false;
-                }
-                s->monitor = mon[s->req_monitor_idx];
-        }
-
-        if (s->monitor == nullptr) {
-                s->monitor = glfwGetPrimaryMonitor();
-                if (s->monitor == nullptr) {
-                        MSG(WARNING, "No monitor found! Continuing but "
-                                     "full-screen will be disabled.\n");
-                }
+        s->monitor = get_monitor(s->req_monitor_id);
+        if (s->monitor == nullptr && strlen(s->req_monitor_id) > 0) {
+                return false;
         }
 
         if (get_commandline_param(GL_DISABLE_10B_OPT_PARAM_NAME) == nullptr) {
