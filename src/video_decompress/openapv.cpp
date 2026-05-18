@@ -162,7 +162,7 @@ static bool configure_with(struct state_video_decompress_openapv *s, unsigned ch
 
         const from_openapv_conversion *conv = get_from_openapv_conversion(s->out_codec, frm_info.cs);
         if (conv == nullptr) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unsupported out_codec=%s for stream cs=0x%x.\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported out_codec=%s for stream cs=0x%x.\n",
                         get_codec_name(s->out_codec), frm_info.cs);
                 return false;
         }
