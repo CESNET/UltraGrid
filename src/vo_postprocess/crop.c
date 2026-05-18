@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include <stdlib.h>           // for atoi, free, abort, calloc
 #include <string.h>           // for strlen, strchr, strcmp, memcpy, strdup
 
+#include "compat/c23.h"       // IWYU pragma: keep
 #include "compat/strings.h"   // for strncasecmp
 #include "capture_filter.h"
 #include "debug.h"
@@ -52,6 +53,8 @@
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[crop] "
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_crop {
         int width;
@@ -151,6 +154,10 @@ static struct video_frame * crop_getf(void *state)
 
 static bool crop_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         assert(in->tile_count == 1);
         assert(get_pf_block_bytes(in->color_spec) != 0);
 
@@ -178,12 +185,12 @@ static void crop_done(void *state)
         free(s);
 }
 
-static void crop_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+crop_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         *out = ((struct state_crop *) state)->out_desc;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static int cf_crop_init(struct module *parent, const char *cfg, void **state)

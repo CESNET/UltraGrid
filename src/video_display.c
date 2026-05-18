@@ -70,6 +70,7 @@
 #include <stdlib.h>                      // for free, abort, calloc
 #include <string.h>                      // for strcmp, strncpy, memcpy, strlen
 
+#include "compat/c23.h"                  // IWYU pragma: keep
 #include "compat/strings.h"              // for strncasecmp
 #include "debug.h"
 #include "host.h"                        // for exit_uv, mainloop, EXIT_FAIL...
@@ -100,7 +101,7 @@ struct display {
         _Bool thread_started;
 
         struct vo_postprocess_state *postprocess;
-        int pp_output_frames_count, display_pitch;
+        int display_pitch;
         struct video_desc saved_desc;
         enum video_mode saved_mode;
 
@@ -430,17 +431,15 @@ bool display_put_frame(struct display *d, struct video_frame *frame, long long t
                 return display_frame_helper(d, frame, timeout_ns);
         }
 
-        bool display_ret = true;
-        for (int i = 0; i < d->pp_output_frames_count; ++i) {
+        bool display_ret = false;
+        while (true) {
                 struct video_frame *display_frame = d->funcs->getf(d->state);
-                int ret = vo_postprocess(d->postprocess,
-                                frame,
-                                display_frame,
-                                d->display_pitch);
-                frame = NULL;
+                bool ret = vo_postprocess(d->postprocess, frame, display_frame,
+                                          d->display_pitch);
+                frame    = nullptr;
                 if (!ret) {
                         d->funcs->putf(d->state, display_frame, PUTF_DISCARD);
-                        return 1;
+                        return display_ret;
                 }
 
                 display_ret = display_frame_helper(d, display_frame, timeout_ns);
@@ -493,8 +492,9 @@ bool display_reconfigure(struct display *d, struct video_desc desc, enum video_m
                         return false;
                 }
                 int render_mode; // WTF ?
-		vo_postprocess_get_out_desc(d->postprocess, &display_desc, &render_mode, &d->pp_output_frames_count);
-		rc = d->funcs->reconfigure_video(d->state, display_desc);
+                vo_postprocess_get_out_desc(d->postprocess, &display_desc,
+                                            &render_mode);
+                rc = d->funcs->reconfigure_video(d->state, display_desc);
                 len = sizeof d->display_pitch;
                 d->display_pitch = PITCH_DEFAULT;
                 d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
@@ -535,11 +535,9 @@ restrict_returned_codecs(struct vo_postprocess_state *postprocess,
                                                              PROGRESSIVE,  1 };
                 vo_postprocess_reconfigure(postprocess, in_desc);
                 int               out_display_mode = 0; // unused
-                int               out_frames_count = 0; // "
                 struct video_desc out_desc         = { 0 };
                 vo_postprocess_get_out_desc(postprocess, &out_desc,
-                                            &out_display_mode,
-                                            &out_frames_count);
+                                            &out_display_mode);
                 assert(out_desc.color_spec != VC_NONE);
 
                 for (unsigned j = 0; j < *display_codecs_count; ++j) {

@@ -103,16 +103,15 @@ static bool CF_WRAPPER_MERGE(vo_pp_postprocess_, name)(void *state, struct video
         struct video_frame *dst = filter(s->state, in);\
         VIDEO_FRAME_DISPOSE(dst);\
         UNUSED(req_out_pitch);\
-        return true;\
+        return dst != nullptr;\
 }\
-static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name)(void *state, struct video_desc *out, int *in_tile_mode, int *out_frame_count) {\
+static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name)(void *state, struct video_desc *out, int *in_tile_mode) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
         struct video_frame *tmp_out = filter(s->state, s->f);\
         *out = video_desc_from_frame(tmp_out);\
         VIDEO_FRAME_DISPOSE(tmp_out);\
 \
         *in_tile_mode = DISPLAY_PROPERTY_VIDEO_MERGED;\
-        *out_frame_count = 1;\
 \
         UNUSED(in_tile_mode);\
 }\

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2025 CESNET
+ * Copyright (c) 2016-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,12 +43,15 @@
 #include <string.h>          // for memcpy, strlen, strcmp, strdup, strtok_r
 
 #include "compat/strings.h"  // for strncasecmp
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_border {
         struct video_desc saved_desc;
@@ -143,6 +146,9 @@ static struct video_frame * border_getf(void *state)
 
 static bool border_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
         assert(req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
         assert(in->tile_count == 1);
 
@@ -216,14 +222,14 @@ static void border_done(void *state)
         free(s);
 }
 
-static void border_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+border_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_border *s = (struct state_border *) state;
 
         *out = s->saved_desc;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_border_info = {

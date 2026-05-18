@@ -45,6 +45,7 @@
 #include <string.h>
 
 #include "capture_filter/vo_pp_wrapper.h" // for ADD_CAPTURE_FILTER_VO_PP_W...
+#include "compat/c23.h"                   // IWYU pragma: keep
 #include "compat/net.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -61,6 +62,8 @@
 
 enum algo { DF, BOB, LINEAR };
 
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
+
 struct state_df {
         enum algo algo;
         struct video_frame *in;
@@ -69,6 +72,7 @@ struct state_df {
         bool deinterlace;
         bool nodelay;
         bool force;
+        bool other_frame_emitted;
 
         time_ns_t frame_received;
 };
@@ -461,6 +465,15 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
 {
         struct state_df *s = (struct state_df *) state;
 
+        if (in == nullptr) {
+                if (s->other_frame_emitted) {
+                        return false;
+                }
+                s->other_frame_emitted = true;
+        } else {
+                s->other_frame_emitted = false;
+        }
+
         if (s->in->interlacing == INTERLACED_MERGED || s->force) {
                 switch (s->algo) {
                         case DF:
@@ -504,7 +517,7 @@ static void common_done(void *state)
         free(s);
 }
 
-static void common_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void common_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_df *s = (struct state_df *) state;
 
@@ -516,7 +529,6 @@ static void common_get_out_desc(void *state, struct video_desc *out, int *in_dis
         out->tile_count = 1;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 2;
 }
 
 static const struct vo_postprocess_info vo_pp_df_info = {

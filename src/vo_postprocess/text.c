@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,6 +63,7 @@
 #endif
 #pragma GCC diagnostic pop
 
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -75,6 +76,8 @@
 #include "utils/text.h"
 
 #define MOD_NAME "[text vo_pp.] "
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_text {
         struct video_frame *in;
@@ -371,6 +374,10 @@ static struct video_frame * text_getf(void *state)
 
 static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         MagickBooleanType status;
         struct state_text *s = (struct state_text *) state;
 
@@ -498,14 +505,14 @@ static void text_done(void *state)
         free(s);
 }
 
-static void text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_text *s = (struct state_text *) state;
 
         *out = video_desc_from_frame(s->in);
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_text_info = {

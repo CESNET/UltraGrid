@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,8 @@ extern "C" {
 /// accepeted input video mode, should process all if false returned
 #define VO_PP_VIDEO_MODE                     2 /*  int (enum video_mode)   any (should process both) */
 
-#define VO_PP_ABI_VERSION 7
+#define VO_PP_ABI_POSTPROCESS_NULLPTR 8
+#define VO_PP_ABI_VERSION             VO_PP_ABI_POSTPROCESS_NULLPTR
 
 struct vo_postprocess_state;
 
@@ -87,7 +88,8 @@ typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
  *                                 from one input frame is generated more, this sets how many can be generated
  *                                 at maximum.
  */
-typedef void (*vo_postprocess_get_out_desc_t)(void *s, struct video_desc *out, int *in_tile_mode, int *out_frame_count);
+typedef void (*vo_postprocess_get_out_desc_t)(void *s, struct video_desc *out,
+                                              int *in_tile_mode);
 
 /**
  * Returns supported codecs
@@ -109,7 +111,9 @@ typedef bool (*vo_postprocess_get_property_t)(void *state, int property, void *v
  * Postprocesses video frame
  * 
  * @param state postprocessor state
- * @param input frame
+ * @param in  frame from vo_postprocess_info.getf() or nullptr
+              to flush remaining frames. If module doesn't have
+              more frames, it must return false.
  *
  * @return flag If output video frame is filled with valid data.
  *
@@ -136,7 +140,8 @@ struct vo_postprocess_state *vo_postprocess_init(const char *config_string);
 
 bool vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
-void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
+void vo_postprocess_get_out_desc(struct vo_postprocess_state *,
+                                 struct video_desc *out, int *display_mode);
 bool vo_postprocess_get_property(struct vo_postprocess_state *, int property, void *val, size_t *len);
 
 bool vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct video_frame*, int req_pitch);

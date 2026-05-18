@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2024 CESNET z.s.p.o.
+ * Copyright (c) 2024-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compat/c23.h"       // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "types.h"
@@ -52,6 +53,8 @@
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[vpp/delay] "
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_delay {
         double                     delay_sec;
@@ -154,6 +157,10 @@ static bool
 delay_postprocess(void *state, struct video_frame *in, struct video_frame *out,
                   int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         struct state_delay *s = state;
 
         simple_linked_list_append(s->cached_frames, in);
@@ -193,14 +200,12 @@ delay_done(void *state)
 }
 
 static void
-delay_get_out_desc(void *state, struct video_desc *out, int *in_display_mode,
-                   int *out_frames)
+delay_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_delay *s = state;
 
         *out             = s->desc;
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames      = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_delay_info = {

@@ -43,6 +43,7 @@
 #include <stdlib.h>          // for NULL, free, malloc, size_t
 #include <string.h>          // for memcpy, strcmp
 
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h" // for TBOLD
@@ -55,6 +56,8 @@ enum last_frame {
         ODD = 0,
         EVEN = 1
 };
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_interlace {
         struct video_frame *odd,
@@ -138,6 +141,9 @@ static bool interlace_postprocess(void *state, struct video_frame *in, struct vi
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
+        if (in == nullptr) {
+                return false;
+        }
         assert(in == s->even || in == s->odd);
 
         if(s->last == ODD) {
@@ -168,7 +174,9 @@ static void interlace_done(void *state)
         free(state);
 }
 
-static void interlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+interlace_get_out_desc(void *state, struct video_desc *out,
+                       int *in_display_mode)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
@@ -181,7 +189,6 @@ static void interlace_get_out_desc(void *state, struct video_desc *out, int *in_
 
         UNUSED(in_display_mode);
         //*in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_interlace_info = {

@@ -61,10 +61,12 @@
 #define MOD_NAME "[temporal_3d] "
 #define TIMEOUT  "20ms"
 
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
+
 struct state_temporal_3d {
         uint32_t            magic;
         struct video_frame *in;
-        time_ns_t           first_tile_time;
+        time_ns_t           first_tile_time; /// for 2nd frame, 0 if alrdy emit
         bool disable_timing; ///< issue the second eye right after the first
 };
 
@@ -162,8 +164,10 @@ temporal_3d_postprocess(void *state, struct video_frame *in,
         assert(in == NULL || in == s->in);
         assert(out->tile_count == 1);
 
-        if (in != NULL) {
-                s->first_tile_time = get_time_in_ns();
+        if (in == nullptr) {
+                if (s->first_tile_time == 0) {
+                        return false;
+                }
         }
 
         struct tile *in_tile = &s->in->tiles[in == NULL ? 1 : 0];
@@ -186,6 +190,12 @@ temporal_3d_postprocess(void *state, struct video_frame *in,
                 }
         }
 
+        if (in == nullptr) {
+                s->first_tile_time = 0;
+        } else {
+                s->first_tile_time = get_time_in_ns();
+        }
+
         return true;
 }
 
@@ -199,7 +209,7 @@ temporal_3d_done(void *state)
 
 static void
 temporal_3d_get_out_desc(void *state, struct video_desc *out,
-                         int *in_display_mode, int *out_frames)
+                         int *in_display_mode)
 {
         struct state_temporal_3d *s = (struct state_temporal_3d *) state;
 
@@ -208,7 +218,6 @@ temporal_3d_get_out_desc(void *state, struct video_desc *out,
         out->tile_count = 1;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
-        *out_frames      = 2;
 }
 
 static const struct vo_postprocess_info vo_pp_temporal_3d_info = {

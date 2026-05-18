@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,12 +41,15 @@
 #include <stdlib.h>          // for free, NULL, atoi, malloc, calloc, size_t
 #include <string.h>          // for memcpy, strtok_r, strcmp, strdup
 
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
-#include "lib_common.h"
 #include "gl_context.h"      // for GL_TEXTURE_2D, glTexParameteri, glBindTe...
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_scale {
         struct video_frame *in;
@@ -226,6 +229,10 @@ static struct video_frame * scale_getf(void *state)
 
 static bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         struct state_scale *s = (struct state_scale *) state;
         int i;
         int width, height;
@@ -320,7 +327,8 @@ static void scale_done(void *state)
         free(state);
 }
 
-static void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_scale *s = (struct state_scale *) state;
 
@@ -332,7 +340,6 @@ static void scale_get_out_desc(void *state, struct video_desc *out, int *in_disp
         out->tile_count = 1;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_scale_info = {

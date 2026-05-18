@@ -25,6 +25,8 @@
 #define MAGIC    to_fourcc('V', 'P', 'd', 'u')
 #define MOD_NAME "[vpp/dummy] "
 
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
+
 struct state_dummy {
         uint32_t            magic;
         struct video_frame *f;
@@ -78,6 +80,10 @@ static bool
 dummy_postprocess(void * /* state */, struct video_frame *in,
                   struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         for (unsigned i = 0; i < out->tile_count; ++i) {
                 const size_t src_linesize =
                     vc_get_linesize(out->tiles[i].width, out->color_spec);
@@ -101,14 +107,12 @@ dummy_done(void *state)
 }
 
 static void
-dummy_get_out_desc(void *state, struct video_desc *out, int *in_display_mode,
-                   int *out_frames)
+dummy_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_dummy *s = state;
 
         *out             = video_desc_from_frame(s->f);
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
-        *out_frames      = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_dummy_info = {

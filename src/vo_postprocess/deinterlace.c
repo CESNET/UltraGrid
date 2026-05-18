@@ -5,7 +5,7 @@
  * Blending deinterlace filter.
  */
 /*
- * Copyright (c) 2014-2024 CESNET
+ * Copyright (c) 2014-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include <string.h>           // for strcmp, memcpy, strlen
 
 #include "capture_filter.h"
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
@@ -52,6 +53,8 @@
 struct module;
 
 #define MOD_NAME "[deinterlace_blend] "
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_deinterlace {
         struct video_frame *out; ///< for postprocess only
@@ -149,6 +152,9 @@ static struct video_frame * deinterlace_getf(void *state)
 
 static bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
         assert (req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
         assert(video_desc_eq_excl_param(video_desc_from_frame(out),
                                         video_desc_from_frame(in),
@@ -196,7 +202,9 @@ static void deinterlace_done(void *state)
         free(s);
 }
 
-static void deinterlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+deinterlace_get_out_desc(void *state, struct video_desc *out,
+                         int *in_display_mode)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
 
@@ -204,7 +212,6 @@ static void deinterlace_get_out_desc(void *state, struct video_desc *out, int *i
 
         UNUSED(in_display_mode);
         //*in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_deinterlace_blend_info = {

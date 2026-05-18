@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sduržení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include <stdlib.h>          // for free, malloc, NULL, size_t
 #include <string.h>          // for strcmp
 
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
@@ -49,6 +50,8 @@
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[interlaced_3d] "
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_interlaced_3d {
         struct video_frame *in;
@@ -131,6 +134,10 @@ static bool interlaced_3d_postprocess(void *state, struct video_frame *in, struc
 {
         UNUSED (state);
         UNUSED (req_pitch);
+
+        if (in == nullptr) {
+                return false;
+        }
         
 #ifdef __SSE2__
         char *out_data = vf_get_tile(out, 0)->data;
@@ -176,7 +183,7 @@ static void interlaced_3d_done(void *state)
         free(state);
 }
 
-static void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
 
@@ -188,7 +195,6 @@ static void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int 
         out->tile_count = 1;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_interlaced_3d_info = {

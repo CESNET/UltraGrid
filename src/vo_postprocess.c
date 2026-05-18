@@ -176,7 +176,7 @@ vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 // get desc for next iteration
                 int display_mode = 0;
                 int out_frames_count = 0;
-                state->funcs->get_out_desc(state->state, &desc, &display_mode, &out_frames_count);
+                state->funcs->get_out_desc(state->state, &desc, &display_mode);
 
                 // check if convert is simple (doesn't change display mode and out_fr_count == 1); if not, only one filter allowed
                 if (display_mode != DISPLAY_PROPERTY_VIDEO_MERGED || out_frames_count != 1) {
@@ -264,13 +264,15 @@ void vo_postprocess_done(struct vo_postprocess_state *s)
         free(s);
 }
 
-void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode, int *out_frames_count)
+void
+vo_postprocess_get_out_desc(struct vo_postprocess_state *s,
+                            struct video_desc *out, int *display_mode)
 {
         if (s == NULL) {
                 return;
         }
         struct vo_postprocess_state_single *state = simple_linked_list_last(s->postprocessors);
-        state->funcs->get_out_desc(state->state, out, display_mode, out_frames_count);
+        state->funcs->get_out_desc(state->state, out, display_mode);
 }
 
 bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, void *val, size_t *len)

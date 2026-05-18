@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include <stdlib.h>          // for free, NULL, atoi, malloc, size_t
 #include <string.h>          // for strtok_r, strcmp, strdup
 
+#include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/vf_split.h"
@@ -49,6 +50,8 @@
 #include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */
 #include <pthread.h>
 #include <stdlib.h>
+
+static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 #define MOD_NAME "[split] "
 
@@ -146,6 +149,9 @@ static struct video_frame * split_getf(void *state)
 
 static bool split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
         struct state_split *s = (struct state_split *) state;
         UNUSED(req_pitch);
 
@@ -163,7 +169,8 @@ static void split_done(void *state)
         free(state);
 }
 
-static void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void
+split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_split *s = (struct state_split *) state;
 
@@ -175,7 +182,6 @@ static void split_get_out_desc(void *state, struct video_desc *out, int *in_disp
         out->tile_count = s->grid_width * s->grid_height;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames = 1;
 }
 
 static const struct vo_postprocess_info vo_pp_split_info = {
