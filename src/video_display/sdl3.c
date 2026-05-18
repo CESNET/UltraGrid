@@ -156,7 +156,7 @@ struct state_sdl3 {
         Uint32 sdl_user_new_message_event;
         Uint32 sdl_user_reconfigure_event;
 
-        int           display_idx;
+        char          display_id[STR_LEN];
         int           x;
         int           y;
         char          req_renderers_name[STR_LEN];
@@ -472,24 +472,32 @@ sdl3_print_displays()
                 if (dname == NULL) {
                         dname = SDL_GetError();
                 }
-                color_printf(TBOLD("%d") " - %s (ID: %d)", i, dname, displays[i]);
+                color_printf(TBOLD("%d") " - %s", i, dname);
         }
 }
 
 static SDL_DisplayID
-get_display_id_from_idx(int idx)
+get_display_id_from_arg(const char *arg)
 {
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
-        if (idx < count) {
-                return displays[idx];
+        char          *endptr   = nullptr;
+        int            val      = strtol(arg, &endptr, 0);
+        if (*endptr == '\0') { // index given
+                if (val < count) {
+                        return displays[val];
+                }
+                MSG(ERROR, "Display index %d out of range!\n", val);
+                return 0;
         }
+        // name given
         for (int i = 0; i < count; ++i) {
-                if (displays[i] == (unsigned) idx) {
-                        return idx;
+                const char *dname = SDL_GetDisplayName(displays[i]);
+                if (dname != nullptr && strstr(dname, arg) == dname) {
+                        return displays[i];
                 }
         }
-        MSG(ERROR, "Display index %d out of range or ID invalid!\n", idx);
+        MSG(ERROR, "Display name prefixed \"%s\" not found!\n", arg);
         return 0;
 }
 
@@ -512,7 +520,7 @@ show_help(const char *driver, bool full)
             "\td[force]") " - deinterlace (force even for progressive video)\n");
         color_printf(TBOLD("\t      fs") " - fullscreen\n");
         color_printf(
-            TBOLD("\t     <d>") " - display index or ID, available indices: ");
+            TBOLD("\t     <d>") " - display index or name prefix: ");
         sdl3_print_displays();
         color_printf("%s\n", (driver == NULL ? TBOLD(" *")  : ""));
         color_printf(TBOLD("\t   <drv>") " - one of following: ");
@@ -798,23 +806,26 @@ vulkan_warn(const char *req_renderers_name, const char *actual_renderer_name)
 
 static bool
 sdl3_set_window_position(struct state_sdl3 *s) {
-        if (s->display_idx == -1 && s->x == SDL_WINDOWPOS_UNDEFINED &&
+        if (strlen(s->display_id) == 0 && s->x == SDL_WINDOWPOS_UNDEFINED &&
             s->y == SDL_WINDOWPOS_UNDEFINED) {
                 return true; // nothing to set
         }
         int x = s->x;
         int y = s->y;
-        if (s->display_idx != -1) {
+        if (strlen(s->display_id) > 0) {
                 if (x != SDL_WINDOWPOS_UNDEFINED || y != SDL_WINDOWPOS_UNDEFINED) {
                         MSG(ERROR, "Do not set windows positiona and display "
                                    "at the same time!\n");
                         return false;
                 }
                 const SDL_DisplayID display_id =
-                    get_display_id_from_idx(s->display_idx);
+                    get_display_id_from_arg(s->display_id);
                 if (display_id == 0) {
                         return false;
                 }
+                MSG(INFO, "using display: %s\n",
+                    IF_NOT_NULL_ELSE(SDL_GetDisplayName(display_id),
+                                     "(ERROR)"));
                 x = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
                 y = (int) SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
         }
@@ -823,7 +834,7 @@ sdl3_set_window_position(struct state_sdl3 *s) {
         }
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
-        if (is_wayland && s->display_idx != -1 && !s->fs) {
+        if (is_wayland && strlen(s->display_id) > 0 && !s->fs) {
                 MSG(ERROR,
                     "In Wayland, display specification is possible only with "
                     "fullscreen flag ':fs' (%s)\n",
@@ -1003,7 +1014,6 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int /* flags 
         struct state_sdl3 *s      = calloc(1, sizeof *s);
 
         s->magic  = MAGIC_SDL3;
-        s->display_idx = -1;
         s->x = s->y = SDL_WINDOWPOS_UNDEFINED;
         s->vsync    = true;
         s->hints = dictionary_init();
@@ -1030,7 +1040,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int /* flags 
                         s->deinterlace =
                             strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
                 } else if (IS_KEY_PREFIX(tok, "display")) {
-                        s->display_idx = atoi(strchr(tok, '=') + 1);
+                        strcpy_ch(s->display_id, strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "driver")) {
                         driver = strchr(tok, '=') + 1;
                 } else if (IS_PREFIX(tok, "fs")) {

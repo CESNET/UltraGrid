@@ -468,7 +468,7 @@ void show_help() {
         col() << SBOLD("\t         tearing") << " - permits screen tearing\n";
         col() << SBOLD("\t      validation") << " - enable vulkan validation layers\n";
 
-        col() << SBOLD("\t     display=<d>") << " - display index, available indices: ";
+        col() << SBOLD("\t     display=<d>") << " - display index or name prefix: ";
         sdl3_print_displays();
         col() << SBOLD("\t    driver=<drv>") << " - available drivers: ";
         print_drivers();
@@ -592,7 +592,7 @@ struct command_line_arguments {
         bool tearing_permitted = false;
         bool validation = false;
 
-        int display_idx = -1;
+        std::string display_id;
         int x = SDL_WINDOWPOS_UNDEFINED;
         int y = SDL_WINDOWPOS_UNDEFINED;
 
@@ -641,7 +641,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                 } else if(key == "validation" && val.empty()){
                         args.validation = true;
                 } else if (SV_PREFIX_COMPARE(key, "display")) {
-                        CHECKED_PARSE(val, args.display_idx);
+                        args.display_id = val;
                 } else if (SV_PREFIX_COMPARE(key, "driver")) {
                         args.driver = val;
                 } else if (SV_PREFIX_COMPARE(key, "gpu")) {
@@ -707,14 +707,28 @@ sdl_set_log_level()
 }
 
 SDL_DisplayID
-get_display_id_from_idx(int idx)
+get_display_id_from_arg(const std::string &arg)
 {
         int            count    = 0;
         SDL_DisplayID *displays = SDL_GetDisplays(&count);
-        if (idx < count) {
-                return displays[idx];
+        char          *endptr   = nullptr;
+        int            val      = strtol(arg.c_str(), &endptr, 0);
+        if (*endptr == '\0') { // index given
+                if (val < count) {
+                        return displays[val];
+                }
+                MSG(ERROR, "Display index %d out of range!\n", val);
+                return 0;
         }
-        MSG(ERROR, "Display index %d out of range!\n", idx);
+        // name given
+        for (int i = 0; i < count; ++i) {
+                const char *dname   = SDL_GetDisplayName(displays[i]);
+                const char *id_cstr = arg.c_str();
+                if (dname != nullptr && strstr(dname, id_cstr) == dname) {
+                        return displays[i];
+                }
+        }
+        MSG(ERROR, "Display name prefixed \"%s\" not found!\n", arg.c_str());
         return 0;
 }
 
@@ -722,23 +736,26 @@ bool
 vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
                                 const command_line_arguments *args)
 {
-        if (args->display_idx == -1 && args->x == SDL_WINDOWPOS_UNDEFINED &&
+        if (args->display_id.empty() && args->x == SDL_WINDOWPOS_UNDEFINED &&
             args->y == SDL_WINDOWPOS_UNDEFINED) {
                 return true; // nothing to set
         }
         int x = args->x;
         int y = args->y;
-        if (args->display_idx != -1) {
+        if (!args->display_id.empty()) {
                 if (x != SDL_WINDOWPOS_UNDEFINED || y != SDL_WINDOWPOS_UNDEFINED) {
                         MSG(ERROR, "Do not set window positon and display at "
                                    "the same time!\n");
                         return false;
                 }
                 const SDL_DisplayID display_id =
-                    get_display_id_from_idx(args->display_idx);
+                    get_display_id_from_arg(args->display_id);
                 if (display_id == 0) {
                         return false;
                 }
+                MSG(INFO, "using display: %s\n",
+                    IF_NOT_NULL_ELSE(SDL_GetDisplayName(display_id),
+                                     "(ERROR)"));
                 x = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
                 y = SDL_WINDOWPOS_CENTERED_DISPLAY(display_id);
         }
@@ -747,7 +764,7 @@ vulkan_sdl3_set_window_position(state_vulkan_sdl3            *s,
         }
         const bool is_wayland =
             strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0;
-        if (is_wayland && args->display_idx != -1 && !s->fullscreen) {
+        if (is_wayland && !args->display_id.empty() && !s->fullscreen) {
                 MSG(ERROR,
                     "In Wayland, display specification is possible only with "
                     "fullscreen flag ':fs' (%s)\n",
