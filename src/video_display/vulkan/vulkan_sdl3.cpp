@@ -610,6 +610,8 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         return false; \
                 } \
         } while(0)
+#define SV_PREFIX_COMPARE(key, prefix)                                         \
+        key.compare(0, sizeof (prefix) - 1, prefix, sizeof (prefix) - 1)
 
         while(!cfg.empty()){
                 auto tok = tokenize(cfg, ':');
@@ -617,32 +619,32 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                 const auto key = tokenize(tok, '=');
                 auto val = tokenize(tok, '=');
 
-                if(key == "help"){
+                if(key == "help" && val.empty()){
                         show_help();
                         args.help = true;
-                } else if(key == "d"){
+                } else if(key == "d" && val.empty()){
                         s.deinterlace = true;
-                } else if(key == "fs"){
+                } else if(key == "fs" && val.empty()){
                         s.fullscreen = true;
-                } else if(key == "keep-aspect"){
+                } else if(key == "keep-aspect" && val.empty()){
                         s.keep_aspect = true;
-                } else if(key == "cursor"){
+                } else if(key == "cursor" && val.empty()){
                         s.show_cursor = state_vulkan_sdl3::SC_TRUE;
-                } else if(key == "nocursor"){
+                } else if(key == "nocursor" && val.empty()){
                         s.show_cursor = state_vulkan_sdl3::SC_FALSE;
-                } else if(key == "nodecorate"){
+                } else if(key == "nodecorate" && val.empty()){
                         args.window_flags |= SDL_WINDOW_BORDERLESS;
-                } else if(key == "novsync"){
+                } else if(key == "novsync" && val.empty()){
                         args.vsync = false;
-                } else if(key == "tearing"){
+                } else if(key == "tearing" && val.empty()){
                         args.tearing_permitted = true;
-                } else if(key == "validation"){
+                } else if(key == "validation" && val.empty()){
                         args.validation = true;
-                } else if(key == "display"){
+                } else if (SV_PREFIX_COMPARE(key, "display")) {
                         CHECKED_PARSE(val, args.display_idx);
-                } else if(key == "driver"){
+                } else if (SV_PREFIX_COMPARE(key, "driver")) {
                         args.driver = val;
-                } else if(key == "gpu"){
+                } else if (SV_PREFIX_COMPARE(key, "gpu")) {
                         if(val == "integrated") {
                                 args.gpu_idx = vulkan_display::gpu_integrated;
                         } else if(val == "discrete") {
@@ -650,7 +652,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         } else {
                                 CHECKED_PARSE(val, args.gpu_idx);
                         }
-                } else if(key == "pos"){
+                } else if (SV_PREFIX_COMPARE(key, "pos")) {
                         const auto xpos = tokenize(val, ',');
                         const auto ypos = tokenize(val, ',');
                         if(ypos.empty()){
@@ -659,7 +661,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         }
                         CHECKED_PARSE(xpos, args.x);
                         CHECKED_PARSE(ypos, args.y);
-                } else if(key == "size"){
+                } else if (SV_PREFIX_COMPARE(key, "size")) {
                         const auto xsize = tokenize(val, 'x');
                         const auto ysize = tokenize(val, 'x');
                         if(ysize.empty()){
@@ -668,7 +670,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         }
                         CHECKED_PARSE(xsize, s.width);
                         CHECKED_PARSE(ysize, s.height);
-                } else if(key == "window_flags"){
+                } else if (SV_PREFIX_COMPARE(key, "window_flags")) {
                         int flag = 0;
                         if(val.substr(0, 2) == "0x"){
                                 auto val_without_0x = val.substr(2);
@@ -677,7 +679,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                                 CHECKED_PARSE(val, flag);
                         }
                         args.window_flags |= flag;
-                } else if(key == "hint") {
+                } else if (SV_PREFIX_COMPARE(key, "hint")) {
                         const std::string hint_key(val);
                         const auto hint_val = tokenize(tok, '=');
                         args.hints[hint_key] = hint_val;
@@ -687,6 +689,8 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                 }
         }
         return true;
+#undef CHECKED_PARSE
+#undef SV_PREFIX_COMPARE
 }
 
 void
