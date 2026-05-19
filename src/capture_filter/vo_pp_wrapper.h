@@ -64,14 +64,19 @@ struct capture_filter_vo_pp_wrapper {
                                 int display_mode_unused = 0;                   \
                                 get_out_desc(s->state, &s->out_desc,           \
                                              &display_mode_unused);            \
+                                s->saved_desc = in_desc;                       \
                         }                                                      \
                 }                                                              \
                 struct video_frame *f = vf_alloc_desc_data(s->out_desc);       \
                 f->callbacks.dispose  = vf_free;                               \
                 size_t out_pitch =                                             \
                     vc_get_linesize(f->tiles[0].width, f->color_spec);         \
-                postprocess(s->state, in, f, out_pitch);                       \
-                return f;                                                      \
+                bool ret = postprocess(s->state, in, f, out_pitch);            \
+                if (ret) {                                                     \
+                        return f;                                              \
+                }                                                              \
+                vf_free(f);                                                    \
+                return nullptr;                                                \
         }                                                                      \
         static void VO_PP_WRAPPER_MERGE(cf_done_, name)(void *state)           \
         {                                                                      \

@@ -219,7 +219,11 @@ static struct video_frame * common_getf(void *state)
         return s->in;
 }
 
-/// capture filter -> will need to copy data ton int buffer (NOOP for vo_pp)
+/**
+ * capture filter -> will need to copy data ton int buffer (NOOP for vo_pp)
+ * @anchor vopp_tdi_copy
+ * @sa @ref vopp_intl_copy
+ */
 static void
 copy_data_to_int_buf_if_cf(struct state_df *s, struct video_frame *in)
 {

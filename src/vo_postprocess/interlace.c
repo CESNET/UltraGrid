@@ -43,6 +43,7 @@
 #include <stdlib.h>          // for NULL, free, malloc, size_t
 #include <string.h>          // for memcpy, strcmp
 
+#include "capture_filter/vo_pp_wrapper.h" // for ADD_CAPTURE_FILTER_VO_PP_W...
 #include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
@@ -137,6 +138,24 @@ static struct video_frame * interlace_getf(void *state)
         return ret;
 }
 
+/**
+ * capture filter -> will need to copy data ton int buffer (NOOP for vo_pp)
+ * @anchor vopp_intl_copy
+ * @sa @ref vopp_tdi_copy (copied from)
+ */
+static void
+copy_data_to_int_buf_if_cf(struct state_interlace *s, struct video_frame *in)
+{
+        if (in == nullptr || in == s->even || in == s->odd) {
+                return;
+        }
+        struct video_frame *int_buf = interlace_getf(s);
+        for (unsigned int tile = 0; tile < int_buf->tile_count; ++tile) {
+                memcpy(int_buf->tiles[tile].data, in->tiles[tile].data,
+                       in->tiles[tile].data_len);
+        }
+}
+
 static bool interlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_interlace *s = (struct state_interlace *) state;
@@ -144,7 +163,7 @@ static bool interlace_postprocess(void *state, struct video_frame *in, struct vi
         if (in == nullptr) {
                 return false;
         }
-        assert(in == s->even || in == s->odd);
+        copy_data_to_int_buf_if_cf(s, in);
 
         if(s->last == ODD) {
                 return false;
@@ -203,3 +222,6 @@ static const struct vo_postprocess_info vo_pp_interlace_info = {
 
 REGISTER_MODULE(interlace, &vo_pp_interlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 
+ADD_CAPTURE_FILTER_VO_PP_WRAPPER(interlace, interlace_init,
+                                 interlace_reconfigure, interlace_get_out_desc,
+                                 interlace_postprocess, interlace_done);
