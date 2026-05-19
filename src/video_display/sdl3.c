@@ -1383,7 +1383,7 @@ display_sdl3_putf(void *state, struct video_frame *frame, long long timeout_ns)
         }
         if (simple_linked_list_size(s->free_frame_queue) == 0) {
                 simple_linked_list_append(s->free_frame_queue, frame);
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "1 frame(s) dropped!\n");
+                MSG(VERBOSE, "1 frame(s) dropped!\n");
                 pthread_mutex_unlock(&s->lock);
                 return false;
         }

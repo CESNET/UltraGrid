@@ -557,7 +557,7 @@ gl_print_current_platform()
                 }
         }
 #ifdef __linux__
-        int ll = LOG_LEVEL_NOTICE;
+        int ll = LOG_LEVEL_INFO;
 #else
         int ll = LOG_LEVEL_VERBOSE;
 #endif
@@ -2403,6 +2403,7 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
                 }
         }
         while (simple_linked_list_size(s->frame_queue) >= MAX_BUFFER_SIZE) {
+                MSG(VERBOSE, "1 frame(s) dropped!\n");
                 vf_recycle(frame);
                 simple_linked_list_append(s->free_frame_queue, frame);
                 pthread_mutex_unlock(&s->lock);
