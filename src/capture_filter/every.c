@@ -48,6 +48,7 @@
 #include "types.h"            // for video_frame, video_frame_callbacks, tile
 #include "utils/color_out.h"
 #include "video_frame.h"      // for VIDEO_FRAME_DISPOSE, vf_alloc_desc, vf_...
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 #define MOD_NAME "[cf/every] "
 
@@ -61,6 +62,8 @@ struct state_every {
         int num;
         int denom;
         int current;
+        char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper
+                                ///< (otherwise unused)
 };
 
 static void usage() {
@@ -150,13 +153,28 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }
 
         struct video_frame *frame = vf_alloc_desc(video_desc_from_frame(in));
-        memcpy(frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
-        frame->fps /= (double) s->num / s->denom;
+        if (s->vo_pp_out_buffer) {
+                frame->tiles[0].data = s->vo_pp_out_buffer;
+                // copy data
+                memcpy(frame->tiles[0].data, in->tiles[0].data,
+                       in->tiles[0].data_len);
+        } else { // do not copy data
+                memcpy(frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
+                frame->fps /= (double) s->num / s->denom;
 
-        frame->callbacks.dispose = dispose_frame;
-        frame->callbacks.dispose_udata = in;
+                frame->callbacks.dispose = dispose_frame;
+                frame->callbacks.dispose_udata = in;
+        }
 
         return frame;
+}
+
+// for ADD_VO_PP_CAPTURE_FILTER_WRAPP
+static void
+vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        struct state_every *s = state;
+        s->vo_pp_out_buffer   = buffer;
 }
 
 static const struct capture_filter_info capture_filter_every = {
@@ -166,4 +184,5 @@ static const struct capture_filter_info capture_filter_every = {
 };
 
 REGISTER_MODULE(every, &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(every, init, filter, done,
+                                 vo_pp_set_out_buffer, nullptr);

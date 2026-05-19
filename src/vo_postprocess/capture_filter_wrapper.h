@@ -45,6 +45,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "capture_filter.h"
 #include "utils/macros.h"
@@ -56,6 +57,7 @@
 
 struct vo_pp_capture_filter_wrapper {
         uint32_t magic;
+        char cfg[STR_LEN];
         void *state;           ///< capture filter state
         vo_postprocess_get_property_t get_property;
         struct video_frame *f;
@@ -71,6 +73,7 @@ static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         }\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) \
                         calloc(1, sizeof(struct vo_pp_capture_filter_wrapper));\
+        strcpy_ch(s->cfg, cfg); \
         s->magic = CFW_MAGIC;\
         s->state = state;\
         s->get_property = get_prop_callb;\
@@ -107,8 +110,15 @@ static bool CF_WRAPPER_MERGE(vo_pp_postprocess_, name)(void *state, struct video
 }\
 static void CF_WRAPPER_MERGE(vo_pp_get_out_desc_, name)(void *state, struct video_desc *out, int *in_tile_mode) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
-        struct video_frame *tmp_out = filter(s->state, s->f);\
+        /* use tmp state to avoid returning 0 from filter */           \
+        void *tmp_state;                                               \
+        if (init(NULL, s->cfg, &tmp_state) != 0) {                     \
+                assert(0 && "Cannot init tmp state!");                 \
+        }                                                              \
+        struct video_frame *tmp_out = filter(tmp_state, s->f);         \
+        assert(tmp_out != nullptr);                                    \
         *out = video_desc_from_frame(tmp_out);\
+        done(tmp_state);                                               \
         VIDEO_FRAME_DISPOSE(tmp_out);\
 \
         *in_tile_mode = DISPLAY_PROPERTY_VIDEO_MERGED;\
