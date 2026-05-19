@@ -78,6 +78,7 @@
 #include "utils/misc.h"
 #include "utils/pam.h"
 #include "utils/string.h"
+#include "utils/text.h"                     // for color_printf_wrapped
 #include "utils/vf_split.h"
 #include "utils/video_pattern_generator.h"
 #include "utils/y4m.h"
@@ -457,23 +458,29 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
 
 static void show_help(bool full) {
         printf("testcard options:\n");
-        color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:[full]help\n"));
-        color_printf("or\n");
-        color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
+        color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:"
+                                                 "fps=<fps>][:codec=<codec>]")
+                     "[:pattern=<pattern>|:file=<filename>]\n");
+
+        color_printf(TBOLD("\t-t testcard:[full]help\n"));
         color_printf("where\n");
         color_printf(TBOLD("\t  file ") "      - use file for input data instead of predefined pattern\n"
                                "\t               (raw or PAM/PNM/Y4M)\n");
         color_printf(TBOLD("\t  fps  ") "      - frames per second (with optional 'i' suffix for interlaced)\n");
-        color_printf(TBOLD("\t  i|sf ") "      - send as interlaced or segmented frame\n");
         color_printf(TBOLD("\t  mode ") "      - use specified mode (use 'mode=help' for list)\n");
         color_printf(TBOLD("\t   p   ") "      - pan with frame\n");
         color_printf(TBOLD("\tpattern") "      - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
-        color_printf(TBOLD("\t   s   ") "      - split the frames into XxY separate tiles (currently defunct)\n");
         color_printf(TBOLD("\t still ") "      - send still image\n");
         if (full) {
+                color_printf(
+                    TBOLD("\t  i|sf ")
+                             "      - send as interlaced or segmented frame\n");
+                color_printf(TBOLD("\t   s   ")
+                             "      - split the frames into XxY separate tiles "
+                             "(currently defunct)\n");
                 color_printf(TBOLD("       afrequency") "    - embedded audio frequency\n");
                 color_printf(TBOLD("\t frames") "      - total number of video "
-                                                "frames to capture\n");
+                                                "frames to capture (stop after)\n");
         }
         color_printf("\n");
         testcard_show_codec_help("testcard", false);
@@ -482,9 +489,17 @@ static void show_help(bool full) {
         color_printf(TBOLD("\t%s -t testcard:file=picture.pam\n"), uv_argv[0]);
         color_printf(TBOLD("\t%s -t testcard:mode=VGA\n"), uv_argv[0]);
         color_printf(TBOLD("\t%s -t testcard:s=1920x1080:f=59.94i\n"), uv_argv[0]);
+        color_printf(TBOLD("\t%s -t testcard:size=FHD:fps=25\n"), uv_argv[0]);
         color_printf("\n");
         color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
-        color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
+        color_printf("\n");
+        color_printf_wrapped(
+            TBOLD("Note:")
+            " only certain codec and generator combinations produce full-depth "
+            "samples (not up-sampled 8-bit), use " TBOLD(
+                    "pattern=help")
+            " for details.\n");
+        color_printf("\n");
 }
 
 static bool
