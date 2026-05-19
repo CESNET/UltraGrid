@@ -52,7 +52,7 @@ usage()
         color_printf(
             "(in the proposed 50p->60p case, the <num> will be 5)\n\n");
 
-        color_printf("Example converting 50i->50p (notice `nodelay` for DF):\n");
+        color_printf("Example converting 50i->60p (notice `nodelay` for DF):\n");
         color_printf("\t " TBOLD(
             "uv -F double_framerate:nodelay,add_frame:e=5")
                      " -t testcard:fps=50i\n");
@@ -61,9 +61,11 @@ usage()
                      " -t testcard:fps=50p\n");
         color_printf("\n");
 
-        color_printf_wrapped(
-            "See also the capture filter " TBOLD("every")
-            " for frame dropping (eg. to achieve 60p->50p conversion).\n\n");
+        color_printf_wrapped("See also the capture filter " TBOLD("every")
+                             " for frame dropping (eg. to achieve 60p->50p "
+                             "conversion) and video postprocessor " TBOLD(
+                                     "add_frame")
+                             ".\n\n");
 }
 
 static void
@@ -92,8 +94,10 @@ parse_fmt(struct state_add_frame *s, char *fmt)
                         return false;
                 }
         }
-        if (s->add_frame_cnt <= 2) {
-                MSG(ERROR, "Number of frames missing or invalid (%d)!\n",
+        if (s->add_frame_cnt < 1) {
+                MSG(ERROR,
+                    "Number of frames missing or invalid (%d)! Must be >= "
+                    "1...\n",
                     s->add_frame_cnt);
                 return false;
         }
@@ -115,7 +119,6 @@ init(struct module * /* parent */, const char *cfg, void **state)
         free(ccfg);
         if (!ret) {
                 done(s);
-                usage();
                 return -1;
         }
         *state = s;

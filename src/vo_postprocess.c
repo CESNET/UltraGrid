@@ -174,12 +174,11 @@ vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                         return false;
                 }
                 // get desc for next iteration
-                int display_mode = 0;
-                int out_frames_count = 0;
+                int display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
                 state->funcs->get_out_desc(state->state, &desc, &display_mode);
 
                 // check if convert is simple (doesn't change display mode and out_fr_count == 1); if not, only one filter allowed
-                if (display_mode != DISPLAY_PROPERTY_VIDEO_MERGED || out_frames_count != 1) {
+                if (display_mode != DISPLAY_PROPERTY_VIDEO_MERGED) {
                         filter_complex = true;
                 }
         }

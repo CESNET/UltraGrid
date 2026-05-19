@@ -9,7 +9,8 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
-/* Copyright (c) 2005-2013 CESNET z.s.p.o.
+/*
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -197,6 +198,8 @@ struct video_frame *load_video_frame(const char *name, codec_t codec, int width,
 void vf_copy_metadata(struct video_frame *dest, const struct video_frame *src);
 void vf_store_metadata(const struct video_frame *f, void *);
 void vf_restore_metadata(struct video_frame *f, void *);
+void vf_copy_data_pitch(struct video_frame *dst, unsigned dst_pitch,
+                        const struct video_frame *src);
 
 /**
  * Returns sum of lengths of all tiles.

@@ -3684,6 +3684,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/video_display/unix_sock.o
         src/video_rxtx/h264_sdp.o
         src/video_rxtx/loopback.o
+        src/vo_postprocess/add_frame.o
         src/vo_postprocess/3d-interlaced.o
         src/vo_postprocess/border.o
         src/vo_postprocess/crop.o

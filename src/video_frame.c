@@ -12,7 +12,7 @@
  * @brief This file contains video frame manipulation functions.
  */
 /*
- * Copyright (c) 2005-2025 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -687,4 +687,20 @@ bool parse_fps(const char *fps, struct video_desc *desc)
                 }
         }
         return true;
+}
+
+void vf_copy_data_pitch(struct video_frame *dst, unsigned dst_pitch,
+                        const struct video_frame *src) {
+        assert(dst->tile_count == src->tile_count);
+
+        for (unsigned tile = 0; tile < src->tile_count; tile++) {
+                size_t src_linesize =
+                    vc_get_linesize(src->tiles[tile].width, src->color_spec);
+
+                for (size_t i = 0; i < src->tiles[tile].height; ++i) {
+                        memcpy(dst->tiles[tile].data + (i * dst_pitch),
+                               src->tiles[tile].data + (i * src_linesize),
+                               src_linesize);
+                }
+        }
 }
