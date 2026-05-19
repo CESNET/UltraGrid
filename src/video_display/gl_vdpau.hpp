@@ -48,6 +48,10 @@
 
 #ifdef HWACC_VDPAU
 
+#include "hwaccel_vdpau.h"
+
+#ifdef __cplusplus
+
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
@@ -56,7 +60,6 @@
 #include <GL/glew.h>
 #endif /* __APPLE__ */
 
-#include "hwaccel_vdpau.h"
 typedef GLintptr vdpauSurfaceNV;
 #define NV_CAST(x) ((void *)(uintptr_t)(x))
 
@@ -95,9 +98,19 @@ struct state_vdpau {
 
 };
 
+#endif // defined __cplusplus
+
+#ifdef __cplusplus
+extern "C" {
+#endif // defined __cplusplus
+
 struct state_vdpau * vdp_init();
 void vdp_load_frame(struct state_vdpau *vdp, hw_vdpau_frame *frame);
 void vdp_destroy(struct state_vdpau *vdp);
+
+#ifdef __cplusplus
+}
+#endif // defined __cplusplus
 
 #else
 
